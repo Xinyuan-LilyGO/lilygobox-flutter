@@ -1,0 +1,31 @@
+package_rename_config:
+  android:
+    app_name: LilygoBox # 应用显示名称
+    package_name: cc.lilygo.lilygobox # 包名（唯一标识）
+    override_old_package: cc.lilygo.lilygobox # 覆盖旧包名（用于彻底替换）
+    lang: kotlin # 开发语言（kotlin/java）
+
+  ios:
+    app_name: LilygoBox
+    bundle_name: LilygoBox
+    package_name: cc.lilygo.lilygobox
+
+  web:
+    app_name: LilygoBox
+    description: LilygoBox.
+
+  linux:
+    app_name: LilygoBox
+    package_name: cc.lilygo.lilygobox
+    exe_name: lilygobox-linux-x64
+
+  windows:
+    app_name: LilygoBox
+    organization: LILYGO
+    copyright_notice: Copyright © 2025 LILYGO. All rights reserved.
+    exe_name: lilygobox-win32
+
+  macos:
+    app_name: LilygoBox
+    package_name: cc.lilygo.lilygobox
+    copyright_notice: Copyright © 2025 LILYGO. All rights reserved.
