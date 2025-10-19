@@ -2,39 +2,39 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-17 22:29:20
- * @LastEditTime: 2025-10-17 23:59:00
+ * @LastEditTime: 2025-10-19 23:58:09
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 void main() async {
-  // 确保 Flutter 绑定已初始化（类似C++中的初始化库）
+  // 确保 Flutter 绑定已初始化
   WidgetsFlutterBinding.ensureInitialized();
   // 确保 windowManager 已初始化
   await windowManager.ensureInitialized();
 
-  // 定义窗口选项（类似C++中的窗口配置结构体）
+  // 定义窗口选项
   WindowOptions windowOptions = const WindowOptions(
-    size: Size(800, 600), // 初始窗口大小
-    center: true, // 窗口居中显示
+    size: Size(1050, 700), // 初始窗口大小
     backgroundColor: Colors.transparent, // 设置背景透明
     skipTaskbar: false, // 不在任务栏中隐藏
     titleBarStyle: TitleBarStyle.hidden, // 关键：隐藏原生标题栏，以便使用自定义标题栏
   );
 
-  // 等待窗口准备好显示（类似C++中的窗口创建回调）
-  windowManager.waitUntilReadyToShow(windowOptions, () async {
+  // 等待窗口准备好显示
+  await windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.center();
     await windowManager.show(); // 显示窗口
     await windowManager.focus(); // 窗口获得焦点
   });
 
-  // 启动Flutter应用（类似C++中的程序主循环）
+  // 启动Flutter应用
   runApp(const MainApp());
 }
 
 // MainApp 转换为 StatefulWidget 以实现 WindowListener
-// StatefulWidget 类似于C++中的有状态类，可以保存和更新状态
 class MainApp extends StatefulWidget {
   const MainApp({super.key});
 
@@ -43,10 +43,8 @@ class MainApp extends StatefulWidget {
 }
 
 // 混入 WindowListener 以监听窗口状态变化
-// 在Dart中，mixin类似于C++的多重继承，用于代码复用
 class _MainAppState extends State<MainApp> with WindowListener {
   // 私有成员变量，存储窗口是否最大化状态
-  // Dart中以下划线开头的变量表示私有，类似于C++中的private成员
   bool _isMaximized = false;
 
   @override
@@ -68,7 +66,7 @@ class _MainAppState extends State<MainApp> with WindowListener {
   void _init() async {
     // 异步检查窗口是否最大化
     _isMaximized = await windowManager.isMaximized();
-    // 更新UI状态（类似C++中的界面刷新）
+    // 更新UI状态
     setState(() {});
   }
 
@@ -104,22 +102,25 @@ class _MainAppState extends State<MainApp> with WindowListener {
       children: [
         // 最小化按钮
         _WindowButton(
-          icon: Icons.minimize_rounded, // 图标
+          icon: Symbols.remove_rounded, // 图标
           onPressed: () => windowManager.minimize(), // 点击回调
           hoverColor: Colors.grey.withOpacity(0.2), // 鼠标悬停颜色
         ),
         // 最大化/还原按钮（根据状态显示不同图标）
         _WindowButton(
           icon: _isMaximized
-              ? Icons
-                    .filter_none_rounded // 还原图标
-              : Icons.crop_square_rounded, // 最大化图标
+              ? Symbols
+                    .filter_none // 最大化图标
+              : Symbols.crop_square_rounded, // 还原图标
           onPressed: _handleMaximizeRestore, // 点击回调
           hoverColor: Colors.grey.withOpacity(0.2),
+          iconSize: _isMaximized ? 13.5 : 14,
+          iconWeight: 510.0,
+          rotateAngle: _isMaximized ? 180 : 0,
         ),
         // 关闭按钮
         _WindowButton(
-          icon: Icons.close_rounded,
+          icon: Symbols.close_rounded,
           onPressed: () => windowManager.close(), // 关闭窗口
           hoverColor: Colors.red.shade600, // 关闭按钮使用红色高亮
           iconColor: Colors.black, // 图标颜色
@@ -159,7 +160,7 @@ class _MainAppState extends State<MainApp> with WindowListener {
     );
   }
 
-  // 主要的UI构建方法（类似C++中的渲染函数）
+  // 主要的UI构建方法
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -201,20 +202,27 @@ class _MainAppState extends State<MainApp> with WindowListener {
 }
 
 // 封装窗口控制按钮的 StatelessWidget
-// StatelessWidget 类似于C++中的无状态类，属性不可变
 class _WindowButton extends StatelessWidget {
   const _WindowButton({
     required this.icon, // 必需参数：图标
     required this.onPressed, // 必需参数：点击回调函数
     required this.hoverColor, // 必需参数：悬停颜色
-    this.iconColor = Colors.black, // 可选参数：图标颜色，默认黑色
+    this.iconColor = Colors.black, // 可选参数：图标颜色
+    this.iconSize = 20, // 图标尺寸参数
+    this.iconWeight = 300.0, // 图标粗细
+    this.rotateAngle = 0.0, // 旋转角度（度数）
   });
 
-  // 成员变量声明（类似C++类的成员变量）
+  // 成员变量声明
   final IconData icon; // 图标数据类型
   final VoidCallback onPressed; // 回调函数类型（无参数无返回值）
   final Color hoverColor; // 颜色类型
-  final Color iconColor; // 颜色类型
+  final Color iconColor; // 颜色颜色
+  final double iconSize; // 图标尺寸
+  final double iconWeight; // 图标粗细
+  final double grade = -25.0; // 图标等级，用于微调粗细 (-25 到 0 之间)
+  final double opticalSize = 48.0; // 光学尺寸，影响图标的视觉比例
+  final double rotateAngle; // 旋转角度（以度为单位，如 90.0 表示旋转90度）
 
   @override
   Widget build(BuildContext context) {
@@ -227,7 +235,17 @@ class _WindowButton extends StatelessWidget {
         child: InkWell(
           hoverColor: hoverColor, // 鼠标悬停时的颜色
           onTap: onPressed, // 点击事件处理
-          child: Icon(icon, size: 16, color: iconColor), // 图标组件
+          child: Transform.rotate(
+            angle: rotateAngle * (3.1415926535 / 180), // 将角度转换为弧度
+            child: Icon(
+              icon,
+              size: iconSize,
+              color: iconColor,
+              weight: iconWeight,
+              grade: grade,
+              opticalSize: opticalSize,
+            ),
+          ),
         ),
       ),
     );
