@@ -2,14 +2,17 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-17 22:29:20
- * @LastEditTime: 2025-10-20 13:53:52
+ * @LastEditTime: 2025-10-20 14:34:42
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:flutter/rendering.dart';
 
 void main() async {
+  debugPaintSizeEnabled = false; // 部件边界调试
+
   // 确保 Flutter 绑定已初始化
   WidgetsFlutterBinding.ensureInitialized();
   // 确保 windowManager 已初始化
@@ -161,6 +164,156 @@ class _MainAppState extends State<MainApp> with WindowListener {
     );
   }
 
+  // 构建窗口边框调整区域
+  Widget _buildWindowResizeArea() {
+    const double resizeAreaSize = 5.0; // 边框调整区域的宽度
+
+    return Stack(
+      children: [
+        // 左侧边框调整
+        Positioned(
+          left: 0,
+          top: 0,
+          bottom: 0,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.resizeLeftRight,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onPanStart: (_) => windowManager.startResizing(ResizeEdge.left),
+              child: Container(
+                width: resizeAreaSize,
+                color: Colors.transparent,
+              ),
+            ),
+          ),
+        ),
+        // 右侧边框调整
+        Positioned(
+          right: 0,
+          top: 0,
+          bottom: 0,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.resizeLeftRight,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onPanStart: (_) => windowManager.startResizing(ResizeEdge.right),
+              child: Container(
+                width: resizeAreaSize,
+                color: Colors.transparent,
+              ),
+            ),
+          ),
+        ),
+        // 顶部边框调整
+        Positioned(
+          left: 0,
+          top: 0,
+          right: 0,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.resizeUpDown,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onPanStart: (_) => windowManager.startResizing(ResizeEdge.top),
+              child: Container(
+                height: resizeAreaSize,
+                color: Colors.transparent,
+              ),
+            ),
+          ),
+        ),
+        // 底部边框调整
+        Positioned(
+          left: 0,
+          bottom: 0,
+          right: 0,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.resizeUpDown,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onPanStart: (_) => windowManager.startResizing(ResizeEdge.bottom),
+              child: Container(
+                height: resizeAreaSize,
+                color: Colors.transparent,
+              ),
+            ),
+          ),
+        ),
+        // 左上角边框调整
+        Positioned(
+          left: 0,
+          top: 0,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.resizeUpLeftDownRight,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onPanStart: (_) =>
+                  windowManager.startResizing(ResizeEdge.topLeft),
+              child: Container(
+                width: resizeAreaSize * 2,
+                height: resizeAreaSize * 2,
+                color: Colors.transparent,
+              ),
+            ),
+          ),
+        ),
+        // 右上角边框调整
+        Positioned(
+          right: 0,
+          top: 0,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.resizeUpRightDownLeft,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onPanStart: (_) =>
+                  windowManager.startResizing(ResizeEdge.topRight),
+              child: Container(
+                width: resizeAreaSize * 2,
+                height: resizeAreaSize * 2,
+                color: Colors.transparent,
+              ),
+            ),
+          ),
+        ),
+        // 左下角边框调整
+        Positioned(
+          left: 0,
+          bottom: 0,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.resizeUpRightDownLeft,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onPanStart: (_) =>
+                  windowManager.startResizing(ResizeEdge.bottomLeft),
+              child: Container(
+                width: resizeAreaSize * 2,
+                height: resizeAreaSize * 2,
+                color: Colors.transparent,
+              ),
+            ),
+          ),
+        ),
+        // 右下角边框调整
+        Positioned(
+          right: 0,
+          bottom: 0,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.resizeUpLeftDownRight,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onPanStart: (_) =>
+                  windowManager.startResizing(ResizeEdge.bottomRight),
+              child: Container(
+                width: resizeAreaSize * 2,
+                height: resizeAreaSize * 2,
+                color: Colors.transparent,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   // 主要的UI构建方法
   @override
   Widget build(BuildContext context) {
@@ -172,33 +325,39 @@ class _MainAppState extends State<MainApp> with WindowListener {
         body: Container(
           // 使用 Container 包裹整个内容，设置白色背景并移除边距
           color: Colors.white,
-          child: Column(
+          child: Stack(
             children: [
-              // 1. 顶部自定义标题栏
-              _buildCustomTitleBar(context),
-              // 使用 Expanded 和 Container 确保内容区域无缝连接
-              Expanded(
-                child: Container(
-                  // 移除任何可能的边距和内边距
-                  margin: EdgeInsets.zero,
-                  padding: EdgeInsets.zero,
-                  // 设置与标题栏相同的背景色
-                  color: const Color.fromARGB(255, 255, 255, 255),
-                  child: Center(
+              Column(
+                children: [
+                  // 1. 顶部自定义标题栏
+                  _buildCustomTitleBar(context),
+                  // 使用 Expanded 和 Container 确保内容区域无缝连接
+                  Expanded(
                     child: Container(
-                      padding: const EdgeInsets.all(20), // 内边距
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade800, // 内容区域背景色
-                        borderRadius: BorderRadius.circular(10), // 圆角
-                      ),
-                      child: const Text(
-                        '应用程序内容区域',
-                        style: TextStyle(color: Colors.white, fontSize: 24),
+                      // 移除任何可能的边距和内边距
+                      margin: EdgeInsets.zero,
+                      padding: EdgeInsets.zero,
+                      // 设置与标题栏相同的背景色
+                      color: const Color.fromARGB(255, 255, 255, 255),
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(20), // 内边距
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade800, // 内容区域背景色
+                            borderRadius: BorderRadius.circular(10), // 圆角
+                          ),
+                          child: const Text(
+                            '应用程序内容区域',
+                            style: TextStyle(color: Colors.white, fontSize: 24),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
               ),
+              // 窗口边框调整区域（覆盖在内容上方）
+              _buildWindowResizeArea(),
             ],
           ),
         ),
