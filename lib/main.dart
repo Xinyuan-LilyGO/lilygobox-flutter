@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-17 22:29:20
- * @LastEditTime: 2025-10-19 23:58:09
+ * @LastEditTime: 2025-10-20 13:53:52
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -21,11 +21,13 @@ void main() async {
     backgroundColor: Colors.transparent, // 设置背景透明
     skipTaskbar: false, // 不在任务栏中隐藏
     titleBarStyle: TitleBarStyle.hidden, // 关键：隐藏原生标题栏，以便使用自定义标题栏
+    center: true, // 窗口居中显示
   );
 
   // 等待窗口准备好显示
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
-    await windowManager.center();
+    await windowManager.setAsFrameless(); // 设置窗口无边框
+    await windowManager.setHasShadow(true); // 添加窗口阴影
     await windowManager.show(); // 显示窗口
     await windowManager.focus(); // 窗口获得焦点
   });
@@ -50,14 +52,14 @@ class _MainAppState extends State<MainApp> with WindowListener {
   @override
   void initState() {
     super.initState();
-    // 添加窗口监听器（类似C++中的事件监听器注册）
+    // 添加窗口监听器
     windowManager.addListener(this);
     _init(); // 调用初始化方法
   }
 
   @override
   void dispose() {
-    // 移除窗口监听器（类似C++中的资源清理）
+    // 移除窗口监听器
     windowManager.removeListener(this);
     super.dispose();
   }
@@ -96,7 +98,6 @@ class _MainAppState extends State<MainApp> with WindowListener {
   }
 
   // 构建窗口控制按钮组件
-  // 在Flutter中，组件构建方法通常以_build开头
   Widget _buildWindowControls() {
     return Row(
       children: [
@@ -165,36 +166,41 @@ class _MainAppState extends State<MainApp> with WindowListener {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false, // 隐藏调试标志
-      // 使用 Scaffold 来组织页面结构（Flutter的基本布局组件）
       home: Scaffold(
-        // 设置 Scaffold 背景为透明，使其与窗口背景保持一致
-        backgroundColor: Colors.transparent,
-        body: Column(
-          children: [
-            // 1. 顶部自定义标题栏
-            _buildCustomTitleBar(context),
-            // 2. 应用程序主要内容区域
-            Expanded(
-              // Expanded让子组件占据剩余空间
-              child: Container(
-                // 应用内容背景装饰
-                decoration: const BoxDecoration(color: Colors.blue),
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(20), // 内边距
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade800, // 内容区域背景色
-                      borderRadius: BorderRadius.circular(10), // 圆角
-                    ),
-                    child: const Text(
-                      '应用程序内容区域',
-                      style: TextStyle(color: Colors.white, fontSize: 24),
+        // 使用白色背景
+        backgroundColor: Colors.white,
+        body: Container(
+          // 使用 Container 包裹整个内容，设置白色背景并移除边距
+          color: Colors.white,
+          child: Column(
+            children: [
+              // 1. 顶部自定义标题栏
+              _buildCustomTitleBar(context),
+              // 使用 Expanded 和 Container 确保内容区域无缝连接
+              Expanded(
+                child: Container(
+                  // 移除任何可能的边距和内边距
+                  margin: EdgeInsets.zero,
+                  padding: EdgeInsets.zero,
+                  // 设置与标题栏相同的背景色
+                  color: const Color.fromARGB(255, 255, 255, 255),
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(20), // 内边距
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade800, // 内容区域背景色
+                        borderRadius: BorderRadius.circular(10), // 圆角
+                      ),
+                      child: const Text(
+                        '应用程序内容区域',
+                        style: TextStyle(color: Colors.white, fontSize: 24),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
