@@ -2,13 +2,14 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-17 22:29:20
- * @LastEditTime: 2025-10-20 14:34:42
+ * @LastEditTime: 2025-10-23 18:18:21
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/rendering.dart';
+import 'theme.dart';
 
 void main() async {
   debugPaintSizeEnabled = false; // 部件边界调试
@@ -127,7 +128,6 @@ class _MainAppState extends State<MainApp> with WindowListener {
           icon: Symbols.close_rounded,
           onPressed: () => windowManager.close(), // 关闭窗口
           hoverColor: Colors.red.shade600, // 关闭按钮使用红色高亮
-          iconColor: Colors.black, // 图标颜色
         ),
       ],
     );
@@ -140,10 +140,10 @@ class _MainAppState extends State<MainApp> with WindowListener {
 
     return Container(
       height: titleBarHeight,
-      color: Colors.white, // 标题栏背景色
+      color: DefaultThemeColors.primary, // 标题栏背景色
       child: Row(
         children: [
-          // 左侧可拖动区域 (大部分区域用于拖动窗口)
+          // 填充剩余空间
           Expanded(
             // 使用 DragToMoveArea 实现窗口拖动功能
             child: DragToMoveArea(
@@ -152,7 +152,10 @@ class _MainAppState extends State<MainApp> with WindowListener {
                 padding: const EdgeInsets.only(left: 10), // 左内边距
                 child: const Text(
                   'Ciallo (自定义标题栏)', // 标题文本
-                  style: TextStyle(fontSize: 12, color: Colors.black),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color.fromARGB(255, 255, 255, 255),
+                  ),
                 ),
               ),
             ),
@@ -320,25 +323,24 @@ class _MainAppState extends State<MainApp> with WindowListener {
     return MaterialApp(
       debugShowCheckedModeBanner: false, // 隐藏调试标志
       home: Scaffold(
-        // 使用白色背景
-        backgroundColor: Colors.white,
+        backgroundColor: DefaultThemeColors.primary,
         body: Container(
           // 使用 Container 包裹整个内容，设置白色背景并移除边距
-          color: Colors.white,
+          color: DefaultThemeColors.primary,
           child: Stack(
             children: [
               Column(
                 children: [
                   // 1. 顶部自定义标题栏
                   _buildCustomTitleBar(context),
-                  // 使用 Expanded 和 Container 确保内容区域无缝连接
+                  // 填充剩余空间
                   Expanded(
                     child: Container(
                       // 移除任何可能的边距和内边距
                       margin: EdgeInsets.zero,
                       padding: EdgeInsets.zero,
                       // 设置与标题栏相同的背景色
-                      color: const Color.fromARGB(255, 255, 255, 255),
+                      color: DefaultThemeColors.primary,
                       child: Center(
                         child: Container(
                           padding: const EdgeInsets.all(20), // 内边距
@@ -372,7 +374,7 @@ class _WindowButton extends StatelessWidget {
     required this.icon, // 必需参数：图标
     required this.onPressed, // 必需参数：点击回调函数
     required this.hoverColor, // 必需参数：悬停颜色
-    this.iconColor = Colors.black, // 可选参数：图标颜色
+    this.iconColor = const Color.fromARGB(255, 255, 255, 255), // 可选参数：图标颜色
     this.iconSize = 20, // 图标尺寸参数
     this.iconWeight = 300.0, // 图标粗细
     this.rotateAngle = 0.0, // 旋转角度（度数）
