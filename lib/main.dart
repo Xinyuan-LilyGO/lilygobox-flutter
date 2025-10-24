@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-17 22:29:20
- * @LastEditTime: 2025-10-23 18:18:21
+ * @LastEditTime: 2025-10-24 09:03:57
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -252,8 +252,8 @@ class _MainAppState extends State<MainApp> with WindowListener {
               onPanStart: (_) =>
                   windowManager.startResizing(ResizeEdge.topLeft),
               child: Container(
-                width: resizeAreaSize * 2,
-                height: resizeAreaSize * 2,
+                width: resizeAreaSize,
+                height: resizeAreaSize,
                 color: Colors.transparent,
               ),
             ),
@@ -270,8 +270,8 @@ class _MainAppState extends State<MainApp> with WindowListener {
               onPanStart: (_) =>
                   windowManager.startResizing(ResizeEdge.topRight),
               child: Container(
-                width: resizeAreaSize * 2,
-                height: resizeAreaSize * 2,
+                width: resizeAreaSize,
+                height: resizeAreaSize,
                 color: Colors.transparent,
               ),
             ),
@@ -288,8 +288,8 @@ class _MainAppState extends State<MainApp> with WindowListener {
               onPanStart: (_) =>
                   windowManager.startResizing(ResizeEdge.bottomLeft),
               child: Container(
-                width: resizeAreaSize * 2,
-                height: resizeAreaSize * 2,
+                width: resizeAreaSize,
+                height: resizeAreaSize,
                 color: Colors.transparent,
               ),
             ),
@@ -306,8 +306,8 @@ class _MainAppState extends State<MainApp> with WindowListener {
               onPanStart: (_) =>
                   windowManager.startResizing(ResizeEdge.bottomRight),
               child: Container(
-                width: resizeAreaSize * 2,
-                height: resizeAreaSize * 2,
+                width: resizeAreaSize,
+                height: resizeAreaSize,
                 color: Colors.transparent,
               ),
             ),
