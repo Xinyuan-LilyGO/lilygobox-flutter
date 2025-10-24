@@ -12,12 +12,13 @@ dependencies:
     sdk: flutter
   material_symbols_icons: ^4.2874.0
   window_manager: ^0.5.1
+  provider: ^6.1.5+1
 
 # debug 版本所需的包
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
   package_rename: ^1.10.0
 
 flutter:

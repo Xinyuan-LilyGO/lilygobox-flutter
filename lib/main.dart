@@ -2,14 +2,17 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-17 22:29:20
- * @LastEditTime: 2025-10-24 09:03:57
+ * @LastEditTime: 2025-10-24 14:19:49
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/rendering.dart';
+import 'package:provider/provider.dart';
+
 import 'theme.dart';
+import 'language.dart';
 
 void main() async {
   debugPaintSizeEnabled = false; // 部件边界调试
@@ -37,7 +40,16 @@ void main() async {
   });
 
   // 启动Flutter应用
-  runApp(const MainApp());
+  runApp(
+    // 使用 MultiProvider 包装应用
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => LanguageProvider()),
+      ],
+      child: const MainApp(),
+    ),
+  );
 }
 
 // MainApp 转换为 StatefulWidget 以实现 WindowListener
