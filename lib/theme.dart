@@ -43,7 +43,7 @@ class AppTheme {
 }
 
 class ThemeProvider with ChangeNotifier {
-  ThemeType _currentTheme = ThemeType.dark;
+  ThemeType _currentTheme = ThemeType.light;
 
   final Map<ThemeType, AppTheme> _themes = {
     ThemeType.dark: AppTheme(

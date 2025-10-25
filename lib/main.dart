@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-17 22:29:20
- * @LastEditTime: 2025-10-25 11:40:12
+ * @LastEditTime: 2025-10-25 17:59:23
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -33,7 +33,7 @@ void main() async {
   // 等待窗口准备好显示
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.setAsFrameless(); // 设置窗口无边框
-    await windowManager.setHasShadow(true); // 添加窗口阴影
+    // await windowManager.setHasShadow(true); // 添加窗口阴影
     await windowManager.show(); // 显示窗口
     await windowManager.focus(); // 窗口获得焦点
   });
@@ -183,209 +183,199 @@ class _MainAppState extends State<MainApp> with WindowListener {
 
   // 构建窗口边框调整区域
   Widget _buildWindowResizeArea() {
-    const double resizeAreaSize = 5.0; // 边框调整区域的宽度
+    const double resizeAreaSize = 5.0;
 
     return Stack(
       children: [
-        // 左侧边框调整
-        Positioned(
+        // 边缘调整区域
+        _buildResizeArea(
           left: 0,
           top: 0,
           bottom: 0,
-          child: MouseRegion(
-            cursor: SystemMouseCursors.resizeLeftRight,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onPanStart: (_) => windowManager.startResizing(ResizeEdge.left),
-              child: Container(
-                width: resizeAreaSize,
-                color: Colors.transparent,
-              ),
-            ),
-          ),
+          width: resizeAreaSize,
+          cursor: SystemMouseCursors.resizeLeftRight,
+          edge: ResizeEdge.left,
         ),
-        // 右侧边框调整
-        Positioned(
+        _buildResizeArea(
           right: 0,
           top: 0,
           bottom: 0,
-          child: MouseRegion(
-            cursor: SystemMouseCursors.resizeLeftRight,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onPanStart: (_) => windowManager.startResizing(ResizeEdge.right),
-              child: Container(
-                width: resizeAreaSize,
-                color: Colors.transparent,
-              ),
-            ),
-          ),
+          width: resizeAreaSize,
+          cursor: SystemMouseCursors.resizeLeftRight,
+          edge: ResizeEdge.right,
         ),
-        // 顶部边框调整
-        Positioned(
+        _buildResizeArea(
           left: 0,
           top: 0,
           right: 0,
-          child: MouseRegion(
-            cursor: SystemMouseCursors.resizeUpDown,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onPanStart: (_) => windowManager.startResizing(ResizeEdge.top),
-              child: Container(
-                height: resizeAreaSize,
-                color: Colors.transparent,
-              ),
-            ),
-          ),
+          height: resizeAreaSize,
+          cursor: SystemMouseCursors.resizeUpDown,
+          edge: ResizeEdge.top,
         ),
-        // 底部边框调整
-        Positioned(
+        _buildResizeArea(
           left: 0,
           bottom: 0,
           right: 0,
-          child: MouseRegion(
-            cursor: SystemMouseCursors.resizeUpDown,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onPanStart: (_) => windowManager.startResizing(ResizeEdge.bottom),
-              child: Container(
-                height: resizeAreaSize,
-                color: Colors.transparent,
-              ),
-            ),
-          ),
+          height: resizeAreaSize,
+          cursor: SystemMouseCursors.resizeUpDown,
+          edge: ResizeEdge.bottom,
         ),
-        // 左上角边框调整
-        Positioned(
+        // 角落调整区域
+        _buildResizeArea(
           left: 0,
           top: 0,
-          child: MouseRegion(
-            cursor: SystemMouseCursors.resizeUpLeftDownRight,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onPanStart: (_) =>
-                  windowManager.startResizing(ResizeEdge.topLeft),
-              child: Container(
-                width: resizeAreaSize,
-                height: resizeAreaSize,
-                color: Colors.transparent,
-              ),
-            ),
-          ),
+          width: resizeAreaSize,
+          height: resizeAreaSize,
+          cursor: SystemMouseCursors.resizeUpLeftDownRight,
+          edge: ResizeEdge.topLeft,
         ),
-        // 右上角边框调整
-        Positioned(
+        _buildResizeArea(
           right: 0,
           top: 0,
-          child: MouseRegion(
-            cursor: SystemMouseCursors.resizeUpRightDownLeft,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onPanStart: (_) =>
-                  windowManager.startResizing(ResizeEdge.topRight),
-              child: Container(
-                width: resizeAreaSize,
-                height: resizeAreaSize,
-                color: Colors.transparent,
-              ),
-            ),
-          ),
+          width: resizeAreaSize,
+          height: resizeAreaSize,
+          cursor: SystemMouseCursors.resizeUpRightDownLeft,
+          edge: ResizeEdge.topRight,
         ),
-        // 左下角边框调整
-        Positioned(
+        _buildResizeArea(
           left: 0,
           bottom: 0,
-          child: MouseRegion(
-            cursor: SystemMouseCursors.resizeUpRightDownLeft,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onPanStart: (_) =>
-                  windowManager.startResizing(ResizeEdge.bottomLeft),
-              child: Container(
-                width: resizeAreaSize,
-                height: resizeAreaSize,
-                color: Colors.transparent,
-              ),
-            ),
-          ),
+          width: resizeAreaSize,
+          height: resizeAreaSize,
+          cursor: SystemMouseCursors.resizeUpRightDownLeft,
+          edge: ResizeEdge.bottomLeft,
         ),
-        // 右下角边框调整
-        Positioned(
+        _buildResizeArea(
           right: 0,
           bottom: 0,
-          child: MouseRegion(
-            cursor: SystemMouseCursors.resizeUpLeftDownRight,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onPanStart: (_) =>
-                  windowManager.startResizing(ResizeEdge.bottomRight),
-              child: Container(
-                width: resizeAreaSize,
-                height: resizeAreaSize,
-                color: Colors.transparent,
-              ),
-            ),
-          ),
+          width: resizeAreaSize,
+          height: resizeAreaSize,
+          cursor: SystemMouseCursors.resizeUpLeftDownRight,
+          edge: ResizeEdge.bottomRight,
         ),
       ],
+    );
+  }
+
+  // 可重用的边缘调整组件
+  Widget _buildResizeArea({
+    double? left,
+    double? top,
+    double? right,
+    double? bottom,
+    double? width,
+    double? height,
+    required MouseCursor cursor,
+    required ResizeEdge edge,
+  }) {
+    return Positioned(
+      left: left,
+      top: top,
+      right: right,
+      bottom: bottom,
+      child: MouseRegion(
+        cursor: cursor,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onPanStart: (_) => windowManager.startResizing(edge),
+          child: Container(
+            width: width,
+            height: height,
+            color: Colors.transparent,
+          ),
+        ),
+      ),
     );
   }
 
   // 主要的UI构建方法
   @override
   Widget build(BuildContext context) {
-    // 使用 Consumer 包装应用内容，从 Provider 获取主题数据
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
         final theme = themeProvider.themeData;
 
         return MaterialApp(
-          debugShowCheckedModeBanner: false, // 隐藏调试标志
+          debugShowCheckedModeBanner: false,
           home: Scaffold(
-            backgroundColor: theme.primary,
+            backgroundColor: Colors.transparent,
             body: Container(
-              // 使用 Container 包裹整个内容，设置白色背景并移除边距
-              color: theme.primary,
-              child: Stack(
-                children: [
-                  Column(
-                    children: [
-                      // 1. 顶部自定义标题栏
-                      _buildCustomTitleBar(context),
-                      // 填充剩余空间
-                      Expanded(
-                        child: Container(
-                          // 设置与标题栏相同的背景色
-                          color: theme.primary,
-                          child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.all(20), // 内边距
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade800, // 内容区域背景色
-                                borderRadius: BorderRadius.circular(10), // 圆角
-                              ),
-                              child: Text(
-                                '应用程序内容区域',
-                                style: TextStyle(
-                                  color: theme.textColor,
-                                  fontSize: 24,
+              margin: const EdgeInsets.all(10), // 更大的边距
+              decoration: BoxDecoration(
+                color: theme.primary,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: _buildBoxShadow(), // 使用专门的柔和阴影方法
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Stack(
+                  children: [
+                    Column(
+                      children: [
+                        _buildCustomTitleBar(context),
+                        Expanded(
+                          child: Container(
+                            color: theme.primary,
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade800,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '应用程序内容区域',
+                                  style: TextStyle(
+                                    color: theme.textColor,
+                                    fontSize: 24,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  // 窗口边框调整区域（覆盖在内容上方）
-                  _buildWindowResizeArea(),
-                ],
+                      ],
+                    ),
+                    _buildWindowResizeArea(),
+                  ],
+                ),
               ),
             ),
           ),
         );
       },
     );
+  }
+
+  // 专门的柔和阴影构建方法
+  List<BoxShadow> _buildBoxShadow() {
+    return [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.3), // 阴影颜色和透明度：黑色，50%透明度
+        blurRadius: 5, // 模糊半径：阴影边缘模糊程度，值越大越模糊
+        spreadRadius: -1, // 扩散半径：负值让阴影向内收缩，消除硬边
+      ),
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.3),
+        blurRadius: 4,
+        spreadRadius: -2,
+      ),
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.2),
+        blurRadius: 3,
+        spreadRadius: -3,
+      ),
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.2),
+        blurRadius: 2,
+        spreadRadius: -4,
+      ),
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.1),
+        blurRadius: 1,
+        spreadRadius: -5,
+      ),
+    ];
   }
 }
 
