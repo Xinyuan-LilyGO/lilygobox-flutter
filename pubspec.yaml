@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   material_symbols_icons: ^4.2874.0
   window_manager: ^0.5.1
   provider: ^6.1.5+1

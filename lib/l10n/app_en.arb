@@ -1,0 +1,16 @@
+{
+    "@@locale": "en",
+    "appTitle": "Ciallo",
+    "themeDark": "Dark Theme",
+    "themeLight": "Light Theme",
+    "currentTheme": "Current Theme",
+    "switchTheme": "Switch Theme",
+    "language": "Language",
+    "switchLanguage": "Switch Language",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close",
+    "customTitleBar": "Custom Title Bar",
+    "windowControls": "Window Controls"
+}

@@ -1,0 +1,16 @@
+{
+    "@@locale": "ja",
+    "appTitle": "Ciallo",
+    "themeDark": "ダークテーマ",
+    "themeLight": "ライトテーマ",
+    "currentTheme": "現在のテーマ",
+    "switchTheme": "テーマ切替",
+    "language": "言語",
+    "switchLanguage": "言語切替",
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "元に戻す",
+    "close": "閉じる",
+    "customTitleBar": "カスタムタイトルバー",
+    "windowControls": "ウィンドウコントロール"
+}

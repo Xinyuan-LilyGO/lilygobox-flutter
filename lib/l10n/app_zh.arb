@@ -1,0 +1,16 @@
+{
+    "@@locale": "zh",
+    "appTitle": "Ciallo",
+    "themeDark": "黑色格调",
+    "themeLight": "亮色格调",
+    "currentTheme": "当前主题",
+    "switchTheme": "切换主题",
+    "language": "语言",
+    "switchLanguage": "切换语言",
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "还原",
+    "close": "关闭",
+    "customTitleBar": "自定义标题栏",
+    "windowControls": "窗口控制"
+}

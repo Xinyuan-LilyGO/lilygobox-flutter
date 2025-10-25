@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-17 22:29:20
- * @LastEditTime: 2025-10-24 14:19:49
+ * @LastEditTime: 2025-10-25 11:40:12
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -12,7 +12,6 @@ import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 
 import 'theme.dart';
-import 'language.dart';
 
 void main() async {
   debugPaintSizeEnabled = false; // 部件边界调试
@@ -43,10 +42,7 @@ void main() async {
   runApp(
     // 使用 MultiProvider 包装应用
     MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => LanguageProvider()),
-      ],
+      providers: [ChangeNotifierProvider(create: (_) => ThemeProvider())],
       child: const MainApp(),
     ),
   );
@@ -114,7 +110,10 @@ class _MainAppState extends State<MainApp> with WindowListener {
   }
 
   // 构建窗口控制按钮组件
-  Widget _buildWindowControls() {
+  Widget _buildWindowControls(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final theme = themeProvider.themeData;
+
     return Row(
       children: [
         // 最小化按钮
@@ -122,6 +121,7 @@ class _MainAppState extends State<MainApp> with WindowListener {
           icon: Symbols.remove_rounded, // 图标
           onPressed: () => windowManager.minimize(), // 点击回调
           hoverColor: Colors.grey.withOpacity(0.2), // 鼠标悬停颜色
+          iconColor: theme.iconColor, // 图标颜色
         ),
         // 最大化/还原按钮（根据状态显示不同图标）
         _WindowButton(
@@ -134,12 +134,14 @@ class _MainAppState extends State<MainApp> with WindowListener {
           iconSize: _isMaximized ? 13.5 : 14,
           iconWeight: 510.0,
           rotateAngle: _isMaximized ? 180 : 0,
+          iconColor: theme.iconColor, // 图标颜色
         ),
         // 关闭按钮
         _WindowButton(
           icon: Symbols.close_rounded,
           onPressed: () => windowManager.close(), // 关闭窗口
           hoverColor: Colors.red.shade600, // 关闭按钮使用红色高亮
+          iconColor: theme.iconColor, // 图标颜色
         ),
       ],
     );
@@ -147,12 +149,15 @@ class _MainAppState extends State<MainApp> with WindowListener {
 
   // 构建自定义标题栏
   Widget _buildCustomTitleBar(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final theme = themeProvider.themeData;
+
     // 标题栏高度
     const double titleBarHeight = 30.0;
 
     return Container(
       height: titleBarHeight,
-      color: DefaultThemeColors.primary, // 标题栏背景色
+      color: theme.primary,
       child: Row(
         children: [
           // 填充剩余空间
@@ -162,18 +167,15 @@ class _MainAppState extends State<MainApp> with WindowListener {
               child: Container(
                 alignment: Alignment.centerLeft, // 左对齐
                 padding: const EdgeInsets.only(left: 10), // 左内边距
-                child: const Text(
+                child: Text(
                   'Ciallo (自定义标题栏)', // 标题文本
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Color.fromARGB(255, 255, 255, 255),
-                  ),
+                  style: TextStyle(fontSize: 12, color: theme.textColor),
                 ),
               ),
             ),
           ),
           // 右侧窗口控制按钮
-          _buildWindowControls(),
+          _buildWindowControls(context),
         ],
       ),
     );
@@ -332,50 +334,57 @@ class _MainAppState extends State<MainApp> with WindowListener {
   // 主要的UI构建方法
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false, // 隐藏调试标志
-      home: Scaffold(
-        backgroundColor: DefaultThemeColors.primary,
-        body: Container(
-          // 使用 Container 包裹整个内容，设置白色背景并移除边距
-          color: DefaultThemeColors.primary,
-          child: Stack(
-            children: [
-              Column(
+    // 使用 Consumer 包装应用内容，从 Provider 获取主题数据
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        final theme = themeProvider.themeData;
+
+        return MaterialApp(
+          debugShowCheckedModeBanner: false, // 隐藏调试标志
+          home: Scaffold(
+            backgroundColor: theme.primary,
+            body: Container(
+              // 使用 Container 包裹整个内容，设置白色背景并移除边距
+              color: theme.primary,
+              child: Stack(
                 children: [
-                  // 1. 顶部自定义标题栏
-                  _buildCustomTitleBar(context),
-                  // 填充剩余空间
-                  Expanded(
-                    child: Container(
-                      // 移除任何可能的边距和内边距
-                      margin: EdgeInsets.zero,
-                      padding: EdgeInsets.zero,
-                      // 设置与标题栏相同的背景色
-                      color: DefaultThemeColors.primary,
-                      child: Center(
+                  Column(
+                    children: [
+                      // 1. 顶部自定义标题栏
+                      _buildCustomTitleBar(context),
+                      // 填充剩余空间
+                      Expanded(
                         child: Container(
-                          padding: const EdgeInsets.all(20), // 内边距
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade800, // 内容区域背景色
-                            borderRadius: BorderRadius.circular(10), // 圆角
-                          ),
-                          child: const Text(
-                            '应用程序内容区域',
-                            style: TextStyle(color: Colors.white, fontSize: 24),
+                          // 设置与标题栏相同的背景色
+                          color: theme.primary,
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(20), // 内边距
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade800, // 内容区域背景色
+                                borderRadius: BorderRadius.circular(10), // 圆角
+                              ),
+                              child: Text(
+                                '应用程序内容区域',
+                                style: TextStyle(
+                                  color: theme.textColor,
+                                  fontSize: 24,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
+                  // 窗口边框调整区域（覆盖在内容上方）
+                  _buildWindowResizeArea(),
                 ],
               ),
-              // 窗口边框调整区域（覆盖在内容上方）
-              _buildWindowResizeArea(),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

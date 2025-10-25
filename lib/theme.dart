@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
-import 'language.dart';
 
-class DefaultThemeColors {
-  static const primary = Color(0xFF36393F);
-  static const secondary = Color(0xFF2F3136);
-  static const tertiary = Color(0xFF202225);
-}
+import 'l10n/app_localizations.dart';
 
 enum ThemeType {
-  dark,   // 黑色格调
-  light,  // 亮色格调
+  dark, // 黑色格调
+  light, // 亮色格调
 }
 
 class AppTheme {
@@ -19,6 +14,7 @@ class AppTheme {
   final Color secondary;
   final Color tertiary;
   final Color textColor;
+  final Color iconColor;
 
   const AppTheme({
     required this.type,
@@ -27,10 +23,22 @@ class AppTheme {
     required this.secondary,
     required this.tertiary,
     required this.textColor,
+    required this.iconColor,
   });
 
-  String getName(LanguageProvider languageProvider) {
-    return languageProvider.t(nameKey);
+  // 注意：在调用 getName() 的地方，AppLocalizations.of(context) 可能会返回 null。
+  // 在 Dart 2.12+ (空安全) 中，您可能需要进行空安全检查，
+  // 比如将 AppLocalizations appLocalizations 改为 AppLocalizations? appLocalizations，
+  // 或者在调用处保证 context 是有效的。
+  String getName(AppLocalizations appLocalizations) {
+    switch (nameKey) {
+      case 'theme_dark':
+        return appLocalizations.themeDark;
+      case 'theme_light':
+        return appLocalizations.themeLight;
+      default:
+        return nameKey;
+    }
   }
 }
 
@@ -45,6 +53,7 @@ class ThemeProvider with ChangeNotifier {
       secondary: const Color(0xFF2F3136),
       tertiary: const Color(0xFF202225),
       textColor: Colors.white,
+      iconColor: Colors.white,
     ),
     ThemeType.light: AppTheme(
       type: ThemeType.light,
@@ -53,6 +62,7 @@ class ThemeProvider with ChangeNotifier {
       secondary: const Color(0xFFE0E0E0),
       tertiary: const Color(0xFFBDBDBD),
       textColor: Colors.black,
+      iconColor: Colors.black,
     ),
   };
 
@@ -60,16 +70,14 @@ class ThemeProvider with ChangeNotifier {
   AppTheme get themeData => _themes[_currentTheme]!;
   List<AppTheme> get allThemes => _themes.values.toList();
 
-  void setTheme(ThemeType themeType) {
-    _currentTheme = themeType;
+  void cycleTheme() {
+    final nextTheme = (_currentTheme.index + 1) % ThemeType.values.length;
+    _currentTheme = ThemeType.values[nextTheme];
     notifyListeners();
   }
 
-  void cycleTheme() {
-    final themes = ThemeType.values;
-    final currentIndex = themes.indexOf(_currentTheme);
-    final nextIndex = (currentIndex + 1) % themes.length;
-    _currentTheme = themes[nextIndex];
+  void setTheme(ThemeType themeType) {
+    _currentTheme = themeType;
     notifyListeners();
   }
 }
