@@ -1,3 +1,10 @@
+/*
+ * @Description: None
+ * @Author: LILYGO_L
+ * @Date: 2025-10-25 21:43:42
+ * @LastEditTime: 2025-10-25 21:59:06
+ * @License: GPL 3.0
+ */
 import 'package:flutter/material.dart';
 
 import 'l10n/app_localizations.dart';
@@ -43,7 +50,7 @@ class AppTheme {
 }
 
 class ThemeProvider with ChangeNotifier {
-  ThemeType _currentTheme = ThemeType.light;
+  ThemeType _currentTheme = ThemeType.dark;
 
   final Map<ThemeType, AppTheme> _themes = {
     ThemeType.dark: AppTheme(

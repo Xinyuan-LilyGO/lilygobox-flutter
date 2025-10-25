@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-17 22:29:20
- * @LastEditTime: 2025-10-25 17:59:23
+ * @LastEditTime: 2025-10-25 21:53:49
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -303,11 +303,11 @@ class _MainAppState extends State<MainApp> with WindowListener {
               margin: const EdgeInsets.all(10), // 更大的边距
               decoration: BoxDecoration(
                 color: theme.primary,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 boxShadow: _buildBoxShadow(), // 使用专门的柔和阴影方法
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: Stack(
                   children: [
                     Column(
@@ -351,7 +351,7 @@ class _MainAppState extends State<MainApp> with WindowListener {
   List<BoxShadow> _buildBoxShadow() {
     return [
       BoxShadow(
-        color: Colors.black.withValues(alpha: 0.3), // 阴影颜色和透明度：黑色，50%透明度
+        color: Colors.black.withValues(alpha: 0.5), // 阴影颜色和透明度：黑色，50%透明度
         blurRadius: 5, // 模糊半径：阴影边缘模糊程度，值越大越模糊
         spreadRadius: -1, // 扩散半径：负值让阴影向内收缩，消除硬边
       ),
