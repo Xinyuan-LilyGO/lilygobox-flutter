@@ -337,7 +337,8 @@ class AppTitleBarControlsButtonTemplate extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     required this.hoverColor,
-    this.iconColor = Colors.white,
+    required this.iconColor,
+    
     this.iconSize = 20,
     this.iconWeight = 300.0,
     this.rotateAngle = 0.0,

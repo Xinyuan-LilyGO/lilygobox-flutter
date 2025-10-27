@@ -61,6 +61,8 @@ class HomePage extends StatelessWidget {
             },
             iconColor: theme.sidebarIconColor,
             iconBackgroundColor: theme.sidebarIconBackgroundColor,
+            highlightColor: theme.sidebarIconHighlightColor,
+            splashColor: theme.sidebarIconSplashColor,
           ),
 
           // 分隔线
@@ -96,6 +98,8 @@ class HomePage extends StatelessWidget {
             },
             iconColor: theme.sidebarIconColor,
             iconBackgroundColor: theme.sidebarIconBackgroundColor,
+            highlightColor: theme.sidebarIconHighlightColor,
+            splashColor: theme.sidebarIconSplashColor,
           ),
 
           // const SizedBox(height: 10),
@@ -105,7 +109,7 @@ class HomePage extends StatelessWidget {
   }
 
   // Widget _buildBoardItem({required int index, required AppTheme theme}) {
-  //   // 示例数据
+  //   // 示例数据 - 实际使用时替换为你的板子数据
   //   final boardSymbols = [
   //     Symbols.chat,
   //     Symbols.people,
@@ -163,17 +167,20 @@ class HomePage extends StatelessWidget {
   // }
 }
 
-class SidebarButtonTemplate extends StatelessWidget {
+class SidebarButtonTemplate extends StatefulWidget {
   const SidebarButtonTemplate({
     super.key,
     required this.icon,
     required this.onPressed,
+    required this.iconColor,
+    required this.iconBackgroundColor,
+    required this.highlightColor,
+    required this.splashColor,
+
     this.iconSize = 24,
     this.iconWeight = 600.0,
     this.grade = -25.0,
     this.opticalSize = 48.0,
-    this.iconColor = Colors.white,
-    this.iconBackgroundColor = Colors.grey,
   });
 
   final IconData icon;
@@ -184,34 +191,91 @@ class SidebarButtonTemplate extends StatelessWidget {
   final double opticalSize;
   final Color iconColor;
   final Color iconBackgroundColor;
+  final Color highlightColor;
+  final Color splashColor;
+
+  @override
+  State<SidebarButtonTemplate> createState() => _SidebarButtonTemplateState();
+}
+
+class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _borderRadiusAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 100),
+      vsync: this,
+    );
+    _borderRadiusAnimation =
+        Tween<double>(
+          begin: 25.0, // 初始圆角
+          end: 15.0, // 悬停时的圆角
+        ).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeInOut,
+          ),
+        );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _handleHover(bool isHovered) {
+    if (isHovered) {
+      _animationController.forward();
+    } else {
+      _animationController.reverse();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
-      child: SizedBox(
-        width: 45,
-        height: 45,
-        child: Material(
-          color: iconBackgroundColor,
-          borderRadius: BorderRadius.circular(25),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(25),
-            onTap: onPressed,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(25),
-                // color: backgroundColor,
-              ),
-              child: Icon(
-                icon,
-                size: iconSize,
-                color: iconColor,
-                weight: iconWeight,
-                grade: grade,
-                opticalSize: opticalSize,
-              ),
-            ),
+    return MouseRegion(
+      onEnter: (_) => _handleHover(true),
+      onExit: (_) => _handleHover(false),
+      cursor: SystemMouseCursors.click,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
+        child: SizedBox(
+          width: 45,
+          height: 45,
+          child: AnimatedBuilder(
+            animation: _borderRadiusAnimation,
+            builder: (context, child) {
+              return Material(
+                color: widget.iconBackgroundColor, 
+                borderRadius: BorderRadius.circular(
+                  _borderRadiusAnimation.value,
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(
+                    _borderRadiusAnimation.value,
+                  ),
+                  onTap: widget.onPressed,
+                  highlightColor: widget.highlightColor,
+                  splashColor: widget.splashColor,
+                  child: Center(
+                    child: Icon(
+                      widget.icon,
+                      size: widget.iconSize,
+                      color: widget.iconColor,
+                      weight: widget.iconWeight,
+                      grade: widget.grade,
+                      opticalSize: widget.opticalSize,
+                      fill: 1.0,
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),

@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-10-27 17:34:44
+ * @LastEditTime: 2025-10-27 18:30:57
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -27,6 +27,8 @@ class AppTheme {
   final Color inactiveIconColor;
   final Color sidebarIconColor;
   final Color sidebarIconBackgroundColor;
+  final Color sidebarIconHighlightColor;
+  final Color sidebarIconSplashColor;
   final Color dividerColor;
 
   const AppTheme({
@@ -42,6 +44,8 @@ class AppTheme {
     required this.inactiveIconColor,
     required this.sidebarIconColor,
     required this.sidebarIconBackgroundColor,
+    required this.sidebarIconHighlightColor,
+    required this.sidebarIconSplashColor,
     required this.dividerColor,
   });
 
@@ -74,10 +78,12 @@ class ThemeProvider with ChangeNotifier {
       textColor: Colors.white,
       appTitleTextColor: const Color.fromARGB(255, 215, 215, 215),
       inactiveTextColor: Colors.grey,
-      iconColor: Colors.white,
+      iconColor: const Color.fromARGB(255, 215, 215, 215),
       inactiveIconColor: Colors.grey,
       sidebarIconColor: Colors.grey,
       sidebarIconBackgroundColor: const Color.fromARGB(255, 55, 55, 55),
+      sidebarIconHighlightColor: const Color.fromARGB(100, 100, 100, 100),
+      sidebarIconSplashColor: const Color.fromARGB(100, 150, 150, 150),
       dividerColor: Colors.white,
     ),
     ThemeType.light: AppTheme(
@@ -91,8 +97,10 @@ class ThemeProvider with ChangeNotifier {
       inactiveTextColor: Colors.grey,
       iconColor: Colors.black,
       inactiveIconColor: Colors.grey,
-      sidebarIconColor: Colors.grey,
-      sidebarIconBackgroundColor: const Color.fromARGB(255, 55, 55, 55),
+      sidebarIconColor: const Color.fromARGB(255, 40, 40, 40),
+      sidebarIconBackgroundColor: const Color.fromARGB(255, 200, 200, 200),
+      sidebarIconHighlightColor: const Color.fromARGB(100, 155, 155, 155),
+      sidebarIconSplashColor: const Color.fromARGB(100, 105, 105, 105),
       dividerColor: Colors.black,
     ),
   };
