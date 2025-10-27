@@ -1,0 +1,106 @@
+# arb-dir: 存放 .arb 文件的目录路径
+# 这是你手动创建和编辑翻译文件的位置
+arb-dir: lib/l10n
+
+# template-arb-file: 模板 ARB 文件名
+# 通常使用英文版本作为模板，代码生成器会基于此文件创建 Dart 类结构
+template-arb-file: app_en.arb
+
+# output-localization-file: 生成的本地化主文件名
+# 这会生成一个主要的 Dart 文件，包含 AppLocalizations 类
+output-localization-file: app_localizations.dart
+
+# output-dir: 生成的 Dart 文件输出目录
+# 建议与 arb-dir 相同，或者使用 lib/generated 等目录
+output-dir: lib/l10n
+
+# =====================
+# 可选配置项
+# =====================
+
+# supported-locales: 明确指定支持的语言环境列表
+# 如果不设置，会自动从所有 .arb 文件推断
+supported-locales:
+  - en    # 英语
+  - zh    # 中文  
+  - ja    # 日语
+  # - fr  # 法语 (取消注释即可添加)
+  # - de  # 德语
+  # - es  # 西班牙语
+  # - ko  # 韩语
+
+# untranslated-messages-file: 未翻译消息输出文件
+# 当某些语言缺少翻译时，会在这里记录缺失的键
+untranslated-messages-file: lib/l10n/untranslated.json
+
+# =====================
+# 代码生成选项
+# =====================
+
+# output-class: 生成的本地化类名
+# 默认是 'AppLocalizations'，可以根据项目需要修改
+output-class: AppLocalizations
+
+# nullable-getter: 生成的 getter 是否可为空
+# 如果为 true，getter 返回 String?；如果为 false，返回 String
+nullable-getter: false
+
+# use-escaping: 是否对字符串进行转义
+# 处理包含单引号、美元符号等特殊字符的翻译
+use-escaping: true
+
+# =====================
+# 代码风格选项
+# =====================
+
+# header: 生成文件顶部的注释头
+# 可以包含版权信息、生成说明等
+header: |
+  // ==========================================
+  // 自动生成的本地化文件
+  // 请勿手动编辑！所有修改应在 .arb 文件中进行
+  // 生成命令: flutter gen-l10n
+  // ==========================================
+
+# header-file: 从外部文件读取头部注释
+# 如果有复杂的头部模板，可以使用这个选项
+# header-file: lib/l10n/header.txt
+
+# =====================
+# 项目特定选项
+# =====================
+
+# preferred-supported-locales: 优先支持的语言环境
+# 当设备语言不在支持列表中时，会按此顺序回退
+preferred-supported-locales:
+  - en
+  - zh
+  - ja
+
+# =====================
+# 高级选项
+# =====================
+
+# require-date: 是否生成日期/时间本地化代码
+# 如果为 true，会包含日期时间格式化的本地化
+require-date: true
+
+# require-material-localizations: 是否需要 Material 本地化
+# 如果使用 Material 组件，建议保持 true
+require-material-localizations: true
+
+# use-deferred-loading: 是否使用延迟加载
+# 如果为 true，每种语言的翻译会在需要时加载，减少初始包大小
+use-deferred-loading: false
+
+# =====================
+# 代码生成控制
+# =====================
+
+# gen-inputs-and-outputs-list: 生成输入输出文件列表
+# 用于调试和了解生成过程
+gen-inputs-and-outputs-list: false
+
+# project-dir: 项目根目录路径
+# 如果配置文件不在项目根目录，需要指定此选项
+# project-dir: .

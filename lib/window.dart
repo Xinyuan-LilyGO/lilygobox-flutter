@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-27 09:07:11
- * @LastEditTime: 2025-10-27 09:48:21
+ * @LastEditTime: 2025-10-27 11:20:11
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -11,6 +11,8 @@ import 'package:window_manager/window_manager.dart';
 import 'package:provider/provider.dart';
 
 import 'theme.dart';
+import 'language.dart';
+import 'l10n/app_localizations.dart';
 
 // MainApp 现在可以是 StatelessWidget，因为状态已经移到 Provider 中
 class MainApp extends StatelessWidget {
@@ -18,64 +20,81 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<ThemeProvider, WindowProvider>(
-      builder: (context, themeProvider, windowProvider, child) {
-        final theme = themeProvider.themeData;
-        final isMaximized = windowProvider.isMaximized;
+    return Consumer3<ThemeProvider, WindowProvider, LanguageProvider>(
+      builder:
+          (context, themeProvider, windowProvider, languageProvider, child) {
+            final theme = themeProvider.themeData;
+            final isMaximized = windowProvider.isMaximized;
+            final locale = languageProvider.locale;
 
-        return MaterialApp(
-          debugShowCheckedModeBanner: false,
-          home: Scaffold(
-            backgroundColor: Colors.transparent,
-            body: Container(
-              margin: isMaximized ? EdgeInsets.zero : const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: theme.primary,
-                borderRadius: isMaximized
-                    ? BorderRadius.zero
-                    : BorderRadius.circular(10),
-                boxShadow: isMaximized ? [] : _buildBoxShadow(),
-              ),
-              child: ClipRRect(
-                borderRadius: isMaximized
-                    ? BorderRadius.zero
-                    : BorderRadius.circular(10),
-                child: Stack(
-                  children: [
-                    Column(
-                      children: [
-                        _buildCustomTitleBar(context),
-                        Expanded(
-                          child: Container(
-                            color: theme.primary,
-                            child: Center(
-                              child: Container(
-                                padding: const EdgeInsets.all(20),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade800,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  '应用程序内容区域',
-                                  style: TextStyle(
-                                    color: theme.textColor,
-                                    fontSize: 24,
+            return MaterialApp(
+              debugShowCheckedModeBanner: false,
+              locale: locale,
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: Scaffold(
+                backgroundColor: Colors.transparent,
+                // 添加 Builder
+                body: Builder(
+                  // 使用新的 languageContext
+                  builder: (BuildContext languageContext) {
+                    return Container(
+                      margin: isMaximized
+                          ? EdgeInsets.zero
+                          : const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: theme.primary,
+                        borderRadius: isMaximized
+                            ? BorderRadius.zero
+                            : BorderRadius.circular(10),
+                        boxShadow: isMaximized ? [] : _buildBoxShadow(),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: isMaximized
+                            ? BorderRadius.zero
+                            : BorderRadius.circular(10),
+                        child: Stack(
+                          children: [
+                            Column(
+                              children: [
+                                // 将 context 替换为 languageContext
+                                _buildCustomTitleBar(languageContext),
+                                Expanded(
+                                  child: Container(
+                                    color: theme.primary,
+                                    child: Center(
+                                      child: Container(
+                                        padding: const EdgeInsets.all(20),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.shade800,
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          // 将 context 替换为 languageContext
+                                          languageContext.l10n.appTitle,
+                                          style: TextStyle(
+                                            color: theme.textColor,
+                                            fontSize: 24,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
-                          ),
+                            _buildWindowResizeArea(),
+                          ],
                         ),
-                      ],
-                    ),
-                    _buildWindowResizeArea(),
-                  ],
+                      ),
+                    );
+                  },
                 ),
               ),
-            ),
-          ),
-        );
-      },
+            );
+          },
     );
   }
 
@@ -155,7 +174,7 @@ class MainApp extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 padding: const EdgeInsets.only(left: 10),
                 child: Text(
-                  'Ciallo (自定义标题栏)',
+                  '${context.l10n.appTitle} (${context.l10n.customTitleBar})', // 使用本地化文本
                   style: TextStyle(
                     fontSize: 12,
                     color: isFocused
@@ -323,7 +342,7 @@ class MainApp extends StatelessWidget {
   }
 }
 
-// 窗口控制按钮组件（保持不变）
+// 更新窗口控制按钮组件，添加工具提示
 class _WindowButton extends StatelessWidget {
   const _WindowButton({
     required this.icon,

@@ -1,8 +1,8 @@
 {
     "@@locale": "zh",
-    "appTitle": "Ciallo",
-    "themeDark": "黑色格调",
-    "themeLight": "亮色格调",
+    "appTitle": "LilygoBox",
+    "themeDark": "黑色主题",
+    "themeLight": "亮色主题",
     "currentTheme": "当前主题",
     "switchTheme": "切换主题",
     "language": "语言",

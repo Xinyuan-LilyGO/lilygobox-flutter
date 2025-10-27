@@ -15,6 +15,7 @@ dependencies:
   material_symbols_icons: ^4.2874.0
   window_manager: ^0.5.1
   provider: ^6.1.5+1
+  intl: ^0.20.2
 
 # debug 版本所需的包
 dev_dependencies:
@@ -25,3 +26,4 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  generate: true

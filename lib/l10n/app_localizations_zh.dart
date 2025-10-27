@@ -15,13 +15,13 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
-  String get appTitle => 'Ciallo';
+  String get appTitle => 'LilygoBox';
 
   @override
-  String get themeDark => '黑色格调';
+  String get themeDark => '黑色主题';
 
   @override
-  String get themeLight => '亮色格调';
+  String get themeLight => '亮色主题';
 
   @override
   String get currentTheme => '当前主题';

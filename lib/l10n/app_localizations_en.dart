@@ -15,7 +15,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'Ciallo';
+  String get appTitle => 'LilygoBox';
 
   @override
   String get themeDark => 'Dark Theme';

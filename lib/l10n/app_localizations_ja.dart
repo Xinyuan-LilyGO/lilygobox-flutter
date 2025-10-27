@@ -15,7 +15,7 @@ class AppLocalizationsJa extends AppLocalizations {
   AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
-  String get appTitle => 'Ciallo';
+  String get appTitle => 'LilygoBox';
 
   @override
   String get themeDark => 'ダークテーマ';
