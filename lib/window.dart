@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-27 09:07:11
- * @LastEditTime: 2025-10-27 09:38:55
+ * @LastEditTime: 2025-10-27 09:48:21
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -21,20 +21,25 @@ class MainApp extends StatelessWidget {
     return Consumer2<ThemeProvider, WindowProvider>(
       builder: (context, themeProvider, windowProvider, child) {
         final theme = themeProvider.themeData;
+        final isMaximized = windowProvider.isMaximized;
 
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           home: Scaffold(
             backgroundColor: Colors.transparent,
             body: Container(
-              margin: const EdgeInsets.all(10),
+              margin: isMaximized ? EdgeInsets.zero : const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: theme.primary,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: _buildBoxShadow(),
+                borderRadius: isMaximized
+                    ? BorderRadius.zero
+                    : BorderRadius.circular(10),
+                boxShadow: isMaximized ? [] : _buildBoxShadow(),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: isMaximized
+                    ? BorderRadius.zero
+                    : BorderRadius.circular(10),
                 child: Stack(
                   children: [
                     Column(
@@ -172,75 +177,86 @@ class MainApp extends StatelessWidget {
   Widget _buildWindowResizeArea() {
     const double resizeAreaSize = 5.0;
 
-    return Stack(
-      children: [
-        // 边缘调整区域
-        _buildResizeArea(
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: resizeAreaSize,
-          cursor: SystemMouseCursors.resizeLeftRight,
-          edge: ResizeEdge.left,
-        ),
-        _buildResizeArea(
-          right: 0,
-          top: 0,
-          bottom: 0,
-          width: resizeAreaSize,
-          cursor: SystemMouseCursors.resizeLeftRight,
-          edge: ResizeEdge.right,
-        ),
-        _buildResizeArea(
-          left: 0,
-          top: 0,
-          right: 0,
-          height: resizeAreaSize,
-          cursor: SystemMouseCursors.resizeUpDown,
-          edge: ResizeEdge.top,
-        ),
-        _buildResizeArea(
-          left: 0,
-          bottom: 0,
-          right: 0,
-          height: resizeAreaSize,
-          cursor: SystemMouseCursors.resizeUpDown,
-          edge: ResizeEdge.bottom,
-        ),
-        // 角落调整区域
-        _buildResizeArea(
-          left: 0,
-          top: 0,
-          width: resizeAreaSize,
-          height: resizeAreaSize,
-          cursor: SystemMouseCursors.resizeUpLeftDownRight,
-          edge: ResizeEdge.topLeft,
-        ),
-        _buildResizeArea(
-          right: 0,
-          top: 0,
-          width: resizeAreaSize,
-          height: resizeAreaSize,
-          cursor: SystemMouseCursors.resizeUpRightDownLeft,
-          edge: ResizeEdge.topRight,
-        ),
-        _buildResizeArea(
-          left: 0,
-          bottom: 0,
-          width: resizeAreaSize,
-          height: resizeAreaSize,
-          cursor: SystemMouseCursors.resizeUpRightDownLeft,
-          edge: ResizeEdge.bottomLeft,
-        ),
-        _buildResizeArea(
-          right: 0,
-          bottom: 0,
-          width: resizeAreaSize,
-          height: resizeAreaSize,
-          cursor: SystemMouseCursors.resizeUpLeftDownRight,
-          edge: ResizeEdge.bottomRight,
-        ),
-      ],
+    return Consumer<WindowProvider>(
+      builder: (context, windowProvider, child) {
+        final isMaximized = windowProvider.isMaximized;
+
+        // 如果窗口最大化，隐藏调整区域
+        if (isMaximized) {
+          return const SizedBox.shrink();
+        }
+
+        return Stack(
+          children: [
+            // 边缘调整区域
+            _buildResizeArea(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: resizeAreaSize,
+              cursor: SystemMouseCursors.resizeLeftRight,
+              edge: ResizeEdge.left,
+            ),
+            _buildResizeArea(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: resizeAreaSize,
+              cursor: SystemMouseCursors.resizeLeftRight,
+              edge: ResizeEdge.right,
+            ),
+            _buildResizeArea(
+              left: 0,
+              top: 0,
+              right: 0,
+              height: resizeAreaSize,
+              cursor: SystemMouseCursors.resizeUpDown,
+              edge: ResizeEdge.top,
+            ),
+            _buildResizeArea(
+              left: 0,
+              bottom: 0,
+              right: 0,
+              height: resizeAreaSize,
+              cursor: SystemMouseCursors.resizeUpDown,
+              edge: ResizeEdge.bottom,
+            ),
+            // 角落调整区域
+            _buildResizeArea(
+              left: 0,
+              top: 0,
+              width: resizeAreaSize,
+              height: resizeAreaSize,
+              cursor: SystemMouseCursors.resizeUpLeftDownRight,
+              edge: ResizeEdge.topLeft,
+            ),
+            _buildResizeArea(
+              right: 0,
+              top: 0,
+              width: resizeAreaSize,
+              height: resizeAreaSize,
+              cursor: SystemMouseCursors.resizeUpRightDownLeft,
+              edge: ResizeEdge.topRight,
+            ),
+            _buildResizeArea(
+              left: 0,
+              bottom: 0,
+              width: resizeAreaSize,
+              height: resizeAreaSize,
+              cursor: SystemMouseCursors.resizeUpRightDownLeft,
+              edge: ResizeEdge.bottomLeft,
+            ),
+            _buildResizeArea(
+              right: 0,
+              bottom: 0,
+              width: resizeAreaSize,
+              height: resizeAreaSize,
+              cursor: SystemMouseCursors.resizeUpLeftDownRight,
+              edge: ResizeEdge.bottomRight,
+            ),
+          ],
+        );
+      },
     );
   }
 
