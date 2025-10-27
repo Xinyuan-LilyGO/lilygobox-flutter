@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-27 09:07:11
- * @LastEditTime: 2025-10-27 11:33:54
+ * @LastEditTime: 2025-10-27 12:07:32
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import 'theme.dart';
 import 'language.dart';
 import 'l10n/app_localizations.dart';
+import 'home_page.dart';
 
 // MainApp 现在可以是 StatelessWidget，因为状态已经移到 Provider 中
 class MainApp extends StatelessWidget {
@@ -58,34 +59,11 @@ class MainApp extends StatelessWidget {
                             Column(
                               children: [
                                 // 将 context 替换为 languageContext
-                                _buildCustomTitleBar(languageContext),
-                                Expanded(
-                                  child: Container(
-                                    color: theme.primary,
-                                    child: Center(
-                                      child: Container(
-                                        padding: const EdgeInsets.all(20),
-                                        decoration: BoxDecoration(
-                                          color: Colors.blue.shade800,
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          // 将 context 替换为 languageContext
-                                          languageContext.l10n.appTitle,
-                                          style: TextStyle(
-                                            color: theme.textColor,
-                                            fontSize: 24,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
+                                _buildAppTitleBar(languageContext),
+                                _buildCurrentPage(languageContext),
                               ],
                             ),
-                            _buildWindowResizeArea(),
+                            _buildAppTitleBarControlsResizeArea(),
                           ],
                         ),
                       ),
@@ -99,7 +77,7 @@ class MainApp extends StatelessWidget {
   }
 
   // 构建窗口控制按钮组件
-  Widget _buildWindowControls(BuildContext context) {
+  Widget _buildAppTitleBarControls(BuildContext context) {
     final windowProvider = Provider.of<WindowProvider>(context, listen: false);
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final theme = themeProvider.themeData;
@@ -152,7 +130,7 @@ class MainApp extends StatelessWidget {
   }
 
   // 构建自定义标题栏
-  Widget _buildCustomTitleBar(BuildContext context) {
+  Widget _buildAppTitleBar(BuildContext context) {
     final windowProvider = Provider.of<WindowProvider>(context, listen: false);
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final theme = themeProvider.themeData;
@@ -187,14 +165,14 @@ class MainApp extends StatelessWidget {
             ),
           ),
           // 右侧窗口控制按钮
-          _buildWindowControls(context),
+          _buildAppTitleBarControls(context),
         ],
       ),
     );
   }
 
   // 构建窗口边框调整区域
-  Widget _buildWindowResizeArea() {
+  Widget _buildAppTitleBarControlsResizeArea() {
     const double resizeAreaSize = 5.0;
 
     return Consumer<WindowProvider>(
@@ -341,6 +319,18 @@ class MainApp extends StatelessWidget {
       ),
     ];
   }
+
+  // 构建当前页面内容
+  Widget _buildCurrentPage(BuildContext context) {
+    final windowProvider = Provider.of<WindowProvider>(context, listen: false);
+
+    switch (windowProvider.currentPage) {
+      case WindowPage.home:
+        return const HomePage();
+      default:
+        return const HomePage();
+    }
+  }
 }
 
 // 更新窗口控制按钮组件，添加工具提示
@@ -396,12 +386,17 @@ class _WindowButton extends StatelessWidget {
   }
 }
 
+enum WindowPage { home }
+
 class WindowProvider with ChangeNotifier, WindowListener {
   bool _isMaximized = false;
   bool _isFocused = true;
 
   bool get isMaximized => _isMaximized;
   bool get isFocused => _isFocused;
+
+  WindowPage _currentPage = WindowPage.home;
+  WindowPage get currentPage => _currentPage;
 
   WindowProvider() {
     windowManager.addListener(this);
@@ -465,5 +460,10 @@ class WindowProvider with ChangeNotifier, WindowListener {
   // 关闭窗口
   Future<void> close() async {
     await windowManager.close();
+  }
+
+  void setPage(WindowPage page) {
+    _currentPage = page;
+    notifyListeners();
   }
 }
