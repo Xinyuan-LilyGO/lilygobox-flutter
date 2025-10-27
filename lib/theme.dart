@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-10-27 11:40:50
+ * @LastEditTime: 2025-10-27 17:34:44
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -25,6 +25,9 @@ class AppTheme {
   final Color inactiveTextColor;
   final Color iconColor;
   final Color inactiveIconColor;
+  final Color sidebarIconColor;
+  final Color sidebarIconBackgroundColor;
+  final Color dividerColor;
 
   const AppTheme({
     required this.type,
@@ -37,6 +40,9 @@ class AppTheme {
     required this.inactiveTextColor,
     required this.iconColor,
     required this.inactiveIconColor,
+    required this.sidebarIconColor,
+    required this.sidebarIconBackgroundColor,
+    required this.dividerColor,
   });
 
   // 注意：在调用 getName() 的地方，AppLocalizations.of(context) 可能会返回 null。
@@ -62,14 +68,17 @@ class ThemeProvider with ChangeNotifier {
     ThemeType.dark: AppTheme(
       type: ThemeType.dark,
       nameKey: 'theme_dark',
-      primary: const Color(0xFF36393F),
-      secondary: const Color(0xFF2F3136),
-      tertiary: const Color(0xFF202225),
+      primary: const Color.fromARGB(255, 26, 26, 26),
+      secondary: const Color.fromARGB(255, 49, 49, 49),
+      tertiary: const Color.fromARGB(255, 88, 88, 88),
       textColor: Colors.white,
       appTitleTextColor: const Color.fromARGB(255, 215, 215, 215),
       inactiveTextColor: Colors.grey,
       iconColor: Colors.white,
       inactiveIconColor: Colors.grey,
+      sidebarIconColor: Colors.grey,
+      sidebarIconBackgroundColor: const Color.fromARGB(255, 55, 55, 55),
+      dividerColor: Colors.white,
     ),
     ThemeType.light: AppTheme(
       type: ThemeType.light,
@@ -82,6 +91,9 @@ class ThemeProvider with ChangeNotifier {
       inactiveTextColor: Colors.grey,
       iconColor: Colors.black,
       inactiveIconColor: Colors.grey,
+      sidebarIconColor: Colors.grey,
+      sidebarIconBackgroundColor: const Color.fromARGB(255, 55, 55, 55),
+      dividerColor: Colors.black,
     ),
   };
 

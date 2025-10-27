@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-27 09:07:11
- * @LastEditTime: 2025-10-27 12:07:32
+ * @LastEditTime: 2025-10-27 17:13:24
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -93,17 +93,16 @@ class MainApp extends StatelessWidget {
     return Row(
       children: [
         // 最小化按钮
-        _WindowButton(
+        AppTitleBarControlsButtonTemplate(
           icon: Symbols.remove_rounded,
           onPressed: isFocused ? () => windowProvider.minimize() : null,
           hoverColor: isFocused
               ? Colors.grey.withValues(alpha: 0.2)
               : Colors.transparent,
           iconColor: iconColor,
-          isFocused: isFocused,
         ),
         // 最大化/还原按钮
-        _WindowButton(
+        AppTitleBarControlsButtonTemplate(
           icon: isMaximized ? Symbols.filter_none : Symbols.crop_square_rounded,
           onPressed: isFocused
               ? () => windowProvider.handleMaximizeRestore()
@@ -115,15 +114,13 @@ class MainApp extends StatelessWidget {
           iconWeight: 510.0,
           rotateAngle: isMaximized ? 180 : 0,
           iconColor: iconColor,
-          isFocused: isFocused,
         ),
         // 关闭按钮
-        _WindowButton(
+        AppTitleBarControlsButtonTemplate(
           icon: Symbols.close_rounded,
           onPressed: isFocused ? () => windowProvider.close() : null,
           hoverColor: isFocused ? Colors.red.shade600 : Colors.transparent,
           iconColor: iconColor,
-          isFocused: isFocused,
         ),
       ],
     );
@@ -334,16 +331,16 @@ class MainApp extends StatelessWidget {
 }
 
 // 更新窗口控制按钮组件，添加工具提示
-class _WindowButton extends StatelessWidget {
-  const _WindowButton({
+class AppTitleBarControlsButtonTemplate extends StatelessWidget {
+  const AppTitleBarControlsButtonTemplate({
+    super.key,
     required this.icon,
     required this.onPressed,
     required this.hoverColor,
-    this.iconColor = const Color.fromARGB(255, 255, 255, 255),
+    this.iconColor = Colors.white,
     this.iconSize = 20,
     this.iconWeight = 300.0,
     this.rotateAngle = 0.0,
-    this.isFocused = true,
   });
 
   final IconData icon;
@@ -355,7 +352,6 @@ class _WindowButton extends StatelessWidget {
   final double grade = -25.0;
   final double opticalSize = 48.0;
   final double rotateAngle;
-  final bool isFocused;
 
   @override
   Widget build(BuildContext context) {
@@ -367,8 +363,6 @@ class _WindowButton extends StatelessWidget {
         child: InkWell(
           hoverColor: hoverColor,
           onTap: onPressed,
-          splashColor: isFocused ? null : Colors.transparent,
-          highlightColor: isFocused ? null : Colors.transparent,
           child: Transform.rotate(
             angle: rotateAngle * (3.1415926535 / 180),
             child: Icon(
