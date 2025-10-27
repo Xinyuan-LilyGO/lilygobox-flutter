@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-10-27 18:30:57
+ * @LastEditTime: 2025-10-28 00:07:12
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -26,6 +26,8 @@ class AppTheme {
   final Color iconColor;
   final Color inactiveIconColor;
   final Color sidebarIconColor;
+  final Color sidebarSelectedIconColor;
+  final Color sidebarHoverIconColor;
   final Color sidebarIconBackgroundColor;
   final Color sidebarIconHighlightColor;
   final Color sidebarIconSplashColor;
@@ -43,6 +45,8 @@ class AppTheme {
     required this.iconColor,
     required this.inactiveIconColor,
     required this.sidebarIconColor,
+    required this.sidebarSelectedIconColor,
+    required this.sidebarHoverIconColor,
     required this.sidebarIconBackgroundColor,
     required this.sidebarIconHighlightColor,
     required this.sidebarIconSplashColor,
@@ -80,7 +84,9 @@ class ThemeProvider with ChangeNotifier {
       inactiveTextColor: Colors.grey,
       iconColor: const Color.fromARGB(255, 215, 215, 215),
       inactiveIconColor: Colors.grey,
-      sidebarIconColor: Colors.grey,
+      sidebarIconColor: const Color.fromARGB(255, 215, 215, 215),
+      sidebarSelectedIconColor: const Color.fromARGB(255, 126, 109, 202),
+      sidebarHoverIconColor: const Color.fromARGB(255, 70, 70, 70),
       sidebarIconBackgroundColor: const Color.fromARGB(255, 55, 55, 55),
       sidebarIconHighlightColor: const Color.fromARGB(100, 100, 100, 100),
       sidebarIconSplashColor: const Color.fromARGB(100, 150, 150, 150),
@@ -98,6 +104,8 @@ class ThemeProvider with ChangeNotifier {
       iconColor: Colors.black,
       inactiveIconColor: Colors.grey,
       sidebarIconColor: const Color.fromARGB(255, 40, 40, 40),
+      sidebarSelectedIconColor: const Color.fromARGB(255, 185, 185, 185),
+      sidebarHoverIconColor: const Color.fromARGB(255, 70, 70, 70),
       sidebarIconBackgroundColor: const Color.fromARGB(255, 200, 200, 200),
       sidebarIconHighlightColor: const Color.fromARGB(100, 155, 155, 155),
       sidebarIconSplashColor: const Color.fromARGB(100, 105, 105, 105),
