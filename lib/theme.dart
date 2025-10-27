@@ -1,3 +1,10 @@
+/*
+ * @Description: None
+ * @Author: LILYGO_L
+ * @Date: 2025-10-25 09:15:47
+ * @LastEditTime: 2025-10-27 09:38:57
+ * @License: GPL 3.0
+ */
 import 'package:flutter/material.dart';
 
 import 'l10n/app_localizations.dart';
@@ -14,7 +21,9 @@ class AppTheme {
   final Color secondary;
   final Color tertiary;
   final Color textColor;
+  final Color inactiveTextColor;
   final Color iconColor;
+  final Color inactiveIconColor;
 
   const AppTheme({
     required this.type,
@@ -23,7 +32,9 @@ class AppTheme {
     required this.secondary,
     required this.tertiary,
     required this.textColor,
+    required this.inactiveTextColor,
     required this.iconColor,
+    required this.inactiveIconColor,
   });
 
   // 注意：在调用 getName() 的地方，AppLocalizations.of(context) 可能会返回 null。
@@ -43,7 +54,7 @@ class AppTheme {
 }
 
 class ThemeProvider with ChangeNotifier {
-  ThemeType _currentTheme = ThemeType.light;
+  ThemeType _currentTheme = ThemeType.dark;
 
   final Map<ThemeType, AppTheme> _themes = {
     ThemeType.dark: AppTheme(
@@ -53,7 +64,9 @@ class ThemeProvider with ChangeNotifier {
       secondary: const Color(0xFF2F3136),
       tertiary: const Color(0xFF202225),
       textColor: Colors.white,
+      inactiveTextColor: Colors.grey,
       iconColor: Colors.white,
+      inactiveIconColor: Colors.grey,
     ),
     ThemeType.light: AppTheme(
       type: ThemeType.light,
@@ -62,7 +75,9 @@ class ThemeProvider with ChangeNotifier {
       secondary: const Color(0xFFE0E0E0),
       tertiary: const Color(0xFFBDBDBD),
       textColor: Colors.black,
+      inactiveTextColor: Colors.grey,
       iconColor: Colors.black,
+      inactiveIconColor: Colors.grey,
     ),
   };
 

@@ -1,0 +1,433 @@
+/*
+ * @Description: None
+ * @Author: LILYGO_L
+ * @Date: 2025-10-27 09:07:11
+ * @LastEditTime: 2025-10-27 09:38:55
+ * @License: GPL 3.0
+ */
+import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
+import 'package:window_manager/window_manager.dart';
+import 'package:provider/provider.dart';
+
+import 'theme.dart';
+
+// MainApp 现在可以是 StatelessWidget，因为状态已经移到 Provider 中
+class MainApp extends StatelessWidget {
+  const MainApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer2<ThemeProvider, WindowProvider>(
+      builder: (context, themeProvider, windowProvider, child) {
+        final theme = themeProvider.themeData;
+
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          home: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: Container(
+              margin: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: theme.primary,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: _buildBoxShadow(),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Stack(
+                  children: [
+                    Column(
+                      children: [
+                        _buildCustomTitleBar(context),
+                        Expanded(
+                          child: Container(
+                            color: theme.primary,
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade800,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '应用程序内容区域',
+                                  style: TextStyle(
+                                    color: theme.textColor,
+                                    fontSize: 24,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    _buildWindowResizeArea(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // 构建窗口控制按钮组件
+  Widget _buildWindowControls(BuildContext context) {
+    final windowProvider = Provider.of<WindowProvider>(context, listen: false);
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final theme = themeProvider.themeData;
+
+    final isFocused = windowProvider.isFocused;
+    final isMaximized = windowProvider.isMaximized;
+
+    // 根据焦点状态确定图标颜色
+    final Color iconColor = isFocused
+        ? theme.iconColor
+        : theme.inactiveIconColor;
+
+    return Row(
+      children: [
+        // 最小化按钮
+        _WindowButton(
+          icon: Symbols.remove_rounded,
+          onPressed: isFocused ? () => windowProvider.minimize() : null,
+          hoverColor: isFocused
+              ? Colors.grey.withValues(alpha: 0.2)
+              : Colors.transparent,
+          iconColor: iconColor,
+          isFocused: isFocused,
+        ),
+        // 最大化/还原按钮
+        _WindowButton(
+          icon: isMaximized ? Symbols.filter_none : Symbols.crop_square_rounded,
+          onPressed: isFocused
+              ? () => windowProvider.handleMaximizeRestore()
+              : null,
+          hoverColor: isFocused
+              ? Colors.grey.withValues(alpha: 0.2)
+              : Colors.transparent,
+          iconSize: isMaximized ? 13.5 : 14,
+          iconWeight: 510.0,
+          rotateAngle: isMaximized ? 180 : 0,
+          iconColor: iconColor,
+          isFocused: isFocused,
+        ),
+        // 关闭按钮
+        _WindowButton(
+          icon: Symbols.close_rounded,
+          onPressed: isFocused ? () => windowProvider.close() : null,
+          hoverColor: isFocused ? Colors.red.shade600 : Colors.transparent,
+          iconColor: iconColor,
+          isFocused: isFocused,
+        ),
+      ],
+    );
+  }
+
+  // 构建自定义标题栏
+  Widget _buildCustomTitleBar(BuildContext context) {
+    final windowProvider = Provider.of<WindowProvider>(context, listen: false);
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final theme = themeProvider.themeData;
+
+    final isFocused = windowProvider.isFocused;
+
+    // 标题栏高度
+    const double titleBarHeight = 30.0;
+
+    return Container(
+      height: titleBarHeight,
+      color: theme.primary,
+      child: Row(
+        children: [
+          // 填充剩余空间
+          Expanded(
+            child: DragToMoveArea(
+              child: Container(
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.only(left: 10),
+                child: Text(
+                  'Ciallo (自定义标题栏)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isFocused
+                        ? theme.textColor
+                        : theme.inactiveTextColor,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // 右侧窗口控制按钮
+          _buildWindowControls(context),
+        ],
+      ),
+    );
+  }
+
+  // 构建窗口边框调整区域
+  Widget _buildWindowResizeArea() {
+    const double resizeAreaSize = 5.0;
+
+    return Stack(
+      children: [
+        // 边缘调整区域
+        _buildResizeArea(
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: resizeAreaSize,
+          cursor: SystemMouseCursors.resizeLeftRight,
+          edge: ResizeEdge.left,
+        ),
+        _buildResizeArea(
+          right: 0,
+          top: 0,
+          bottom: 0,
+          width: resizeAreaSize,
+          cursor: SystemMouseCursors.resizeLeftRight,
+          edge: ResizeEdge.right,
+        ),
+        _buildResizeArea(
+          left: 0,
+          top: 0,
+          right: 0,
+          height: resizeAreaSize,
+          cursor: SystemMouseCursors.resizeUpDown,
+          edge: ResizeEdge.top,
+        ),
+        _buildResizeArea(
+          left: 0,
+          bottom: 0,
+          right: 0,
+          height: resizeAreaSize,
+          cursor: SystemMouseCursors.resizeUpDown,
+          edge: ResizeEdge.bottom,
+        ),
+        // 角落调整区域
+        _buildResizeArea(
+          left: 0,
+          top: 0,
+          width: resizeAreaSize,
+          height: resizeAreaSize,
+          cursor: SystemMouseCursors.resizeUpLeftDownRight,
+          edge: ResizeEdge.topLeft,
+        ),
+        _buildResizeArea(
+          right: 0,
+          top: 0,
+          width: resizeAreaSize,
+          height: resizeAreaSize,
+          cursor: SystemMouseCursors.resizeUpRightDownLeft,
+          edge: ResizeEdge.topRight,
+        ),
+        _buildResizeArea(
+          left: 0,
+          bottom: 0,
+          width: resizeAreaSize,
+          height: resizeAreaSize,
+          cursor: SystemMouseCursors.resizeUpRightDownLeft,
+          edge: ResizeEdge.bottomLeft,
+        ),
+        _buildResizeArea(
+          right: 0,
+          bottom: 0,
+          width: resizeAreaSize,
+          height: resizeAreaSize,
+          cursor: SystemMouseCursors.resizeUpLeftDownRight,
+          edge: ResizeEdge.bottomRight,
+        ),
+      ],
+    );
+  }
+
+  // 可重用的边缘调整组件
+  Widget _buildResizeArea({
+    double? left,
+    double? top,
+    double? right,
+    double? bottom,
+    double? width,
+    double? height,
+    required MouseCursor cursor,
+    required ResizeEdge edge,
+  }) {
+    return Positioned(
+      left: left,
+      top: top,
+      right: right,
+      bottom: bottom,
+      child: MouseRegion(
+        cursor: cursor,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onPanStart: (_) => windowManager.startResizing(edge),
+          child: Container(
+            width: width,
+            height: height,
+            color: Colors.transparent,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 专门的柔和阴影构建方法
+  List<BoxShadow> _buildBoxShadow() {
+    return [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.3), // 阴影颜色和透明度：黑色，50%透明度
+        blurRadius: 5, // 模糊半径：阴影边缘模糊程度，值越大越模糊
+        spreadRadius: -1, // 扩散半径：负值让阴影向内收缩，消除硬边
+      ),
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.3),
+        blurRadius: 4,
+        spreadRadius: -2,
+      ),
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.2),
+        blurRadius: 3,
+        spreadRadius: -3,
+      ),
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.2),
+        blurRadius: 2,
+        spreadRadius: -4,
+      ),
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.1),
+        blurRadius: 1,
+        spreadRadius: -5,
+      ),
+    ];
+  }
+}
+
+// 窗口控制按钮组件（保持不变）
+class _WindowButton extends StatelessWidget {
+  const _WindowButton({
+    required this.icon,
+    required this.onPressed,
+    required this.hoverColor,
+    this.iconColor = const Color.fromARGB(255, 255, 255, 255),
+    this.iconSize = 20,
+    this.iconWeight = 300.0,
+    this.rotateAngle = 0.0,
+    this.isFocused = true,
+  });
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final Color hoverColor;
+  final Color iconColor;
+  final double iconSize;
+  final double iconWeight;
+  final double grade = -25.0;
+  final double opticalSize = 48.0;
+  final double rotateAngle;
+  final bool isFocused;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 45,
+      height: 30,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          hoverColor: hoverColor,
+          onTap: onPressed,
+          splashColor: isFocused ? null : Colors.transparent,
+          highlightColor: isFocused ? null : Colors.transparent,
+          child: Transform.rotate(
+            angle: rotateAngle * (3.1415926535 / 180),
+            child: Icon(
+              icon,
+              size: iconSize,
+              color: iconColor,
+              weight: iconWeight,
+              grade: grade,
+              opticalSize: opticalSize,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class WindowProvider with ChangeNotifier, WindowListener {
+  bool _isMaximized = false;
+  bool _isFocused = true;
+
+  bool get isMaximized => _isMaximized;
+  bool get isFocused => _isFocused;
+
+  WindowProvider() {
+    windowManager.addListener(this);
+    _init();
+  }
+
+  @override
+  void dispose() {
+    windowManager.removeListener(this);
+    super.dispose();
+  }
+
+  void _init() async {
+    _isMaximized = await windowManager.isMaximized();
+    _isFocused = await windowManager.isFocused();
+    notifyListeners();
+  }
+
+  // 监听窗口最大化事件
+  @override
+  void onWindowMaximize() {
+    _isMaximized = true;
+    notifyListeners();
+  }
+
+  // 监听窗口取消最大化事件
+  @override
+  void onWindowUnmaximize() {
+    _isMaximized = false;
+    notifyListeners();
+  }
+
+  // 监听窗口获得焦点事件
+  @override
+  void onWindowFocus() {
+    _isFocused = true;
+    notifyListeners();
+  }
+
+  // 监听窗口失去焦点事件
+  @override
+  void onWindowBlur() {
+    _isFocused = false;
+    notifyListeners();
+  }
+
+  // 处理窗口最大化/还原操作
+  Future<void> handleMaximizeRestore() async {
+    if (_isMaximized) {
+      await windowManager.unmaximize();
+    } else {
+      await windowManager.maximize();
+    }
+  }
+
+  // 最小化窗口
+  Future<void> minimize() async {
+    await windowManager.minimize();
+  }
+
+  // 关闭窗口
+  Future<void> close() async {
+    await windowManager.close();
+  }
+}
