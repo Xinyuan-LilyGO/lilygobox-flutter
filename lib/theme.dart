@@ -1,8 +1,13 @@
 /*
  * @Description: None
  * @Author: LILYGO_L
+<<<<<<< HEAD
  * @Date: 2025-10-25 09:15:47
  * @LastEditTime: 2025-10-27 09:38:57
+=======
+ * @Date: 2025-10-25 21:43:42
+ * @LastEditTime: 2025-10-25 21:59:06
+>>>>>>> ac2718bebcb13cbb467efbe989de293df57bc5ae
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
