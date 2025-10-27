@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-27 09:07:11
- * @LastEditTime: 2025-10-27 11:20:11
+ * @LastEditTime: 2025-10-27 11:33:54
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -172,13 +172,14 @@ class MainApp extends StatelessWidget {
             child: DragToMoveArea(
               child: Container(
                 alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.only(left: 10),
+                padding: const EdgeInsets.only(left: 12),
                 child: Text(
-                  '${context.l10n.appTitle} (${context.l10n.customTitleBar})', // 使用本地化文本
+                  context.l10n.appTitle, // 使用本地化文本
                   style: TextStyle(
+                    fontWeight: FontWeight.w600,
                     fontSize: 12,
                     color: isFocused
-                        ? theme.textColor
+                        ? theme.appTitleTextColor
                         : theme.inactiveTextColor,
                   ),
                 ),

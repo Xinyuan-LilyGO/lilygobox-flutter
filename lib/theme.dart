@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-10-27 09:43:13
+ * @LastEditTime: 2025-10-27 11:40:50
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -21,6 +21,7 @@ class AppTheme {
   final Color secondary;
   final Color tertiary;
   final Color textColor;
+  final Color appTitleTextColor;
   final Color inactiveTextColor;
   final Color iconColor;
   final Color inactiveIconColor;
@@ -32,6 +33,7 @@ class AppTheme {
     required this.secondary,
     required this.tertiary,
     required this.textColor,
+    required this.appTitleTextColor,
     required this.inactiveTextColor,
     required this.iconColor,
     required this.inactiveIconColor,
@@ -64,6 +66,7 @@ class ThemeProvider with ChangeNotifier {
       secondary: const Color(0xFF2F3136),
       tertiary: const Color(0xFF202225),
       textColor: Colors.white,
+      appTitleTextColor: const Color.fromARGB(255, 215, 215, 215),
       inactiveTextColor: Colors.grey,
       iconColor: Colors.white,
       inactiveIconColor: Colors.grey,
@@ -75,6 +78,7 @@ class ThemeProvider with ChangeNotifier {
       secondary: const Color(0xFFE0E0E0),
       tertiary: const Color(0xFFBDBDBD),
       textColor: Colors.black,
+      appTitleTextColor: const Color.fromARGB(255, 50, 50, 50),
       inactiveTextColor: Colors.grey,
       iconColor: Colors.black,
       inactiveIconColor: Colors.grey,

@@ -172,12 +172,6 @@ abstract class AppLocalizations {
   /// **'Close'**
   String get close;
 
-  /// No description provided for @customTitleBar.
-  ///
-  /// In en, this message translates to:
-  /// **'Custom Title Bar'**
-  String get customTitleBar;
-
   /// No description provided for @windowControls.
   ///
   /// In en, this message translates to:

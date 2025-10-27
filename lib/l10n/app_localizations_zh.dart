@@ -48,8 +48,5 @@ class AppLocalizationsZh extends AppLocalizations {
   String get close => '关闭';
 
   @override
-  String get customTitleBar => '自定义标题栏';
-
-  @override
   String get windowControls => '窗口控制';
 }

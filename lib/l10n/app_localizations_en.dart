@@ -48,8 +48,5 @@ class AppLocalizationsEn extends AppLocalizations {
   String get close => 'Close';
 
   @override
-  String get customTitleBar => 'Custom Title Bar';
-
-  @override
   String get windowControls => 'Window Controls';
 }
