@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-17 22:29:20
- * @LastEditTime: 2025-10-27 10:08:12
+ * @LastEditTime: 2025-10-28 17:17:53
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -24,7 +24,7 @@ void main() async {
 
   // 定义窗口选项
   WindowOptions windowOptions = const WindowOptions(
-    size: Size(1050, 700), // 初始窗口大小
+    size: Size(1150, 800), // 初始窗口大小
     backgroundColor: Colors.transparent, // 设置背景透明
     skipTaskbar: false, // 不在任务栏中隐藏
     titleBarStyle: TitleBarStyle.hidden, // 关键：隐藏原生标题栏，以便使用自定义标题栏
@@ -33,10 +33,16 @@ void main() async {
 
   // 等待窗口准备好显示
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
-    await windowManager.setAsFrameless(); // 设置窗口无边框
-    // await windowManager.setHasShadow(true); // 添加窗口阴影
-    await windowManager.show(); // 显示窗口
-    await windowManager.focus(); // 窗口获得焦点
+    // 最小尺寸限制
+    await windowManager.setMinimumSize(Size(500, 300));
+    // 设置窗口无边框
+    await windowManager.setAsFrameless();
+    // 添加窗口阴影
+    // await windowManager.setHasShadow(true);
+    // 显示窗口
+    await windowManager.show();
+    // 窗口获得焦点
+    await windowManager.focus();
   });
 
   // 启动Flutter应用

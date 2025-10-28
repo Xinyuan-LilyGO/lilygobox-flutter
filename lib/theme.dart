@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-10-28 16:20:27
+ * @LastEditTime: 2025-10-28 16:31:55
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -78,9 +78,9 @@ class ThemeProvider with ChangeNotifier {
     ThemeType.dark: AppTheme(
       type: ThemeType.dark,
       nameKey: 'theme_dark',
-      primary: const Color.fromARGB(255, 26, 26, 26),
-      secondary: const Color.fromARGB(255, 49, 49, 49),
-      tertiary: const Color.fromARGB(255, 88, 88, 88),
+      primary: const Color.fromARGB(255, 25, 25, 25),
+      secondary: const Color.fromARGB(255, 45, 45, 45),
+      tertiary: const Color.fromARGB(255, 65, 65, 65),
       textColor: Colors.white,
       appTitleTextColor: const Color.fromARGB(255, 215, 215, 215),
       inactiveTextColor: Colors.grey,
