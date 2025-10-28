@@ -215,13 +215,16 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
     with TickerProviderStateMixin {
   // 更改为 TickerProviderStateMixin 支持多个控制器
 
-  // 1. 悬停/选中 (按钮主体) 控制器
-  late AnimationController _buttonAnimationController;
+  // 1. 选中 (按钮主体) 控制器：只用于选中时的圆角和选中背景色
+  late AnimationController _selectAnimationController; // 改名以更清晰
   late Animation<double> _borderRadiusAnimation;
   late Animation<Color?> _selectColorAnimation;
+
+  // 2. 悬停 (颜色) 控制器：只用于鼠标悬停时的背景色平滑过渡
+  late AnimationController _hoverColorAnimationController; // 新增控制器
   late Animation<Color?> _hoverColorAnimation;
 
-  // 2. 指示器 (圆点/长条) 专用控制器
+  // 3. 指示器 (圆点/长条) 专用控制器
   late AnimationController _indicatorAnimationController;
   late Animation<double> _indicatorHeightAnimation;
   late Animation<double> _indicatorRadiusAnimation;
@@ -244,13 +247,19 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
   void initState() {
     super.initState();
 
-    // 初始化按钮主体动画控制器 (用于悬停和选中时的圆角/背景色)
-    _buttonAnimationController = AnimationController(
+    // 1. 选中动画控制器 (用于圆角和选中背景色)
+    _selectAnimationController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
 
-    // 初始化指示器动画控制器 (只用于选中时的圆点/长条动画)
+    // 2. 悬停颜色动画控制器 (用于悬停背景色过渡)
+    _hoverColorAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 200), // 与选中动画相同的时长
+      vsync: this,
+    );
+
+    // 3. 指示器动画控制器 (用于选中指示器)
     _indicatorAnimationController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
@@ -260,7 +269,7 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
 
     // 确保初始选中状态正确设置控制器值
     if (widget.isSelected) {
-      _buttonAnimationController.value = 1.0;
+      _selectAnimationController.value = 1.0;
       _indicatorAnimationController.value = 1.0;
     }
   }
@@ -272,66 +281,65 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
     if (oldWidget.selectedColor != widget.selectedColor ||
         oldWidget.iconBackgroundColor != widget.iconBackgroundColor ||
         oldWidget.selectedBorderRadius != widget.selectedBorderRadius ||
-        oldWidget.hoverColor != widget.hoverColor ||
-        oldWidget.disableHoverEffect != widget.disableHoverEffect) {
+        oldWidget.hoverColor != widget.hoverColor || // 悬停颜色变化也需要更新动画
+        oldWidget.indicatorColor != widget.indicatorColor) {
       _updateAnimations();
     }
 
-    // 处理选中状态的变化 (驱动两个控制器)
+    // 处理选中状态的变化 (驱动选中控制器和指示器控制器)
     if (oldWidget.isSelected != widget.isSelected) {
       if (widget.isSelected) {
         // 选中: 两个动画向前
-        _buttonAnimationController.forward();
+        _selectAnimationController.forward();
         _indicatorAnimationController.forward();
+        // 确保悬停动画停止并重置，避免冲突
+        _hoverColorAnimationController.value = 0.0;
       } else {
         // 取消选中: 两个动画反转
-        _buttonAnimationController.reverse();
+        _selectAnimationController.reverse();
         _indicatorAnimationController.reverse();
       }
     }
   }
 
   void _updateAnimations() {
-    final double endRadius = widget.disableHoverEffect
-        ? fullCircleRadius
-        : widget.selectedBorderRadius;
-
-    // 按钮主体动画
-    // 按钮圆角动画
+    // 1. 选中/圆角动画 (保持不变，begin/end 都是固定的)
     _borderRadiusAnimation =
-        Tween<double>(begin: fullCircleRadius, end: endRadius).animate(
+        Tween<double>(
+          begin: fullCircleRadius,
+          end: widget.selectedBorderRadius,
+        ).animate(
           CurvedAnimation(
-            parent: _buttonAnimationController,
+            parent: _selectAnimationController,
             curve: Curves.easeInOut,
           ),
         );
 
-    // 按钮背景色动画 (选中)
+    // 选中背景色动画
     _selectColorAnimation =
         ColorTween(
           begin: widget.iconBackgroundColor,
           end: widget.selectedColor,
         ).animate(
           CurvedAnimation(
-            parent: _buttonAnimationController,
+            parent: _selectAnimationController,
             curve: Curves.easeInOut,
           ),
         );
 
-    // 按钮背景色动画 (悬停)
+    // 2. 悬停背景色动画 (新增)
     _hoverColorAnimation =
         ColorTween(
           begin: widget.iconBackgroundColor,
           end: widget.hoverColor,
         ).animate(
           CurvedAnimation(
-            parent: _buttonAnimationController,
+            parent: _hoverColorAnimationController,
             curve: Curves.easeInOut,
           ),
         );
 
-    // 指示器动画
-    // 指示器高度动画
+    // 3. 指示器动画 (保持不变)
     _indicatorHeightAnimation =
         Tween<double>(
           begin: indicatorMinDiameter,
@@ -343,7 +351,6 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
           ),
         );
 
-    // 指示器半径动画
     _indicatorRadiusAnimation =
         Tween<double>(
           begin: indicatorMinDiameter / 2,
@@ -356,24 +363,28 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
         );
   }
 
-  // 鼠标悬停时只驱动按钮主体动画控制器
+  // 鼠标悬停时只驱动悬停颜色控制器
   void _handleHover(bool isHovered) {
     if (widget.isSelected) return; // 选中时不响应悬停
 
+    // 修复点：移除对 disableHoverEffect 的返回判断。
+    // 悬停颜色动画是独立的，即使禁用其他悬停视觉效果（如指示器），颜色动画仍应工作。
+    // 只有当 isSelected 为 true 时，才不响应悬停。
+
     if (isHovered) {
-      if (widget.disableHoverEffect) return;
-      // 悬停时：只驱动按钮主体动画
-      _buttonAnimationController.forward();
+      // 悬停时：驱动悬停颜色动画向前
+      _hoverColorAnimationController.forward();
     } else {
-      // 离开时：只驱动按钮主体动画反转
-      _buttonAnimationController.reverse();
+      // 离开时：驱动悬停颜色动画反转
+      _hoverColorAnimationController.reverse();
     }
   }
 
   @override
   void dispose() {
-    _buttonAnimationController.dispose();
-    _indicatorAnimationController.dispose(); // 释放新控制器
+    _selectAnimationController.dispose();
+    _hoverColorAnimationController.dispose(); // 释放新控制器
+    _indicatorAnimationController.dispose();
     super.dispose();
   }
 
@@ -390,11 +401,10 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
         child: Stack(
           alignment: Alignment.centerLeft,
           children: [
-            // 指示器 (小白点/侧边线) - 浮动在最左侧
+            // 指示器 (小白点/侧边线) - 保持不变
             Positioned(
               left: indicatorLeftOffset,
               child: AnimatedBuilder(
-                // 使用指示器专用控制器
                 animation: _indicatorAnimationController,
                 builder: (context, child) {
                   final double currentIndicatorHeight =
@@ -402,14 +412,15 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
                   final double currentBorderRadius =
                       _indicatorRadiusAnimation.value;
 
-                  // 禁用悬停效果的按钮 (如“添加”)，在未选中且动画静止时隐藏
+                  // 只有当 disableHoverEffect 为 false 或者 按钮被选中时，指示器才应该有机会显示
+                  // 这里的逻辑保持不变，因为它依赖于 _indicatorAnimationController 的值
                   if (widget.disableHoverEffect &&
                       _indicatorAnimationController.value < 0.01) {
                     return const SizedBox.shrink();
                   }
 
                   return Container(
-                    width: indicatorMaxWidth, // 始终为 5.0
+                    width: indicatorMaxWidth,
                     height: currentIndicatorHeight,
                     decoration: BoxDecoration(
                       color: widget.indicatorColor,
@@ -425,41 +436,52 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
               width: buttonSize, // 45.0
               height: buttonSize, // 45.0
               margin: const EdgeInsets.only(left: buttonLeftOffset),
+              // 使用两个 AnimatedBuilder 来监听两个独立的动画控制器
               child: AnimatedBuilder(
-                // 使用按钮主体控制器
-                animation: _buttonAnimationController,
+                // 监听选中控制器 (用于圆角)
+                animation: _selectAnimationController,
                 builder: (context, child) {
                   final double currentRadius = _borderRadiusAnimation.value;
 
-                  final Color? buttonColor;
-                  if (widget.isSelected) {
-                    // 选中时，使用选中颜色动画
-                    buttonColor = _selectColorAnimation.value;
-                  } else {
-                    // 未选中时，使用悬停颜色动画
-                    buttonColor = _hoverColorAnimation.value;
-                  }
+                  // 嵌套一个 AnimatedBuilder 监听悬停颜色控制器
+                  return AnimatedBuilder(
+                    animation: _hoverColorAnimationController,
+                    builder: (context, child) {
+                      final Color? buttonColor;
+                      if (widget.isSelected) {
+                        // 选中时，颜色由 _selectColorAnimation 控制
+                        buttonColor = _selectColorAnimation.value;
+                      } else {
+                        // 未选中时，颜色由 _hoverColorAnimation 控制
+                        // 它会从 begin (iconBackgroundColor) 过渡到 end (hoverColor)
+                        buttonColor = _hoverColorAnimation.value;
+                      }
 
-                  return Material(
-                    color: buttonColor,
-                    borderRadius: BorderRadius.circular(currentRadius),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(currentRadius),
-                      onTap: widget.onPressed,
-                      highlightColor: widget.highlightColor,
-                      splashColor: widget.splashColor,
-                      child: Center(
-                        child: Icon(
-                          widget.icon,
-                          size: widget.iconSize,
-                          color: widget.iconColor,
-                          weight: widget.iconWeight,
-                          grade: widget.grade,
-                          opticalSize: widget.opticalSize,
-                          fill: 1.0,
+                      return Material(
+                        color: buttonColor,
+                        // 只有 _selectAnimationController 驱动 currentRadius，
+                        // 非选中时 currentRadius 接近 fullCircleRadius，实现了圆角只在选中时变化。
+                        borderRadius: BorderRadius.circular(currentRadius),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(currentRadius),
+                          onTap: widget.onPressed,
+                          highlightColor: widget.highlightColor,
+                          splashColor: widget.splashColor,
+                          child: Center(
+                            child: Icon(
+                              widget.icon,
+                              size: widget.iconSize,
+                              color: widget.iconColor,
+                              weight: widget.iconWeight,
+                              grade: widget.grade,
+                              opticalSize: widget.opticalSize,
+                              fill: 1.0,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
+                    child: child,
                   );
                 },
               ),
@@ -481,11 +503,11 @@ class HomePageContent extends StatelessWidget {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final theme = themeProvider.themeData;
 
-    // 使用 ClipRRect 确保 SplitView 遵循外部 Container 的圆角
+    // 使用 ClipRRect 确保 SplitViewTemplate 遵循外部 Container 的圆角
     return ClipRRect(
       borderRadius: const BorderRadius.only(topLeft: Radius.circular(10)),
       // 使用自定义的可拖动分界线视图
-      child: SplitView(
+      child: SplitViewTemplate(
         leftColor: theme.secondary,
         rightColor: theme.tertiary,
         // 左边内容
@@ -516,8 +538,8 @@ class HomePageContent extends StatelessWidget {
 }
 
 // 可拖动的分界线组件
-class SplitView extends StatefulWidget {
-  const SplitView({
+class SplitViewTemplate extends StatefulWidget {
+  const SplitViewTemplate({
     super.key,
     required this.leftWidget,
     required this.rightWidget,
@@ -534,10 +556,10 @@ class SplitView extends StatefulWidget {
   final double initialWidth; // 初始左侧面板的绝对宽度
 
   @override
-  State<SplitView> createState() => _SplitViewState();
+  State<SplitViewTemplate> createState() => _SplitViewTemplateState();
 }
 
-class _SplitViewState extends State<SplitView> {
+class _SplitViewTemplateState extends State<SplitViewTemplate> {
   // 存储左侧面板的绝对宽度
   late double _leftPanelWidth;
 
