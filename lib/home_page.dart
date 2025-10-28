@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import 'theme.dart'; // 假设你有一个 theme.dart 文件
+import 'theme.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -26,6 +26,8 @@ class HomePageState extends State<HomePage> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final theme = themeProvider.themeData;
 
+    // 为了让 Expanded 工作，外部需要一个 Row 或 Column
+    // 假设这个 HomePage 是某个更大的 Widget 的 child
     return Expanded(
       child: Row(
         children: [
@@ -41,20 +43,7 @@ class HomePageState extends State<HomePage> {
                   topLeft: Radius.circular(10),
                 ),
               ),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // 主内容区域
-                  Padding(
-                    padding: EdgeInsets.all(20.0),
-                    child: Text(
-                      '主内容区域',
-                      style: TextStyle(color: Colors.white70, fontSize: 30),
-                    ),
-                  ),
-                ],
-              ),
+              child: _buildCurrentPage(context),
             ),
           ),
         ],
@@ -63,6 +52,7 @@ class HomePageState extends State<HomePage> {
   }
 
   Widget _buildLeftSidebar(BuildContext context) {
+    // 使用 listen: false 因为只需要获取主题数据，不需要在主题变化时重建侧边栏
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final theme = themeProvider.themeData;
 
@@ -161,6 +151,22 @@ class HomePageState extends State<HomePage> {
       ),
     );
   }
+
+  Widget _buildCurrentPage(BuildContext context) {
+    // 0 是主页
+    if (_selectedIndex == 0) {
+      return const HomePageContent();
+    }
+    // 1 到 10 是板子页
+    else if (_selectedIndex >= 1 && _selectedIndex <= 10) {
+      // 传递板子的索引
+      return BoardPageContent(boardIndex: _selectedIndex);
+    }
+    // 其他值（如 -1 或超出范围）
+    else {
+      return const Center(child: Text('页面未找到'));
+    }
+  }
 }
 
 class SidebarButtonTemplate extends StatefulWidget {
@@ -224,12 +230,12 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
   static const double fullCircleRadius = buttonSize / 2;
 
   // 指示器尺寸常量
-  static const double indicatorMaxWidth = 5.0; // 侧边线宽度
-  static const double indicatorMinDiameter = 5.0; // 小白点直径
+  static const double indicatorMaxWidth = 7.0; // 侧边线宽度
+  static const double indicatorMinDiameter = 7.0; // 小白点直径
   static const double indicatorMaxHeight = buttonSize - 2 * 5.0; // 侧边线高度 (35.0)
 
   // 指示器负偏移，保持紧贴左侧边缘（半隐藏）
-  static const double indicatorLeftOffset = -1.5;
+  static const double indicatorLeftOffset = -2.8;
 
   // 定义按钮主体向右偏移的距离
   static const double buttonLeftOffset = 10.0;
@@ -290,8 +296,7 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
         ? fullCircleRadius
         : widget.selectedBorderRadius;
 
-    // --- 按钮主体动画 (由 _buttonAnimationController 驱动) ---
-
+    // 按钮主体动画
     // 按钮圆角动画
     _borderRadiusAnimation =
         Tween<double>(begin: fullCircleRadius, end: endRadius).animate(
@@ -325,8 +330,7 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
           ),
         );
 
-    // --- 指示器动画 (由 _indicatorAnimationController 驱动) ---
-
+    // 指示器动画
     // 指示器高度动画
     _indicatorHeightAnimation =
         Tween<double>(
@@ -386,11 +390,11 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
         child: Stack(
           alignment: Alignment.centerLeft,
           children: [
-            // 1. 指示器 (小白点/侧边线) - 浮动在最左侧
+            // 指示器 (小白点/侧边线) - 浮动在最左侧
             Positioned(
               left: indicatorLeftOffset,
               child: AnimatedBuilder(
-                // **使用指示器专用控制器**
+                // 使用指示器专用控制器
                 animation: _indicatorAnimationController,
                 builder: (context, child) {
                   final double currentIndicatorHeight =
@@ -416,13 +420,13 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
               ),
             ),
 
-            // 2. 按钮本体 - 向右偏移
+            // 按钮本体 - 向右偏移
             Container(
               width: buttonSize, // 45.0
               height: buttonSize, // 45.0
               margin: const EdgeInsets.only(left: buttonLeftOffset),
               child: AnimatedBuilder(
-                // **使用按钮主体控制器**
+                // 使用按钮主体控制器
                 animation: _buttonAnimationController,
                 builder: (context, child) {
                   final double currentRadius = _borderRadiusAnimation.value;
@@ -462,6 +466,37 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// 主页内容
+class HomePageContent extends StatelessWidget {
+  const HomePageContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text(
+        '欢迎来到主页！ (Selected Index: 0)',
+        style: TextStyle(fontSize: 24, color: Colors.white),
+      ),
+    );
+  }
+}
+
+// 板子内容
+class BoardPageContent extends StatelessWidget {
+  final int boardIndex;
+  const BoardPageContent({super.key, required this.boardIndex});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        '这是 板子 $boardIndex 的内容 (Selected Index: $boardIndex)',
+        style: const TextStyle(fontSize: 24, color: Colors.white),
       ),
     );
   }

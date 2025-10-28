@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-10-28 15:20:41
+ * @LastEditTime: 2025-10-28 15:30:37
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -93,7 +93,7 @@ class ThemeProvider with ChangeNotifier {
       sidebarIconHighlightColor: const Color.fromARGB(100, 100, 100, 100),
       sidebarIconSplashColor: const Color.fromARGB(100, 150, 150, 150),
       sidebarIndicatorColor: const Color.fromARGB(255, 200, 200, 200),
-      dividerColor: Colors.white,
+      dividerColor: const Color.fromARGB(255, 190, 190, 190),
     ),
     ThemeType.light: AppTheme(
       type: ThemeType.light,
