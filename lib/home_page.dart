@@ -95,7 +95,7 @@ class HomePageState extends State<HomePage> {
 
           // 分隔线
           Container(
-            height: 2,
+            height: 1.5,
             margin: const EdgeInsets.symmetric(horizontal: 15),
             color: theme.dividerColor,
           ),
