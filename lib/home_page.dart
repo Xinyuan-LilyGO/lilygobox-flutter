@@ -8,10 +8,10 @@ class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<HomePage> createState() => HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class HomePageState extends State<HomePage> {
   // 0: home, 1-10: boards, -1: add button (never selected)
   int _selectedIndex = 0;
 
@@ -23,8 +23,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // 监听主题变化
-    final themeProvider = Provider.of<ThemeProvider>(context);
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final theme = themeProvider.themeData;
 
     return Expanded(
@@ -43,7 +42,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               child: const Column(
-                // 移除不必要的 const
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -61,7 +59,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildLeftSidebar(BuildContext context) {
-    // 侧边栏构建时，不监听主题变化，只获取一次数据。
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final theme = themeProvider.themeData;
 
@@ -97,7 +94,7 @@ class _HomePageState extends State<HomePage> {
             splashColor: theme.sidebarIconSplashColor,
             isSelected: _selectedIndex == 0,
             selectedColor: theme.sidebarSelectedIconColor,
-            // ************ 新增 hoverColor 传递 ************
+            // 保持常规悬停颜色和效果
             hoverColor: theme.sidebarHoverIconColor,
           ),
 
@@ -129,7 +126,7 @@ class _HomePageState extends State<HomePage> {
                   splashColor: theme.sidebarIconSplashColor,
                   isSelected: _selectedIndex == boardIndex,
                   selectedColor: theme.sidebarSelectedIconColor,
-                  // ************ 新增 hoverColor 传递 ************
+                  // 保持常规悬停颜色和效果
                   hoverColor: theme.sidebarHoverIconColor,
                 );
               },
@@ -149,7 +146,9 @@ class _HomePageState extends State<HomePage> {
             splashColor: theme.sidebarIconSplashColor,
             isSelected: false, // 明确设置为不选中
             selectedColor: theme.sidebarSelectedIconColor,
-            // ************ 新增 hoverColor 传递 ************
+            // 禁用悬停圆角变化
+            disableHoverEffect: true,
+            // 悬停时变亮，使用主题的悬停色
             hoverColor: theme.sidebarHoverIconColor,
           ),
 
@@ -174,8 +173,10 @@ class SidebarButtonTemplate extends StatefulWidget {
     // 新增选中相关参数
     this.isSelected = false,
     this.selectedBorderRadius = 15.0,
-    // ************ 新增 hoverColor 参数 ************
+    // 作为悬停颜色
     this.hoverColor = Colors.grey,
+    // 禁用圆角变化
+    this.disableHoverEffect = false,
 
     this.iconSize = 24,
     this.iconWeight = 600.0,
@@ -191,15 +192,15 @@ class SidebarButtonTemplate extends StatefulWidget {
   final double opticalSize;
   final Color iconColor;
   final Color iconBackgroundColor;
-  final Color highlightColor;
+  final Color highlightColor; // 点击按住时的颜色
   final Color splashColor;
 
   // 选中状态相关属性
   final bool isSelected;
   final Color selectedColor;
   final double selectedBorderRadius;
-  // ************ 新增 hoverColor 属性 ************
   final Color hoverColor;
+  final bool disableHoverEffect;
 
   @override
   State<SidebarButtonTemplate> createState() => _SidebarButtonTemplateState();
@@ -213,10 +214,9 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
   late Animation<Color?> _selectColorAnimation;
   late Animation<Color?> _hoverColorAnimation;
 
-  // **修改点 1: 按钮的尺寸改为 45.0**
   static const double buttonSize = 45.0;
-  // **修改点 2: 对应的圆形圆角半径 (45 / 2 = 22.5)**
-  static const double fullCircleRadius = buttonSize / 2; // 22.5
+  // 对应的圆形圆角半径 (45 / 2 = 22.5)
+  static const double fullCircleRadius = buttonSize / 2;
 
   @override
   void initState() {
@@ -242,8 +242,8 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
     if (oldWidget.selectedColor != widget.selectedColor ||
         oldWidget.iconBackgroundColor != widget.iconBackgroundColor ||
         oldWidget.selectedBorderRadius != widget.selectedBorderRadius ||
-        // ************ 新增判断 hoverColor 是否改变 ************
-        oldWidget.hoverColor != widget.hoverColor) {
+        oldWidget.hoverColor != widget.hoverColor ||
+        oldWidget.disableHoverEffect != widget.disableHoverEffect) {
       _updateAnimations();
     }
 
@@ -251,7 +251,6 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
     if (oldWidget.isSelected != widget.isSelected) {
       if (widget.isSelected) {
         // 从未选中动画到选中
-        // 注意：这里我们让动画运行到 1.0，这会同时影响圆角和颜色（如果是选中状态）。
         _animationController.forward(from: _animationController.value);
       } else {
         // 从选中动画到未选中
@@ -261,10 +260,17 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
   }
 
   void _updateAnimations() {
+    // 圆角动画的终点逻辑
+    // 如果禁用悬停效果 (用于加号按钮)，圆角动画的终点是圆形
+    final double endRadius = widget.disableHoverEffect
+        ? fullCircleRadius
+        : widget.selectedBorderRadius;
+
+    // 控制按钮的圆角半径
     _borderRadiusAnimation =
         Tween<double>(
           begin: fullCircleRadius, // 圆形 (22.5)
-          end: widget.selectedBorderRadius, // 选中/悬停时的圆角 (15.0)
+          end: endRadius, // 悬停或选中时的圆角 (15.0) 或保持圆形 (22.5)
         ).animate(
           CurvedAnimation(
             parent: _animationController,
@@ -272,12 +278,15 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
           ),
         );
 
-    // ************ 新增悬停颜色动画 ************
-    // 这个动画专门用于“未选中”时的悬停效果：iconBackgroundColor -> hoverColor
+    // ************ 悬停颜色动画的目标色逻辑 ************
+    // 使用传入的 hoverColor 作为目标色（对于加号按钮，它现在是一个亮色）
+    final Color hoverTargetColor = widget.hoverColor;
+
+    // 控制按钮从默认背景色变到悬停颜色（或加号按钮的亮色）
     _hoverColorAnimation =
         ColorTween(
           begin: widget.iconBackgroundColor,
-          end: widget.hoverColor,
+          end: hoverTargetColor,
         ).animate(
           CurvedAnimation(
             parent: _animationController,
@@ -285,8 +294,7 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
           ),
         );
 
-    // ************ 选中颜色动画（保持原始逻辑） ************
-    // 这个动画用于“选中”状态时的颜色：iconBackgroundColor -> selectedColor
+    // 控制按钮从默认背景色变到选中颜色
     _selectColorAnimation =
         ColorTween(
           begin: widget.iconBackgroundColor,
@@ -303,7 +311,7 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
     // 如果按钮已经被选中，不响应悬停效果
     if (widget.isSelected) return;
 
-    // 未选中时，响应悬停来驱动圆角和悬停颜色动画
+    // 如果处于未选中状态，响应悬停来驱动圆角和悬停颜色动画
     if (isHovered) {
       _animationController.forward();
     } else {
@@ -339,13 +347,12 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
             // 根据动画值确定圆角
             final double currentRadius = _borderRadiusAnimation.value;
 
-            // ****************** 关键修改点: 背景颜色逻辑 ******************
             final Color? buttonColor;
             if (widget.isSelected) {
-              // 选中状态：使用 selectColorAnimation（过渡到 selectedColor）
+              // 选中状态：使用 selectColorAnimation
               buttonColor = _selectColorAnimation.value;
             } else {
-              // 未选中状态：使用 hoverColorAnimation（过渡到 hoverColor）
+              // 未选中状态：使用 hoverColorAnimation (加号按钮会变亮)
               buttonColor = _hoverColorAnimation.value;
             }
 

@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-10-28 00:07:12
+ * @LastEditTime: 2025-10-28 10:01:19
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -104,8 +104,8 @@ class ThemeProvider with ChangeNotifier {
       iconColor: Colors.black,
       inactiveIconColor: Colors.grey,
       sidebarIconColor: const Color.fromARGB(255, 40, 40, 40),
-      sidebarSelectedIconColor: const Color.fromARGB(255, 185, 185, 185),
-      sidebarHoverIconColor: const Color.fromARGB(255, 70, 70, 70),
+      sidebarSelectedIconColor: const Color.fromARGB(255, 198, 186, 255),
+      sidebarHoverIconColor: const Color.fromARGB(255, 185, 185, 185),
       sidebarIconBackgroundColor: const Color.fromARGB(255, 200, 200, 200),
       sidebarIconHighlightColor: const Color.fromARGB(100, 155, 155, 155),
       sidebarIconSplashColor: const Color.fromARGB(100, 105, 105, 105),
