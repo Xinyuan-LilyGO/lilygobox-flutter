@@ -303,7 +303,7 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
   }
 
   void _updateAnimations() {
-    // 1. 选中/圆角动画 (保持不变，begin/end 都是固定的)
+    // 选中/圆角动画 (保持不变，begin/end 都是固定的)
     _borderRadiusAnimation =
         Tween<double>(
           begin: fullCircleRadius,
@@ -327,7 +327,7 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
           ),
         );
 
-    // 2. 悬停背景色动画 (新增)
+    // 悬停背景色动画 (新增)
     _hoverColorAnimation =
         ColorTween(
           begin: widget.iconBackgroundColor,
@@ -339,7 +339,7 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
           ),
         );
 
-    // 3. 指示器动画 (保持不变)
+    // 指示器动画 (保持不变)
     _indicatorHeightAnimation =
         Tween<double>(
           begin: indicatorMinDiameter,
