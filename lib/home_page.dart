@@ -105,7 +105,7 @@ class HomePageState extends State<HomePage> {
             color: theme.dividerColor?.withOpacity(0.3) ?? Colors.grey.shade600,
           ),
 
-          // ****************** 修改点：在分隔线和列表之间添加间距 ******************
+          //间距
           const SizedBox(height: 10),
 
           // 可滚动的板子列表
@@ -152,6 +152,7 @@ class HomePageState extends State<HomePage> {
             hoverColor: theme.sidebarHoverIconColor,
           ),
 
+          //间距
           const SizedBox(height: 10),
         ],
       ),
@@ -260,7 +261,6 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
   }
 
   void _updateAnimations() {
-    // 圆角动画的终点逻辑
     // 如果禁用悬停效果 (用于加号按钮)，圆角动画的终点是圆形
     final double endRadius = widget.disableHoverEffect
         ? fullCircleRadius
@@ -278,7 +278,6 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
           ),
         );
 
-    // ************ 悬停颜色动画的目标色逻辑 ************
     // 使用传入的 hoverColor 作为目标色（对于加号按钮，它现在是一个亮色）
     final Color hoverTargetColor = widget.hoverColor;
 
@@ -327,7 +326,7 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
 
   @override
   Widget build(BuildContext context) {
-    // **修改点 3: 调整 margin 以适配 45x45 尺寸 (60 - 45 = 15, 15 / 2 = 7.5)**
+    // 调整 margin 以适配 45x45 尺寸 (60 - 45 = 15, 15 / 2 = 7.5)
     const double horizontalMargin = 7.5;
 
     return MouseRegion(
