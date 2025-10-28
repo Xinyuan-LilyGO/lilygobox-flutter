@@ -95,7 +95,7 @@ class HomePageState extends State<HomePage> {
             hoverColor: theme.sidebarHoverIconColor,
           ),
 
-                    //间距
+          //间距
           const SizedBox(height: 5),
 
           // 分隔线
@@ -168,12 +168,10 @@ class SidebarButtonTemplate extends StatefulWidget {
     required this.highlightColor,
     required this.splashColor,
     required this.selectedColor,
-
     this.isSelected = false,
     this.selectedBorderRadius = 15.0,
     this.hoverColor = Colors.grey,
     this.disableHoverEffect = false,
-
     this.iconSize = 24,
     this.iconWeight = 600.0,
     this.grade = -25.0,
@@ -190,7 +188,6 @@ class SidebarButtonTemplate extends StatefulWidget {
   final Color iconBackgroundColor;
   final Color highlightColor;
   final Color splashColor;
-
   final bool isSelected;
   final Color selectedColor;
   final double selectedBorderRadius;
@@ -217,14 +214,13 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
 
   // 指示器尺寸常量
   static const double indicatorMaxWidth = 5.0; // 侧边线宽度
-  // 核心优化 1：将小白点的直径改为 5.0，与侧边线宽度一致，解决不对齐的视觉问题
-  static const double indicatorMinDiameter = 5.0;
+  static const double indicatorMinDiameter = 5.0; // 小白点直径
   static const double indicatorMaxHeight = buttonSize - 2 * 5.0; // 侧边线高度 (35.0)
 
-  // 核心优化 2：指示器负偏移，保持紧贴左侧边缘（半隐藏）
+  // 指示器负偏移，保持紧贴左侧边缘（半隐藏）
   static const double indicatorLeftOffset = -1.5;
 
-  // 核心优化 3：定义按钮主体向右偏移的距离
+  // 定义按钮主体向右偏移的距离
   static const double buttonLeftOffset = 10.0;
 
   @override
@@ -279,6 +275,7 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
 
     final Color hoverTargetColor = widget.hoverColor;
 
+    // **保留悬停动画**，用于按钮背景色的变化，但它不再影响指示器。
     _hoverColorAnimation =
         ColorTween(
           begin: widget.iconBackgroundColor,
@@ -301,10 +298,11 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
           ),
         );
 
+    // 核心修改：高度动画的终点为最大高度
     _indicatorHeightAnimation =
         Tween<double>(
-          begin: indicatorMinDiameter, // 5.0
-          end: indicatorMaxHeight, // 35.0
+          begin: indicatorMinDiameter, // 5.0 - 永远从小圆点开始
+          end: indicatorMaxHeight, // 35.0 - 侧边线高度
         ).animate(
           CurvedAnimation(
             parent: _animationController,
@@ -312,10 +310,10 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
           ),
         );
 
-    // 核心优化 4：起始半径为 2.5
+    // 核心修改：半径动画的终点为 2.5
     _indicatorRadiusAnimation =
         Tween<double>(
-          begin: indicatorMinDiameter / 2,
+          begin: indicatorMinDiameter / 2, // 2.5
           end: indicatorMaxWidth / 2, // 2.5
         ).animate(
           CurvedAnimation(
@@ -331,6 +329,7 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
     if (isHovered) {
       // 禁用悬停效果的按钮不执行 forward
       if (widget.disableHoverEffect) return;
+      // **悬停只影响按钮本身的背景色**，通过 _animationController 驱动
       _animationController.forward();
     } else {
       _animationController.reverse();
@@ -345,62 +344,48 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
 
   @override
   Widget build(BuildContext context) {
-    // 整个父级 Container 仍然保持 65 宽度
     return MouseRegion(
       onEnter: (_) => _handleHover(true),
       onExit: (_) => _handleHover(false),
       cursor: SystemMouseCursors.click,
-      // **重要：移除 GestureDetector，恢复 InkWell 的 onTap**
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 5),
         width: 65,
         height: buttonSize, // 45.0
         child: Stack(
-          // **重要：使用左对齐**
           alignment: Alignment.centerLeft,
           children: [
             // 1. 指示器 (小白点/侧边线) - 浮动在最左侧
             Positioned(
-              // *** 负偏移，使其紧贴左侧边缘（半隐藏） ***
               left: indicatorLeftOffset,
               child: AnimatedBuilder(
                 animation: _animationController,
                 builder: (context, child) {
-                  final bool isHovered =
-                      _animationController.status != AnimationStatus.dismissed;
-                  Color indicatorColor = widget.selectedColor;
-
-                  // 只有在选中或悬停时才显示
-                  if (!widget.isSelected && !isHovered) {
-                    return const SizedBox.shrink(); // 隐藏指示器
-                  }
-
-                  // 禁用悬停效果的按钮，如果未选中，也不显示指示器
-                  if (!widget.isSelected && widget.disableHoverEffect) {
-                    return const SizedBox.shrink(); // 隐藏指示器
-                  }
-
+                  // **核心修改：指示器始终显示（不判断悬停）**
                   double currentIndicatorHeight;
-                  double currentIndicatorWidth;
+                  double currentIndicatorWidth = indicatorMaxWidth; // 始终为 5.0
                   double currentBorderRadius;
 
                   if (widget.isSelected) {
                     // 选中状态：从圆点动画到侧边线
                     currentIndicatorHeight = _indicatorHeightAnimation.value;
-                    currentIndicatorWidth = indicatorMaxWidth; // 5.0
                     currentBorderRadius = _indicatorRadiusAnimation.value;
                   } else {
-                    // 未选中但悬停状态：固定为 5.0x5.0 圆点
+                    // 未选中状态：固定为 5.0x5.0 的圆点
                     currentIndicatorHeight = indicatorMinDiameter; // 5.0
-                    currentIndicatorWidth = indicatorMaxWidth; // 5.0
-                    currentBorderRadius = indicatorMaxWidth / 2; // 2.5
+                    currentBorderRadius = indicatorMaxWidth / 2; // 2.5 (圆点半径)
+                  }
+
+                  // 禁用悬停效果的按钮，如果不选中，则不显示指示器
+                  if (!widget.isSelected && widget.disableHoverEffect) {
+                    return const SizedBox.shrink();
                   }
 
                   return Container(
                     width: currentIndicatorWidth,
                     height: currentIndicatorHeight,
                     decoration: BoxDecoration(
-                      color: indicatorColor,
+                      color: widget.selectedColor, // 颜色始终为 selectedColor
                       borderRadius: BorderRadius.circular(currentBorderRadius),
                     ),
                   );
@@ -412,7 +397,6 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
             Container(
               width: buttonSize, // 45.0
               height: buttonSize, // 45.0
-              // *** 使用左侧边距将按钮向右推开，与指示器分离 ***
               margin: const EdgeInsets.only(left: buttonLeftOffset),
               child: AnimatedBuilder(
                 animation: _animationController,
@@ -423,6 +407,7 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
                   if (widget.isSelected) {
                     buttonColor = _selectColorAnimation.value;
                   } else {
+                    // 悬停动画仍然用于改变背景色
                     buttonColor = _hoverColorAnimation.value;
                   }
 
@@ -431,7 +416,6 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
                     borderRadius: BorderRadius.circular(currentRadius),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(currentRadius),
-                      // **核心修复：恢复 onTap**
                       onTap: widget.onPressed,
                       highlightColor: widget.highlightColor,
                       splashColor: widget.splashColor,
