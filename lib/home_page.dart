@@ -82,8 +82,8 @@ class _HomePageState extends State<HomePage> {
             },
             iconColor: theme.sidebarIconColor,
             iconBackgroundColor: theme.sidebarIconBackgroundColor,
-            highlightColor: theme.sidebarIconHighlightColor,
-            splashColor: theme.sidebarIconSplashColor,
+            highlightColor: Colors.transparent,
+            splashColor: Colors.transparent,
             isSelected: _selectedIndex == 0,
             selectedColor: theme.sidebarSelectedIconColor,
             hoverColor: theme.sidebarHoverIconColor,
@@ -117,8 +117,8 @@ class _HomePageState extends State<HomePage> {
                   },
                   iconColor: theme.sidebarIconColor,
                   iconBackgroundColor: theme.sidebarIconBackgroundColor,
-                  highlightColor: theme.sidebarIconHighlightColor,
-                  splashColor: theme.sidebarIconSplashColor,
+                  highlightColor: Colors.transparent,
+                  splashColor: Colors.transparent,
                   isSelected: _selectedIndex == boardIndex,
                   selectedColor: theme.sidebarSelectedIconColor,
                   hoverColor: theme.sidebarHoverIconColor,
@@ -203,7 +203,7 @@ class SidebarButtonTemplate extends StatefulWidget {
   final bool isSelected;
   final Color selectedColor;
   final double selectedBorderRadius;
-  final Color hoverColor;
+  final Color hoverColor; // 悬停颜色，现在将作为内发光的颜色
   final bool disableHoverEffect;
   final Color indicatorColor;
 
@@ -213,16 +213,13 @@ class SidebarButtonTemplate extends StatefulWidget {
 
 class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
     with TickerProviderStateMixin {
-  // 更改为 TickerProviderStateMixin 支持多个控制器
-
-  // 1. 选中 (按钮主体) 控制器：只用于选中时的圆角和选中背景色
-  late AnimationController _selectAnimationController; // 改名以更清晰
+  // 1. 选中 (按钮主体) 控制器
+  late AnimationController _selectAnimationController;
   late Animation<double> _borderRadiusAnimation;
   late Animation<Color?> _selectColorAnimation;
 
-  // 2. 悬停 (颜色) 控制器：只用于鼠标悬停时的背景色平滑过渡
-  late AnimationController _hoverColorAnimationController; // 新增控制器
-  late Animation<Color?> _hoverColorAnimation;
+  // 新增：悬停状态 (取代悬停颜色控制器)
+  bool _isHovered = false;
 
   // 3. 指示器 (圆点/长条) 专用控制器
   late AnimationController _indicatorAnimationController;
@@ -253,12 +250,6 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
       vsync: this,
     );
 
-    // 2. 悬停颜色动画控制器 (用于悬停背景色过渡)
-    _hoverColorAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 200), // 与选中动画相同的时长
-      vsync: this,
-    );
-
     // 3. 指示器动画控制器 (用于选中指示器)
     _indicatorAnimationController = AnimationController(
       duration: const Duration(milliseconds: 200),
@@ -281,7 +272,6 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
     if (oldWidget.selectedColor != widget.selectedColor ||
         oldWidget.iconBackgroundColor != widget.iconBackgroundColor ||
         oldWidget.selectedBorderRadius != widget.selectedBorderRadius ||
-        oldWidget.hoverColor != widget.hoverColor || // 悬停颜色变化也需要更新动画
         oldWidget.indicatorColor != widget.indicatorColor) {
       _updateAnimations();
     }
@@ -292,8 +282,10 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
         // 选中: 两个动画向前
         _selectAnimationController.forward();
         _indicatorAnimationController.forward();
-        // 确保悬停动画停止并重置，避免冲突
-        _hoverColorAnimationController.value = 0.0;
+        // 选中时取消悬停状态，确保内发光消失
+        setState(() {
+          _isHovered = false;
+        });
       } else {
         // 取消选中: 两个动画反转
         _selectAnimationController.reverse();
@@ -303,7 +295,7 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
   }
 
   void _updateAnimations() {
-    // 选中/圆角动画 (保持不变，begin/end 都是固定的)
+    // 选中/圆角动画
     _borderRadiusAnimation =
         Tween<double>(
           begin: fullCircleRadius,
@@ -327,19 +319,7 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
           ),
         );
 
-    // 悬停背景色动画 (新增)
-    _hoverColorAnimation =
-        ColorTween(
-          begin: widget.iconBackgroundColor,
-          end: widget.hoverColor,
-        ).animate(
-          CurvedAnimation(
-            parent: _hoverColorAnimationController,
-            curve: Curves.easeInOut,
-          ),
-        );
-
-    // 指示器动画 (保持不变)
+    // 指示器动画
     _indicatorHeightAnimation =
         Tween<double>(
           begin: indicatorMinDiameter,
@@ -363,27 +343,21 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
         );
   }
 
-  // 鼠标悬停时只驱动悬停颜色控制器
+  // 鼠标悬停时只更新 _isHovered 状态
   void _handleHover(bool isHovered) {
     if (widget.isSelected) return; // 选中时不响应悬停
 
-    // 修复点：移除对 disableHoverEffect 的返回判断。
-    // 悬停颜色动画是独立的，即使禁用其他悬停视觉效果（如指示器），颜色动画仍应工作。
-    // 只有当 isSelected 为 true 时，才不响应悬停。
-
-    if (isHovered) {
-      // 悬停时：驱动悬停颜色动画向前
-      _hoverColorAnimationController.forward();
-    } else {
-      // 离开时：驱动悬停颜色动画反转
-      _hoverColorAnimationController.reverse();
+    // 只有在非选中且未禁用悬停效果时才更新状态
+    if (!widget.isSelected && !widget.disableHoverEffect) {
+      setState(() {
+        _isHovered = isHovered;
+      });
     }
   }
 
   @override
   void dispose() {
     _selectAnimationController.dispose();
-    _hoverColorAnimationController.dispose(); // 释放新控制器
     _indicatorAnimationController.dispose();
     super.dispose();
   }
@@ -412,8 +386,6 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
                   final double currentBorderRadius =
                       _indicatorRadiusAnimation.value;
 
-                  // 只有当 disableHoverEffect 为 false 或者 按钮被选中时，指示器才应该有机会显示
-                  // 这里的逻辑保持不变，因为它依赖于 _indicatorAnimationController 的值
                   if (widget.disableHoverEffect &&
                       _indicatorAnimationController.value < 0.01) {
                     return const SizedBox.shrink();
@@ -436,52 +408,62 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
               width: buttonSize, // 45.0
               height: buttonSize, // 45.0
               margin: const EdgeInsets.only(left: buttonLeftOffset),
-              // 使用两个 AnimatedBuilder 来监听两个独立的动画控制器
               child: AnimatedBuilder(
-                // 监听选中控制器 (用于圆角)
                 animation: _selectAnimationController,
                 builder: (context, child) {
                   final double currentRadius = _borderRadiusAnimation.value;
+                  final Color? buttonColor = widget.isSelected
+                      ? _selectColorAnimation.value
+                      : widget.iconBackgroundColor;
 
-                  // 嵌套一个 AnimatedBuilder 监听悬停颜色控制器
-                  return AnimatedBuilder(
-                    animation: _hoverColorAnimationController,
-                    builder: (context, child) {
-                      final Color? buttonColor;
-                      if (widget.isSelected) {
-                        // 选中时，颜色由 _selectColorAnimation 控制
-                        buttonColor = _selectColorAnimation.value;
-                      } else {
-                        // 未选中时，颜色由 _hoverColorAnimation 控制
-                        // 它会从 begin (iconBackgroundColor) 过渡到 end (hoverColor)
-                        buttonColor = _hoverColorAnimation.value;
-                      }
-
-                      return Material(
-                        color: buttonColor,
-                        // 只有 _selectAnimationController 驱动 currentRadius，
-                        // 非选中时 currentRadius 接近 fullCircleRadius，实现了圆角只在选中时变化。
+                  // 使用 ClipRRect 裁剪按钮的所有子元素，包括内发光层
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(currentRadius),
+                    child: Material(
+                      color: buttonColor,
+                      // Material 上的 borderRadius 被 ClipRRect 取代，但为了 InkWell 仍然需要
+                      borderRadius: BorderRadius.circular(currentRadius),
+                      child: InkWell(
                         borderRadius: BorderRadius.circular(currentRadius),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(currentRadius),
-                          onTap: widget.onPressed,
-                          highlightColor: widget.highlightColor,
-                          splashColor: widget.splashColor,
-                          child: Center(
-                            child: Icon(
-                              widget.icon,
-                              size: widget.iconSize,
-                              color: widget.iconColor,
-                              weight: widget.iconWeight,
-                              grade: widget.grade,
-                              opticalSize: widget.opticalSize,
-                              fill: 1.0,
+                        onTap: widget.onPressed,
+                        highlightColor: widget.highlightColor,
+                        splashColor: widget.splashColor,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // 1. 内发光层 (新的悬停效果) - 现在被 ClipRRect 裁剪
+                            if (!widget.isSelected)
+                              AnimatedOpacity(
+                                opacity: _isHovered ? 1.0 : 0.0,
+                                duration: const Duration(milliseconds: 200),
+                                child: Container(
+                                  width: buttonSize,
+                                  height: buttonSize,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(
+                                      currentRadius,
+                                    ),
+                                    boxShadow: _buildBoxShadow(),
+                                  ),
+                                ),
+                              ),
+
+                            // 2. 图标本体 (覆盖在发光层之上)
+                            Center(
+                              child: Icon(
+                                widget.icon,
+                                size: widget.iconSize,
+                                color: widget.iconColor,
+                                weight: widget.iconWeight,
+                                grade: widget.grade,
+                                opticalSize: widget.opticalSize,
+                                fill: 1.0,
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                      );
-                    },
-                    child: child,
+                      ),
+                    ),
                   );
                 },
               ),
@@ -490,6 +472,38 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
         ),
       ),
     );
+  }
+
+  //按钮悬停发光阴影
+  // 专门的柔和阴影构建方法
+  List<BoxShadow> _buildBoxShadow() {
+    return [
+      BoxShadow(
+        color: widget.hoverColor.withValues(alpha: 0.5), // 阴影颜色和透明度：黑色，50%透明度
+        blurRadius: 17, // 模糊半径：阴影边缘模糊程度，值越大越模糊
+        spreadRadius: -15, // 扩散半径：负值让阴影向内收缩，消除硬边
+      ),
+      BoxShadow(
+        color: widget.hoverColor.withValues(alpha: 0.3),
+        blurRadius: 15,
+        spreadRadius: -13,
+      ),
+      BoxShadow(
+        color: widget.hoverColor.withValues(alpha: 0.2),
+        blurRadius: 14,
+        spreadRadius: -12,
+      ),
+      BoxShadow(
+        color: widget.hoverColor.withValues(alpha: 0.2),
+        blurRadius: 13,
+        spreadRadius: -11,
+      ),
+      BoxShadow(
+        color: widget.hoverColor.withValues(alpha: 0.2),
+        blurRadius: 12,
+        spreadRadius: -10,
+      ),
+    ];
   }
 }
 
