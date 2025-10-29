@@ -142,6 +142,7 @@ class _HomePageState extends State<HomePage> {
             selectedColor: theme.sidebarSelectedIconColor,
             disableHoverEffect: true,
             hoverColor: theme.sidebarHoverIconColor,
+            hoverColor2: theme.sidebarHoverIconColor2,
             indicatorColor: theme.sidebarIndicatorColor,
           ),
 
@@ -183,6 +184,7 @@ class SidebarButtonTemplate extends StatefulWidget {
     this.isSelected = false,
     this.selectedBorderRadius = 15.0,
     this.hoverColor = Colors.grey,
+    this.hoverColor2 = Colors.grey,
     this.disableHoverEffect = false,
     this.iconSize = 24,
     this.iconWeight = 600.0,
@@ -204,6 +206,7 @@ class SidebarButtonTemplate extends StatefulWidget {
   final Color selectedColor;
   final double selectedBorderRadius;
   final Color hoverColor; // 悬停颜色，现在将作为内发光的颜色
+  final Color hoverColor2;
   final bool disableHoverEffect;
   final Color indicatorColor;
 
@@ -343,12 +346,12 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
         );
   }
 
-  // 鼠标悬停时只更新 _isHovered 状态
+  // 修改：鼠标悬停时更新 _isHovered 状态的逻辑
   void _handleHover(bool isHovered) {
     if (widget.isSelected) return; // 选中时不响应悬停
 
-    // 只有在非选中且未禁用悬停效果时才更新状态
-    if (!widget.isSelected && !widget.disableHoverEffect) {
+    // 无论是否禁用悬停效果，只要未选中，就更新 _isHovered 状态
+    if (!widget.isSelected) {
       setState(() {
         _isHovered = isHovered;
       });
@@ -412,9 +415,19 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
                 animation: _selectAnimationController,
                 builder: (context, child) {
                   final double currentRadius = _borderRadiusAnimation.value;
-                  final Color? buttonColor = widget.isSelected
-                      ? _selectColorAnimation.value
-                      : widget.iconBackgroundColor;
+
+                  // **修改点 1：根据悬停状态和是否禁用悬停效果来确定背景色**
+                  Color? buttonColor;
+                  if (widget.isSelected) {
+                    // 选中状态使用动画色
+                    buttonColor = _selectColorAnimation.value;
+                  } else if (_isHovered && widget.disableHoverEffect) {
+                    // 非选中 + 悬停 + 禁用发光 (如加号按钮): 使用 hoverColor2
+                    buttonColor = widget.hoverColor2;
+                  } else {
+                    // 默认非选中状态: 使用 iconBackgroundColor
+                    buttonColor = widget.iconBackgroundColor;
+                  }
 
                   // 使用 ClipRRect 裁剪按钮的所有子元素，包括内发光层
                   return ClipRRect(
@@ -432,7 +445,9 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
                           alignment: Alignment.center,
                           children: [
                             // 1. 内发光层 (新的悬停效果) - 现在被 ClipRRect 裁剪
-                            if (!widget.isSelected)
+                            // **修改点 2：仅在未选中且未禁用悬停效果时显示发光层**
+                            if (!widget.isSelected &&
+                                !widget.disableHoverEffect)
                               AnimatedOpacity(
                                 opacity: _isHovered ? 1.0 : 0.0,
                                 duration: const Duration(milliseconds: 200),
@@ -479,29 +494,29 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
   List<BoxShadow> _buildBoxShadow() {
     return [
       BoxShadow(
-        color: widget.hoverColor.withValues(alpha: 0.5), // 阴影颜色和透明度：黑色，50%透明度
+        color: widget.hoverColor.withOpacity(0.5), // 阴影颜色和透明度：黑色，50%透明度
         blurRadius: 17, // 模糊半径：阴影边缘模糊程度，值越大越模糊
-        spreadRadius: -15, // 扩散半径：负值让阴影向内收缩，消除硬边
+        spreadRadius: -16, // 扩散半径：负值让阴影向内收缩，消除硬边
       ),
       BoxShadow(
-        color: widget.hoverColor.withValues(alpha: 0.3),
+        color: widget.hoverColor.withOpacity(0.3),
         blurRadius: 15,
+        spreadRadius: -14,
+      ),
+      BoxShadow(
+        color: widget.hoverColor.withOpacity(0.2),
+        blurRadius: 14,
         spreadRadius: -13,
       ),
       BoxShadow(
-        color: widget.hoverColor.withValues(alpha: 0.2),
-        blurRadius: 14,
+        color: widget.hoverColor.withOpacity(0.2),
+        blurRadius: 13,
         spreadRadius: -12,
       ),
       BoxShadow(
-        color: widget.hoverColor.withValues(alpha: 0.2),
-        blurRadius: 13,
-        spreadRadius: -11,
-      ),
-      BoxShadow(
-        color: widget.hoverColor.withValues(alpha: 0.2),
+        color: widget.hoverColor.withOpacity(0.2),
         blurRadius: 12,
-        spreadRadius: -10,
+        spreadRadius: -11,
       ),
     ];
   }

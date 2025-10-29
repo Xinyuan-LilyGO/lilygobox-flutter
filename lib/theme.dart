@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-10-29 11:24:36
+ * @LastEditTime: 2025-10-29 14:35:24
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -28,6 +28,7 @@ class AppTheme {
   final Color sidebarIconColor;
   final Color sidebarSelectedIconColor;
   final Color sidebarHoverIconColor;
+  final Color sidebarHoverIconColor2;
   final Color sidebarIconBackgroundColor;
   final Color sidebarIconHighlightColor;
   final Color sidebarIconSplashColor;
@@ -48,6 +49,7 @@ class AppTheme {
     required this.sidebarIconColor,
     required this.sidebarSelectedIconColor,
     required this.sidebarHoverIconColor,
+    required this.sidebarHoverIconColor2,
     required this.sidebarIconBackgroundColor,
     required this.sidebarIconHighlightColor,
     required this.sidebarIconSplashColor,
@@ -89,6 +91,7 @@ class ThemeProvider with ChangeNotifier {
       sidebarIconColor: const Color.fromARGB(255, 215, 215, 215),
       sidebarSelectedIconColor: const Color.fromARGB(255, 126, 109, 202),
       sidebarHoverIconColor: const Color.fromARGB(255, 255, 255, 255),
+      sidebarHoverIconColor2: const Color.fromARGB(255, 70, 70, 70),
       sidebarIconBackgroundColor: const Color.fromARGB(255, 55, 55, 55),
       sidebarIconHighlightColor: const Color.fromARGB(50, 130, 130, 130),
       sidebarIconSplashColor: const Color.fromARGB(50, 180, 180, 180),
@@ -109,6 +112,7 @@ class ThemeProvider with ChangeNotifier {
       sidebarIconColor: const Color.fromARGB(255, 40, 40, 40),
       sidebarSelectedIconColor: const Color.fromARGB(255, 182, 168, 255),
       sidebarHoverIconColor: const Color.fromARGB(255, 185, 185, 185),
+      sidebarHoverIconColor2: const Color.fromARGB(255, 185, 185, 185),
       sidebarIconBackgroundColor: const Color.fromARGB(255, 200, 200, 200),
       sidebarIconHighlightColor: const Color.fromARGB(100, 185, 185, 185),
       sidebarIconSplashColor: const Color.fromARGB(100, 135, 135, 135),
