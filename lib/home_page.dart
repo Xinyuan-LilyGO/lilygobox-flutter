@@ -128,7 +128,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
 
-          // 添加板子按钮 - 永远不选中
+          // 添加板子按钮,内发光悬停效果
           SidebarButtonTemplate(
             icon: Symbols.add,
             onPressed: () {
@@ -140,9 +140,9 @@ class _HomePageState extends State<HomePage> {
             splashColor: theme.sidebarIconSplashColor,
             isSelected: false,
             selectedColor: theme.sidebarSelectedIconColor,
-            disableHoverEffect: true,
+            // disableHoverEffect: true, // 移除此行
             hoverColor: theme.sidebarHoverIconColor,
-            hoverColor2: theme.sidebarHoverIconColor2,
+            // hoverColor2: theme.sidebarHoverIconColor2,
             indicatorColor: theme.sidebarIndicatorColor,
           ),
 
@@ -183,9 +183,9 @@ class SidebarButtonTemplate extends StatefulWidget {
     required this.indicatorColor,
     this.isSelected = false,
     this.selectedBorderRadius = 15.0,
-    this.hoverColor = Colors.grey,
-    this.hoverColor2 = Colors.grey,
-    this.disableHoverEffect = false,
+    this.hoverColor = Colors.grey, // 悬停颜色，现在将作为内发光的颜色
+    this.hoverColor2 = Colors.grey, // 保留，但实际上不再使用
+    this.disableHoverEffect = false, // 保留，但不再影响悬停动画
     this.iconSize = 24,
     this.iconWeight = 600.0,
     this.grade = -25.0,
@@ -205,7 +205,7 @@ class SidebarButtonTemplate extends StatefulWidget {
   final bool isSelected;
   final Color selectedColor;
   final double selectedBorderRadius;
-  final Color hoverColor; // 悬停颜色，现在将作为内发光的颜色
+  final Color hoverColor;
   final Color hoverColor2;
   final bool disableHoverEffect;
   final Color indicatorColor;
@@ -221,7 +221,7 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
   late Animation<double> _borderRadiusAnimation;
   late Animation<Color?> _selectColorAnimation;
 
-  // 新增：悬停状态 (取代悬停颜色控制器)
+  // 新增：悬停状态
   bool _isHovered = false;
 
   // 3. 指示器 (圆点/长条) 专用控制器
@@ -346,11 +346,10 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
         );
   }
 
-  // 修改：鼠标悬停时更新 _isHovered 状态的逻辑
   void _handleHover(bool isHovered) {
     if (widget.isSelected) return; // 选中时不响应悬停
 
-    // 无论是否禁用悬停效果，只要未选中，就更新 _isHovered 状态
+    // 只要未选中，就更新 _isHovered 状态 (无论是否禁用悬停效果)
     if (!widget.isSelected) {
       setState(() {
         _isHovered = isHovered;
@@ -378,7 +377,7 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
         child: Stack(
           alignment: Alignment.centerLeft,
           children: [
-            // 指示器 (小白点/侧边线) - 保持不变
+            // 指示器 (小白点/侧边线) - 逻辑保持不变 (禁用悬停效果的按钮也不显示小白点)
             Positioned(
               left: indicatorLeftOffset,
               child: AnimatedBuilder(
@@ -389,6 +388,9 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
                   final double currentBorderRadius =
                       _indicatorRadiusAnimation.value;
 
+                  // 仅在被选中时显示，或者如果被禁用 hoverEffect 且未选中，则隐藏
+                  // 对于加号按钮 (disableHoverEffect: false)，_indicatorAnimationController.value
+                  // 始终是 0.0，因此不会显示。
                   if (widget.disableHoverEffect &&
                       _indicatorAnimationController.value < 0.01) {
                     return const SizedBox.shrink();
@@ -416,16 +418,13 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
                 builder: (context, child) {
                   final double currentRadius = _borderRadiusAnimation.value;
 
-                  // **修改点 1：根据悬停状态和是否禁用悬停效果来确定背景色**
+                  // **修改点 5：简化按钮颜色逻辑**
                   Color? buttonColor;
                   if (widget.isSelected) {
                     // 选中状态使用动画色
                     buttonColor = _selectColorAnimation.value;
-                  } else if (_isHovered && widget.disableHoverEffect) {
-                    // 非选中 + 悬停 + 禁用发光 (如加号按钮): 使用 hoverColor2
-                    buttonColor = widget.hoverColor2;
                   } else {
-                    // 默认非选中状态: 使用 iconBackgroundColor
+                    // 默认未选中状态 (包括悬停和未悬停)
                     buttonColor = widget.iconBackgroundColor;
                   }
 
@@ -444,10 +443,8 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
-                            // 1. 内发光层 (新的悬停效果) - 现在被 ClipRRect 裁剪
-                            // **修改点 2：仅在未选中且未禁用悬停效果时显示发光层**
-                            if (!widget.isSelected &&
-                                !widget.disableHoverEffect)
+                            // 1. 内发光层 (新的悬停效果) - 保持与 home 按钮和板子列表按钮相同的逻辑
+                            if (!widget.isSelected)
                               AnimatedOpacity(
                                 opacity: _isHovered ? 1.0 : 0.0,
                                 duration: const Duration(milliseconds: 200),
@@ -458,7 +455,15 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
                                     borderRadius: BorderRadius.circular(
                                       currentRadius,
                                     ),
-                                    boxShadow: _buildBoxShadow(),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: widget.hoverColor.withOpacity(
+                                          0.6,
+                                        ),
+                                        blurRadius: 18,
+                                        spreadRadius: -8,
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -487,38 +492,6 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
         ),
       ),
     );
-  }
-
-  //按钮悬停发光阴影
-  // 专门的柔和阴影构建方法
-  List<BoxShadow> _buildBoxShadow() {
-    return [
-      BoxShadow(
-        color: widget.hoverColor.withValues(alpha: 0.5), // 阴影颜色和透明度：黑色，50%透明度
-        blurRadius: 17, // 模糊半径：阴影边缘模糊程度，值越大越模糊
-        spreadRadius: -15, // 扩散半径：负值让阴影向内收缩，消除硬边
-      ),
-      BoxShadow(
-        color: widget.hoverColor.withValues(alpha: 0.3),
-        blurRadius: 15,
-        spreadRadius: -13,
-      ),
-      BoxShadow(
-        color: widget.hoverColor.withValues(alpha: 0.2),
-        blurRadius: 14,
-        spreadRadius: -12,
-      ),
-      BoxShadow(
-        color: widget.hoverColor.withValues(alpha: 0.2),
-        blurRadius: 13,
-        spreadRadius: -11,
-      ),
-      BoxShadow(
-        color: widget.hoverColor.withValues(alpha: 0.2),
-        blurRadius: 12,
-        spreadRadius: -10,
-      ),
-    ];
   }
 }
 
@@ -566,7 +539,7 @@ class HomePageContent extends StatelessWidget {
   }
 }
 
-// 可拖动的分界线组件
+// 可拖动的分界线组件 (保持不变)
 class SplitViewTemplate extends StatefulWidget {
   const SplitViewTemplate({
     super.key,
