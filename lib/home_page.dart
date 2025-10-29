@@ -144,6 +144,8 @@ class _HomePageState extends State<HomePage> {
             hoverColor: theme.sidebarHoverIconColor,
             // hoverColor2: theme.sidebarHoverIconColor2,
             indicatorColor: theme.sidebarIndicatorColor,
+            // 新增：为加号按钮添加标识，用于隐藏指示器
+            isAddButton: true,
           ),
 
           //间距
@@ -190,6 +192,7 @@ class SidebarButtonTemplate extends StatefulWidget {
     this.iconWeight = 600.0,
     this.grade = -25.0,
     this.opticalSize = 48.0,
+    this.isAddButton = false, // 新增：标识是否为加号按钮
   });
 
   final IconData icon;
@@ -209,6 +212,7 @@ class SidebarButtonTemplate extends StatefulWidget {
   final Color hoverColor2;
   final bool disableHoverEffect;
   final Color indicatorColor;
+  final bool isAddButton; // 新增：标识是否为加号按钮
 
   @override
   State<SidebarButtonTemplate> createState() => _SidebarButtonTemplateState();
@@ -377,36 +381,39 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
         child: Stack(
           alignment: Alignment.centerLeft,
           children: [
-            // 指示器 (小白点/侧边线) - 逻辑保持不变 (禁用悬停效果的按钮也不显示小白点)
-            Positioned(
-              left: indicatorLeftOffset,
-              child: AnimatedBuilder(
-                animation: _indicatorAnimationController,
-                builder: (context, child) {
-                  final double currentIndicatorHeight =
-                      _indicatorHeightAnimation.value;
-                  final double currentBorderRadius =
-                      _indicatorRadiusAnimation.value;
+            // 指示器 (小白点/侧边线) - 修改：为加号按钮隐藏指示器
+            if (!widget.isAddButton) // 只有非加号按钮才显示指示器
+              Positioned(
+                left: indicatorLeftOffset,
+                child: AnimatedBuilder(
+                  animation: _indicatorAnimationController,
+                  builder: (context, child) {
+                    final double currentIndicatorHeight =
+                        _indicatorHeightAnimation.value;
+                    final double currentBorderRadius =
+                        _indicatorRadiusAnimation.value;
 
-                  // 仅在被选中时显示，或者如果被禁用 hoverEffect 且未选中，则隐藏
-                  // 对于加号按钮 (disableHoverEffect: false)，_indicatorAnimationController.value
-                  // 始终是 0.0，因此不会显示。
-                  if (widget.disableHoverEffect &&
-                      _indicatorAnimationController.value < 0.01) {
-                    return const SizedBox.shrink();
-                  }
+                    // 仅在被选中时显示，或者如果被禁用 hoverEffect 且未选中，则隐藏
+                    // 对于加号按钮 (disableHoverEffect: false)，_indicatorAnimationController.value
+                    // 始终是 0.0，因此不会显示。
+                    if (widget.disableHoverEffect &&
+                        _indicatorAnimationController.value < 0.01) {
+                      return const SizedBox.shrink();
+                    }
 
-                  return Container(
-                    width: indicatorMaxWidth,
-                    height: currentIndicatorHeight,
-                    decoration: BoxDecoration(
-                      color: widget.indicatorColor,
-                      borderRadius: BorderRadius.circular(currentBorderRadius),
-                    ),
-                  );
-                },
+                    return Container(
+                      width: indicatorMaxWidth,
+                      height: currentIndicatorHeight,
+                      decoration: BoxDecoration(
+                        color: widget.indicatorColor,
+                        borderRadius: BorderRadius.circular(
+                          currentBorderRadius,
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
 
             // 按钮本体 - 向右偏移
             Container(
