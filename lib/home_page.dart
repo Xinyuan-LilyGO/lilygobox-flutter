@@ -494,29 +494,29 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
   List<BoxShadow> _buildBoxShadow() {
     return [
       BoxShadow(
-        color: widget.hoverColor.withOpacity(0.5), // 阴影颜色和透明度：黑色，50%透明度
+        color: widget.hoverColor.withValues(alpha: 0.5), // 阴影颜色和透明度：黑色，50%透明度
         blurRadius: 17, // 模糊半径：阴影边缘模糊程度，值越大越模糊
-        spreadRadius: -16, // 扩散半径：负值让阴影向内收缩，消除硬边
+        spreadRadius: -15, // 扩散半径：负值让阴影向内收缩，消除硬边
       ),
       BoxShadow(
-        color: widget.hoverColor.withOpacity(0.3),
+        color: widget.hoverColor.withValues(alpha: 0.3),
         blurRadius: 15,
-        spreadRadius: -14,
-      ),
-      BoxShadow(
-        color: widget.hoverColor.withOpacity(0.2),
-        blurRadius: 14,
         spreadRadius: -13,
       ),
       BoxShadow(
-        color: widget.hoverColor.withOpacity(0.2),
-        blurRadius: 13,
+        color: widget.hoverColor.withValues(alpha: 0.2),
+        blurRadius: 14,
         spreadRadius: -12,
       ),
       BoxShadow(
-        color: widget.hoverColor.withOpacity(0.2),
-        blurRadius: 12,
+        color: widget.hoverColor.withValues(alpha: 0.2),
+        blurRadius: 13,
         spreadRadius: -11,
+      ),
+      BoxShadow(
+        color: widget.hoverColor.withValues(alpha: 0.2),
+        blurRadius: 12,
+        spreadRadius: -10,
       ),
     ];
   }
