@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-27 09:07:11
- * @LastEditTime: 2025-10-27 17:13:24
+ * @LastEditTime: 2025-10-30 18:20:37
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -97,7 +97,7 @@ class MainApp extends StatelessWidget {
           icon: Symbols.remove_rounded,
           onPressed: isFocused ? () => windowProvider.minimize() : null,
           hoverColor: isFocused
-              ? Colors.grey.withValues(alpha: 0.2)
+              ? theme.appTitleBarIconBackgroundColor
               : Colors.transparent,
           iconColor: iconColor,
         ),
@@ -108,7 +108,7 @@ class MainApp extends StatelessWidget {
               ? () => windowProvider.handleMaximizeRestore()
               : null,
           hoverColor: isFocused
-              ? Colors.grey.withValues(alpha: 0.2)
+              ? theme.appTitleBarIconBackgroundColor
               : Colors.transparent,
           iconSize: isMaximized ? 13.5 : 14,
           iconWeight: 510.0,
@@ -136,6 +136,9 @@ class MainApp extends StatelessWidget {
 
     // 标题栏高度
     const double titleBarHeight = 30.0;
+    // 设置按钮的尺寸和图标大小（可以根据需要调整）
+    // 调整尺寸让按钮看起来更协调
+    const double settingsButtonDiameter = 24.0; // 按钮的直径
 
     return Container(
       height: titleBarHeight,
@@ -161,6 +164,53 @@ class MainApp extends StatelessWidget {
               ),
             ),
           ),
+          // 添加设置按钮
+          // 为了使按钮居中，可以包裹在一个Center中或者调整SizedBox
+          Center(
+            // 使用Center包裹，使按钮在垂直方向上居中
+            child: SizedBox(
+              width: settingsButtonDiameter,
+              height: settingsButtonDiameter,
+              child: Material(
+                color: Colors.transparent, // 确保 Material 背景透明
+                child: InkWell(
+                  onTap: isFocused
+                      ? () {
+                          print('设置按钮被点击');
+                        }
+                      : null,
+                  splashFactory: InkRipple.splashFactory,
+                  borderRadius: BorderRadius.circular(
+                    settingsButtonDiameter / 2,
+                  ),
+                  hoverColor: isFocused
+                      ? theme
+                            .appTitleBarIconBackgroundColor // 鼠标悬停时的亮度增加
+                      : Colors.transparent, // 非焦点状态下不显示hover效果
+                  child: Container(
+                    alignment: Alignment.center, // 确保图标在圆形区域内居中
+                    decoration: BoxDecoration(
+                      color: Colors.transparent, // 常显示的圆圈背景
+                      borderRadius: BorderRadius.circular(
+                        settingsButtonDiameter / 2,
+                      ), // 确保背景也是圆形
+                    ),
+                    child: Icon(
+                      Symbols.settings,
+                      size: 16.0,
+                      color: isFocused
+                          ? theme.iconColor
+                          : theme.inactiveIconColor,
+                      fill: 1, // 图标填充
+                      weight: 400, // 可选：设置图标粗细
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          SizedBox(width: 5.0),
           // 右侧窗口控制按钮
           _buildAppTitleBarControls(context),
         ],
@@ -338,7 +388,7 @@ class AppTitleBarControlsButtonTemplate extends StatelessWidget {
     required this.onPressed,
     required this.hoverColor,
     required this.iconColor,
-    
+
     this.iconSize = 20,
     this.iconWeight = 300.0,
     this.rotateAngle = 0.0,

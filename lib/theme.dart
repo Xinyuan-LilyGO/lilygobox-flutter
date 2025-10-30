@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-10-30 17:40:35
+ * @LastEditTime: 2025-10-30 18:19:50
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -33,6 +33,7 @@ class AppTheme {
   final Color sidebarIconHighlightColor;
   final Color sidebarIconSplashColor;
   final Color sidebarIndicatorColor;
+  final Color appTitleBarIconBackgroundColor;
   final Color dividerColor;
 
   const AppTheme({
@@ -54,6 +55,7 @@ class AppTheme {
     required this.sidebarIconHighlightColor,
     required this.sidebarIconSplashColor,
     required this.sidebarIndicatorColor,
+    required this.appTitleBarIconBackgroundColor,
     required this.dividerColor,
   });
 
@@ -96,6 +98,7 @@ class ThemeProvider with ChangeNotifier {
       sidebarIconHighlightColor: const Color.fromARGB(100, 130, 130, 130),
       sidebarIconSplashColor: const Color.fromARGB(100, 180, 180, 180),
       sidebarIndicatorColor: const Color.fromARGB(255, 200, 200, 200),
+      appTitleBarIconBackgroundColor: Colors.grey.withValues(alpha: 0.2),
       dividerColor: const Color.fromARGB(255, 100, 100, 100),
     ),
     ThemeType.light: AppTheme(
@@ -117,6 +120,7 @@ class ThemeProvider with ChangeNotifier {
       sidebarIconHighlightColor: const Color.fromARGB(100, 150, 150, 150),
       sidebarIconSplashColor: const Color.fromARGB(100, 130, 130, 130),
       sidebarIndicatorColor: const Color.fromARGB(255, 40, 40, 40),
+      appTitleBarIconBackgroundColor: Colors.grey.withValues(alpha: 0.2),
       dividerColor: const Color.fromARGB(255, 80, 80, 80),
     ),
   };
