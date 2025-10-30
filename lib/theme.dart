@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-10-29 23:45:28
+ * @LastEditTime: 2025-10-30 17:08:40
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -90,11 +90,11 @@ class ThemeProvider with ChangeNotifier {
       inactiveIconColor: Colors.grey,
       sidebarIconColor: const Color.fromARGB(255, 215, 215, 215),
       sidebarSelectedIconColor: const Color.fromARGB(255, 126, 109, 202),
-      sidebarHoverIconColor: Colors.white,
-      sidebarHoverIconColor2: const Color.fromARGB(255, 70, 70, 70),
+      sidebarHoverIconColor: const Color.fromARGB(255, 120, 120, 120),
+      sidebarHoverIconColor2: const Color.fromARGB(255, 100, 177, 76),
       sidebarIconBackgroundColor: const Color.fromARGB(255, 55, 55, 55),
-      sidebarIconHighlightColor: const Color.fromARGB(50, 130, 130, 130),
-      sidebarIconSplashColor: const Color.fromARGB(50, 180, 180, 180),
+      sidebarIconHighlightColor: const Color.fromARGB(100, 130, 130, 130),
+      sidebarIconSplashColor: const Color.fromARGB(100, 180, 180, 180),
       sidebarIndicatorColor: const Color.fromARGB(255, 200, 200, 200),
       dividerColor: const Color.fromARGB(255, 100, 100, 100),
     ),
@@ -114,8 +114,8 @@ class ThemeProvider with ChangeNotifier {
       sidebarHoverIconColor: const Color.fromARGB(255, 110, 110, 110),
       sidebarHoverIconColor2: const Color.fromARGB(255, 185, 185, 185),
       sidebarIconBackgroundColor: const Color.fromARGB(255, 200, 200, 200),
-      sidebarIconHighlightColor: const Color.fromARGB(50, 125, 125, 125),
-      sidebarIconSplashColor: const Color.fromARGB(50, 75, 75, 75),
+      sidebarIconHighlightColor: const Color.fromARGB(100, 125, 125, 125),
+      sidebarIconSplashColor: const Color.fromARGB(100, 75, 75, 75),
       sidebarIndicatorColor: Colors.black,
       dividerColor: Colors.black,
     ),
