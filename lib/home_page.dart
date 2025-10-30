@@ -123,6 +123,7 @@ class _HomePageState extends State<HomePage> {
                   selectedColor: theme.sidebarSelectedIconColor,
                   hoverColor: theme.sidebarHoverIconColor,
                   indicatorColor: theme.sidebarIndicatorColor,
+                  showDotIndicator: true, // 板子按钮显示小白点
                 );
               },
             ),
@@ -188,7 +189,8 @@ class SidebarButtonTemplate extends StatefulWidget {
     this.iconWeight = 600.0,
     this.grade = -25.0,
     this.opticalSize = 48.0,
-    this.isAddButton = false, // 是否是加号按钮
+    this.isAddButton = false,
+    this.showDotIndicator = false, // 新增：控制小白点显示
   });
 
   final IconData icon;
@@ -208,6 +210,7 @@ class SidebarButtonTemplate extends StatefulWidget {
   final bool disableHoverEffect;
   final Color indicatorColor;
   final bool isAddButton;
+  final bool showDotIndicator; // 新增：控制小白点显示
 
   @override
   State<SidebarButtonTemplate> createState() => _SidebarButtonTemplateState();
@@ -407,11 +410,11 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 5),
         width: 65,
-        height: buttonSize, // 45.0
+        height: buttonSize,
         child: Stack(
           alignment: Alignment.centerLeft,
           children: [
-            // 指示器 (小白点/侧边线) - 修复显示逻辑
+            // 指示器 (小白点/侧边线) - 修改显示逻辑
             if (!widget.isAddButton)
               Positioned(
                 left: indicatorLeftOffset,
@@ -423,10 +426,10 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
                     final double currentBorderRadius =
                         _indicatorRadiusAnimation.value;
 
-                    // 修复：只有当完全未选中且动画值为0时才隐藏
-                    // 改为检查动画值是否接近0，但保留小白点
+                    // 修改：只有当完全未选中且动画值为0且showDotIndicator为true时才显示小白点
                     if (!widget.isSelected &&
-                        _indicatorAnimationController.value == 0.0) {
+                        _indicatorAnimationController.value == 0.0 &&
+                        widget.showDotIndicator) {
                       // 未选中状态显示小白点
                       return Container(
                         width: indicatorMinDiameter,
@@ -440,51 +443,51 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
                       );
                     }
 
-                    // 选中或过渡状态显示动画指示器
-                    return Container(
-                      width: indicatorMaxWidth,
-                      height: currentIndicatorHeight,
-                      decoration: BoxDecoration(
-                        color: widget.indicatorColor,
-                        borderRadius: BorderRadius.circular(
-                          currentBorderRadius,
+                    // 选中或过渡状态显示动画指示器（长条）
+                    if (widget.isSelected ||
+                        _indicatorAnimationController.value > 0.0) {
+                      return Container(
+                        width: indicatorMaxWidth,
+                        height: currentIndicatorHeight,
+                        decoration: BoxDecoration(
+                          color: widget.indicatorColor,
+                          borderRadius: BorderRadius.circular(
+                            currentBorderRadius,
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                    }
+
+                    // 如果showDotIndicator为false且未选中，不显示任何指示器
+                    return const SizedBox.shrink();
                   },
                 ),
               ),
 
-            // 按钮本体 - 向右偏移
+            // 按钮本体 - 保持不变
             Container(
-              width: buttonSize, // 45.0
-              height: buttonSize, // 45.0
+              width: buttonSize,
+              height: buttonSize,
               margin: const EdgeInsets.only(left: buttonLeftOffset),
               child: AnimatedBuilder(
                 animation: Listenable.merge([
                   _selectAnimationController,
                   _hoverAnimationController,
-                ]), // 监听两个动画控制器
+                ]),
                 builder: (context, child) {
                   final double currentRadius = _borderRadiusAnimation.value;
 
-                  // **修改点：根据状态确定按钮颜色**
                   Color? buttonColor;
                   if (widget.isSelected) {
-                    // 选中状态使用选中动画色
                     buttonColor = _selectColorAnimation.value;
                   } else {
-                    // 未选中状态使用悬停动画色 (从 iconBackgroundColor 渐变到 hoverColor)
                     buttonColor = _hoverColorAnimation.value;
                   }
 
-                  // 使用 ClipRRect 裁剪按钮的所有子元素
                   return ClipRRect(
                     borderRadius: BorderRadius.circular(currentRadius),
                     child: Material(
-                      // 颜色直接使用计算出的 buttonColor
                       color: buttonColor,
-                      // Material 上的 borderRadius 被 ClipRRect 取代，但为了 InkWell 仍然需要
                       borderRadius: BorderRadius.circular(currentRadius),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(currentRadius),
@@ -492,7 +495,6 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
                         highlightColor: widget.highlightColor,
                         splashColor: widget.splashColor,
                         child: Center(
-                          // 只需要图标本体
                           child: Icon(
                             widget.icon,
                             size: widget.iconSize,
