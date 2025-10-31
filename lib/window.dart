@@ -387,8 +387,8 @@ class MainApp extends StatelessWidget {
 
         return Expanded(
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 700), // 调整动画持续时间
-            reverseDuration: const Duration(milliseconds: 700), // 反向动画持续时间
+            duration: const Duration(milliseconds: 500), // 调整动画持续时间
+            reverseDuration: const Duration(milliseconds: 500), // 反向动画持续时间
             switchInCurve: Curves.easeOutCubic, // 进入曲线
             switchOutCurve: Curves.easeInCubic, // 退出曲线
             transitionBuilder: (Widget child, Animation<double> animation) {
