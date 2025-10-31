@@ -3,13 +3,5 @@
     "appTitle": "LilygoBox",
     "themeDark": "黑色主题",
     "themeLight": "亮色主题",
-    "currentTheme": "当前主题",
-    "switchTheme": "切换主题",
-    "language": "语言",
-    "switchLanguage": "切换语言",
-    "minimize": "最小化",
-    "maximize": "最大化",
-    "restore": "还原",
-    "close": "关闭",
-    "windowControls": "窗口控制"
+    "settingsTitle": "设置"
 }

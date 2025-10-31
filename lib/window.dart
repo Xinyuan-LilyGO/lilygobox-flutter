@@ -1,15 +1,9 @@
-/*
- * @Description: None
- * @Author: LILYGO_L
- * @Date: 2025-10-27 09:07:11
- * @LastEditTime: 2025-10-30 18:20:37
- * @License: GPL 3.0
- */
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:provider/provider.dart';
 
+// 假设这些文件存在
 import 'theme.dart';
 import 'language.dart';
 import 'l10n/app_localizations.dart';
@@ -22,57 +16,57 @@ class MainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer3<ThemeProvider, WindowProvider, LanguageProvider>(
-      builder:
-          (context, themeProvider, windowProvider, languageProvider, child) {
-            final theme = themeProvider.themeData;
-            final isMaximized = windowProvider.isMaximized;
-            final locale = languageProvider.locale;
+      builder: (context, themeProvider, windowProvider, languageProvider, child) {
+        final theme = themeProvider.themeData;
+        final isMaximized = windowProvider.isMaximized;
+        final locale = languageProvider.locale;
 
-            return MaterialApp(
-              debugShowCheckedModeBanner: false,
-              locale: locale,
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              home: Scaffold(
-                backgroundColor: Colors.transparent,
-                // 添加 Builder
-                body: Builder(
-                  // 使用新的 languageContext
-                  builder: (BuildContext languageContext) {
-                    return Container(
-                      margin: isMaximized
-                          ? EdgeInsets.zero
-                          : const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: theme.primary,
-                        borderRadius: isMaximized
-                            ? BorderRadius.zero
-                            : BorderRadius.circular(10),
-                        boxShadow: isMaximized ? [] : _buildBoxShadow(),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: isMaximized
-                            ? BorderRadius.zero
-                            : BorderRadius.circular(10),
-                        child: Stack(
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            backgroundColor: Colors.transparent,
+            // 添加 Builder
+            body: Builder(
+              // 使用新的 languageContext
+              builder: (BuildContext languageContext) {
+                return Container(
+                  margin: isMaximized
+                      ? EdgeInsets.zero
+                      : const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: theme.primary,
+                    borderRadius: isMaximized
+                        ? BorderRadius.zero
+                        : BorderRadius.circular(10),
+                    boxShadow: isMaximized ? [] : _buildBoxShadow(),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: isMaximized
+                        ? BorderRadius.zero
+                        : BorderRadius.circular(10),
+                    child: Stack(
+                      children: [
+                        Column(
                           children: [
-                            Column(
-                              children: [
-                                // 将 context 替换为 languageContext
-                                _buildAppTitleBar(languageContext),
-                                _buildCurrentPage(languageContext),
-                              ],
-                            ),
-                            _buildAppTitleBarControlsResizeArea(),
+                            // 将 context 替换为 languageContext
+                            _buildAppTitleBar(languageContext),
+                            // !!! 修改: 使用 Consumer 包裹 _buildCurrentPage 以监听 currentPage 变化
+                            _buildCurrentPage(languageContext),
                           ],
                         ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            );
-          },
+                        _buildAppTitleBarControlsResizeArea(),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -176,7 +170,11 @@ class MainApp extends StatelessWidget {
                 child: InkWell(
                   onTap: isFocused
                       ? () {
-                          print('设置按钮被点击');
+                          // !!! 修改：点击设置按钮，切换到设置页面
+                          Provider.of<WindowProvider>(
+                            context,
+                            listen: false,
+                          ).setPage(WindowPage.settings);
                         }
                       : null,
                   splashFactory: InkRipple.splashFactory,
@@ -210,7 +208,7 @@ class MainApp extends StatelessWidget {
             ),
           ),
 
-          SizedBox(width: 5.0),
+          const SizedBox(width: 5.0),
           // 右侧窗口控制按钮
           _buildAppTitleBarControls(context),
         ],
@@ -367,16 +365,60 @@ class MainApp extends StatelessWidget {
     ];
   }
 
-  // 构建当前页面内容
+  // 构建当前页面内容 (修改)
   Widget _buildCurrentPage(BuildContext context) {
-    final windowProvider = Provider.of<WindowProvider>(context, listen: false);
+    // 使用 Consumer 确保当 currentPage 变化时，AnimatedSwitcher 能够重建并触发动画
+    return Consumer<WindowProvider>(
+      builder: (context, windowProvider, child) {
+        final Widget page;
+        final WindowPage currentPage = windowProvider.currentPage;
 
-    switch (windowProvider.currentPage) {
-      case WindowPage.home:
-        return const HomePage();
-      default:
-        return const HomePage();
-    }
+        switch (currentPage) {
+          case WindowPage.home:
+            page = const HomePage();
+            break;
+          case WindowPage.settings:
+            // 传入 windowProvider
+            page = SettingsPage(windowProvider: windowProvider);
+            break;
+          default:
+            page = const HomePage();
+        }
+
+        return Expanded(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 700), // 调整动画持续时间
+            reverseDuration: const Duration(milliseconds: 700), // 反向动画持续时间
+            switchInCurve: Curves.easeOutCubic, // 进入曲线
+            switchOutCurve: Curves.easeInCubic, // 退出曲线
+            transitionBuilder: (Widget child, Animation<double> animation) {
+              // 使用 child.key 来判断当前正在执行动画的组件是谁
+              final isSettingsPage =
+                  child.key == const ValueKey(WindowPage.settings);
+
+              // Settings Page: Slide in from bottom, slide out to bottom
+              if (isSettingsPage) {
+                return SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.0, 1.0), // 从底部开始
+                    end: const Offset(0.0, 0.0), // 到正常位置
+                  ).animate(animation),
+                  child: child,
+                );
+              } else {
+                // Home Page: Fade in/out
+                return FadeTransition(opacity: animation, child: child);
+              }
+            },
+            child: SizedBox.expand(
+              // 确保子组件的 Key 发生变化以触发 AnimatedSwitcher
+              key: ValueKey(currentPage),
+              child: page,
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -431,7 +473,8 @@ class AppTitleBarControlsButtonTemplate extends StatelessWidget {
   }
 }
 
-enum WindowPage { home }
+// !!! 修改: 增加 settings 枚举值
+enum WindowPage { home, settings }
 
 class WindowProvider with ChangeNotifier, WindowListener {
   bool _isMaximized = false;
@@ -440,6 +483,7 @@ class WindowProvider with ChangeNotifier, WindowListener {
   bool get isMaximized => _isMaximized;
   bool get isFocused => _isFocused;
 
+  // !!! 修改: 默认页面为 home
   WindowPage _currentPage = WindowPage.home;
   WindowPage get currentPage => _currentPage;
 
@@ -507,8 +551,81 @@ class WindowProvider with ChangeNotifier, WindowListener {
     await windowManager.close();
   }
 
+  // !!! 修改: setPage 用于切换页面
   void setPage(WindowPage page) {
     _currentPage = page;
     notifyListeners();
+  }
+}
+
+// !!! 新增: 设置页面组件
+class SettingsPage extends StatelessWidget {
+  final WindowProvider windowProvider;
+
+  const SettingsPage({super.key, required this.windowProvider});
+
+  @override
+  Widget build(BuildContext context) {
+    // 确保使用正确的方式获取 Provider 的值
+    final theme = Provider.of<ThemeProvider>(context, listen: false).themeData;
+
+    return Container(
+      color: theme.secondary, // 与主窗口背景一致
+      child: Column(
+        children: [
+          // 顶部标题栏/关闭按钮
+          Container(
+            height: 30.0, // 与主标题栏高度保持一致
+            padding: const EdgeInsets.symmetric(horizontal: 10.0),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: theme.dividerColor, // 使用主题中的分隔线颜色
+                  width: 1.0,
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  // 假设有一个名为 settingsTitle 的本地化键
+                  context.l10n.settingsTitle,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: theme.appTitleTextColor,
+                  ),
+                ),
+                const Spacer(),
+                // 右上角关闭按钮 (返回主页)
+                IconButton(
+                  icon: Icon(
+                    Symbols.close_rounded,
+                    size: 18,
+                    color: theme.iconColor,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    maxWidth: 30,
+                    maxHeight: 30,
+                  ),
+                  onPressed: () {
+                    windowProvider.setPage(WindowPage.home); // 返回主页
+                  },
+                ),
+              ],
+            ),
+          ),
+          // 设置内容区域
+          Expanded(
+            child: Center(
+              child: Text(
+                "settingsContent", // 假设有一个名为 settingsContent 的本地化键
+                style: TextStyle(color: theme.textColor),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

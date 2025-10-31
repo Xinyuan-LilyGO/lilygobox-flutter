@@ -124,59 +124,11 @@ abstract class AppLocalizations {
   /// **'Light Theme'**
   String get themeLight;
 
-  /// No description provided for @currentTheme.
+  /// No description provided for @settingsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Current Theme'**
-  String get currentTheme;
-
-  /// No description provided for @switchTheme.
-  ///
-  /// In en, this message translates to:
-  /// **'Switch Theme'**
-  String get switchTheme;
-
-  /// No description provided for @language.
-  ///
-  /// In en, this message translates to:
-  /// **'Language'**
-  String get language;
-
-  /// No description provided for @switchLanguage.
-  ///
-  /// In en, this message translates to:
-  /// **'Switch Language'**
-  String get switchLanguage;
-
-  /// No description provided for @minimize.
-  ///
-  /// In en, this message translates to:
-  /// **'Minimize'**
-  String get minimize;
-
-  /// No description provided for @maximize.
-  ///
-  /// In en, this message translates to:
-  /// **'Maximize'**
-  String get maximize;
-
-  /// No description provided for @restore.
-  ///
-  /// In en, this message translates to:
-  /// **'Restore'**
-  String get restore;
-
-  /// No description provided for @close.
-  ///
-  /// In en, this message translates to:
-  /// **'Close'**
-  String get close;
-
-  /// No description provided for @windowControls.
-  ///
-  /// In en, this message translates to:
-  /// **'Window Controls'**
-  String get windowControls;
+  /// **'Settings'**
+  String get settingsTitle;
 }
 
 class _AppLocalizationsDelegate

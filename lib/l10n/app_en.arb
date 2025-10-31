@@ -3,13 +3,5 @@
     "appTitle": "LilygoBox",
     "themeDark": "Dark Theme",
     "themeLight": "Light Theme",
-    "currentTheme": "Current Theme",
-    "switchTheme": "Switch Theme",
-    "language": "Language",
-    "switchLanguage": "Switch Language",
-    "minimize": "Minimize",
-    "maximize": "Maximize",
-    "restore": "Restore",
-    "close": "Close",
-    "windowControls": "Window Controls"
+    "settingsTitle": "Settings"
 }

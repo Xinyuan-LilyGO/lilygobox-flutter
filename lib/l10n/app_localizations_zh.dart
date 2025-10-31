@@ -24,29 +24,5 @@ class AppLocalizationsZh extends AppLocalizations {
   String get themeLight => '亮色主题';
 
   @override
-  String get currentTheme => '当前主题';
-
-  @override
-  String get switchTheme => '切换主题';
-
-  @override
-  String get language => '语言';
-
-  @override
-  String get switchLanguage => '切换语言';
-
-  @override
-  String get minimize => '最小化';
-
-  @override
-  String get maximize => '最大化';
-
-  @override
-  String get restore => '还原';
-
-  @override
-  String get close => '关闭';
-
-  @override
-  String get windowControls => '窗口控制';
+  String get settingsTitle => '设置';
 }

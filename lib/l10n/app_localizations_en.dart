@@ -24,29 +24,5 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeLight => 'Light Theme';
 
   @override
-  String get currentTheme => 'Current Theme';
-
-  @override
-  String get switchTheme => 'Switch Theme';
-
-  @override
-  String get language => 'Language';
-
-  @override
-  String get switchLanguage => 'Switch Language';
-
-  @override
-  String get minimize => 'Minimize';
-
-  @override
-  String get maximize => 'Maximize';
-
-  @override
-  String get restore => 'Restore';
-
-  @override
-  String get close => 'Close';
-
-  @override
-  String get windowControls => 'Window Controls';
+  String get settingsTitle => 'Settings';
 }

@@ -24,29 +24,5 @@ class AppLocalizationsJa extends AppLocalizations {
   String get themeLight => 'ライトテーマ';
 
   @override
-  String get currentTheme => '現在のテーマ';
-
-  @override
-  String get switchTheme => 'テーマ切替';
-
-  @override
-  String get language => '言語';
-
-  @override
-  String get switchLanguage => '言語切替';
-
-  @override
-  String get minimize => '最小化';
-
-  @override
-  String get maximize => '最大化';
-
-  @override
-  String get restore => '元に戻す';
-
-  @override
-  String get close => '閉じる';
-
-  @override
-  String get windowControls => 'ウィンドウコントロール';
+  String get settingsTitle => '設定';
 }
