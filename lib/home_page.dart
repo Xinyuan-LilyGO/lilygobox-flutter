@@ -43,7 +43,13 @@ class _HomePageState extends State<HomePage> {
                   topLeft: Radius.circular(10),
                 ),
               ),
-              child: _buildCurrentPage(context),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+                child: _buildCurrentPage(context),
+              ),
             ),
           ),
         ],
@@ -156,16 +162,22 @@ class _HomePageState extends State<HomePage> {
   Widget _buildCurrentPage(BuildContext context) {
     // 0 是主页
     if (_selectedIndex == 0) {
-      return const HomePageContent();
+      // 为每个页面的根 Widget 添加 Key
+      return const HomePageContent(key: ValueKey<int>(0));
     }
     // 1 到 10 是板子页
     else if (_selectedIndex >= 1 && _selectedIndex <= 10) {
       // 传递板子的索引
-      return BoardPageContent(boardIndex: _selectedIndex);
+      // 为每个页面的根 Widget 添加 Key，使用 _selectedIndex 作为 ValueKey 的值
+      return BoardPageContent(
+        key: ValueKey<int>(_selectedIndex),
+        boardIndex: _selectedIndex,
+      );
     }
     // 其他值（如 -1 或超出范围）
     else {
-      return const Center(child: Text('页面未找到'));
+      // 为默认页面添加 Key
+      return const Center(key: ValueKey<int>(-1), child: Text('页面未找到'));
     }
   }
 }
@@ -520,6 +532,7 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
 
 // 主页内容
 class HomePageContent extends StatelessWidget {
+  // **【修改区域】**：添加 Key
   const HomePageContent({super.key});
 
   @override
