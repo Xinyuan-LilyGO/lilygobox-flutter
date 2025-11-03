@@ -22,10 +22,10 @@ package_rename_config:
   windows:
     app_name: LilygoBox
     organization: LILYGO
-    copyright_notice: Copyright © 2025 LILYGO. All rights reserved.
+    copyright_notice: © 2025 LILYGO Corporation. All rights reserved.
     exe_name: lilygobox-windows-x64
 
   macos:
     app_name: LilygoBox
     package_name: cc.lilygo.lilygobox
-    copyright_notice: Copyright © 2025 LILYGO. All rights reserved.
+    copyright_notice: © 2025 LILYGO Corporation. All rights reserved.

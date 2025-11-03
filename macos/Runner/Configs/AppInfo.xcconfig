@@ -11,4 +11,4 @@ PRODUCT_NAME = LilygoBox
 PRODUCT_BUNDLE_IDENTIFIER = cc.lilygo.lilygobox
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2025 LILYGO. All rights reserved.
+PRODUCT_COPYRIGHT = © 2025 LILYGO Corporation. All rights reserved.
