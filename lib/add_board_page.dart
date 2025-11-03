@@ -23,7 +23,6 @@ class _AddBoardPageState extends State<AddBoardPage> {
   Widget build(BuildContext context) {
     // 确保使用正确的方式获取 Provider 的值 (使用 listen: false)
     final theme = Provider.of<ThemeProvider>(context, listen: false).themeData;
-    // 假设 theme 中有 iconHoverColor 和 iconBackgroundColor
 
     // 使用 Stack 实现模态效果：下层是背景遮罩，上层是居中弹窗
     return Stack(
@@ -42,6 +41,14 @@ class _AddBoardPageState extends State<AddBoardPage> {
             decoration: BoxDecoration(
               color: theme.secondary, // 使用 secondary 作为弹窗背景色
               borderRadius: BorderRadius.circular(15), // 圆角
+              // 阴影属性，使弹窗浮出
+              boxShadow: [
+                BoxShadow(
+                  color: const Color.fromARGB(100, 0, 0, 0), // 阴影颜色，透明度可以根据需要调整
+                  blurRadius: 30, // 模糊半径
+                  spreadRadius: 0,
+                ),
+              ],
             ),
             // 使用 Stack 确保关闭按钮可以定位
             child: Stack(
@@ -78,7 +85,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
                         height: 50,
                         child: ElevatedButton(
                           onPressed: () {
-                            // TODO: 实现添加板子的逻辑
+                            // 实现添加板子的逻辑
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
@@ -97,7 +104,6 @@ class _AddBoardPageState extends State<AddBoardPage> {
                           ),
                         ),
                       ),
-                      // ... 可以添加更多内容
                     ],
                   ),
                 ),
@@ -115,19 +121,15 @@ class _AddBoardPageState extends State<AddBoardPage> {
                       height: 30, // 调整尺寸
                       decoration: BoxDecoration(
                         color: _isHoveringClose
-                            // 假设 theme 中有 iconHoverColor 和 iconBackgroundColor
-                            ? theme.iconHoverColor ??
-                                  theme
-                                      .tertiary // 悬停颜色
-                            : theme.iconBackgroundColor ??
-                                  Colors.transparent, // 默认背景色
+                            ? theme.iconHoverColor
+                            : theme.iconBackgroundColor,
                         shape: BoxShape.circle,
                       ),
                       child: Material(
                         color: Colors.transparent, // 确保 Material 背景透明
                         child: InkWell(
                           onTap: () {
-                            // [修改]：点击关闭按钮，切换回 home 页面
+                            // 点击关闭按钮，切换回 home 页面
                             widget.windowProvider.setPage(WindowPage.home);
                           },
                           borderRadius: BorderRadius.circular(15.0), // 调整圆角
