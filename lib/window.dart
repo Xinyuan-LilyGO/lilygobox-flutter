@@ -10,6 +10,7 @@ import 'l10n/app_localizations.dart';
 import 'home_page.dart';
 import 'settings_page.dart';
 import 'package_info.dart';
+import 'add_board_page.dart';
 
 // MainApp 现在可以是 StatelessWidget，因为状态已经移到 Provider 中
 class MainApp extends StatelessWidget {
@@ -379,56 +380,81 @@ class MainApp extends StatelessWidget {
     ];
   }
 
-  // 构建当前页面内容 (修改)
+  // 构建当前页面内容
   Widget _buildCurrentPage(BuildContext context) {
-    // 使用 Consumer 确保当 currentPage 变化时，AnimatedSwitcher 能够重建并触发动画
     return Consumer<WindowProvider>(
       builder: (context, windowProvider, child) {
-        final Widget page;
         final WindowPage currentPage = windowProvider.currentPage;
 
-        switch (currentPage) {
-          case WindowPage.home:
-            page = const HomePage();
-            break;
-          case WindowPage.settings:
-            // 传入 windowProvider
-            page = SettingsPage(windowProvider: windowProvider);
-            break;
-          default:
-            page = const HomePage();
-        }
+        // 确定 BASE LAYER (基础内容层) 应该显示哪个页面
+        // 如果当前是 settings，则基础层显示 settings
+        // 如果当前是 home 或 addBoard (模态)，则基础层显示 home
+        final WindowPage basePageKey = currentPage == WindowPage.settings
+            ? WindowPage.settings
+            : WindowPage.home;
 
+        // BASE LAYER: 处理 Home <-> Settings 的切换动画
+        final Widget baseContent = AnimatedSwitcher(
+          // 动画时长保持不变
+          duration: const Duration(milliseconds: 500),
+          reverseDuration: const Duration(milliseconds: 500),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            // 通过 Key 识别当前正在进入/退出的页面
+            final WindowPage key = (child.key as ValueKey<WindowPage>).value;
+
+            // Settings Page: 使用滑动动画 (原风格)
+            if (key == WindowPage.settings) {
+              return SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0.0, 1.0), // 从底部开始
+                  end: const Offset(0.0, 0.0), // 到正常位置
+                ).animate(animation),
+                child: child,
+              );
+            }
+            // Home Page: 使用渐变动画
+            else {
+              return FadeTransition(opacity: animation, child: child);
+            }
+          },
+          child: SizedBox.expand(
+            // 确保子组件的 Key 发生变化以触发 AnimatedSwitcher
+            key: ValueKey(basePageKey),
+            // 实例化基础层页面
+            child: basePageKey == WindowPage.settings
+                ? SettingsPage(windowProvider: windowProvider)
+                : const HomePage(),
+          ),
+        );
+
+        // MODAL LAYER: 处理 AddBoard 模态弹窗的淡入淡出动画
+        final Widget modalOverlay = AnimatedSwitcher(
+          // 动画时长保持不变
+          duration: const Duration(milliseconds: 300),
+          reverseDuration: const Duration(milliseconds: 300),
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            // AddBoard Page: 使用渐变动画 (您要求的风格)
+            return FadeTransition(opacity: animation, child: child);
+          },
+          child: currentPage == WindowPage.addBoard
+              ? AddBoardPage(
+                  // 确保 AddBoardPage 作为模态层始终占据整个屏幕
+                  key: const ValueKey(WindowPage.addBoard),
+                  windowProvider: windowProvider,
+                )
+              // 当 AddBoardPage 不激活时，返回一个空的 Container，Key 必须不同于 addBoard 的 key
+              : Container(key: const ValueKey('empty_modal_layer')),
+        );
+
+        // 使用 Expanded 包裹 Stack，将两层叠加起来
         return Expanded(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 500), // 调整动画持续时间
-            reverseDuration: const Duration(milliseconds: 500), // 反向动画持续时间
-            switchInCurve: Curves.easeOutCubic, // 进入曲线
-            switchOutCurve: Curves.easeInCubic, // 退出曲线
-            transitionBuilder: (Widget child, Animation<double> animation) {
-              // 使用 child.key 来判断当前正在执行动画的组件是谁
-              final isSettingsPage =
-                  child.key == const ValueKey(WindowPage.settings);
-
-              // Settings Page: Slide in from bottom, slide out to bottom
-              if (isSettingsPage) {
-                return SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.0, 1.0), // 从底部开始
-                    end: const Offset(0.0, 0.0), // 到正常位置
-                  ).animate(animation),
-                  child: child,
-                );
-              } else {
-                // Home Page: Fade in/out
-                return FadeTransition(opacity: animation, child: child);
-              }
-            },
-            child: SizedBox.expand(
-              // 确保子组件的 Key 发生变化以触发 AnimatedSwitcher
-              key: ValueKey(currentPage),
-              child: page,
-            ),
+          child: Stack(
+            children: [
+              baseContent, // 底层内容 (Home 或 Settings)
+              modalOverlay, // 上层模态弹窗 (AddBoardPage 或空)
+            ],
           ),
         );
       },
@@ -487,8 +513,7 @@ class AppTitleBarControlsButtonTemplate extends StatelessWidget {
   }
 }
 
-// !!! 修改: 增加 settings 枚举值
-enum WindowPage { home, settings }
+enum WindowPage { home, settings, addBoard }
 
 class WindowProvider with ChangeNotifier, WindowListener {
   bool _isMaximized = false;

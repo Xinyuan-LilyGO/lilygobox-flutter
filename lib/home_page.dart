@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'theme.dart';
+import 'window.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -61,6 +62,7 @@ class _HomePageState extends State<HomePage> {
     // 使用 listen: false 因为只需要获取主题数据，不需要在主题变化时重建侧边栏
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final theme = themeProvider.themeData;
+    final windowProvider = Provider.of<WindowProvider>(context, listen: false);
 
     final boardSymbols = [
       Symbols.chat,
@@ -139,7 +141,7 @@ class _HomePageState extends State<HomePage> {
           SidebarButtonTemplate(
             icon: Symbols.add,
             onPressed: () {
-              print('点击了添加板子按钮');
+              windowProvider.setPage(WindowPage.addBoard);
             },
             iconColor: theme.sidebarIconColor,
             iconBackgroundColor: theme.sidebarIconBackgroundColor,
