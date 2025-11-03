@@ -410,7 +410,7 @@ class _AboutContent extends StatelessWidget {
 
     return Container(
       alignment: Alignment.topLeft,
-      padding: const EdgeInsets.fromLTRB(40.0, 50.0, 40.0, 50.0), // 内部边距
+      padding: const EdgeInsets.fromLTRB(40.0, 40.0, 40.0, 40.0), // 内部边距
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
