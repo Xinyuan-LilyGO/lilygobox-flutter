@@ -43,4 +43,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get about => 'について';
+
+  @override
+  String get version => 'バージョン';
+
+  @override
+  String get copyright => '著作権';
+
+  @override
+  String get allRightsReserved => '全ての権利を保有';
 }

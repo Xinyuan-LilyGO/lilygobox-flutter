@@ -43,4 +43,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get about => '关于';
+
+  @override
+  String get version => '版本';
+
+  @override
+  String get copyright => '版权';
+
+  @override
+  String get allRightsReserved => '保留所有权利';
 }

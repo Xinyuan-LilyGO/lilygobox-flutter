@@ -9,5 +9,8 @@
     "application": "Application",
     "languageAndRegion": "Language And Region",
     "personalization": "Personalization",
-    "about": "About"
+    "about": "About",
+    "version": "Version",
+    "copyright": "Copyright",
+    "allRightsReserved": "All rights reserved"
 }

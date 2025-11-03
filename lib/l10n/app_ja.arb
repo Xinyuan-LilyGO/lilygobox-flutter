@@ -9,5 +9,8 @@
     "application": "アプリ",
     "languageAndRegion": "言語と地域",
     "personalization": "個人設定",
-    "about": "について"
+    "about": "について",
+    "version": "バージョン",
+    "copyright": "著作権",
+    "allRightsReserved": "全ての権利を保有"
 }

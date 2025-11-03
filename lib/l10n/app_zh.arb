@@ -9,5 +9,8 @@
     "application": "应用",
     "languageAndRegion": "语言与地区",
     "personalization": "个性化",
-    "about": "关于"
+    "about": "关于",
+    "version": "版本",
+    "copyright": "版权",
+    "allRightsReserved": "保留所有权利"
 }
