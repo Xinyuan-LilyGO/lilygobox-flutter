@@ -3,5 +3,11 @@
     "appTitle": "LilygoBox",
     "themeDark": "Dark Theme",
     "themeLight": "Light Theme",
-    "settingsTitle": "Settings"
+    "settingsTitle": "Settings",
+    "basic": "Basic",
+    "general": "General",
+    "application": "Application",
+    "languageAndRegion": "Language And Region",
+    "personalization": "Personalization",
+    "about": "About"
 }

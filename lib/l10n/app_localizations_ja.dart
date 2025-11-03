@@ -25,4 +25,22 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsTitle => '設定';
+
+  @override
+  String get basic => '基本';
+
+  @override
+  String get general => '一般';
+
+  @override
+  String get application => 'アプリ';
+
+  @override
+  String get languageAndRegion => '言語と地域';
+
+  @override
+  String get personalization => '個人設定';
+
+  @override
+  String get about => 'について';
 }

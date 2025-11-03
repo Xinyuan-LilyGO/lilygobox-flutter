@@ -25,4 +25,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsTitle => 'Settings';
+
+  @override
+  String get basic => 'Basic';
+
+  @override
+  String get general => 'General';
+
+  @override
+  String get application => 'Application';
+
+  @override
+  String get languageAndRegion => 'Language And Region';
+
+  @override
+  String get personalization => 'Personalization';
+
+  @override
+  String get about => 'About';
 }

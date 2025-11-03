@@ -25,4 +25,22 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsTitle => '设置';
+
+  @override
+  String get basic => '基础';
+
+  @override
+  String get general => '通用';
+
+  @override
+  String get application => '应用';
+
+  @override
+  String get languageAndRegion => '语言与地区';
+
+  @override
+  String get personalization => '个性化';
+
+  @override
+  String get about => '关于';
 }

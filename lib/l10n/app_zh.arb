@@ -3,5 +3,11 @@
     "appTitle": "LilygoBox",
     "themeDark": "黑色主题",
     "themeLight": "亮色主题",
-    "settingsTitle": "设置"
+    "settingsTitle": "设置",
+    "basic": "基础",
+    "general": "通用",
+    "application": "应用",
+    "languageAndRegion": "语言与地区",
+    "personalization": "个性化",
+    "about": "关于"
 }

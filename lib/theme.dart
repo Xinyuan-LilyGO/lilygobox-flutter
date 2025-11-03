@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-10-30 18:19:50
+ * @LastEditTime: 2025-11-03 13:48:49
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -20,10 +20,18 @@ class AppTheme {
   final Color primary;
   final Color secondary;
   final Color tertiary;
-  final Color textColor;
+  final Color textColorPrimary;
+  final Color textColorSecondary;
+  final Color textColorTertiary;
+  final Color textHoverColor;
+  final Color textSelectedColor;
   final Color appTitleTextColor;
   final Color inactiveTextColor;
   final Color iconColor;
+  final Color iconBackgroundColor;
+  final Color iconHoverColor;
+  final Color iconHighlightColor;
+  final Color iconSplashColor;
   final Color inactiveIconColor;
   final Color sidebarIconColor;
   final Color sidebarSelectedIconColor;
@@ -42,10 +50,18 @@ class AppTheme {
     required this.primary,
     required this.secondary,
     required this.tertiary,
-    required this.textColor,
+    required this.textColorPrimary,
+    required this.textColorSecondary,
+    required this.textColorTertiary,
+    required this.textHoverColor,
+    required this.textSelectedColor,
     required this.appTitleTextColor,
     required this.inactiveTextColor,
     required this.iconColor,
+    required this.iconBackgroundColor,
+    required this.iconHoverColor,
+    required this.iconHighlightColor,
+    required this.iconSplashColor,
     required this.inactiveIconColor,
     required this.sidebarIconColor,
     required this.sidebarSelectedIconColor,
@@ -76,7 +92,7 @@ class AppTheme {
 }
 
 class ThemeProvider with ChangeNotifier {
-  ThemeType _currentTheme = ThemeType.dark;
+  ThemeType _currentTheme = ThemeType.light;
 
   final Map<ThemeType, AppTheme> _themes = {
     ThemeType.dark: AppTheme(
@@ -85,10 +101,18 @@ class ThemeProvider with ChangeNotifier {
       primary: const Color.fromARGB(255, 25, 25, 25),
       secondary: const Color.fromARGB(255, 45, 45, 45),
       tertiary: const Color.fromARGB(255, 65, 65, 65),
-      textColor: Colors.white,
+      textColorPrimary: const Color.fromARGB(255, 230, 230, 230),
+      textColorSecondary: const Color.fromARGB(255, 220, 220, 220),
+      textColorTertiary: const Color.fromARGB(255, 150, 150, 150),
+      textHoverColor: const Color.fromARGB(255, 40, 40, 40),
+      textSelectedColor: const Color.fromARGB(255, 60, 60, 60),
       appTitleTextColor: const Color.fromARGB(255, 215, 215, 215),
       inactiveTextColor: Colors.grey,
       iconColor: const Color.fromARGB(255, 215, 215, 215),
+      iconBackgroundColor: const Color.fromARGB(255, 80, 80, 80),
+      iconHoverColor: const Color.fromARGB(255, 120, 120, 120),
+      iconHighlightColor: const Color.fromARGB(255, 130, 130, 130),
+      iconSplashColor: const Color.fromARGB(255, 180, 180, 180),
       inactiveIconColor: Colors.grey,
       sidebarIconColor: const Color.fromARGB(255, 215, 215, 215),
       sidebarSelectedIconColor: const Color.fromARGB(255, 126, 109, 202),
@@ -107,10 +131,18 @@ class ThemeProvider with ChangeNotifier {
       primary: const Color(0xFFF5F5F5),
       secondary: const Color(0xFFBDBDBD),
       tertiary: const Color(0xFFE0E0E0),
-      textColor: Colors.black,
+      textColorPrimary: const Color.fromARGB(255, 25, 25, 25),
+      textColorSecondary: const Color.fromARGB(255, 35, 35, 35),
+      textColorTertiary: const Color.fromARGB(255, 105, 105, 105),
+      textHoverColor: const Color.fromARGB(255, 215, 215, 215),
+      textSelectedColor: const Color.fromARGB(255, 195, 195, 195),
       appTitleTextColor: const Color.fromARGB(255, 50, 50, 50),
       inactiveTextColor: Colors.grey,
       iconColor: const Color.fromARGB(255, 40, 40, 40),
+      iconBackgroundColor: const Color.fromARGB(255, 175, 175, 175),
+      iconHoverColor: const Color.fromARGB(255, 135, 135, 135),
+      iconHighlightColor: const Color.fromARGB(255, 125, 125, 125),
+      iconSplashColor: const Color.fromARGB(255, 75, 75, 75),
       inactiveIconColor: Colors.grey,
       sidebarIconColor: const Color.fromARGB(255, 40, 40, 40),
       sidebarSelectedIconColor: const Color.fromARGB(255, 182, 168, 255),
