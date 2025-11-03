@@ -106,12 +106,6 @@ abstract class AppLocalizations {
     Locale('ja'),
   ];
 
-  /// No description provided for @appTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'LilygoBox'**
-  String get appTitle;
-
   /// No description provided for @themeDark.
   ///
   /// In en, this message translates to:

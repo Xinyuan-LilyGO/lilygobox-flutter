@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-11-03 13:55:28
+ * @LastEditTime: 2025-11-03 15:34:09
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -75,10 +75,6 @@ class AppTheme {
     required this.dividerColor,
   });
 
-  // 注意：在调用 getName() 的地方，AppLocalizations.of(context) 可能会返回 null。
-  // 在 Dart 2.12+ (空安全) 中，您可能需要进行空安全检查，
-  // 比如将 AppLocalizations appLocalizations 改为 AppLocalizations? appLocalizations，
-  // 或者在调用处保证 context 是有效的。
   String getName(AppLocalizations appLocalizations) {
     switch (nameKey) {
       case 'theme_dark':

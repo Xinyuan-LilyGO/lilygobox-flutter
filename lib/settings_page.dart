@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'theme.dart';
 import 'language.dart';
 import 'window.dart';
+import 'package_info.dart';
 
 class SplitViewTemplate extends StatefulWidget {
   // 引入 windowProvider 用于关闭按钮
@@ -402,6 +404,11 @@ class _AboutContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final packageInfoProvider = Provider.of<PackageInfoProvider>(
+      context,
+      listen: false,
+    );
+
     return Container(
       alignment: Alignment.topLeft,
       padding: const EdgeInsets.fromLTRB(40.0, 50.0, 40.0, 50.0), // 内部边距
@@ -425,11 +432,14 @@ class _AboutContent extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            _buildInfoItem(context.l10n.version, 'v1.0.0'),
+            _buildInfoItem(
+              context.l10n.version,
+              'v${packageInfoProvider.version}',
+            ),
 
             _buildInfoItem(
               context.l10n.copyright,
-              '${context.l10n.appTitle} \n© 2025 LILYGO Corporation ${context.l10n.allRightsReserved}',
+              '${packageInfoProvider.appName} \n© 2025 LILYGO Corporation ${context.l10n.allRightsReserved}',
             ),
           ],
         ),

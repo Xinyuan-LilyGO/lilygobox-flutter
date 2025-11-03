@@ -1,5 +1,5 @@
-name: flutter_lilygobox
-description: "flutter_lilygobox"
+name: LilygoBox
+description: "none"
 publish_to: 'none'
 version: 1.0.0
 
@@ -16,6 +16,7 @@ dependencies:
   window_manager: ^0.5.1
   provider: ^6.1.5+1
   intl: ^0.20.2
+  package_info_plus: ^9.0.0
 
 # debug 版本所需的包
 dev_dependencies:

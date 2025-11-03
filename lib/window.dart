@@ -9,6 +9,7 @@ import 'language.dart';
 import 'l10n/app_localizations.dart';
 import 'home_page.dart';
 import 'settings_page.dart';
+import 'package_info.dart';
 
 // MainApp 现在可以是 StatelessWidget，因为状态已经移到 Provider 中
 class MainApp extends StatelessWidget {
@@ -16,6 +17,14 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 在当前帧渲染完成之后执行
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<PackageInfoProvider>(
+        context,
+        listen: false,
+      ).initializePackageInfo();
+    });
+
     return Consumer3<ThemeProvider, WindowProvider, LanguageProvider>(
       builder: (context, themeProvider, windowProvider, languageProvider, child) {
         final theme = themeProvider.themeData;
@@ -125,6 +134,10 @@ class MainApp extends StatelessWidget {
   Widget _buildAppTitleBar(BuildContext context) {
     final windowProvider = Provider.of<WindowProvider>(context, listen: false);
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final packageInfoProvider = Provider.of<PackageInfoProvider>(
+      context,
+      listen: false,
+    );
     final theme = themeProvider.themeData;
 
     final isFocused = windowProvider.isFocused;
@@ -147,7 +160,7 @@ class MainApp extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 padding: const EdgeInsets.only(left: 12),
                 child: Text(
-                  context.l10n.appTitle, // 使用本地化文本
+                  packageInfoProvider.appName,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 12,

@@ -15,9 +15,6 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
-  String get appTitle => 'LilygoBox';
-
-  @override
   String get themeDark => '黑色主题';
 
   @override
