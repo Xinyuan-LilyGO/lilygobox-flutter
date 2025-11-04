@@ -288,7 +288,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
 
           // 搜索栏
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10.0),
+            padding: const EdgeInsets.only(left: 10.0),
             decoration: BoxDecoration(
               color: theme.tertiarytextBackgroundColor, // 使用与按钮背景相似的颜色
               borderRadius: BorderRadius.circular(6),

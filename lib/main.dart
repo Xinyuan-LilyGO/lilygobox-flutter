@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-17 22:29:20
- * @LastEditTime: 2025-11-03 15:06:30
+ * @LastEditTime: 2025-11-04 16:09:16
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -35,7 +35,7 @@ void main() async {
   // 等待窗口准备好显示
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
     // 最小尺寸限制
-    await windowManager.setMinimumSize(Size(500, 300));
+    await windowManager.setMinimumSize(Size(500, 400));
     // 设置窗口无边框
     await windowManager.setAsFrameless();
     // 添加窗口阴影
