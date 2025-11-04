@@ -14,5 +14,8 @@
     "allRightsReserved": ". All rights reserved.",
     "addBoard": "Add Board",
     "addBoardDescription": "You can add development boards here, please select the method to add a development board",
-    "addByBoardType": "Add by board type"
+    "addByBoardType": "Add by board type",
+    "selectBoard": "Select Board",
+    "selectBoardDescription": "Click below to select the board you want to add",
+    "searchForBoardModel": "Search for board model"
 }

@@ -14,5 +14,8 @@
     "allRightsReserved": "。保留所有权利。",
     "addBoard": "添加板子",
     "addBoardDescription": "这里可以添加开发板，请选择添加开发板的方式",
-    "addByBoardType": "通过板子类型添加"
+    "addByBoardType": "通过板子类型添加",
+    "selectBoard": "选择板子",
+    "selectBoardDescription": "点击下方选择你需要添加的板子",
+    "searchForBoardModel": "搜索板子型号"
 }

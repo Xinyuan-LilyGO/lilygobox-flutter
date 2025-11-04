@@ -259,7 +259,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
         children: [
           // 标题
           Text(
-            '选择板子', // 新标题
+            context.l10n.selectBoard,
             style: TextStyle(
               fontSize: 25,
               fontWeight: FontWeight.bold,
@@ -269,7 +269,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
           const SizedBox(height: 5),
           // 描述
           Text(
-            '点击下方选择你需要添加的板子',
+            context.l10n.selectBoardDescription,
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 14, color: theme.textColorTertiary),
           ),
@@ -287,7 +287,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
               // 添加 cursorColor 属性来设置光标颜色
               cursorColor: theme.primary,
               decoration: InputDecoration(
-                hintText: '搜索板子型号',
+                hintText: context.l10n.searchForBoardModel,
                 hintStyle: TextStyle(
                   color: theme.textColorTertiary,
                   fontSize: 15.0,
@@ -473,7 +473,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
                   height: 50,
                   alignment: Alignment.center,
                   child: Text(
-                    '添加板子',
+                    context.l10n.addBoard,
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,

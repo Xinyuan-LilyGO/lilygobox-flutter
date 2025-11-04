@@ -58,4 +58,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get addByBoardType => '通过板子类型添加';
+
+  @override
+  String get selectBoard => '选择板子';
+
+  @override
+  String get selectBoardDescription => '点击下方选择你需要添加的板子';
+
+  @override
+  String get searchForBoardModel => '搜索板子型号';
 }

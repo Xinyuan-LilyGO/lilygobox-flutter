@@ -58,4 +58,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get addByBoardType => 'ボードタイプで追加';
+
+  @override
+  String get selectBoard => 'ボードを選択';
+
+  @override
+  String get selectBoardDescription => '追加したいボードを選択するには、下をクリックしてください';
+
+  @override
+  String get searchForBoardModel => 'ボードの型番を検索';
 }

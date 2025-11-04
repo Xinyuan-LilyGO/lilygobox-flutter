@@ -195,6 +195,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add by board type'**
   String get addByBoardType;
+
+  /// No description provided for @selectBoard.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Board'**
+  String get selectBoard;
+
+  /// No description provided for @selectBoardDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Click below to select the board you want to add'**
+  String get selectBoardDescription;
+
+  /// No description provided for @searchForBoardModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Search for board model'**
+  String get searchForBoardModel;
 }
 
 class _AppLocalizationsDelegate

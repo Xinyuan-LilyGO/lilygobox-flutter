@@ -59,4 +59,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get addByBoardType => 'Add by board type';
+
+  @override
+  String get selectBoard => 'Select Board';
+
+  @override
+  String get selectBoardDescription =>
+      'Click below to select the board you want to add';
+
+  @override
+  String get searchForBoardModel => 'Search for board model';
 }
