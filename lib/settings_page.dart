@@ -150,7 +150,7 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
                 child: Text(
                   context.l10n.settingsTitle, // 使用本地化标题
                   style: TextStyle(
-                    fontWeight: FontWeight.w900, // 设得更粗一些
+                    fontWeight: FontWeight.bold, // 设得更粗一些
                     fontSize: 20,
                     color: theme.textColorPrimary,
                   ),

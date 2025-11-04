@@ -346,7 +346,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
                           // 只有在非选中状态下才应用悬停颜色
                           if (!isSelected) {
                             _currentHoverColors[boardName] =
-                                theme.tertiaryTextHoverColor;
+                                theme.primaryTextHoverColor;
                           }
                         });
                       },
@@ -375,7 +375,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
                             // 选中时使用特定的背景色，非选中且悬停时使用 hoverColor
                             color: isSelected
                                 ? theme
-                                      .tertiarytextBackgroundColor // 选中背景色
+                                      .primaryTextSelectedColor // 选中背景色
                                 : hoverColor, // 非选中状态下的悬停色 (Colors.transparent 或 theme.tertiaryTextHoverColor)
                             borderRadius: BorderRadius.circular(6),
                           ),
@@ -390,10 +390,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
                                 Icon(
                                   Symbols.developer_board_rounded,
                                   size: 20,
-                                  color: isSelected
-                                      ? theme
-                                            .iconColor // 选中时的高亮图标色
-                                      : theme.textColorPrimary,
+                                  color: theme.iconColor,
                                 ),
                                 const SizedBox(width: 10),
                                 // 板子名称
@@ -405,10 +402,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
                                       fontWeight: isSelected
                                           ? FontWeight.bold
                                           : FontWeight.normal,
-                                      color: isSelected
-                                          ? theme
-                                                .iconColor // 选中时的高亮文字色
-                                          : theme.textColorPrimary,
+                                      color: theme.textColorSecondary,
                                     ),
                                   ),
                                 ),
@@ -440,21 +434,21 @@ class _AddBoardPageState extends State<AddBoardPage> {
             child: Material(
               color:
                   isBoardSelected // 始终为 true
-                  ? Colors
-                        .white // 选中时的高亮色
+                  ? theme
+                        .tertiarytextBackgroundColor // 选中时的高亮色
                   : theme.tertiarytextBackgroundColor.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(6),
               child: InkWell(
                 onTap: isBoardSelected
                     ? () {
                         // TODO: 实现添加选中板子的逻辑
-                        print('添加板子: $_selectedBoard');
+                        print('添加板子');
                         widget.windowProvider.setPage(
                           WindowPage.home,
                         ); // 添加后关闭弹窗
                       }
                     : null,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
                 hoverColor: isBoardSelected
                     ? Colors
                           .white // 启用时的悬停效果
@@ -464,7 +458,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
                   height: 50,
                   alignment: Alignment.center,
                   child: Text(
-                    '添加板子: $_selectedBoard', // 显示选中的板子
+                    '添加板子', // 显示选中的板子
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
