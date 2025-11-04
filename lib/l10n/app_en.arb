@@ -11,5 +11,8 @@
     "about": "About",
     "version": "Version",
     "copyright": "Copyright",
-    "allRightsReserved": "All rights reserved"
+    "allRightsReserved": ". All rights reserved.",
+    "addBoard": "Add Board",
+    "addBoardDescription": "You can add development boards here, please select the method to add a development board",
+    "addByBoardType": "Add by board type"
 }

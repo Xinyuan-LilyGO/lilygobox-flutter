@@ -48,5 +48,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get copyright => 'Copyright';
 
   @override
-  String get allRightsReserved => 'All rights reserved';
+  String get allRightsReserved => '. All rights reserved.';
+
+  @override
+  String get addBoard => 'Add Board';
+
+  @override
+  String get addBoardDescription =>
+      'You can add development boards here, please select the method to add a development board';
+
+  @override
+  String get addByBoardType => 'Add by board type';
 }

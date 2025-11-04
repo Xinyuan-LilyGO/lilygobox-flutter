@@ -48,5 +48,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get copyright => '著作権';
 
   @override
-  String get allRightsReserved => '全ての権利を保有';
+  String get allRightsReserved => '。全ての権利を保有。';
+
+  @override
+  String get addBoard => 'ボードを追加';
+
+  @override
+  String get addBoardDescription => 'ここで開発ボードを追加できます。開発ボードの追加方法を選択してください。';
+
+  @override
+  String get addByBoardType => 'ボードタイプで追加';
 }

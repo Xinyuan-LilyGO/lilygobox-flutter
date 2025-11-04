@@ -11,5 +11,8 @@
     "about": "について",
     "version": "バージョン",
     "copyright": "著作権",
-    "allRightsReserved": "全ての権利を保有"
+    "allRightsReserved": "。全ての権利を保有。",
+    "addBoard": "ボードを追加",
+    "addBoardDescription": "ここで開発ボードを追加できます。開発ボードの追加方法を選択してください。",
+    "addByBoardType": "ボードタイプで追加"
 }

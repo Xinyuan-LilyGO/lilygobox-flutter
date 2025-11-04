@@ -11,5 +11,8 @@
     "about": "关于",
     "version": "版本",
     "copyright": "版权",
-    "allRightsReserved": "保留所有权利"
+    "allRightsReserved": "。保留所有权利。",
+    "addBoard": "添加板子",
+    "addBoardDescription": "这里可以添加开发板，请选择添加开发板的方式",
+    "addByBoardType": "通过板子类型添加"
 }

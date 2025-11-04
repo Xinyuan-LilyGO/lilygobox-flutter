@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-11-03 18:09:09
+ * @LastEditTime: 2025-11-04 09:48:26
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -23,8 +23,12 @@ class AppTheme {
   final Color textColorPrimary;
   final Color textColorSecondary;
   final Color textColorTertiary;
-  final Color textHoverColor;
-  final Color textSelectedColor;
+  final Color primaryTextHoverColor;
+  final Color primaryTextSelectedColor;
+  final Color tertiarytextBackgroundColor;
+  final Color tertiaryTextHoverColor;
+  final Color tertiaryTextHighlightColor;
+  final Color tertiaryTextSplashColor;
   final Color appTitleTextColor;
   final Color inactiveTextColor;
   final Color iconColor;
@@ -53,8 +57,12 @@ class AppTheme {
     required this.textColorPrimary,
     required this.textColorSecondary,
     required this.textColorTertiary,
-    required this.textHoverColor,
-    required this.textSelectedColor,
+    required this.primaryTextHoverColor,
+    required this.primaryTextSelectedColor,
+    required this.tertiarytextBackgroundColor,
+    required this.tertiaryTextHoverColor,
+    required this.tertiaryTextHighlightColor,
+    required this.tertiaryTextSplashColor,
     required this.appTitleTextColor,
     required this.inactiveTextColor,
     required this.iconColor,
@@ -100,8 +108,12 @@ class ThemeProvider with ChangeNotifier {
       textColorPrimary: const Color.fromARGB(255, 230, 230, 230),
       textColorSecondary: const Color.fromARGB(255, 220, 220, 220),
       textColorTertiary: const Color.fromARGB(255, 150, 150, 150),
-      textHoverColor: const Color.fromARGB(255, 40, 40, 40),
-      textSelectedColor: const Color.fromARGB(255, 60, 60, 60),
+      primaryTextHoverColor: const Color.fromARGB(255, 40, 40, 40),
+      primaryTextSelectedColor: const Color.fromARGB(255, 60, 60, 60),
+      tertiarytextBackgroundColor: const Color.fromARGB(255, 70, 70, 70),
+      tertiaryTextHoverColor: const Color.fromARGB(255, 100, 100, 100),
+      tertiaryTextHighlightColor: const Color.fromARGB(100, 120, 120, 120),
+      tertiaryTextSplashColor: const Color.fromARGB(100, 170, 170, 170),
       appTitleTextColor: const Color.fromARGB(255, 215, 215, 215),
       inactiveTextColor: Colors.grey,
       iconColor: const Color.fromARGB(255, 215, 215, 215),
@@ -130,8 +142,12 @@ class ThemeProvider with ChangeNotifier {
       textColorPrimary: const Color.fromARGB(255, 25, 25, 25),
       textColorSecondary: const Color.fromARGB(255, 35, 35, 35),
       textColorTertiary: const Color.fromARGB(255, 105, 105, 105),
-      textHoverColor: const Color.fromARGB(255, 215, 215, 215),
-      textSelectedColor: const Color.fromARGB(255, 195, 195, 195),
+      primaryTextHoverColor: const Color.fromARGB(255, 215, 215, 215),
+      primaryTextSelectedColor: const Color.fromARGB(255, 195, 195, 195),
+      tertiarytextBackgroundColor: const Color.fromARGB(255, 175, 175, 175),
+      tertiaryTextHoverColor: const Color.fromARGB(255, 115, 115, 115),
+      tertiaryTextHighlightColor: const Color.fromARGB(100, 130, 130, 130),
+      tertiaryTextSplashColor: const Color.fromARGB(100, 180, 180, 180),
       appTitleTextColor: const Color.fromARGB(255, 50, 50, 50),
       inactiveTextColor: Colors.grey,
       iconColor: const Color.fromARGB(255, 40, 40, 40),

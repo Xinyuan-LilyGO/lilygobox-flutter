@@ -1,3 +1,4 @@
+import 'package:LilygoBox/language.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -40,7 +41,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
             height: 550, // 弹窗高度
             decoration: BoxDecoration(
               color: theme.secondary, // 使用 secondary 作为弹窗背景色
-              borderRadius: BorderRadius.circular(15), // 圆角
+              borderRadius: BorderRadius.circular(10), // 圆角
               // 阴影属性，使弹窗浮出
               boxShadow: [
                 BoxShadow(
@@ -55,13 +56,13 @@ class _AddBoardPageState extends State<AddBoardPage> {
               children: [
                 // 弹窗内容
                 Padding(
-                  padding: const EdgeInsets.all(40.0),
+                  padding: const EdgeInsets.all(30.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       // 标题
                       Text(
-                        '添加板子',
+                        context.l10n.addBoard,
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
@@ -71,7 +72,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
                       const SizedBox(height: 10),
                       // 描述
                       Text(
-                        '这里可以添加开发板，请选择添加开发板的方式',
+                        context.l10n.addBoardDescription,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
@@ -83,23 +84,32 @@ class _AddBoardPageState extends State<AddBoardPage> {
                       SizedBox(
                         width: double.infinity,
                         height: 50,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            // 实现添加板子的逻辑
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: Text(
-                            '通过扫描设备添加',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: theme.primary, // 按钮文字颜色
+                        child: Material(
+                          color: theme.tertiarytextBackgroundColor,
+                          borderRadius: BorderRadius.circular(10),
+                          child: InkWell(
+                            onTap: () {
+                              // 实现添加板子的逻辑
+                            },
+                            borderRadius: BorderRadius.circular(10),
+                            // 悬停颜色
+                            hoverColor: theme.tertiaryTextHoverColor,
+                            // 点击涟漪效果颜色（保持默认或自定义）
+                            splashColor: theme.tertiaryTextSplashColor,
+                            // 点击高亮颜色
+                            highlightColor: theme.tertiaryTextHighlightColor,
+                            child: Container(
+                              width: double.infinity,
+                              height: 50,
+                              alignment: Alignment.center,
+                              child: Text(
+                                context.l10n.addByBoardType,
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.textColorPrimary,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -110,15 +120,15 @@ class _AddBoardPageState extends State<AddBoardPage> {
 
                 // 右上角关闭按钮
                 Positioned(
-                  top: 10,
-                  right: 10,
+                  top: 12,
+                  right: 12,
                   child: MouseRegion(
                     onEnter: (_) => setState(() => _isHoveringClose = true),
                     onExit: (_) => setState(() => _isHoveringClose = false),
                     child: AnimatedContainer(
                       duration: _animationDuration,
-                      width: 30, // 调整尺寸以适应您的主题风格
-                      height: 30, // 调整尺寸
+                      width: 33, // 调整尺寸以适应您的主题风格
+                      height: 33, // 调整尺寸
                       decoration: BoxDecoration(
                         color: _isHoveringClose
                             ? theme.iconHoverColor
@@ -132,11 +142,11 @@ class _AddBoardPageState extends State<AddBoardPage> {
                             // 点击关闭按钮，切换回 home 页面
                             widget.windowProvider.setPage(WindowPage.home);
                           },
-                          borderRadius: BorderRadius.circular(15.0), // 调整圆角
+                          borderRadius: BorderRadius.circular(20.0), // 调整圆角
                           child: Center(
                             child: Icon(
                               Symbols.close_rounded,
-                              size: 18,
+                              size: 19,
                               color: theme.iconColor,
                             ),
                           ),

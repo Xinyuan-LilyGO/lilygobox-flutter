@@ -151,7 +151,7 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
                   context.l10n.settingsTitle, // 使用本地化标题
                   style: TextStyle(
                     fontWeight: FontWeight.w900, // 设得更粗一些
-                    fontSize: 18,
+                    fontSize: 20,
                     color: theme.textColorPrimary,
                   ),
                 ),
@@ -204,7 +204,7 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
 
                     // 计算目标背景色
                     final targetColor = isSelected
-                        ? theme.textSelectedColor
+                        ? theme.primaryTextSelectedColor
                         : _currentHoverColors[key] ??
                               Colors.transparent; // 使用 key 访问 hover 颜色
 
@@ -232,7 +232,7 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
                                   setState(() {
                                     // 更新 Map 中的悬停目标颜色，使用 key
                                     _currentHoverColors[key] = isHovering
-                                        ? theme.textHoverColor
+                                        ? theme.primaryTextHoverColor
                                         : Colors.transparent;
                                   });
                                 }
@@ -330,7 +330,7 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
                           child: Center(
                             child: Icon(
                               Symbols.close_rounded,
-                              size: 18,
+                              size: 22,
                               color: theme.iconColor,
                             ),
                           ),
@@ -438,7 +438,7 @@ class _AboutContent extends StatelessWidget {
 
             _buildInfoItem(
               context.l10n.copyright,
-              '${packageInfoProvider.appName} \n© 2025 LILYGO Corporation ${context.l10n.allRightsReserved}',
+              '${packageInfoProvider.appName} \n© 2025 LILYGO Corporation${context.l10n.allRightsReserved}',
             ),
           ],
         ),

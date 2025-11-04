@@ -175,8 +175,26 @@ abstract class AppLocalizations {
   /// No description provided for @allRightsReserved.
   ///
   /// In en, this message translates to:
-  /// **'All rights reserved'**
+  /// **'. All rights reserved.'**
   String get allRightsReserved;
+
+  /// No description provided for @addBoard.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Board'**
+  String get addBoard;
+
+  /// No description provided for @addBoardDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'You can add development boards here, please select the method to add a development board'**
+  String get addBoardDescription;
+
+  /// No description provided for @addByBoardType.
+  ///
+  /// In en, this message translates to:
+  /// **'Add by board type'**
+  String get addByBoardType;
 }
 
 class _AppLocalizationsDelegate

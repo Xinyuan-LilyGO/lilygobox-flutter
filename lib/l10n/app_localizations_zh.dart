@@ -48,5 +48,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get copyright => '版权';
 
   @override
-  String get allRightsReserved => '保留所有权利';
+  String get allRightsReserved => '。保留所有权利。';
+
+  @override
+  String get addBoard => '添加板子';
+
+  @override
+  String get addBoardDescription => '这里可以添加开发板，请选择添加开发板的方式';
+
+  @override
+  String get addByBoardType => '通过板子类型添加';
 }
