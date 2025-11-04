@@ -183,7 +183,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
 
     return Padding(
       key: const ValueKey('InitialPage'), // AnimatedSwitcher 需要 key
-      padding: const EdgeInsets.all(30.0),
+      padding: const EdgeInsets.all(35.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -253,7 +253,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
 
     return Padding(
       key: const ValueKey('SelectBoardPage'), // AnimatedSwitcher 需要 key
-      padding: const EdgeInsets.all(30.0),
+      padding: const EdgeInsets.all(35.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -331,7 +331,6 @@ class _AddBoardPageState extends State<AddBoardPage> {
           Expanded(
             // 使用 Expanded 填充剩余空间
             child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 10), // 稍微缩进
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               decoration: BoxDecoration(
                 color: theme.primary, // 使用 primary 作为列表背景色，与二次背景色区分
