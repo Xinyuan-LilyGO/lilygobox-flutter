@@ -113,6 +113,10 @@ class _AddBoardPageState extends State<AddBoardPage> {
           color: Colors.transparent,
           child: InkWell(
             onTap: () {
+              setState(() {
+                // 在关闭页面前，强制清除悬停状态
+                _isHoveringClose = false;
+              });
               // 点击关闭按钮，切换回 home 页面
               widget.windowProvider.setPage(WindowPage.home);
             },
@@ -155,6 +159,9 @@ class _AddBoardPageState extends State<AddBoardPage> {
           child: InkWell(
             onTap: () {
               setState(() {
+                // 在切换页面/组件状态前，确保清除悬停状态
+                _isHoveringBack = false; // 强制清除悬停状态
+
                 _currentPage = AddBoardPageType.initial; // 返回初始页面
                 // _selectedBoard = null; // 保持当前选中项不变，下次进入时会重新选中第一个
                 _searchController.clear(); // 清空搜索栏
