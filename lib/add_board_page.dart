@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import 'theme.dart'; // 假设这里定义了 ThemeProvider 和 themeData 的返回类型
+import 'theme.dart';
 import 'window.dart';
 
 // 定义页面枚举
@@ -24,7 +24,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
   bool _isHoveringBack = false;
   final Duration _animationDuration = const Duration(milliseconds: 150);
 
-  // 新增：当前页面状态
+  // 当前页面状态
   AddBoardPageType _currentPage = AddBoardPageType.initial;
 
   // 模拟板子型号数据
@@ -44,7 +44,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
   String? _selectedBoard;
   List<String> _filteredBoards = [];
 
-  // 新增：用于存储每个菜单项当前 Hover 颜色的 Map
+  // 用于存储每个菜单项当前 Hover 颜色的 Map
   late Map<String, Color> _currentHoverColors;
 
   @override
@@ -79,19 +79,8 @@ class _AddBoardPageState extends State<AddBoardPage> {
           .where((board) => board.toLowerCase().contains(query))
           .toList();
 
-      // **关键改动：保留选中项的逻辑**
-      // 1. 如果之前有选中项 (_selectedBoard != null)
-      if (_selectedBoard != null) {
-        // 2. 检查该选中项是否仍在新的过滤列表 (_filteredBoards) 中。
-        if (!_filteredBoards.contains(_selectedBoard)) {
-          // 3. 如果不在新的列表中，则取消选中。
-          //    （例如：选中 ESP32，搜索 "Arduino"，ESP32 不在结果中，取消选中）
-          _selectedBoard = null;
-        }
-        // 4. 如果在新的列表中 (包括清空搜索栏时，_filteredBoards 恢复为完整列表的情况)，
-        //    则保持 _selectedBoard 不变。
-      }
-      // 5. 如果之前就没有选中项 (_selectedBoard == null)，则保持不变。
+      // 搜索只负责过滤显示内容，不影响选中状态
+      // 选中项应该只在用户点击其他选项或明确取消时才改变
     });
   }
 
@@ -142,11 +131,11 @@ class _AddBoardPageState extends State<AddBoardPage> {
     final theme = Provider.of<ThemeProvider>(context, listen: false).themeData;
 
     return MouseRegion(
-      // 新增：悬停状态管理
+      // 悬停状态管理
       onEnter: (_) => setState(() => _isHoveringBack = true),
       onExit: (_) => setState(() => _isHoveringBack = false),
       child: AnimatedContainer(
-        // 新增：悬停动画
+        // 悬停动画
         duration: _animationDuration,
         width: 33,
         height: 33,
@@ -167,11 +156,10 @@ class _AddBoardPageState extends State<AddBoardPage> {
 
                 _currentPage = AddBoardPageType.initial; // 返回初始页面
 
-                // 关键改动：返回初始页时，清除选中板子和搜索状态
-                // 这样从初始页再次进入选择页时，是全新的未选中状态
+                // 只在返回初始页面时清除选中状态
+                // 这样用户再次进入选择页面时，之前的选择会被保留
                 _selectedBoard = null;
                 _searchController.clear(); // 清空搜索栏（这将自动触发 _filterBoards 恢复完整列表）
-                // _filteredBoards = _boardTypes; // 这一步可以省略，因为 clear() 会触发 _filterBoards
                 _initHoverColors(); // 重置悬停颜色
               });
             },
@@ -250,7 +238,6 @@ class _AddBoardPageState extends State<AddBoardPage> {
               ),
             ),
           ),
-          // 可以在此添加其他按钮...
         ],
       ),
     );
@@ -259,8 +246,10 @@ class _AddBoardPageState extends State<AddBoardPage> {
   // 选择板子页面的内容 (使用设置页面左侧菜单风格)
   Widget _buildSelectBoardPage(BuildContext context) {
     final theme = Provider.of<ThemeProvider>(context, listen: false).themeData;
-    // 只有在 _selectedBoard 不为 null 时才为 true
-    final bool isBoardSelected = _selectedBoard != null;
+
+    // 检查选中的板子是否在当前过滤列表中
+    final bool isBoardSelected =
+        _selectedBoard != null && _filteredBoards.contains(_selectedBoard);
 
     return Padding(
       key: const ValueKey('SelectBoardPage'), // AnimatedSwitcher 需要 key
@@ -280,7 +269,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
           const SizedBox(height: 5),
           // 描述
           Text(
-            '点击下方选择你需要添加的板子', // 新描述
+            '点击下方选择你需要添加的板子',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 14, color: theme.textColorTertiary),
           ),
@@ -378,8 +367,13 @@ class _AddBoardPageState extends State<AddBoardPage> {
                       child: GestureDetector(
                         onTap: () {
                           setState(() {
-                            // 用户点击时设置 _selectedBoard
+                            // 切换选中状态
+                            // 如果点击已选中的，就取消选中，否则选中新的
+                            // if (isSelected) {
+                            //   _selectedBoard = null;
+                            // } else {
                             _selectedBoard = boardName;
+                            // }
                             // 点击后确保移除悬停状态，尽管 onExit 也会处理
                             _currentHoverColors[boardName] = Colors.transparent;
                           });
@@ -406,7 +400,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
                             ),
                             child: Row(
                               children: [
-                                // 左侧图标 (可选)
+                                // 左侧图标
                                 Icon(
                                   Symbols.developer_board_rounded,
                                   size: 20,
@@ -463,7 +457,6 @@ class _AddBoardPageState extends State<AddBoardPage> {
                 // 未选中板子时，onTap 设为 null，禁用按钮
                 onTap: isBoardSelected
                     ? () {
-                        // TODO: 实现添加选中板子的逻辑
                         print('添加板子: $_selectedBoard');
                         widget.windowProvider.setPage(
                           WindowPage.home,
