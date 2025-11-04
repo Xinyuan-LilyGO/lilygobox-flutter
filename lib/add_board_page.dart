@@ -40,6 +40,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
 
   // 搜索栏控制器和选中的板子
   final TextEditingController _searchController = TextEditingController();
+  // 保持初始值为 null
   String? _selectedBoard;
   List<String> _filteredBoards = [];
 
@@ -52,16 +53,12 @@ class _AddBoardPageState extends State<AddBoardPage> {
     _filteredBoards = _boardTypes; // 初始化时显示所有板子
     _searchController.addListener(_filterBoards);
 
-    // 初始化时选中第一个板子，除非列表为空
-    if (_filteredBoards.isNotEmpty) {
-      _selectedBoard = _filteredBoards.first;
-    }
-
     // 初始化 Hover 颜色 Map
     _initHoverColors();
   }
 
   void _initHoverColors() {
+    // 确保 _currentHoverColors 包含所有原始板子名称
     _currentHoverColors = {
       for (var board in _boardTypes) board: Colors.transparent,
     };
@@ -82,13 +79,19 @@ class _AddBoardPageState extends State<AddBoardPage> {
           .where((board) => board.toLowerCase().contains(query))
           .toList();
 
-      // 搜索结果变化时，如果当前选中项不在结果中，则选中第一个结果
-      if (_filteredBoards.isNotEmpty &&
-          !_filteredBoards.contains(_selectedBoard)) {
-        _selectedBoard = _filteredBoards.first;
-      } else if (_filteredBoards.isEmpty) {
-        _selectedBoard = null;
+      // **关键改动：保留选中项的逻辑**
+      // 1. 如果之前有选中项 (_selectedBoard != null)
+      if (_selectedBoard != null) {
+        // 2. 检查该选中项是否仍在新的过滤列表 (_filteredBoards) 中。
+        if (!_filteredBoards.contains(_selectedBoard)) {
+          // 3. 如果不在新的列表中，则取消选中。
+          //    （例如：选中 ESP32，搜索 "Arduino"，ESP32 不在结果中，取消选中）
+          _selectedBoard = null;
+        }
+        // 4. 如果在新的列表中 (包括清空搜索栏时，_filteredBoards 恢复为完整列表的情况)，
+        //    则保持 _selectedBoard 不变。
       }
+      // 5. 如果之前就没有选中项 (_selectedBoard == null)，则保持不变。
     });
   }
 
@@ -163,12 +166,12 @@ class _AddBoardPageState extends State<AddBoardPage> {
                 _isHoveringBack = false; // 强制清除悬停状态
 
                 _currentPage = AddBoardPageType.initial; // 返回初始页面
-                // _selectedBoard = null; // 保持当前选中项不变，下次进入时会重新选中第一个
-                _searchController.clear(); // 清空搜索栏
-                _filteredBoards = _boardTypes; // 恢复完整列表
-                _selectedBoard = _boardTypes.isNotEmpty
-                    ? _boardTypes.first
-                    : null; // 重设选中项
+
+                // 关键改动：返回初始页时，清除选中板子和搜索状态
+                // 这样从初始页再次进入选择页时，是全新的未选中状态
+                _selectedBoard = null;
+                _searchController.clear(); // 清空搜索栏（这将自动触发 _filterBoards 恢复完整列表）
+                // _filteredBoards = _boardTypes; // 这一步可以省略，因为 clear() 会触发 _filterBoards
                 _initHoverColors(); // 重置悬停颜色
               });
             },
@@ -225,10 +228,6 @@ class _AddBoardPageState extends State<AddBoardPage> {
                   // 点击后切换到选择板子页面
                   setState(() {
                     _currentPage = AddBoardPageType.selectBoard;
-                    // 确保进入选择页面时至少选中一个板子
-                    if (_selectedBoard == null && _filteredBoards.isNotEmpty) {
-                      _selectedBoard = _filteredBoards.first;
-                    }
                   });
                 },
                 borderRadius: BorderRadius.circular(6),
@@ -260,7 +259,8 @@ class _AddBoardPageState extends State<AddBoardPage> {
   // 选择板子页面的内容 (使用设置页面左侧菜单风格)
   Widget _buildSelectBoardPage(BuildContext context) {
     final theme = Provider.of<ThemeProvider>(context, listen: false).themeData;
-    final bool isBoardSelected = _selectedBoard != null; // 始终为 true，除非列表为空
+    // 只有在 _selectedBoard 不为 null 时才为 true
+    final bool isBoardSelected = _selectedBoard != null;
 
     return Padding(
       key: const ValueKey('SelectBoardPage'), // AnimatedSwitcher 需要 key
@@ -310,8 +310,27 @@ class _AddBoardPageState extends State<AddBoardPage> {
 
                 // 使用 contentPadding 进一步微调高度
                 contentPadding: const EdgeInsets.symmetric(
-                  vertical: 10.0,
+                  vertical: 12.0,
                   horizontal: 0.0,
+                ),
+
+                // 添加清除按钮，方便用户清空搜索
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(
+                          Symbols.close_rounded,
+                          size: 19,
+                          color: theme.iconColor,
+                        ),
+                        onPressed: () {
+                          _searchController.clear();
+                          // clear() 会自动触发 listener 中的 _filterBoards
+                        },
+                      )
+                    : null,
+                suffixIconConstraints: const BoxConstraints(
+                  minWidth: 32,
+                  minHeight: 32,
                 ),
               ),
               style: TextStyle(color: theme.textColorPrimary),
@@ -359,6 +378,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
                       child: GestureDetector(
                         onTap: () {
                           setState(() {
+                            // 用户点击时设置 _selectedBoard
                             _selectedBoard = boardName;
                             // 点击后确保移除悬停状态，尽管 onExit 也会处理
                             _currentHoverColors[boardName] = Colors.transparent;
@@ -376,7 +396,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
                             color: isSelected
                                 ? theme
                                       .primaryTextSelectedColor // 选中背景色
-                                : hoverColor, // 非选中状态下的悬停色 (Colors.transparent 或 theme.tertiaryTextHoverColor)
+                                : hoverColor, // 非选中状态下的悬停色
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Padding(
@@ -432,40 +452,43 @@ class _AddBoardPageState extends State<AddBoardPage> {
             width: double.infinity,
             height: 50,
             child: Material(
-              color:
-                  isBoardSelected // 始终为 true
-                  ? theme
-                        .tertiarytextBackgroundColor // 选中时的高亮色
-                  : theme.tertiarytextBackgroundColor.withOpacity(0.5),
+              // 根据 isBoardSelected 调整背景色
+              color: isBoardSelected
+                  ? theme.tertiarytextBackgroundColor
+                  : theme.tertiarytextBackgroundColor.withValues(
+                      alpha: 0.5,
+                    ), // 未选中时变暗
               borderRadius: BorderRadius.circular(6),
               child: InkWell(
+                // 未选中板子时，onTap 设为 null，禁用按钮
                 onTap: isBoardSelected
                     ? () {
                         // TODO: 实现添加选中板子的逻辑
-                        print('添加板子');
+                        print('添加板子: $_selectedBoard');
                         widget.windowProvider.setPage(
                           WindowPage.home,
                         ); // 添加后关闭弹窗
                       }
-                    : null,
+                    : null, // 禁用
                 borderRadius: BorderRadius.circular(6),
                 hoverColor: isBoardSelected
-                    ? Colors
-                          .white // 启用时的悬停效果
-                    : Colors.transparent,
+                    ? theme
+                          .tertiaryTextHoverColor // 启用时的悬停效果
+                    : Colors.transparent, // 禁用时无悬停效果
                 child: Container(
                   width: double.infinity,
                   height: 50,
                   alignment: Alignment.center,
                   child: Text(
-                    '添加板子', // 显示选中的板子
+                    '添加板子',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
+                      // 根据 isBoardSelected 调整文字颜色
                       color: isBoardSelected
-                          ? Colors
-                                .white // 选中时的文字颜色
-                          : theme.textColorTertiary,
+                          ? theme
+                                .textColorPrimary // 选中时的文字颜色
+                          : theme.textColorTertiary, // 禁用时的文字颜色
                     ),
                   ),
                 ),
