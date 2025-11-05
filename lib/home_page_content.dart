@@ -29,8 +29,6 @@ class _HomePageContentState extends State<HomePageContent> {
   String _selectedTitleKey = 'settings';
   // 用于存储当前悬停颜色状态的 Map
   final Map<String, Color> _currentHoverColors = {};
-  // 悬停动画持续时间
-  final Duration _animationDuration = const Duration(milliseconds: 150);
 
   @override
   Widget build(BuildContext context) {
@@ -109,7 +107,7 @@ class _HomePageContentState extends State<HomePageContent> {
                 final targetColor = isSelected
                     ? theme.secondaryTextSelectedColor
                     : _currentHoverColors[key] ??
-                          Colors.transparent; // 使用 key 访问 hover 颜色
+                          theme.secondary; // 使用 key 访问 hover 颜色
 
                 return Padding(
                   padding: const EdgeInsets.symmetric(
@@ -118,9 +116,9 @@ class _HomePageContentState extends State<HomePageContent> {
                   ),
                   // 使用 TweenAnimationBuilder 实现颜色渐变
                   child: TweenAnimationBuilder<Color?>(
-                    duration: _animationDuration, // 渐变时间
+                    duration: const Duration(milliseconds: 150), // 渐变时间
                     tween: ColorTween(
-                      begin: Colors.transparent,
+                      begin: theme.secondary,
                       end: targetColor, // 渐变的目标颜色
                     ),
                     builder: (context, color, child) {
@@ -136,7 +134,7 @@ class _HomePageContentState extends State<HomePageContent> {
                                 // 更新 Map 中的悬停目标颜色，使用 key
                                 _currentHoverColors[key] = isHovering
                                     ? theme.secondaryTextHoverColor
-                                    : Colors.transparent;
+                                    : theme.secondary;
                               });
                             }
                           },
@@ -146,9 +144,9 @@ class _HomePageContentState extends State<HomePageContent> {
                             // 点击时重置所有 hover 颜色，并切换选中项
                             setState(() {
                               _selectedTitleKey = key; // 切换选中的 key
-                              // 重置所有项的悬停颜色为透明，因为点击操作已经完成
+                              // 重置所有项的悬停颜色为当前背景色，因为点击操作已经完成
                               _currentHoverColors.updateAll(
-                                (k, value) => Colors.transparent,
+                                (k, value) => theme.secondary,
                               );
                             });
                           },

@@ -206,7 +206,7 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
                     final targetColor = isSelected
                         ? theme.primaryTextSelectedColor
                         : _currentHoverColors[key] ??
-                              Colors.transparent; // 使用 key 访问 hover 颜色
+                              theme.primary; // 使用 key 访问 hover 颜色
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(
@@ -217,7 +217,7 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
                       child: TweenAnimationBuilder<Color?>(
                         duration: _animationDuration, // 渐变时间
                         tween: ColorTween(
-                          begin: Colors.transparent,
+                          begin: theme.primary,
                           end: targetColor, // 渐变的目标颜色
                         ),
                         builder: (context, color, child) {
@@ -233,7 +233,7 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
                                     // 更新 Map 中的悬停目标颜色，使用 key
                                     _currentHoverColors[key] = isHovering
                                         ? theme.primaryTextHoverColor
-                                        : Colors.transparent;
+                                        : theme.primary;
                                   });
                                 }
                               },
@@ -245,7 +245,7 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
                                   _selectedTitleKey = key; // 切换选中的 key
                                   // 重置所有项的悬停颜色为透明，因为点击操作已经完成
                                   _currentHoverColors.updateAll(
-                                    (k, value) => Colors.transparent,
+                                    (k, value) => theme.primary,
                                   );
                                 });
                               },
@@ -280,6 +280,7 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
                   },
                 ),
               ),
+            
             ],
           ),
         ),

@@ -345,7 +345,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
                     final isSelected = boardName == _selectedBoard;
                     // 使用 Map 来存储和获取当前悬停颜色
                     final hoverColor =
-                        _currentHoverColors[boardName] ?? Colors.transparent;
+                        _currentHoverColors[boardName] ?? theme.primary;
 
                     return MouseRegion(
                       onEnter: (event) {
@@ -360,7 +360,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
                       onExit: (event) {
                         setState(() {
                           _currentHoverColors[boardName] =
-                              Colors.transparent; // 恢复透明
+                              theme.primary; // 恢复透明
                         });
                       },
                       child: GestureDetector(
@@ -374,61 +374,68 @@ class _AddBoardPageState extends State<AddBoardPage> {
                             _selectedBoard = boardName;
                             // }
                             // 点击后确保移除悬停状态，尽管 onExit 也会处理
-                            _currentHoverColors[boardName] = Colors.transparent;
+                            _currentHoverColors[boardName] = theme.primary;
                           });
                         },
-                        // 使用 AnimatedContainer 来处理背景、圆角和过渡动画
-                        child: AnimatedContainer(
+                        // 使用 TweenAnimationBuilder 来处理背景颜色过渡动画
+                        child: TweenAnimationBuilder<Color?>(
                           duration: const Duration(milliseconds: 150),
-                          margin: const EdgeInsets.symmetric(
-                            vertical: 3,
-                            horizontal: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            // 选中时使用特定的背景色，非选中且悬停时使用 hoverColor
-                            color: isSelected
+                          tween: ColorTween(
+                            begin: theme.primary,
+                            end: isSelected
                                 ? theme
                                       .primaryTextSelectedColor // 选中背景色
                                 : hoverColor, // 非选中状态下的悬停色
-                            borderRadius: BorderRadius.circular(6),
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 8.0,
-                              horizontal: 10.0,
-                            ),
-                            child: Row(
-                              children: [
-                                // 左侧图标
-                                Icon(
-                                  Symbols.developer_board_rounded,
-                                  size: 20,
-                                  color: theme.iconColor,
+                          builder: (context, color, child) {
+                            return Container(
+                              margin: const EdgeInsets.symmetric(
+                                vertical: 3,
+                                horizontal: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: color,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8.0,
+                                  horizontal: 10.0,
                                 ),
-                                const SizedBox(width: 10),
-                                // 板子名称
-                                Expanded(
-                                  child: Text(
-                                    boardName,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: isSelected
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
-                                      color: theme.textColorSecondary,
+                                child: Row(
+                                  children: [
+                                    // 左侧图标
+                                    Icon(
+                                      Symbols.developer_board_rounded,
+                                      size: 20,
+                                      color: theme.iconColor,
                                     ),
-                                  ),
+                                    const SizedBox(width: 10),
+                                    // 板子名称
+                                    Expanded(
+                                      child: Text(
+                                        boardName,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: isSelected
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                          color: theme.textColorSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                    // 右侧选中标记 (如果选中)
+                                    if (isSelected)
+                                      Icon(
+                                        Symbols.check_rounded,
+                                        size: 20,
+                                        color: theme.iconColor,
+                                      ),
+                                  ],
                                 ),
-                                // 右侧选中标记 (如果选中)
-                                if (isSelected)
-                                  Icon(
-                                    Symbols.check_rounded,
-                                    size: 20,
-                                    color: theme.iconColor,
-                                  ),
-                              ],
-                            ),
-                          ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     );
@@ -437,7 +444,6 @@ class _AddBoardPageState extends State<AddBoardPage> {
               ),
             ),
           ),
-
           const SizedBox(height: 20),
 
           // 底部 "添加板子" 按钮
