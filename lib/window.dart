@@ -397,7 +397,6 @@ class MainApp extends StatelessWidget {
         final Widget baseContent = AnimatedSwitcher(
           // 动画时长保持不变
           duration: const Duration(milliseconds: 500),
-          reverseDuration: const Duration(milliseconds: 500),
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
           transitionBuilder: (Widget child, Animation<double> animation) {
