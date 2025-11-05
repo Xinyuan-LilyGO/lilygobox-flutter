@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import 'theme.dart';
-import 'language.dart';
-import 'window.dart';
-import 'package_info.dart';
+import 'provider/theme_provider.dart';
+import 'provider/language_provider.dart';
+import 'provider/window_provider.dart';
+import 'provider/package_info_provider.dart';
 
 class SplitViewTemplate extends StatefulWidget {
   // 引入 windowProvider 用于关闭按钮

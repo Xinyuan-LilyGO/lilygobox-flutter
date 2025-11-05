@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'theme.dart';
+import 'provider/theme_provider.dart';
+
 import 'home_page.dart';
 
 // 主页内容

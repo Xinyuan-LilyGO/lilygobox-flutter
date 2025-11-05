@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-17 22:29:20
- * @LastEditTime: 2025-11-05 14:16:23
+ * @LastEditTime: 2025-11-05 14:41:59
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -10,11 +10,13 @@ import 'package:window_manager/window_manager.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 
-import 'theme.dart';
-import 'window.dart';
-import 'language.dart';
-import 'package_info.dart';
+import 'provider/theme_provider.dart';
+import 'provider/window_provider.dart';
+import 'provider/language_provider.dart';
+import 'provider/package_info_provider.dart';
+
 import 'home_page.dart';
+import 'window.dart';
 
 void main() async {
   debugPaintSizeEnabled = false; // 部件边界调试

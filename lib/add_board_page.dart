@@ -1,10 +1,10 @@
-import 'package:LilygoBox/language.dart';
+import 'package:LilygoBox/provider/language_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import 'theme.dart';
-import 'window.dart';
+import 'provider/theme_provider.dart';
+import 'provider/window_provider.dart';
 
 // 定义页面枚举
 enum AddBoardPageType { initial, selectBoard }

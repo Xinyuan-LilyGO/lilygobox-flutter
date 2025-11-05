@@ -2,12 +2,12 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-11-04 09:48:26
+ * @LastEditTime: 2025-11-05 14:39:29
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
 
-import 'l10n/app_localizations.dart';
+import '../l10n/app_localizations.dart';
 
 enum ThemeType {
   dark, // 黑色格调

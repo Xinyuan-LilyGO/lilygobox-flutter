@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import 'theme.dart';
-import 'window.dart';
+import 'provider/theme_provider.dart';
+import 'provider/window_provider.dart';
+
 import 'home_page_content.dart';
 
 class HomePage extends StatefulWidget {
