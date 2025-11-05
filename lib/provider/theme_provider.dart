@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-11-05 14:39:29
+ * @LastEditTime: 2025-11-05 16:31:52
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -47,6 +47,7 @@ class AppTheme {
   final Color sidebarIndicatorColor;
   final Color appTitleBarIconBackgroundColor;
   final Color dividerColor;
+  final Color dividerColor2;
 
   const AppTheme({
     required this.type,
@@ -81,6 +82,7 @@ class AppTheme {
     required this.sidebarIndicatorColor,
     required this.appTitleBarIconBackgroundColor,
     required this.dividerColor,
+    required this.dividerColor2,
   });
 
   String getName(AppLocalizations appLocalizations) {
@@ -132,6 +134,7 @@ class ThemeProvider with ChangeNotifier {
       sidebarIndicatorColor: const Color.fromARGB(255, 200, 200, 200),
       appTitleBarIconBackgroundColor: Colors.grey.withValues(alpha: 0.2),
       dividerColor: const Color.fromARGB(255, 100, 100, 100),
+      dividerColor2: const Color.fromARGB(255, 126, 109, 202),
     ),
     ThemeType.light: AppTheme(
       type: ThemeType.light,
@@ -166,6 +169,7 @@ class ThemeProvider with ChangeNotifier {
       sidebarIndicatorColor: const Color.fromARGB(255, 40, 40, 40),
       appTitleBarIconBackgroundColor: Colors.grey.withValues(alpha: 0.2),
       dividerColor: const Color.fromARGB(255, 80, 80, 80),
+      dividerColor2: const Color.fromARGB(255, 105, 105, 105),
     ),
   };
 
