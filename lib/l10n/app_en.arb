@@ -17,5 +17,6 @@
     "addByBoardType": "Add by board type",
     "selectBoard": "Select Board",
     "selectBoardDescription": "Click below to select the board you want to add",
-    "searchForBoardModel": "Search for board model"
+    "searchForBoardModel": "Search for board model",
+    "home": "Home"
 }

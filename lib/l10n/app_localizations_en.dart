@@ -69,4 +69,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchForBoardModel => 'Search for board model';
+
+  @override
+  String get home => 'Home';
 }

@@ -67,4 +67,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get searchForBoardModel => 'ボードの型番を検索';
+
+  @override
+  String get home => 'ホームページ';
 }

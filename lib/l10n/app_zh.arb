@@ -17,5 +17,6 @@
     "addByBoardType": "通过板子类型添加",
     "selectBoard": "选择板子",
     "selectBoardDescription": "点击下方选择你需要添加的板子",
-    "searchForBoardModel": "搜索板子型号"
+    "searchForBoardModel": "搜索板子型号",
+    "home": "主页"
 }

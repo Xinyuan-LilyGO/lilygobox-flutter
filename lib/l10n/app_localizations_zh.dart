@@ -67,4 +67,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get searchForBoardModel => '搜索板子型号';
+
+  @override
+  String get home => '主页';
 }

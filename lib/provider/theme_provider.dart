@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-11-05 16:31:52
+ * @LastEditTime: 2025-11-05 16:47:26
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -25,6 +25,8 @@ class AppTheme {
   final Color textColorTertiary;
   final Color primaryTextHoverColor;
   final Color primaryTextSelectedColor;
+  final Color secondaryTextHoverColor;
+  final Color secondaryTextSelectedColor;
   final Color tertiarytextBackgroundColor;
   final Color tertiaryTextHoverColor;
   final Color tertiaryTextHighlightColor;
@@ -47,7 +49,7 @@ class AppTheme {
   final Color sidebarIndicatorColor;
   final Color appTitleBarIconBackgroundColor;
   final Color dividerColor;
-  final Color dividerColor2;
+  final Color dividerColorNormal;
 
   const AppTheme({
     required this.type,
@@ -60,6 +62,8 @@ class AppTheme {
     required this.textColorTertiary,
     required this.primaryTextHoverColor,
     required this.primaryTextSelectedColor,
+    required this.secondaryTextHoverColor,
+    required this.secondaryTextSelectedColor,
     required this.tertiarytextBackgroundColor,
     required this.tertiaryTextHoverColor,
     required this.tertiaryTextHighlightColor,
@@ -82,7 +86,7 @@ class AppTheme {
     required this.sidebarIndicatorColor,
     required this.appTitleBarIconBackgroundColor,
     required this.dividerColor,
-    required this.dividerColor2,
+    required this.dividerColorNormal,
   });
 
   String getName(AppLocalizations appLocalizations) {
@@ -112,6 +116,8 @@ class ThemeProvider with ChangeNotifier {
       textColorTertiary: const Color.fromARGB(255, 150, 150, 150),
       primaryTextHoverColor: const Color.fromARGB(255, 40, 40, 40),
       primaryTextSelectedColor: const Color.fromARGB(255, 60, 60, 60),
+      secondaryTextHoverColor: const Color.fromARGB(255, 60, 60, 60),
+      secondaryTextSelectedColor: const Color.fromARGB(255, 80, 80, 80),
       tertiarytextBackgroundColor: const Color.fromARGB(255, 70, 70, 70),
       tertiaryTextHoverColor: const Color.fromARGB(255, 100, 100, 100),
       tertiaryTextHighlightColor: const Color.fromARGB(100, 120, 120, 120),
@@ -134,7 +140,7 @@ class ThemeProvider with ChangeNotifier {
       sidebarIndicatorColor: const Color.fromARGB(255, 200, 200, 200),
       appTitleBarIconBackgroundColor: Colors.grey.withValues(alpha: 0.2),
       dividerColor: const Color.fromARGB(255, 100, 100, 100),
-      dividerColor2: const Color.fromARGB(255, 126, 109, 202),
+      dividerColorNormal: const Color.fromARGB(255, 126, 109, 202),
     ),
     ThemeType.light: AppTheme(
       type: ThemeType.light,
@@ -147,6 +153,8 @@ class ThemeProvider with ChangeNotifier {
       textColorTertiary: const Color.fromARGB(255, 105, 105, 105),
       primaryTextHoverColor: const Color.fromARGB(255, 215, 215, 215),
       primaryTextSelectedColor: const Color.fromARGB(255, 195, 195, 195),
+      secondaryTextHoverColor: const Color.fromARGB(255, 140, 140, 140),
+      secondaryTextSelectedColor: const Color.fromARGB(255, 160, 160, 160),
       tertiarytextBackgroundColor: const Color.fromARGB(255, 175, 175, 175),
       tertiaryTextHoverColor: const Color.fromARGB(255, 115, 115, 115),
       tertiaryTextHighlightColor: const Color.fromARGB(100, 130, 130, 130),
@@ -169,7 +177,7 @@ class ThemeProvider with ChangeNotifier {
       sidebarIndicatorColor: const Color.fromARGB(255, 40, 40, 40),
       appTitleBarIconBackgroundColor: Colors.grey.withValues(alpha: 0.2),
       dividerColor: const Color.fromARGB(255, 80, 80, 80),
-      dividerColor2: const Color.fromARGB(255, 105, 105, 105),
+      dividerColorNormal: const Color.fromARGB(255, 105, 105, 105),
     ),
   };
 

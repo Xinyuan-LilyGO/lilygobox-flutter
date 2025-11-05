@@ -1,3 +1,4 @@
+import 'package:LilygoBox/provider/language_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -53,7 +54,7 @@ class _HomePageContentState extends State<HomePageContent> {
           Padding(
             padding: const EdgeInsets.only(top: 8.0, left: 15.0, bottom: 8.0),
             child: Text(
-              'Home',
+              context.l10n.home,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -63,7 +64,7 @@ class _HomePageContentState extends State<HomePageContent> {
           ),
 
           // 分割线
-          Divider(color: theme.dividerColor2, height: 1, thickness: 2),
+          Divider(color: theme.dividerColorNormal, height: 1, thickness: 2),
 
           // 滚动菜单列表
           Expanded(
@@ -106,7 +107,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
                 // 计算目标背景色
                 final targetColor = isSelected
-                    ? theme.primaryTextSelectedColor
+                    ? theme.secondaryTextSelectedColor
                     : _currentHoverColors[key] ??
                           Colors.transparent; // 使用 key 访问 hover 颜色
 
@@ -134,7 +135,7 @@ class _HomePageContentState extends State<HomePageContent> {
                               setState(() {
                                 // 更新 Map 中的悬停目标颜色，使用 key
                                 _currentHoverColors[key] = isHovering
-                                    ? theme.primaryTextHoverColor
+                                    ? theme.secondaryTextHoverColor
                                     : Colors.transparent;
                               });
                             }
@@ -206,7 +207,7 @@ class _HomePageContentState extends State<HomePageContent> {
           ),
 
           // 分割线
-          // Divider(color: theme.dividerColor2, height: 1, thickness: 2),
+          // Divider(color: theme.dividerColorNormal, height: 1, thickness: 2),
         ],
       ),
     );
