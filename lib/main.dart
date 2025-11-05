@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-17 22:29:20
- * @LastEditTime: 2025-11-05 14:45:34
+ * @LastEditTime: 2025-11-05 14:50:46
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -60,7 +60,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => PackageInfoProvider()), // 添加包信息管理
         ChangeNotifierProvider(
           create: (_) => HomePageProvider(),
-        ), // 添加 home页 状态管理
+        ), // 添加 home页管理
       ],
       child: const MainApp(),
     ),
