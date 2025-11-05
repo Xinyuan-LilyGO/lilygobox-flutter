@@ -4,7 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import 'theme.dart';
 import 'window.dart';
-import 'home_home_content_page.dart';
+import 'home_page_content.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
