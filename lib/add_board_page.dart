@@ -519,12 +519,9 @@ class _AddBoardPageState extends State<AddBoardPage> {
         // 居中弹窗内容
         Center(
           child: Container(
-            width: 400, // 弹窗宽度
-            height: 550, // 弹窗高度
+            // 外层容器只负责阴影，不裁剪
             decoration: BoxDecoration(
-              color: theme.secondary, // 使用 secondary 作为弹窗背景色
-              borderRadius: BorderRadius.circular(10), // 圆角
-              // 阴影属性，使弹窗浮出
+              borderRadius: BorderRadius.circular(10),
               boxShadow: const [
                 BoxShadow(
                   color: Color.fromARGB(100, 0, 0, 0),
@@ -533,34 +530,56 @@ class _AddBoardPageState extends State<AddBoardPage> {
                 ),
               ],
             ),
-            // 使用 Stack 确保按钮可以定位
-            child: Stack(
-              children: [
-                // 使用 AnimatedSwitcher 实现页面的动画切换
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  transitionBuilder: (child, animation) {
-                    // 使用 FadeTransition 实现淡入淡出效果
-                    return FadeTransition(opacity: animation, child: child);
-                  },
-                  child: currentPageWidget, // 当前页面内容
-                ),
+            child: ClipRRect(
+              // 内层容器负责裁剪
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 400,
+                height: 550,
+                color: theme.secondary, // 背景色移到内层
+                child: Stack(
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 400),
+                      transitionBuilder: (child, animation) {
+                        final isInitialToSelect =
+                            child.key == const ValueKey('SelectBoardPage');
+                        final beginOffset = isInitialToSelect
+                            ? const Offset(1.0, 0.0)
+                            : const Offset(-1.0, 0.0);
 
-                // 右上角关闭按钮
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: _buildCloseButton(context),
-                ),
+                        final offsetAnimation = Tween<Offset>(
+                          begin: beginOffset,
+                          end: Offset.zero,
+                        ).animate(animation);
 
-                // 左上角返回按钮 (只在 SelectBoard 页面显示)
-                if (_currentPage == AddBoardPageType.selectBoard)
-                  Positioned(
-                    top: 12,
-                    left: 12,
-                    child: _buildBackButton(context),
-                  ),
-              ],
+                        return SlideTransition(
+                          position: offsetAnimation,
+                          child: FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: currentPageWidget,
+                    ),
+
+                    // 按钮代码保持不变...
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: _buildCloseButton(context),
+                    ),
+
+                    if (_currentPage == AddBoardPageType.selectBoard)
+                      Positioned(
+                        top: 12,
+                        left: 12,
+                        child: _buildBackButton(context),
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),

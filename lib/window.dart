@@ -433,10 +433,14 @@ class MainApp extends StatelessWidget {
         final Widget modalOverlay = AnimatedSwitcher(
           // 动画时长保持不变
           duration: const Duration(milliseconds: 300),
-          reverseDuration: const Duration(milliseconds: 300),
           transitionBuilder: (Widget child, Animation<double> animation) {
-            // AddBoard Page: 使用渐变动画 (您要求的风格)
-            return FadeTransition(opacity: animation, child: child);
+            return ScaleTransition(
+              scale: CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeInOut,
+              ),
+              child: child,
+            );
           },
           child: currentPage == WindowPage.addBoard
               ? AddBoardPage(
