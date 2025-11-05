@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-17 22:29:20
- * @LastEditTime: 2025-11-04 16:09:16
+ * @LastEditTime: 2025-11-05 14:16:23
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -14,6 +14,7 @@ import 'theme.dart';
 import 'window.dart';
 import 'language.dart';
 import 'package_info.dart';
+import 'home_page.dart';
 
 void main() async {
   debugPaintSizeEnabled = false; // 部件边界调试
@@ -55,6 +56,9 @@ void main() async {
         ChangeNotifierProvider(create: (_) => WindowProvider()), // 添加窗口状态管理
         ChangeNotifierProvider(create: (_) => LanguageProvider()), // 添加语言管理
         ChangeNotifierProvider(create: (_) => PackageInfoProvider()), // 添加包信息管理
+        ChangeNotifierProvider(
+          create: (_) => HomePageProvider(),
+        ), // 添加 home页 状态管理
       ],
       child: const MainApp(),
     ),

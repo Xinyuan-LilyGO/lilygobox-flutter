@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'theme.dart';
+import 'home_page.dart';
 
 // 主页内容
 class HomePageContent extends StatelessWidget {
@@ -10,8 +11,13 @@ class HomePageContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 获取主题数据
-    final themeProvider = Provider.of<ThemeProvider>(context);
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final theme = themeProvider.themeData;
+
+    final homePageProvider = Provider.of<HomePageProvider>(
+      context,
+      listen: false,
+    );
 
     // 使用 ClipRRect 确保 SplitViewTemplate 遵循外部 Container 的圆角
     return ClipRRect(
@@ -42,6 +48,7 @@ class HomePageContent extends StatelessWidget {
             ),
           ),
         ),
+        initialWidth: homePageProvider.splitWidth,
       ),
     );
   }
@@ -88,7 +95,11 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
   }
 
   // 处理拖动更新
-  void _handlePanUpdate(DragUpdateDetails details, double totalWidth) {
+  void _handlePanUpdate(
+    DragUpdateDetails details,
+    double totalWidth,
+    HomePageProvider homePageProvider,
+  ) {
     setState(() {
       double newWidth = _leftPanelWidth + details.delta.dx;
 
@@ -97,11 +108,19 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
           totalWidth * _maxLeftWidthFactor - _touchTargetWidth;
 
       _leftPanelWidth = newWidth.clamp(_minLeftWidth, maxLeftWidth);
+
+      // 更新状态管理中的宽度值
+      homePageProvider.updateSplitWidth(_leftPanelWidth);
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final homePageProvider = Provider.of<HomePageProvider>(
+      context,
+      listen: false,
+    );
+
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final double totalWidth = constraints.maxWidth;
@@ -148,7 +167,8 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
                   ),
                 ),
               ),
-              onPanUpdate: (details) => _handlePanUpdate(details, totalWidth),
+              onPanUpdate: (details) =>
+                  _handlePanUpdate(details, totalWidth, homePageProvider),
             ),
 
             // 右侧面板 (使用计算出的剩余宽度)
