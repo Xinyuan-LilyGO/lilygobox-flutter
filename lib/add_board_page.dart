@@ -508,14 +508,9 @@ class _AddBoardPageState extends State<AddBoardPage> {
         break;
     }
 
-    // 使用 Stack 实现模态效果：下层是背景遮罩，上层是居中弹窗
+    // Stack 中不再包含 ModalBarrier，只包含居中弹窗内容
     return Stack(
       children: [
-        // 背景遮罩层：变暗且不可触摸 (使用 ModalBarrier 阻止下层交互)
-        const ModalBarrier(
-          color: Color.fromARGB(100, 0, 0, 0), // 半透明黑色
-        ),
-
         // 居中弹窗内容
         Center(
           child: Container(

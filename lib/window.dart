@@ -428,11 +428,29 @@ class MainApp extends StatelessWidget {
           ),
         );
 
-        // MODAL LAYER: 处理 AddBoard 模态弹窗的淡入淡出动画
-        final Widget modalOverlay = AnimatedSwitcher(
+        // 处理背景遮罩的缓慢渐变动画
+        final Widget modalBarrier = AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          transitionBuilder: (child, animation) {
+            // 背景遮罩只使用渐变动画
+            return FadeTransition(opacity: animation, child: child);
+          },
+          child: currentPage == WindowPage.addBoard
+              ? const ModalBarrier(
+                  key: ValueKey('modal_barrier_active'), // 激活时的 Key
+                  color: Color.fromARGB(100, 0, 0, 0), // 半透明黑色
+                )
+              : Container(
+                  key: const ValueKey('modal_barrier_inactive'), // 非激活时的 Key
+                ),
+        );
+
+        // 处理 AddBoard 模态弹窗的缩放动画
+        final Widget modalContent = AnimatedSwitcher(
           // 动画时长保持不变
           duration: const Duration(milliseconds: 300),
           transitionBuilder: (Widget child, Animation<double> animation) {
+            // 弹窗内容保持缩放动画
             return ScaleTransition(
               scale: CurvedAnimation(
                 parent: animation,
@@ -448,15 +466,16 @@ class MainApp extends StatelessWidget {
                   windowProvider: windowProvider,
                 )
               // 当 AddBoardPage 不激活时，返回一个空的 Container，Key 必须不同于 addBoard 的 key
-              : Container(key: const ValueKey('empty_modal_layer')),
+              : Container(key: const ValueKey('empty_modal_content')),
         );
 
-        // 使用 Expanded 包裹 Stack，将两层叠加起来
+        // 使用 Expanded 包裹 Stack，将三层叠加起来
         return Expanded(
           child: Stack(
             children: [
               baseContent, // 底层内容 (Home 或 Settings)
-              modalOverlay, // 上层模态弹窗 (AddBoardPage 或空)
+              modalBarrier, // 中层背景遮罩 (新的 FadeTransition)
+              modalContent, // 上层模态弹窗 (保持 ScaleTransition)
             ],
           ),
         );
