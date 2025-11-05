@@ -101,21 +101,25 @@ class MainApp extends StatelessWidget {
         // 最小化按钮
         AppTitleBarControlsButtonTemplate(
           icon: Symbols.remove_rounded,
-          onPressed: isFocused ? () => windowProvider.minimize() : null,
-          hoverColor: isFocused
-              ? theme.appTitleBarIconBackgroundColor
-              : Colors.transparent,
+          // onPressed: isFocused ? () => windowProvider.minimize() : null,
+          // hoverColor: isFocused
+          //     ? theme.appTitleBarIconBackgroundColor
+          //     : Colors.transparent,
+          onPressed: () => windowProvider.minimize(),
+          hoverColor: theme.appTitleBarIconBackgroundColor,
           iconColor: iconColor,
         ),
         // 最大化/还原按钮
         AppTitleBarControlsButtonTemplate(
           icon: isMaximized ? Symbols.filter_none : Symbols.crop_square_rounded,
-          onPressed: isFocused
-              ? () => windowProvider.handleMaximizeRestore()
-              : null,
-          hoverColor: isFocused
-              ? theme.appTitleBarIconBackgroundColor
-              : Colors.transparent,
+          // onPressed: isFocused
+          //     ? () => windowProvider.handleMaximizeRestore()
+          //     : null,
+          // hoverColor: isFocused
+          //     ? theme.appTitleBarIconBackgroundColor
+          //     : Colors.transparent,
+          onPressed: () => windowProvider.handleMaximizeRestore(),
+          hoverColor: theme.appTitleBarIconBackgroundColor,
           iconSize: isMaximized ? 13.5 : 14,
           iconWeight: 510.0,
           rotateAngle: isMaximized ? 180 : 0,
@@ -124,8 +128,10 @@ class MainApp extends StatelessWidget {
         // 关闭按钮
         AppTitleBarControlsButtonTemplate(
           icon: Symbols.close_rounded,
-          onPressed: isFocused ? () => windowProvider.close() : null,
-          hoverColor: isFocused ? Colors.red.shade600 : Colors.transparent,
+          // onPressed: isFocused ? () => windowProvider.close() : null,
+          // hoverColor: isFocused ? Colors.red.shade600 : Colors.transparent,
+          onPressed: () => windowProvider.close(),
+          hoverColor: Colors.red.shade600,
           iconColor: iconColor,
         ),
       ],
@@ -184,23 +190,31 @@ class MainApp extends StatelessWidget {
               child: Material(
                 color: Colors.transparent, // 确保 Material 背景透明
                 child: InkWell(
-                  onTap: isFocused
-                      ? () {
-                          // !!! 修改：点击设置按钮，切换到设置页面
-                          Provider.of<WindowProvider>(
-                            context,
-                            listen: false,
-                          ).setPage(WindowPage.settings);
-                        }
-                      : null,
+                  // onTap: isFocused
+                  //     ? () {
+                  //         // 点击设置按钮，切换到设置页面
+                  //         Provider.of<WindowProvider>(
+                  //           context,
+                  //           listen: false,
+                  //         ).setPage(WindowPage.settings);
+                  //       }
+                  //     : null,
+                  onTap: () {
+                    // 点击设置按钮，切换到设置页面
+                    Provider.of<WindowProvider>(
+                      context,
+                      listen: false,
+                    ).setPage(WindowPage.settings);
+                  },
                   splashFactory: InkRipple.splashFactory,
                   borderRadius: BorderRadius.circular(
                     settingsButtonDiameter / 2,
                   ),
-                  hoverColor: isFocused
-                      ? theme
-                            .appTitleBarIconBackgroundColor // 鼠标悬停时的亮度增加
-                      : Colors.transparent, // 非焦点状态下不显示hover效果
+                  // hoverColor: isFocused
+                  //     ? theme
+                  //           .appTitleBarIconBackgroundColor // 鼠标悬停时的亮度增加
+                  //     : Colors.transparent, // 非焦点状态下不显示hover效果
+                  hoverColor: theme.appTitleBarIconBackgroundColor,
                   child: Container(
                     alignment: Alignment.center, // 确保图标在圆形区域内居中
                     decoration: BoxDecoration(
