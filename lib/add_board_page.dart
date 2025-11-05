@@ -540,7 +540,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
                 child: Stack(
                   children: [
                     AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 400),
+                      duration: const Duration(milliseconds: 350),
                       transitionBuilder: (child, animation) {
                         final isInitialToSelect =
                             child.key == const ValueKey('SelectBoardPage');
