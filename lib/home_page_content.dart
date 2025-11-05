@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'provider/theme_provider.dart';
-
-import 'home_page.dart';
+import 'provider/home_page_provider.dart';
 
 // 主页内容
 class HomePageContent extends StatelessWidget {

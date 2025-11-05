@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-17 22:29:20
- * @LastEditTime: 2025-11-05 14:41:59
+ * @LastEditTime: 2025-11-05 14:45:34
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -14,8 +14,8 @@ import 'provider/theme_provider.dart';
 import 'provider/window_provider.dart';
 import 'provider/language_provider.dart';
 import 'provider/package_info_provider.dart';
+import 'provider/home_page_provider.dart';
 
-import 'home_page.dart';
 import 'window.dart';
 
 void main() async {
