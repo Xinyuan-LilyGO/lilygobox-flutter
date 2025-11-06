@@ -22,6 +22,11 @@ class _AddBoardPageState extends State<AddBoardPage> {
   // 用于控制关闭按钮的悬停状态
   bool _isHoveringClose = false;
   bool _isHoveringBack = false;
+
+  // 用于控制两个按钮的悬停状态
+  bool _isHoveringInitialButton = false;
+  bool _isHoveringAddBoardButton = false;
+
   final Duration _animationDuration = const Duration(milliseconds: 150);
 
   // 当前页面状态
@@ -208,30 +213,45 @@ class _AddBoardPageState extends State<AddBoardPage> {
           SizedBox(
             width: double.infinity,
             height: 50,
-            child: Material(
-              color: theme.tertiarytextBackgroundColor,
-              borderRadius: BorderRadius.circular(6),
-              child: InkWell(
-                onTap: () {
-                  // 点击后切换到选择板子页面
-                  setState(() {
-                    _currentPage = AddBoardPageType.selectBoard;
-                  });
-                },
-                borderRadius: BorderRadius.circular(6),
-                hoverColor: theme.tertiaryTextHoverColor,
-                splashColor: theme.tertiaryTextSplashColor,
-                highlightColor: theme.tertiaryTextHighlightColor,
-                child: Container(
-                  width: double.infinity,
-                  height: 50,
-                  alignment: Alignment.center,
-                  child: Text(
-                    context.l10n.addByBoardType,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      color: theme.textColorPrimary,
+            // 按钮的主体背景色由 AnimatedContainer 动画控制
+            child: MouseRegion(
+              onEnter: (_) => setState(() => _isHoveringInitialButton = true),
+              onExit: (_) => setState(() => _isHoveringInitialButton = false),
+              child: AnimatedContainer(
+                duration: _animationDuration,
+                curve: Curves.easeInOut,
+                width: double.infinity,
+                height: 50,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  // AnimatedContainer 负责背景色的动画
+                  color: _isHoveringInitialButton
+                      ? theme
+                            .tertiaryTextHoverColor // 悬停时的颜色
+                      : theme.tertiary, // 默认背景色
+                ),
+                child: Material(
+                  // Material 必须是透明的，这样才能看到 AnimatedContainer 的背景色
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(6),
+                  child: InkWell(
+                    onTap: () {
+                      // 点击后切换到选择板子页面
+                      setState(() {
+                        _isHoveringInitialButton = false; // 确保清除悬停状态
+                        _currentPage = AddBoardPageType.selectBoard;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Center(
+                      child: Text(
+                        context.l10n.addByBoardType,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: theme.textColorPrimary,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -450,43 +470,55 @@ class _AddBoardPageState extends State<AddBoardPage> {
           SizedBox(
             width: double.infinity,
             height: 50,
-            child: Material(
-              // 根据 isBoardSelected 调整背景色
-              color: isBoardSelected
-                  ? theme.tertiarytextBackgroundColor
-                  : theme.tertiarytextBackgroundColor.withValues(
-                      alpha: 0.5,
-                    ), // 未选中时变暗
-              borderRadius: BorderRadius.circular(6),
-              child: InkWell(
-                // 未选中板子时，onTap 设为 null，禁用按钮
-                onTap: isBoardSelected
-                    ? () {
-                        print('添加板子: $_selectedBoard');
-                        widget.windowProvider.setPage(
-                          WindowPage.home,
-                        ); // 添加后关闭弹窗
-                      }
-                    : null, // 禁用
-                borderRadius: BorderRadius.circular(6),
-                hoverColor: isBoardSelected
-                    ? theme
-                          .tertiaryTextHoverColor // 启用时的悬停效果
-                    : Colors.transparent, // 禁用时无悬停效果
-                child: Container(
-                  width: double.infinity,
-                  height: 50,
-                  alignment: Alignment.center,
-                  child: Text(
-                    context.l10n.addBoard,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      // 根据 isBoardSelected 调整文字颜色
-                      color: isBoardSelected
-                          ? theme
-                                .textColorPrimary // 选中时的文字颜色
-                          : theme.textColorTertiary, // 禁用时的文字颜色
+            child: MouseRegion(
+              onEnter: (_) => setState(() => _isHoveringAddBoardButton = true),
+              onExit: (_) => setState(() => _isHoveringAddBoardButton = false),
+              child: AnimatedContainer(
+                duration: _animationDuration,
+                curve: Curves.easeInOut,
+                width: double.infinity,
+                height: 50,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  // AnimatedContainer 负责背景色的动画和禁用时的颜色
+                  color: isBoardSelected
+                      ? (_isHoveringAddBoardButton
+                            ? theme
+                                  .tertiaryTextHoverColor // 启用且悬停
+                            : theme.tertiarytextBackgroundColor) // 启用且非悬停
+                      : theme.tertiarytextBackgroundColor.withValues(
+                          alpha: 0.5,
+                        ), // 禁用时变暗
+                ),
+                child: Material(
+                  // Material 必须是透明的
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(6),
+                  child: InkWell(
+                    // 未选中板子时，onTap 设为 null，禁用按钮
+                    onTap: isBoardSelected
+                        ? () {
+                            print('添加板子: $_selectedBoard');
+                            _isHoveringAddBoardButton = false;
+                            widget.windowProvider.setPage(
+                              WindowPage.home,
+                            ); // 添加后关闭弹窗
+                          }
+                        : null, // 禁用
+                    borderRadius: BorderRadius.circular(6),
+                    child: Center(
+                      child: Text(
+                        context.l10n.addBoard,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          // 根据 isBoardSelected 调整文字颜色
+                          color: isBoardSelected
+                              ? theme
+                                    .textColorPrimary // 选中时的文字颜色
+                              : theme.textColorTertiary, // 禁用时的文字颜色
+                        ),
+                      ),
                     ),
                   ),
                 ),
