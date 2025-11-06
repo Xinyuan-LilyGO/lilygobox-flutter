@@ -64,6 +64,14 @@ class _HomePageContentState extends State<HomePageContent> {
           // 分割线
           Divider(color: theme.dividerColorNormal, height: 1, thickness: 2),
 
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              vertical: 5.0,
+              horizontal: 15.0,
+            ),
+            child: Divider(color: theme.dividerColor, height: 1),
+          ),
+
           // 滚动菜单列表
           Expanded(
             child: ListView.builder(
@@ -76,7 +84,7 @@ class _HomePageContentState extends State<HomePageContent> {
                   // 横线分类设置
                   return Padding(
                     padding: const EdgeInsets.symmetric(
-                      vertical: 8.0,
+                      vertical: 10.0,
                       horizontal: 15.0,
                     ),
                     child: Divider(color: theme.dividerColor, height: 1),
@@ -86,7 +94,7 @@ class _HomePageContentState extends State<HomePageContent> {
                 if (item['type'] == 'header') {
                   // 分类标题
                   return Padding(
-                    padding: const EdgeInsets.fromLTRB(15.0, 10.0, 10.0, 5.0),
+                    padding: const EdgeInsets.fromLTRB(15.0, 0.0, 10.0, 0.0),
                     child: Text(
                       item['title'], // 本地化的标题
                       style: TextStyle(
