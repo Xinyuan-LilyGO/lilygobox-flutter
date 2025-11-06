@@ -423,93 +423,92 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
       onEnter: (_) => _handleHover(true),
       onExit: (_) => _handleHover(false),
       cursor: SystemMouseCursors.click,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 5),
-        width: 65,
-        height: buttonSize,
-        child: Stack(
-          alignment: Alignment.centerLeft,
-          children: [
-            // 指示器 (小白点/侧边线) - 修改显示逻辑
-            if (!widget.isAddButton)
-              Positioned(
-                left: indicatorLeftOffset,
-                child: AnimatedBuilder(
-                  animation: _indicatorAnimationController,
-                  builder: (context, child) {
-                    final double currentIndicatorHeight =
-                        _indicatorHeightAnimation.value;
-                    final double currentBorderRadius =
-                        _indicatorRadiusAnimation.value;
+      child: GestureDetector(
+        onTap: widget.onPressed,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 5),
+          width: 65,
+          height: buttonSize,
+          child: Stack(
+            alignment: Alignment.centerLeft,
+            children: [
+              // 指示器 (小白点/侧边线) - 修改显示逻辑
+              if (!widget.isAddButton)
+                Positioned(
+                  left: indicatorLeftOffset,
+                  child: AnimatedBuilder(
+                    animation: _indicatorAnimationController,
+                    builder: (context, child) {
+                      final double currentIndicatorHeight =
+                          _indicatorHeightAnimation.value;
+                      final double currentBorderRadius =
+                          _indicatorRadiusAnimation.value;
 
-                    // 修改：只有当完全未选中且动画值为0且showDotIndicator为true时才显示小白点
-                    if (!widget.isSelected &&
-                        _indicatorAnimationController.value == 0.0 &&
-                        widget.showDotIndicator) {
-                      // 未选中状态显示小白点
-                      return Container(
-                        width: indicatorMinDiameter,
-                        height: indicatorMinDiameter,
-                        decoration: BoxDecoration(
-                          color: widget.indicatorColor,
-                          borderRadius: BorderRadius.circular(
-                            indicatorMinDiameter / 2,
+                      // 只有当完全未选中且动画值为0且showDotIndicator为true时才显示小白点
+                      if (!widget.isSelected &&
+                          _indicatorAnimationController.value == 0.0 &&
+                          widget.showDotIndicator) {
+                        // 未选中状态显示小白点
+                        return Container(
+                          width: indicatorMinDiameter,
+                          height: indicatorMinDiameter,
+                          decoration: BoxDecoration(
+                            color: widget.indicatorColor,
+                            borderRadius: BorderRadius.circular(
+                              indicatorMinDiameter / 2,
+                            ),
                           ),
-                        ),
-                      );
-                    }
+                        );
+                      }
 
-                    // 选中或过渡状态显示动画指示器（长条）
-                    if (widget.isSelected ||
-                        _indicatorAnimationController.value > 0.0) {
-                      return Container(
-                        width: indicatorMaxWidth,
-                        height: currentIndicatorHeight,
-                        decoration: BoxDecoration(
-                          color: widget.indicatorColor,
-                          borderRadius: BorderRadius.circular(
-                            currentBorderRadius,
+                      // 选中或过渡状态显示动画指示器（长条）
+                      if (widget.isSelected ||
+                          _indicatorAnimationController.value > 0.0) {
+                        return Container(
+                          width: indicatorMaxWidth,
+                          height: currentIndicatorHeight,
+                          decoration: BoxDecoration(
+                            color: widget.indicatorColor,
+                            borderRadius: BorderRadius.circular(
+                              currentBorderRadius,
+                            ),
                           ),
-                        ),
-                      );
-                    }
+                        );
+                      }
 
-                    // 如果showDotIndicator为false且未选中，不显示任何指示器
-                    return const SizedBox.shrink();
-                  },
+                      // 如果showDotIndicator为false且未选中，不显示任何指示器
+                      return const SizedBox.shrink();
+                    },
+                  ),
                 ),
-              ),
 
-            // 按钮本体 - 保持不变
-            Container(
-              width: buttonSize,
-              height: buttonSize,
-              margin: const EdgeInsets.only(left: buttonLeftOffset),
-              child: AnimatedBuilder(
-                animation: Listenable.merge([
-                  _selectAnimationController,
-                  _hoverAnimationController,
-                ]),
-                builder: (context, child) {
-                  final double currentRadius = _borderRadiusAnimation.value;
+              // 按钮本体
+              Container(
+                width: buttonSize,
+                height: buttonSize,
+                margin: const EdgeInsets.only(left: buttonLeftOffset),
+                child: AnimatedBuilder(
+                  animation: Listenable.merge([
+                    _selectAnimationController,
+                    _hoverAnimationController,
+                  ]),
+                  builder: (context, child) {
+                    final double currentRadius = _borderRadiusAnimation.value;
 
-                  Color? buttonColor;
-                  if (widget.isSelected) {
-                    buttonColor = _selectColorAnimation.value;
-                  } else {
-                    buttonColor = _hoverColorAnimation.value;
-                  }
+                    Color? buttonColor;
+                    if (widget.isSelected) {
+                      buttonColor = _selectColorAnimation.value;
+                    } else {
+                      buttonColor = _hoverColorAnimation.value;
+                    }
 
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(currentRadius),
-                    child: Material(
-                      color: buttonColor,
+                    return ClipRRect(
                       borderRadius: BorderRadius.circular(currentRadius),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(currentRadius),
-                        onTap: widget.onPressed,
-                        highlightColor: widget.highlightColor,
-                        splashColor: widget.splashColor,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: buttonColor,
+                          borderRadius: BorderRadius.circular(currentRadius),
+                        ),
                         child: Center(
                           child: Icon(
                             widget.icon,
@@ -522,12 +521,12 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
