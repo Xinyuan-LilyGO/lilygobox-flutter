@@ -497,6 +497,8 @@ class _AppTitleBarControlsButtonTemplateState
         child: Material(
           color: Colors.transparent,
           child: InkWell(
+            highlightColor: Colors.transparent,
+            splashColor: Colors.transparent,
             onTap: widget.onPressed,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
