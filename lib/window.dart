@@ -152,9 +152,6 @@ class MainApp extends StatelessWidget {
 
     // 标题栏高度
     const double titleBarHeight = 30.0;
-    // 设置按钮的尺寸和图标大小（可以根据需要调整）
-    // 调整尺寸让按钮看起来更协调
-    const double settingsButtonDiameter = 24.0; // 按钮的直径
 
     return Container(
       height: titleBarHeight,
@@ -184,57 +181,16 @@ class MainApp extends StatelessWidget {
           // 为了使按钮居中，可以包裹在一个Center中或者调整SizedBox
           Center(
             // 使用Center包裹，使按钮在垂直方向上居中
-            child: SizedBox(
-              width: settingsButtonDiameter,
-              height: settingsButtonDiameter,
-              child: Material(
-                color: Colors.transparent, // 确保 Material 背景透明
-                child: InkWell(
-                  // onTap: isFocused
-                  //     ? () {
-                  //         // 点击设置按钮，切换到设置页面
-                  //         Provider.of<WindowProvider>(
-                  //           context,
-                  //           listen: false,
-                  //         ).setPage(WindowPage.settings);
-                  //       }
-                  //     : null,
-                  onTap: () {
-                    // 点击设置按钮，切换到设置页面
-                    Provider.of<WindowProvider>(
-                      context,
-                      listen: false,
-                    ).setPage(WindowPage.settings);
-                  },
-                  splashFactory: InkRipple.splashFactory,
-                  borderRadius: BorderRadius.circular(
-                    settingsButtonDiameter / 2,
-                  ),
-                  // hoverColor: isFocused
-                  //     ? theme
-                  //           .appTitleBarIconBackgroundColor // 鼠标悬停时的亮度增加
-                  //     : Colors.transparent, // 非焦点状态下不显示hover效果
-                  hoverColor: theme.appTitleBarIconBackgroundColor,
-                  child: Container(
-                    alignment: Alignment.center, // 确保图标在圆形区域内居中
-                    decoration: BoxDecoration(
-                      color: Colors.transparent, // 常显示的圆圈背景
-                      borderRadius: BorderRadius.circular(
-                        settingsButtonDiameter / 2,
-                      ), // 确保背景也是圆形
-                    ),
-                    child: Icon(
-                      Symbols.settings,
-                      size: 16.0,
-                      color: isFocused
-                          ? theme.iconColor
-                          : theme.inactiveIconColor,
-                      fill: 1, // 图标填充
-                      weight: 400, // 可选：设置图标粗细
-                    ),
-                  ),
-                ),
-              ),
+            child: SettingsButtonWithAnimation(
+              onPressed: () {
+                // 点击设置按钮，切换到设置页面
+                Provider.of<WindowProvider>(
+                  context,
+                  listen: false,
+                ).setPage(WindowPage.settings);
+              },
+              isFocused: isFocused,
+              theme: theme,
             ),
           ),
 
@@ -499,8 +455,8 @@ class MainApp extends StatelessWidget {
   }
 }
 
-// 更新窗口控制按钮组件，添加工具提示
-class AppTitleBarControlsButtonTemplate extends StatelessWidget {
+// 更新窗口控制按钮组件，添加基于AnimatedContainer的颜色渐变动画
+class AppTitleBarControlsButtonTemplate extends StatefulWidget {
   const AppTitleBarControlsButtonTemplate({
     super.key,
     required this.icon,
@@ -519,29 +475,112 @@ class AppTitleBarControlsButtonTemplate extends StatelessWidget {
   final Color iconColor;
   final double iconSize;
   final double iconWeight;
-  final double grade = -25.0;
-  final double opticalSize = 48.0;
   final double rotateAngle;
 
   @override
+  State<AppTitleBarControlsButtonTemplate> createState() =>
+      _AppTitleBarControlsButtonTemplateState();
+}
+
+class _AppTitleBarControlsButtonTemplateState
+    extends State<AppTitleBarControlsButtonTemplate> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 45,
-      height: 30,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          hoverColor: hoverColor,
-          onTap: onPressed,
-          child: Transform.rotate(
-            angle: rotateAngle * (3.1415926535 / 180),
-            child: Icon(
-              icon,
-              size: iconSize,
-              color: iconColor,
-              weight: iconWeight,
-              grade: grade,
-              opticalSize: opticalSize,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: SizedBox(
+        width: 45,
+        height: 30,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.onPressed,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeInOut,
+              color: _isHovered ? widget.hoverColor : Colors.transparent,
+              child: Center(
+                child: Transform.rotate(
+                  angle: widget.rotateAngle * (3.1415926535 / 180),
+                  child: Icon(
+                    widget.icon,
+                    size: widget.iconSize,
+                    color: widget.iconColor,
+                    weight: widget.iconWeight,
+                    grade: -25.0,
+                    opticalSize: 48.0,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// 设置按钮的动画版本
+class SettingsButtonWithAnimation extends StatefulWidget {
+  const SettingsButtonWithAnimation({
+    super.key,
+    required this.onPressed,
+    required this.isFocused,
+    required this.theme,
+  });
+
+  final VoidCallback onPressed;
+  final bool isFocused;
+  final dynamic theme;
+
+  @override
+  State<SettingsButtonWithAnimation> createState() =>
+      _SettingsButtonWithAnimationState();
+}
+
+class _SettingsButtonWithAnimationState
+    extends State<SettingsButtonWithAnimation> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    const double settingsButtonDiameter = 24.0;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: SizedBox(
+        width: settingsButtonDiameter,
+        height: settingsButtonDiameter,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.onPressed,
+            splashFactory: InkRipple.splashFactory,
+            borderRadius: BorderRadius.circular(settingsButtonDiameter / 2),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeInOut,
+              decoration: BoxDecoration(
+                color: _isHovered
+                    ? widget.theme.appTitleBarIconBackgroundColor
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(settingsButtonDiameter / 2),
+              ),
+              child: Center(
+                child: Icon(
+                  Symbols.settings,
+                  size: 16.0,
+                  color: widget.isFocused
+                      ? widget.theme.iconColor
+                      : widget.theme.inactiveIconColor,
+                  fill: 1,
+                  weight: 400,
+                ),
+              ),
             ),
           ),
         ),
