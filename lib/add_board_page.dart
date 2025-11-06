@@ -235,6 +235,8 @@ class _AddBoardPageState extends State<AddBoardPage> {
                   color: Colors.transparent,
                   borderRadius: BorderRadius.circular(6),
                   child: InkWell(
+                    highlightColor: Colors.transparent,
+                    splashColor: Colors.transparent,
                     onTap: () {
                       // 点击后切换到选择板子页面
                       setState(() {
@@ -495,6 +497,8 @@ class _AddBoardPageState extends State<AddBoardPage> {
                   color: Colors.transparent,
                   borderRadius: BorderRadius.circular(6),
                   child: InkWell(
+                    highlightColor: Colors.transparent,
+                    splashColor: Colors.transparent,
                     // 未选中板子时，onTap 设为 null，禁用按钮
                     onTap: isBoardSelected
                         ? () {

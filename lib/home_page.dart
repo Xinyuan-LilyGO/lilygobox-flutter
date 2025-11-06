@@ -498,6 +498,8 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
                       onTap: widget.onPressed,
                       borderRadius: BorderRadius.circular(currentRadius),
                       hoverColor: widget.hoverColor,
+                      highlightColor: Colors.transparent,
+                      splashColor: Colors.transparent,
                       child: Container(
                         width: buttonSize,
                         height: buttonSize,
