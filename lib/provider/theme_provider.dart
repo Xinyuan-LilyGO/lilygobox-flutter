@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-11-05 16:47:26
+ * @LastEditTime: 2025-11-06 16:48:39
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -44,8 +44,6 @@ class AppTheme {
   final Color sidebarHoverIconColor;
   final Color sidebarHoverIconColor2;
   final Color sidebarIconBackgroundColor;
-  final Color sidebarIconHighlightColor;
-  final Color sidebarIconSplashColor;
   final Color sidebarIndicatorColor;
   final Color appTitleBarIconBackgroundColor;
   final Color dividerColor;
@@ -81,8 +79,6 @@ class AppTheme {
     required this.sidebarHoverIconColor,
     required this.sidebarHoverIconColor2,
     required this.sidebarIconBackgroundColor,
-    required this.sidebarIconHighlightColor,
-    required this.sidebarIconSplashColor,
     required this.sidebarIndicatorColor,
     required this.appTitleBarIconBackgroundColor,
     required this.dividerColor,
@@ -135,8 +131,6 @@ class ThemeProvider with ChangeNotifier {
       sidebarHoverIconColor: const Color.fromARGB(255, 120, 120, 120),
       sidebarHoverIconColor2: const Color.fromARGB(255, 100, 177, 76),
       sidebarIconBackgroundColor: const Color.fromARGB(255, 55, 55, 55),
-      sidebarIconHighlightColor: const Color.fromARGB(100, 130, 130, 130),
-      sidebarIconSplashColor: const Color.fromARGB(100, 180, 180, 180),
       sidebarIndicatorColor: const Color.fromARGB(255, 200, 200, 200),
       appTitleBarIconBackgroundColor: Colors.grey.withValues(alpha: 0.2),
       dividerColor: const Color.fromARGB(255, 100, 100, 100),
@@ -172,8 +166,6 @@ class ThemeProvider with ChangeNotifier {
       sidebarHoverIconColor: const Color.fromARGB(255, 155, 155, 155),
       sidebarHoverIconColor2: const Color.fromARGB(255, 125, 191, 105),
       sidebarIconBackgroundColor: const Color.fromARGB(255, 200, 200, 200),
-      sidebarIconHighlightColor: const Color.fromARGB(100, 150, 150, 150),
-      sidebarIconSplashColor: const Color.fromARGB(100, 130, 130, 130),
       sidebarIndicatorColor: const Color.fromARGB(255, 40, 40, 40),
       appTitleBarIconBackgroundColor: Colors.grey.withValues(alpha: 0.2),
       dividerColor: const Color.fromARGB(255, 80, 80, 80),
