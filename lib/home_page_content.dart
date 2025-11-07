@@ -20,7 +20,6 @@ class _HomePageContentState extends State<HomePageContent> {
     {'type': 'header', 'title': '我的', 'key': 'my_header'},
     {'type': 'item', 'title': '个人设置', 'key': 'settings'},
     {'type': 'item', 'title': '偏好设置', 'key': 'preferences'},
-    {'type': 'divider'},
     {'type': 'header', 'title': '导航', 'key': 'nav_header'},
     {'type': 'item', 'title': '工作区', 'key': 'workspace'},
     {'type': 'item', 'title': '文件浏览器', 'key': 'file_explorer'},
@@ -57,7 +56,7 @@ class _HomePageContentState extends State<HomePageContent> {
     return null;
   }
 
-  // 【新增方法】判断一个 item 是否属于折叠的分类（用于动画）
+  // 【修改方法】判断一个 item 是否属于折叠的分类（用于动画）
   bool _isItemInCollapsedCategory(int currentIndex) {
     String? currentHeaderTitle;
     bool isCollapsed = true;
@@ -77,11 +76,6 @@ class _HomePageContentState extends State<HomePageContent> {
     if (item['type'] == 'item') {
       final isSelected = item['key'] == _selectedTitleKey;
       return isCollapsed && !isSelected;
-    }
-
-    // 对于 divider 类型，检查是否在折叠的分类中
-    if (item['type'] == 'divider') {
-      return isCollapsed;
     }
 
     return false;
@@ -142,22 +136,7 @@ class _HomePageContentState extends State<HomePageContent> {
                 itemBuilder: (context, index) {
                   final item = menuItems[index];
 
-                  // 1. 处理 Divider
-                  if (item['type'] == 'divider') {
-                    final isCollapsed = _isItemInCollapsedCategory(index);
-
-                    return AnimatedContainer(
-                      duration: _animationDuration,
-                      curve: Curves.easeInOut,
-                      height: isCollapsed ? 0 : 5.0,
-                      margin: EdgeInsets.symmetric(
-                        vertical: isCollapsed ? 0 : 2.5,
-                      ),
-                      child: isCollapsed ? null : const SizedBox(),
-                    );
-                  }
-
-                  // 2. 处理 Header
+                  // 1. 处理 Header
                   if (item['type'] == 'header') {
                     // 分类标题
                     final headerTitle = item['title'] as String;
@@ -252,7 +231,7 @@ class _HomePageContentState extends State<HomePageContent> {
                     );
                   }
 
-                  // 3. 处理 Item
+                  // 2. 处理 Item
                   if (item['type'] == 'item') {
                     final title = item['title'] as String;
                     final key = item['key'] as String;
