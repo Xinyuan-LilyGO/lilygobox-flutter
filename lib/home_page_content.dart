@@ -40,6 +40,9 @@ class _HomePageContentState extends State<HomePageContent> {
   // 【新增】用于存储分类标题的悬停状态
   final Map<String, Color> _headerHoverColors = {};
 
+  // 【新增】动画持续时间
+  final Duration _animationDuration = const Duration(milliseconds: 150);
+
   // 【新增方法】获取一个 item 所属的 header title
   String? _getHeaderTitleForItemKey(String itemKey) {
     String? currentHeaderTitle;
@@ -54,19 +57,10 @@ class _HomePageContentState extends State<HomePageContent> {
     return null;
   }
 
-  // 【修改方法】切换分类的折叠状态 - 所有分类都可以自由折叠
-  void _toggleCollapse(String headerTitle) {
-    setState(() {
-      final isCurrentlyCollapsed = _collapsedCategories[headerTitle] ?? true;
-      // 直接切换状态，不检查是否包含选中项
-      _collapsedCategories[headerTitle] = !isCurrentlyCollapsed;
-    });
-  }
-
-  // 【修改方法】判断一个 item 或 divider 是否应该被显示（基于折叠状态）
-  bool _shouldShowItem(int currentIndex) {
+  // 【新增方法】判断一个 item 是否属于折叠的分类（用于动画）
+  bool _isItemInCollapsedCategory(int currentIndex) {
     String? currentHeaderTitle;
-    bool isCollapsed = true; // 默认折叠
+    bool isCollapsed = true;
 
     // 遍历到当前索引，找到它所属的最近一个 header 的状态
     for (int i = 0; i < currentIndex; i++) {
@@ -79,34 +73,27 @@ class _HomePageContentState extends State<HomePageContent> {
 
     final item = menuItems[currentIndex];
 
-    // 如果是 header 类型，始终显示
-    if (item['type'] == 'header') {
-      return true;
-    }
-
-    // 如果是 item 类型
+    // 对于 item 类型，检查是否在折叠的分类中且不是选中项
     if (item['type'] == 'item') {
       final isSelected = item['key'] == _selectedTitleKey;
-
-      // 【核心逻辑】如果当前项是选中项，始终显示（即使所属分类是折叠的）
-      if (isSelected) {
-        return true;
-      }
-
-      // 如果 header 是折叠的，且当前项不是选中项，则隐藏
-      if (isCollapsed) {
-        return false;
-      }
-      return true;
+      return isCollapsed && !isSelected;
     }
 
-    // 如果是 divider 类型，当它所属的组折叠时也隐藏
-    if (item['type'] == 'divider' && isCollapsed) {
-      return false;
+    // 对于 divider 类型，检查是否在折叠的分类中
+    if (item['type'] == 'divider') {
+      return isCollapsed;
     }
 
-    // 其他情况默认显示
-    return true;
+    return false;
+  }
+
+  // 【修改方法】切换分类的折叠状态 - 所有分类都可以自由折叠
+  void _toggleCollapse(String headerTitle) {
+    setState(() {
+      final isCurrentlyCollapsed = _collapsedCategories[headerTitle] ?? true;
+      // 直接切换状态，不检查是否包含选中项
+      _collapsedCategories[headerTitle] = !isCurrentlyCollapsed;
+    });
   }
 
   @override
@@ -143,198 +130,211 @@ class _HomePageContentState extends State<HomePageContent> {
           // 分割线
           Divider(color: theme.dividerColorNormal, height: 1, thickness: 2),
 
-          // 滚动菜单列表
+          // 【修改】使用 AnimatedSize 包裹整个列表以实现整体高度动画
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.only(top: 5.0), // 顶部留出空间
-              itemCount: menuItems.length,
-              itemBuilder: (context, index) {
-                final item = menuItems[index];
+            child: AnimatedSize(
+              duration: _animationDuration,
+              curve: Curves.easeInOut,
+              alignment: Alignment.topCenter,
+              child: ListView.builder(
+                padding: const EdgeInsets.only(top: 5.0), // 顶部留出空间
+                itemCount: menuItems.length,
+                itemBuilder: (context, index) {
+                  final item = menuItems[index];
 
-                // 1. 处理 Divider 隐藏逻辑
-                if (item['type'] == 'divider') {
-                  if (!_shouldShowItem(index)) {
-                    return const SizedBox.shrink(); // 隐藏 Divider
-                  }
-                  return Padding(padding: const EdgeInsets.only(bottom: 5));
-                }
+                  // 1. 处理 Divider
+                  if (item['type'] == 'divider') {
+                    final isCollapsed = _isItemInCollapsedCategory(index);
 
-                // 2. 处理 Header，将折叠图标和标题合并为可点击的长条按钮
-                if (item['type'] == 'header') {
-                  // 分类标题
-                  final headerTitle = item['title'] as String;
-                  final isCollapsed = _collapsedCategories[headerTitle] ?? true;
-
-                  // 【新增】检查当前分类是否包含选中项（仅用于视觉提示）
-                  final selectedItemHeader = _getHeaderTitleForItemKey(
-                    _selectedTitleKey,
-                  );
-                  final containsSelectedItem =
-                      selectedItemHeader == headerTitle;
-
-                  // 计算目标背景色
-                  final targetColor =
-                      _headerHoverColors[headerTitle] ?? theme.secondary;
-
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5.0,
-                      vertical: 2.0,
-                    ),
-                    // 使用 TweenAnimationBuilder 实现颜色渐变
-                    child: TweenAnimationBuilder<Color?>(
-                      duration: const Duration(milliseconds: 150),
-                      tween: ColorTween(
-                        begin: theme.secondary,
-                        end: targetColor,
+                    return AnimatedContainer(
+                      duration: _animationDuration,
+                      curve: Curves.easeInOut,
+                      height: isCollapsed ? 0 : 5.0,
+                      margin: EdgeInsets.symmetric(
+                        vertical: isCollapsed ? 0 : 2.5,
                       ),
-                      builder: (context, color, child) {
-                        return SizedBox(
-                          height: 25.0,
-                          child: InkWell(
-                            onHover: (isHovering) {
-                              setState(() {
-                                _headerHoverColors[headerTitle] = isHovering
-                                    ? theme.secondaryTextHoverColor
-                                    : theme.secondary;
-                              });
-                            },
-                            onTap: () => _toggleCollapse(headerTitle),
-                            borderRadius: BorderRadius.circular(20.0),
-                            child: Container(
-                              alignment: Alignment.centerLeft,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 3.0,
-                              ),
-                              decoration: BoxDecoration(
-                                color: color,
-                                borderRadius: BorderRadius.circular(20.0),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                children: [
-                                  // 折叠/展开图标
-                                  Icon(
-                                    isCollapsed
-                                        ? Icons
-                                              .chevron_right // 折叠时显示右箭头
-                                        : Icons.keyboard_arrow_down, // 展开时显示下箭头
-                                    size: 20,
-                                    color: containsSelectedItem
-                                        ? theme
-                                              .textColorPrimary // 包含选中项时使用主色
-                                        : theme.textColorTertiary,
-                                  ),
-                                  // 分类文本
-                                  Expanded(
-                                    child: Text(
-                                      headerTitle,
-                                      style: TextStyle(
+                      child: isCollapsed ? null : const SizedBox(),
+                    );
+                  }
+
+                  // 2. 处理 Header
+                  if (item['type'] == 'header') {
+                    // 分类标题
+                    final headerTitle = item['title'] as String;
+                    final isCollapsed =
+                        _collapsedCategories[headerTitle] ?? true;
+
+                    // 检查当前分类是否包含选中项（仅用于视觉提示）
+                    final selectedItemHeader = _getHeaderTitleForItemKey(
+                      _selectedTitleKey,
+                    );
+                    final containsSelectedItem =
+                        selectedItemHeader == headerTitle;
+
+                    // 计算目标背景色
+                    final targetColor =
+                        _headerHoverColors[headerTitle] ?? theme.secondary;
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5.0,
+                        vertical: 2.0,
+                      ),
+                      // 使用 TweenAnimationBuilder 实现颜色渐变
+                      child: TweenAnimationBuilder<Color?>(
+                        duration: const Duration(milliseconds: 150),
+                        tween: ColorTween(
+                          begin: theme.secondary,
+                          end: targetColor,
+                        ),
+                        builder: (context, color, child) {
+                          return SizedBox(
+                            height: 25.0,
+                            child: InkWell(
+                              onHover: (isHovering) {
+                                setState(() {
+                                  _headerHoverColors[headerTitle] = isHovering
+                                      ? theme.secondaryTextHoverColor
+                                      : theme.secondary;
+                                });
+                              },
+                              onTap: () => _toggleCollapse(headerTitle),
+                              borderRadius: BorderRadius.circular(20.0),
+                              child: Container(
+                                alignment: Alignment.centerLeft,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 3.0,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  borderRadius: BorderRadius.circular(20.0),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.start,
+                                  children: [
+                                    // 【修改】为折叠图标添加旋转动画
+                                    AnimatedRotation(
+                                      turns: isCollapsed
+                                          ? 0.0
+                                          : 0.25, // 0° 和 90°
+                                      duration: _animationDuration,
+                                      curve: Curves.easeInOut,
+                                      child: Icon(
+                                        Icons.chevron_right,
+                                        size: 20,
                                         color: containsSelectedItem
                                             ? theme
-                                                  .textColorPrimary // 包含选中项时使用主色提示
+                                                  .textColorPrimary // 包含选中项时使用主色
                                             : theme.textColorTertiary,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
+                                    // 分类文本
+                                    Expanded(
+                                      child: Text(
+                                        headerTitle,
+                                        style: TextStyle(
+                                          color: containsSelectedItem
+                                              ? theme
+                                                    .textColorPrimary // 包含选中项时使用主色提示
+                                              : theme.textColorTertiary,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  }
+
+                  // 3. 处理 Item
+                  if (item['type'] == 'item') {
+                    final title = item['title'] as String;
+                    final key = item['key'] as String;
+                    final isSelected = key == _selectedTitleKey;
+                    final isCollapsed = _isItemInCollapsedCategory(index);
+
+                    // 计算目标背景色
+                    final targetColor = isSelected
+                        ? theme.secondaryTextSelectedColor
+                        : _currentHoverColors[key] ?? theme.secondary;
+
+                    // 【修改】使用 AnimatedContainer 控制高度和边距
+                    return AnimatedContainer(
+                      duration: _animationDuration,
+                      curve: Curves.easeInOut,
+                      height: isCollapsed ? 0 : 30.0,
+                      margin: EdgeInsets.symmetric(
+                        horizontal: 15.0,
+                        vertical: isCollapsed ? 0 : 2.0,
+                      ),
+                      child: AnimatedOpacity(
+                        duration: _animationDuration,
+                        opacity: isCollapsed ? 0 : 1.0,
+                        child: SizedBox(
+                          height: 30.0,
+                          child: TweenAnimationBuilder<Color?>(
+                            duration: const Duration(milliseconds: 150),
+                            tween: ColorTween(
+                              begin: theme.secondary,
+                              end: targetColor,
+                            ),
+                            builder: (context, color, child) {
+                              return InkWell(
+                                onHover: (isHovering) {
+                                  if (!isSelected) {
+                                    setState(() {
+                                      _currentHoverColors[key] = isHovering
+                                          ? theme.secondaryTextHoverColor
+                                          : theme.secondary;
+                                    });
+                                  }
+                                },
+                                onTap: () {
+                                  setState(() {
+                                    _selectedTitleKey = key;
+                                    _currentHoverColors.updateAll(
+                                      (k, value) => theme.secondary,
+                                    );
+                                  });
+                                },
+                                borderRadius: BorderRadius.circular(6.0),
+                                child: Container(
+                                  alignment: Alignment.centerLeft,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10.0,
+                                    vertical: 0.0,
                                   ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                }
-
-                // 设置项 (type: 'item')
-                // 3. 根据折叠状态决定是否显示
-                if (!_shouldShowItem(index)) {
-                  return const SizedBox.shrink(); // 隐藏项
-                }
-
-                final title = item['title'] as String;
-                final key = item['key'] as String; // 菜单项的固定 key
-                final isSelected = key == _selectedTitleKey; // 使用 key 来判断是否选中
-
-                // 计算目标背景色
-                final targetColor = isSelected
-                    ? theme.secondaryTextSelectedColor
-                    : _currentHoverColors[key] ??
-                          theme.secondary; // 使用 key 访问 hover 颜色
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 15.0,
-                    vertical: 2.0, // 保持外部垂直边距一致
-                  ),
-                  // 使用 TweenAnimationBuilder 实现颜色渐变
-                  child: TweenAnimationBuilder<Color?>(
-                    duration: const Duration(milliseconds: 150), // 渐变时间
-                    tween: ColorTween(
-                      begin: theme.secondary,
-                      end: targetColor, // 渐变的目标颜色
-                    ),
-                    builder: (context, color, child) {
-                      // 使用 SizedBox 强制列表项高度固定
-                      return SizedBox(
-                        height: 30.0,
-                        child: InkWell(
-                          // onHover 实现鼠标悬停/离开效果
-                          onHover: (isHovering) {
-                            // 只有未选中项才响应悬停
-                            if (!isSelected) {
-                              setState(() {
-                                // 更新 Map 中的悬停目标颜色，使用 key
-                                _currentHoverColors[key] = isHovering
-                                    ? theme.secondaryTextHoverColor
-                                    : theme.secondary;
-                              });
-                            }
-                          },
-
-                          // 使用 InkWell 实现点击效果
-                          onTap: () {
-                            setState(() {
-                              _selectedTitleKey = key; // 切换选中的 key
-
-                              // 重置所有项的悬停颜色为当前背景色，因为点击操作已经完成
-                              _currentHoverColors.updateAll(
-                                (k, value) => theme.secondary,
+                                  decoration: BoxDecoration(
+                                    color: color,
+                                    borderRadius: BorderRadius.circular(6.0),
+                                  ),
+                                  child: Text(
+                                    title,
+                                    style: TextStyle(
+                                      color: theme.textColorSecondary,
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                ),
                               );
-                            });
-                          },
-                          borderRadius: BorderRadius.circular(6.0),
-                          child: Container(
-                            alignment: Alignment.centerLeft,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10.0,
-                              vertical: 0.0,
-                            ),
-                            decoration: BoxDecoration(
-                              // 使用 TweenAnimationBuilder 返回的 color
-                              color: color,
-                              borderRadius: BorderRadius.circular(6.0),
-                            ),
-                            child: Text(
-                              title, // 本地化的标题
-                              style: TextStyle(
-                                // 字体颜色保持不变，只有背景色变化
-                                color: theme.textColorSecondary,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                              ),
-                            ),
+                            },
                           ),
                         ),
-                      );
-                    },
-                  ),
-                );
-              },
+                      ),
+                    );
+                  }
+
+                  return const SizedBox.shrink();
+                },
+              ),
             ),
           ),
         ],
