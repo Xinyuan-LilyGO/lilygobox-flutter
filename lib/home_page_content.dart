@@ -1,6 +1,7 @@
 import 'package:LilygoBox/provider/language_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'provider/theme_provider.dart';
 import 'provider/home_page_provider.dart';
@@ -18,11 +19,31 @@ class _HomePageContentState extends State<HomePageContent> {
   final List<Map<String, dynamic>> menuItems = [
     // 增加 'key' 字段以便更清晰地管理 header 状态
     {'type': 'header', 'title': '我的', 'key': 'my_header'},
-    {'type': 'item', 'title': '个人设置', 'key': 'settings'},
-    {'type': 'item', 'title': '偏好设置', 'key': 'preferences'},
+    {
+      'type': 'item',
+      'title': '个人设置',
+      'key': 'settings',
+      'icon': Symbols.border_all,
+    },
+    {
+      'type': 'item',
+      'title': '偏好设置',
+      'key': 'preferences',
+      'icon': Symbols.border_all,
+    },
     {'type': 'header', 'title': '导航', 'key': 'nav_header'},
-    {'type': 'item', 'title': '工作区', 'key': 'workspace'},
-    {'type': 'item', 'title': '文件浏览器', 'key': 'file_explorer'},
+    {
+      'type': 'item',
+      'title': '工作区',
+      'key': 'workspace',
+      'icon': Symbols.border_all,
+    },
+    {
+      'type': 'item',
+      'title': '文件浏览器',
+      'key': 'file_explorer',
+      'icon': Symbols.border_all,
+    },
   ];
 
   // 默认选中的菜单项 Key
@@ -237,6 +258,7 @@ class _HomePageContentState extends State<HomePageContent> {
                     final key = item['key'] as String;
                     final isSelected = key == _selectedTitleKey;
                     final isCollapsed = _isItemInCollapsedCategory(index);
+                    final icon = item['icon'] as IconData?;
 
                     // 计算目标背景色
                     final targetColor = isSelected
@@ -293,14 +315,32 @@ class _HomePageContentState extends State<HomePageContent> {
                                     color: color,
                                     borderRadius: BorderRadius.circular(6.0),
                                   ),
-                                  child: Text(
-                                    title,
-                                    style: TextStyle(
-                                      color: theme.textColorSecondary,
-                                      fontWeight: isSelected
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
-                                    ),
+                                  child: Row(
+                                    children: [
+                                      // 【新增】图标
+                                      if (icon != null)
+                                        Icon(
+                                          icon,
+                                          size: 18,
+                                          color: theme.textColorSecondary,
+                                          fill: 1,
+                                          grade: 200,
+                                          opticalSize: 20,
+                                          weight: 300,
+                                        ),
+                                      if (icon != null)
+                                        const SizedBox(width: 3),
+                                      // 文本
+                                      Text(
+                                        title,
+                                        style: TextStyle(
+                                          color: theme.textColorSecondary,
+                                          fontWeight: isSelected
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               );
