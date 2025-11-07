@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-11-06 16:48:39
+ * @LastEditTime: 2025-11-07 08:56:16
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -140,8 +140,8 @@ class ThemeProvider with ChangeNotifier {
       type: ThemeType.light,
       nameKey: 'theme_light',
       primary: const Color(0xFFF5F5F5),
-      secondary: const Color(0xFFBDBDBD),
-      tertiary: const Color(0xFFE0E0E0),
+      secondary: const Color(0xFFE0E0E0),
+      tertiary: const Color(0xFFBDBDBD),
       textColorPrimary: const Color.fromARGB(255, 25, 25, 25),
       textColorSecondary: const Color.fromARGB(255, 35, 35, 35),
       textColorTertiary: const Color.fromARGB(255, 105, 105, 105),
@@ -169,7 +169,7 @@ class ThemeProvider with ChangeNotifier {
       sidebarIndicatorColor: const Color.fromARGB(255, 40, 40, 40),
       appTitleBarIconBackgroundColor: Colors.grey.withValues(alpha: 0.2),
       dividerColor: const Color.fromARGB(255, 80, 80, 80),
-      dividerColorNormal: const Color.fromARGB(255, 105, 105, 105),
+      dividerColorNormal: const Color.fromARGB(255, 126, 109, 202),
     ),
   };
 

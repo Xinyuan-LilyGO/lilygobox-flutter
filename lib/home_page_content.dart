@@ -84,7 +84,7 @@ class _HomePageContentState extends State<HomePageContent> {
                   // 横线分类设置
                   return Padding(
                     padding: const EdgeInsets.symmetric(
-                      vertical: 10.0,
+                      vertical: 15.0,
                       horizontal: 15.0,
                     ),
                     child: Divider(color: theme.dividerColor, height: 1),
@@ -94,7 +94,7 @@ class _HomePageContentState extends State<HomePageContent> {
                 if (item['type'] == 'header') {
                   // 分类标题
                   return Padding(
-                    padding: const EdgeInsets.fromLTRB(15.0, 0.0, 10.0, 0.0),
+                    padding: const EdgeInsets.fromLTRB(15.0, 0.0, 10.0, 5.0),
                     child: Text(
                       item['title'], // 本地化的标题
                       style: TextStyle(
