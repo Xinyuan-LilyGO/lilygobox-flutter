@@ -16,11 +16,12 @@ class HomePageContent extends StatefulWidget {
 class _HomePageContentState extends State<HomePageContent> {
   // 定义菜单项数据结构 (用于左侧列表)
   final List<Map<String, dynamic>> menuItems = [
-    {'type': 'header', 'title': '我的'},
+    // 增加 'key' 字段以便更清晰地管理 header 状态
+    {'type': 'header', 'title': '我的', 'key': 'my_header'},
     {'type': 'item', 'title': '个人设置', 'key': 'settings'},
     {'type': 'item', 'title': '偏好设置', 'key': 'preferences'},
     {'type': 'divider'},
-    {'type': 'header', 'title': '导航'},
+    {'type': 'header', 'title': '导航', 'key': 'nav_header'},
     {'type': 'item', 'title': '工作区', 'key': 'workspace'},
     {'type': 'item', 'title': '文件浏览器', 'key': 'file_explorer'},
   ];
@@ -30,13 +31,88 @@ class _HomePageContentState extends State<HomePageContent> {
   // 用于存储当前悬停颜色状态的 Map
   final Map<String, Color> _currentHoverColors = {};
 
+  // 【修改状态】用于存储分类的折叠状态 - 初始全部折叠
+  final Map<String, bool> _collapsedCategories = {
+    '我的': true, // 默认折叠
+    '导航': true, // 默认折叠
+  };
+
+  // 【新增方法】获取一个 item 所属的 header title
+  String? _getHeaderTitleForItemKey(String itemKey) {
+    String? currentHeaderTitle;
+    // 从头遍历，找到 itemKey 所属的最近一个 header
+    for (final item in menuItems) {
+      if (item['type'] == 'header') {
+        currentHeaderTitle = item['title'];
+      } else if (item['type'] == 'item' && item['key'] == itemKey) {
+        return currentHeaderTitle;
+      }
+    }
+    return null;
+  }
+
+  // 【修改方法】切换分类的折叠状态 - 所有分类都可以自由折叠
+  void _toggleCollapse(String headerTitle) {
+    setState(() {
+      final isCurrentlyCollapsed = _collapsedCategories[headerTitle] ?? true;
+      // 直接切换状态，不检查是否包含选中项
+      _collapsedCategories[headerTitle] = !isCurrentlyCollapsed;
+    });
+  }
+
+  // 【修改方法】判断一个 item 或 divider 是否应该被显示（基于折叠状态）
+  bool _shouldShowItem(int currentIndex) {
+    String? currentHeaderTitle;
+    bool isCollapsed = true; // 默认折叠
+
+    // 遍历到当前索引，找到它所属的最近一个 header 的状态
+    for (int i = 0; i < currentIndex; i++) {
+      final item = menuItems[i];
+      if (item['type'] == 'header') {
+        currentHeaderTitle = item['title'];
+        isCollapsed = _collapsedCategories[currentHeaderTitle] ?? true;
+      }
+    }
+
+    final item = menuItems[currentIndex];
+
+    // 如果是 header 类型，始终显示
+    if (item['type'] == 'header') {
+      return true;
+    }
+
+    // 如果是 item 类型
+    if (item['type'] == 'item') {
+      final isSelected = item['key'] == _selectedTitleKey;
+
+      // 【核心逻辑】如果当前项是选中项，始终显示（即使所属分类是折叠的）
+      if (isSelected) {
+        return true;
+      }
+
+      // 如果 header 是折叠的，且当前项不是选中项，则隐藏
+      if (isCollapsed) {
+        return false;
+      }
+      return true;
+    }
+
+    // 如果是 divider 类型，当它所属的组折叠时也隐藏
+    if (item['type'] == 'divider' && isCollapsed) {
+      return false;
+    }
+
+    // 其他情况默认显示
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 获取主题数据 (使用 listen: true，因为左侧内容需要响应主题变化)
+    // 获取主题数据
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final theme = themeProvider.themeData;
 
-    // 获取 HomePageProvider (使用 listen: false 仅用于 SplitViewTemplate 的初始化和拖动更新)
+    // 获取 HomePageProvider
     final homePageProvider = Provider.of<HomePageProvider>(
       context,
       listen: false,
@@ -64,14 +140,6 @@ class _HomePageContentState extends State<HomePageContent> {
           // 分割线
           Divider(color: theme.dividerColorNormal, height: 1, thickness: 2),
 
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              vertical: 5.0,
-              horizontal: 15.0,
-            ),
-            child: Divider(color: theme.dividerColor, height: 1),
-          ),
-
           // 滚动菜单列表
           Expanded(
             child: ListView.builder(
@@ -80,33 +148,73 @@ class _HomePageContentState extends State<HomePageContent> {
               itemBuilder: (context, index) {
                 final item = menuItems[index];
 
+                // 1. 处理 Divider 隐藏逻辑
                 if (item['type'] == 'divider') {
-                  // 横线分类设置
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 15.0,
-                      horizontal: 15.0,
-                    ),
-                    child: Divider(color: theme.dividerColor, height: 1),
-                  );
+                  if (!_shouldShowItem(index)) {
+                    return const SizedBox.shrink(); // 隐藏 Divider
+                  }
+                  return Padding(padding: const EdgeInsets.only(bottom: 5));
                 }
 
+                // 2. 处理 Header，添加折叠图标
                 if (item['type'] == 'header') {
                   // 分类标题
+                  final headerTitle = item['title'] as String;
+                  final isCollapsed = _collapsedCategories[headerTitle] ?? true;
+
+                  // 【新增】检查当前分类是否包含选中项（仅用于视觉提示）
+                  final selectedItemHeader = _getHeaderTitleForItemKey(
+                    _selectedTitleKey,
+                  );
+                  final containsSelectedItem =
+                      selectedItemHeader == headerTitle;
+
                   return Padding(
-                    padding: const EdgeInsets.fromLTRB(15.0, 0.0, 10.0, 5.0),
-                    child: Text(
-                      item['title'], // 本地化的标题
-                      style: TextStyle(
-                        color: theme.textColorTertiary, // 浅色字体
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    // 调整左边距为图标留出空间
+                    padding: const EdgeInsets.fromLTRB(5.0, 0.0, 10.0, 5.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        // 折叠/展开按钮 - 所有分类都可以折叠
+                        IconButton(
+                          icon: Icon(
+                            isCollapsed
+                                ? Icons
+                                      .chevron_right // 折叠时显示右箭头
+                                : Icons.keyboard_arrow_down, // 展开时显示下箭头
+                            size: 20,
+                            color: theme.textColorTertiary,
+                          ),
+                          padding: EdgeInsets.zero, // 移除内边距
+                          constraints: const BoxConstraints(), // 移除最小尺寸限制
+                          onPressed: () => _toggleCollapse(headerTitle),
+                        ),
+
+                        // 分类文本
+                        Expanded(
+                          child: Text(
+                            headerTitle,
+                            style: TextStyle(
+                              color: containsSelectedItem
+                                  ? theme
+                                        .textColorPrimary // 包含选中项时使用主色提示
+                                  : theme.textColorTertiary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }
 
                 // 设置项 (type: 'item')
+                // 3. 根据折叠状态决定是否显示
+                if (!_shouldShowItem(index)) {
+                  return const SizedBox.shrink(); // 隐藏项
+                }
+
                 final title = item['title'] as String;
                 final key = item['key'] as String; // 菜单项的固定 key
                 final isSelected = key == _selectedTitleKey; // 使用 key 来判断是否选中
@@ -149,9 +257,14 @@ class _HomePageContentState extends State<HomePageContent> {
 
                           // 使用 InkWell 实现点击效果
                           onTap: () {
-                            // 点击时重置所有 hover 颜色，并切换选中项
                             setState(() {
                               _selectedTitleKey = key; // 切换选中的 key
+
+                              // 【可选】点击项时自动展开其所属分类（如果希望的话）
+                              // if (newSelectedHeader != null && _collapsedCategories[newSelectedHeader] == true) {
+                              //   _collapsedCategories[newSelectedHeader] = false;
+                              // }
+
                               // 重置所有项的悬停颜色为当前背景色，因为点击操作已经完成
                               _currentHoverColors.updateAll(
                                 (k, value) => theme.secondary,
@@ -211,9 +324,6 @@ class _HomePageContentState extends State<HomePageContent> {
               ),
             ),
           ),
-
-          // 分割线
-          // Divider(color: theme.dividerColorNormal, height: 1, thickness: 2),
         ],
       ),
     );
@@ -311,10 +421,6 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
             totalWidth * _maxLeftWidthFactor - _touchTargetWidth;
 
         // 在布局时校正 _leftPanelWidth
-        // 这会在窗口大小改变（LayoutBuilder重建）时，自动调整 _leftPanelWidth
-        // 如果当前宽度超过了新窗口的最大限制，则将其缩小到最大限制
-        // 使用 setState/didUpdateWidget 无法实现，因为 LayoutBuilder 自身不会触发这些生命周期函数
-        // 必须在 build 内部直接修正值
         _leftPanelWidth = _leftPanelWidth.clamp(_minLeftWidth, maxLeftWidth);
 
         // 宽度计算
