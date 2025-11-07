@@ -37,6 +37,9 @@ class _HomePageContentState extends State<HomePageContent> {
     '导航': true, // 默认折叠
   };
 
+  // 【新增】用于存储分类标题的悬停状态
+  final Map<String, Color> _headerHoverColors = {};
+
   // 【新增方法】获取一个 item 所属的 header title
   String? _getHeaderTitleForItemKey(String itemKey) {
     String? currentHeaderTitle;
@@ -156,7 +159,7 @@ class _HomePageContentState extends State<HomePageContent> {
                   return Padding(padding: const EdgeInsets.only(bottom: 5));
                 }
 
-                // 2. 处理 Header，添加折叠图标
+                // 2. 处理 Header，将折叠图标和标题合并为可点击的长条按钮
                 if (item['type'] == 'header') {
                   // 分类标题
                   final headerTitle = item['title'] as String;
@@ -169,42 +172,79 @@ class _HomePageContentState extends State<HomePageContent> {
                   final containsSelectedItem =
                       selectedItemHeader == headerTitle;
 
-                  return Padding(
-                    // 调整左边距为图标留出空间
-                    padding: const EdgeInsets.fromLTRB(5.0, 0.0, 10.0, 5.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        // 折叠/展开按钮 - 所有分类都可以折叠
-                        IconButton(
-                          icon: Icon(
-                            isCollapsed
-                                ? Icons
-                                      .chevron_right // 折叠时显示右箭头
-                                : Icons.keyboard_arrow_down, // 展开时显示下箭头
-                            size: 20,
-                            color: theme.textColorTertiary,
-                          ),
-                          padding: EdgeInsets.zero, // 移除内边距
-                          constraints: const BoxConstraints(), // 移除最小尺寸限制
-                          onPressed: () => _toggleCollapse(headerTitle),
-                        ),
+                  // 计算目标背景色
+                  final targetColor =
+                      _headerHoverColors[headerTitle] ?? theme.secondary;
 
-                        // 分类文本
-                        Expanded(
-                          child: Text(
-                            headerTitle,
-                            style: TextStyle(
-                              color: containsSelectedItem
-                                  ? theme
-                                        .textColorPrimary // 包含选中项时使用主色提示
-                                  : theme.textColorTertiary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5.0,
+                      vertical: 2.0,
+                    ),
+                    // 使用 TweenAnimationBuilder 实现颜色渐变
+                    child: TweenAnimationBuilder<Color?>(
+                      duration: const Duration(milliseconds: 150),
+                      tween: ColorTween(
+                        begin: theme.secondary,
+                        end: targetColor,
+                      ),
+                      builder: (context, color, child) {
+                        return SizedBox(
+                          height: 25.0,
+                          child: InkWell(
+                            onHover: (isHovering) {
+                              setState(() {
+                                _headerHoverColors[headerTitle] = isHovering
+                                    ? theme.secondaryTextHoverColor
+                                    : theme.secondary;
+                              });
+                            },
+                            onTap: () => _toggleCollapse(headerTitle),
+                            borderRadius: BorderRadius.circular(20.0),
+                            child: Container(
+                              alignment: Alignment.centerLeft,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 3.0,
+                              ),
+                              decoration: BoxDecoration(
+                                color: color,
+                                borderRadius: BorderRadius.circular(20.0),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  // 折叠/展开图标
+                                  Icon(
+                                    isCollapsed
+                                        ? Icons
+                                              .chevron_right // 折叠时显示右箭头
+                                        : Icons.keyboard_arrow_down, // 展开时显示下箭头
+                                    size: 20,
+                                    color: containsSelectedItem
+                                        ? theme
+                                              .textColorPrimary // 包含选中项时使用主色
+                                        : theme.textColorTertiary,
+                                  ),
+                                  // 分类文本
+                                  Expanded(
+                                    child: Text(
+                                      headerTitle,
+                                      style: TextStyle(
+                                        color: containsSelectedItem
+                                            ? theme
+                                                  .textColorPrimary // 包含选中项时使用主色提示
+                                            : theme.textColorTertiary,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
                   );
                 }
@@ -259,11 +299,6 @@ class _HomePageContentState extends State<HomePageContent> {
                           onTap: () {
                             setState(() {
                               _selectedTitleKey = key; // 切换选中的 key
-
-                              // 【可选】点击项时自动展开其所属分类（如果希望的话）
-                              // if (newSelectedHeader != null && _collapsedCategories[newSelectedHeader] == true) {
-                              //   _collapsedCategories[newSelectedHeader] = false;
-                              // }
 
                               // 重置所有项的悬停颜色为当前背景色，因为点击操作已经完成
                               _currentHoverColors.updateAll(
