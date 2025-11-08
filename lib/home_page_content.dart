@@ -15,88 +15,52 @@ class HomePageContent extends StatefulWidget {
 }
 
 class _HomePageContentState extends State<HomePageContent> {
-  // 定义菜单项数据结构 (用于左侧列表)
-  final List<Map<String, dynamic>> menuItems = [
-    // 【新增】没有header的"开始"item，放在最前面
-    {
-      'type': 'standalone_item', // 新增类型，表示独立item，没有header
-      'title': '开始',
-      'key': 'start',
-      'icon': Symbols.borg,
-    },
-    // 增加 'key' 字段以便更清晰地管理 header 状态
-    {'type': 'header', 'title': '我的', 'key': 'my_header'},
-    {
-      'type': 'item',
-      'title': '个人设置',
-      'key': 'settings',
-      'icon': Symbols.border_all,
-    },
-    {
-      'type': 'item',
-      'title': '偏好设置',
-      'key': 'preferences',
-      'icon': Symbols.border_all,
-    },
-    {'type': 'header', 'title': '导航', 'key': 'nav_header'},
-    {
-      'type': 'item',
-      'title': '工作区',
-      'key': 'workspace',
-      'icon': Symbols.border_all,
-    },
-    {
-      'type': 'item',
-      'title': '文件浏览器',
-      'key': 'file_explorer',
-      'icon': Symbols.border_all,
-    },
-  ];
-
   // 默认选中的菜单项 Key
   String _selectedTitleKey = 'start'; // 修改默认选中为"开始"
   // 用于存储当前悬停颜色状态的 Map
   final Map<String, Color> _currentHoverColors = {};
 
-  // 【修改状态】用于存储分类的折叠状态 - 初始全部折叠
+  // 用于存储分类的折叠状态 - 初始全部折叠
   final Map<String, bool> _collapsedCategories = {
-    '我的': true, // 默认折叠
-    '导航': true, // 默认折叠
+    'my': true, // 默认折叠
+    'navigation': true, // 默认折叠
   };
 
-  // 【新增】用于存储分类标题的悬停状态
+  // 用于存储分类标题的悬停状态
   final Map<String, Color> _headerHoverColors = {};
 
-  // 【新增】动画持续时间
+  // 动画持续时间
   final Duration _animationDuration = const Duration(milliseconds: 150);
 
-  // 【新增方法】获取一个 item 所属的 header title
-  String? _getHeaderTitleForItemKey(String itemKey) {
-    String? currentHeaderTitle;
+  // 获取一个 item 所属的 header key
+  String? _getHeaderKeyForItemKey(String itemKey) {
+    String? currentHeaderKey;
     // 从头遍历，找到 itemKey 所属的最近一个 header
-    for (final item in menuItems) {
+    for (final item in _getMenuItems(context)) {
       if (item['type'] == 'header') {
-        currentHeaderTitle = item['title'];
+        currentHeaderKey = item['key'];
       } else if ((item['type'] == 'item' ||
               item['type'] == 'standalone_item') &&
           item['key'] == itemKey) {
-        return currentHeaderTitle;
+        return currentHeaderKey;
       }
     }
     return null;
   }
 
-  // 【修改方法】判断一个 item 是否属于折叠的分类（用于动画）
-  bool _isItemInCollapsedCategory(int currentIndex) {
-    String? currentHeaderTitle;
+  // 判断一个 item 是否属于折叠的分类（用于动画）
+  bool _isItemInCollapsedCategory(int currentIndex, BuildContext context) {
+    String? currentHeaderKey;
     bool isCollapsed = true;
+
+    final menuItems = _getMenuItems(context);
 
     // 遍历到当前索引，找到它所属的最近一个 header 的状态
     for (int i = 0; i < currentIndex; i++) {
       final item = menuItems[i];
       if (item['type'] == 'header') {
-        currentHeaderTitle = item['title'];
-        isCollapsed = _collapsedCategories[currentHeaderTitle] ?? true;
+        currentHeaderKey = item['key'];
+        isCollapsed = _collapsedCategories[currentHeaderKey] ?? true;
       }
     }
 
@@ -116,13 +80,53 @@ class _HomePageContentState extends State<HomePageContent> {
     return false;
   }
 
-  // 【修改方法】切换分类的折叠状态 - 所有分类都可以自由折叠
-  void _toggleCollapse(String headerTitle) {
+  // 切换分类的折叠状态 - 所有分类都可以自由折叠
+  void _toggleCollapse(String headerKey) {
     setState(() {
-      final isCurrentlyCollapsed = _collapsedCategories[headerTitle] ?? true;
+      final isCurrentlyCollapsed = _collapsedCategories[headerKey] ?? true;
       // 直接切换状态，不检查是否包含选中项
-      _collapsedCategories[headerTitle] = !isCurrentlyCollapsed;
+      _collapsedCategories[headerKey] = !isCurrentlyCollapsed;
     });
+  }
+
+  // 获取菜单项列表
+  List<Map<String, dynamic>> _getMenuItems(BuildContext context) {
+    return [
+      // 没有header的"开始"item，放在最前面
+      {
+        'type': 'standalone_item',
+        'title': context.l10n.start,
+        'key': 'start',
+        'icon': Symbols.borg,
+      },
+      // 增加 'key' 字段以便更清晰地管理 header 状态
+      {'type': 'header', 'title': "my", 'key': 'my_header'},
+      {
+        'type': 'item',
+        'title': "personalSettings",
+        'key': 'settings',
+        'icon': Symbols.border_all,
+      },
+      {
+        'type': 'item',
+        'title': "preferences",
+        'key': 'preferences',
+        'icon': Symbols.border_all,
+      },
+      {'type': 'header', 'title': "navigation", 'key': 'nav_header'},
+      {
+        'type': 'item',
+        'title': "workspace",
+        'key': 'workspace',
+        'icon': Symbols.border_all,
+      },
+      {
+        'type': 'item',
+        'title': "fileExplorer",
+        'key': 'file_explorer',
+        'icon': Symbols.border_all,
+      },
+    ];
   }
 
   @override
@@ -136,6 +140,9 @@ class _HomePageContentState extends State<HomePageContent> {
       context,
       listen: false,
     );
+
+    // 获取菜单项
+    final menuItems = _getMenuItems(context);
 
     // 左侧面板的新内容
     final leftPanelContent = Container(
@@ -159,7 +166,7 @@ class _HomePageContentState extends State<HomePageContent> {
           // 分割线
           Divider(color: theme.dividerColorNormal, height: 1, thickness: 2),
 
-          // 【修改】使用 AnimatedSize 包裹整个列表以实现整体高度动画
+          // 使用 AnimatedSize 包裹整个列表以实现整体高度动画
           Expanded(
             child: AnimatedSize(
               duration: _animationDuration,
@@ -171,23 +178,23 @@ class _HomePageContentState extends State<HomePageContent> {
                 itemBuilder: (context, index) {
                   final item = menuItems[index];
 
-                  // 1. 处理 Header
+                  // 处理 Header
                   if (item['type'] == 'header') {
                     // 分类标题
                     final headerTitle = item['title'] as String;
-                    final isCollapsed =
-                        _collapsedCategories[headerTitle] ?? true;
+                    final headerKey = item['key'] as String;
+                    final isCollapsed = _collapsedCategories[headerKey] ?? true;
 
                     // 检查当前分类是否包含选中项（仅用于视觉提示）
-                    final selectedItemHeader = _getHeaderTitleForItemKey(
+                    final selectedItemHeader = _getHeaderKeyForItemKey(
                       _selectedTitleKey,
                     );
                     final containsSelectedItem =
-                        selectedItemHeader == headerTitle;
+                        selectedItemHeader == headerKey;
 
                     // 计算目标背景色
                     final targetColor =
-                        _headerHoverColors[headerTitle] ?? theme.secondary;
+                        _headerHoverColors[headerKey] ?? theme.secondary;
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(
@@ -207,12 +214,12 @@ class _HomePageContentState extends State<HomePageContent> {
                             child: InkWell(
                               onHover: (isHovering) {
                                 setState(() {
-                                  _headerHoverColors[headerTitle] = isHovering
+                                  _headerHoverColors[headerKey] = isHovering
                                       ? theme.secondaryTextHoverColor
                                       : theme.secondary;
                                 });
                               },
-                              onTap: () => _toggleCollapse(headerTitle),
+                              onTap: () => _toggleCollapse(headerKey),
                               borderRadius: BorderRadius.circular(20.0),
                               child: Container(
                                 alignment: Alignment.centerLeft,
@@ -226,7 +233,7 @@ class _HomePageContentState extends State<HomePageContent> {
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.start,
                                   children: [
-                                    // 【修改】为折叠图标添加旋转动画
+                                    // 折叠图标添加旋转动画
                                     AnimatedRotation(
                                       turns: isCollapsed
                                           ? 0.0
@@ -266,7 +273,7 @@ class _HomePageContentState extends State<HomePageContent> {
                     );
                   }
 
-                  // 2. 处理 standalone_item (新增类型)
+                  //处理 standalone_item (新增类型)
                   if (item['type'] == 'standalone_item') {
                     final title = item['title'] as String;
                     final key = item['key'] as String;
@@ -278,11 +285,13 @@ class _HomePageContentState extends State<HomePageContent> {
                         ? theme.secondaryTextSelectedColor
                         : _currentHoverColors[key] ?? theme.secondary;
 
-                    // 【修改】standalone_item 使用不同的边距，使其与有header的item位置不同
+                    // standalone_item 使用不同的边距，使其与有header的item位置不同
                     return Container(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 10.0,
-                        vertical: 2.0,
+                      margin: const EdgeInsets.only(
+                        left: 10.0,
+                        top: 5.0,
+                        right: 15.0,
+                        bottom: 2.0,
                       ),
                       child: SizedBox(
                         height: 30.0,
@@ -356,12 +365,15 @@ class _HomePageContentState extends State<HomePageContent> {
                     );
                   }
 
-                  // 3. 处理普通 Item
+                  // 处理普通 Item
                   if (item['type'] == 'item') {
                     final title = item['title'] as String;
                     final key = item['key'] as String;
                     final isSelected = key == _selectedTitleKey;
-                    final isCollapsed = _isItemInCollapsedCategory(index);
+                    final isCollapsed = _isItemInCollapsedCategory(
+                      index,
+                      context,
+                    );
                     final icon = item['icon'] as IconData?;
 
                     // 计算目标背景色
@@ -369,7 +381,7 @@ class _HomePageContentState extends State<HomePageContent> {
                         ? theme.secondaryTextSelectedColor
                         : _currentHoverColors[key] ?? theme.secondary;
 
-                    // 【修改】使用 AnimatedContainer 控制高度和边距
+                    // 使用 AnimatedContainer 控制高度和边距
                     return AnimatedContainer(
                       duration: _animationDuration,
                       curve: Curves.easeInOut,
@@ -474,7 +486,7 @@ class _HomePageContentState extends State<HomePageContent> {
           Padding(
             padding: const EdgeInsets.only(top: 8.0, left: 15.0, bottom: 8.0),
             child: Text(
-              '标题',
+              "title",
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,

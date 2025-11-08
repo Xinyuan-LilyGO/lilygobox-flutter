@@ -18,5 +18,6 @@
     "selectBoard": "Select Board",
     "selectBoardDescription": "Click below to select the board you want to add",
     "searchForBoardModel": "Search for board model",
-    "home": "Home"
+    "home": "Home",
+    "start": "Start"
 }

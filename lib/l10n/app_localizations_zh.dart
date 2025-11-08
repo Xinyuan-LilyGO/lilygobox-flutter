@@ -70,4 +70,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get home => '主页';
+
+  @override
+  String get start => '开始';
 }

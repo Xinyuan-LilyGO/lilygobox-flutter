@@ -18,5 +18,6 @@
     "selectBoard": "选择板子",
     "selectBoardDescription": "点击下方选择你需要添加的板子",
     "searchForBoardModel": "搜索板子型号",
-    "home": "主页"
+    "home": "主页",
+    "start": "开始"
 }

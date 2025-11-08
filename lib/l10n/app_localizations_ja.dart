@@ -70,4 +70,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get home => 'ホームページ';
+
+  @override
+  String get start => '開始';
 }

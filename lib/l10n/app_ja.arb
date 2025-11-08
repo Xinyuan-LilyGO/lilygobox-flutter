@@ -18,5 +18,6 @@
     "selectBoard": "ボードを選択",
     "selectBoardDescription": "追加したいボードを選択するには、下をクリックしてください",
     "searchForBoardModel": "ボードの型番を検索",
-    "home": "ホームページ"
+    "home": "ホームページ",
+    "start": "開始"
 }
