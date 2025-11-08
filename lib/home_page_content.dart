@@ -17,6 +17,13 @@ class HomePageContent extends StatefulWidget {
 class _HomePageContentState extends State<HomePageContent> {
   // 定义菜单项数据结构 (用于左侧列表)
   final List<Map<String, dynamic>> menuItems = [
+    // 【新增】没有header的"开始"item，放在最前面
+    {
+      'type': 'standalone_item', // 新增类型，表示独立item，没有header
+      'title': '开始',
+      'key': 'start',
+      'icon': Symbols.borg,
+    },
     // 增加 'key' 字段以便更清晰地管理 header 状态
     {'type': 'header', 'title': '我的', 'key': 'my_header'},
     {
@@ -47,7 +54,7 @@ class _HomePageContentState extends State<HomePageContent> {
   ];
 
   // 默认选中的菜单项 Key
-  String _selectedTitleKey = 'settings';
+  String _selectedTitleKey = 'start'; // 修改默认选中为"开始"
   // 用于存储当前悬停颜色状态的 Map
   final Map<String, Color> _currentHoverColors = {};
 
@@ -70,7 +77,9 @@ class _HomePageContentState extends State<HomePageContent> {
     for (final item in menuItems) {
       if (item['type'] == 'header') {
         currentHeaderTitle = item['title'];
-      } else if (item['type'] == 'item' && item['key'] == itemKey) {
+      } else if ((item['type'] == 'item' ||
+              item['type'] == 'standalone_item') &&
+          item['key'] == itemKey) {
         return currentHeaderTitle;
       }
     }
@@ -92,6 +101,11 @@ class _HomePageContentState extends State<HomePageContent> {
     }
 
     final item = menuItems[currentIndex];
+
+    // 对于 standalone_item 类型，永远不折叠
+    if (item['type'] == 'standalone_item') {
+      return false;
+    }
 
     // 对于 item 类型，检查是否在折叠的分类中且不是选中项
     if (item['type'] == 'item') {
@@ -252,7 +266,97 @@ class _HomePageContentState extends State<HomePageContent> {
                     );
                   }
 
-                  // 2. 处理 Item
+                  // 2. 处理 standalone_item (新增类型)
+                  if (item['type'] == 'standalone_item') {
+                    final title = item['title'] as String;
+                    final key = item['key'] as String;
+                    final isSelected = key == _selectedTitleKey;
+                    final icon = item['icon'] as IconData?;
+
+                    // 计算目标背景色
+                    final targetColor = isSelected
+                        ? theme.secondaryTextSelectedColor
+                        : _currentHoverColors[key] ?? theme.secondary;
+
+                    // 【修改】standalone_item 使用不同的边距，使其与有header的item位置不同
+                    return Container(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 10.0,
+                        vertical: 2.0,
+                      ),
+                      child: SizedBox(
+                        height: 30.0,
+                        child: TweenAnimationBuilder<Color?>(
+                          duration: const Duration(milliseconds: 150),
+                          tween: ColorTween(
+                            begin: theme.secondary,
+                            end: targetColor,
+                          ),
+                          builder: (context, color, child) {
+                            return InkWell(
+                              onHover: (isHovering) {
+                                if (!isSelected) {
+                                  setState(() {
+                                    _currentHoverColors[key] = isHovering
+                                        ? theme.secondaryTextHoverColor
+                                        : theme.secondary;
+                                  });
+                                }
+                              },
+                              onTap: () {
+                                setState(() {
+                                  _selectedTitleKey = key;
+                                  _currentHoverColors.updateAll(
+                                    (k, value) => theme.secondary,
+                                  );
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(6.0),
+                              child: Container(
+                                alignment: Alignment.centerLeft,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8.0,
+                                  vertical: 0.0,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  borderRadius: BorderRadius.circular(6.0),
+                                ),
+                                child: Row(
+                                  children: [
+                                    // 图标
+                                    if (icon != null)
+                                      Icon(
+                                        icon,
+                                        size: 18,
+                                        color: theme.textColorSecondary,
+                                        fill: 1,
+                                        grade: 200,
+                                        opticalSize: 20,
+                                        weight: 300,
+                                      ),
+                                    if (icon != null) const SizedBox(width: 3),
+                                    // 文本
+                                    Text(
+                                      title,
+                                      style: TextStyle(
+                                        color: theme.textColorSecondary,
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    );
+                  }
+
+                  // 3. 处理普通 Item
                   if (item['type'] == 'item') {
                     final title = item['title'] as String;
                     final key = item['key'] as String;
@@ -308,7 +412,7 @@ class _HomePageContentState extends State<HomePageContent> {
                                 child: Container(
                                   alignment: Alignment.centerLeft,
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 10.0,
+                                    horizontal: 8.0,
                                     vertical: 0.0,
                                   ),
                                   decoration: BoxDecoration(
@@ -317,7 +421,7 @@ class _HomePageContentState extends State<HomePageContent> {
                                   ),
                                   child: Row(
                                     children: [
-                                      // 【新增】图标
+                                      // 图标
                                       if (icon != null)
                                         Icon(
                                           icon,
