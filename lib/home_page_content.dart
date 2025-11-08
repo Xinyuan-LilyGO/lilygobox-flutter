@@ -157,32 +157,29 @@ class _HomePageContentState extends State<HomePageContent> {
       children: [
         const SizedBox(height: 50),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15.0),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center, // 改为居中
-              children: [
-                Text(
-                  context.l10n.homePageContentStartTitle,
-                  style: TextStyle(
-                    fontSize: 30, // 增大标题字体大小
-                    fontWeight: FontWeight.bold,
-                    color: theme.textColorPrimary,
-                  ),
-                  textAlign: TextAlign.center, // 文字居中
+          padding: const EdgeInsets.symmetric(horizontal: 50.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center, // 改为居中
+            children: [
+              Text(
+                context.l10n.homePageContentStartTitle,
+                style: TextStyle(
+                  fontSize: 30, // 增大标题字体大小
+                  fontWeight: FontWeight.bold,
+                  color: theme.textColorPrimary,
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  context.l10n.homePageContentStartDescription,
-                  style: TextStyle(
-                    fontSize: 14, // 描述文字保持较小
-                    color: theme.textColorSecondary,
-                  ),
-                  textAlign: TextAlign.center, // 文字居中
+                textAlign: TextAlign.center, // 文字居中
+              ),
+              const SizedBox(height: 10),
+              Text(
+                context.l10n.homePageContentStartDescription,
+                style: TextStyle(
+                  fontSize: 14, // 描述文字保持较小
+                  color: theme.textColorSecondary,
                 ),
-              ],
-            ),
+                textAlign: TextAlign.center, // 文字居中
+              ),
+            ],
           ),
         ),
       ],
