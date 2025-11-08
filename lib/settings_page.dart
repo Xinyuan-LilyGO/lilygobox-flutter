@@ -71,12 +71,7 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
           ),
         );
       case 1: // 语言与地区
-        return Center(
-          child: Text(
-            '语言与地区设置内容区域 ($_selectedTitleKey)',
-            style: TextStyle(color: theme.textColorPrimary),
-          ),
-        );
+        return LanguageAndRegionContent(theme: theme);
       case 2: // 外观主题
         return Center(
           child: Text(
@@ -85,7 +80,7 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
           ),
         );
       case 3: // 关于
-        return _AboutContent(theme: theme);
+        return AboutContent(theme: theme);
       default:
         return const SizedBox.shrink();
     }
@@ -280,7 +275,6 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
                   },
                 ),
               ),
-            
             ],
           ),
         ),
@@ -368,15 +362,15 @@ class SettingsPage extends StatelessWidget {
 }
 
 /// 关于内容区域的 Widget
-class _AboutContent extends StatelessWidget {
+class AboutContent extends StatelessWidget {
   final dynamic theme; // 接受主题数据
 
-  const _AboutContent({required this.theme});
+  const AboutContent({super.key, required this.theme});
 
   // 构建关于页面中的信息项 (Item)
   Widget _buildInfoItem(String title, String subtitle) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 15.0),
+      padding: const EdgeInsets.only(bottom: 3.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -388,7 +382,6 @@ class _AboutContent extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 4.0),
           Text(
             subtitle,
             style: TextStyle(
@@ -421,11 +414,12 @@ class _AboutContent extends StatelessWidget {
               context.l10n.about,
               style: TextStyle(
                 color: theme.textColorPrimary,
-                fontSize: 30,
+                fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 20),
+
+            const SizedBox(height: 10),
 
             // 分隔线
             Divider(color: theme.dividerColor, height: 1),
@@ -437,12 +431,180 @@ class _AboutContent extends StatelessWidget {
               'v${packageInfoProvider.version}',
             ),
 
+            const SizedBox(height: 10),
+
             _buildInfoItem(
               context.l10n.copyright,
               '${packageInfoProvider.appName} \n© 2025 LILYGO Corporation${context.l10n.allRightsReserved}',
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// 添加新的语言与地区内容组件
+class LanguageAndRegionContent extends StatefulWidget {
+  final dynamic theme;
+
+  const LanguageAndRegionContent({super.key, required this.theme});
+
+  @override
+  State<LanguageAndRegionContent> createState() =>
+      _LanguageAndRegionContentState();
+}
+
+class _LanguageAndRegionContentState extends State<LanguageAndRegionContent> {
+  @override
+  Widget build(BuildContext context) {
+    final languageProvider = Provider.of<LanguageProvider>(
+      context,
+      listen: true,
+    );
+    final currentLanguageCode = languageProvider.locale.languageCode;
+
+    // 根据当前的语言代码找到对应的 Map 对象
+    final currentLanguageMap = LanguageProvider.supportedLanguages.firstWhere(
+      (lang) => lang['code'] == currentLanguageCode,
+      // 如果找不到（理论上不会发生），则返回一个默认值
+      orElse: () => {'code': 'en', 'name': 'English', 'nativeName': 'English'},
+    );
+
+    return Container(
+      alignment: Alignment.topLeft,
+      padding: const EdgeInsets.fromLTRB(40.0, 30.0, 40.0, 40.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 标题
+          Text(
+            context.l10n.languageAndRegion,
+            style: TextStyle(
+              color: widget.theme.textColorPrimary,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // 分隔线
+          Divider(color: widget.theme.dividerColor, height: 1),
+
+          const SizedBox(height: 20),
+
+          // 语言设置区域
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 左侧说明 (flex: 2)
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "语言",
+                      style: TextStyle(
+                        color: widget.theme.textColorTertiary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      "选择您偏好的应用程序界面语言",
+                      style: TextStyle(
+                        color: widget.theme.textColorSecondary,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 40),
+
+              // 右侧语言选择下拉菜单 (flex: 2, 从 3 调整为 2)
+              Expanded(
+                flex: 2, // 调整 flex 比例以留出更多空间
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  decoration: BoxDecoration(
+                    color: widget.theme.primary, // 背景色
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: widget.theme.dividerColor.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      // 使用当前选中的语言代码
+                      value: currentLanguageMap['code'],
+                      // 填充整个宽度
+                      isExpanded: true,
+                      // 下拉按钮的颜色
+                      dropdownColor: widget.theme.primary,
+                      // 下拉箭头图标
+                      icon: Icon(
+                        Symbols.expand_more_rounded,
+                        color: widget.theme.textColorSecondary,
+                      ),
+                      style: TextStyle(
+                        color: widget.theme.textColorPrimary,
+                        fontSize: 12,
+                      ),
+                      onChanged: (String? newValue) {
+                        if (newValue != null &&
+                            newValue != currentLanguageCode) {
+                          // 使用淡入淡出动画切换语言
+                          languageProvider.changeLanguage(newValue);
+                        }
+                      },
+                      items: LanguageProvider.supportedLanguages
+                          .map<DropdownMenuItem<String>>((
+                            Map<String, String> language,
+                          ) {
+                            // **优化开始：为长文本添加 TextOverflow.ellipsis**
+                            return DropdownMenuItem<String>(
+                              value: language['code'],
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 5.0,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      language['nativeName']!,
+                                      style: TextStyle(
+                                        color: widget.theme.textColorPrimary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      language['name']!,
+                                      style: TextStyle(
+                                        color: widget.theme.textColorTertiary,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          })
+                          .toList(),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
