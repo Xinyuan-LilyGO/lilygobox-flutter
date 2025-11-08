@@ -19,5 +19,7 @@
     "selectBoardDescription": "点击下方选择你需要添加的板子",
     "searchForBoardModel": "搜索板子型号",
     "home": "主页",
-    "start": "开始"
+    "start": "开始",
+    "homePageContentStartTitle": "欢迎使用 LilygoBox",
+    "homePageContentStartDescription": "LilygoBox 专为 Lilygo 硬件打造的集成开发与控制中心。"
 }

@@ -225,6 +225,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Start'**
   String get start;
+
+  /// No description provided for @homePageContentStartTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome to LilygoBox'**
+  String get homePageContentStartTitle;
+
+  /// No description provided for @homePageContentStartDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'LilygoBox is an integrated development and control center built specifically for Lilygo hardware.'**
+  String get homePageContentStartDescription;
 }
 
 class _AppLocalizationsDelegate

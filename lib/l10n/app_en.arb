@@ -19,5 +19,7 @@
     "selectBoardDescription": "Click below to select the board you want to add",
     "searchForBoardModel": "Search for board model",
     "home": "Home",
-    "start": "Start"
+    "start": "Start",
+    "homePageContentStartTitle": "Welcome to LilygoBox",
+    "homePageContentStartDescription": "LilygoBox is an integrated development and control center built specifically for Lilygo hardware."
 }

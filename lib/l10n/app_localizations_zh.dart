@@ -73,4 +73,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get start => '开始';
+
+  @override
+  String get homePageContentStartTitle => '欢迎使用 LilygoBox';
+
+  @override
+  String get homePageContentStartDescription =>
+      'LilygoBox 专为 Lilygo 硬件打造的集成开发与控制中心。';
 }

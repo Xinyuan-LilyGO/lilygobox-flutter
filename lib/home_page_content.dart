@@ -129,6 +129,328 @@ class _HomePageContentState extends State<HomePageContent> {
     ];
   }
 
+  // 根据选中的key获取对应的右侧内容
+  Widget _buildRightContent(String selectedKey, BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final theme = themeProvider.themeData;
+
+    switch (selectedKey) {
+      case 'start':
+        return _buildStartContent(theme, context);
+      case 'settings':
+        return _buildSettingsContent(theme, context);
+      case 'preferences':
+        return _buildPreferencesContent(theme, context);
+      case 'workspace':
+        return _buildWorkspaceContent(theme, context);
+      case 'file_explorer':
+        return _buildFileExplorerContent(theme, context);
+      default:
+        return _buildDefaultContent(theme, context);
+    }
+  }
+
+  // 开始页面内容
+  Widget _buildStartContent(AppTheme theme, BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center, // 改为居中
+      children: [
+        const SizedBox(height: 50),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15.0),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center, // 改为居中
+              children: [
+                Text(
+                  context.l10n.homePageContentStartTitle,
+                  style: TextStyle(
+                    fontSize: 30, // 增大标题字体大小
+                    fontWeight: FontWeight.bold,
+                    color: theme.textColorPrimary,
+                  ),
+                  textAlign: TextAlign.center, // 文字居中
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  context.l10n.homePageContentStartDescription,
+                  style: TextStyle(
+                    fontSize: 14, // 描述文字保持较小
+                    color: theme.textColorSecondary,
+                  ),
+                  textAlign: TextAlign.center, // 文字居中
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 个人设置页面内容
+  Widget _buildSettingsContent(AppTheme theme, BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 8.0, left: 15.0, bottom: 8.0),
+          child: Text(
+            "个人设置",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: theme.textColorPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15.0),
+          child: Card(
+            color: theme.secondary,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "账户设置",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: theme.textColorPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildSettingItem(theme, "用户名", "user123"),
+                  _buildSettingItem(theme, "邮箱", "user@example.com"),
+                  _buildSettingItem(theme, "语言", "简体中文"),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 偏好设置页面内容
+  Widget _buildPreferencesContent(AppTheme theme, BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 8.0, left: 15.0, bottom: 8.0),
+          child: Text(
+            "偏好设置",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: theme.textColorPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15.0),
+          child: Card(
+            color: theme.secondary,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "应用偏好",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: theme.textColorPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildSettingItem(theme, "主题", "深色"),
+                  _buildSettingItem(theme, "字体大小", "中等"),
+                  _buildSettingItem(theme, "自动保存", "开启"),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 工作空间页面内容
+  Widget _buildWorkspaceContent(AppTheme theme, BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 8.0, left: 15.0, bottom: 8.0),
+          child: Text(
+            "工作空间",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: theme.textColorPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15.0),
+          child: GridView.count(
+            shrinkWrap: true,
+            crossAxisCount: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            children: [
+              _buildWorkspaceCard(theme, "项目 A", Icons.folder),
+              _buildWorkspaceCard(theme, "项目 B", Icons.folder),
+              _buildWorkspaceCard(theme, "项目 C", Icons.folder),
+              _buildWorkspaceCard(theme, "新建项目", Icons.create_new_folder),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 文件浏览器页面内容
+  Widget _buildFileExplorerContent(AppTheme theme, BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 8.0, left: 15.0, bottom: 8.0),
+          child: Text(
+            "文件浏览器",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: theme.textColorPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15.0),
+          child: Card(
+            color: theme.secondary,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "最近文件",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: theme.textColorPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildFileItem(theme, "document.pdf", Icons.picture_as_pdf),
+                  _buildFileItem(theme, "image.png", Icons.image),
+                  _buildFileItem(theme, "data.csv", Icons.table_chart),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 默认页面内容
+  Widget _buildDefaultContent(AppTheme theme, BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.help_outline, size: 64, color: theme.textColorSecondary),
+          const SizedBox(height: 16),
+          Text(
+            "页面开发中",
+            style: TextStyle(fontSize: 18, color: theme.textColorSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 构建设置项
+  Widget _buildSettingItem(AppTheme theme, String title, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, style: TextStyle(color: theme.textColorSecondary)),
+          Text(
+            value,
+            style: TextStyle(
+              color: theme.textColorPrimary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 构建工作空间卡片
+  Widget _buildWorkspaceCard(AppTheme theme, String title, IconData icon) {
+    return Card(
+      color: theme.primary,
+      child: InkWell(
+        onTap: () {},
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 32, color: theme.textColorPrimary),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  color: theme.textColorPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 构建文件项
+  Widget _buildFileItem(AppTheme theme, String fileName, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: theme.textColorSecondary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              fileName,
+              style: TextStyle(color: theme.textColorSecondary),
+            ),
+          ),
+          Icon(Icons.more_vert, size: 16, color: theme.textColorTertiary),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // 获取主题数据
@@ -476,25 +798,18 @@ class _HomePageContentState extends State<HomePageContent> {
       ),
     );
 
-    // 右侧面板的新内容
+    // 右侧面板的新内容 - 使用 AnimatedSwitcher 实现动画切换
     final rightPanelContent = Container(
       color: theme.tertiary,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 标题
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0, left: 15.0, bottom: 8.0),
-            child: Text(
-              "title",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: theme.textColorPrimary, // 使用 theme.textColorPrimary
-              ),
-            ),
-          ),
-        ],
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        transitionBuilder: (child, animation) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        child: Container(
+          key: ValueKey(_selectedTitleKey), // 使用选中的key作为唯一标识
+          child: _buildRightContent(_selectedTitleKey, context),
+        ),
       ),
     );
 
@@ -507,8 +822,8 @@ class _HomePageContentState extends State<HomePageContent> {
         rightColor: theme.tertiary,
         // 左边内容使用新的 Column 布局
         leftWidget: leftPanelContent,
-        // 右边内容保持不变
-        rightWidget: Container(color: theme.tertiary, child: rightPanelContent),
+        // 右边内容使用带动画切换的内容
+        rightWidget: rightPanelContent,
         initialWidth: homePageProvider.splitWidth,
       ),
     );
