@@ -467,7 +467,6 @@ class _LanguageAndRegionContentState extends State<LanguageAndRegionContent> {
     // 根据当前的语言代码找到对应的 Map 对象
     final currentLanguageMap = LanguageProvider.supportedLanguages.firstWhere(
       (lang) => lang['code'] == currentLanguageCode,
-      // 如果找不到（理论上不会发生），则返回一个默认值
       orElse: () => {'code': 'en', 'name': 'English', 'nativeName': 'English'},
     );
 
@@ -526,78 +525,99 @@ class _LanguageAndRegionContentState extends State<LanguageAndRegionContent> {
 
               const SizedBox(width: 40),
 
-              // 右侧语言选择下拉菜单 (flex: 2, 从 3 调整为 2)
-              Expanded(
-                flex: 2, // 调整 flex 比例以留出更多空间
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  decoration: BoxDecoration(
-                    color: widget.theme.primary, // 背景色
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: widget.theme.dividerColor.withOpacity(0.3),
-                      width: 1,
-                    ),
+              // 右侧语言选择下拉菜单
+              Container(
+                width: 200,
+                height: 45,
+                padding: const EdgeInsets.symmetric(horizontal: 5.0),
+                decoration: BoxDecoration(
+                  color: widget.theme.primary,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: PopupMenuButton<String>(
+                  tooltip: '', // 禁用菜单提示
+                  initialValue: currentLanguageCode,
+                  position: PopupMenuPosition.over, // 确保菜单在按钮上方显示
+                  offset: const Offset(5, 45), // 向下偏移容器的高度(45)，让菜单正好在容器正下方
+                  constraints: const BoxConstraints(
+                    minWidth: 200, // 与容器宽度一致
+                    maxWidth: 200,
                   ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      // 使用当前选中的语言代码
-                      value: currentLanguageMap['code'],
-                      // 填充整个宽度
-                      isExpanded: true,
-                      // 下拉按钮的颜色
-                      dropdownColor: widget.theme.primary,
-                      // 下拉箭头图标
-                      icon: Icon(
-                        Symbols.expand_more_rounded,
-                        color: widget.theme.textColorSecondary,
-                      ),
-                      style: TextStyle(
-                        color: widget.theme.textColorPrimary,
-                        fontSize: 12,
-                      ),
-                      onChanged: (String? newValue) {
-                        if (newValue != null &&
-                            newValue != currentLanguageCode) {
-                          // 使用淡入淡出动画切换语言
-                          languageProvider.changeLanguage(newValue);
-                        }
-                      },
-                      items: LanguageProvider.supportedLanguages
-                          .map<DropdownMenuItem<String>>((
-                            Map<String, String> language,
-                          ) {
-                            // **优化开始：为长文本添加 TextOverflow.ellipsis**
-                            return DropdownMenuItem<String>(
-                              value: language['code'],
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 5.0,
+                  onSelected: (String newValue) {
+                    if (newValue != currentLanguageCode) {
+                      languageProvider.changeLanguage(newValue);
+                    }
+                  },
+                  itemBuilder: (BuildContext context) {
+                    return LanguageProvider.supportedLanguages.map((
+                      Map<String, String> language,
+                    ) {
+                      return PopupMenuItem<String>(
+                        value: language['code'],
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 2.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                language['nativeName']!,
+                                style: TextStyle(
+                                  color: widget.theme.textColorPrimary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11,
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      language['nativeName']!,
-                                      style: TextStyle(
-                                        color: widget.theme.textColorPrimary,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    Text(
-                                      language['name']!,
-                                      style: TextStyle(
-                                        color: widget.theme.textColorTertiary,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            );
-                          })
-                          .toList(),
+                              Text(
+                                language['name']!,
+                                style: TextStyle(
+                                  color: widget.theme.textColorTertiary,
+                                  fontSize: 10,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                currentLanguageMap['nativeName']!,
+                                style: TextStyle(
+                                  color: widget.theme.textColorPrimary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                currentLanguageMap['name']!,
+                                style: TextStyle(
+                                  color: widget.theme.textColorTertiary,
+                                  fontSize: 10,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_drop_down,
+                          color: widget.theme.textColorSecondary,
+                          size: 20,
+                        ),
+                      ],
                     ),
                   ),
                 ),
