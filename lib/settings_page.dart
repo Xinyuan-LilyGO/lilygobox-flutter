@@ -462,6 +462,9 @@ class _LanguageAndRegionContentState extends State<LanguageAndRegionContent> {
   // 用于存储语言选项的悬停状态
   final Map<String, Color> _languageHoverColors = {};
 
+  // 当前选中语言的悬停状态
+  Color? _currentLanguageHoverColor;
+
   // 动画持续时间
   final Duration _animationDuration = const Duration(milliseconds: 150);
 
@@ -549,70 +552,89 @@ class _LanguageAndRegionContentState extends State<LanguageAndRegionContent> {
                       ),
                       child: Material(
                         color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () {
+                        child: MouseRegion(
+                          onEnter: (_) {
                             setState(() {
-                              _isLanguageSelectorExpanded =
-                                  !_isLanguageSelectorExpanded;
+                              _currentLanguageHoverColor =
+                                  widget.theme.secondaryTextHoverColor;
                             });
                           },
-                          borderRadius: BorderRadius.circular(5),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10.0,
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Row(
-                                    children: [
-                                      // 语言名称和本地名称紧挨着显示
-                                      Flexible(
-                                        child: RichText(
-                                          overflow: TextOverflow.ellipsis,
-                                          text: TextSpan(
-                                            children: [
-                                              TextSpan(
-                                                text:
-                                                    currentLanguageMap['nativeName']!,
-                                                style: TextStyle(
-                                                  color: widget
-                                                      .theme
-                                                      .textColorPrimary,
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 12,
+                          onExit: (_) {
+                            setState(() {
+                              _currentLanguageHoverColor = null;
+                            });
+                          },
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _isLanguageSelectorExpanded =
+                                    !_isLanguageSelectorExpanded;
+                              });
+                            },
+                            child: AnimatedContainer(
+                              duration: _animationDuration,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10.0,
+                              ),
+                              decoration: BoxDecoration(
+                                color:
+                                    _currentLanguageHoverColor ??
+                                    widget.theme.primary,
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        // 语言名称和本地名称紧挨着显示
+                                        Flexible(
+                                          child: RichText(
+                                            overflow: TextOverflow.ellipsis,
+                                            text: TextSpan(
+                                              children: [
+                                                TextSpan(
+                                                  text:
+                                                      currentLanguageMap['nativeName']!,
+                                                  style: TextStyle(
+                                                    color: widget
+                                                        .theme
+                                                        .textColorPrimary,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 12,
+                                                  ),
                                                 ),
-                                              ),
-                                              TextSpan(
-                                                text:
-                                                    " (${currentLanguageMap['name']!})",
-                                                style: TextStyle(
-                                                  color: widget
-                                                      .theme
-                                                      .textColorTertiary,
-                                                  fontSize: 11,
+                                                TextSpan(
+                                                  text:
+                                                      " (${currentLanguageMap['name']!})",
+                                                  style: TextStyle(
+                                                    color: widget
+                                                        .theme
+                                                        .textColorTertiary,
+                                                    fontSize: 11,
+                                                  ),
                                                 ),
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                AnimatedRotation(
-                                  turns: _isLanguageSelectorExpanded
-                                      ? 0.0
-                                      : -0.25,
-                                  duration: _animationDuration,
-                                  curve: Curves.easeInOut,
-                                  child: Icon(
-                                    Icons.arrow_drop_down,
-                                    color: widget.theme.textColorSecondary,
-                                    size: 20,
+                                  AnimatedRotation(
+                                    turns: _isLanguageSelectorExpanded
+                                        ? 0.0
+                                        : -0.25,
+                                    duration: _animationDuration,
+                                    curve: Curves.easeInOut,
+                                    child: Icon(
+                                      Icons.arrow_drop_down,
+                                      color: widget.theme.textColorSecondary,
+                                      size: 20,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -644,114 +666,104 @@ class _LanguageAndRegionContentState extends State<LanguageAndRegionContent> {
                                   LanguageProvider.supportedLanguages[index];
                               final isSelected =
                                   language['code'] == currentLanguageCode;
-                              final targetColor = isSelected
-                                  ? widget.theme.primaryTextSelectedColor
-                                  : _languageHoverColors[language['code']] ??
-                                        widget.theme.primary;
 
-                              return AnimatedContainer(
-                                duration: _animationDuration,
-                                height: 40,
-                                child: TweenAnimationBuilder<Color?>(
-                                  duration: _animationDuration,
-                                  tween: ColorTween(
-                                    begin: widget.theme.primary,
-                                    end: targetColor,
-                                  ),
-                                  builder: (context, color, child) {
-                                    return Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        onHover: (isHovering) {
-                                          if (!isSelected) {
-                                            setState(() {
-                                              _languageHoverColors[language['code']!] =
-                                                  isHovering
-                                                  ? widget
-                                                        .theme
-                                                        .primaryTextHoverColor
-                                                  : widget.theme.primary;
-                                            });
-                                          }
-                                        },
-                                        onTap: () {
-                                          if (language['code'] !=
-                                              currentLanguageCode) {
-                                            languageProvider.changeLanguage(
-                                              language['code']!,
-                                            );
-                                            setState(() {
-                                              _isLanguageSelectorExpanded =
-                                                  false;
-                                              _languageHoverColors.clear();
-                                            });
-                                          }
-                                        },
+                              return Material(
+                                color: Colors.transparent,
+                                child: MouseRegion(
+                                  onEnter: (_) {
+                                    if (!isSelected) {
+                                      setState(() {
+                                        _languageHoverColors[language['code']!] =
+                                            widget.theme.primaryTextHoverColor;
+                                      });
+                                    }
+                                  },
+                                  onExit: (_) {
+                                    if (!isSelected) {
+                                      setState(() {
+                                        _languageHoverColors[language['code']!] =
+                                            widget.theme.primary;
+                                      });
+                                    }
+                                  },
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      if (language['code'] !=
+                                          currentLanguageCode) {
+                                        languageProvider.changeLanguage(
+                                          language['code']!,
+                                        );
+                                        setState(() {
+                                          _isLanguageSelectorExpanded = false;
+                                          _languageHoverColors.clear();
+                                          _currentLanguageHoverColor = null;
+                                        });
+                                      }
+                                    },
+                                    child: AnimatedContainer(
+                                      duration: _animationDuration,
+                                      height: 40,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12.0,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? widget
+                                                  .theme
+                                                  .primaryTextSelectedColor
+                                            : _languageHoverColors[language['code']] ??
+                                                  widget.theme.primary,
                                         borderRadius: BorderRadius.circular(5),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12.0,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: color,
-                                            borderRadius: BorderRadius.circular(
-                                              5,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          // 语言名称和本地名称紧挨着显示
+                                          Expanded(
+                                            child: RichText(
+                                              overflow: TextOverflow.ellipsis,
+                                              text: TextSpan(
+                                                children: [
+                                                  TextSpan(
+                                                    text:
+                                                        language['nativeName']!,
+                                                    style: TextStyle(
+                                                      color: widget
+                                                          .theme
+                                                          .textColorPrimary,
+                                                      fontWeight: isSelected
+                                                          ? FontWeight.bold
+                                                          : FontWeight.w600,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                  TextSpan(
+                                                    text:
+                                                        " (${language['name']!})",
+                                                    style: TextStyle(
+                                                      color: widget
+                                                          .theme
+                                                          .textColorTertiary,
+                                                      fontSize: 11,
+                                                      fontWeight: isSelected
+                                                          ? FontWeight.bold
+                                                          : FontWeight.normal,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
                                           ),
-                                          child: Row(
-                                            children: [
-                                              // 语言名称和本地名称紧挨着显示
-                                              Expanded(
-                                                child: RichText(
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  text: TextSpan(
-                                                    children: [
-                                                      TextSpan(
-                                                        text:
-                                                            language['nativeName']!,
-                                                        style: TextStyle(
-                                                          color: widget
-                                                              .theme
-                                                              .textColorPrimary,
-                                                          fontWeight: isSelected
-                                                              ? FontWeight.bold
-                                                              : FontWeight.w600,
-                                                          fontSize: 12,
-                                                        ),
-                                                      ),
-                                                      TextSpan(
-                                                        text:
-                                                            " (${language['name']!})",
-                                                        style: TextStyle(
-                                                          color: widget
-                                                              .theme
-                                                              .textColorTertiary,
-                                                          fontSize: 11,
-                                                          fontWeight: isSelected
-                                                              ? FontWeight.bold
-                                                              : FontWeight
-                                                                    .normal,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                              if (isSelected)
-                                                Icon(
-                                                  Icons.check,
-                                                  size: 16,
-                                                  color: widget
-                                                      .theme
-                                                      .textColorPrimary,
-                                                ),
-                                            ],
-                                          ),
-                                        ),
+                                          if (isSelected)
+                                            Icon(
+                                              Icons.check,
+                                              size: 16,
+                                              color:
+                                                  widget.theme.textColorPrimary,
+                                            ),
+                                        ],
                                       ),
-                                    );
-                                  },
+                                    ),
+                                  ),
                                 ),
                               );
                             },
