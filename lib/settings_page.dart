@@ -7,6 +7,7 @@ import 'provider/language_provider.dart';
 import 'provider/window_provider.dart';
 import 'provider/package_info_provider.dart';
 import 'settings_page_languageandregion_content.dart';
+import 'settings_page_personalization_content.dart';
 
 class SplitViewTemplate extends StatefulWidget {
   // 引入 windowProvider 用于关闭按钮
@@ -74,12 +75,7 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
       case 1: // 语言与地区
         return LanguageAndRegionContent(theme: theme);
       case 2: // 外观主题
-        return Center(
-          child: Text(
-            '外观主题设置内容区域 ($_selectedTitleKey)',
-            style: TextStyle(color: theme.textColorPrimary),
-          ),
-        );
+        return PersonalizationContent(theme: theme);
       case 3: // 关于
         return AboutContent(theme: theme);
       default:
