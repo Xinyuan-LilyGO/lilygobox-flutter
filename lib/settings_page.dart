@@ -657,6 +657,7 @@ class _LanguageAndRegionContentState extends State<LanguageAndRegionContent> {
                             color: widget.theme.primary,
                             borderRadius: BorderRadius.circular(5),
                           ),
+                          clipBehavior: Clip.antiAlias, // 确保子组件不会超出圆角边界
                           child: ListView.builder(
                             padding: EdgeInsets.zero,
                             itemCount:
@@ -666,6 +667,31 @@ class _LanguageAndRegionContentState extends State<LanguageAndRegionContent> {
                                   LanguageProvider.supportedLanguages[index];
                               final isSelected =
                                   language['code'] == currentLanguageCode;
+                              final isFirst = index == 0;
+                              final isLast =
+                                  index ==
+                                  LanguageProvider.supportedLanguages.length -
+                                      1;
+
+                              // 根据位置设置不同的圆角
+                              BorderRadius borderRadius = BorderRadius.zero;
+                              if (isFirst && isLast) {
+                                // 只有一个选项时
+                                borderRadius = BorderRadius.circular(5);
+                              } else if (isFirst) {
+                                // 第一个选项
+                                borderRadius = const BorderRadius.only(
+                                  topLeft: Radius.circular(5),
+                                  topRight: Radius.circular(5),
+                                );
+                              } else if (isLast) {
+                                // 最后一个选项
+                                borderRadius = const BorderRadius.only(
+                                  bottomLeft: Radius.circular(5),
+                                  bottomRight: Radius.circular(5),
+                                );
+                              }
+                              // 中间选项保持 BorderRadius.zero（无圆角）
 
                               return Material(
                                 color: Colors.transparent,
@@ -713,7 +739,7 @@ class _LanguageAndRegionContentState extends State<LanguageAndRegionContent> {
                                                   .primaryTextSelectedColor
                                             : _languageHoverColors[language['code']] ??
                                                   widget.theme.primary,
-                                        borderRadius: BorderRadius.circular(5),
+                                        borderRadius: borderRadius,
                                       ),
                                       child: Row(
                                         children: [

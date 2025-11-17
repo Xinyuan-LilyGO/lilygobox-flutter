@@ -36,7 +36,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get languageAndRegion => '言語と地域';
 
   @override
-  String get personalization => '個人設定';
+  String get personalization => 'パーソナライズ';
 
   @override
   String get about => 'について';
