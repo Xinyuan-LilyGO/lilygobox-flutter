@@ -1,4 +1,10 @@
-// settings_page_personalization_content.dart
+/*
+ * @Description: None
+ * @Author: LILYGO_L
+ * @Date: 2025-11-17 11:11:13
+ * @LastEditTime: 2025-11-17 11:26:56
+ * @License: GPL 3.0
+ */
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 

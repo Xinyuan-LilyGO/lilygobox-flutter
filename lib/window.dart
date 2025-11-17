@@ -1,3 +1,10 @@
+/*
+ * @Description: None
+ * @Author: LILYGO_L
+ * @Date: 2025-11-06 11:28:25
+ * @LastEditTime: 2025-11-17 11:27:06
+ * @License: GPL 3.0
+ */
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:window_manager/window_manager.dart';

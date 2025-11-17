@@ -1,4 +1,10 @@
-// language_provider.dart
+/*
+ * @Description: None
+ * @Author: LILYGO_L
+ * @Date: 2025-10-27 10:06:04
+ * @LastEditTime: 2025-11-17 11:27:21
+ * @License: GPL 3.0
+ */
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';

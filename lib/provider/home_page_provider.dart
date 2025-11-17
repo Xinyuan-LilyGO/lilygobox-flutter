@@ -1,3 +1,10 @@
+/*
+ * @Description: None
+ * @Author: LILYGO_L
+ * @Date: 2025-11-05 14:44:59
+ * @LastEditTime: 2025-11-17 11:27:17
+ * @License: GPL 3.0
+ */
 import 'package:flutter/material.dart';
 
 class HomePageProvider with ChangeNotifier {

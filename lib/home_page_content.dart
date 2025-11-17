@@ -1,10 +1,17 @@
-import 'package:LilygoBox/provider/language_provider.dart';
+/*
+ * @Description: None
+ * @Author: LILYGO_L
+ * @Date: 2025-11-07 11:23:45
+ * @LastEditTime: 2025-11-17 11:26:38
+ * @License: GPL 3.0
+ */
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'provider/theme_provider.dart';
 import 'provider/home_page_provider.dart';
+import 'provider/language_provider.dart';
 
 // 主页内容 (改为 StatefulWidget 以支持列表的 State)
 class HomePageContent extends StatefulWidget {

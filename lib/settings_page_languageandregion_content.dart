@@ -1,3 +1,10 @@
+/*
+ * @Description: None
+ * @Author: LILYGO_L
+ * @Date: 2025-11-17 11:02:14
+ * @LastEditTime: 2025-11-17 11:26:54
+ * @License: GPL 3.0
+ */
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
