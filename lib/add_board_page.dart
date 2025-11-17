@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-05 09:52:14
- * @LastEditTime: 2025-11-17 11:54:12
+ * @LastEditTime: 2025-11-17 13:52:47
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -12,6 +12,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'provider/theme_provider.dart';
 import 'provider/window_provider.dart';
 import 'provider/language_provider.dart';
+import 'provider/board_manage_provider.dart';
 
 // 定义页面枚举
 enum AddBoardPageType { initial, selectBoard }
@@ -503,11 +504,17 @@ class _AddBoardPageState extends State<AddBoardPage> {
                         ? () {
                             print('添加板子: $_selectedBoard');
                             _isHoveringAddBoardButton = false;
-                            widget.windowProvider.setPage(
-                              WindowPage.home,
-                            ); // 添加后关闭弹窗
+
+                            // 使用 BoardManagerProvider 添加板子
+                            final boardManager = Provider.of<BoardManagerProvider>(
+                              context,
+                              listen: false,
+                            );
+                            boardManager.addBoard(_selectedBoard!);
+
+                            widget.windowProvider.setPage(WindowPage.home);
                           }
-                        : null, // 禁用
+                        : null,
                     borderRadius: BorderRadius.circular(6),
                     child: Center(
                       child: Text(
