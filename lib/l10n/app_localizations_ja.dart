@@ -80,4 +80,10 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get homePageContentStartDescription =>
       'LilygoBox は、 Lilygo ハードウェアのために作られた統合開発＆制御センターです。';
+
+  @override
+  String get language => '言語';
+
+  @override
+  String get languageDescription => 'お好みのアプリケーションインターフェース言語を選択してください';
 }

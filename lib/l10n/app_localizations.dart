@@ -237,6 +237,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'LilygoBox is an integrated development and control center built specifically for Lilygo hardware.'**
   String get homePageContentStartDescription;
+
+  /// No description provided for @language.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get language;
+
+  /// No description provided for @languageDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your preferred application interface language'**
+  String get languageDescription;
 }
 
 class _AppLocalizationsDelegate

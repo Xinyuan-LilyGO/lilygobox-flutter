@@ -80,4 +80,10 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get homePageContentStartDescription =>
       'LilygoBox 专为 Lilygo 硬件打造的集成开发与控制中心。';
+
+  @override
+  String get language => '语言';
+
+  @override
+  String get languageDescription => '选择您偏好的应用程序界面语言';
 }

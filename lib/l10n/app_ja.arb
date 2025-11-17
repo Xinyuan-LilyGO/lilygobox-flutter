@@ -21,5 +21,7 @@
     "home": "ホームページ",
     "start": "開始",
     "homePageContentStartTitle": "LilygoBox へようこそ",
-    "homePageContentStartDescription": "LilygoBox は、 Lilygo ハードウェアのために作られた統合開発＆制御センターです。"
+    "homePageContentStartDescription": "LilygoBox は、 Lilygo ハードウェアのために作られた統合開発＆制御センターです。",
+    "language": "言語",
+    "languageDescription": "お好みのアプリケーションインターフェース言語を選択してください"
 }

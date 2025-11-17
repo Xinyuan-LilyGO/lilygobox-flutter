@@ -21,5 +21,7 @@
     "home": "Home",
     "start": "Start",
     "homePageContentStartTitle": "Welcome to LilygoBox",
-    "homePageContentStartDescription": "LilygoBox is an integrated development and control center built specifically for Lilygo hardware."
+    "homePageContentStartDescription": "LilygoBox is an integrated development and control center built specifically for Lilygo hardware.",
+    "language": "Language",
+    "languageDescription": "Choose your preferred application interface language"
 }
