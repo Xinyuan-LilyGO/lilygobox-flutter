@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-07 11:23:45
- * @LastEditTime: 2025-11-17 11:26:38
+ * @LastEditTime: 2025-11-17 14:42:44
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -13,7 +13,6 @@ import 'provider/theme_provider.dart';
 import 'provider/home_page_provider.dart';
 import 'provider/language_provider.dart';
 
-// 主页内容 (改为 StatefulWidget 以支持列表的 State)
 class HomePageContent extends StatefulWidget {
   const HomePageContent({super.key});
 
@@ -27,76 +26,10 @@ class _HomePageContentState extends State<HomePageContent> {
   // 用于存储当前悬停颜色状态的 Map
   final Map<String, Color> _currentHoverColors = {};
 
-  // 用于存储分类的折叠状态 - 初始全部折叠
-  final Map<String, bool> _collapsedCategories = {
-    'my': true, // 默认折叠
-    'navigation': true, // 默认折叠
-  };
-
-  // 用于存储分类标题的悬停状态
-  final Map<String, Color> _headerHoverColors = {};
-
   // 动画持续时间
   final Duration _animationDuration = const Duration(milliseconds: 150);
 
-  // 获取一个 item 所属的 header key
-  String? _getHeaderKeyForItemKey(String itemKey) {
-    String? currentHeaderKey;
-    // 从头遍历，找到 itemKey 所属的最近一个 header
-    for (final item in _getMenuItems(context)) {
-      if (item['type'] == 'header') {
-        currentHeaderKey = item['key'];
-      } else if ((item['type'] == 'item' ||
-              item['type'] == 'standalone_item') &&
-          item['key'] == itemKey) {
-        return currentHeaderKey;
-      }
-    }
-    return null;
-  }
-
-  // 判断一个 item 是否属于折叠的分类（用于动画）
-  bool _isItemInCollapsedCategory(int currentIndex, BuildContext context) {
-    String? currentHeaderKey;
-    bool isCollapsed = true;
-
-    final menuItems = _getMenuItems(context);
-
-    // 遍历到当前索引，找到它所属的最近一个 header 的状态
-    for (int i = 0; i < currentIndex; i++) {
-      final item = menuItems[i];
-      if (item['type'] == 'header') {
-        currentHeaderKey = item['key'];
-        isCollapsed = _collapsedCategories[currentHeaderKey] ?? true;
-      }
-    }
-
-    final item = menuItems[currentIndex];
-
-    // 对于 standalone_item 类型，永远不折叠
-    if (item['type'] == 'standalone_item') {
-      return false;
-    }
-
-    // 对于 item 类型，检查是否在折叠的分类中且不是选中项
-    if (item['type'] == 'item') {
-      final isSelected = item['key'] == _selectedTitleKey;
-      return isCollapsed && !isSelected;
-    }
-
-    return false;
-  }
-
-  // 切换分类的折叠状态 - 所有分类都可以自由折叠
-  void _toggleCollapse(String headerKey) {
-    setState(() {
-      final isCurrentlyCollapsed = _collapsedCategories[headerKey] ?? true;
-      // 直接切换状态，不检查是否包含选中项
-      _collapsedCategories[headerKey] = !isCurrentlyCollapsed;
-    });
-  }
-
-  // 获取菜单项列表
+  // 获取菜单项列表 - 只保留 start 项
   List<Map<String, dynamic>> _getMenuItems(BuildContext context) {
     return [
       // 没有header的"开始"item，放在最前面
@@ -105,33 +38,6 @@ class _HomePageContentState extends State<HomePageContent> {
         'title': context.l10n.start,
         'key': 'start',
         'icon': Symbols.borg,
-      },
-      // 增加 'key' 字段以便更清晰地管理 header 状态
-      {'type': 'header', 'title': "my", 'key': 'my_header'},
-      {
-        'type': 'item',
-        'title': "personalSettings",
-        'key': 'settings',
-        'icon': Symbols.border_all,
-      },
-      {
-        'type': 'item',
-        'title': "preferences",
-        'key': 'preferences',
-        'icon': Symbols.border_all,
-      },
-      {'type': 'header', 'title': "navigation", 'key': 'nav_header'},
-      {
-        'type': 'item',
-        'title': "workspace",
-        'key': 'workspace',
-        'icon': Symbols.border_all,
-      },
-      {
-        'type': 'item',
-        'title': "fileExplorer",
-        'key': 'file_explorer',
-        'icon': Symbols.border_all,
       },
     ];
   }
@@ -144,14 +50,6 @@ class _HomePageContentState extends State<HomePageContent> {
     switch (selectedKey) {
       case 'start':
         return _buildStartContent(theme, context);
-      case 'settings':
-        return _buildSettingsContent(theme, context);
-      case 'preferences':
-        return _buildPreferencesContent(theme, context);
-      case 'workspace':
-        return _buildWorkspaceContent(theme, context);
-      case 'file_explorer':
-        return _buildFileExplorerContent(theme, context);
       default:
         return _buildDefaultContent(theme, context);
     }
@@ -193,183 +91,6 @@ class _HomePageContentState extends State<HomePageContent> {
     );
   }
 
-  // 个人设置页面内容
-  Widget _buildSettingsContent(AppTheme theme, BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 8.0, left: 15.0, bottom: 8.0),
-          child: Text(
-            "个人设置",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: theme.textColorPrimary,
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15.0),
-          child: Card(
-            color: theme.secondary,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "账户设置",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: theme.textColorPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  _buildSettingItem(theme, "用户名", "user123"),
-                  _buildSettingItem(theme, "邮箱", "user@example.com"),
-                  _buildSettingItem(theme, "语言", "简体中文"),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // 偏好设置页面内容
-  Widget _buildPreferencesContent(AppTheme theme, BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 8.0, left: 15.0, bottom: 8.0),
-          child: Text(
-            "偏好设置",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: theme.textColorPrimary,
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15.0),
-          child: Card(
-            color: theme.secondary,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "应用偏好",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: theme.textColorPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  _buildSettingItem(theme, "主题", "深色"),
-                  _buildSettingItem(theme, "字体大小", "中等"),
-                  _buildSettingItem(theme, "自动保存", "开启"),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // 工作空间页面内容
-  Widget _buildWorkspaceContent(AppTheme theme, BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 8.0, left: 15.0, bottom: 8.0),
-          child: Text(
-            "工作空间",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: theme.textColorPrimary,
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15.0),
-          child: GridView.count(
-            shrinkWrap: true,
-            crossAxisCount: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            children: [
-              _buildWorkspaceCard(theme, "项目 A", Icons.folder),
-              _buildWorkspaceCard(theme, "项目 B", Icons.folder),
-              _buildWorkspaceCard(theme, "项目 C", Icons.folder),
-              _buildWorkspaceCard(theme, "新建项目", Icons.create_new_folder),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // 文件浏览器页面内容
-  Widget _buildFileExplorerContent(AppTheme theme, BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 8.0, left: 15.0, bottom: 8.0),
-          child: Text(
-            "文件浏览器",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: theme.textColorPrimary,
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15.0),
-          child: Card(
-            color: theme.secondary,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "最近文件",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: theme.textColorPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  _buildFileItem(theme, "document.pdf", Icons.picture_as_pdf),
-                  _buildFileItem(theme, "image.png", Icons.image),
-                  _buildFileItem(theme, "data.csv", Icons.table_chart),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   // 默认页面内容
   Widget _buildDefaultContent(AppTheme theme, BuildContext context) {
     return Center(
@@ -382,74 +103,6 @@ class _HomePageContentState extends State<HomePageContent> {
             "页面开发中",
             style: TextStyle(fontSize: 18, color: theme.textColorSecondary),
           ),
-        ],
-      ),
-    );
-  }
-
-  // 构建设置项
-  Widget _buildSettingItem(AppTheme theme, String title, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title, style: TextStyle(color: theme.textColorSecondary)),
-          Text(
-            value,
-            style: TextStyle(
-              color: theme.textColorPrimary,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 构建工作空间卡片
-  Widget _buildWorkspaceCard(AppTheme theme, String title, IconData icon) {
-    return Card(
-      color: theme.primary,
-      child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 32, color: theme.textColorPrimary),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: TextStyle(
-                  color: theme.textColorPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // 构建文件项
-  Widget _buildFileItem(AppTheme theme, String fileName, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: theme.textColorSecondary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              fileName,
-              style: TextStyle(color: theme.textColorSecondary),
-            ),
-          ),
-          Icon(Icons.more_vert, size: 16, color: theme.textColorTertiary),
         ],
       ),
     );
@@ -504,102 +157,7 @@ class _HomePageContentState extends State<HomePageContent> {
                 itemBuilder: (context, index) {
                   final item = menuItems[index];
 
-                  // 处理 Header
-                  if (item['type'] == 'header') {
-                    // 分类标题
-                    final headerTitle = item['title'] as String;
-                    final headerKey = item['key'] as String;
-                    final isCollapsed = _collapsedCategories[headerKey] ?? true;
-
-                    // 检查当前分类是否包含选中项（仅用于视觉提示）
-                    final selectedItemHeader = _getHeaderKeyForItemKey(
-                      _selectedTitleKey,
-                    );
-                    final containsSelectedItem =
-                        selectedItemHeader == headerKey;
-
-                    // 计算目标背景色
-                    final targetColor =
-                        _headerHoverColors[headerKey] ?? theme.secondary;
-
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5.0,
-                        vertical: 2.0,
-                      ),
-                      // 使用 TweenAnimationBuilder 实现颜色渐变
-                      child: TweenAnimationBuilder<Color?>(
-                        duration: const Duration(milliseconds: 150),
-                        tween: ColorTween(
-                          begin: theme.secondary,
-                          end: targetColor,
-                        ),
-                        builder: (context, color, child) {
-                          return SizedBox(
-                            height: 25.0,
-                            child: InkWell(
-                              onHover: (isHovering) {
-                                setState(() {
-                                  _headerHoverColors[headerKey] = isHovering
-                                      ? theme.secondaryTextHoverColor
-                                      : theme.secondary;
-                                });
-                              },
-                              onTap: () => _toggleCollapse(headerKey),
-                              borderRadius: BorderRadius.circular(20.0),
-                              child: Container(
-                                alignment: Alignment.centerLeft,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 3.0,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  borderRadius: BorderRadius.circular(20.0),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  children: [
-                                    // 折叠图标添加旋转动画
-                                    AnimatedRotation(
-                                      turns: isCollapsed
-                                          ? 0.0
-                                          : 0.25, // 0° 和 90°
-                                      duration: _animationDuration,
-                                      curve: Curves.easeInOut,
-                                      child: Icon(
-                                        Icons.chevron_right,
-                                        size: 20,
-                                        color: containsSelectedItem
-                                            ? theme
-                                                  .textColorPrimary // 包含选中项时使用主色
-                                            : theme.textColorTertiary,
-                                      ),
-                                    ),
-                                    // 分类文本
-                                    Expanded(
-                                      child: Text(
-                                        headerTitle,
-                                        style: TextStyle(
-                                          color: containsSelectedItem
-                                              ? theme
-                                                    .textColorPrimary // 包含选中项时使用主色提示
-                                              : theme.textColorTertiary,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  }
-
-                  //处理 standalone_item (新增类型)
+                  // 处理 standalone_item
                   if (item['type'] == 'standalone_item') {
                     final title = item['title'] as String;
                     final key = item['key'] as String;
@@ -686,108 +244,6 @@ class _HomePageContentState extends State<HomePageContent> {
                               ),
                             );
                           },
-                        ),
-                      ),
-                    );
-                  }
-
-                  // 处理普通 Item
-                  if (item['type'] == 'item') {
-                    final title = item['title'] as String;
-                    final key = item['key'] as String;
-                    final isSelected = key == _selectedTitleKey;
-                    final isCollapsed = _isItemInCollapsedCategory(
-                      index,
-                      context,
-                    );
-                    final icon = item['icon'] as IconData?;
-
-                    // 计算目标背景色
-                    final targetColor = isSelected
-                        ? theme.secondaryTextSelectedColor
-                        : _currentHoverColors[key] ?? theme.secondary;
-
-                    // 使用 AnimatedContainer 控制高度和边距
-                    return AnimatedContainer(
-                      duration: _animationDuration,
-                      curve: Curves.easeInOut,
-                      height: isCollapsed ? 0 : 30.0,
-                      margin: EdgeInsets.symmetric(
-                        horizontal: 15.0,
-                        vertical: isCollapsed ? 0 : 2.0,
-                      ),
-                      child: AnimatedOpacity(
-                        duration: _animationDuration,
-                        opacity: isCollapsed ? 0 : 1.0,
-                        child: SizedBox(
-                          height: 30.0,
-                          child: TweenAnimationBuilder<Color?>(
-                            duration: const Duration(milliseconds: 150),
-                            tween: ColorTween(
-                              begin: theme.secondary,
-                              end: targetColor,
-                            ),
-                            builder: (context, color, child) {
-                              return InkWell(
-                                onHover: (isHovering) {
-                                  if (!isSelected) {
-                                    setState(() {
-                                      _currentHoverColors[key] = isHovering
-                                          ? theme.secondaryTextHoverColor
-                                          : theme.secondary;
-                                    });
-                                  }
-                                },
-                                onTap: () {
-                                  setState(() {
-                                    _selectedTitleKey = key;
-                                    _currentHoverColors.updateAll(
-                                      (k, value) => theme.secondary,
-                                    );
-                                  });
-                                },
-                                borderRadius: BorderRadius.circular(6.0),
-                                child: Container(
-                                  alignment: Alignment.centerLeft,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8.0,
-                                    vertical: 0.0,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: color,
-                                    borderRadius: BorderRadius.circular(6.0),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      // 图标
-                                      if (icon != null)
-                                        Icon(
-                                          icon,
-                                          size: 18,
-                                          color: theme.textColorSecondary,
-                                          fill: 1,
-                                          grade: 200,
-                                          opticalSize: 20,
-                                          weight: 300,
-                                        ),
-                                      if (icon != null)
-                                        const SizedBox(width: 3),
-                                      // 文本
-                                      Text(
-                                        title,
-                                        style: TextStyle(
-                                          color: theme.textColorSecondary,
-                                          fontWeight: isSelected
-                                              ? FontWeight.bold
-                                              : FontWeight.normal,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
                         ),
                       ),
                     );
