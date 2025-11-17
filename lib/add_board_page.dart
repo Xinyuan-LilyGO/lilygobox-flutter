@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-05 09:52:14
- * @LastEditTime: 2025-11-17 11:26:26
+ * @LastEditTime: 2025-11-17 11:54:12
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -40,15 +40,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
   AddBoardPageType _currentPage = AddBoardPageType.initial;
 
   // 模拟板子型号数据
-  final List<String> _boardTypes = [
-    'ESP32 Dev Module',
-    'LilyGo T-Display-S3',
-    'TTGO T-Beam',
-    'LoRaWAN Module',
-    'ESP8266 NodeMCU',
-    'Arduino Uno',
-    'Raspberry Pi Pico',
-  ];
+  final List<String> _boardTypes = ['T-Glasses-P4'];
 
   // 搜索栏控制器和选中的板子
   final TextEditingController _searchController = TextEditingController();
