@@ -657,7 +657,6 @@ class _LanguageAndRegionContentState extends State<LanguageAndRegionContent> {
                             color: widget.theme.primary,
                             borderRadius: BorderRadius.circular(5),
                           ),
-                          clipBehavior: Clip.antiAlias, // 确保子组件不会超出圆角边界
                           child: ListView.builder(
                             padding: EdgeInsets.zero,
                             itemCount:
@@ -730,7 +729,7 @@ class _LanguageAndRegionContentState extends State<LanguageAndRegionContent> {
                                       duration: _animationDuration,
                                       height: 40,
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 12.0,
+                                        horizontal: 10.0,
                                       ),
                                       decoration: BoxDecoration(
                                         color: isSelected
