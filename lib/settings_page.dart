@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-05 15:54:19
- * @LastEditTime: 2025-11-17 11:26:59
+ * @LastEditTime: 2025-11-17 11:31:46
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -14,6 +14,7 @@ import 'provider/language_provider.dart';
 import 'provider/window_provider.dart';
 import 'settings_page_languageandregion_content.dart';
 import 'settings_page_personalization_content.dart';
+import 'settings_page_about_content.dart';
 
 class SplitViewTemplate extends StatefulWidget {
   // 引入 windowProvider 用于关闭按钮
