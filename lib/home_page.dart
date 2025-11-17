@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-06 14:22:51
- * @LastEditTime: 2025-11-17 14:01:46
+ * @LastEditTime: 2025-11-17 14:32:44
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -131,7 +131,7 @@ class _HomePageState extends State<HomePage> {
                 // 为不同板子设置不同的图标
                 IconData boardIcon = Symbols.developer_board_rounded;
                 if (boardName == 'T-Glasses-P4') {
-                  boardIcon = Symbols.visibility; // 眼镜图标
+                  boardIcon = Symbols.developer_board; // 眼镜图标
                 }
 
                 return SidebarButtonTemplate(
