@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-05 15:54:19
- * @LastEditTime: 2025-11-17 11:31:46
+ * @LastEditTime: 2025-11-17 11:42:19
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -121,6 +121,35 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
       }, // '关于' -> l10n.about
     ];
   }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // 监听主题变化，但只在主题真正变化时重置悬停颜色
+    final newTheme = Provider.of<ThemeProvider>(
+      context,
+      listen: true,
+    ).themeData;
+
+    // 只有当主题变化时才更新悬停颜色
+    if (_lastTheme != newTheme) {
+      _lastTheme = newTheme;
+
+      // 重置所有非选中项的悬停颜色为主题的主色
+      setState(() {
+        _currentHoverColors.updateAll((key, value) {
+          // 如果是选中项，保持选中颜色；否则重置为主题主色
+          return key == _selectedTitleKey
+              ? value // 保持选中项的颜色不变
+              : newTheme.primary;
+        });
+      });
+    }
+  }
+
+  // 添加一个变量来追踪上次的主题
+  AppTheme? _lastTheme;
 
   @override
   Widget build(BuildContext context) {
