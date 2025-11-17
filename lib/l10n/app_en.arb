@@ -1,5 +1,7 @@
 {
     "@@locale": "en",
+    "theme": "Theme",
+    "themeDescription": "Choose your current theme",
     "themeDark": "Dark Theme",
     "themeLight": "Light Theme",
     "settingsTitle": "Settings",

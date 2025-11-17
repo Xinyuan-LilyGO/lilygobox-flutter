@@ -1,5 +1,7 @@
 {
     "@@locale": "ja",
+    "theme": "テーマ",
+    "themeDescription": "現在のテーマを選択してください",
     "themeDark": "ダークテーマ",
     "themeLight": "ライトテーマ",
     "settingsTitle": "設定",

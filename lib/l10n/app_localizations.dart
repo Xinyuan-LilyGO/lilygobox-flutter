@@ -106,6 +106,18 @@ abstract class AppLocalizations {
     Locale('ja'),
   ];
 
+  /// No description provided for @theme.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme'**
+  String get theme;
+
+  /// No description provided for @themeDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your current theme'**
+  String get themeDescription;
+
   /// No description provided for @themeDark.
   ///
   /// In en, this message translates to:

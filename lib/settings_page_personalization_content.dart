@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-17 11:11:13
- * @LastEditTime: 2025-11-17 11:26:56
+ * @LastEditTime: 2025-11-17 11:50:09
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -86,7 +86,7 @@ class _PersonalizationContentState extends State<PersonalizationContent> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "context.l10n.theme",
+                        context.l10n.theme,
                         style: TextStyle(
                           color: widget.theme.textColorTertiary,
                           fontSize: 14,
@@ -95,7 +95,7 @@ class _PersonalizationContentState extends State<PersonalizationContent> {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        "context.l10n.themeDescription",
+                        context.l10n.themeDescription,
                         style: TextStyle(
                           color: widget.theme.textColorSecondary,
                           fontSize: 16,

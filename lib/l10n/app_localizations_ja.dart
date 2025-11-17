@@ -15,6 +15,12 @@ class AppLocalizationsJa extends AppLocalizations {
   AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
+  String get theme => 'テーマ';
+
+  @override
+  String get themeDescription => '現在のテーマを選択してください';
+
+  @override
   String get themeDark => 'ダークテーマ';
 
   @override

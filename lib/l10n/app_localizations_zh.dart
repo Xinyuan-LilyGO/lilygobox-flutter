@@ -15,6 +15,12 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get theme => '主题';
+
+  @override
+  String get themeDescription => '选择你当前的主题';
+
+  @override
   String get themeDark => '黑色主题';
 
   @override
