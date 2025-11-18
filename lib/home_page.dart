@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-06 14:22:51
- * @LastEditTime: 2025-11-17 14:32:44
+ * @LastEditTime: 2025-11-18 14:46:38
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -12,6 +12,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'provider/theme_provider.dart';
 import 'provider/window_provider.dart';
 import 'provider/board_manage_provider.dart';
+import 'provider/home_page_provider.dart';
 
 import 'home_page_content.dart';
 import 'board_page_content_tglassesp4.dart';
@@ -24,16 +25,15 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // 0: home, 1-10: boards, -1: add button (never selected)
-  int _selectedIndex = 0;
-
   // 存储动态添加的板子
   final List<String> _addedBoards = [];
 
   void _selectItem(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    final homePageProvider = Provider.of<HomePageProvider>(
+      context,
+      listen: false,
+    );
+    homePageProvider.updateSelectedIndex(index);
   }
 
   // 添加板子的公共方法
@@ -41,7 +41,13 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _addedBoards.add(boardName);
       // 选中新添加的板子
-      _selectedIndex = 1 + _addedBoards.length; // 从1开始，因为0是主页
+      final homePageProvider = Provider.of<HomePageProvider>(
+        context,
+        listen: false,
+      );
+      homePageProvider.updateSelectedIndex(
+        1 + _addedBoards.length,
+      ); // 从1开始，因为0是主页
     });
   }
 
@@ -49,15 +55,20 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final theme = themeProvider.themeData;
-    final boardManager = Provider.of<BoardManagerProvider>(
+    final boardManager = Provider.of<BoardManagerProvider>(context);
+    final homePageProvider = Provider.of<HomePageProvider>(
       context,
-    ); // 获取 BoardManagerProvider
+    ); // 获取 HomePageProvider
 
     return Expanded(
       child: Row(
         children: [
           // 左边侧边栏
-          _buildLeftSidebar(context, boardManager.addedBoards),
+          _buildLeftSidebar(
+            context,
+            boardManager.addedBoards,
+            homePageProvider.selectedIndex,
+          ),
 
           // 右边主内容区域
           Expanded(
@@ -73,7 +84,11 @@ class _HomePageState extends State<HomePage> {
                 transitionBuilder: (child, animation) {
                   return FadeTransition(opacity: animation, child: child);
                 },
-                child: _buildCurrentPage(context, boardManager.addedBoards),
+                child: _buildCurrentPage(
+                  context,
+                  boardManager.addedBoards,
+                  homePageProvider.selectedIndex,
+                ),
               ),
             ),
           ),
@@ -82,7 +97,11 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildLeftSidebar(BuildContext context, List<String> addedBoards) {
+  Widget _buildLeftSidebar(
+    BuildContext context,
+    List<String> addedBoards,
+    int selectedIndex,
+  ) {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final theme = themeProvider.themeData;
     final windowProvider = Provider.of<WindowProvider>(context, listen: false);
@@ -100,7 +119,7 @@ class _HomePageState extends State<HomePage> {
             },
             iconColor: theme.sidebarIconColor,
             iconBackgroundColor: theme.sidebarIconBackgroundColor,
-            isSelected: _selectedIndex == 0,
+            isSelected: selectedIndex == 0,
             selectedColor: theme.sidebarSelectedIconColor,
             hoverColor: theme.sidebarHoverIconColor,
             indicatorColor: theme.sidebarIndicatorColor,
@@ -141,7 +160,7 @@ class _HomePageState extends State<HomePage> {
                   },
                   iconColor: theme.sidebarIconColor,
                   iconBackgroundColor: theme.sidebarIconBackgroundColor,
-                  isSelected: _selectedIndex == boardIndex,
+                  isSelected: selectedIndex == boardIndex,
                   selectedColor: theme.sidebarSelectedIconColor,
                   hoverColor: theme.sidebarHoverIconColor,
                   indicatorColor: theme.sidebarIndicatorColor,
@@ -173,14 +192,18 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildCurrentPage(BuildContext context, List<String> addedBoards) {
+  Widget _buildCurrentPage(
+    BuildContext context,
+    List<String> addedBoards,
+    int selectedIndex,
+  ) {
     // 0 是主页
-    if (_selectedIndex == 0) {
+    if (selectedIndex == 0) {
       return const HomePageContent(key: ValueKey<int>(0));
     }
     // 1 及以上是动态添加的板子
-    else if (_selectedIndex >= 1) {
-      final dynamicIndex = _selectedIndex - 1;
+    else if (selectedIndex >= 1) {
+      final dynamicIndex = selectedIndex - 1;
       if (dynamicIndex < addedBoards.length) {
         final boardName = addedBoards[dynamicIndex];
         // 根据板子名称返回对应的页面
@@ -582,5 +605,3 @@ class GenericBoardPageContent extends StatelessWidget {
     );
   }
 }
-
-// 删除原来的 BoardPageContent 类，因为现在使用动态板子管理
