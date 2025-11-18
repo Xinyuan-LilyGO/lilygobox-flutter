@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-17 13:38:52
- * @LastEditTime: 2025-11-18 13:58:02
+ * @LastEditTime: 2025-11-18 17:32:14
  * @License: GPL 3.0
  */
 
@@ -13,6 +13,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'provider/theme_provider.dart';
 import 'provider/home_page_provider.dart';
 import 'provider/language_provider.dart';
+import 'right_click_menu.dart';
 
 // T-Glasses-P4 板子页面内容
 class BoardPageContentTGlassesP4 extends StatefulWidget {
@@ -38,6 +39,41 @@ class _BoardPageContentTGlassesP4State
 
   // 动画持续时间
   final Duration _animationDuration = const Duration(milliseconds: 150);
+
+  // 新增：右键菜单控制器
+  final RightClickMenuController _menuController = RightClickMenuController();
+
+  // 新增：右键菜单处理函数
+  void _handleRename() {
+    // 处理重命名逻辑
+    print("重命名 T-Glasses-P4");
+    // TODO: 实现重命名功能
+  }
+
+  void _handleRefresh() {
+    // 处理刷新逻辑
+    print("刷新 T-Glasses-P4 数据");
+    // TODO: 实现刷新功能
+  }
+
+  void _handleProperties() {
+    // 处理属性逻辑
+    print("显示 T-Glasses-P4 属性");
+    // TODO: 实现属性显示功能
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // 启用此窗口的右键菜单
+    _menuController.enable();
+  }
+
+  @override
+  void dispose() {
+    _menuController.close();
+    super.dispose();
+  }
 
   // 获取一个 item 所属的 header key
   String? _getHeaderKeyForItemKey(String itemKey) {
@@ -457,21 +493,40 @@ class _BoardPageContentTGlassesP4State
 
     final menuItems = _getMenuItems(context);
 
+    // 构建菜单项
+    final menuItemsList = TGlassesP4RightClickMenu.getMenuItems(
+      onRename: _handleRename,
+      onRefresh: _handleRefresh,
+      onProperties: _handleProperties,
+    );
+
     // 左侧面板内容
     final leftPanelContent = Container(
       color: theme.secondary,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 标题
+          // 标题 - 使用 MenuAnchor 实现右键菜单
           Padding(
             padding: const EdgeInsets.only(top: 8.0, left: 15.0, bottom: 8.0),
-            child: Text(
-              "T-Glasses-P4",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: theme.textColorPrimary,
+            child: RightClickMenuBuilder.buildMenuAnchor(
+              context: context,
+              controller: _menuController,
+              menuItems: menuItemsList,
+              theme: theme,
+              onSecondaryTapDown: () {
+                // 可以在这里添加额外的处理逻辑
+              },
+              child: MouseRegion(
+                cursor: SystemMouseCursors.contextMenu,
+                child: Text(
+                  "T-Glasses-P4",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: theme.textColorPrimary,
+                  ),
+                ),
               ),
             ),
           ),
