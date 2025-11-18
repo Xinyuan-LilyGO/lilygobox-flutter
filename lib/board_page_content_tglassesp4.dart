@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-17 13:38:52
- * @LastEditTime: 2025-11-17 14:19:37
+ * @LastEditTime: 2025-11-18 13:40:57
  * @License: GPL 3.0
  */
 
@@ -31,11 +31,7 @@ class _BoardPageContentTGlassesP4State
   final Map<String, Color> _currentHoverColors = {};
 
   // 用于存储分类的折叠状态 - 初始全部折叠
-  final Map<String, bool> _collapsedCategories = {
-    'configuration': true,
-    'development': true,
-    'monitoring': true,
-  };
+  final Map<String, bool> _collapsedCategories = {'configuration': true};
 
   // 用于存储分类标题的悬停状态
   final Map<String, Color> _headerHoverColors = {};
@@ -123,38 +119,6 @@ class _BoardPageContentTGlassesP4State
         'key': 'network_settings',
         'icon': Symbols.network_wifi,
       },
-      {'type': 'header', 'title': "开发", 'key': 'dev_header'},
-      {
-        'type': 'item',
-        'title': "固件上传",
-        'key': 'firmware_upload',
-        'icon': Symbols.upload,
-      },
-      {
-        'type': 'item',
-        'title': "串口调试",
-        'key': 'serial_debug',
-        'icon': Symbols.terminal,
-      },
-      {
-        'type': 'item',
-        'title': "日志查看",
-        'key': 'log_viewer',
-        'icon': Symbols.list_alt,
-      },
-      {'type': 'header', 'title': "监控", 'key': 'monitor_header'},
-      {
-        'type': 'item',
-        'title': "传感器数据",
-        'key': 'sensor_data',
-        'icon': Symbols.sensors,
-      },
-      {
-        'type': 'item',
-        'title': "性能监控",
-        'key': 'performance',
-        'icon': Symbols.monitor_heart,
-      },
     ];
   }
 
@@ -172,16 +136,6 @@ class _BoardPageContentTGlassesP4State
         return _buildDisplayConfigContent(theme, context);
       case 'network_settings':
         return _buildNetworkSettingsContent(theme, context);
-      case 'firmware_upload':
-        return _buildFirmwareUploadContent(theme, context);
-      case 'serial_debug':
-        return _buildSerialDebugContent(theme, context);
-      case 'log_viewer':
-        return _buildLogViewerContent(theme, context);
-      case 'sensor_data':
-        return _buildSensorDataContent(theme, context);
-      case 'performance':
-        return _buildPerformanceContent(theme, context);
       default:
         return _buildDefaultContent(theme, context);
     }
@@ -402,134 +356,6 @@ class _BoardPageContentTGlassesP4State
                   _buildSettingItem(theme, "IP地址", "192.168.1.105"),
                   _buildSettingItem(theme, "信号强度", "良好"),
                   _buildSettingItem(theme, "蓝牙", "已开启"),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // 固件上传页面内容
-  Widget _buildFirmwareUploadContent(AppTheme theme, BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 8.0, left: 15.0, bottom: 8.0),
-          child: Text(
-            "固件上传",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: theme.textColorPrimary,
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15.0),
-          child: Card(
-            color: theme.secondary,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "固件信息",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: theme.textColorPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  _buildSettingItem(theme, "当前版本", "v1.2.3"),
-                  _buildSettingItem(theme, "最新版本", "v1.3.0"),
-                  _buildSettingItem(theme, "文件大小", "2.4 MB"),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 45,
-                    child: ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.primary,
-                        foregroundColor: theme.textColorPrimary,
-                      ),
-                      child: const Text("选择固件文件"),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // 其他页面内容方法（简略实现）
-  Widget _buildSerialDebugContent(AppTheme theme, BuildContext context) {
-    return _buildSectionContent(theme, "串口调试", "串口通信和调试工具");
-  }
-
-  Widget _buildLogViewerContent(AppTheme theme, BuildContext context) {
-    return _buildSectionContent(theme, "日志查看", "设备运行日志和错误信息");
-  }
-
-  Widget _buildSensorDataContent(AppTheme theme, BuildContext context) {
-    return _buildSectionContent(theme, "传感器数据", "各种传感器实时数据");
-  }
-
-  Widget _buildPerformanceContent(AppTheme theme, BuildContext context) {
-    return _buildSectionContent(theme, "性能监控", "设备性能指标监控");
-  }
-
-  Widget _buildSectionContent(
-    AppTheme theme,
-    String title,
-    String description,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 8.0, left: 15.0, bottom: 8.0),
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: theme.textColorPrimary,
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15.0),
-          child: Card(
-            color: theme.secondary,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: theme.textColorPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    description,
-                    style: TextStyle(color: theme.textColorSecondary),
-                  ),
                 ],
               ),
             ),
