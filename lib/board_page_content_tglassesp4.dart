@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-17 13:38:52
- * @LastEditTime: 2025-11-18 13:40:57
+ * @LastEditTime: 2025-11-18 13:58:02
  * @License: GPL 3.0
  */
 
@@ -96,9 +96,9 @@ class _BoardPageContentTGlassesP4State
     return [
       {
         'type': 'standalone_item',
-        'title': "概览",
+        'title': context.l10n.start,
         'key': 'overview',
-        'icon': Symbols.dashboard,
+        'icon': Symbols.borg,
       },
       {'type': 'header', 'title': "配置", 'key': 'config_header'},
       {
