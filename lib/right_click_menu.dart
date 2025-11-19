@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-18 14:00:00
- * @LastEditTime: 2025-11-18 18:08:17
+ * @LastEditTime: 2025-11-19 09:13:55
  * @License: GPL 3.0
  */
 
@@ -62,9 +62,9 @@ class RightClickMenuBuilder {
     return MenuAnchor(
       controller: controller._menuController,
       style: MenuStyle(
-        backgroundColor: WidgetStateProperty.all(theme.secondary),
-        elevation: WidgetStateProperty.all(8),
-        shadowColor: WidgetStateProperty.all(Colors.black.withOpacity(0.3)),
+        backgroundColor: WidgetStateProperty.all(Colors.transparent),
+        elevation: WidgetStateProperty.all(3),
+        shadowColor: WidgetStateProperty.all(Colors.black),
         surfaceTintColor: WidgetStateProperty.all(Colors.transparent),
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -76,37 +76,8 @@ class RightClickMenuBuilder {
         Container(
           width: menuWidth,
           decoration: BoxDecoration(
-            color: theme.secondary,
+            color: theme.primary,
             borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(
-                  alpha: 0.3,
-                ), // 阴影颜色和透明度：黑色，50%透明度
-                blurRadius: 5, // 模糊半径：阴影边缘模糊程度，值越大越模糊
-                spreadRadius: -1, // 扩散半径：负值让阴影向内收缩，消除硬边
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 4,
-                spreadRadius: -2,
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 3,
-                spreadRadius: -3,
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 2,
-                spreadRadius: -4,
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 1,
-                spreadRadius: -5,
-              ),
-            ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -150,6 +121,7 @@ class RightClickMenuBuilder {
     return Material(
       color: Colors.transparent,
       child: InkWell(
+        hoverColor: theme.primaryTextHoverColor,
         onTap: item.isEnabled ? item.onTap : null,
         borderRadius: isLast
             ? const BorderRadius.only(
