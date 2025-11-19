@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-18 14:00:00
- * @LastEditTime: 2025-11-19 10:05:48
+ * @LastEditTime: 2025-11-19 10:16:44
  * @License: GPL 3.0
  */
 
@@ -156,7 +156,7 @@ class RightClickMenuBuilder {
       width: menuWidth,
       height: 1,
       decoration: BoxDecoration(
-        color: theme.textColorTertiary.withOpacity(0.2),
+        color: theme.dividerColor,
         borderRadius: BorderRadius.circular(1),
       ),
     );
@@ -178,7 +178,7 @@ class RightClickMenuBuilder {
         child: Container(
           width: menuWidth,
           height: 28,
-          padding: const EdgeInsets.only(left: 10),
+          padding: const EdgeInsets.only(left: 8),
           child: Row(
             children: [
               if (item.icon != null) ...[
