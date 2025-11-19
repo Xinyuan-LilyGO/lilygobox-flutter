@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-18 14:00:00
- * @LastEditTime: 2025-11-19 10:01:04
+ * @LastEditTime: 2025-11-19 10:05:48
  * @License: GPL 3.0
  */
 
@@ -132,15 +132,15 @@ class RightClickMenuBuilder {
 
       // 如果该项需要显示分割线且不是最后一项，则添加分割线
       if (item.showDivider && !isLast) {
-        widgets.add(const SizedBox(height: 5));
+        widgets.add(const SizedBox(height: 4));
 
         widgets.add(_buildDivider(theme: theme, menuWidth: menuWidth));
 
         // 在分割线后添加间距
-        widgets.add(const SizedBox(height: 5));
+        widgets.add(const SizedBox(height: 4));
       } else if (!isLast) {
         // 在普通菜单项之间添加间距（没有分割线的情况）
-        widgets.add(const SizedBox(height: 5));
+        widgets.add(const SizedBox(height: 4));
       }
     }
 
@@ -174,10 +174,10 @@ class RightClickMenuBuilder {
       child: InkWell(
         hoverColor: theme.sidebarSelectedIconColor,
         onTap: item.isEnabled ? item.onTap : null,
-        borderRadius: BorderRadius.circular(7), // 所有项都使用圆角悬停效果
+        borderRadius: BorderRadius.circular(5), // 所有项都使用圆角悬停效果
         child: Container(
           width: menuWidth,
-          height: 35,
+          height: 28,
           padding: const EdgeInsets.only(left: 10),
           child: Row(
             children: [
