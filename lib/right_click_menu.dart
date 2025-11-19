@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-18 14:00:00
- * @LastEditTime: 2025-11-19 10:16:44
+ * @LastEditTime: 2025-11-19 10:47:38
  * @License: GPL 3.0
  */
 
@@ -155,10 +155,7 @@ class RightClickMenuBuilder {
     return Container(
       width: menuWidth,
       height: 1,
-      decoration: BoxDecoration(
-        color: theme.dividerColor,
-        borderRadius: BorderRadius.circular(1),
-      ),
+      decoration: BoxDecoration(color: theme.dividerColor),
     );
   }
 
@@ -221,26 +218,26 @@ class RightClickMenuBuilder {
 class TGlassesP4RightClickMenu {
   /// 获取 T-Glasses-P4 标题的右键菜单项
   static List<RightClickMenuItem> getMenuItems({
-    required VoidCallback onRename,
     required VoidCallback onRefresh,
-    required VoidCallback onProperties,
+    required VoidCallback onBoardSettings,
+    required VoidCallback onDelete,
   }) {
     return [
-      RightClickMenuItem(
-        label: "重命名",
-        icon: Symbols.edit_rounded,
-        onTap: onRename,
-      ),
       RightClickMenuItem(
         label: "刷新",
         icon: Symbols.refresh_rounded,
         onTap: onRefresh,
+      ),
+      RightClickMenuItem(
+        label: "板子设置",
+        icon: Symbols.settings_rounded,
+        onTap: onBoardSettings,
         showDivider: true, // 在此项后显示分割线
       ),
       RightClickMenuItem(
-        label: "属性",
-        icon: Symbols.info_rounded,
-        onTap: onProperties,
+        label: "删除",
+        icon: Symbols.delete_rounded,
+        onTap: onDelete,
       ),
     ];
   }

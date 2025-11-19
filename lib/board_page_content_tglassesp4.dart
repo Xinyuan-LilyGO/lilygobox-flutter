@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-17 13:38:52
- * @LastEditTime: 2025-11-18 17:32:14
+ * @LastEditTime: 2025-11-19 10:41:45
  * @License: GPL 3.0
  */
 
@@ -43,23 +43,25 @@ class _BoardPageContentTGlassesP4State
   // 新增：右键菜单控制器
   final RightClickMenuController _menuController = RightClickMenuController();
 
-  // 新增：右键菜单处理函数
-  void _handleRename() {
-    // 处理重命名逻辑
-    print("重命名 T-Glasses-P4");
-    // TODO: 实现重命名功能
+  void _handleDelete() {
+    // 处理删除逻辑
+    print("删除 T-Glasses-P4");
+    _menuController.close(); // 确保菜单关闭
+    // TODO: 实现删除功能
+  }
+
+  void _handleBoardSettings() {
+    // 处理板子设置逻辑
+    print("打开 T-Glasses-P4 板子设置");
+    _menuController.close(); // 确保菜单关闭
+    // TODO: 实现板子设置功能
   }
 
   void _handleRefresh() {
     // 处理刷新逻辑
     print("刷新 T-Glasses-P4 数据");
+    _menuController.close(); // 确保菜单关闭
     // TODO: 实现刷新功能
-  }
-
-  void _handleProperties() {
-    // 处理属性逻辑
-    print("显示 T-Glasses-P4 属性");
-    // TODO: 实现属性显示功能
   }
 
   @override
@@ -493,11 +495,11 @@ class _BoardPageContentTGlassesP4State
 
     final menuItems = _getMenuItems(context);
 
-    // 构建菜单项
+    // 构建菜单项的回调
     final menuItemsList = TGlassesP4RightClickMenu.getMenuItems(
-      onRename: _handleRename,
       onRefresh: _handleRefresh,
-      onProperties: _handleProperties,
+      onBoardSettings: _handleBoardSettings,
+      onDelete: _handleDelete,
     );
 
     // 左侧面板内容
