@@ -28,5 +28,6 @@
     "languageDescription": "お好みのアプリケーションインターフェース言語を選択してください",
     "boardSettings": "板の設定",
     "refresh": "更新",
-    "delete": "削除"
+    "delete": "削除",
+    "status": "状態"
 }

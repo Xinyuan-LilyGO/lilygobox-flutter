@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-11-19 15:17:57
+ * @LastEditTime: 2025-11-19 16:10:06
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -102,7 +102,7 @@ class AppTheme {
 }
 
 class ThemeProvider with ChangeNotifier {
-  ThemeType _currentTheme = ThemeType.light;
+  ThemeType _currentTheme = ThemeType.dark;
 
   final Map<ThemeType, AppTheme> _themes = {
     ThemeType.dark: AppTheme(

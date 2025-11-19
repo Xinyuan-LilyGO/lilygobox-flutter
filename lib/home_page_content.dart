@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-07 11:23:45
- * @LastEditTime: 2025-11-17 14:42:44
+ * @LastEditTime: 2025-11-19 16:30:42
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -173,7 +173,7 @@ class _HomePageContentState extends State<HomePageContent> {
                     return Container(
                       margin: const EdgeInsets.only(
                         left: 10.0,
-                        top: 5.0,
+                        top: 2.0,
                         right: 15.0,
                         bottom: 2.0,
                       ),

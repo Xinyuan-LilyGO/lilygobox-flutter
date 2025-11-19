@@ -28,5 +28,6 @@
     "languageDescription": "选择您偏好的应用程序界面语言",
     "boardSettings": "板子设置",
     "refresh": "刷新",
-    "delete": "删除"
+    "delete": "删除",
+    "status": "状态"
 }

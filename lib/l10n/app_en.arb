@@ -28,5 +28,6 @@
     "languageDescription": "Choose your preferred application interface language",
     "boardSettings": "Board Settings",
     "refresh": "Refresh",
-    "delete": "Delete"
+    "delete": "Delete",
+    "status": "Status"
 }

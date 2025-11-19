@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-17 13:38:52
- * @LastEditTime: 2025-11-19 13:48:23
+ * @LastEditTime: 2025-11-19 16:31:49
  * @License: GPL 3.0
  */
 
@@ -29,7 +29,7 @@ class BoardPageContentTGlassesP4 extends StatefulWidget {
 class _BoardPageContentTGlassesP4State
     extends State<BoardPageContentTGlassesP4> {
   // 默认选中的菜单项 Key
-  String _selectedTitleKey = 'overview';
+  String _selectedTitleKey = 'start';
   // 用于存储当前悬停颜色状态的 Map
   final Map<String, Color> _currentHoverColors = {};
 
@@ -140,8 +140,14 @@ class _BoardPageContentTGlassesP4State
       {
         'type': 'standalone_item',
         'title': context.l10n.start,
-        'key': 'overview',
+        'key': 'start',
         'icon': Symbols.borg,
+      },
+      {
+        'type': 'standalone_item',
+        'title': context.l10n.status,
+        'key': 'status',
+        'icon': Symbols.dashboard,
       },
       {'type': 'header', 'title': "配置", 'key': 'config_header'},
       {
@@ -171,8 +177,10 @@ class _BoardPageContentTGlassesP4State
     final theme = themeProvider.themeData;
 
     switch (selectedKey) {
-      case 'overview':
-        return _buildOverviewContent(theme, context);
+      case 'start':
+        return _buildStartContent(theme, context);
+      case 'status':
+        return _buildStatusContent(theme, context);
       case 'device_settings':
         return _buildDeviceSettingsContent(theme, context);
       case 'display_config':
@@ -184,8 +192,8 @@ class _BoardPageContentTGlassesP4State
     }
   }
 
-  // 概览页面内容
-  Widget _buildOverviewContent(AppTheme theme, BuildContext context) {
+  // 开始页面内容 - 显示 T-Glasses-P4 相关资料
+  Widget _buildStartContent(AppTheme theme, BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -195,13 +203,68 @@ class _BoardPageContentTGlassesP4State
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // 板子图标和名称
-              Icon(
-                Symbols.developer_board_rounded,
-                size: 64,
-                color: theme.textColorPrimary,
+              // 板子名称
+              Text(
+                "T-Glasses-P4",
+                style: TextStyle(
+                  fontSize: 30,
+                  fontWeight: FontWeight.bold,
+                  color: theme.textColorPrimary,
+                ),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
+              Text(
+                "智能眼镜开发板",
+                style: TextStyle(fontSize: 16, color: theme.textColorSecondary),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 30),
+
+              // 相关资料介绍
+              Card(
+                color: theme.secondary,
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "相关资料",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: theme.textColorPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+                      _buildInfoItem(theme, "文档", "查看完整技术文档和用户手册"),
+                      _buildInfoItem(theme, "示例代码", "获取开发示例和代码模板"),
+                      _buildInfoItem(theme, "教程", "学习如何使用 T-Glasses-P4 进行开发"),
+                      _buildInfoItem(theme, "社区支持", "获取技术支持和社区帮助"),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 概览页面内容
+  Widget _buildStatusContent(AppTheme theme, BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const SizedBox(height: 50),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 50.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // 板子名称
               Text(
                 "T-Glasses-P4",
                 style: TextStyle(
@@ -489,6 +552,47 @@ class _BoardPageContentTGlassesP4State
     );
   }
 
+  // 构建信息项
+  Widget _buildInfoItem(AppTheme theme, String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Symbols.arrow_forward,
+            size: 16,
+            color: theme.textColorSecondary,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: theme.textColorPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.textColorSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
@@ -648,7 +752,7 @@ class _BoardPageContentTGlassesP4State
                     return Container(
                       margin: const EdgeInsets.only(
                         left: 10.0,
-                        top: 5.0,
+                        top: 2.0,
                         right: 15.0,
                         bottom: 2.0,
                       ),
