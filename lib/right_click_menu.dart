@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-18 14:00:00
- * @LastEditTime: 2025-11-19 11:47:14
+ * @LastEditTime: 2025-11-19 11:53:09
  * @License: GPL 3.0
  */
 
@@ -155,7 +155,7 @@ class RightClickMenuBuilder {
     return Container(
       width: menuWidth,
       height: 1,
-      decoration: BoxDecoration(color: theme.dividerColor),
+      decoration: BoxDecoration(color: theme.dividerColor.withOpacity(0.3)),
     );
   }
 
