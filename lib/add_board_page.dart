@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-05 09:52:14
- * @LastEditTime: 2025-11-17 13:52:47
+ * @LastEditTime: 2025-11-19 09:59:07
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -356,10 +356,10 @@ class _AddBoardPageState extends State<AddBoardPage> {
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               decoration: BoxDecoration(
                 color: theme.primary, // 使用 primary 作为列表背景色，与二次背景色区分
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(8),
                 child: ListView.builder(
                   itemCount: _filteredBoards.length,
                   itemBuilder: (context, index) {
