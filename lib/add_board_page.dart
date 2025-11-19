@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-05 09:52:14
- * @LastEditTime: 2025-11-19 09:59:07
+ * @LastEditTime: 2025-11-19 15:05:33
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -227,8 +227,8 @@ class _AddBoardPageState extends State<AddBoardPage> {
                   // AnimatedContainer 负责背景色的动画
                   color: _isHoveringInitialButton
                       ? theme
-                            .tertiaryTextHoverColor // 悬停时的颜色
-                      : theme.tertiary, // 默认背景色
+                            .secondaryTextHoverColor_2 // 悬停时的颜色
+                      : theme.secondaryTextBackgroundColor, // 默认背景色
                 ),
                 child: Material(
                   // Material 必须是透明的，这样才能看到 AnimatedContainer 的背景色
@@ -301,7 +301,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
           Container(
             padding: const EdgeInsets.only(left: 10.0),
             decoration: BoxDecoration(
-              color: theme.tertiarytextBackgroundColor, // 使用与按钮背景相似的颜色
+              color: theme.secondaryTextBackgroundColor, // 使用与按钮背景相似的颜色
               borderRadius: BorderRadius.circular(6),
             ),
             child: TextField(
@@ -381,8 +381,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
                       },
                       onExit: (event) {
                         setState(() {
-                          _currentHoverColors[boardName] =
-                              theme.primary; // 恢复透明
+                          _currentHoverColors[boardName] = theme.primary;
                         });
                       },
                       child: GestureDetector(
@@ -466,6 +465,7 @@ class _AddBoardPageState extends State<AddBoardPage> {
               ),
             ),
           ),
+          
           const SizedBox(height: 20),
 
           // 底部 "添加板子" 按钮
@@ -486,9 +486,9 @@ class _AddBoardPageState extends State<AddBoardPage> {
                   color: isBoardSelected
                       ? (_isHoveringAddBoardButton
                             ? theme
-                                  .tertiaryTextHoverColor // 启用且悬停
-                            : theme.tertiarytextBackgroundColor) // 启用且非悬停
-                      : theme.tertiarytextBackgroundColor.withValues(
+                                  .secondaryTextHoverColor_2 // 启用且悬停
+                            : theme.secondaryTextBackgroundColor) // 启用且非悬停
+                      : theme.secondaryTextBackgroundColor.withValues(
                           alpha: 0.5,
                         ), // 禁用时变暗
                 ),
@@ -506,10 +506,11 @@ class _AddBoardPageState extends State<AddBoardPage> {
                             _isHoveringAddBoardButton = false;
 
                             // 使用 BoardManagerProvider 添加板子
-                            final boardManager = Provider.of<BoardManagerProvider>(
-                              context,
-                              listen: false,
-                            );
+                            final boardManager =
+                                Provider.of<BoardManagerProvider>(
+                                  context,
+                                  listen: false,
+                                );
                             boardManager.addBoard(_selectedBoard!);
 
                             widget.windowProvider.setPage(WindowPage.home);
