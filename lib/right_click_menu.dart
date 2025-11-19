@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-18 14:00:00
- * @LastEditTime: 2025-11-19 10:47:38
+ * @LastEditTime: 2025-11-19 11:47:14
  * @License: GPL 3.0
  */
 
@@ -175,7 +175,7 @@ class RightClickMenuBuilder {
         child: Container(
           width: menuWidth,
           height: 28,
-          padding: const EdgeInsets.only(left: 8),
+          padding: const EdgeInsets.only(left: 6),
           child: Row(
             children: [
               if (item.icon != null) ...[
@@ -190,7 +190,7 @@ class RightClickMenuBuilder {
                   opticalSize: 20,
                   weight: 300,
                 ),
-                const SizedBox(width: 5),
+                const SizedBox(width: 3),
               ],
               Expanded(
                 child: Text(

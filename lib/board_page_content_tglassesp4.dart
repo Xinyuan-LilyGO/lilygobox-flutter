@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-17 13:38:52
- * @LastEditTime: 2025-11-19 10:41:45
+ * @LastEditTime: 2025-11-19 11:14:24
  * @License: GPL 3.0
  */
 
@@ -13,6 +13,8 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'provider/theme_provider.dart';
 import 'provider/home_page_provider.dart';
 import 'provider/language_provider.dart';
+import 'provider/window_provider.dart';
+
 import 'right_click_menu.dart';
 
 // T-Glasses-P4 板子页面内容
@@ -50,12 +52,15 @@ class _BoardPageContentTGlassesP4State
     // TODO: 实现删除功能
   }
 
-  void _handleBoardSettings() {
-    // 处理板子设置逻辑
-    print("打开 T-Glasses-P4 板子设置");
-    _menuController.close(); // 确保菜单关闭
-    // TODO: 实现板子设置功能
-  }
+void _handleBoardSettings() {
+  // 处理板子设置逻辑
+  print("打开 T-Glasses-P4 板子设置");
+  _menuController.close(); // 确保菜单关闭
+  
+  // 获取 WindowProvider 并切换到板子设置页面
+  final windowProvider = Provider.of<WindowProvider>(context, listen: false);
+  windowProvider.setPage(WindowPage.boardSettings);
+}
 
   void _handleRefresh() {
     // 处理刷新逻辑

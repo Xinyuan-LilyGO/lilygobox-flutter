@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-06 11:28:25
- * @LastEditTime: 2025-11-17 11:27:06
+ * @LastEditTime: 2025-11-19 11:33:23
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -19,6 +19,7 @@ import 'l10n/app_localizations.dart';
 import 'home_page.dart';
 import 'settings_page.dart';
 import 'add_board_page.dart';
+import 'board_settings_tglassesp4.dart';
 
 // MainApp 现在可以是 StatelessWidget，因为状态已经移到 Provider 中
 class MainApp extends StatelessWidget {
@@ -365,15 +366,20 @@ class MainApp extends StatelessWidget {
         final WindowPage currentPage = windowProvider.currentPage;
 
         // 确定 BASE LAYER (基础内容层) 应该显示哪个页面
-        // 如果当前是 settings，则基础层显示 settings
+        // 如果当前是 settings 或 boardSettings，则基础层显示对应页面
         // 如果当前是 home 或 addBoard (模态)，则基础层显示 home
-        final WindowPage basePageKey = currentPage == WindowPage.settings
-            ? WindowPage.settings
-            : WindowPage.home;
+        final WindowPage basePageKey;
+        final Widget baseContent;
 
-        // BASE LAYER: 处理 Home <-> Settings 的切换动画
-        final Widget baseContent = AnimatedSwitcher(
-          // 动画时长保持不变
+        if (currentPage == WindowPage.settings ||
+            currentPage == WindowPage.boardSettings) {
+          basePageKey = currentPage;
+        } else {
+          basePageKey = WindowPage.home;
+        }
+
+        // BASE LAYER: 处理 Home <-> Settings/BoardSettings 的切换动画
+        baseContent = AnimatedSwitcher(
           duration: const Duration(milliseconds: 500),
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
@@ -381,8 +387,8 @@ class MainApp extends StatelessWidget {
             // 通过 Key 识别当前正在进入/退出的页面
             final WindowPage key = (child.key as ValueKey<WindowPage>).value;
 
-            // Settings Page: 使用滑动动画 (原风格)
-            if (key == WindowPage.settings) {
+            // Settings 和 BoardSettings 页面: 使用滑动动画 (从底部滑入)
+            if (key == WindowPage.settings || key == WindowPage.boardSettings) {
               return SlideTransition(
                 position: Tween<Offset>(
                   begin: const Offset(0.0, 1.0), // 从底部开始
@@ -397,12 +403,8 @@ class MainApp extends StatelessWidget {
             }
           },
           child: SizedBox.expand(
-            // 确保子组件的 Key 发生变化以触发 AnimatedSwitcher
             key: ValueKey(basePageKey),
-            // 实例化基础层页面
-            child: basePageKey == WindowPage.settings
-                ? SettingsPage(windowProvider: windowProvider)
-                : const HomePage(),
+            child: _buildBasePage(basePageKey, windowProvider),
           ),
         );
 
@@ -410,25 +412,20 @@ class MainApp extends StatelessWidget {
         final Widget modalBarrier = AnimatedSwitcher(
           duration: const Duration(milliseconds: 200),
           transitionBuilder: (child, animation) {
-            // 背景遮罩只使用渐变动画
             return FadeTransition(opacity: animation, child: child);
           },
           child: currentPage == WindowPage.addBoard
               ? const ModalBarrier(
-                  key: ValueKey('modal_barrier_active'), // 激活时的 Key
-                  color: Color.fromARGB(100, 0, 0, 0), // 半透明黑色
+                  key: ValueKey('modal_barrier_active'),
+                  color: Color.fromARGB(100, 0, 0, 0),
                 )
-              : Container(
-                  key: const ValueKey('modal_barrier_inactive'), // 非激活时的 Key
-                ),
+              : Container(key: const ValueKey('modal_barrier_inactive')),
         );
 
         // 处理 AddBoard 模态弹窗的缩放动画
         final Widget modalContent = AnimatedSwitcher(
-          // 动画时长保持不变
           duration: const Duration(milliseconds: 300),
           transitionBuilder: (Widget child, Animation<double> animation) {
-            // 弹窗内容保持缩放动画
             return ScaleTransition(
               scale: CurvedAnimation(
                 parent: animation,
@@ -439,11 +436,9 @@ class MainApp extends StatelessWidget {
           },
           child: currentPage == WindowPage.addBoard
               ? AddBoardPage(
-                  // 确保 AddBoardPage 作为模态层始终占据整个屏幕
                   key: const ValueKey(WindowPage.addBoard),
                   windowProvider: windowProvider,
                 )
-              // 当 AddBoardPage 不激活时，返回一个空的 Container，Key 必须不同于 addBoard 的 key
               : Container(key: const ValueKey('empty_modal_content')),
         );
 
@@ -451,14 +446,27 @@ class MainApp extends StatelessWidget {
         return Expanded(
           child: Stack(
             children: [
-              baseContent, // 底层内容 (Home 或 Settings)
-              modalBarrier, // 中层背景遮罩 (新的 FadeTransition)
-              modalContent, // 上层模态弹窗 (保持 ScaleTransition)
+              baseContent, // 底层内容 (Home、Settings 或 BoardSettings)
+              modalBarrier, // 中层背景遮罩
+              modalContent, // 上层模态弹窗
             ],
           ),
         );
       },
     );
+  }
+
+  // 构建基础页面
+  Widget _buildBasePage(WindowPage pageKey, WindowProvider windowProvider) {
+    switch (pageKey) {
+      case WindowPage.settings:
+        return SettingsPage(windowProvider: windowProvider);
+      case WindowPage.boardSettings:
+        return BoardSettingsTGlassesP4(windowProvider: windowProvider);
+      case WindowPage.home:
+      default:
+        return const HomePage();
+    }
   }
 }
 
