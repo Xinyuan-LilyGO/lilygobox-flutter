@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-18 14:00:00
- * @LastEditTime: 2025-11-19 09:13:55
+ * @LastEditTime: 2025-11-19 10:01:04
  * @License: GPL 3.0
  */
 
@@ -15,12 +15,14 @@ class RightClickMenuItem {
   final IconData? icon;
   final VoidCallback? onTap;
   final bool isEnabled;
+  final bool showDivider; // 是否在该项后显示分割线
 
   const RightClickMenuItem({
     required this.label,
     this.icon,
     this.onTap,
     this.isEnabled = true,
+    this.showDivider = false, // 默认不显示分割线
   });
 }
 
@@ -58,6 +60,7 @@ class RightClickMenuBuilder {
     required VoidCallback onSecondaryTapDown,
   }) {
     const double menuWidth = 150; // 设置菜单宽度
+    const double menuPadding = 5.0; // 菜单内边距
 
     return MenuAnchor(
       controller: controller._menuController,
@@ -69,30 +72,24 @@ class RightClickMenuBuilder {
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
-        padding: WidgetStateProperty.all(EdgeInsets.zero), // 移除内边距，使用自定义
+        padding: WidgetStateProperty.all(EdgeInsets.zero),
       ),
       menuChildren: [
         // 使用 Container 包裹整个菜单，设置固定宽度和圆角
         Container(
           width: menuWidth,
+          padding: EdgeInsets.all(menuPadding), // 添加内边距
           decoration: BoxDecoration(
             color: theme.primary,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: menuItems.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              final isLast = index == menuItems.length - 1;
-
-              return _buildCustomMenuItem(
-                item: item,
-                theme: theme,
-                menuWidth: menuWidth,
-                isLast: isLast,
-              );
-            }).toList(),
+            children: _buildMenuItemsWithDividers(
+              menuItems: menuItems,
+              theme: theme,
+              menuWidth: menuWidth - menuPadding * 2, // 减去内边距后的实际内容宽度
+            ),
           ),
         ),
       ],
@@ -111,6 +108,60 @@ class RightClickMenuBuilder {
     );
   }
 
+  /// 构建带分割线的菜单项列表
+  static List<Widget> _buildMenuItemsWithDividers({
+    required List<RightClickMenuItem> menuItems,
+    required dynamic theme,
+    required double menuWidth,
+  }) {
+    List<Widget> widgets = [];
+
+    for (int i = 0; i < menuItems.length; i++) {
+      final item = menuItems[i];
+      final isLast = i == menuItems.length - 1;
+
+      // 添加菜单项
+      widgets.add(
+        _buildCustomMenuItem(
+          item: item,
+          theme: theme,
+          menuWidth: menuWidth,
+          isLast: isLast && !item.showDivider, // 如果是最后一项且不显示分割线，则应用底部圆角
+        ),
+      );
+
+      // 如果该项需要显示分割线且不是最后一项，则添加分割线
+      if (item.showDivider && !isLast) {
+        widgets.add(const SizedBox(height: 5));
+
+        widgets.add(_buildDivider(theme: theme, menuWidth: menuWidth));
+
+        // 在分割线后添加间距
+        widgets.add(const SizedBox(height: 5));
+      } else if (!isLast) {
+        // 在普通菜单项之间添加间距（没有分割线的情况）
+        widgets.add(const SizedBox(height: 5));
+      }
+    }
+
+    return widgets;
+  }
+
+  /// 构建分割线
+  static Widget _buildDivider({
+    required dynamic theme,
+    required double menuWidth,
+  }) {
+    return Container(
+      width: menuWidth,
+      height: 1,
+      decoration: BoxDecoration(
+        color: theme.textColorTertiary.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(1),
+      ),
+    );
+  }
+
   /// 构建自定义菜单项
   static Widget _buildCustomMenuItem({
     required RightClickMenuItem item,
@@ -121,18 +172,13 @@ class RightClickMenuBuilder {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        hoverColor: theme.primaryTextHoverColor,
+        hoverColor: theme.sidebarSelectedIconColor,
         onTap: item.isEnabled ? item.onTap : null,
-        borderRadius: isLast
-            ? const BorderRadius.only(
-                bottomLeft: Radius.circular(8),
-                bottomRight: Radius.circular(8),
-              )
-            : BorderRadius.zero,
+        borderRadius: BorderRadius.circular(7), // 所有项都使用圆角悬停效果
         child: Container(
           width: menuWidth,
-          height: 32,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          height: 35,
+          padding: const EdgeInsets.only(left: 10),
           child: Row(
             children: [
               if (item.icon != null) ...[
@@ -147,7 +193,7 @@ class RightClickMenuBuilder {
                   opticalSize: 20,
                   weight: 300,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 5),
               ],
               Expanded(
                 child: Text(
@@ -189,6 +235,7 @@ class TGlassesP4RightClickMenu {
         label: "刷新",
         icon: Symbols.refresh_rounded,
         onTap: onRefresh,
+        showDivider: true, // 在此项后显示分割线
       ),
       RightClickMenuItem(
         label: "属性",
