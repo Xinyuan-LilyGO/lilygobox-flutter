@@ -4,7 +4,7 @@
     "themeDescription": "現在のテーマを選択してください",
     "themeDark": "ダークテーマ",
     "themeLight": "ライトテーマ",
-    "settingsTitle": "設定",
+    "settings": "設定",
     "basic": "基本",
     "general": "一般",
     "application": "アプリ",
@@ -25,5 +25,8 @@
     "homePageContentStartTitle": "LilygoBox へようこそ",
     "homePageContentStartDescription": "LilygoBox は、 Lilygo ハードウェアのために作られた統合開発＆制御センターです。",
     "language": "言語",
-    "languageDescription": "お好みのアプリケーションインターフェース言語を選択してください"
+    "languageDescription": "お好みのアプリケーションインターフェース言語を選択してください",
+    "boardSettings": "板の設定",
+    "refresh": "更新",
+    "delete": "削除"
 }

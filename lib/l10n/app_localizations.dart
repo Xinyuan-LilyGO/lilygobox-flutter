@@ -130,11 +130,11 @@ abstract class AppLocalizations {
   /// **'Light Theme'**
   String get themeLight;
 
-  /// No description provided for @settingsTitle.
+  /// No description provided for @settings.
   ///
   /// In en, this message translates to:
   /// **'Settings'**
-  String get settingsTitle;
+  String get settings;
 
   /// No description provided for @basic.
   ///
@@ -261,6 +261,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Choose your preferred application interface language'**
   String get languageDescription;
+
+  /// No description provided for @boardSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Board Settings'**
+  String get boardSettings;
+
+  /// No description provided for @refresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get refresh;
+
+  /// No description provided for @delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get delete;
 }
 
 class _AppLocalizationsDelegate

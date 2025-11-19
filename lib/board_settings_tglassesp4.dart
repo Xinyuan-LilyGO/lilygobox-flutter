@@ -2,7 +2,7 @@
  * @Description: T-Glasses-P4 板子设置页面
  * @Author: LILYGO_L
  * @Date: 2025-11-19 14:00:00
- * @LastEditTime: 2025-11-19 11:42:17
+ * @LastEditTime: 2025-11-19 13:41:06
  * @License: GPL 3.0
  */
 
@@ -12,6 +12,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import 'provider/theme_provider.dart';
 import 'provider/window_provider.dart';
+import 'provider/language_provider.dart';
 
 class BoardSettingsSplitViewTemplate extends StatefulWidget {
   final WindowProvider windowProvider;
@@ -30,20 +31,12 @@ class _BoardSettingsSplitViewTemplateState
     extends State<BoardSettingsSplitViewTemplate> {
   // 菜单项的键（不变的），用于 _selectedTitle 和 _contentMap
   static const String _generalKey = 'general';
-  static const String _deviceKey = 'deviceSettings';
-  static const String _displayKey = 'displayConfig';
-  static const String _networkKey = 'networkSettings';
 
   // 当前选中的菜单项的 key
   String _selectedTitleKey = _generalKey;
 
   // 映射菜单项的 key 到一个唯一的数字 ID，用于 _buildContent 的 switch 语句
-  final Map<String, int> _contentMap = {
-    _generalKey: 0,
-    _deviceKey: 1,
-    _displayKey: 2,
-    _networkKey: 3,
-  };
+  final Map<String, int> _contentMap = {_generalKey: 0};
 
   // 用于存储每个菜单项当前 Hover 颜色的 Map
   late Map<String, Color> _currentHoverColors;
@@ -55,12 +48,7 @@ class _BoardSettingsSplitViewTemplateState
   void initState() {
     super.initState();
     // 初始化 Hover 颜色 Map，使用固定的 key
-    _currentHoverColors = {
-      _generalKey: Colors.transparent,
-      _deviceKey: Colors.transparent,
-      _displayKey: Colors.transparent,
-      _networkKey: Colors.transparent,
-    };
+    _currentHoverColors = {_generalKey: Colors.transparent};
   }
 
   // 颜色渐变的持续时间
@@ -73,12 +61,6 @@ class _BoardSettingsSplitViewTemplateState
     switch (selectedIndex) {
       case 0: // 通用设置
         return _buildGeneralSettingsContent(theme);
-      case 1: // 设备设置
-        return _buildDeviceSettingsContent(theme);
-      case 2: // 显示配置
-        return _buildDisplaySettingsContent(theme);
-      case 3: // 网络设置
-        return _buildNetworkSettingsContent(theme);
       default:
         return const SizedBox.shrink();
     }
@@ -92,7 +74,7 @@ class _BoardSettingsSplitViewTemplateState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '通用设置',
+            '通用',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -155,142 +137,6 @@ class _BoardSettingsSplitViewTemplateState
     );
   }
 
-  // 设备设置内容
-  Widget _buildDeviceSettingsContent(AppTheme theme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '设备设置',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: theme.textColorPrimary,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Card(
-            color: theme.tertiary,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '电源管理',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: theme.textColorPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  _buildSettingItem(theme, '电池电量', '85%'),
-                  _buildSettingItem(theme, '充电状态', '未充电'),
-                  _buildSettingItem(theme, '功耗模式', '平衡模式'),
-                  _buildSettingItem(theme, '自动休眠', '5分钟'),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 显示设置内容
-  Widget _buildDisplaySettingsContent(AppTheme theme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '显示配置',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: theme.textColorPrimary,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Card(
-            color: theme.tertiary,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '显示参数',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: theme.textColorPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  _buildSettingItem(theme, '分辨率', '1280x720'),
-                  _buildSettingItem(theme, '刷新率', '60Hz'),
-                  _buildSettingItem(theme, '亮度', '75%'),
-                  _buildSettingItem(theme, '色彩模式', 'sRGB'),
-                  _buildSettingItem(theme, '旋转方向', '0°'),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 网络设置内容
-  Widget _buildNetworkSettingsContent(AppTheme theme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '网络设置',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: theme.textColorPrimary,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Card(
-            color: theme.tertiary,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '网络状态',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: theme.textColorPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  _buildSettingItem(theme, 'WiFi连接', '已连接'),
-                  _buildSettingItem(theme, 'IP地址', '192.168.1.105'),
-                  _buildSettingItem(theme, '信号强度', '良好'),
-                  _buildSettingItem(theme, '蓝牙', '已开启'),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // 构建设置项
   Widget _buildSettingItem(AppTheme theme, String title, String value) {
     return Padding(
@@ -311,14 +157,11 @@ class _BoardSettingsSplitViewTemplateState
     );
   }
 
-  // 构建菜单项列表 - 移除高级分类
-  List<Map<String, dynamic>> _buildMenuItems() {
+  // 构建菜单项列表 - 只保留基础分类和通用项
+  List<Map<String, dynamic>> _buildMenuItems(BuildContext context) {
     return [
-      {'type': 'header', 'title': '基础设置'},
-      {'type': 'item', 'title': '通用设置', 'key': _generalKey},
-      {'type': 'item', 'title': '设备设置', 'key': _deviceKey},
-      {'type': 'item', 'title': '显示配置', 'key': _displayKey},
-      {'type': 'item', 'title': '网络设置', 'key': _networkKey},
+      {'type': 'header', 'title':  context.l10n.basic},
+      {'type': 'item', 'title':  context.l10n.general, 'key': _generalKey},
     ];
   }
 
@@ -354,7 +197,7 @@ class _BoardSettingsSplitViewTemplateState
   @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeProvider>(context, listen: true).themeData;
-    final menuItems = _buildMenuItems();
+    final menuItems = _buildMenuItems(context);
 
     return Container(
       color: theme.primary, // 覆盖整个背景
@@ -371,7 +214,7 @@ class _BoardSettingsSplitViewTemplateState
                 Padding(
                   padding: const EdgeInsets.fromLTRB(15.0, 15.0, 15.0, 5.0),
                   child: Text(
-                    '板子设置',
+                    context.l10n.boardSettings,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 20,

@@ -27,7 +27,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get themeLight => 'ライトテーマ';
 
   @override
-  String get settingsTitle => '設定';
+  String get settings => '設定';
 
   @override
   String get basic => '基本';
@@ -92,4 +92,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get languageDescription => 'お好みのアプリケーションインターフェース言語を選択してください';
+
+  @override
+  String get boardSettings => '板の設定';
+
+  @override
+  String get refresh => '更新';
+
+  @override
+  String get delete => '削除';
 }

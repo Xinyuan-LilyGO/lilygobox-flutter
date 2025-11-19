@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-05 15:54:19
- * @LastEditTime: 2025-11-17 11:42:19
+ * @LastEditTime: 2025-11-19 13:40:57
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -92,33 +92,26 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
 
   // 构建菜单项列表，需要在 build 方法中调用，以便访问 context
   List<Map<String, dynamic>> _buildMenuItems(BuildContext context) {
-    // 访问本地化文本
-    final l10n = context.l10n;
-
     return [
-      {'type': 'header', 'title': l10n.basic}, // '基础' -> l10n.basic
+      {'type': 'header', 'title': context.l10n.basic}, // 基础
       {
         'type': 'item',
-        'title': l10n.general,
+        'title': context.l10n.general,
         'key': _generalKey,
-      }, // '通用设置' -> l10n.general
+      }, // 通用设置
       {'type': 'divider'}, // 分隔线
-      {'type': 'header', 'title': l10n.application}, // '应用' -> l10n.application
+      {'type': 'header', 'title': context.l10n.application}, // 应用
       {
         'type': 'item',
-        'title': l10n.languageAndRegion,
+        'title': context.l10n.languageAndRegion,
         'key': _languageKey,
-      }, // '语言与地区' -> l10n.languageAndRegion
+      }, // 语言与地区
       {
         'type': 'item',
-        'title': l10n.personalization,
+        'title': context.l10n.personalization,
         'key': _themeKey,
-      }, // '外观主题' -> l10n.personalization
-      {
-        'type': 'item',
-        'title': l10n.about,
-        'key': _aboutKey,
-      }, // '关于' -> l10n.about
+      }, // 外观主题
+      {'type': 'item', 'title': context.l10n.about, 'key': _aboutKey}, // 关于
     ];
   }
 
@@ -176,7 +169,7 @@ class _SplitViewTemplateState extends State<SplitViewTemplate> {
                   5.0,
                 ), // 顶部/左侧边距
                 child: Text(
-                  context.l10n.settingsTitle, // 使用本地化标题
+                  context.l10n.settings, // 使用本地化标题
                   style: TextStyle(
                     fontWeight: FontWeight.bold, // 设得更粗一些
                     fontSize: 20,

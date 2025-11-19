@@ -27,7 +27,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get themeLight => '亮色主题';
 
   @override
-  String get settingsTitle => '设置';
+  String get settings => '设置';
 
   @override
   String get basic => '基础';
@@ -92,4 +92,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get languageDescription => '选择您偏好的应用程序界面语言';
+
+  @override
+  String get boardSettings => '板子设置';
+
+  @override
+  String get refresh => '刷新';
+
+  @override
+  String get delete => '删除';
 }

@@ -2,12 +2,14 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-18 14:00:00
- * @LastEditTime: 2025-11-19 11:53:09
+ * @LastEditTime: 2025-11-19 13:49:44
  * @License: GPL 3.0
  */
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
+import 'provider/language_provider.dart';
 
 /// 右键菜单项
 class RightClickMenuItem {
@@ -218,24 +220,25 @@ class RightClickMenuBuilder {
 class TGlassesP4RightClickMenu {
   /// 获取 T-Glasses-P4 标题的右键菜单项
   static List<RightClickMenuItem> getMenuItems({
+    required BuildContext context,
     required VoidCallback onRefresh,
     required VoidCallback onBoardSettings,
     required VoidCallback onDelete,
   }) {
     return [
       RightClickMenuItem(
-        label: "刷新",
+        label: context.l10n.refresh,
         icon: Symbols.refresh_rounded,
         onTap: onRefresh,
       ),
       RightClickMenuItem(
-        label: "板子设置",
+        label: context.l10n.boardSettings,
         icon: Symbols.settings_rounded,
         onTap: onBoardSettings,
         showDivider: true, // 在此项后显示分割线
       ),
       RightClickMenuItem(
-        label: "删除",
+        label: context.l10n.delete,
         icon: Symbols.delete_rounded,
         onTap: onDelete,
       ),

@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-17 13:38:52
- * @LastEditTime: 2025-11-19 11:14:24
+ * @LastEditTime: 2025-11-19 13:48:23
  * @License: GPL 3.0
  */
 
@@ -52,15 +52,15 @@ class _BoardPageContentTGlassesP4State
     // TODO: 实现删除功能
   }
 
-void _handleBoardSettings() {
-  // 处理板子设置逻辑
-  print("打开 T-Glasses-P4 板子设置");
-  _menuController.close(); // 确保菜单关闭
-  
-  // 获取 WindowProvider 并切换到板子设置页面
-  final windowProvider = Provider.of<WindowProvider>(context, listen: false);
-  windowProvider.setPage(WindowPage.boardSettings);
-}
+  void _handleBoardSettings() {
+    // 处理板子设置逻辑
+    print("打开 T-Glasses-P4 板子设置");
+    _menuController.close(); // 确保菜单关闭
+
+    // 获取 WindowProvider 并切换到板子设置页面
+    final windowProvider = Provider.of<WindowProvider>(context, listen: false);
+    windowProvider.setPage(WindowPage.boardSettings);
+  }
 
   void _handleRefresh() {
     // 处理刷新逻辑
@@ -502,6 +502,7 @@ void _handleBoardSettings() {
 
     // 构建菜单项的回调
     final menuItemsList = TGlassesP4RightClickMenu.getMenuItems(
+      context: context,
       onRefresh: _handleRefresh,
       onBoardSettings: _handleBoardSettings,
       onDelete: _handleDelete,
