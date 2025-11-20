@@ -103,5 +103,5 @@ class AppLocalizationsJa extends AppLocalizations {
   String get delete => '削除';
 
   @override
-  String get status => '状態';
+  String get controlCenter => 'コントロールセンター';
 }

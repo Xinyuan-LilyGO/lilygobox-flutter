@@ -280,11 +280,11 @@ abstract class AppLocalizations {
   /// **'Delete'**
   String get delete;
 
-  /// No description provided for @status.
+  /// No description provided for @controlCenter.
   ///
   /// In en, this message translates to:
-  /// **'Status'**
-  String get status;
+  /// **'Control Center'**
+  String get controlCenter;
 }
 
 class _AppLocalizationsDelegate

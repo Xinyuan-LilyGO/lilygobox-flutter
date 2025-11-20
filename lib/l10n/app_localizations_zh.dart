@@ -103,5 +103,5 @@ class AppLocalizationsZh extends AppLocalizations {
   String get delete => '删除';
 
   @override
-  String get status => '状态';
+  String get controlCenter => '控制中心';
 }

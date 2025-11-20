@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-17 13:38:52
- * @LastEditTime: 2025-11-20 10:08:28
+ * @LastEditTime: 2025-11-20 10:54:24
  * @License: GPL 3.0
  */
 
@@ -145,8 +145,8 @@ class _DevicePageContentTGlassesP4State
       },
       {
         'type': 'standalone_item',
-        'title': context.l10n.status,
-        'key': 'status',
+        'title': context.l10n.controlCenter,
+        'key': 'control_center',
         'icon': Symbols.dashboard,
       },
       {'type': 'header', 'title': "配置", 'key': 'config_header'},
@@ -179,8 +179,8 @@ class _DevicePageContentTGlassesP4State
     switch (selectedKey) {
       case 'start':
         return _buildStartContent(theme, context);
-      case 'status':
-        return _buildStatusContent(theme, context);
+      case 'control_center':
+        return _buildControlCenterContent(theme, context);
       case 'device_settings':
         return _buildDeviceSettingsContent(theme, context);
       case 'display_config':
@@ -254,7 +254,7 @@ class _DevicePageContentTGlassesP4State
   }
 
   // 概览页面内容
-  Widget _buildStatusContent(AppTheme theme, BuildContext context) {
+  Widget _buildControlCenterContent(AppTheme theme, BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
