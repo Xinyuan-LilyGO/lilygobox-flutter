@@ -57,22 +57,22 @@ class AppLocalizationsJa extends AppLocalizations {
   String get allRightsReserved => '。全ての権利を保有。';
 
   @override
-  String get addBoard => 'ボードを追加';
+  String get addDevice => 'デバイスを追加';
 
   @override
-  String get addBoardDescription => 'ここで開発ボードを追加できます。開発ボードの追加方法を選択してください。';
+  String get addDeviceDescription => 'ここでデバイスを追加できます。追加方法を選択してください';
 
   @override
-  String get addByBoardType => 'ボードタイプで追加';
+  String get addByDeviceType => 'デバイスタイプで追加';
 
   @override
-  String get selectBoard => 'ボードを選択';
+  String get selectDevice => 'デバイスを選択';
 
   @override
-  String get selectBoardDescription => '追加したいボードを選択するには、下をクリックしてください';
+  String get selectDeviceDescription => '以下から追加したいデバイスを選択してください';
 
   @override
-  String get searchForBoardModel => 'ボードの型番を検索';
+  String get searchForDeviceModel => 'デバイスモデルを検索';
 
   @override
   String get home => 'ホームページ';
@@ -94,7 +94,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get languageDescription => 'お好みのアプリケーションインターフェース言語を選択してください';
 
   @override
-  String get boardSettings => '板の設定';
+  String get deviceSettings => 'デバイス設定';
 
   @override
   String get refresh => '更新';

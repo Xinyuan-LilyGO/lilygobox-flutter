@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-17 22:29:20
- * @LastEditTime: 2025-11-17 14:19:59
+ * @LastEditTime: 2025-11-20 10:03:58
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -15,7 +15,7 @@ import 'provider/window_provider.dart';
 import 'provider/language_provider.dart';
 import 'provider/package_info_provider.dart';
 import 'provider/home_page_provider.dart';
-import 'provider/board_manage_provider.dart';
+import 'provider/device_manage_provider.dart';
 
 import 'window.dart';
 
@@ -60,7 +60,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => LanguageProvider()), // 添加语言管理
         ChangeNotifierProvider(create: (_) => PackageInfoProvider()), // 添加包信息管理
         ChangeNotifierProvider(create: (_) => HomePageProvider()), // 添加 home页管理
-        ChangeNotifierProvider(create: (_) => BoardManagerProvider()),
+        ChangeNotifierProvider(create: (_) => DeviceManagerProvider()),
       ],
       child: const MainApp(),
     ),

@@ -190,41 +190,41 @@ abstract class AppLocalizations {
   /// **'. All rights reserved.'**
   String get allRightsReserved;
 
-  /// No description provided for @addBoard.
+  /// No description provided for @addDevice.
   ///
   /// In en, this message translates to:
-  /// **'Add Board'**
-  String get addBoard;
+  /// **'Add Device'**
+  String get addDevice;
 
-  /// No description provided for @addBoardDescription.
+  /// No description provided for @addDeviceDescription.
   ///
   /// In en, this message translates to:
-  /// **'You can add development boards here, please select the method to add a development board'**
-  String get addBoardDescription;
+  /// **'You can add development devices here, please select the method to add a development device'**
+  String get addDeviceDescription;
 
-  /// No description provided for @addByBoardType.
+  /// No description provided for @addByDeviceType.
   ///
   /// In en, this message translates to:
-  /// **'Add by board type'**
-  String get addByBoardType;
+  /// **'Add by device type'**
+  String get addByDeviceType;
 
-  /// No description provided for @selectBoard.
+  /// No description provided for @selectDevice.
   ///
   /// In en, this message translates to:
-  /// **'Select Board'**
-  String get selectBoard;
+  /// **'Select Device'**
+  String get selectDevice;
 
-  /// No description provided for @selectBoardDescription.
+  /// No description provided for @selectDeviceDescription.
   ///
   /// In en, this message translates to:
-  /// **'Click below to select the board you want to add'**
-  String get selectBoardDescription;
+  /// **'Click below to select the device you want to add'**
+  String get selectDeviceDescription;
 
-  /// No description provided for @searchForBoardModel.
+  /// No description provided for @searchForDeviceModel.
   ///
   /// In en, this message translates to:
-  /// **'Search for board model'**
-  String get searchForBoardModel;
+  /// **'Search for device model'**
+  String get searchForDeviceModel;
 
   /// No description provided for @home.
   ///
@@ -262,11 +262,11 @@ abstract class AppLocalizations {
   /// **'Choose your preferred application interface language'**
   String get languageDescription;
 
-  /// No description provided for @boardSettings.
+  /// No description provided for @deviceSettings.
   ///
   /// In en, this message translates to:
-  /// **'Board Settings'**
-  String get boardSettings;
+  /// **'Device Settings'**
+  String get deviceSettings;
 
   /// No description provided for @refresh.
   ///

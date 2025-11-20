@@ -57,24 +57,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get allRightsReserved => '. All rights reserved.';
 
   @override
-  String get addBoard => 'Add Board';
+  String get addDevice => 'Add Device';
 
   @override
-  String get addBoardDescription =>
-      'You can add development boards here, please select the method to add a development board';
+  String get addDeviceDescription =>
+      'You can add development devices here, please select the method to add a development device';
 
   @override
-  String get addByBoardType => 'Add by board type';
+  String get addByDeviceType => 'Add by device type';
 
   @override
-  String get selectBoard => 'Select Board';
+  String get selectDevice => 'Select Device';
 
   @override
-  String get selectBoardDescription =>
-      'Click below to select the board you want to add';
+  String get selectDeviceDescription =>
+      'Click below to select the device you want to add';
 
   @override
-  String get searchForBoardModel => 'Search for board model';
+  String get searchForDeviceModel => 'Search for device model';
 
   @override
   String get home => 'Home';
@@ -97,7 +97,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose your preferred application interface language';
 
   @override
-  String get boardSettings => 'Board Settings';
+  String get deviceSettings => 'Device Settings';
 
   @override
   String get refresh => 'Refresh';

@@ -2,7 +2,7 @@
  * @Description: T-Glasses-P4 板子设置页面
  * @Author: LILYGO_L
  * @Date: 2025-11-19 14:00:00
- * @LastEditTime: 2025-11-19 13:41:06
+ * @LastEditTime: 2025-11-20 10:02:17
  * @License: GPL 3.0
  */
 
@@ -14,21 +14,21 @@ import 'provider/theme_provider.dart';
 import 'provider/window_provider.dart';
 import 'provider/language_provider.dart';
 
-class BoardSettingsSplitViewTemplate extends StatefulWidget {
+class DeviceSettingsSplitViewTemplate extends StatefulWidget {
   final WindowProvider windowProvider;
 
-  const BoardSettingsSplitViewTemplate({
+  const DeviceSettingsSplitViewTemplate({
     super.key,
     required this.windowProvider,
   });
 
   @override
-  State<BoardSettingsSplitViewTemplate> createState() =>
-      _BoardSettingsSplitViewTemplateState();
+  State<DeviceSettingsSplitViewTemplate> createState() =>
+      _DeviceSettingsSplitViewTemplateState();
 }
 
-class _BoardSettingsSplitViewTemplateState
-    extends State<BoardSettingsSplitViewTemplate> {
+class _DeviceSettingsSplitViewTemplateState
+    extends State<DeviceSettingsSplitViewTemplate> {
   // 菜单项的键（不变的），用于 _selectedTitle 和 _contentMap
   static const String _generalKey = 'general';
 
@@ -160,8 +160,8 @@ class _BoardSettingsSplitViewTemplateState
   // 构建菜单项列表 - 只保留基础分类和通用项
   List<Map<String, dynamic>> _buildMenuItems(BuildContext context) {
     return [
-      {'type': 'header', 'title':  context.l10n.basic},
-      {'type': 'item', 'title':  context.l10n.general, 'key': _generalKey},
+      {'type': 'header', 'title': context.l10n.basic},
+      {'type': 'item', 'title': context.l10n.general, 'key': _generalKey},
     ];
   }
 
@@ -214,7 +214,7 @@ class _BoardSettingsSplitViewTemplateState
                 Padding(
                   padding: const EdgeInsets.fromLTRB(15.0, 15.0, 15.0, 5.0),
                   child: Text(
-                    context.l10n.boardSettings,
+                    context.l10n.deviceSettings,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 20,
@@ -401,10 +401,10 @@ class _BoardSettingsSplitViewTemplateState
   }
 }
 
-class BoardSettingsTGlassesP4 extends StatelessWidget {
+class DeviceSettingsTGlassesP4 extends StatelessWidget {
   final WindowProvider windowProvider;
 
-  const BoardSettingsTGlassesP4({super.key, required this.windowProvider});
+  const DeviceSettingsTGlassesP4({super.key, required this.windowProvider});
 
   @override
   Widget build(BuildContext context) {
@@ -412,7 +412,7 @@ class BoardSettingsTGlassesP4 extends StatelessWidget {
 
     return Container(
       color: theme.primary, // 确保覆盖整个背景
-      child: BoardSettingsSplitViewTemplate(windowProvider: windowProvider),
+      child: DeviceSettingsSplitViewTemplate(windowProvider: windowProvider),
     );
   }
 }

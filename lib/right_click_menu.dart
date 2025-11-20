@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-18 14:00:00
- * @LastEditTime: 2025-11-19 13:49:44
+ * @LastEditTime: 2025-11-20 10:04:14
  * @License: GPL 3.0
  */
 
@@ -222,7 +222,7 @@ class TGlassesP4RightClickMenu {
   static List<RightClickMenuItem> getMenuItems({
     required BuildContext context,
     required VoidCallback onRefresh,
-    required VoidCallback onBoardSettings,
+    required VoidCallback onDeviceSettings,
     required VoidCallback onDelete,
   }) {
     return [
@@ -232,9 +232,9 @@ class TGlassesP4RightClickMenu {
         onTap: onRefresh,
       ),
       RightClickMenuItem(
-        label: context.l10n.boardSettings,
+        label: context.l10n.deviceSettings,
         icon: Symbols.settings_rounded,
-        onTap: onBoardSettings,
+        onTap: onDeviceSettings,
         showDivider: true, // 在此项后显示分割线
       ),
       RightClickMenuItem(

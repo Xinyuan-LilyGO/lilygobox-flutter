@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-17 13:38:52
- * @LastEditTime: 2025-11-19 16:31:49
+ * @LastEditTime: 2025-11-20 10:08:28
  * @License: GPL 3.0
  */
 
@@ -18,16 +18,16 @@ import 'provider/window_provider.dart';
 import 'right_click_menu.dart';
 
 // T-Glasses-P4 板子页面内容
-class BoardPageContentTGlassesP4 extends StatefulWidget {
-  const BoardPageContentTGlassesP4({super.key});
+class DevicePageContentTGlassesP4 extends StatefulWidget {
+  const DevicePageContentTGlassesP4({super.key});
 
   @override
-  State<BoardPageContentTGlassesP4> createState() =>
-      _BoardPageContentTGlassesP4State();
+  State<DevicePageContentTGlassesP4> createState() =>
+      _DevicePageContentTGlassesP4State();
 }
 
-class _BoardPageContentTGlassesP4State
-    extends State<BoardPageContentTGlassesP4> {
+class _DevicePageContentTGlassesP4State
+    extends State<DevicePageContentTGlassesP4> {
   // 默认选中的菜单项 Key
   String _selectedTitleKey = 'start';
   // 用于存储当前悬停颜色状态的 Map
@@ -52,14 +52,14 @@ class _BoardPageContentTGlassesP4State
     // TODO: 实现删除功能
   }
 
-  void _handleBoardSettings() {
+  void _handleDeviceSettings() {
     // 处理板子设置逻辑
     print("打开 T-Glasses-P4 板子设置");
     _menuController.close(); // 确保菜单关闭
 
     // 获取 WindowProvider 并切换到板子设置页面
     final windowProvider = Provider.of<WindowProvider>(context, listen: false);
-    windowProvider.setPage(WindowPage.boardSettings);
+    windowProvider.setPage(WindowPage.deviceSettings);
   }
 
   void _handleRefresh() {
@@ -608,7 +608,7 @@ class _BoardPageContentTGlassesP4State
     final menuItemsList = TGlassesP4RightClickMenu.getMenuItems(
       context: context,
       onRefresh: _handleRefresh,
-      onBoardSettings: _handleBoardSettings,
+      onDeviceSettings: _handleDeviceSettings,
       onDelete: _handleDelete,
     );
 

@@ -57,22 +57,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get allRightsReserved => '。保留所有权利。';
 
   @override
-  String get addBoard => '添加板子';
+  String get addDevice => '添加设备';
 
   @override
-  String get addBoardDescription => '这里可以添加开发板，请选择添加开发板的方式';
+  String get addDeviceDescription => '这里可以添加你的设备，请选择添加设备的方式';
 
   @override
-  String get addByBoardType => '通过板子类型添加';
+  String get addByDeviceType => '通过设备类型添加';
 
   @override
-  String get selectBoard => '选择板子';
+  String get selectDevice => '选择设备';
 
   @override
-  String get selectBoardDescription => '点击下方选择你需要添加的板子';
+  String get selectDeviceDescription => '点击下方选择你需要添加的设备';
 
   @override
-  String get searchForBoardModel => '搜索板子型号';
+  String get searchForDeviceModel => '搜索设备型号';
 
   @override
   String get home => '主页';
@@ -94,7 +94,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get languageDescription => '选择您偏好的应用程序界面语言';
 
   @override
-  String get boardSettings => '板子设置';
+  String get deviceSettings => '设备设置';
 
   @override
   String get refresh => '刷新';

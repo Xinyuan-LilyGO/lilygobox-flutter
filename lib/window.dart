@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-06 11:28:25
- * @LastEditTime: 2025-11-19 11:33:23
+ * @LastEditTime: 2025-11-20 10:04:35
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -18,8 +18,8 @@ import 'provider/window_provider.dart';
 import 'l10n/app_localizations.dart';
 import 'home_page.dart';
 import 'settings_page.dart';
-import 'add_board_page.dart';
-import 'board_settings_tglassesp4.dart';
+import 'add_device_page.dart';
+import 'device_settings_tglassesp4.dart';
 
 // MainApp 现在可以是 StatelessWidget，因为状态已经移到 Provider 中
 class MainApp extends StatelessWidget {
@@ -366,19 +366,19 @@ class MainApp extends StatelessWidget {
         final WindowPage currentPage = windowProvider.currentPage;
 
         // 确定 BASE LAYER (基础内容层) 应该显示哪个页面
-        // 如果当前是 settings 或 boardSettings，则基础层显示对应页面
-        // 如果当前是 home 或 addBoard (模态)，则基础层显示 home
+        // 如果当前是 settings 或 deviceSettings，则基础层显示对应页面
+        // 如果当前是 home 或 addDevice (模态)，则基础层显示 home
         final WindowPage basePageKey;
         final Widget baseContent;
 
         if (currentPage == WindowPage.settings ||
-            currentPage == WindowPage.boardSettings) {
+            currentPage == WindowPage.deviceSettings) {
           basePageKey = currentPage;
         } else {
           basePageKey = WindowPage.home;
         }
 
-        // BASE LAYER: 处理 Home <-> Settings/BoardSettings 的切换动画
+        // BASE LAYER: 处理 Home <-> Settings/DeviceSettings 的切换动画
         baseContent = AnimatedSwitcher(
           duration: const Duration(milliseconds: 500),
           switchInCurve: Curves.easeOutCubic,
@@ -387,8 +387,9 @@ class MainApp extends StatelessWidget {
             // 通过 Key 识别当前正在进入/退出的页面
             final WindowPage key = (child.key as ValueKey<WindowPage>).value;
 
-            // Settings 和 BoardSettings 页面: 使用滑动动画 (从底部滑入)
-            if (key == WindowPage.settings || key == WindowPage.boardSettings) {
+            // Settings 和 DeviceSettings 页面: 使用滑动动画 (从底部滑入)
+            if (key == WindowPage.settings ||
+                key == WindowPage.deviceSettings) {
               return SlideTransition(
                 position: Tween<Offset>(
                   begin: const Offset(0.0, 1.0), // 从底部开始
@@ -414,7 +415,7 @@ class MainApp extends StatelessWidget {
           transitionBuilder: (child, animation) {
             return FadeTransition(opacity: animation, child: child);
           },
-          child: currentPage == WindowPage.addBoard
+          child: currentPage == WindowPage.addDevice
               ? const ModalBarrier(
                   key: ValueKey('modal_barrier_active'),
                   color: Color.fromARGB(100, 0, 0, 0),
@@ -422,7 +423,7 @@ class MainApp extends StatelessWidget {
               : Container(key: const ValueKey('modal_barrier_inactive')),
         );
 
-        // 处理 AddBoard 模态弹窗的缩放动画
+        // 处理 AddDevice 模态弹窗的缩放动画
         final Widget modalContent = AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
           transitionBuilder: (Widget child, Animation<double> animation) {
@@ -434,9 +435,9 @@ class MainApp extends StatelessWidget {
               child: child,
             );
           },
-          child: currentPage == WindowPage.addBoard
-              ? AddBoardPage(
-                  key: const ValueKey(WindowPage.addBoard),
+          child: currentPage == WindowPage.addDevice
+              ? AddDevicePage(
+                  key: const ValueKey(WindowPage.addDevice),
                   windowProvider: windowProvider,
                 )
               : Container(key: const ValueKey('empty_modal_content')),
@@ -446,7 +447,7 @@ class MainApp extends StatelessWidget {
         return Expanded(
           child: Stack(
             children: [
-              baseContent, // 底层内容 (Home、Settings 或 BoardSettings)
+              baseContent, // 底层内容 (Home、Settings 或 DeviceSettings)
               modalBarrier, // 中层背景遮罩
               modalContent, // 上层模态弹窗
             ],
@@ -461,8 +462,8 @@ class MainApp extends StatelessWidget {
     switch (pageKey) {
       case WindowPage.settings:
         return SettingsPage(windowProvider: windowProvider);
-      case WindowPage.boardSettings:
-        return BoardSettingsTGlassesP4(windowProvider: windowProvider);
+      case WindowPage.deviceSettings:
+        return DeviceSettingsTGlassesP4(windowProvider: windowProvider);
       case WindowPage.home:
       default:
         return const HomePage();

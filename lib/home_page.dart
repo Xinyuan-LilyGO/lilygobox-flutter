@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-06 14:22:51
- * @LastEditTime: 2025-11-18 14:46:38
+ * @LastEditTime: 2025-11-20 10:08:41
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -11,11 +11,11 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import 'provider/theme_provider.dart';
 import 'provider/window_provider.dart';
-import 'provider/board_manage_provider.dart';
+import 'provider/device_manage_provider.dart';
 import 'provider/home_page_provider.dart';
 
 import 'home_page_content.dart';
-import 'board_page_content_tglassesp4.dart';
+import 'device_page_content_tglassesp4.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -26,7 +26,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   // 存储动态添加的板子
-  final List<String> _addedBoards = [];
+  final List<String> _addedDevices = [];
 
   void _selectItem(int index) {
     final homePageProvider = Provider.of<HomePageProvider>(
@@ -37,16 +37,16 @@ class _HomePageState extends State<HomePage> {
   }
 
   // 添加板子的公共方法
-  void addBoard(String boardName) {
+  void addDevice(String deviceName) {
     setState(() {
-      _addedBoards.add(boardName);
+      _addedDevices.add(deviceName);
       // 选中新添加的板子
       final homePageProvider = Provider.of<HomePageProvider>(
         context,
         listen: false,
       );
       homePageProvider.updateSelectedIndex(
-        1 + _addedBoards.length,
+        1 + _addedDevices.length,
       ); // 从1开始，因为0是主页
     });
   }
@@ -55,7 +55,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final theme = themeProvider.themeData;
-    final boardManager = Provider.of<BoardManagerProvider>(context);
+    final deviceManager = Provider.of<DeviceManagerProvider>(context);
     final homePageProvider = Provider.of<HomePageProvider>(
       context,
     ); // 获取 HomePageProvider
@@ -66,7 +66,7 @@ class _HomePageState extends State<HomePage> {
           // 左边侧边栏
           _buildLeftSidebar(
             context,
-            boardManager.addedBoards,
+            deviceManager.addedDevices,
             homePageProvider.selectedIndex,
           ),
 
@@ -86,7 +86,7 @@ class _HomePageState extends State<HomePage> {
                 },
                 child: _buildCurrentPage(
                   context,
-                  boardManager.addedBoards,
+                  deviceManager.addedDevices,
                   homePageProvider.selectedIndex,
                 ),
               ),
@@ -99,7 +99,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildLeftSidebar(
     BuildContext context,
-    List<String> addedBoards,
+    List<String> addedDevices,
     int selectedIndex,
   ) {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
@@ -142,25 +142,25 @@ class _HomePageState extends State<HomePage> {
           Expanded(
             child: ListView.builder(
               padding: EdgeInsets.zero,
-              itemCount: addedBoards.length,
+              itemCount: addedDevices.length,
               itemBuilder: (context, index) {
-                final boardIndex = index + 1; // 从1开始
-                final boardName = addedBoards[index];
+                final deviceIndex = index + 1; // 从1开始
+                final deviceName = addedDevices[index];
 
                 // 为不同板子设置不同的图标
-                IconData boardIcon = Symbols.developer_board_rounded;
-                if (boardName == 'T-Glasses-P4') {
-                  boardIcon = Symbols.developer_board; // 眼镜图标
+                IconData deviceIcon = Symbols.developer_board_rounded;
+                if (deviceName == 'T-Glasses-P4') {
+                  deviceIcon = Symbols.developer_board; // 眼镜图标
                 }
 
                 return SidebarButtonTemplate(
-                  icon: boardIcon,
+                  icon: deviceIcon,
                   onPressed: () {
-                    _selectItem(boardIndex);
+                    _selectItem(deviceIndex);
                   },
                   iconColor: theme.sidebarIconColor,
                   iconBackgroundColor: theme.sidebarIconBackgroundColor,
-                  isSelected: selectedIndex == boardIndex,
+                  isSelected: selectedIndex == deviceIndex,
                   selectedColor: theme.sidebarSelectedIconColor,
                   hoverColor: theme.sidebarHoverIconColor,
                   indicatorColor: theme.sidebarIndicatorColor,
@@ -174,7 +174,7 @@ class _HomePageState extends State<HomePage> {
           SidebarButtonTemplate(
             icon: Symbols.add,
             onPressed: () {
-              windowProvider.setPage(WindowPage.addBoard);
+              windowProvider.setPage(WindowPage.addDevice);
             },
             iconColor: theme.sidebarIconColor,
             iconBackgroundColor: theme.sidebarIconBackgroundColor,
@@ -194,7 +194,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildCurrentPage(
     BuildContext context,
-    List<String> addedBoards,
+    List<String> addedDevices,
     int selectedIndex,
   ) {
     // 0 是主页
@@ -204,18 +204,18 @@ class _HomePageState extends State<HomePage> {
     // 1 及以上是动态添加的板子
     else if (selectedIndex >= 1) {
       final dynamicIndex = selectedIndex - 1;
-      if (dynamicIndex < addedBoards.length) {
-        final boardName = addedBoards[dynamicIndex];
+      if (dynamicIndex < addedDevices.length) {
+        final deviceName = addedDevices[dynamicIndex];
         // 根据板子名称返回对应的页面
-        if (boardName == 'T-Glasses-P4') {
-          return const BoardPageContentTGlassesP4(
+        if (deviceName == 'T-Glasses-P4') {
+          return const DevicePageContentTGlassesP4(
             key: ValueKey<String>('T-Glasses-P4'),
           );
         } else {
           // 对于其他板子，返回通用板子页面
-          return GenericBoardPageContent(
-            key: ValueKey<String>(boardName),
-            boardName: boardName,
+          return GenericDevicePageContent(
+            key: ValueKey<String>(deviceName),
+            deviceName: deviceName,
           );
         }
       }
@@ -578,10 +578,10 @@ class _SidebarButtonTemplateState extends State<SidebarButtonTemplate>
 }
 
 // 通用板子页面内容（用于其他板子类型）
-class GenericBoardPageContent extends StatelessWidget {
-  final String boardName;
+class GenericDevicePageContent extends StatelessWidget {
+  final String deviceName;
 
-  const GenericBoardPageContent({super.key, required this.boardName});
+  const GenericDevicePageContent({super.key, required this.deviceName});
 
   @override
   Widget build(BuildContext context) {
@@ -592,12 +592,12 @@ class GenericBoardPageContent extends StatelessWidget {
           Icon(Icons.developer_board, size: 64, color: Colors.grey),
           const SizedBox(height: 16),
           Text(
-            '$boardName 页面',
+            '$deviceName 页面',
             style: const TextStyle(fontSize: 24, color: Colors.white),
           ),
           const SizedBox(height: 8),
           Text(
-            '这是 $boardName 的通用页面',
+            '这是 $deviceName 的通用页面',
             style: const TextStyle(fontSize: 16, color: Colors.grey),
           ),
         ],
