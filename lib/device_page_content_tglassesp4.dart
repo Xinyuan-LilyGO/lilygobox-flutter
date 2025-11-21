@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-17 13:38:52
- * @LastEditTime: 2025-11-20 17:07:20
+ * @LastEditTime: 2025-11-21 13:45:45
  * @License: GPL 3.0
  */
 
@@ -269,394 +269,407 @@ class _DevicePageContentTGlassesP4State
     );
   }
 
-  // 控制中心页面内容 - 简化为只显示已连接状态
+  // 控制中心页面内容
   Widget _buildControlCenterContent(AppTheme theme, BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 状态头部
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: theme.secondary,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                // 设备图标和状态
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: _isConnected
-                        ? Colors.green.withOpacity(0.1)
-                        : Colors.grey.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: _isConnected
-                          ? Colors.green.withOpacity(0.3)
-                          : Colors.grey.withOpacity(0.3),
-                      width: 2,
-                    ),
-                  ),
-                  child: Icon(
-                    _isConnected ? Symbols.connected_tv : Symbols.wifi_off,
-                    size: 30,
-                    color: _isConnected ? Colors.green : Colors.grey,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _isConnected
-                                  ? Colors.green.withOpacity(0.1)
-                                  : Colors.grey.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: _isConnected
-                                    ? Colors.green.withOpacity(0.3)
-                                    : Colors.grey.withOpacity(0.3),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: _isConnected
-                                        ? Colors.green
-                                        : Colors.grey,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  _isConnected ? "已连接" : "未连接",
-                                  style: TextStyle(
-                                    color: _isConnected
-                                        ? Colors.green
-                                        : Colors.grey,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Spacer(),
-                          // 连接/断开按钮
-                          Container(
-                            width: 120,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              gradient: _isConnected
-                                  ? null
-                                  : LinearGradient(
-                                      colors: [
-                                        theme.primary,
-                                        theme.primary.withOpacity(0.8),
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                              color: _isConnected
-                                  ? Colors.orange.withOpacity(0.1)
-                                  : null,
-                              borderRadius: BorderRadius.circular(18),
-                              border: _isConnected
-                                  ? Border.all(
-                                      color: Colors.orange.withOpacity(0.3),
-                                    )
-                                  : null,
-                              boxShadow: _isConnected
-                                  ? null
-                                  : [
-                                      BoxShadow(
-                                        color: theme.primary.withOpacity(0.3),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                            ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(18),
-                                onTap: _isConnected
-                                    ? _disconnectDevice
-                                    : _connectToDevice,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      _isConnected
-                                          ? Symbols.link_off
-                                          : Symbols.link,
-                                      color: _isConnected
-                                          ? Colors.orange
-                                          : Colors.white,
-                                      size: 18,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      _isConnected ? "断开" : "连接",
-                                      style: TextStyle(
-                                        color: _isConnected
-                                            ? Colors.orange
-                                            : Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "T-Glasses-P4",
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: theme.textColorPrimary,
-                        ),
-                      ),
-                      Text(
-                        "智能眼镜开发板 • ${_isConnected ? '在线' : '离线'}",
-                        style: TextStyle(color: theme.textColorSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+    return Column(
+      children: [
+        // 状态头部 - 放在单独的容器中
+        Container(
+          padding: const EdgeInsets.all(20),
+          margin: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: theme.secondary,
+            borderRadius: BorderRadius.circular(16),
           ),
-          const SizedBox(height: 24),
-
-          if (_isConnected) ...[
-            // 快速操作卡片 - 仅在连接时显示
-            Text(
-              "快速操作",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: theme.textColorPrimary,
+          child: Row(
+            children: [
+              // 设备图标和状态
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: _isConnected
+                      ? Colors.green.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: _isConnected
+                        ? Colors.green.withOpacity(0.3)
+                        : Colors.grey.withOpacity(0.3),
+                    width: 2,
+                  ),
+                ),
+                child: Icon(
+                  _isConnected ? Symbols.connected_tv : Symbols.wifi_off,
+                  size: 30,
+                  color: _isConnected ? Colors.green : Colors.grey,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            // 修改点 A: 快速操作网格使用响应式布局
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: 3, // 示例中只有3个卡片
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 180, // 设置单个卡片的最大宽度，实现响应式三列/两列切换
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.0, // 调整为更接近正方形
-              ),
-              itemBuilder: (context, index) {
-                // 根据索引返回不同的快速操作卡片
-                switch (index) {
-                  case 0:
-                    return _buildQuickActionCard(
-                      theme,
-                      "重启设备",
-                      Symbols.restart_alt,
-                      Colors.blue,
-                      () {},
-                    );
-                  case 1:
-                    return _buildQuickActionCard(
-                      theme,
-                      "更新固件",
-                      Symbols.system_update,
-                      Colors.purple,
-                      () {},
-                    );
-                  case 2:
-                    return _buildQuickActionCard(
-                      theme,
-                      "设备信息",
-                      Symbols.info,
-                      Colors.green,
-                      () {},
-                    );
-                  default:
-                    return const SizedBox.shrink();
-                }
-              },
-            ),
-            const SizedBox(height: 24),
-
-            // 设备状态网格 - 仅在连接时显示
-            Text(
-              "设备状态",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: theme.textColorPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            // 修改点 B: 设备状态网格使用响应式布局
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: 6, // 示例中共有6个状态卡片
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 350, // 设置单个卡片的最大宽度，实现响应式两列布局
-                crossAxisSpacing: 15,
-                mainAxisSpacing: 15,
-                childAspectRatio: 3.5, // 调整为更扁平的比例
-              ),
-              itemBuilder: (context, index) {
-                // 根据索引返回不同的状态卡片
-                switch (index) {
-                  case 0:
-                    return _buildStatusCard(
-                      theme,
-                      "连接状态",
-                      "已连接",
-                      Symbols.check_circle,
-                      Colors.green,
-                    );
-                  case 1:
-                    return _buildStatusCard(
-                      theme,
-                      "电池电量",
-                      "85%",
-                      Symbols.battery_5_bar,
-                      Colors.blue,
-                    );
-                  case 2:
-                    return _buildStatusCard(
-                      theme,
-                      "温度",
-                      "32°C",
-                      Symbols.thermostat,
-                      Colors.orange,
-                    );
-                  case 3:
-                    return _buildStatusCard(
-                      theme,
-                      "信号强度",
-                      "优秀",
-                      Symbols.wifi,
-                      Colors.green,
-                    );
-                  case 4:
-                    return _buildStatusCard(
-                      theme,
-                      "固件版本",
-                      "v1.2.3",
-                      Symbols.info,
-                      theme.textColorPrimary,
-                    );
-                  case 5:
-                    return _buildStatusCard(
-                      theme,
-                      "运行时间",
-                      "2天14小时",
-                      Symbols.timer,
-                      Colors.purple,
-                    );
-                  default:
-                    return const SizedBox.shrink();
-                }
-              },
-            ),
-            const SizedBox(height: 24),
-
-            // 实时数据图表区域 - 仅在连接时显示
-            Text(
-              "实时监控",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: theme.textColorPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              color: theme.secondary,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
+              const SizedBox(width: 16),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _isConnected
+                                ? Colors.green.withOpacity(0.1)
+                                : Colors.grey.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: _isConnected
+                                  ? Colors.green.withOpacity(0.3)
+                                  : Colors.grey.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: _isConnected
+                                      ? Colors.green
+                                      : Colors.grey,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _isConnected ? "已连接" : "未连接",
+                                style: TextStyle(
+                                  color: _isConnected
+                                      ? Colors.green
+                                      : Colors.grey,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        // 连接/断开按钮
+                        Container(
+                          width: 120,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            gradient: _isConnected
+                                ? null
+                                : LinearGradient(
+                                    colors: [
+                                      theme.primary,
+                                      theme.primary.withOpacity(0.8),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                            color: _isConnected
+                                ? Colors.orange.withOpacity(0.1)
+                                : null,
+                            borderRadius: BorderRadius.circular(18),
+                            border: _isConnected
+                                ? Border.all(
+                                    color: Colors.orange.withOpacity(0.3),
+                                  )
+                                : null,
+                            boxShadow: _isConnected
+                                ? null
+                                : [
+                                    BoxShadow(
+                                      color: theme.primary.withOpacity(0.3),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(18),
+                              onTap: _isConnected
+                                  ? _disconnectDevice
+                                  : _connectToDevice,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    _isConnected
+                                        ? Symbols.link_off
+                                        : Symbols.link,
+                                    color: _isConnected
+                                        ? Colors.orange
+                                        : Colors.white,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _isConnected ? "断开" : "连接",
+                                    style: TextStyle(
+                                      color: _isConnected
+                                          ? Colors.orange
+                                          : Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
                     Text(
-                      "CPU 使用率",
+                      "T-Glasses-P4",
                       style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                         color: theme.textColorPrimary,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Container(
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: theme.tertiary,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Center(
-                        child: Text(
-                          "实时图表区域",
-                          style: TextStyle(color: theme.textColorTertiary),
-                        ),
-                      ),
+                    Text(
+                      "智能眼镜开发板 • ${_isConnected ? '在线' : '离线'}",
+                      style: TextStyle(color: theme.textColorSecondary),
                     ),
                   ],
                 ),
               ),
+            ],
+          ),
+        ),
+
+        // 主要内容区域 - 使用 Expanded 确保填充剩余空间
+        Expanded(
+          child: _isConnected
+              ? _buildConnectedContent(theme, context) // 已连接内容
+              : _buildDisconnectedContent(theme, context), // 未连接内容
+        ),
+      ],
+    );
+  }
+
+  // 已连接状态的内容
+  Widget _buildConnectedContent(AppTheme theme, BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 24),
+
+          // 快速操作卡片 - 仅在连接时显示
+          Text(
+            "快速操作",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: theme.textColorPrimary,
             ),
-          ] else ...[
-            // 未连接时的提示信息
-            const SizedBox(height: 40),
-            Center(
+          ),
+          const SizedBox(height: 12),
+          // 快速操作网格使用响应式布局
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: 3, // 示例中只有3个卡片
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 180, // 设置单个卡片的最大宽度，实现响应式三列/两列切换
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.0, // 调整为更接近正方形
+            ),
+            itemBuilder: (context, index) {
+              // 根据索引返回不同的快速操作卡片
+              switch (index) {
+                case 0:
+                  return _buildQuickActionCard(
+                    theme,
+                    "重启设备",
+                    Symbols.restart_alt,
+                    Colors.blue,
+                    () {},
+                  );
+                case 1:
+                  return _buildQuickActionCard(
+                    theme,
+                    "更新固件",
+                    Symbols.system_update,
+                    Colors.purple,
+                    () {},
+                  );
+                case 2:
+                  return _buildQuickActionCard(
+                    theme,
+                    "设备信息",
+                    Symbols.info,
+                    Colors.green,
+                    () {},
+                  );
+                default:
+                  return const SizedBox.shrink();
+              }
+            },
+          ),
+          const SizedBox(height: 24),
+
+          // 设备状态网格 - 仅在连接时显示
+          Text(
+            "设备状态",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: theme.textColorPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          // 设备状态网格使用响应式布局
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: 6, // 示例中共有6个状态卡片
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 350, // 设置单个卡片的最大宽度，实现响应式两列布局
+              crossAxisSpacing: 15,
+              mainAxisSpacing: 15,
+              childAspectRatio: 3.5, // 调整为更扁平的比例
+            ),
+            itemBuilder: (context, index) {
+              // 根据索引返回不同的状态卡片
+              switch (index) {
+                case 0:
+                  return _buildStatusCard(
+                    theme,
+                    "连接状态",
+                    "已连接",
+                    Symbols.check_circle,
+                    Colors.green,
+                  );
+                case 1:
+                  return _buildStatusCard(
+                    theme,
+                    "电池电量",
+                    "85%",
+                    Symbols.battery_5_bar,
+                    Colors.blue,
+                  );
+                case 2:
+                  return _buildStatusCard(
+                    theme,
+                    "温度",
+                    "32°C",
+                    Symbols.thermostat,
+                    Colors.orange,
+                  );
+                case 3:
+                  return _buildStatusCard(
+                    theme,
+                    "信号强度",
+                    "优秀",
+                    Symbols.wifi,
+                    Colors.green,
+                  );
+                case 4:
+                  return _buildStatusCard(
+                    theme,
+                    "固件版本",
+                    "v1.2.3",
+                    Symbols.info,
+                    theme.textColorPrimary,
+                  );
+                case 5:
+                  return _buildStatusCard(
+                    theme,
+                    "运行时间",
+                    "2天14小时",
+                    Symbols.timer,
+                    Colors.purple,
+                  );
+                default:
+                  return const SizedBox.shrink();
+              }
+            },
+          ),
+          const SizedBox(height: 24),
+
+          // 实时数据图表区域 - 仅在连接时显示
+          Text(
+            "实时监控",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: theme.textColorPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            color: theme.secondary,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Symbols.devices_off,
-                    size: 64,
-                    color: theme.textColorTertiary,
-                  ),
-                  const SizedBox(height: 16),
                   Text(
-                    "设备未连接",
+                    "CPU 使用率",
                     style: TextStyle(
-                      fontSize: 18,
-                      color: theme.textColorSecondary,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: theme.textColorPrimary,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "请连接设备以查看详细信息和控制选项",
-                    style: TextStyle(color: theme.textColorTertiary),
+                  const SizedBox(height: 12),
+                  Container(
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: theme.tertiary,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: Text(
+                        "实时图表区域",
+                        style: TextStyle(color: theme.textColorTertiary),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  // 未连接状态的内容
+  Widget _buildDisconnectedContent(AppTheme theme, BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Symbols.devices_off, size: 64, color: theme.textColorTertiary),
+          const SizedBox(height: 16),
+          Text(
+            "设备未连接",
+            style: TextStyle(
+              fontSize: 18,
+              color: theme.textColorSecondary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "请连接设备以查看详细信息和控制选项",
+            style: TextStyle(color: theme.textColorTertiary),
+          ),
         ],
       ),
     );
@@ -843,7 +856,7 @@ class _DevicePageContentTGlassesP4State
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // 修改点 C: 增大图标尺寸
+                // 增大图标尺寸
                 Icon(icon, size: 36, color: color),
                 const SizedBox(height: 10),
                 Text(
@@ -879,7 +892,7 @@ class _DevicePageContentTGlassesP4State
         padding: const EdgeInsets.all(16.0),
         child: Row(
           children: [
-            // 修改点 D: 增大图标尺寸
+            // 增大图标尺寸
             Icon(icon, size: 30, color: color),
             const SizedBox(width: 15),
             Expanded(
