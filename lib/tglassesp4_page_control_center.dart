@@ -2,9 +2,11 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-21 15:43:04
- * @LastEditTime: 2025-11-22 11:38:43
+ * @LastEditTime: 2025-11-22 14:53:33
  * @License: GPL 3.0
  */
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
@@ -42,39 +44,30 @@ class _TGlassesP4PageControlCenterState
     extends State<TGlassesP4PageControlCenter> {
   @override
   Widget build(BuildContext context) {
+    // 确保 ThemeProvider 在这里是可用的
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final theme = themeProvider.themeData;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start, // 主列靠左对齐
       children: [
-        // 标题 - 移到卡片上方
-        Padding(
-          padding: const EdgeInsets.only(top: 25, left: 35, right: 30),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "T-Glasses-P4",
-                style: TextStyle(
-                  fontSize: 28, // 增大字体
-                  fontWeight: FontWeight.bold,
-                  color: theme.textColorPrimary,
-                ),
-              ),
-              Text(
-                "智能眼镜设备",
-                style: TextStyle(fontSize: 16, color: theme.textColorSecondary),
-              ),
-            ],
-          ),
+        // 标题区域 - 使用 SizedBox.expand 确保铺满全宽
+        SizedBox(
+          width: double.infinity, // 确保宽度铺满
+          height: 120,
+          child: _buildHeaderWithBackground(theme),
         ),
 
         const SizedBox(height: 10),
 
-        // 设备状态标题
+        // 设备状态标题 - 保持对齐
         Padding(
-          padding: const EdgeInsets.only(top: 10, left: 35, right: 30,bottom: 5),
+          padding: const EdgeInsets.only(
+            top: 10,
+            left: 35,
+            right: 30,
+            bottom: 5,
+          ),
           child: Text(
             "设备状态",
             style: TextStyle(
@@ -85,7 +78,7 @@ class _TGlassesP4PageControlCenterState
           ),
         ),
 
-        // 状态头部 - 放在单独的容器中
+        // 状态头部 - 保持原来的左右 margin
         Container(
           padding: const EdgeInsets.all(15),
           margin: const EdgeInsets.only(left: 30, right: 30),
@@ -140,6 +133,84 @@ class _TGlassesP4PageControlCenterState
         // 主要内容区域 - 使用 Expanded 确保填充剩余空间
         Expanded(child: _buildContentByStatus(theme, context)),
       ],
+    );
+  }
+
+  // 构建带背景的标题区域（修改为纯红色背景并铺满全宽）
+  Widget _buildHeaderWithBackground(AppTheme theme) {
+    return Container(
+      width: double.infinity, // 确保容器宽度铺满
+      decoration: const BoxDecoration(
+        color: const Color.fromARGB(255, 126, 109, 202),
+      ),
+      child: Stack(
+        children: [
+          // 标题内容 - 保持左侧 padding 45
+          Padding(
+            padding: const EdgeInsets.only(top: 25, left: 35, right: 30),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "T-Glasses-P4",
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: theme.textColorPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "智能眼镜设备",
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: theme.textColorSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 底部虚化遮罩 - 全宽且无圆角，使用 ShaderMask
+          Positioned.fill(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: ShaderMask(
+                shaderCallback: (Rect bounds) {
+                  return LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+                    stops: const [0.0, 1.0],
+                  ).createShader(bounds);
+                },
+                blendMode: BlendMode.dstOut,
+                child: ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 1.0, sigmaY: 1.0),
+                    child: Container(
+                      height: 40,
+                      width: double.infinity, // 确保遮罩也铺满全宽
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.red.withOpacity(0.3),
+                          ],
+                          stops: const [0.0, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
