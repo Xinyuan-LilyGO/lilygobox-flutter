@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-21 15:43:04
- * @LastEditTime: 2025-11-21 15:47:52
+ * @LastEditTime: 2025-11-21 18:26:53
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -36,14 +36,39 @@ class _TGlassesP4PageControlCenterState
     final theme = themeProvider.themeData;
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start, // 主列靠左对齐
       children: [
+        // 标题 - 移到卡片上方
+        Padding(
+          padding: const EdgeInsets.only(top: 25, left: 35, right: 30),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "T-Glasses-P4",
+                style: TextStyle(
+                  fontSize: 25, // 增大字体
+                  fontWeight: FontWeight.bold,
+                  color: theme.textColorPrimary,
+                ),
+              ),
+              Text(
+                "智能眼镜",
+                style: TextStyle(fontSize: 15, color: theme.textColorSecondary),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
         // 状态头部 - 放在单独的容器中
         Container(
-          padding: const EdgeInsets.all(20),
-          margin: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(15),
+          margin: const EdgeInsets.only(left: 30, right: 30),
           decoration: BoxDecoration(
             color: theme.secondary,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             children: [
@@ -64,7 +89,7 @@ class _TGlassesP4PageControlCenterState
                   ),
                 ),
                 child: Icon(
-                  widget.isConnected ? Symbols.connected_tv : Symbols.wifi_off,
+                  Symbols.developer_board, // 改为 developer_board 图标
                   size: 30,
                   color: widget.isConnected ? Colors.green : Colors.grey,
                 ),
@@ -74,134 +99,10 @@ class _TGlassesP4PageControlCenterState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: widget.isConnected
-                                ? Colors.green.withOpacity(0.1)
-                                : Colors.grey.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: widget.isConnected
-                                  ? Colors.green.withOpacity(0.3)
-                                  : Colors.grey.withOpacity(0.3),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: widget.isConnected
-                                      ? Colors.green
-                                      : Colors.grey,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                widget.isConnected ? "已连接" : "未连接",
-                                style: TextStyle(
-                                  color: widget.isConnected
-                                      ? Colors.green
-                                      : Colors.grey,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Spacer(),
-                        // 连接/断开按钮
-                        Container(
-                          width: 120,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            gradient: widget.isConnected
-                                ? null
-                                : LinearGradient(
-                                    colors: [
-                                      theme.primary,
-                                      theme.primary.withOpacity(0.8),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                            color: widget.isConnected
-                                ? Colors.orange.withOpacity(0.1)
-                                : null,
-                            borderRadius: BorderRadius.circular(18),
-                            border: widget.isConnected
-                                ? Border.all(
-                                    color: Colors.orange.withOpacity(0.3),
-                                  )
-                                : null,
-                            boxShadow: widget.isConnected
-                                ? null
-                                : [
-                                    BoxShadow(
-                                      color: theme.primary.withOpacity(0.3),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(18),
-                              onTap: widget.isConnected
-                                  ? widget.onDisconnect
-                                  : widget.onConnect,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    widget.isConnected
-                                        ? Symbols.link_off
-                                        : Symbols.link,
-                                    color: widget.isConnected
-                                        ? Colors.orange
-                                        : Colors.white,
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    widget.isConnected ? "断开" : "连接",
-                                    style: TextStyle(
-                                      color: widget.isConnected
-                                          ? Colors.orange
-                                          : Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    // 删除设备在线/离线状态标签
                     const SizedBox(height: 8),
                     Text(
-                      "T-Glasses-P4",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: theme.textColorPrimary,
-                      ),
-                    ),
-                    Text(
-                      "智能眼镜开发板 • ${widget.isConnected ? '在线' : '离线'}",
+                      "智能眼镜开发板 • ${widget.isConnected ? '已连接' : '未连接'}",
                       style: TextStyle(color: theme.textColorSecondary),
                     ),
                   ],
@@ -226,7 +127,7 @@ class _TGlassesP4PageControlCenterState
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start, // 已连接内容靠左对齐
         children: [
           const SizedBox(height: 24),
 
@@ -413,7 +314,7 @@ class _TGlassesP4PageControlCenterState
     );
   }
 
-  // 未连接状态的内容
+  // 未连接状态的内容 - 保持居中
   Widget _buildDisconnectedContent(AppTheme theme, BuildContext context) {
     return Center(
       child: Column(
