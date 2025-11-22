@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-21 15:43:04
- * @LastEditTime: 2025-11-22 14:53:33
+ * @LastEditTime: 2025-11-22 16:15:44
  * @License: GPL 3.0
  */
 import 'dart:ui';
@@ -58,7 +58,7 @@ class _TGlassesP4PageControlCenterState
           child: _buildHeaderWithBackground(theme),
         ),
 
-        const SizedBox(height: 10),
+        const SizedBox(height: 5),
 
         // 设备状态标题 - 保持对齐
         Padding(
@@ -136,16 +136,22 @@ class _TGlassesP4PageControlCenterState
     );
   }
 
-  // 构建带背景的标题区域（修改为纯红色背景并铺满全宽）
   Widget _buildHeaderWithBackground(AppTheme theme) {
-    return Container(
-      width: double.infinity, // 确保容器宽度铺满
-      decoration: const BoxDecoration(
-        color: const Color.fromARGB(255, 126, 109, 202),
-      ),
+    return SizedBox(
+      width: double.infinity,
+      height: 120,
       child: Stack(
         children: [
-          // 标题内容 - 保持左侧 padding 45
+          // 背景容器
+          Container(
+            width: double.infinity,
+            height: 120,
+            decoration: const BoxDecoration(
+              color: Color.fromARGB(255, 126, 109, 202),
+            ),
+          ),
+
+          // 标题内容
           Padding(
             padding: const EdgeInsets.only(top: 25, left: 35, right: 30),
             child: Column(
@@ -172,39 +178,22 @@ class _TGlassesP4PageControlCenterState
             ),
           ),
 
-          // 底部虚化遮罩 - 全宽且无圆角，使用 ShaderMask
-          Positioned.fill(
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: ShaderMask(
-                shaderCallback: (Rect bounds) {
-                  return LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
-                    stops: const [0.0, 1.0],
-                  ).createShader(bounds);
-                },
-                blendMode: BlendMode.dstOut,
-                child: ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 1.0, sigmaY: 1.0),
-                    child: Container(
-                      height: 40,
-                      width: double.infinity, // 确保遮罩也铺满全宽
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.red.withOpacity(0.3),
-                          ],
-                          stops: const [0.0, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
+          // 底部渐变虚化效果
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 30, // 调整渐变区域的高度
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    const Color.fromARGB(0, 126, 109, 202), // 完全透明
+                    theme.tertiary, // 或者使用 theme.primary，根据下方背景色调整
+                  ],
+                  stops: const [0.0, 1.0], // 可以调整这些值来控制渐变的过渡
                 ),
               ),
             ),
