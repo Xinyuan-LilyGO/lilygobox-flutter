@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-17 13:38:52
- * @LastEditTime: 2025-11-21 15:51:16
+ * @LastEditTime: 2025-11-22 11:46:20
  * @License: GPL 3.0
  */
 
@@ -85,6 +85,18 @@ class _DevicePageContentTGlassesP4State
   }
 
   void _disconnectDevice() {
+    setState(() {
+      _isConnected = false;
+    });
+  }
+
+  void _pair() {
+    setState(() {
+      _isConnected = false;
+    });
+  }
+
+  void _refresh() {
     setState(() {
       _isConnected = false;
     });
@@ -187,9 +199,11 @@ class _DevicePageContentTGlassesP4State
         return const TGlassesP4PageStart();
       case 'control_center':
         return TGlassesP4PageControlCenter(
-          isConnected: _isConnected,
+          connectionStatus: ConnectionStatus.connected,
           onConnect: _connectToDevice,
           onDisconnect: _disconnectDevice,
+          onPair: _pair,
+          onRefresh: _refresh,
         );
       case 'device_settings':
         return const TGlassesP4PageDeviceSettings();

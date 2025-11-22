@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-21 15:43:04
- * @LastEditTime: 2025-11-21 18:26:53
+ * @LastEditTime: 2025-11-22 11:38:43
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -12,20 +12,30 @@ import 'package:provider/provider.dart';
 import 'provider/theme_provider.dart';
 
 class TGlassesP4PageControlCenter extends StatefulWidget {
-  final bool isConnected;
+  final ConnectionStatus connectionStatus;
   final VoidCallback onConnect;
   final VoidCallback onDisconnect;
+  final VoidCallback onPair;
+  final VoidCallback onRefresh;
 
   const TGlassesP4PageControlCenter({
     super.key,
-    required this.isConnected,
+    required this.connectionStatus,
     required this.onConnect,
     required this.onDisconnect,
+    required this.onPair,
+    required this.onRefresh,
   });
 
   @override
   State<TGlassesP4PageControlCenter> createState() =>
       _TGlassesP4PageControlCenterState();
+}
+
+enum ConnectionStatus {
+  unpaired, // 未配对
+  disconnected, // 未连接
+  connected, // 已连接
 }
 
 class _TGlassesP4PageControlCenterState
@@ -47,20 +57,33 @@ class _TGlassesP4PageControlCenterState
               Text(
                 "T-Glasses-P4",
                 style: TextStyle(
-                  fontSize: 25, // 增大字体
+                  fontSize: 28, // 增大字体
                   fontWeight: FontWeight.bold,
                   color: theme.textColorPrimary,
                 ),
               ),
               Text(
-                "智能眼镜",
-                style: TextStyle(fontSize: 15, color: theme.textColorSecondary),
+                "智能眼镜设备",
+                style: TextStyle(fontSize: 16, color: theme.textColorSecondary),
               ),
             ],
           ),
         ),
 
         const SizedBox(height: 10),
+
+        // 设备状态标题
+        Padding(
+          padding: const EdgeInsets.only(top: 10, left: 35, right: 30,bottom: 5),
+          child: Text(
+            "设备状态",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: theme.textColorPrimary,
+            ),
+          ),
+        ),
 
         // 状态头部 - 放在单独的容器中
         Container(
@@ -77,21 +100,17 @@ class _TGlassesP4PageControlCenterState
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  color: widget.isConnected
-                      ? Colors.green.withOpacity(0.1)
-                      : Colors.grey.withOpacity(0.1),
+                  color: _getStatusColor(theme).withOpacity(0.1),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: widget.isConnected
-                        ? Colors.green.withOpacity(0.3)
-                        : Colors.grey.withOpacity(0.3),
+                    color: _getStatusColor(theme).withOpacity(0.3),
                     width: 2,
                   ),
                 ),
                 child: Icon(
                   Symbols.developer_board, // 改为 developer_board 图标
                   size: 30,
-                  color: widget.isConnected ? Colors.green : Colors.grey,
+                  color: _getStatusColor(theme),
                 ),
               ),
               const SizedBox(width: 16),
@@ -102,213 +121,102 @@ class _TGlassesP4PageControlCenterState
                     // 删除设备在线/离线状态标签
                     const SizedBox(height: 8),
                     Text(
-                      "智能眼镜开发板 • ${widget.isConnected ? '已连接' : '未连接'}",
+                      _getStatusText(),
                       style: TextStyle(color: theme.textColorSecondary),
                     ),
                   ],
                 ),
               ),
+              // 未连接状态显示刷新按钮
+              if (widget.connectionStatus == ConnectionStatus.disconnected)
+                IconButton(
+                  icon: Icon(Symbols.refresh, color: theme.textColorTertiary),
+                  onPressed: widget.onRefresh,
+                ),
             ],
           ),
         ),
 
         // 主要内容区域 - 使用 Expanded 确保填充剩余空间
-        Expanded(
-          child: widget.isConnected
-              ? _buildConnectedContent(theme, context) // 已连接内容
-              : _buildDisconnectedContent(theme, context), // 未连接内容
-        ),
+        Expanded(child: _buildContentByStatus(theme, context)),
       ],
     );
   }
 
-  // 已连接状态的内容
-  Widget _buildConnectedContent(AppTheme theme, BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+  // 根据连接状态构建内容
+  Widget _buildContentByStatus(AppTheme theme, BuildContext context) {
+    switch (widget.connectionStatus) {
+      case ConnectionStatus.unpaired:
+        return _buildUnpairedContent(theme, context);
+      case ConnectionStatus.disconnected:
+        return _buildDisconnectedContent(theme, context);
+      case ConnectionStatus.connected:
+        return _buildConnectedContent(theme, context);
+    }
+  }
+
+  // 未配对状态的内容
+  Widget _buildUnpairedContent(AppTheme theme, BuildContext context) {
+    return Center(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start, // 已连接内容靠左对齐
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(height: 24),
-
-          // 快速操作卡片 - 仅在连接时显示
+          Icon(Symbols.devices_off, size: 64, color: theme.textColorTertiary),
+          const SizedBox(height: 16),
           Text(
-            "快速操作",
+            "设备未配对",
             style: TextStyle(
               fontSize: 18,
+              color: theme.textColorSecondary,
               fontWeight: FontWeight.bold,
-              color: theme.textColorPrimary,
             ),
           ),
-          const SizedBox(height: 12),
-          // 快速操作网格使用响应式布局
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: 3, // 示例中只有3个卡片
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 180, // 设置单个卡片的最大宽度，实现响应式三列/两列切换
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.0, // 调整为更接近正方形
-            ),
-            itemBuilder: (context, index) {
-              // 根据索引返回不同的快速操作卡片
-              switch (index) {
-                case 0:
-                  return _buildQuickActionCard(
-                    theme,
-                    "重启设备",
-                    Symbols.restart_alt,
-                    Colors.blue,
-                    () {},
-                  );
-                case 1:
-                  return _buildQuickActionCard(
-                    theme,
-                    "更新固件",
-                    Symbols.system_update,
-                    Colors.purple,
-                    () {},
-                  );
-                case 2:
-                  return _buildQuickActionCard(
-                    theme,
-                    "设备信息",
-                    Symbols.info,
-                    Colors.green,
-                    () {},
-                  );
-                default:
-                  return const SizedBox.shrink();
-              }
-            },
-          ),
+          const SizedBox(height: 8),
+          Text("请先配对设备以建立连接", style: TextStyle(color: theme.textColorTertiary)),
           const SizedBox(height: 24),
-
-          // 设备状态网格 - 仅在连接时显示
-          Text(
-            "设备状态",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: theme.textColorPrimary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          // 设备状态网格使用响应式布局
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: 6, // 示例中共有6个状态卡片
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 350, // 设置单个卡片的最大宽度，实现响应式两列布局
-              crossAxisSpacing: 15,
-              mainAxisSpacing: 15,
-              childAspectRatio: 3.5, // 调整为更扁平的比例
-            ),
-            itemBuilder: (context, index) {
-              // 根据索引返回不同的状态卡片
-              switch (index) {
-                case 0:
-                  return _buildStatusCard(
-                    theme,
-                    "连接状态",
-                    "已连接",
-                    Symbols.check_circle,
-                    Colors.green,
-                  );
-                case 1:
-                  return _buildStatusCard(
-                    theme,
-                    "电池电量",
-                    "85%",
-                    Symbols.battery_5_bar,
-                    Colors.blue,
-                  );
-                case 2:
-                  return _buildStatusCard(
-                    theme,
-                    "温度",
-                    "32°C",
-                    Symbols.thermostat,
-                    Colors.orange,
-                  );
-                case 3:
-                  return _buildStatusCard(
-                    theme,
-                    "信号强度",
-                    "优秀",
-                    Symbols.wifi,
-                    Colors.green,
-                  );
-                case 4:
-                  return _buildStatusCard(
-                    theme,
-                    "固件版本",
-                    "v1.2.3",
-                    Symbols.info,
-                    theme.textColorPrimary,
-                  );
-                case 5:
-                  return _buildStatusCard(
-                    theme,
-                    "运行时间",
-                    "2天14小时",
-                    Symbols.timer,
-                    Colors.purple,
-                  );
-                default:
-                  return const SizedBox.shrink();
-              }
-            },
-          ),
-          const SizedBox(height: 24),
-
-          // 实时数据图表区域 - 仅在连接时显示
-          Text(
-            "实时监控",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: theme.textColorPrimary,
-            ),
-          ),
-          const SizedBox(height: 12),
+          // 配对按钮卡片
           Card(
             color: theme.secondary,
-            child: Padding(
+            child: Container(
+              width: 200,
               padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "CPU 使用率",
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: theme.textColorPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: theme.tertiary,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Center(
-                      child: Text(
-                        "实时图表区域",
-                        style: TextStyle(color: theme.textColorTertiary),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: widget.onPair,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Symbols.link,
+                        size: 36,
+                        color: theme.sidebarSelectedIconColor,
                       ),
-                    ),
+                      const SizedBox(height: 12),
+                      Text(
+                        "配对设备",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: theme.textColorPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "点击开始配对",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.textColorTertiary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 24),
         ],
       ),
     );
@@ -340,91 +248,50 @@ class _TGlassesP4PageControlCenterState
     );
   }
 
-  // 构建快速操作卡片
-  Widget _buildQuickActionCard(
-    AppTheme theme,
-    String title,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return Card(
-      color: theme.secondary,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // 增大图标尺寸
-                Icon(icon, size: 36, color: color),
-                const SizedBox(height: 10),
-                Text(
-                  title,
-                  style: TextStyle(
-                    // 略微增大字体
-                    fontSize: 14,
-                    color: theme.textColorPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+  // 已连接状态的内容 - 删除所有子项
+  Widget _buildConnectedContent(AppTheme theme, BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Symbols.check_circle, size: 64, color: Colors.green),
+          const SizedBox(height: 16),
+          Text(
+            "设备已连接",
+            style: TextStyle(
+              fontSize: 18,
+              color: theme.textColorSecondary,
+              fontWeight: FontWeight.bold,
             ),
           ),
-        ),
+          const SizedBox(height: 8),
+          Text("设备连接正常", style: TextStyle(color: theme.textColorTertiary)),
+        ],
       ),
     );
   }
 
-  // 构建状态卡片
-  Widget _buildStatusCard(
-    AppTheme theme,
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Card(
-      color: theme.secondary,
-      child: Padding(
-        // 增大内边距
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            // 增大图标尺寸
-            Icon(icon, size: 30, color: color),
-            const SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center, // 垂直居中
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14, // 略微增大
-                      color: theme.textColorTertiary,
-                    ),
-                  ),
-                  Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 18, // 增大值文本
-                      fontWeight: FontWeight.bold,
-                      color: theme.textColorPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  // 获取状态颜色
+  Color _getStatusColor(AppTheme theme) {
+    switch (widget.connectionStatus) {
+      case ConnectionStatus.unpaired:
+        return theme.sidebarSelectedIconColor;
+      case ConnectionStatus.disconnected:
+        return theme.sidebarSelectedIconColor;
+      case ConnectionStatus.connected:
+        return Colors.green;
+    }
+  }
+
+  // 获取状态文本
+  String _getStatusText() {
+    switch (widget.connectionStatus) {
+      case ConnectionStatus.unpaired:
+        return "智能眼镜开发板 • 未配对";
+      case ConnectionStatus.disconnected:
+        return "智能眼镜开发板 • 未连接";
+      case ConnectionStatus.connected:
+        return "智能眼镜开发板 • 已连接";
+    }
   }
 }
