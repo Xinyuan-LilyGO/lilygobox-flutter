@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-17 13:38:52
- * @LastEditTime: 2025-11-22 11:46:20
+ * @LastEditTime: 2025-11-24 10:40:18
  * @License: GPL 3.0
  */
 
@@ -227,7 +227,6 @@ class _DevicePageContentTGlassesP4State
     // 构建菜单项的回调
     final menuItemsList = TGlassesP4RightClickMenu.getMenuItems(
       context: context,
-      onRefresh: _handleRefresh,
       onDeviceSettings: _handleDeviceSettings,
       onDelete: _handleDelete,
     );

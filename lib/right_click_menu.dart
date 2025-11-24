@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-18 14:00:00
- * @LastEditTime: 2025-11-20 10:04:14
+ * @LastEditTime: 2025-11-24 10:40:03
  * @License: GPL 3.0
  */
 
@@ -192,7 +192,7 @@ class RightClickMenuBuilder {
                   opticalSize: 20,
                   weight: 300,
                 ),
-                const SizedBox(width: 3),
+                const SizedBox(width: 4),
               ],
               Expanded(
                 child: Text(
@@ -221,16 +221,10 @@ class TGlassesP4RightClickMenu {
   /// 获取 T-Glasses-P4 标题的右键菜单项
   static List<RightClickMenuItem> getMenuItems({
     required BuildContext context,
-    required VoidCallback onRefresh,
     required VoidCallback onDeviceSettings,
     required VoidCallback onDelete,
   }) {
     return [
-      RightClickMenuItem(
-        label: context.l10n.refresh,
-        icon: Symbols.refresh_rounded,
-        onTap: onRefresh,
-      ),
       RightClickMenuItem(
         label: context.l10n.deviceSettings,
         icon: Symbols.settings_rounded,
