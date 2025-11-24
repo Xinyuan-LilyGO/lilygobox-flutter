@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-21 15:43:04
- * @LastEditTime: 2025-11-24 14:46:10
+ * @LastEditTime: 2025-11-24 14:48:00
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -251,7 +251,7 @@ class _TGlassesP4PageControlCenterState
               onEnter: (_) => setState(() => _isPairButtonHovered = true),
               onExit: (_) => setState(() => _isPairButtonHovered = false),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
+                duration: const Duration(milliseconds: 150),
                 curve: Curves.easeInOut,
                 width: 600,
                 height: 70,
