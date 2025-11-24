@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-21 15:43:04
- * @LastEditTime: 2025-11-22 16:15:44
+ * @LastEditTime: 2025-11-24 10:28:39
  * @License: GPL 3.0
  */
 import 'dart:ui';
@@ -54,7 +54,7 @@ class _TGlassesP4PageControlCenterState
         // 标题区域 - 使用 SizedBox.expand 确保铺满全宽
         SizedBox(
           width: double.infinity, // 确保宽度铺满
-          height: 120,
+          height: 110,
           child: _buildHeaderWithBackground(theme),
         ),
 
@@ -62,12 +62,7 @@ class _TGlassesP4PageControlCenterState
 
         // 设备状态标题 - 保持对齐
         Padding(
-          padding: const EdgeInsets.only(
-            top: 10,
-            left: 35,
-            right: 30,
-            bottom: 5,
-          ),
+          padding: const EdgeInsets.only(left: 35, right: 30, bottom: 5),
           child: Text(
             "设备状态",
             style: TextStyle(
@@ -139,13 +134,12 @@ class _TGlassesP4PageControlCenterState
   Widget _buildHeaderWithBackground(AppTheme theme) {
     return SizedBox(
       width: double.infinity,
-      height: 120,
       child: Stack(
         children: [
           // 背景容器
           Container(
             width: double.infinity,
-            height: 120,
+            height: 110,
             decoration: const BoxDecoration(
               color: Color.fromARGB(255, 126, 109, 202),
             ),
@@ -153,7 +147,7 @@ class _TGlassesP4PageControlCenterState
 
           // 标题内容
           Padding(
-            padding: const EdgeInsets.only(top: 25, left: 35, right: 30),
+            padding: const EdgeInsets.only(top: 20, left: 35, right: 30),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -171,7 +165,6 @@ class _TGlassesP4PageControlCenterState
                   style: TextStyle(
                     fontSize: 16,
                     color: theme.textColorSecondary,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -180,7 +173,7 @@ class _TGlassesP4PageControlCenterState
 
           // 底部渐变虚化效果
           Positioned(
-            bottom: 0,
+            bottom: -1,
             left: 0,
             right: 0,
             child: Container(
