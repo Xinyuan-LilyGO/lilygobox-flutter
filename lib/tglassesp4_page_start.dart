@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-21 15:42:49
- * @LastEditTime: 2025-11-21 15:47:44
+ * @LastEditTime: 2025-11-24 10:34:46
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -22,7 +22,7 @@ class TGlassesP4PageStart extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const SizedBox(height: 50),
+        const SizedBox(height: 40),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 50.0),
           child: Column(
@@ -32,19 +32,19 @@ class TGlassesP4PageStart extends StatelessWidget {
               Text(
                 "T-Glasses-P4",
                 style: TextStyle(
-                  fontSize: 30,
+                  fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: theme.textColorPrimary,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 4),
               Text(
                 "智能眼镜开发板",
                 style: TextStyle(fontSize: 16, color: theme.textColorSecondary),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 20),
 
               // 相关资料介绍
               Card(
