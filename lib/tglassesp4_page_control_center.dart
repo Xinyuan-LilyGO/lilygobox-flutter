@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-21 15:43:04
- * @LastEditTime: 2025-11-24 10:50:56
+ * @LastEditTime: 2025-11-24 11:02:49
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -137,13 +137,13 @@ class _TGlassesP4PageControlCenterState
       child: Stack(
         children: [
           // 背景容器
-          Container(
-            width: double.infinity,
-            height: 110,
-            decoration: const BoxDecoration(
-              color: Color.fromARGB(255, 126, 109, 202),
-            ),
-          ),
+          // Container(
+          //   width: double.infinity,
+          //   height: 110,
+          //   decoration: const BoxDecoration(
+          //     color: Color.fromARGB(255, 126, 109, 202),
+          //   ),
+          // ),
 
           // 标题内容
           Padding(
@@ -172,29 +172,30 @@ class _TGlassesP4PageControlCenterState
           ),
 
           // 底部渐变虚化效果
-          Positioned(
-            bottom: -1,
-            left: 0,
-            right: 0,
-            child: Container(
-              height: 30, // 调整渐变区域的高度
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    const Color.fromARGB(0, 126, 109, 202), // 完全透明
-                    theme.tertiary, // 或者使用 theme.primary，根据下方背景色调整
-                  ],
-                  stops: const [0.0, 1.0], // 可以调整这些值来控制渐变的过渡
-                ),
-              ),
-            ),
-          ),
+          // Positioned(
+          //   bottom: -1,
+          //   left: 0,
+          //   right: 0,
+          //   child: Container(
+          //     height: 30, // 调整渐变区域的高度
+          //     decoration: BoxDecoration(
+          //       gradient: LinearGradient(
+          //         begin: Alignment.topCenter,
+          //         end: Alignment.bottomCenter,
+          //         colors: [
+          //           const Color.fromARGB(0, 126, 109, 202), // 完全透明
+          //           theme.tertiary, // 或者使用 theme.primary，根据下方背景色调整
+          //         ],
+          //         stops: const [0.0, 1.0], // 可以调整这些值来控制渐变的过渡
+          //       ),
+          //     ),
+          //   ),
+          // ),
         ],
       ),
     );
   }
+
 
   // 根据连接状态构建内容
   Widget _buildContentByStatus(AppTheme theme, BuildContext context) {
