@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-21 15:43:04
- * @LastEditTime: 2025-11-24 10:28:39
+ * @LastEditTime: 2025-11-24 10:43:27
  * @License: GPL 3.0
  */
 import 'dart:ui';
@@ -147,7 +147,7 @@ class _TGlassesP4PageControlCenterState
 
           // 标题内容
           Padding(
-            padding: const EdgeInsets.only(top: 20, left: 35, right: 30),
+            padding: const EdgeInsets.only(top: 22, left: 35, right: 30),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
