@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-21 15:43:04
- * @LastEditTime: 2025-11-24 14:37:59
+ * @LastEditTime: 2025-11-24 14:46:10
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -40,6 +40,8 @@ enum ConnectionStatus {
 
 class _TGlassesP4PageControlCenterState
     extends State<TGlassesP4PageControlCenter> {
+  bool _isPairButtonHovered = false;
+
   @override
   Widget build(BuildContext context) {
     // 确保 ThemeProvider 在这里是可用的
@@ -241,51 +243,58 @@ class _TGlassesP4PageControlCenterState
           Text("请先配对设备以建立连接", style: TextStyle(color: theme.textColorTertiary)),
           const SizedBox(height: 20),
 
-          // 配对按钮 - 整个按钮可触发
+          // 配对按钮 - 整个按钮可触发（添加悬停效果）
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 30), // 左右边距
-            child: Container(
-              width: 600, // 让容器宽度填满可用空间
-              height: 70,
-              decoration: BoxDecoration(
-                color: theme.tertiaryTextBackgroundColor,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  hoverColor: theme.basePrimary,
-                  // highlightColor: Colors.transparent,
-                  // splashColor: Colors.transparent,
+            padding: const EdgeInsets.symmetric(horizontal: 30),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              onEnter: (_) => setState(() => _isPairButtonHovered = true),
+              onExit: (_) => setState(() => _isPairButtonHovered = false),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                width: 600,
+                height: 70,
+                decoration: BoxDecoration(
+                  color: _isPairButtonHovered
+                      ? theme.basePrimary
+                      : theme.tertiaryTextBackgroundColor,
                   borderRadius: BorderRadius.circular(8),
-                  onTap: widget.onPair, // 整个按钮区域都可触发
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      const SizedBox(width: 30),
-                      Icon(
-                        Symbols.connect_without_contact,
-                        size: 40,
-                        color: theme.iconColor,
-                      ),
-                      const SizedBox(width: 15),
-                      Text(
-                        "配对设备",
-                        style: TextStyle(
-                          fontSize: 17,
-                          color: theme.textColorPrimary,
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    hoverColor: Colors.transparent,
+                    // splashColor: Colors.transparent,
+                    // highlightColor: Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: widget.onPair,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        const SizedBox(width: 30),
+                        Icon(
+                          Symbols.connect_without_contact,
+                          size: 40,
+                          color: theme.iconColor,
                         ),
-                      ),
-                      // 添加Spacer将箭头推到最右边
-                      const Spacer(),
-                      // 朝右的箭头图标
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        size: 20,
-                        color: theme.iconColor,
-                      ),
-                      const SizedBox(width: 20),
-                    ],
+                        const SizedBox(width: 15),
+                        Text(
+                          "配对设备",
+                          style: TextStyle(
+                            fontSize: 17,
+                            color: theme.textColorPrimary,
+                          ),
+                        ),
+                        const Spacer(),
+                        Icon(
+                          Icons.arrow_forward_ios,
+                          size: 20,
+                          color: theme.iconColor,
+                        ),
+                        const SizedBox(width: 20),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -300,10 +309,11 @@ class _TGlassesP4PageControlCenterState
   Widget _buildDisconnectedContent(AppTheme theme, BuildContext context) {
     return Center(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
+          const SizedBox(height: 150),
           Icon(Symbols.devices_off, size: 64, color: theme.textColorTertiary),
-          const SizedBox(height: 16),
+          const SizedBox(height: 5),
           Text(
             "设备未连接",
             style: TextStyle(
@@ -312,7 +322,6 @@ class _TGlassesP4PageControlCenterState
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 8),
           Text(
             "请连接设备以查看详细信息和控制选项",
             style: TextStyle(color: theme.textColorTertiary),
