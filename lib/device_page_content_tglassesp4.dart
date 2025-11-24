@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-17 13:38:52
- * @LastEditTime: 2025-11-24 10:40:18
+ * @LastEditTime: 2025-11-24 10:44:55
  * @License: GPL 3.0
  */
 
@@ -199,7 +199,7 @@ class _DevicePageContentTGlassesP4State
         return const TGlassesP4PageStart();
       case 'control_center':
         return TGlassesP4PageControlCenter(
-          connectionStatus: ConnectionStatus.connected,
+          connectionStatus: ConnectionStatus.disconnected,
           onConnect: _connectToDevice,
           onDisconnect: _disconnectDevice,
           onPair: _pair,

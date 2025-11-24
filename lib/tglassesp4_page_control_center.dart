@@ -2,11 +2,9 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-21 15:43:04
- * @LastEditTime: 2025-11-24 10:43:27
+ * @LastEditTime: 2025-11-24 10:50:56
  * @License: GPL 3.0
  */
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
@@ -88,10 +86,10 @@ class _TGlassesP4PageControlCenterState
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  color: _getStatusColor(theme).withOpacity(0.1),
+                  color: _getStatusColor(theme).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: _getStatusColor(theme).withOpacity(0.3),
+                    color: _getStatusColor(theme).withValues(alpha: 0.3),
                     width: 2,
                   ),
                 ),
@@ -107,10 +105,12 @@ class _TGlassesP4PageControlCenterState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // 删除设备在线/离线状态标签
-                    const SizedBox(height: 8),
                     Text(
                       _getStatusText(),
-                      style: TextStyle(color: theme.textColorSecondary),
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: theme.textColorSecondary,
+                      ),
                     ),
                   ],
                 ),
@@ -340,11 +340,11 @@ class _TGlassesP4PageControlCenterState
   String _getStatusText() {
     switch (widget.connectionStatus) {
       case ConnectionStatus.unpaired:
-        return "智能眼镜开发板 • 未配对";
+        return "未配对";
       case ConnectionStatus.disconnected:
-        return "智能眼镜开发板 • 未连接";
+        return "未连接";
       case ConnectionStatus.connected:
-        return "智能眼镜开发板 • 已连接";
+        return "已连接";
     }
   }
 }
