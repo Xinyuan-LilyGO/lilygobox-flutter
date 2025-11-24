@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-11-19 16:10:06
+ * @LastEditTime: 2025-11-24 14:38:24
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -42,7 +42,6 @@ class AppTheme {
   final Color iconSplashColor;
   final Color inactiveIconColor;
   final Color sidebarIconColor;
-  final Color sidebarSelectedIconColor;
   final Color sidebarHoverIconColor;
   final Color sidebarHoverIconColor2;
   final Color sidebarIconBackgroundColor;
@@ -50,6 +49,9 @@ class AppTheme {
   final Color appTitleBarIconBackgroundColor;
   final Color dividerColor;
   final Color dividerColorNormal;
+  final Color basePrimary;
+  final Color baseSecondary;
+  final Color baseTertiary;
 
   const AppTheme({
     required this.type,
@@ -79,7 +81,6 @@ class AppTheme {
     required this.iconSplashColor,
     required this.inactiveIconColor,
     required this.sidebarIconColor,
-    required this.sidebarSelectedIconColor,
     required this.sidebarHoverIconColor,
     required this.sidebarHoverIconColor2,
     required this.sidebarIconBackgroundColor,
@@ -87,6 +88,9 @@ class AppTheme {
     required this.appTitleBarIconBackgroundColor,
     required this.dividerColor,
     required this.dividerColorNormal,
+    required this.basePrimary,
+    required this.baseSecondary,
+    required this.baseTertiary,
   });
 
   String getName(AppLocalizations appLocalizations) {
@@ -120,10 +124,10 @@ class ThemeProvider with ChangeNotifier {
       secondaryTextHoverColor: const Color.fromARGB(255, 60, 60, 60),
       secondaryTextHoverColor_2: const Color.fromARGB(255, 80, 80, 80),
       secondaryTextSelectedColor: const Color.fromARGB(255, 80, 80, 80),
-      tertiaryTextBackgroundColor: const Color.fromARGB(255, 70, 70, 70),
-      tertiaryTextHoverColor: const Color.fromARGB(255, 100, 100, 100),
-      tertiaryTextHighlightColor: const Color.fromARGB(100, 120, 120, 120),
-      tertiaryTextSplashColor: const Color.fromARGB(100, 170, 170, 170),
+      tertiaryTextBackgroundColor: const Color.fromARGB(255, 40, 40, 40),
+      tertiaryTextHoverColor: const Color.fromARGB(255, 50, 50, 50),
+      tertiaryTextHighlightColor: const Color.fromARGB(255, 80, 80, 80),
+      tertiaryTextSplashColor: const Color.fromARGB(255, 60, 60, 60),
       appTitleTextColor: const Color.fromARGB(255, 215, 215, 215),
       inactiveTextColor: Colors.grey,
       iconColor: const Color.fromARGB(255, 215, 215, 215),
@@ -133,7 +137,6 @@ class ThemeProvider with ChangeNotifier {
       iconSplashColor: const Color.fromARGB(255, 180, 180, 180),
       inactiveIconColor: Colors.grey,
       sidebarIconColor: const Color.fromARGB(255, 215, 215, 215),
-      sidebarSelectedIconColor: const Color.fromARGB(255, 126, 109, 202),
       sidebarHoverIconColor: const Color.fromARGB(255, 120, 120, 120),
       sidebarHoverIconColor2: const Color.fromARGB(255, 100, 177, 76),
       sidebarIconBackgroundColor: const Color.fromARGB(255, 55, 55, 55),
@@ -141,6 +144,9 @@ class ThemeProvider with ChangeNotifier {
       appTitleBarIconBackgroundColor: Colors.grey.withValues(alpha: 0.2),
       dividerColor: const Color.fromARGB(255, 100, 100, 100),
       dividerColorNormal: const Color.fromARGB(255, 126, 109, 202),
+      basePrimary: const Color.fromARGB(255, 126, 109, 202),
+      baseSecondary: const Color.fromARGB(255, 126, 109, 202),
+      baseTertiary: const Color.fromARGB(255, 145, 127, 221),
     ),
     ThemeType.light: AppTheme(
       type: ThemeType.light,
@@ -170,14 +176,16 @@ class ThemeProvider with ChangeNotifier {
       iconSplashColor: const Color.fromARGB(255, 150, 150, 150),
       inactiveIconColor: Colors.grey,
       sidebarIconColor: const Color.fromARGB(255, 40, 40, 40),
-      sidebarSelectedIconColor: const Color.fromARGB(255, 182, 168, 255),
       sidebarHoverIconColor: const Color.fromARGB(255, 170, 170, 170),
       sidebarHoverIconColor2: const Color.fromARGB(255, 125, 191, 105),
       sidebarIconBackgroundColor: const Color.fromARGB(255, 200, 200, 200),
       sidebarIndicatorColor: const Color.fromARGB(255, 40, 40, 40),
       appTitleBarIconBackgroundColor: Colors.grey.withValues(alpha: 0.2),
       dividerColor: const Color.fromARGB(255, 80, 80, 80),
-      dividerColorNormal: const Color.fromARGB(255, 126, 109, 202),
+      dividerColorNormal: const Color.fromARGB(255, 182, 168, 255),
+      basePrimary: const Color.fromARGB(255, 182, 168, 255),
+      baseSecondary: const Color.fromARGB(255, 182, 168, 255),
+      baseTertiary: const Color.fromARGB(255, 182, 168, 255),
     ),
   };
 

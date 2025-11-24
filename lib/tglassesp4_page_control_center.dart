@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-21 15:43:04
- * @LastEditTime: 2025-11-24 11:02:49
+ * @LastEditTime: 2025-11-24 14:37:59
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -46,6 +46,12 @@ class _TGlassesP4PageControlCenterState
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final theme = themeProvider.themeData;
 
+    // 如果是未配对状态，只显示简化内容
+    if (widget.connectionStatus == ConnectionStatus.unpaired) {
+      return _buildUnpairedContent(theme, context);
+    }
+
+    // 其他状态显示完整界面
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start, // 主列靠左对齐
       children: [
@@ -76,11 +82,12 @@ class _TGlassesP4PageControlCenterState
           padding: const EdgeInsets.all(15),
           margin: const EdgeInsets.only(left: 30, right: 30),
           decoration: BoxDecoration(
-            color: theme.secondary,
+            color: theme.tertiaryTextBackgroundColor,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             children: [
+              const SizedBox(width: 8),
               // 设备图标和状态
               Container(
                 width: 60,
@@ -136,7 +143,7 @@ class _TGlassesP4PageControlCenterState
       width: double.infinity,
       child: Stack(
         children: [
-          // 背景容器
+          // 背景容器 注释保留
           // Container(
           //   width: double.infinity,
           //   height: 110,
@@ -171,7 +178,7 @@ class _TGlassesP4PageControlCenterState
             ),
           ),
 
-          // 底部渐变虚化效果
+          // 底部渐变虚化效果 注释保留
           // Positioned(
           //   bottom: -1,
           //   left: 0,
@@ -196,7 +203,6 @@ class _TGlassesP4PageControlCenterState
     );
   }
 
-
   // 根据连接状态构建内容
   Widget _buildContentByStatus(AppTheme theme, BuildContext context) {
     switch (widget.connectionStatus) {
@@ -209,14 +215,20 @@ class _TGlassesP4PageControlCenterState
     }
   }
 
-  // 未配对状态的内容
+  // 未配对状态的内容 - 简化版，只保留必要元素
   Widget _buildUnpairedContent(AppTheme theme, BuildContext context) {
     return Center(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
+          const SizedBox(height: 150),
+
+          // 未配对图标
           Icon(Symbols.devices_off, size: 64, color: theme.textColorTertiary),
-          const SizedBox(height: 16),
+
+          const SizedBox(height: 5),
+
+          // 未配对字样 - 恢复之前的样式
           Text(
             "设备未配对",
             style: TextStyle(
@@ -225,46 +237,54 @@ class _TGlassesP4PageControlCenterState
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 8),
+
           Text("请先配对设备以建立连接", style: TextStyle(color: theme.textColorTertiary)),
-          const SizedBox(height: 24),
-          // 配对按钮卡片
-          Card(
-            color: theme.secondary,
+          const SizedBox(height: 20),
+
+          // 配对按钮 - 整个按钮可触发
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 30), // 左右边距
             child: Container(
-              width: 200,
-              padding: const EdgeInsets.all(16),
+              width: 600, // 让容器宽度填满可用空间
+              height: 70,
+              decoration: BoxDecoration(
+                color: theme.tertiaryTextBackgroundColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: widget.onPair,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                  hoverColor: theme.basePrimary,
+                  // highlightColor: Colors.transparent,
+                  // splashColor: Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: widget.onPair, // 整个按钮区域都可触发
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
+                      const SizedBox(width: 30),
                       Icon(
-                        Symbols.link,
-                        size: 36,
-                        color: theme.sidebarSelectedIconColor,
+                        Symbols.connect_without_contact,
+                        size: 40,
+                        color: theme.iconColor,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(width: 15),
                       Text(
                         "配对设备",
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 17,
                           color: theme.textColorPrimary,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "点击开始配对",
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.textColorTertiary,
-                        ),
-                        textAlign: TextAlign.center,
+                      // 添加Spacer将箭头推到最右边
+                      const Spacer(),
+                      // 朝右的箭头图标
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        size: 20,
+                        color: theme.iconColor,
                       ),
+                      const SizedBox(width: 20),
                     ],
                   ),
                 ),
@@ -329,9 +349,9 @@ class _TGlassesP4PageControlCenterState
   Color _getStatusColor(AppTheme theme) {
     switch (widget.connectionStatus) {
       case ConnectionStatus.unpaired:
-        return theme.sidebarSelectedIconColor;
+        return theme.basePrimary;
       case ConnectionStatus.disconnected:
-        return theme.sidebarSelectedIconColor;
+        return theme.basePrimary;
       case ConnectionStatus.connected:
         return Colors.green;
     }

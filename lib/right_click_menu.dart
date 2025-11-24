@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-18 14:00:00
- * @LastEditTime: 2025-11-24 10:40:03
+ * @LastEditTime: 2025-11-24 14:18:32
  * @License: GPL 3.0
  */
 
@@ -171,7 +171,7 @@ class RightClickMenuBuilder {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        hoverColor: theme.sidebarSelectedIconColor,
+        hoverColor: theme.basePrimary,
         onTap: item.isEnabled ? item.onTap : null,
         borderRadius: BorderRadius.circular(5), // 所有项都使用圆角悬停效果
         child: Container(
