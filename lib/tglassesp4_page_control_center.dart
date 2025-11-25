@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2025-11-21 15:43:04
- * @LastEditTime: 2025-11-24 14:48:00
+ * @LastEditTime: 2025-11-25 14:17:43
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -68,7 +68,7 @@ class _TGlassesP4PageControlCenterState
 
         // 设备状态标题 - 保持对齐
         Padding(
-          padding: const EdgeInsets.only(left: 35, right: 30, bottom: 5),
+          padding: const EdgeInsets.only(left: 35, right: 30, bottom: 3),
           child: Text(
             "设备状态",
             style: TextStyle(
@@ -79,58 +79,65 @@ class _TGlassesP4PageControlCenterState
           ),
         ),
 
-        // 状态头部 - 保持原来的左右 margin
-        Container(
-          padding: const EdgeInsets.all(15),
-          margin: const EdgeInsets.only(left: 30, right: 30),
-          decoration: BoxDecoration(
+        // 状态头部 - 改为 Card 类型
+        Padding(
+          padding: const EdgeInsets.only(left: 30, right: 30),
+          child: Card(
+            elevation: 2,
             color: theme.tertiaryTextBackgroundColor,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              const SizedBox(width: 8),
-              // 设备图标和状态
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: _getStatusColor(theme).withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: _getStatusColor(theme).withValues(alpha: 0.3),
-                    width: 2,
-                  ),
-                ),
-                child: Icon(
-                  Symbols.developer_board, // 改为 developer_board 图标
-                  size: 30,
-                  color: _getStatusColor(theme),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 删除设备在线/离线状态标签
-                    Text(
-                      _getStatusText(),
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: theme.textColorSecondary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const SizedBox(width: 8),
+                  // 设备图标和状态
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(theme).withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _getStatusColor(theme).withValues(alpha: 0.3),
+                        width: 2,
                       ),
                     ),
-                  ],
-                ),
+                    child: Icon(
+                      Symbols.developer_board, // 改为 developer_board 图标
+                      size: 30,
+                      color: _getStatusColor(theme),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _getStatusText(),
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: theme.textColorSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // 未连接状态显示刷新按钮
+                  if (widget.connectionStatus == ConnectionStatus.disconnected)
+                    IconButton(
+                      icon: Icon(
+                        Symbols.refresh,
+                        color: theme.textColorTertiary,
+                      ),
+                      onPressed: widget.onRefresh,
+                    ),
+                ],
               ),
-              // 未连接状态显示刷新按钮
-              if (widget.connectionStatus == ConnectionStatus.disconnected)
-                IconButton(
-                  icon: Icon(Symbols.refresh, color: theme.textColorTertiary),
-                  onPressed: widget.onRefresh,
-                ),
-            ],
+            ),
           ),
         ),
 
@@ -251,7 +258,7 @@ class _TGlassesP4PageControlCenterState
               onEnter: (_) => setState(() => _isPairButtonHovered = true),
               onExit: (_) => setState(() => _isPairButtonHovered = false),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
+                duration: const Duration(milliseconds: 200),
                 curve: Curves.easeInOut,
                 width: 600,
                 height: 70,
@@ -272,7 +279,7 @@ class _TGlassesP4PageControlCenterState
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.start,
                       children: [
-                        const SizedBox(width: 30),
+                        const SizedBox(width: 25),
                         Icon(
                           Symbols.connect_without_contact,
                           size: 40,
