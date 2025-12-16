@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 1.0.0
 
 environment:
-  sdk: ^3.38.3
+  sdk: ^3.9.2
 
 # release 版本所需的包
 dependencies:
