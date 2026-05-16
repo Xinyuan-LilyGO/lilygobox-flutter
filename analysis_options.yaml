@@ -1,1 +1,12 @@
 include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - lib/generated/**
+
+linter:
+  rules:
+    directives_ordering: true
+    flutter_style_todos: true
+    prefer_relative_imports: true
+    unawaited_futures: true

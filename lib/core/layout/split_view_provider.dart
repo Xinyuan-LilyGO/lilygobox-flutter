@@ -1,0 +1,26 @@
+import 'package:flutter/foundation.dart';
+
+/// 保存全局分栏宽度。
+///
+/// 主页和设备页共享同一个宽度状态，用户拖动任一分栏后，其他同类页面会保持一致体验。
+class SplitViewProvider with ChangeNotifier {
+  static const double defaultSplitWidth = 300.0;
+
+  double _splitWidth = defaultSplitWidth;
+
+  double get splitWidth => _splitWidth;
+
+  /// 更新左侧分栏宽度；宽度不变时跳过通知，避免不必要的重建。
+  void updateSplitWidth(double newWidth) {
+    if (_splitWidth == newWidth) {
+      return;
+    }
+
+    _splitWidth = newWidth;
+    notifyListeners();
+  }
+
+  void resetSplitWidth() {
+    updateSplitWidth(defaultSplitWidth);
+  }
+}

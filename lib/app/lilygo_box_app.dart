@@ -1,0 +1,40 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../core/app_info/package_info_provider.dart';
+import '../core/l10n/language_provider.dart';
+import '../core/theme/theme_provider.dart';
+import '../core/window/window_provider.dart';
+import '../generated/l10n/app_localizations.dart';
+import 'widgets/app_window_frame.dart';
+
+class LilygoBoxApp extends StatelessWidget {
+  const LilygoBoxApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(context.read<PackageInfoProvider>().initializePackageInfo());
+    });
+
+    return Consumer3<ThemeProvider, WindowProvider, LanguageProvider>(
+      builder: (context, themeProvider, windowProvider, languageProvider, child) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          locale: languageProvider.locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: AppWindowFrame(
+              theme: themeProvider.themeData,
+              isMaximized: windowProvider.isMaximized,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

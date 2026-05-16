@@ -1,0 +1,1 @@
+enum AddDevicePageType { initial, selectDevice }

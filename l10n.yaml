@@ -12,7 +12,7 @@ output-localization-file: app_localizations.dart
 
 # output-dir: 生成的 Dart 文件输出目录
 # 建议与 arb-dir 相同，或者使用 lib/generated 等目录
-output-dir: lib/l10n
+output-dir: lib/generated/l10n
 
 # =====================
 # 可选配置项
@@ -31,7 +31,7 @@ supported-locales:
 
 # untranslated-messages-file: 未翻译消息输出文件
 # 当某些语言缺少翻译时，会在这里记录缺失的键
-untranslated-messages-file: lib/l10n/untranslated.json
+untranslated-messages-file: lib/generated/l10n/untranslated.json
 
 # =====================
 # 代码生成选项
