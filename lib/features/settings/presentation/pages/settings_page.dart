@@ -17,11 +17,10 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 确保使用正确的方式获取 Provider 的值 (使用 listen: false)
-    final theme = Provider.of<ThemeProvider>(context, listen: false).themeData;
+    final theme = Provider.of<ThemeProvider>(context).themeData;
 
-    // 移除顶部栏 Container，让 SettingsSplitView 填充整个屏幕
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
       color: theme.primary, // 整体背景色
       child: const SettingsSplitView(),
     );

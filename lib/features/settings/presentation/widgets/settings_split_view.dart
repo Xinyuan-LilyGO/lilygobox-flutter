@@ -36,21 +36,8 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
     _aboutKey: 3,
   };
 
-  // 用于存储每个菜单项当前 Hover 颜色的 Map
-  // Key: 菜单项的 key (例如 'general'), Value: 当前的悬停颜色 (Color)
-  late Map<String, Color> _currentHoverColors;
-
-  @override
-  void initState() {
-    super.initState();
-    // 初始化 Hover 颜色 Map，使用固定的 key
-    _currentHoverColors = {
-      _generalKey: Colors.transparent,
-      _languageKey: Colors.transparent,
-      _themeKey: Colors.transparent,
-      _aboutKey: Colors.transparent,
-    };
-  }
+  // 只记录悬停项，具体颜色始终从当前主题实时计算。
+  final Set<String> _hoveredMenuKeys = <String>{};
 
   // 颜色渐变的持续时间
   static const Duration _animationDuration = Duration(milliseconds: 150);
@@ -104,46 +91,35 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
     ];
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-
-    // 监听主题变化，但只在主题真正变化时重置悬停颜色
-    final newTheme = Provider.of<ThemeProvider>(
-      context,
-      listen: true,
-    ).themeData;
-
-    // 只有当主题变化时才更新悬停颜色
-    if (_lastTheme != newTheme) {
-      _lastTheme = newTheme;
-
-      // 重置所有非选中项的悬停颜色为主题的主色
-      setState(() {
-        _currentHoverColors.updateAll((key, value) {
-          // 如果是选中项，保持选中颜色；否则重置为主题主色
-          return key == _selectedTitleKey
-              ? value // 保持选中项的颜色不变
-              : newTheme.primary;
-        });
-      });
+  Color _menuItemBackgroundColor(
+    AppTheme theme, {
+    required bool isSelected,
+    required bool isHovered,
+  }) {
+    if (isSelected) {
+      return theme.primaryTextSelectedColor;
     }
-  }
 
-  // 添加一个变量来追踪上次的主题
-  AppTheme? _lastTheme;
+    if (isHovered) {
+      return theme.primaryTextHoverColor;
+    }
+
+    return theme.primary;
+  }
 
   @override
   Widget build(BuildContext context) {
-    // 明确使用 Provider.of 并设置为 listen: true 以响应主题更改
-    final theme = Provider.of<ThemeProvider>(context, listen: true).themeData;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final theme = themeProvider.themeData;
+
     // 获取本地化文本
     final menuItems = _buildMenuItems(context);
 
     return Row(
       children: [
         // 左侧：设置菜单导航 (Menu/Sidebar)
-        Container(
+        AnimatedContainer(
+          duration: _animationDuration,
           width: 250, // 侧边栏略微加宽
           color: theme.primary, // 保持 theme.primary 颜色
           child: Column(
@@ -211,80 +187,62 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
                     final key = item['key'] as String; // 菜单项的固定 key
                     final isSelected =
                         key == _selectedTitleKey; // 使用 key 来判断是否选中
+                    final isHovered = _hoveredMenuKeys.contains(key);
 
-                    // 计算目标背景色
-                    final targetColor = isSelected
-                        ? theme.primaryTextSelectedColor
-                        : _currentHoverColors[key] ??
-                              theme.primary; // 使用 key 访问 hover 颜色
+                    final targetColor = _menuItemBackgroundColor(
+                      theme,
+                      isSelected: isSelected,
+                      isHovered: isHovered,
+                    );
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 15.0,
                         vertical: 2.0, // 保持外部垂直边距一致
                       ),
-                      // 使用 TweenAnimationBuilder 实现颜色渐变
-                      child: TweenAnimationBuilder<Color?>(
-                        duration: _animationDuration, // 渐变时间
-                        tween: ColorTween(
-                          begin: theme.primary,
-                          end: targetColor, // 渐变的目标颜色
-                        ),
-                        builder: (context, color, child) {
-                          // 使用 SizedBox 强制列表项高度固定
-                          return SizedBox(
-                            height: 30.0,
-                            child: InkWell(
-                              // onHover 实现鼠标悬停/离开效果
-                              onHover: (isHovering) {
-                                // 只有未选中项才响应悬停
-                                if (!isSelected) {
-                                  setState(() {
-                                    // 更新 Map 中的悬停目标颜色，使用 key
-                                    _currentHoverColors[key] = isHovering
-                                        ? theme.primaryTextHoverColor
-                                        : theme.primary;
-                                  });
+                      child: SizedBox(
+                        height: 30.0,
+                        child: InkWell(
+                          onHover: (isHovering) {
+                            if (!isSelected) {
+                              setState(() {
+                                if (isHovering) {
+                                  _hoveredMenuKeys.add(key);
+                                } else {
+                                  _hoveredMenuKeys.remove(key);
                                 }
-                              },
-
-                              // 使用 InkWell 实现点击效果
-                              onTap: () {
-                                // 点击时重置所有 hover 颜色，并切换选中项
-                                setState(() {
-                                  _selectedTitleKey = key; // 切换选中的 key
-                                  // 重置所有项的悬停颜色为透明，因为点击操作已经完成
-                                  _currentHoverColors.updateAll(
-                                    (k, value) => theme.primary,
-                                  );
-                                });
-                              },
+                              });
+                            }
+                          },
+                          onTap: () {
+                            setState(() {
+                              _selectedTitleKey = key;
+                              _hoveredMenuKeys.clear();
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(6.0),
+                          child: AnimatedContainer(
+                            duration: _animationDuration,
+                            alignment: Alignment.centerLeft,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10.0,
+                              vertical: 0.0,
+                            ),
+                            decoration: BoxDecoration(
+                              color: targetColor,
                               borderRadius: BorderRadius.circular(6.0),
-                              child: Container(
-                                alignment: Alignment.centerLeft,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10.0,
-                                  vertical: 0.0,
-                                ),
-                                decoration: BoxDecoration(
-                                  // 使用 TweenAnimationBuilder 返回的 color
-                                  color: color,
-                                  borderRadius: BorderRadius.circular(6.0),
-                                ),
-                                child: Text(
-                                  title, // 本地化的标题
-                                  style: TextStyle(
-                                    // 字体颜色保持不变，只有背景色变化
-                                    color: theme.textColorSecondary,
-                                    fontWeight: isSelected
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                  ),
-                                ),
+                            ),
+                            child: Text(
+                              title,
+                              style: TextStyle(
+                                color: theme.textColorSecondary,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                               ),
                             ),
-                          );
-                        },
+                          ),
+                        ),
                       ),
                     );
                   },
@@ -296,7 +254,8 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
 
         // 右侧：设置详细内容 (Content)
         Expanded(
-          child: Container(
+          child: AnimatedContainer(
+            duration: _animationDuration,
             color: theme.secondary,
             child: Stack(
               children: [
