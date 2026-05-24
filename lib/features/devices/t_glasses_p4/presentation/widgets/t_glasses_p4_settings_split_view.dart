@@ -7,6 +7,7 @@ import '../../../../../core/l10n/language_provider.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/theme/theme_provider.dart';
 import '../../../../../core/widgets/animated_circle_icon_button.dart';
+import '../../../../../core/widgets/vscode_settings.dart';
 
 class TGlassesP4SettingsSplitView extends StatefulWidget {
   const TGlassesP4SettingsSplitView({super.key});
@@ -54,92 +55,92 @@ class _TGlassesP4SettingsSplitViewState
 
   // 通用设置内容
   Widget _buildGeneralSettingsContent(AppTheme theme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '通用',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: theme.textColorPrimary,
-            ),
+    return VscodeSettingsPage(
+      theme: theme,
+      title: '通用',
+      children: [
+        VscodeSettingsRow(
+          theme: theme,
+          title: 'device_name',
+          description: '设备在列表和窗口标题中显示的名称',
+          showMoreButton: false,
+          control: VscodeSettingReadOnlyField(
+            theme: theme,
+            value: 'T-Glasses-P4',
           ),
-          const SizedBox(height: 20),
-          Card(
-            color: theme.tertiary,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '板子信息',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: theme.textColorPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  _buildSettingItem(theme, '设备名称', 'T-Glasses-P4'),
-                  _buildSettingItem(theme, '设备ID', 'TGLS-P4-20241119'),
-                  _buildSettingItem(theme, '硬件版本', 'Rev 2.1'),
-                  _buildSettingItem(theme, '固件版本', 'v1.2.3'),
-                  _buildSettingItem(theme, '序列号', 'SN-TGLS-P4-001'),
-                ],
-              ),
-            ),
+        ),
+        VscodeSettingsRow(
+          theme: theme,
+          title: 'device_id',
+          description: '设备唯一识别 ID',
+          showMoreButton: false,
+          control: VscodeSettingReadOnlyField(
+            theme: theme,
+            value: 'TGLS-P4-20241119',
           ),
-          const SizedBox(height: 20),
-          Card(
-            color: theme.tertiary,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '系统状态',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: theme.textColorPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  _buildSettingItem(theme, '运行时间', '12小时 34分钟'),
-                  _buildSettingItem(theme, 'CPU使用率', '24%'),
-                  _buildSettingItem(theme, '内存使用', '256MB / 512MB'),
-                  _buildSettingItem(theme, '存储空间', '1.2GB / 4GB'),
-                ],
-              ),
-            ),
+        ),
+        VscodeSettingsRow(
+          theme: theme,
+          title: 'hardware_version',
+          description: '当前连接设备的硬件版本',
+          showMoreButton: false,
+          control: VscodeSettingReadOnlyField(theme: theme, value: 'Rev 2.1'),
+        ),
+        VscodeSettingsRow(
+          theme: theme,
+          title: 'firmware_version',
+          description: '设备固件版本',
+          showMoreButton: false,
+          control: VscodeSettingReadOnlyField(theme: theme, value: 'v1.2.3'),
+        ),
+        VscodeSettingsRow(
+          theme: theme,
+          title: 'serial_number',
+          description: '设备序列号',
+          showMoreButton: false,
+          control: VscodeSettingReadOnlyField(
+            theme: theme,
+            value: 'SN-TGLS-P4-001',
           ),
-        ],
-      ),
-    );
-  }
-
-  // 构建设置项
-  Widget _buildSettingItem(AppTheme theme, String title, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title, style: TextStyle(color: theme.textColorSecondary)),
-          Text(
-            value,
-            style: TextStyle(
-              color: theme.textColorPrimary,
-              fontWeight: FontWeight.bold,
-            ),
+        ),
+        VscodeSettingsRow(
+          theme: theme,
+          title: 'uptime',
+          description: '设备当前运行时间',
+          showMoreButton: false,
+          control: VscodeSettingReadOnlyField(
+            theme: theme,
+            value: '12小时 34分钟',
           ),
-        ],
-      ),
+        ),
+        VscodeSettingsRow(
+          theme: theme,
+          title: 'cpu_usage',
+          description: '设备当前 CPU 使用率',
+          showMoreButton: false,
+          control: VscodeSettingReadOnlyField(theme: theme, value: '24%'),
+        ),
+        VscodeSettingsRow(
+          theme: theme,
+          title: 'memory_usage',
+          description: '设备当前内存占用',
+          showMoreButton: false,
+          control: VscodeSettingReadOnlyField(
+            theme: theme,
+            value: '256MB / 512MB',
+          ),
+        ),
+        VscodeSettingsRow(
+          theme: theme,
+          title: 'storage_space',
+          description: '设备当前存储占用',
+          showMoreButton: false,
+          control: VscodeSettingReadOnlyField(
+            theme: theme,
+            value: '1.2GB / 4GB',
+          ),
+        ),
+      ],
     );
   }
 

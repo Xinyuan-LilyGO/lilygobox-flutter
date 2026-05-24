@@ -103,5 +103,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get delete => '削除';
 
   @override
+  String get resetThisSetting => 'この項目をリセット';
+
+  @override
   String get controlCenter => 'コントロールセンター';
 }

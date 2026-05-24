@@ -29,5 +29,6 @@
     "deviceSettings": "デバイス設定",
     "refresh": "更新",
     "delete": "削除",
+    "resetThisSetting": "この項目をリセット",
     "controlCenter": "コントロールセンター"
 }

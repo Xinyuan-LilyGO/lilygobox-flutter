@@ -280,6 +280,12 @@ abstract class AppLocalizations {
   /// **'Delete'**
   String get delete;
 
+  /// No description provided for @resetThisSetting.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset this setting'**
+  String get resetThisSetting;
+
   /// No description provided for @controlCenter.
   ///
   /// In en, this message translates to:

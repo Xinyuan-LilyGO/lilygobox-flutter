@@ -106,5 +106,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get delete => 'Delete';
 
   @override
+  String get resetThisSetting => 'Reset this setting';
+
+  @override
   String get controlCenter => 'Control Center';
 }

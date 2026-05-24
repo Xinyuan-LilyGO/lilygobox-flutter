@@ -29,5 +29,6 @@
     "deviceSettings": "Device Settings",
     "refresh": "Refresh",
     "delete": "Delete",
+    "resetThisSetting": "Reset this setting",
     "controlCenter": "Control Center"
 }

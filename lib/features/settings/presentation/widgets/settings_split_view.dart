@@ -8,6 +8,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_provider.dart';
 import '../../../../core/widgets/animated_circle_icon_button.dart';
 import '../pages/settings_page_about_content.dart';
+import '../pages/settings_page_general_content.dart';
 import '../pages/settings_page_language_and_region_content.dart';
 import '../pages/settings_page_personalization_content.dart';
 
@@ -48,13 +49,7 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
 
     switch (selectedIndex) {
       case 0: // 通用设置
-        return Center(
-          child: Text(
-            // 这里可以继续使用本地化文本，或者直接写固定的 key 方便调试
-            '通用设置内容区域 ($_selectedTitleKey)',
-            style: TextStyle(color: theme.textColorPrimary),
-          ),
-        );
+        return GeneralSettingsContent(theme: theme);
       case 1: // 语言与地区
         return LanguageAndRegionContent(theme: theme);
       case 2: // 外观主题
