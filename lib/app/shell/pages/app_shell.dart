@@ -30,10 +30,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   void _selectItem(int index) {
-    final shellProvider = Provider.of<AppShellProvider>(
-      context,
-      listen: false,
-    );
+    final shellProvider = Provider.of<AppShellProvider>(context, listen: false);
     shellProvider.updateSelectedIndex(index);
   }
 
@@ -42,44 +39,40 @@ class _AppShellState extends State<AppShell> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final theme = themeProvider.themeData;
     final deviceManager = Provider.of<DeviceManagerProvider>(context);
-    final shellProvider = Provider.of<AppShellProvider>(
-      context,
-    );
+    final shellProvider = Provider.of<AppShellProvider>(context);
 
-    return Expanded(
-      child: Row(
-        children: [
-          // 左边侧边栏
-          _buildLeftSidebar(
-            context,
-            deviceManager.addedDevices,
-            shellProvider.selectedIndex,
-          ),
+    return Row(
+      children: [
+        // 左边侧边栏
+        _buildLeftSidebar(
+          context,
+          deviceManager.addedDevices,
+          shellProvider.selectedIndex,
+        ),
 
-          // 右边主内容区域
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: theme.secondary,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(10),
-                ),
+        // 右边主内容区域
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.secondary,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(10),
               ),
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                transitionBuilder: (child, animation) {
-                  return FadeTransition(opacity: animation, child: child);
-                },
-                child: _buildCurrentPage(
-                  context,
-                  deviceManager.addedDevices,
-                  shellProvider.selectedIndex,
-                ),
+            ),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              transitionBuilder: (child, animation) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+              child: _buildCurrentPage(
+                context,
+                deviceManager.addedDevices,
+                shellProvider.selectedIndex,
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
