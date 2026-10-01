@@ -34,6 +34,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settings => 'Settings';
 
   @override
+  String get moreActions => 'More actions';
+
+  @override
   String get basic => 'Basic';
 
   @override
@@ -129,7 +132,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sidebarHome => 'Home';
 
   @override
-  String get accountSettings => 'Account settings';
+  String get profile => 'Profile';
 
   @override
   String get notSignedIn => 'Not signed in';

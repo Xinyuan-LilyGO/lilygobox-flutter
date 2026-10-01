@@ -2,7 +2,7 @@
  * @Description: 构建图标与文字组合的侧栏导航项及选中指示条。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-01 16:46:39
  * @License: GPL 3.0
  */
 
@@ -20,12 +20,16 @@ class SidebarNavigationItem extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.isSelected = false,
+    this.iconColor,
+    this.iconFill,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onPressed;
   final bool isSelected;
+  final Color? iconColor;
+  final double? iconFill;
 
   @override
   Widget build(BuildContext context) {
@@ -60,16 +64,19 @@ class SidebarNavigationItem extends StatelessWidget {
                 height: 36,
                 child: Row(
                   children: [
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Icon(
                       icon,
                       size: 20,
                       weight: 400,
-                      color: isSelected
-                          ? theme.basePrimary
-                          : theme.sidebarIconColor,
+                      fill: iconFill,
+                      color:
+                          iconColor ??
+                          (isSelected
+                              ? theme.basePrimary
+                              : theme.sidebarIconColor),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         label,

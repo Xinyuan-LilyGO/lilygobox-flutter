@@ -2,24 +2,24 @@
  * @Description: 验证设备设置导航携带目标设备，并按设备分派页面及正确返回。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-01 17:29:40
  * @License: GPL 3.0
  */
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lilygo_box/app/navigation/provider.dart';
-import 'package:lilygo_box/app/shell/pages/page.dart';
-import 'package:lilygo_box/app/shell/state/provider.dart';
-import 'package:lilygo_box/app/widgets/window_page_stack.dart';
-import 'package:lilygo_box/core/layout/split_view_provider.dart';
-import 'package:lilygo_box/core/theme/provider.dart';
-import 'package:lilygo_box/core/widgets/animated_circle_icon_button.dart';
-import 'package:lilygo_box/features/devices/domain/catalog.dart';
-import 'package:lilygo_box/features/devices/presentation/widgets/unsupported_settings.dart';
-import 'package:lilygo_box/features/devices/state/manager_provider.dart';
-import 'package:lilygo_box/features/devices/t_glasses_p4/presentation/pages/settings_page.dart';
-import 'package:lilygo_box/generated/l10n/app_localizations.dart';
+import 'package:lilygobox/app/navigation/provider.dart';
+import 'package:lilygobox/app/shell/pages/page.dart';
+import 'package:lilygobox/app/shell/state/provider.dart';
+import 'package:lilygobox/app/widgets/window_page_stack.dart';
+import 'package:lilygobox/core/layout/split_view_provider.dart';
+import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/core/widgets/animated_circle_icon_button.dart';
+import 'package:lilygobox/features/devices/domain/catalog.dart';
+import 'package:lilygobox/features/devices/presentation/widgets/unsupported_settings.dart';
+import 'package:lilygobox/features/devices/state/manager_provider.dart';
+import 'package:lilygobox/features/devices/t_glasses_p4/presentation/pages/settings_page.dart';
+import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 void main() {

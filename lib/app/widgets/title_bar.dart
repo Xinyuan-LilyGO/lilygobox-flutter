@@ -2,7 +2,7 @@
  * @Description: 构建主窗口标题栏、侧栏开关、设置入口和窗口控制按钮。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-01 17:19:32
  * @License: GPL 3.0
  */
 
@@ -16,6 +16,7 @@ import 'package:window_manager/window_manager.dart';
 import '../../core/app_info/package_info_provider.dart';
 import '../../core/l10n/language_provider.dart';
 import '../../core/theme/provider.dart';
+import '../../core/widgets/app_tooltip.dart';
 import '../../core/widgets/title_bar_icon_button.dart';
 import '../../core/window/provider.dart';
 import '../navigation/provider.dart';
@@ -53,7 +54,8 @@ class AppTitleBar extends StatelessWidget {
           if (showSidebarToggle)
             Padding(
               padding: const EdgeInsets.only(left: 10),
-              child: Tooltip(
+              child: AppTooltip(
+                verticalOffset: 16,
                 message: isSidebarVisible
                     ? context.l10n.hideSidebar
                     : context.l10n.showSidebar,
@@ -87,11 +89,15 @@ class AppTitleBar extends StatelessWidget {
             ),
           ),
           Center(
-            child: TitleBarIconButton(
-              icon: Symbols.settings,
-              onPressed: () => navigationProvider.setPage(AppPage.settings),
-              isFocused: isFocused,
-              theme: theme,
+            child: AppTooltip(
+              verticalOffset: 16,
+              message: context.l10n.settings,
+              child: TitleBarIconButton(
+                icon: Symbols.settings,
+                onPressed: () => navigationProvider.setPage(AppPage.settings),
+                isFocused: isFocused,
+                theme: theme,
+              ),
             ),
           ),
           const SizedBox(width: 5.0),
@@ -119,13 +125,13 @@ class AppTitleBarControls extends StatelessWidget {
         AppTitleBarControlsButtonTemplate(
           icon: Symbols.remove_rounded,
           onPressed: () => unawaited(windowProvider.minimize()),
-          hoverColor: theme.appTitleBarIconBackgroundColor,
+          hoverColor: theme.primaryTextHoverColor,
           iconColor: iconColor,
         ),
         AppTitleBarControlsButtonTemplate(
           icon: isMaximized ? Symbols.filter_none : Symbols.crop_square_rounded,
           onPressed: () => unawaited(windowProvider.handleMaximizeRestore()),
-          hoverColor: theme.appTitleBarIconBackgroundColor,
+          hoverColor: theme.primaryTextHoverColor,
           iconSize: isMaximized ? 13.5 : 14,
           iconWeight: 510.0,
           rotateAngle: isMaximized ? 180 : 0,

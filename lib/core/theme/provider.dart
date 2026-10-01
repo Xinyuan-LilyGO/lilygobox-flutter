@@ -2,7 +2,7 @@
  * @Description: 维护深浅主题配色，并管理当前主题及切换通知。
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2025-11-24 14:38:24
+ * @LastEditTime: 2026-10-01 16:54:38
  * @License: GPL 3.0
  */
 
@@ -48,7 +48,6 @@ class ThemeProvider with ChangeNotifier {
       sidebarHoverIconColor2: const Color.fromARGB(255, 100, 177, 76),
       sidebarIconBackgroundColor: const Color.fromARGB(255, 55, 55, 55),
       sidebarIndicatorColor: const Color.fromARGB(255, 200, 200, 200),
-      appTitleBarIconBackgroundColor: Colors.grey.withValues(alpha: 0.2),
       dividerColor: const Color.fromARGB(255, 100, 100, 100),
       dividerColorNormal: const Color.fromARGB(255, 126, 109, 202),
       basePrimary: const Color.fromARGB(255, 126, 109, 202),
@@ -87,7 +86,6 @@ class ThemeProvider with ChangeNotifier {
       sidebarHoverIconColor2: const Color.fromARGB(255, 125, 191, 105),
       sidebarIconBackgroundColor: const Color.fromARGB(255, 200, 200, 200),
       sidebarIndicatorColor: const Color.fromARGB(255, 40, 40, 40),
-      appTitleBarIconBackgroundColor: Colors.grey.withValues(alpha: 0.2),
       dividerColor: const Color.fromARGB(255, 80, 80, 80),
       dividerColorNormal: const Color.fromARGB(255, 182, 168, 255),
       basePrimary: const Color.fromARGB(255, 182, 168, 255),

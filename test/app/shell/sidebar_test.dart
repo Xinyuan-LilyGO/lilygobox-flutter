@@ -2,19 +2,21 @@
  * @Description: 验证侧栏连续拖动、折叠展开、导航布局与账号入口行为。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-01 17:29:40
  * @License: GPL 3.0
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lilygo_box/app/shell/pages/page.dart';
-import 'package:lilygo_box/app/shell/state/provider.dart';
-import 'package:lilygo_box/app/shell/widgets/resizable_sidebar.dart';
-import 'package:lilygo_box/core/layout/split_view_provider.dart';
-import 'package:lilygo_box/core/theme/provider.dart';
-import 'package:lilygo_box/features/devices/state/manager_provider.dart';
-import 'package:lilygo_box/generated/l10n/app_localizations.dart';
+import 'package:lilygobox/app/navigation/provider.dart';
+import 'package:lilygobox/app/shell/pages/page.dart';
+import 'package:lilygobox/app/shell/state/provider.dart';
+import 'package:lilygobox/app/shell/widgets/resizable_sidebar.dart';
+import 'package:lilygobox/core/layout/split_view_provider.dart';
+import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/features/devices/state/manager_provider.dart';
+import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -235,10 +237,12 @@ void main() {
         ..addDevice('A device with a long display name');
       final theme = ThemeProvider();
       final split = SplitViewProvider();
+      final navigation = AppNavigationProvider();
       addTearDown(shell.dispose);
       addTearDown(devices.dispose);
       addTearDown(theme.dispose);
       addTearDown(split.dispose);
+      addTearDown(navigation.dispose);
 
       await tester.pumpWidget(
         MultiProvider(
@@ -247,6 +251,7 @@ void main() {
             ChangeNotifierProvider.value(value: devices),
             ChangeNotifierProvider.value(value: theme),
             ChangeNotifierProvider.value(value: split),
+            ChangeNotifierProvider.value(value: navigation),
           ],
           child: MaterialApp(
             locale: const Locale('zh'),
@@ -259,7 +264,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('LilygoBox'), findsOneWidget);
       expect(find.text('首页'), findsOneWidget);
-      expect(find.text('账号设置'), findsOneWidget);
+      expect(find.text('个人中心'), findsOneWidget);
       expect(find.text('未登录'), findsOneWidget);
 
       shell.resizeSidebar(180, maxWidth: 360);
@@ -295,11 +300,60 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.text('账号设置'));
+      await tester.tap(find.text('个人中心'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 70));
+      final fade = find.byKey(const ValueKey('account-menu-fade'));
+      expect(tester.widget<FadeTransition>(fade).opacity.value, greaterThan(0));
+      expect(tester.widget<FadeTransition>(fade).opacity.value, lessThan(1));
       await tester.pumpAndSettle();
       expect(find.byType(AlertDialog), findsNothing);
-      expect(find.text('账号设置'), findsOneWidget);
+      expect(find.text('个人中心'), findsOneWidget);
       expect(shell.selectedIndex, 0);
+      expect(find.text('设置'), findsOneWidget);
+      expect(
+        tester.getBottomLeft(find.text('设置')).dy,
+        lessThan(tester.getTopLeft(find.text('个人中心')).dy),
+      );
+      expect(navigation.currentPage, AppPage.home);
+      final card = find.byKey(const ValueKey('account-menu-card'));
+      final trigger = find.byKey(const ValueKey('account-menu-trigger'));
+      expect(tester.getSize(card).width, tester.getSize(trigger).width);
+      expect(tester.getTopLeft(card).dx, tester.getTopLeft(trigger).dx);
+      expect(tester.getBottomLeft(card).dy, tester.getTopLeft(trigger).dy - 8);
+
+      // 关闭中反向展开应沿用当前进度，不能被旧的关闭回调移除。
+      await tester.tap(find.text('个人中心'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.text('设置'), findsOneWidget);
+      expect(tester.widget<FadeTransition>(fade).opacity.value, lessThan(1));
+      await tester.tap(find.text('个人中心'));
+      await tester.pumpAndSettle();
+      expect(find.text('设置'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text('设置'), findsNothing);
+      await tester.tap(find.text('个人中心'));
+      await tester.pumpAndSettle();
+
+      // 再次点击入口或点击菜单外部均可收起。
+      await tester.tap(find.text('个人中心'));
+      await tester.pumpAndSettle();
+      expect(find.text('设置'), findsNothing);
+      await tester.tap(find.text('个人中心'));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(700, 400));
+      await tester.pumpAndSettle();
+      expect(find.text('设置'), findsNothing);
+
+      await tester.tap(find.text('个人中心'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('设置'));
+      await tester.pumpAndSettle();
+      expect(navigation.currentPage, AppPage.settings);
+      expect(find.text('设置'), findsNothing);
+      expect(tester.takeException(), isNull);
     },
   );
 }

@@ -1,12 +1,16 @@
 /*
- * @Description: 定义右键菜单项、菜单控制器及带分隔线的菜单构建方法。
+ * @Description: 定义共用弹出菜单样式，支持右键定位和锚点上方展开。
  * @Author: LILYGO_L
  * @Date: 2025-11-18 14:00:00
- * @LastEditTime: 2025-11-24 14:18:32
+ * @LastEditTime: 2026-10-01 16:35:22
  * @License: GPL 3.0
  */
 
 import 'package:flutter/material.dart';
+
+import '../theme/definition.dart';
+import '../widgets/menu_item_surface.dart';
+import '../widgets/popup_menu_surface.dart';
 
 /// 右键菜单项
 class RightClickMenuItem {
@@ -34,7 +38,7 @@ class RightClickMenuController {
   void disable() => _isEnabled = false;
   bool get isEnabled => _isEnabled;
 
-  void open({required Offset position}) {
+  void open({Offset? position}) {
     if (_isEnabled) {
       _menuController.open(position: position);
     }
@@ -54,18 +58,32 @@ class RightClickMenuBuilder {
     required BuildContext context,
     required RightClickMenuController controller,
     required List<RightClickMenuItem> menuItems,
-    required dynamic theme,
+    required AppTheme theme,
     required Widget child,
-    required VoidCallback onSecondaryTapDown,
+    VoidCallback? onSecondaryTapDown,
+    bool openAbove = false,
   }) {
     const double menuWidth = 150; // 设置菜单宽度
     const double menuPadding = 5.0; // 菜单内边距
+    // 高度与下方菜单项、间距和分隔线保持一致，向上展开时留出 8 像素间隙。
+    final menuHeight =
+        menuPadding * 2 +
+        menuItems.length * 28 +
+        menuItems
+            .take(menuItems.isNotEmpty ? menuItems.length - 1 : 0)
+            .fold<double>(
+              0,
+              (height, item) => height + (item.showDivider ? 9 : 4),
+            );
 
     return MenuAnchor(
       controller: controller._menuController,
+      clipBehavior: Clip.none,
+      alignmentOffset: openAbove ? Offset(0, -menuHeight - 8) : Offset.zero,
       style: MenuStyle(
+        alignment: openAbove ? AlignmentDirectional.topStart : null,
         backgroundColor: WidgetStateProperty.all(Colors.transparent),
-        elevation: WidgetStateProperty.all(3),
+        elevation: WidgetStateProperty.all(0),
         shadowColor: WidgetStateProperty.all(Colors.black),
         surfaceTintColor: WidgetStateProperty.all(Colors.transparent),
         shape: WidgetStateProperty.all(
@@ -74,34 +92,35 @@ class RightClickMenuBuilder {
         padding: WidgetStateProperty.all(EdgeInsets.zero),
       ),
       menuChildren: [
-        // 使用 Container 包裹整个菜单，设置固定宽度和圆角
-        Container(
+        SizedBox(
           width: menuWidth,
-          padding: EdgeInsets.all(menuPadding), // 添加内边距
-          decoration: BoxDecoration(
-            color: theme.primary,
+          child: PopupMenuSurface(
+            theme: theme,
+            padding: const EdgeInsets.all(menuPadding),
             borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: _buildMenuItemsWithDividers(
-              menuItems: menuItems,
-              theme: theme,
-              menuWidth: menuWidth - menuPadding * 2, // 减去内边距后的实际内容宽度
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: _buildMenuItemsWithDividers(
+                menuItems: menuItems,
+                theme: theme,
+                menuWidth: menuWidth - menuPadding * 2, // 减去内边距后的实际内容宽度
+              ),
             ),
           ),
         ),
       ],
       child: GestureDetector(
-        onSecondaryTapDown: (details) {
-          onSecondaryTapDown();
-          // 调整菜单位置，让菜单更贴近鼠标
-          final adjustedPosition = Offset(
-            details.localPosition.dx,
-            details.localPosition.dy - 8, // 向上偏移
-          );
-          controller.open(position: adjustedPosition);
-        },
+        onSecondaryTapDown: onSecondaryTapDown == null
+            ? null
+            : (details) {
+                onSecondaryTapDown();
+                // 调整菜单位置，让菜单更贴近鼠标
+                final adjustedPosition = Offset(
+                  details.localPosition.dx,
+                  details.localPosition.dy - 8, // 向上偏移
+                );
+                controller.open(position: adjustedPosition);
+              },
         child: child,
       ),
     );
@@ -110,7 +129,7 @@ class RightClickMenuBuilder {
   // 构建带分割线的菜单项列表。
   static List<Widget> _buildMenuItemsWithDividers({
     required List<RightClickMenuItem> menuItems,
-    required dynamic theme,
+    required AppTheme theme,
     required double menuWidth,
   }) {
     List<Widget> widgets = [];
@@ -148,65 +167,66 @@ class RightClickMenuBuilder {
 
   // 构建分割线。
   static Widget _buildDivider({
-    required dynamic theme,
+    required AppTheme theme,
     required double menuWidth,
   }) {
     return Container(
       width: menuWidth,
       height: 1,
-      decoration: BoxDecoration(color: theme.dividerColor.withOpacity(0.3)),
+      decoration: BoxDecoration(
+        color: theme.dividerColor.withValues(alpha: 0.3),
+      ),
     );
   }
 
   // 构建自定义菜单项。
   static Widget _buildCustomMenuItem({
     required RightClickMenuItem item,
-    required dynamic theme,
+    required AppTheme theme,
     required double menuWidth,
     required bool isLast,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        hoverColor: theme.basePrimary,
-        onTap: item.isEnabled ? item.onTap : null,
-        borderRadius: BorderRadius.circular(5), // 所有项都使用圆角悬停效果
-        child: Container(
-          width: menuWidth,
-          height: 28,
-          padding: const EdgeInsets.only(left: 6),
-          child: Row(
-            children: [
-              if (item.icon != null) ...[
-                Icon(
-                  item.icon,
-                  size: 16,
+    return MenuItemSurface(
+      theme: theme,
+      backgroundColor: PopupMenuSurface.backgroundColorFor(theme),
+      hoverColor: theme.basePrimary,
+      onPressed: item.isEnabled ? item.onTap : null,
+      borderRadius: BorderRadius.circular(5),
+      child: Container(
+        width: menuWidth,
+        height: 28,
+        padding: const EdgeInsets.only(left: 6),
+        child: Row(
+          children: [
+            if (item.icon != null) ...[
+              Icon(
+                item.icon,
+                size: 16,
+                color: item.isEnabled
+                    ? theme.textColorSecondary
+                    : theme.textColorTertiary,
+                fill: 1,
+                grade: 200,
+                opticalSize: 20,
+                weight: 300,
+              ),
+              const SizedBox(width: 4),
+            ],
+            Expanded(
+              child: Text(
+                item.label,
+                style: TextStyle(
+                  fontSize: 13,
                   color: item.isEnabled
                       ? theme.textColorSecondary
                       : theme.textColorTertiary,
-                  fill: 1,
-                  grade: 200,
-                  opticalSize: 20,
-                  weight: 300,
-                ),
-                const SizedBox(width: 4),
-              ],
-              Expanded(
-                child: Text(
-                  item.label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: item.isEnabled
-                        ? theme.textColorSecondary
-                        : theme.textColorTertiary,
-                    fontWeight: item.isEnabled
-                        ? FontWeight.normal
-                        : FontWeight.w300,
-                  ),
+                  fontWeight: item.isEnabled
+                      ? FontWeight.normal
+                      : FontWeight.w300,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

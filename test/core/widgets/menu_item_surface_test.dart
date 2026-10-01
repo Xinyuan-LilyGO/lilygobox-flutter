@@ -2,7 +2,7 @@
  * @Description: 验证共用菜单表面的悬停渐变、选中禁用和点击波纹。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-01 17:29:40
  * @License: GPL 3.0
  */
 
@@ -10,8 +10,8 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lilygo_box/core/theme/provider.dart';
-import 'package:lilygo_box/core/widgets/menu_item_surface.dart';
+import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/core/widgets/menu_item_surface.dart';
 
 void main() {
   testWidgets('hover fades both ways and selection blocks repeated clicks', (

@@ -2,7 +2,7 @@
  * @Description: 配置应用根组件、本地化资源和主窗口内容。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-01 17:29:40
  * @License: GPL 3.0
  */
 

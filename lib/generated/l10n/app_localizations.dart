@@ -138,6 +138,12 @@ abstract class AppLocalizations {
   /// **'Settings'**
   String get settings;
 
+  /// No description provided for @moreActions.
+  ///
+  /// In en, this message translates to:
+  /// **'More actions'**
+  String get moreActions;
+
   /// No description provided for @basic.
   ///
   /// In en, this message translates to:
@@ -318,11 +324,11 @@ abstract class AppLocalizations {
   /// **'Home'**
   String get sidebarHome;
 
-  /// No description provided for @accountSettings.
+  /// No description provided for @profile.
   ///
   /// In en, this message translates to:
-  /// **'Account settings'**
-  String get accountSettings;
+  /// **'Profile'**
+  String get profile;
 
   /// No description provided for @notSignedIn.
   ///

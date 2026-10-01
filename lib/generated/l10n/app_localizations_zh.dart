@@ -34,6 +34,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settings => '设置';
 
   @override
+  String get moreActions => '更多操作';
+
+  @override
   String get basic => '基础';
 
   @override
@@ -125,7 +128,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sidebarHome => '首页';
 
   @override
-  String get accountSettings => '账号设置';
+  String get profile => '个人中心';
 
   @override
   String get notSignedIn => '未登录';

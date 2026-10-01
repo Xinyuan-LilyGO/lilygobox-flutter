@@ -2,7 +2,7 @@
  * @Description: 定义应用主题类型、配色字段及主题名称的本地化映射。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-01 16:54:38
  * @License: GPL 3.0
  */
 
@@ -47,7 +47,6 @@ class AppTheme {
   final Color sidebarHoverIconColor2;
   final Color sidebarIconBackgroundColor;
   final Color sidebarIndicatorColor;
-  final Color appTitleBarIconBackgroundColor;
   final Color dividerColor;
   final Color dividerColorNormal;
   final Color basePrimary;
@@ -86,7 +85,6 @@ class AppTheme {
     required this.sidebarHoverIconColor2,
     required this.sidebarIconBackgroundColor,
     required this.sidebarIndicatorColor,
-    required this.appTitleBarIconBackgroundColor,
     required this.dividerColor,
     required this.dividerColorNormal,
     required this.basePrimary,

@@ -2,7 +2,7 @@
  * @Description: 提供设置项更多操作入口及重置菜单，管理菜单动画和生命周期。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-01 17:16:37
  * @License: GPL 3.0
  */
 
@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 
 import '../../../generated/l10n/app_localizations.dart';
 import '../../theme/definition.dart';
+import '../app_tooltip.dart';
 import '../menu_item_surface.dart';
 
 class SettingMoreButton extends StatefulWidget {
@@ -61,9 +62,8 @@ class _SettingMoreButtonState extends State<SettingMoreButton>
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: '更多操作',
-      waitDuration: const Duration(milliseconds: 500),
+    return AppTooltip(
+      message: AppLocalizations.of(context).moreActions,
       child: MenuItemSurface.control(
         theme: widget.theme,
         onPressed: _toggleMenu,

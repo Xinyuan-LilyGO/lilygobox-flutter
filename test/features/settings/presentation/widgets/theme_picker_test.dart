@@ -2,16 +2,16 @@
  * @Description: 验证主题卡片切换、重复选中限制、重置及窄窗口布局。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-01 17:29:40
  * @License: GPL 3.0
  */
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lilygo_box/core/theme/provider.dart';
-import 'package:lilygo_box/core/widgets/settings/widgets.dart';
-import 'package:lilygo_box/features/settings/presentation/widgets/personalization_content.dart';
-import 'package:lilygo_box/generated/l10n/app_localizations.dart';
+import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/core/widgets/settings/widgets.dart';
+import 'package:lilygobox/features/settings/presentation/widgets/personalization_content.dart';
+import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 void main() {

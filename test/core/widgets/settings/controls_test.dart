@@ -2,7 +2,7 @@
  * @Description: 验证设置下拉菜单和重置菜单的颜色渐变及交互流程。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-01 17:29:40
  * @License: GPL 3.0
  */
 
@@ -10,10 +10,10 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lilygo_box/core/theme/provider.dart';
-import 'package:lilygo_box/core/widgets/menu_item_surface.dart';
-import 'package:lilygo_box/core/widgets/settings/widgets.dart';
-import 'package:lilygo_box/generated/l10n/app_localizations.dart';
+import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/core/widgets/menu_item_surface.dart';
+import 'package:lilygobox/core/widgets/settings/widgets.dart';
+import 'package:lilygobox/generated/l10n/app_localizations.dart';
 
 Color background(WidgetTester tester, Finder surface) {
   final box = tester.widget<DecoratedBox>(

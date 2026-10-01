@@ -2,13 +2,14 @@
  * @Description: 统一标题栏圆形图标按钮的尺寸、悬停动画和点击反馈。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-01 16:54:38
  * @License: GPL 3.0
  */
 
 import 'package:flutter/material.dart';
 
 import '../theme/definition.dart';
+import 'menu_item_surface.dart';
 
 /// 标题栏的共用圆形图标按钮，统一尺寸、悬停过渡、波纹和窗口失焦配色。
 class TitleBarIconButton extends StatefulWidget {
@@ -32,7 +33,6 @@ class TitleBarIconButton extends StatefulWidget {
 class _TitleBarIconButtonState extends State<TitleBarIconButton> {
   static const double _diameter = 24;
   static const double _iconSize = 16;
-  static const Duration _duration = Duration(milliseconds: 150);
   bool _isHovered = false;
 
   @override
@@ -43,12 +43,12 @@ class _TitleBarIconButtonState extends State<TitleBarIconButton> {
       child: AnimatedContainer(
         width: _diameter,
         height: _diameter,
-        duration: _duration,
-        curve: Curves.easeInOut,
+        duration: MenuItemSurface.animationDuration,
+        curve: MenuItemSurface.animationCurve,
         decoration: BoxDecoration(
           color: _isHovered
-              ? widget.theme.appTitleBarIconBackgroundColor
-              : Colors.transparent,
+              ? widget.theme.primaryTextHoverColor
+              : widget.theme.primary,
           shape: BoxShape.circle,
         ),
         // 墨水层位于背景上方，点击波纹不会被悬停背景遮挡。
@@ -61,8 +61,10 @@ class _TitleBarIconButtonState extends State<TitleBarIconButton> {
             splashFactory: InkRipple.splashFactory,
             customBorder: const CircleBorder(),
             hoverColor: Colors.transparent,
-            highlightColor: widget.theme.iconColor.withValues(alpha: 0.04),
-            splashColor: widget.theme.iconColor.withValues(alpha: 0.12),
+            highlightColor: widget.theme.textColorPrimary.withValues(
+              alpha: 0.04,
+            ),
+            splashColor: widget.theme.textColorPrimary.withValues(alpha: 0.12),
             child: Center(
               child: Icon(
                 widget.icon,

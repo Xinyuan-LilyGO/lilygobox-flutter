@@ -2,11 +2,12 @@
  * @Description: 构建品牌侧栏、设备导航、账号入口和当前页面内容。
  * @Author: LILYGO_L
  * @Date: 2025-11-06 14:22:51
- * @LastEditTime: 2025-11-20 10:08:41
+ * @LastEditTime: 2026-10-01 17:56:56
  * @License: GPL 3.0
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
@@ -84,20 +85,31 @@ class _AppShellState extends State<AppShell> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 16, 24),
+            padding: const EdgeInsets.fromLTRB(13, 12, 16, 16),
             child: Row(
               children: [
-                // 品牌图标暂用正方形占位，后续替换为正式资源。
-                Container(width: 28, height: 28, color: theme.basePrimary),
-                const SizedBox(width: 12),
+                SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: SvgPicture.asset(
+                    'assets/images/branding/lilygobox_logo.svg',
+                    fit: BoxFit.contain,
+                    colorFilter: ColorFilter.mode(
+                      theme.textColorPrimary,
+                      BlendMode.srcIn,
+                    ),
+                    excludeFromSemantics: true,
+                  ),
+                ),
+                const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     'LilygoBox',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 21,
+                      fontWeight: FontWeight.w700,
                       color: theme.textColorPrimary,
                     ),
                   ),
@@ -107,6 +119,8 @@ class _AppShellState extends State<AppShell> {
           ),
           SidebarNavigationItem(
             icon: Symbols.home,
+            iconFill: 1,
+            iconColor: theme.textColorSecondary,
             label: context.l10n.sidebarHome,
             onPressed: () => _selectItem(0),
             isSelected: selectedIndex == 0,
