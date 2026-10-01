@@ -1,3 +1,9 @@
+/*
+ * @Description: 初始化桌面无边框窗口，配置尺寸、显示状态和焦点。
+ * @Author: LILYGO_L
+ * @License: GPL 3.0
+ */
+
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 

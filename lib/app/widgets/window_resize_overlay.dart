@@ -1,8 +1,14 @@
+/*
+ * @Description: 提供无边框窗口四边及四角的拖动缩放命中区域。
+ * @Author: LILYGO_L
+ * @License: GPL 3.0
+ */
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../../core/window/window_provider.dart';
+import '../../core/window/provider.dart';
 
 class WindowResizeOverlay extends StatelessWidget {
   const WindowResizeOverlay({super.key});

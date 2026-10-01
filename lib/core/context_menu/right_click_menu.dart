@@ -1,5 +1,5 @@
 /*
- * @Description: None
+ * @Description: 定义右键菜单项、菜单控制器及带分隔线的菜单构建方法。
  * @Author: LILYGO_L
  * @Date: 2025-11-18 14:00:00
  * @LastEditTime: 2025-11-24 14:18:32
@@ -107,7 +107,7 @@ class RightClickMenuBuilder {
     );
   }
 
-  /// 构建带分割线的菜单项列表
+  // 构建带分割线的菜单项列表。
   static List<Widget> _buildMenuItemsWithDividers({
     required List<RightClickMenuItem> menuItems,
     required dynamic theme,
@@ -146,7 +146,7 @@ class RightClickMenuBuilder {
     return widgets;
   }
 
-  /// 构建分割线
+  // 构建分割线。
   static Widget _buildDivider({
     required dynamic theme,
     required double menuWidth,
@@ -158,7 +158,7 @@ class RightClickMenuBuilder {
     );
   }
 
-  /// 构建自定义菜单项
+  // 构建自定义菜单项。
   static Widget _buildCustomMenuItem({
     required RightClickMenuItem item,
     required dynamic theme,

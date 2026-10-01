@@ -1,6 +1,12 @@
+/*
+ * @Description: 提供带圆形背景及悬停颜色动画的通用图标按钮。
+ * @Author: LILYGO_L
+ * @License: GPL 3.0
+ */
+
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/definition.dart';
 
 class AnimatedCircleIconButton extends StatefulWidget {
   const AnimatedCircleIconButton({

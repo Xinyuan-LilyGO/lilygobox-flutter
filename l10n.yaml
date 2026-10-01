@@ -23,11 +23,6 @@ output-dir: lib/generated/l10n
 supported-locales:
   - en    # 英语
   - zh    # 中文  
-  - ja    # 日语
-  # - fr  # 法语 (取消注释即可添加)
-  # - de  # 德语
-  # - es  # 西班牙语
-  # - ko  # 韩语
 
 # untranslated-messages-file: 未翻译消息输出文件
 # 当某些语言缺少翻译时，会在这里记录缺失的键
@@ -56,11 +51,13 @@ use-escaping: true
 # header: 生成文件顶部的注释头
 # 可以包含版权信息、生成说明等
 header: |
-  // ==========================================
-  // 自动生成的本地化文件
-  // 请勿手动编辑！所有修改应在 .arb 文件中进行
-  // 生成命令: flutter gen-l10n
-  // ==========================================
+  /*
+   * @Description: 自动生成的本地化文件
+   * @Author: LILYGO_L
+   * @License: GPL 3.0
+   * @Generated: flutter gen-l10n
+   * @Note: 请勿手动编辑，翻译内容请在 lib/l10n 目录下的 .arb 文件中修改。
+   */
 
 # header-file: 从外部文件读取头部注释
 # 如果有复杂的头部模板，可以使用这个选项
@@ -75,7 +72,6 @@ header: |
 preferred-supported-locales:
   - en
   - zh
-  - ja
 
 # =====================
 # 高级选项

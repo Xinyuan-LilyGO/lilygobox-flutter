@@ -1,8 +1,10 @@
-// ==========================================
-// 自动生成的本地化文件
-// 请勿手动编辑！所有修改应在 .arb 文件中进行
-// 生成命令: flutter gen-l10n
-// ==========================================
+/*
+ * @Description: 自动生成的本地化文件
+ * @Author: LILYGO_L
+ * @License: GPL 3.0
+ * @Generated: flutter gen-l10n
+ * @Note: 请勿手动编辑，翻译内容请在 lib/l10n 目录下的 .arb 文件中修改。
+ */
 
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
@@ -21,10 +23,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get themeDescription => '选择你当前的主题';
 
   @override
-  String get themeDark => '黑色主题';
+  String get themeDark => '深色';
 
   @override
-  String get themeLight => '亮色主题';
+  String get themeLight => '浅色';
 
   @override
   String get settings => '设置';
@@ -91,10 +93,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get language => '语言';
 
   @override
+  String get languageEnglish => '英语';
+
+  @override
+  String get languageChinese => '中文';
+
+  @override
   String get languageDescription => '选择您偏好的应用程序界面语言';
 
   @override
   String get deviceSettings => '设备设置';
+
+  @override
+  String get deviceSettingsUnavailable => '此设备暂未提供设置选项。';
 
   @override
   String get refresh => '刷新';
@@ -107,4 +118,22 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get controlCenter => '控制中心';
+
+  @override
+  String get sidebarHome => '首页';
+
+  @override
+  String get accountSettings => '账号设置';
+
+  @override
+  String get notSignedIn => '未登录';
+
+  @override
+  String get accountUnavailable => '账号功能暂未接入。你仍可使用本地设备功能。';
+
+  @override
+  String get showSidebar => '显示侧边栏';
+
+  @override
+  String get hideSidebar => '隐藏侧边栏';
 }

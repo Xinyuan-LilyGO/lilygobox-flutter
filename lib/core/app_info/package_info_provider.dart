@@ -1,5 +1,5 @@
 /*
- * @Description: None
+ * @Description: 加载并缓存应用名称、版本和软件包信息，管理加载状态。
  * @Author: LILYGO_L
  * @Date: 2025-11-03 15:05:33
  * @LastEditTime: 2025-11-17 11:27:26

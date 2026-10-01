@@ -1,3 +1,9 @@
+/*
+ * @Description: 配置应用根组件、本地化资源和主窗口内容。
+ * @Author: LILYGO_L
+ * @License: GPL 3.0
+ */
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -5,10 +11,10 @@ import 'package:provider/provider.dart';
 
 import '../core/app_info/package_info_provider.dart';
 import '../core/l10n/language_provider.dart';
-import '../core/theme/theme_provider.dart';
-import '../core/window/window_provider.dart';
+import '../core/theme/provider.dart';
+import '../core/window/provider.dart';
 import '../generated/l10n/app_localizations.dart';
-import 'widgets/app_window_frame.dart';
+import 'widgets/window_frame.dart';
 
 class LilygoBoxApp extends StatelessWidget {
   const LilygoBoxApp({super.key});

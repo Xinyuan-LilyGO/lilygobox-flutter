@@ -1,11 +1,17 @@
+/*
+ * @Description: 根据导航状态切换主窗口页面，并叠加添加设备弹层。
+ * @Author: LILYGO_L
+ * @License: GPL 3.0
+ */
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../features/devices/presentation/pages/add_device_page.dart';
-import '../../features/devices/t_glasses_p4/presentation/pages/device_settings_t_glasses_p4.dart';
-import '../../features/settings/presentation/pages/settings_page.dart';
-import '../navigation/app_navigation_provider.dart';
-import '../shell/pages/app_shell.dart';
+import '../../features/devices/presentation/catalog.dart';
+import '../../features/devices/presentation/pages/add_page.dart';
+import '../../features/settings/presentation/pages/page.dart';
+import '../navigation/provider.dart';
+import '../shell/pages/page.dart';
 
 /// 主窗口内容栈。
 ///
@@ -47,7 +53,7 @@ class WindowPageStack extends StatelessWidget {
           },
           child: SizedBox.expand(
             key: ValueKey(basePageKey),
-            child: _buildBasePage(basePageKey),
+            child: _buildBasePage(basePageKey, navigationProvider),
           ),
         );
 
@@ -82,27 +88,23 @@ class WindowPageStack extends StatelessWidget {
         );
 
         return Expanded(
-          child: Stack(
-            children: [
-              baseContent,
-              modalBarrier,
-              modalContent,
-            ],
-          ),
+          child: Stack(children: [baseContent, modalBarrier, modalContent]),
         );
       },
     );
   }
 
-  /// 将导航枚举映射到具体页面组件。
-  ///
-  /// 新增顶层页面时优先在这里注册，保持导航入口集中。
-  Widget _buildBasePage(AppPage pageKey) {
+  // 将导航枚举映射到具体页面组件。
+  // 新增顶层页面时优先在这里注册，保持导航入口集中。
+  Widget _buildBasePage(AppPage pageKey, AppNavigationProvider navigation) {
     switch (pageKey) {
       case AppPage.settings:
         return const SettingsPage();
       case AppPage.deviceSettings:
-        return const DeviceSettingsTGlassesP4();
+        return DevicePresentationCatalog.settingsPageFor(
+          navigation.settingsDeviceName!,
+          onClose: navigation.goHome,
+        );
       case AppPage.home:
       default:
         return const AppShell();

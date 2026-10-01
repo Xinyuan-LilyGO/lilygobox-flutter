@@ -1,8 +1,10 @@
-// ==========================================
-// 自动生成的本地化文件
-// 请勿手动编辑！所有修改应在 .arb 文件中进行
-// 生成命令: flutter gen-l10n
-// ==========================================
+/*
+ * @Description: 自动生成的本地化文件
+ * @Author: LILYGO_L
+ * @License: GPL 3.0
+ * @Generated: flutter gen-l10n
+ * @Note: 请勿手动编辑，翻译内容请在 lib/l10n 目录下的 .arb 文件中修改。
+ */
 
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
@@ -21,10 +23,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeDescription => 'Choose your current theme';
 
   @override
-  String get themeDark => 'Dark Theme';
+  String get themeDark => 'Dark';
 
   @override
-  String get themeLight => 'Light Theme';
+  String get themeLight => 'Light';
 
   @override
   String get settings => 'Settings';
@@ -93,11 +95,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get language => 'Language';
 
   @override
+  String get languageEnglish => 'English';
+
+  @override
+  String get languageChinese => 'Chinese';
+
+  @override
   String get languageDescription =>
       'Choose your preferred application interface language';
 
   @override
   String get deviceSettings => 'Device Settings';
+
+  @override
+  String get deviceSettingsUnavailable =>
+      'Settings are not available for this device yet.';
 
   @override
   String get refresh => 'Refresh';
@@ -110,4 +122,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get controlCenter => 'Control Center';
+
+  @override
+  String get sidebarHome => 'Home';
+
+  @override
+  String get accountSettings => 'Account settings';
+
+  @override
+  String get notSignedIn => 'Not signed in';
+
+  @override
+  String get accountUnavailable =>
+      'Accounts are not available yet. You can still use local device features.';
+
+  @override
+  String get showSidebar => 'Show sidebar';
+
+  @override
+  String get hideSidebar => 'Hide sidebar';
 }

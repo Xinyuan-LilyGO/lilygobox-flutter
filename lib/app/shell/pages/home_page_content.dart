@@ -1,5 +1,5 @@
 /*
- * @Description: None
+ * @Description: 展示首页导航、欢迎内容及可拖动的左右分栏。
  * @Author: LILYGO_L
  * @Date: 2025-11-07 11:23:45
  * @LastEditTime: 2025-11-19 16:30:42
@@ -12,7 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/l10n/language_provider.dart';
 import '../../../core/layout/split_view_provider.dart';
-import '../../../core/theme/theme_provider.dart';
+import '../../../core/theme/provider.dart';
 import '../../../core/widgets/resizable_split_view.dart';
 
 class HomePageContent extends StatefulWidget {

@@ -1,8 +1,10 @@
-// ==========================================
-// 自动生成的本地化文件
-// 请勿手动编辑！所有修改应在 .arb 文件中进行
-// 生成命令: flutter gen-l10n
-// ==========================================
+/*
+ * @Description: 自动生成的本地化文件
+ * @Author: LILYGO_L
+ * @License: GPL 3.0
+ * @Generated: flutter gen-l10n
+ * @Note: 请勿手动编辑，翻译内容请在 lib/l10n 目录下的 .arb 文件中修改。
+ */
 
 import 'dart:async';
 
@@ -12,7 +14,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart' as intl;
 
 import 'app_localizations_en.dart';
-import 'app_localizations_ja.dart';
 import 'app_localizations_zh.dart';
 
 // ignore_for_file: type=lint
@@ -103,7 +104,6 @@ abstract class AppLocalizations {
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
     Locale('zh'),
-    Locale('ja'),
   ];
 
   /// No description provided for @theme.
@@ -121,13 +121,13 @@ abstract class AppLocalizations {
   /// No description provided for @themeDark.
   ///
   /// In en, this message translates to:
-  /// **'Dark Theme'**
+  /// **'Dark'**
   String get themeDark;
 
   /// No description provided for @themeLight.
   ///
   /// In en, this message translates to:
-  /// **'Light Theme'**
+  /// **'Light'**
   String get themeLight;
 
   /// No description provided for @settings.
@@ -256,6 +256,18 @@ abstract class AppLocalizations {
   /// **'Language'**
   String get language;
 
+  /// No description provided for @languageEnglish.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get languageEnglish;
+
+  /// No description provided for @languageChinese.
+  ///
+  /// In en, this message translates to:
+  /// **'Chinese'**
+  String get languageChinese;
+
   /// No description provided for @languageDescription.
   ///
   /// In en, this message translates to:
@@ -267,6 +279,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Device Settings'**
   String get deviceSettings;
+
+  /// No description provided for @deviceSettingsUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings are not available for this device yet.'**
+  String get deviceSettingsUnavailable;
 
   /// No description provided for @refresh.
   ///
@@ -291,6 +309,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Control Center'**
   String get controlCenter;
+
+  /// No description provided for @sidebarHome.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get sidebarHome;
+
+  /// No description provided for @accountSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Account settings'**
+  String get accountSettings;
+
+  /// No description provided for @notSignedIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Not signed in'**
+  String get notSignedIn;
+
+  /// No description provided for @accountUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Accounts are not available yet. You can still use local device features.'**
+  String get accountUnavailable;
+
+  /// No description provided for @showSidebar.
+  ///
+  /// In en, this message translates to:
+  /// **'Show sidebar'**
+  String get showSidebar;
+
+  /// No description provided for @hideSidebar.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide sidebar'**
+  String get hideSidebar;
 }
 
 class _AppLocalizationsDelegate
@@ -304,7 +358,7 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) =>
-      <String>['en', 'ja', 'zh'].contains(locale.languageCode);
+      <String>['en', 'zh'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -315,8 +369,6 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   switch (locale.languageCode) {
     case 'en':
       return AppLocalizationsEn();
-    case 'ja':
-      return AppLocalizationsJa();
     case 'zh':
       return AppLocalizationsZh();
   }
