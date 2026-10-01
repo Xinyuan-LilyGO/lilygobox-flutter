@@ -6,8 +6,12 @@
  * @License: GPL 3.0
  */
 
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/navigation/provider.dart';
 import 'package:lilygobox/app/shell/pages/page.dart';
@@ -20,6 +24,144 @@ import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 void main() {
+  testWidgets('brand logo stays stable across resize and display scaling', (
+    tester,
+  ) async {
+    final shell = AppShellProvider();
+    final devices = DeviceManagerProvider();
+    final theme = ThemeProvider();
+    final split = SplitViewProvider();
+    final navigation = AppNavigationProvider();
+    addTearDown(shell.dispose);
+    addTearDown(devices.dispose);
+    addTearDown(theme.dispose);
+    addTearDown(split.dispose);
+    addTearDown(navigation.dispose);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final boundaryKey = GlobalKey();
+
+    Future<List<int>> captureLogo() async {
+      final rect = tester.getRect(find.byType(SvgPicture));
+      final boundary =
+          boundaryKey.currentContext!.findRenderObject()
+              as RenderRepaintBoundary;
+      return (await tester.runAsync(() async {
+        final ratio = tester.view.devicePixelRatio;
+        final image = await boundary.toImage(pixelRatio: ratio);
+        final sourceRect = Rect.fromLTWH(
+          rect.left * ratio,
+          rect.top * ratio,
+          rect.width * ratio,
+          rect.height * ratio,
+        );
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(recorder);
+        canvas.drawImageRect(
+          image,
+          sourceRect,
+          Offset.zero & sourceRect.size,
+          Paint(),
+        );
+        final picture = recorder.endRecording();
+        final crop = await picture.toImage(
+          sourceRect.width.round(),
+          sourceRect.height.round(),
+        );
+        final data = await crop.toByteData(format: ui.ImageByteFormat.rawRgba);
+        final pixels = data!.buffer.asUint8List().toList();
+        crop.dispose();
+        picture.dispose();
+        image.dispose();
+        return pixels;
+      }))!;
+    }
+
+    Future<List<int>> referenceLogo() async {
+      return (await tester.runAsync(() async {
+        final info = await vg.loadPicture(
+          const SvgAssetLoader('assets/images/branding/lilygobox_logo.svg'),
+          null,
+        );
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(recorder);
+        canvas.drawColor(theme.themeData.primary, BlendMode.src);
+        canvas.saveLayer(
+          const Rect.fromLTWH(0, 0, 44, 44),
+          Paint()
+            ..colorFilter = ColorFilter.mode(
+              theme.themeData.textColorPrimary,
+              BlendMode.srcIn,
+            ),
+        );
+        canvas.scale(44 / info.size.width);
+        canvas.drawPicture(info.picture);
+        canvas.restore();
+        final picture = recorder.endRecording();
+        final image = await picture.toImage(44, 44);
+        final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+        final pixels = data!.buffer.asUint8List().toList();
+        image.dispose();
+        picture.dispose();
+        info.picture.dispose();
+        return pixels;
+      }))!;
+    }
+
+    for (final ratio in [1.0, 1.25, 1.5, 2.0]) {
+      tester.view.devicePixelRatio = ratio;
+      for (final mode in ThemeType.values) {
+        theme.setTheme(mode);
+        await tester.binding.setSurfaceSize(const Size(1150, 800));
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider.value(value: shell),
+              ChangeNotifierProvider.value(value: devices),
+              ChangeNotifierProvider.value(value: theme),
+              ChangeNotifierProvider.value(value: split),
+              ChangeNotifierProvider.value(value: navigation),
+            ],
+            child: MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: RepaintBoundary(
+                key: boundaryKey,
+                child: const Scaffold(body: AppShell()),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final initial = await captureLogo();
+        // 排除尚未加载的纯色占位图；只比较红色通道，不把 alpha 当作图形。
+        final shades = {for (var i = 0; i < initial.length; i += 4) initial[i]};
+        expect(shades.length, greaterThan(2));
+        if (ratio == 1) {
+          // 对照直接按 44 像素绘制的矢量边缘，防止大缓存缩小造成锯齿。
+          final reference = await referenceLogo();
+          var error = 0;
+          for (var i = 0; i < initial.length; i += 4) {
+            error += (initial[i] - reference[i]).abs();
+          }
+          expect(
+            error / (44 * 44),
+            lessThan(2),
+            reason: 'Cached logo differs from native-size vector edges',
+          );
+        }
+        await tester.binding.setSurfaceSize(const Size(1280, 850));
+        await tester.pumpAndSettle();
+        expect(
+          await captureLogo(),
+          initial,
+          reason: 'Logo changed after resize at $ratio DPR in $mode',
+        );
+        expect(tester.takeException(), isNull);
+      }
+    }
+  });
+
   testWidgets('one held drag can collapse, reopen and keep resizing', (
     tester,
   ) async {

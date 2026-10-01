@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
+import 'package:vector_graphics/vector_graphics_compat.dart'
+    show RenderingStrategy;
 
 import '../../../core/l10n/language_provider.dart';
 import '../../../core/theme/provider.dart';
@@ -85,7 +87,7 @@ class _AppShellState extends State<AppShell> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(13, 12, 16, 16),
+            padding: const EdgeInsets.fromLTRB(12, 12, 16, 16),
             child: Row(
               children: [
                 SizedBox(
@@ -93,6 +95,10 @@ class _AppShellState extends State<AppShell> {
                   height: 44,
                   child: SvgPicture.asset(
                     'assets/images/branding/lilygobox_logo.svg',
+                    width: 44,
+                    height: 44,
+                    // 按当前尺寸和像素比缓存绘制，避免桌面首帧矢量描边异常。
+                    renderingStrategy: RenderingStrategy.raster,
                     fit: BoxFit.contain,
                     colorFilter: ColorFilter.mode(
                       theme.textColorPrimary,
