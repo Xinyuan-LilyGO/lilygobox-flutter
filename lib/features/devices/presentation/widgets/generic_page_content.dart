@@ -1,6 +1,8 @@
 /*
  * @Description: 为尚未适配专属界面的设备提供通用占位页面。
  * @Author: LILYGO_L
+ * @Date: 2026-05-16 10:50:23
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

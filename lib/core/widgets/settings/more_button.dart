@@ -1,6 +1,8 @@
 /*
  * @Description: 提供设置项更多操作入口及重置菜单，管理菜单动画和生命周期。
  * @Author: LILYGO_L
+ * @Date: 2026-10-01 15:49:33
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

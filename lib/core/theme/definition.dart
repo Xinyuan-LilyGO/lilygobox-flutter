@@ -1,6 +1,8 @@
 /*
  * @Description: 定义应用主题类型、配色字段及主题名称的本地化映射。
  * @Author: LILYGO_L
+ * @Date: 2026-05-16 10:50:23
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

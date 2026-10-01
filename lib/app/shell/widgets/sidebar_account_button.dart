@@ -1,6 +1,8 @@
 /*
  * @Description: 展示侧栏底部账号入口和未登录状态，保留交互反馈。
  * @Author: LILYGO_L
+ * @Date: 2026-10-01 15:49:33
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

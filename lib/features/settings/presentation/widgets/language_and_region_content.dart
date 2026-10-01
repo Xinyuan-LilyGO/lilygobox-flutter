@@ -1,6 +1,8 @@
 /*
  * @Description: 展示界面语言选择并使用当前语言显示选项名称。
  * @Author: LILYGO_L
+ * @Date: 2025-10-31 17:01:16
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

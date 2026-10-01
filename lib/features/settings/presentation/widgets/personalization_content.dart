@@ -1,6 +1,8 @@
 /*
  * @Description: 展示外观设置，支持主题预览卡片切换及恢复默认主题。
  * @Author: LILYGO_L
+ * @Date: 2025-10-31 17:01:16
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

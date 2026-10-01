@@ -1,6 +1,8 @@
 /*
  * @Description: 构建 T-Glasses-P4 标题右键菜单的设备设置和删除入口。
  * @Author: LILYGO_L
+ * @Date: 2026-05-16 10:50:23
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

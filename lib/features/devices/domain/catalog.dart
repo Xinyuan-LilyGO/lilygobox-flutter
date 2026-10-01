@@ -1,6 +1,8 @@
 /*
  * @Description: 定义应用支持的设备名称及领域层设备目录。
  * @Author: LILYGO_L
+ * @Date: 2026-05-16 10:50:23
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

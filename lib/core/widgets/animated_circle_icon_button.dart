@@ -1,6 +1,8 @@
 /*
  * @Description: 提供带圆形背景及悬停颜色动画的通用图标按钮。
  * @Author: LILYGO_L
+ * @Date: 2026-05-16 10:50:23
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

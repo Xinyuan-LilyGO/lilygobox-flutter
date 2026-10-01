@@ -1,6 +1,8 @@
 /*
  * @Description: 构建 T-Glasses-P4 设置分类导航及设备信息详情区域。
  * @Author: LILYGO_L
+ * @Date: 2025-11-19 11:49:06
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

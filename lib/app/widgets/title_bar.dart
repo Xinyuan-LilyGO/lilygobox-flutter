@@ -1,6 +1,8 @@
 /*
  * @Description: 构建主窗口标题栏、侧栏开关、设置入口和窗口控制按钮。
  * @Author: LILYGO_L
+ * @Date: 2026-05-16 10:50:23
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

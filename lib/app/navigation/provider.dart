@@ -1,6 +1,8 @@
 /*
  * @Description: 管理主窗口内的页面导航与弹层切换状态。
  * @Author: LILYGO_L
+ * @Date: 2026-10-01 15:49:33
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

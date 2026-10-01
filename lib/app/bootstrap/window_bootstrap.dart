@@ -1,6 +1,8 @@
 /*
  * @Description: 初始化桌面无边框窗口，配置尺寸、显示状态和焦点。
  * @Author: LILYGO_L
+ * @Date: 2026-05-16 10:50:23
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

@@ -1,6 +1,8 @@
 /*
  * @Description: 验证主题卡片切换、重复选中限制、重置及窄窗口布局。
  * @Author: LILYGO_L
+ * @Date: 2026-10-01 15:49:33
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

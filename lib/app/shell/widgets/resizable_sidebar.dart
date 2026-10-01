@@ -1,6 +1,8 @@
 /*
  * @Description: 实现主侧栏拖动调宽、折叠展开动画及连续拖动接管。
  * @Author: LILYGO_L
+ * @Date: 2026-10-01 15:49:33
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

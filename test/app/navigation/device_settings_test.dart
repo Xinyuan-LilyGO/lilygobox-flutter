@@ -1,6 +1,8 @@
 /*
  * @Description: 验证设备设置导航携带目标设备，并按设备分派页面及正确返回。
  * @Author: LILYGO_L
+ * @Date: 2026-10-01 15:49:33
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

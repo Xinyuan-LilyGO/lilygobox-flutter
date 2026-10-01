@@ -1,6 +1,8 @@
 /*
  * @Description: 验证设置下拉菜单和重置菜单的颜色渐变及交互流程。
  * @Author: LILYGO_L
+ * @Date: 2026-10-01 15:49:33
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

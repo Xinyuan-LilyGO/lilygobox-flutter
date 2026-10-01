@@ -1,6 +1,8 @@
 /*
  * @Description: 为尚未适配设置页的设备显示说明，并提供返回入口。
  * @Author: LILYGO_L
+ * @Date: 2026-10-01 15:49:33
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

@@ -1,6 +1,8 @@
 /*
  * @Description: 根据导航状态切换主窗口页面，并叠加添加设备弹层。
  * @Author: LILYGO_L
+ * @Date: 2026-05-16 10:50:23
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

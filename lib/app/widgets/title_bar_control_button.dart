@@ -1,6 +1,8 @@
 /*
  * @Description: 提供最小化、最大化和关闭等窗口控制按钮的通用样式。
  * @Author: LILYGO_L
+ * @Date: 2026-05-16 10:50:23
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

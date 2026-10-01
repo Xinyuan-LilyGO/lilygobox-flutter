@@ -1,6 +1,8 @@
 /*
  * @Description: 提供侧栏图标按钮、选中指示及鼠标交互效果。
  * @Author: LILYGO_L
+ * @Date: 2025-10-27 13:34:35
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

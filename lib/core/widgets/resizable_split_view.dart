@@ -1,6 +1,8 @@
 /*
  * @Description: 提供可拖动调宽的左右分栏布局，并同步共享宽度状态。
  * @Author: LILYGO_L
+ * @Date: 2026-05-16 10:50:23
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

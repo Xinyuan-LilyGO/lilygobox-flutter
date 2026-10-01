@@ -1,6 +1,8 @@
 /*
  * @Description: 展示 T-Glasses-P4 设备设置中的设备信息字段。
  * @Author: LILYGO_L
+ * @Date: 2025-11-21 15:52:08
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 

@@ -1,6 +1,8 @@
 /*
  * @Description: 将设备名称映射为导航图标和对应的设备页面。
  * @Author: LILYGO_L
+ * @Date: 2026-05-16 10:50:23
+ * @LastEditTime: 2026-10-01 15:52:48
  * @License: GPL 3.0
  */
 
