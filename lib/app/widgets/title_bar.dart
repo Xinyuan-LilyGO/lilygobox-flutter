@@ -1,8 +1,8 @@
 /*
- * @Description: 构建主窗口标题栏、侧栏开关、设置入口和窗口控制按钮。
+ * @Description: 构建主窗口标题栏，提供标题淡入淡出、侧栏开关及窗口控制。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-01 17:19:32
+ * @LastEditTime: 2026-10-02 00:14:33
  * @License: GPL 3.0
  */
 
@@ -45,37 +45,28 @@ class AppTitleBar extends StatelessWidget {
     final showSidebarToggle = context.select<AppNavigationProvider, bool>(
       (provider) => provider.currentPage == AppPage.home,
     );
+    final fadeDuration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 200);
 
     return Container(
       height: height,
       color: theme.primary,
       child: Row(
         children: [
-          if (showSidebarToggle)
-            Padding(
-              padding: const EdgeInsets.only(left: 10),
-              child: AppTooltip(
-                verticalOffset: 16,
-                message: isSidebarVisible
-                    ? context.l10n.hideSidebar
-                    : context.l10n.showSidebar,
-                child: TitleBarIconButton(
-                  key: const ValueKey('toggle-sidebar'),
-                  icon: Symbols.dock_to_right,
-                  onPressed: context.read<AppShellProvider>().toggleSidebar,
-                  isFocused: isFocused,
-                  theme: theme,
-                ),
-              ),
-            ),
           Expanded(
-            child: DragToMoveArea(
-              child: Container(
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.only(left: 12),
-                child: showSidebarToggle
-                    ? null
-                    : Text(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                DragToMoveArea(
+                  child: Container(
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.only(left: 12),
+                    child: AnimatedOpacity(
+                      opacity: showSidebarToggle ? 0 : 1,
+                      duration: fadeDuration,
+                      curve: Curves.easeInOut,
+                      child: Text(
                         appName,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
@@ -85,7 +76,47 @@ class AppTitleBar extends StatelessWidget {
                               : theme.inactiveTextColor,
                         ),
                       ),
-              ),
+                    ),
+                  ),
+                ),
+                // 固定两者的位置，切换时只改变透明度，避免标题横向跳动。
+                Positioned(
+                  left: 10,
+                  top: 0,
+                  bottom: 0,
+                  child: IgnorePointer(
+                    ignoring: !showSidebarToggle,
+                    child: ExcludeFocus(
+                      excluding: !showSidebarToggle,
+                      child: ExcludeSemantics(
+                        excluding: !showSidebarToggle,
+                        child: AnimatedOpacity(
+                          opacity: showSidebarToggle ? 1 : 0,
+                          duration: fadeDuration,
+                          curve: Curves.easeInOut,
+                          child: Center(
+                            child: AppTooltip(
+                              verticalOffset: 16,
+                              message: isSidebarVisible
+                                  ? context.l10n.hideSidebar
+                                  : context.l10n.showSidebar,
+                              child: TitleBarIconButton(
+                                key: const ValueKey('toggle-sidebar'),
+                                icon: Symbols.dock_to_right,
+                                onPressed: context
+                                    .read<AppShellProvider>()
+                                    .toggleSidebar,
+                                isFocused: isFocused,
+                                theme: theme,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           Center(
