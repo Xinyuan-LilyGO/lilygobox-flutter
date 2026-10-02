@@ -2,7 +2,7 @@
  * @Description: 定义共用弹出菜单样式，支持右键定位和锚点上方展开。
  * @Author: LILYGO_L
  * @Date: 2025-11-18 14:00:00
- * @LastEditTime: 2026-10-01 16:35:22
+ * @LastEditTime: 2026-10-02 22:01:29
  * @License: GPL 3.0
  */
 
@@ -189,7 +189,13 @@ class RightClickMenuBuilder {
     return MenuItemSurface(
       theme: theme,
       backgroundColor: PopupMenuSurface.backgroundColorFor(theme),
-      hoverColor: theme.basePrimary,
+      hoverColor: theme.adaptiveColor(
+        dark: theme.basePrimary,
+        light: Color.alphaBlend(
+          theme.basePrimary.withValues(alpha: 0.22),
+          PopupMenuSurface.backgroundColorFor(theme),
+        ),
+      ),
       onPressed: item.isEnabled ? item.onTap : null,
       borderRadius: BorderRadius.circular(5),
       child: Container(

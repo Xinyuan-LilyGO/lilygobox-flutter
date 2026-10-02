@@ -2,7 +2,7 @@
  * @Description: 构建 T-Glasses-P4 设置分类导航及设备信息详情区域。
  * @Author: LILYGO_L
  * @Date: 2025-11-19 11:49:06
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-02 22:01:29
  * @License: GPL 3.0
  */
 
@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import '../../../../../core/l10n/language_provider.dart';
 import '../../../../../core/theme/provider.dart';
 import '../../../../../core/widgets/animated_circle_icon_button.dart';
+import '../../../../../core/widgets/interaction_decoration.dart';
 import '../../../../../core/widgets/settings/widgets.dart';
 
 class TGlassesP4SettingsSplitView extends StatefulWidget {
@@ -37,13 +38,13 @@ class _TGlassesP4SettingsSplitViewState
   final Map<String, int> _contentMap = {_generalKey: 0};
 
   // 用于存储每个菜单项当前 Hover 颜色的 Map
-  late Map<String, Color> _currentHoverColors;
+  late Map<String, bool> _hoveredItems;
 
   @override
   void initState() {
     super.initState();
     // 初始化 Hover 颜色 Map，使用固定的 key
-    _currentHoverColors = {_generalKey: Colors.transparent};
+    _hoveredItems = {_generalKey: false};
   }
 
   // 颜色渐变的持续时间
@@ -146,35 +147,6 @@ class _TGlassesP4SettingsSplitViewState
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-
-    // 监听主题变化，但只在主题真正变化时重置悬停颜色
-    final newTheme = Provider.of<ThemeProvider>(
-      context,
-      listen: true,
-    ).themeData;
-
-    // 只有当主题变化时才更新悬停颜色
-    if (_lastTheme != newTheme) {
-      _lastTheme = newTheme;
-
-      // 重置所有非选中项的悬停颜色为主题的主色
-      setState(() {
-        _currentHoverColors.updateAll((key, value) {
-          // 如果是选中项，保持选中颜色；否则重置为主题主色
-          return key == _selectedTitleKey
-              ? value // 保持选中项的颜色不变
-              : newTheme.primary;
-        });
-      });
-    }
-  }
-
-  // 添加一个变量来追踪上次的主题
-  AppTheme? _lastTheme;
-
-  @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeProvider>(context, listen: true).themeData;
     final menuItems = _buildMenuItems(context);
@@ -248,37 +220,36 @@ class _TGlassesP4SettingsSplitViewState
                       // 计算目标背景色
                       final targetColor = isSelected
                           ? theme.primaryTextSelectedColor
-                          : _currentHoverColors[key] ?? theme.primary;
+                          : (_hoveredItems[key] ?? false)
+                          ? theme.primaryTextHoverColor
+                          : theme.primary;
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 15.0,
                           vertical: 2.0,
                         ),
-                        child: TweenAnimationBuilder<Color?>(
+                        child: InteractionDecoration.color(
+                          palette: theme,
                           duration: _animationDuration,
-                          tween: ColorTween(
-                            begin: theme.primary,
-                            end: targetColor,
-                          ),
-                          builder: (context, color, child) {
+                          color: targetColor,
+                          builder: (context, color) {
                             return SizedBox(
                               height: 30.0,
                               child: InkWell(
+                                hoverColor: Colors.transparent,
                                 onHover: (isHovering) {
                                   if (!isSelected) {
                                     setState(() {
-                                      _currentHoverColors[key] = isHovering
-                                          ? theme.primaryTextHoverColor
-                                          : theme.primary;
+                                      _hoveredItems[key] = isHovering;
                                     });
                                   }
                                 },
                                 onTap: () {
                                   setState(() {
                                     _selectedTitleKey = key;
-                                    _currentHoverColors.updateAll(
-                                      (k, value) => theme.primary,
+                                    _hoveredItems.updateAll(
+                                      (k, value) => false,
                                     );
                                   });
                                 },

@@ -2,7 +2,7 @@
  * @Description: 展示侧栏账号入口及等宽浮动菜单卡片，管理展开收起动画。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 17:40:11
+ * @LastEditTime: 2026-10-02 22:01:29
  * @License: GPL 3.0
  */
 
@@ -141,9 +141,10 @@ class _SidebarAccountButtonState extends State<SidebarAccountButton>
                       backgroundColor: PopupMenuSurface.backgroundColorFor(
                         theme,
                       ),
-                      hoverColor: theme.type == ThemeType.dark
-                          ? theme.secondaryTextHoverColorAlt
-                          : theme.primaryTextHoverColor,
+                      hoverColor: theme.adaptiveColor(
+                        dark: theme.secondaryTextHoverColorAlt,
+                        light: theme.primaryTextHoverColor,
+                      ),
                       borderRadius: BorderRadius.circular(6),
                       onPressed: () {
                         final navigation = context

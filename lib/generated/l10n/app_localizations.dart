@@ -545,6 +545,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This preview does not add devices or open a real device page.'**
   String get statePreviewNoDevice;
+
+  /// No description provided for @resizeSettingsSidebar.
+  ///
+  /// In en, this message translates to:
+  /// **'Resize settings sidebar'**
+  String get resizeSettingsSidebar;
+
+  /// No description provided for @appearanceSettingsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Customize the interface with your preferred theme.'**
+  String get appearanceSettingsDescription;
+
+  /// No description provided for @languageSettingsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the display language for LilygoBox.'**
+  String get languageSettingsDescription;
+
+  /// No description provided for @generalSettingsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage application preferences and defaults.'**
+  String get generalSettingsDescription;
+
+  /// No description provided for @aboutSettingsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Application information and version.'**
+  String get aboutSettingsDescription;
+
+  /// No description provided for @restoreDefaults.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore defaults'**
+  String get restoreDefaults;
+
+  /// No description provided for @restoreDefaultsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset application preferences while keeping your account and added devices.'**
+  String get restoreDefaultsDescription;
+
+  /// No description provided for @restoreDefaultsConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore default settings?'**
+  String get restoreDefaultsConfirmTitle;
+
+  /// No description provided for @restoreDefaultsConfirmDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The theme will reset to Dark and the language to English. Your account and added devices will be kept.'**
+  String get restoreDefaultsConfirmDescription;
+
+  /// No description provided for @settingsCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get settingsCancel;
+
+  /// No description provided for @profileDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'View and manage your personal profile.'**
+  String get profileDescription;
+
+  /// No description provided for @signIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get signIn;
+
+  /// No description provided for @createAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Create account'**
+  String get createAccount;
 }
 
 class _AppLocalizationsDelegate

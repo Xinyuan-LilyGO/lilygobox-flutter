@@ -72,5 +72,18 @@
     "statePreview": "状态预览",
     "exitStatePreview": "退出预览",
     "statePreviewActive": "预览模式 · 模拟数据",
-    "statePreviewNoDevice": "这是状态预览，不会添加设备或打开真实设备页面。"
+    "statePreviewNoDevice": "这是状态预览，不会添加设备或打开真实设备页面。",
+    "resizeSettingsSidebar": "调整设置侧栏宽度",
+    "appearanceSettingsDescription": "调整界面外观，选择适合你的主题。",
+    "languageSettingsDescription": "选择 LilygoBox 使用的显示语言。",
+    "generalSettingsDescription": "管理应用偏好与默认设置。",
+    "aboutSettingsDescription": "应用信息与版本。",
+    "restoreDefaults": "恢复默认设置",
+    "restoreDefaultsDescription": "将应用偏好恢复为初始状态，保留账号和已添加的设备。",
+    "restoreDefaultsConfirmTitle": "恢复默认设置？",
+    "restoreDefaultsConfirmDescription": "主题将恢复为深色，语言将恢复为英语。账号和已添加的设备不会被清除。",
+    "settingsCancel": "取消",
+    "profileDescription": "查看和管理你的个人资料。",
+    "signIn": "登录",
+    "createAccount": "注册"
 }

@@ -2,7 +2,7 @@
  * @Description: 构建 T-Glasses-P4 设备导航、页面分栏及连接状态展示。
  * @Author: LILYGO_L
  * @Date: 2025-11-17 13:38:52
- * @LastEditTime: 2025-11-25 14:12:59
+ * @LastEditTime: 2026-10-02 22:01:29
  * @License: GPL 3.0
  */
 
@@ -15,6 +15,7 @@ import '../../../../../core/context_menu/right_click_menu.dart';
 import '../../../../../core/l10n/language_provider.dart';
 import '../../../../../core/layout/split_view_provider.dart';
 import '../../../../../core/theme/provider.dart';
+import '../../../../../core/widgets/interaction_decoration.dart';
 import '../../../../../core/widgets/resizable_split_view.dart';
 import '../../../domain/catalog.dart';
 import '../../domain/connection_status.dart';
@@ -37,14 +38,14 @@ class _DevicePageContentTGlassesP4State
     extends State<DevicePageContentTGlassesP4> {
   // 默认选中的菜单项 Key
   String _selectedTitleKey = 'start';
-  // 用于存储当前悬停颜色状态的 Map
-  final Map<String, Color> _currentHoverColors = {};
+  // 记录悬停状态，颜色由当前主题逐帧计算
+  final Map<String, bool> _hoveredItems = {};
 
   // 用于存储分类的折叠状态 - 初始全部折叠
   final Map<String, bool> _collapsedCategories = {'configuration': true};
 
   // 用于存储分类标题的悬停状态
-  final Map<String, Color> _headerHoverColors = {};
+  final Map<String, bool> _hoveredHeaders = {};
 
   // 动画持续时间
   final Duration _animationDuration = const Duration(milliseconds: 150);
@@ -288,29 +289,26 @@ class _DevicePageContentTGlassesP4State
                     );
                     final containsSelectedItem =
                         selectedItemHeader == headerKey;
-                    final targetColor =
-                        _headerHoverColors[headerKey] ?? theme.secondary;
+                    final targetColor = (_hoveredHeaders[headerKey] ?? false)
+                        ? theme.secondaryTextHoverColor
+                        : theme.secondary;
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 5.0,
                         vertical: 2.0,
                       ),
-                      child: TweenAnimationBuilder<Color?>(
-                        duration: const Duration(milliseconds: 150),
-                        tween: ColorTween(
-                          begin: theme.secondary,
-                          end: targetColor,
-                        ),
-                        builder: (context, color, child) {
+                      child: InteractionDecoration.color(
+                        palette: theme,
+                        color: targetColor,
+                        builder: (context, color) {
                           return SizedBox(
                             height: 25.0,
                             child: InkWell(
+                              hoverColor: Colors.transparent,
                               onHover: (isHovering) {
                                 setState(() {
-                                  _headerHoverColors[headerKey] = isHovering
-                                      ? theme.secondaryTextHoverColor
-                                      : theme.secondary;
+                                  _hoveredHeaders[headerKey] = isHovering;
                                 });
                               },
                               onTap: () => _toggleCollapse(headerKey),
@@ -368,7 +366,9 @@ class _DevicePageContentTGlassesP4State
                     final icon = item['icon'] as IconData?;
                     final targetColor = isSelected
                         ? theme.secondaryTextSelectedColor
-                        : _currentHoverColors[key] ?? theme.secondary;
+                        : (_hoveredItems[key] ?? false)
+                        ? theme.secondaryTextHoverColor
+                        : theme.secondary;
 
                     return Container(
                       margin: const EdgeInsets.only(
@@ -379,29 +379,23 @@ class _DevicePageContentTGlassesP4State
                       ),
                       child: SizedBox(
                         height: 30.0,
-                        child: TweenAnimationBuilder<Color?>(
-                          duration: const Duration(milliseconds: 150),
-                          tween: ColorTween(
-                            begin: theme.secondary,
-                            end: targetColor,
-                          ),
-                          builder: (context, color, child) {
+                        child: InteractionDecoration.color(
+                          palette: theme,
+                          color: targetColor,
+                          builder: (context, color) {
                             return InkWell(
+                              hoverColor: Colors.transparent,
                               onHover: (isHovering) {
                                 if (!isSelected) {
                                   setState(() {
-                                    _currentHoverColors[key] = isHovering
-                                        ? theme.secondaryTextHoverColor
-                                        : theme.secondary;
+                                    _hoveredItems[key] = isHovering;
                                   });
                                 }
                               },
                               onTap: () {
                                 setState(() {
                                   _selectedTitleKey = key;
-                                  _currentHoverColors.updateAll(
-                                    (k, value) => theme.secondary,
-                                  );
+                                  _hoveredItems.updateAll((k, value) => false);
                                 });
                               },
                               borderRadius: BorderRadius.circular(6.0),
@@ -458,7 +452,9 @@ class _DevicePageContentTGlassesP4State
                     final icon = item['icon'] as IconData?;
                     final targetColor = isSelected
                         ? theme.secondaryTextSelectedColor
-                        : _currentHoverColors[key] ?? theme.secondary;
+                        : (_hoveredItems[key] ?? false)
+                        ? theme.secondaryTextHoverColor
+                        : theme.secondary;
 
                     return AnimatedContainer(
                       duration: _animationDuration,
@@ -473,28 +469,24 @@ class _DevicePageContentTGlassesP4State
                         opacity: isCollapsed ? 0 : 1.0,
                         child: SizedBox(
                           height: 30.0,
-                          child: TweenAnimationBuilder<Color?>(
-                            duration: const Duration(milliseconds: 150),
-                            tween: ColorTween(
-                              begin: theme.secondary,
-                              end: targetColor,
-                            ),
-                            builder: (context, color, child) {
+                          child: InteractionDecoration.color(
+                            palette: theme,
+                            color: targetColor,
+                            builder: (context, color) {
                               return InkWell(
+                                hoverColor: Colors.transparent,
                                 onHover: (isHovering) {
                                   if (!isSelected) {
                                     setState(() {
-                                      _currentHoverColors[key] = isHovering
-                                          ? theme.secondaryTextHoverColor
-                                          : theme.secondary;
+                                      _hoveredItems[key] = isHovering;
                                     });
                                   }
                                 },
                                 onTap: () {
                                   setState(() {
                                     _selectedTitleKey = key;
-                                    _currentHoverColors.updateAll(
-                                      (k, value) => theme.secondary,
+                                    _hoveredItems.updateAll(
+                                      (k, value) => false,
                                     );
                                   });
                                 },

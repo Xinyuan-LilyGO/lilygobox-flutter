@@ -2,7 +2,7 @@
  * @Description: 构建应用设置页面的背景与设置分栏内容。
  * @Author: LILYGO_L
  * @Date: 2025-11-05 15:54:19
- * @LastEditTime: 2025-11-19 13:40:57
+ * @LastEditTime: 2026-10-02 21:44:28
  * @License: GPL 3.0
  */
 
@@ -19,8 +19,7 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeProvider>(context).themeData;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
+    return Container(
       color: theme.primary, // 整体背景色
       child: const SettingsSplitView(),
     );

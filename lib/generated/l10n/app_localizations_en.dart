@@ -251,4 +251,48 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get statePreviewNoDevice =>
       'This preview does not add devices or open a real device page.';
+
+  @override
+  String get resizeSettingsSidebar => 'Resize settings sidebar';
+
+  @override
+  String get appearanceSettingsDescription =>
+      'Customize the interface with your preferred theme.';
+
+  @override
+  String get languageSettingsDescription =>
+      'Choose the display language for LilygoBox.';
+
+  @override
+  String get generalSettingsDescription =>
+      'Manage application preferences and defaults.';
+
+  @override
+  String get aboutSettingsDescription => 'Application information and version.';
+
+  @override
+  String get restoreDefaults => 'Restore defaults';
+
+  @override
+  String get restoreDefaultsDescription =>
+      'Reset application preferences while keeping your account and added devices.';
+
+  @override
+  String get restoreDefaultsConfirmTitle => 'Restore default settings?';
+
+  @override
+  String get restoreDefaultsConfirmDescription =>
+      'The theme will reset to Dark and the language to English. Your account and added devices will be kept.';
+
+  @override
+  String get settingsCancel => 'Cancel';
+
+  @override
+  String get profileDescription => 'View and manage your personal profile.';
+
+  @override
+  String get signIn => 'Sign in';
+
+  @override
+  String get createAccount => 'Create account';
 }

@@ -1,257 +1,464 @@
 /*
- * @Description: 构建设置分类导航、当前设置内容和返回主界面的入口。
+ * @Description: 构建可拖动且不折叠的设置导航、移动端分类导航。
  * @Author: LILYGO_L
  * @Date: 2025-10-31 17:01:16
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-02 21:16:15
  * @License: GPL 3.0
  */
 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
-
 import '../../../../app/navigation/provider.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
-import '../../../../core/widgets/animated_circle_icon_button.dart';
+import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
+import '../../../../core/widgets/title_bar_icon_button.dart';
 import 'about_content.dart';
+import 'content_layout.dart';
 import 'general_content.dart';
 import 'language_and_region_content.dart';
 import 'personalization_content.dart';
+import 'profile_content.dart';
+
+enum _SettingsCategory { appearance, language, general }
 
 class SettingsSplitView extends StatefulWidget {
   const SettingsSplitView({super.key});
-
   @override
   State<SettingsSplitView> createState() => _SettingsSplitViewState();
 }
 
 class _SettingsSplitViewState extends State<SettingsSplitView> {
-  // 菜单项的键（不变的），用于 _selectedTitle 和 _contentMap
-  static const String _generalKey = 'general';
-  static const String _languageKey = 'languageAndRegion';
-  static const String _themeKey = 'personalization';
-  static const String _aboutKey = 'about';
+  _SettingsCategory _category = _SettingsCategory.appearance;
+  bool _about = false;
+  bool _profile = true;
+  bool _mobileDetail = false;
+  double _sidebarWidth = 212;
+  double _dragStartX = 0;
+  double _dragStartWidth = 212;
 
-  // 当前选中的菜单项的 key
-  String _selectedTitleKey = _generalKey; // 使用不变的 key 作为选中标识
+  void _close() => context.read<AppNavigationProvider>().goHome();
+  void _select(bool about, {_SettingsCategory? category}) => setState(() {
+    _about = about;
+    _profile = false;
+    if (category != null) _category = category;
+    _mobileDetail = true;
+  });
 
-  // 映射菜单项的 key 到一个唯一的数字 ID，用于 _buildContent 的 switch 语句
-  final Map<String, int> _contentMap = {
-    _generalKey: 0,
-    _languageKey: 1,
-    _themeKey: 2,
-    _aboutKey: 3,
-  };
-
-  // 颜色渐变的持续时间
-  static const Duration _animationDuration = Duration(milliseconds: 150);
-
-  // 根据当前选中的键返回对应的设置内容 Widget。
-  Widget _buildContent(dynamic theme) {
-    final selectedIndex = _contentMap[_selectedTitleKey] ?? 0;
-
-    switch (selectedIndex) {
-      case 0: // 通用设置
-        return GeneralSettingsContent(theme: theme);
-      case 1: // 语言与地区
-        return LanguageAndRegionContent(theme: theme);
-      case 2: // 外观主题
-        return PersonalizationContent(theme: theme);
-      case 3: // 关于
-        return AboutContent(theme: theme);
-      default:
-        return const SizedBox.shrink();
-    }
-  }
-
-  // 构建菜单项列表，需要在 build 方法中调用，以便访问 context
-  List<Map<String, dynamic>> _buildMenuItems(BuildContext context) {
-    return [
-      {'type': 'header', 'title': context.l10n.basic}, // 基础
-      {
-        'type': 'item',
-        'title': context.l10n.general,
-        'key': _generalKey,
-      }, // 通用设置
-      {'type': 'divider'}, // 分隔线
-      {'type': 'header', 'title': context.l10n.application}, // 应用
-      {
-        'type': 'item',
-        'title': context.l10n.languageAndRegion,
-        'key': _languageKey,
-      }, // 语言与地区
-      {
-        'type': 'item',
-        'title': context.l10n.personalization,
-        'key': _themeKey,
-      }, // 外观主题
-      {'type': 'item', 'title': context.l10n.about, 'key': _aboutKey}, // 关于
-    ];
-  }
+  void _openProfile() => setState(() {
+    _profile = true;
+    _about = false;
+    _mobileDetail = true;
+  });
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final theme = themeProvider.themeData;
+    final theme = context.watch<ThemeProvider>().themeData;
+    final colors = SettingsColors(theme);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mobile = constraints.maxWidth < 600;
+        final maxSidebar = math.max(
+          176.0,
+          math.min(300.0, constraints.maxWidth * 0.4),
+        );
+        final width = _sidebarWidth.clamp(176.0, maxSidebar).toDouble();
+        void back() {
+          if (mobile && _mobileDetail) {
+            setState(() => _mobileDetail = false);
+          } else {
+            _close();
+          }
+        }
 
-    // 获取本地化文本
-    final menuItems = _buildMenuItems(context);
-
-    return Row(
-      children: [
-        // 左侧：设置菜单导航 (Menu/Sidebar)
-        AnimatedContainer(
-          duration: _animationDuration,
-          width: 250, // 侧边栏略微加宽
-          color: theme.primary, // 保持 theme.primary 颜色
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 标题：移到左侧栏
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  15.0,
-                  15.0,
-                  15.0,
-                  5.0,
-                ), // 顶部/左侧边距
-                child: Text(
-                  context.l10n.settings, // 使用本地化标题
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold, // 设得更粗一些
-                    fontSize: 20,
-                    color: theme.textColorPrimary,
-                  ),
-                ),
-              ),
-
-              // 滚动菜单列表
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.only(top: 5.0), // 顶部留出空间
-                  itemCount: menuItems.length,
-                  itemBuilder: (context, index) {
-                    final item = menuItems[index];
-
-                    if (item['type'] == 'divider') {
-                      // 横线分类设置
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 8.0,
-                          horizontal: 15.0,
-                        ),
-                        child: Divider(color: theme.dividerColor, height: 1),
-                      );
-                    }
-
-                    if (item['type'] == 'header') {
-                      // 分类标题
-                      return Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          15.0,
-                          10.0,
-                          10.0,
-                          5.0,
-                        ),
-                        child: Text(
-                          item['title'], // 本地化的标题
-                          style: TextStyle(
-                            color: theme.textColorTertiary, // 浅色字体
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      );
-                    }
-
-                    // 设置项 (type: 'item')
-                    final title = item['title'] as String;
-                    final key = item['key'] as String; // 菜单项的固定 key
-                    final isSelected =
-                        key == _selectedTitleKey; // 使用 key 来判断是否选中
-
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 15.0,
-                        vertical: 2.0, // 保持外部垂直边距一致
-                      ),
-                      child: SizedBox(
-                        height: 30.0,
-                        child: MenuItemSurface(
-                          theme: theme,
-                          isSelected: isSelected,
-                          onPressed: () {
-                            setState(() {
-                              _selectedTitleKey = key;
-                            });
-                          },
-                          borderRadius: BorderRadius.circular(6.0),
-                          child: Container(
-                            alignment: Alignment.centerLeft,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10.0,
-                              vertical: 0.0,
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) back();
+          },
+          child: CallbackShortcuts(
+            bindings: {const SingleActivator(LogicalKeyboardKey.escape): back},
+            child: Focus(
+              autofocus: true,
+              child: mobile
+                  ? (_mobileDetail
+                        ? _content(theme, colors, mobile: true, onBack: back)
+                        : _sidebar(theme, colors, mobile: true))
+                  : Stack(
+                      children: [
+                        Row(
+                          children: [
+                            SizedBox(
+                              key: const ValueKey('settings-sidebar'),
+                              width: width,
+                              child: _sidebar(theme, colors),
                             ),
-                            child: Text(
-                              title,
-                              style: TextStyle(
-                                color: theme.textColorSecondary,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
+                            Expanded(
+                              child: _content(
+                                theme,
+                                colors,
+                                mobile: false,
+                                onBack: back,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Positioned(
+                          left: width - 4,
+                          top: 0,
+                          bottom: 0,
+                          child: Semantics(
+                            label: context.l10n.resizeSettingsSidebar,
+                            value: width.round().toString(),
+                            increasedValue: (width + 8)
+                                .clamp(176, maxSidebar)
+                                .round()
+                                .toString(),
+                            decreasedValue: (width - 8)
+                                .clamp(176, maxSidebar)
+                                .round()
+                                .toString(),
+                            onIncrease: () => setState(
+                              () => _sidebarWidth = (width + 8)
+                                  .clamp(176, maxSidebar)
+                                  .toDouble(),
+                            ),
+                            onDecrease: () => setState(
+                              () => _sidebarWidth = (width - 8)
+                                  .clamp(176, maxSidebar)
+                                  .toDouble(),
+                            ),
+                            child: MouseRegion(
+                              cursor: SystemMouseCursors.resizeLeftRight,
+                              child: GestureDetector(
+                                key: const ValueKey('settings-resize-handle'),
+                                behavior: HitTestBehavior.translucent,
+                                onHorizontalDragStart: (details) {
+                                  _dragStartX = details.globalPosition.dx;
+                                  _dragStartWidth = width;
+                                },
+                                onHorizontalDragUpdate: (details) =>
+                                    setState(() {
+                                      _sidebarWidth =
+                                          (_dragStartWidth +
+                                                  details.globalPosition.dx -
+                                                  _dragStartX)
+                                              .clamp(176, maxSidebar)
+                                              .toDouble();
+                                    }),
+                                child: const SizedBox(width: 8),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
+                      ],
+                    ),
+            ),
           ),
-        ),
+        );
+      },
+    );
+  }
 
-        // 右侧：设置详细内容 (Content)
-        Expanded(
-          child: AnimatedContainer(
-            duration: _animationDuration,
-            color: theme.secondary,
-            child: Stack(
+  Widget _sidebar(
+    AppTheme theme,
+    SettingsColors colors, {
+    bool mobile = false,
+  }) {
+    final l10n = context.l10n;
+    final categories = {
+      _SettingsCategory.appearance: (
+        l10n.personalization,
+        Symbols.palette_rounded,
+      ),
+      _SettingsCategory.language: (
+        l10n.languageAndRegion,
+        Symbols.language_rounded,
+      ),
+      _SettingsCategory.general: (l10n.general, Symbols.tune_rounded),
+    };
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.sidebar,
+        border: Border(right: BorderSide(color: colors.divider)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
+            child: Row(
               children: [
-                // 内容区
-                Center(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    transitionBuilder: (child, animation) {
-                      return FadeTransition(opacity: animation, child: child);
-                    },
-                    child: Container(
-                      key: ValueKey<String>(_selectedTitleKey), // 使用 key
-                      child: _buildContent(theme),
+                Expanded(
+                  child: MenuItemSurface(
+                    key: const ValueKey('settings-profile'),
+                    theme: theme,
+                    isSelected: _profile && !mobile,
+                    backgroundColor: colors.sidebar,
+                    hoverColor: colors.hover,
+                    onPressed: _openProfile,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: colors.hover,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Symbols.person_rounded,
+                              fill: 1,
+                              size: 23,
+                              color: theme.textColorTertiary,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l10n.profile,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: _profile
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                    color: theme.textColorPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 1),
+                                Text(
+                                  l10n.notSignedIn,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: theme.textColorTertiary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-
-                Positioned(
-                  top: 20,
-                  right: 20,
-                  child: AnimatedCircleIconButton(
-                    icon: Symbols.close_rounded,
-                    theme: theme,
-                    size: 40,
-                    iconSize: 22,
-                    onPressed: () =>
-                        context.read<AppNavigationProvider>().goHome(),
+                if (mobile) ...[
+                  const SizedBox(width: 4),
+                  AppTooltip(
+                    message: l10n.back,
+                    verticalOffset: 16,
+                    child: _iconButton(theme, Symbols.close_rounded, _close),
                   ),
+                ],
+              ],
+            ),
+          ),
+          Divider(height: 1, color: colors.divider),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(10, 18, 10, 12),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 10, bottom: 10),
+                  child: Text(
+                    l10n.application,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: theme.textColorTertiary,
+                    ),
+                  ),
+                ),
+                for (final entry in categories.entries)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: _navigationItem(
+                      theme,
+                      colors,
+                      entry.value.$2,
+                      entry.value.$1,
+                      !_profile && !_about && _category == entry.key && !mobile,
+                      () => _select(false, category: entry.key),
+                      ValueKey('settings-category-${entry.key.name}'),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 10,
+                  ),
+                  child: Divider(height: 1, color: colors.divider),
+                ),
+                _navigationItem(
+                  theme,
+                  colors,
+                  Symbols.info_rounded,
+                  l10n.about,
+                  _about && !mobile,
+                  () => _select(true),
+                  const ValueKey('settings-about'),
                 ),
               ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
+
+  Widget _navigationItem(
+    AppTheme theme,
+    SettingsColors colors,
+    IconData icon,
+    String title,
+    bool selected,
+    VoidCallback onPressed,
+    Key key,
+  ) => MenuItemSurface(
+    key: key,
+    theme: theme,
+    isSelected: selected,
+    onPressed: onPressed,
+    backgroundColor: colors.sidebar,
+    hoverColor: colors.hover,
+    borderRadius: BorderRadius.circular(7),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            fill: 1,
+            size: 16,
+            color: selected ? theme.textColorPrimary : theme.textColorTertiary,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                color: selected
+                    ? theme.textColorPrimary
+                    : theme.textColorTertiary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _content(
+    AppTheme theme,
+    SettingsColors colors, {
+    required bool mobile,
+    required VoidCallback onBack,
+  }) {
+    final l10n = context.l10n;
+    final titles = {
+      _SettingsCategory.appearance: l10n.personalization,
+      _SettingsCategory.language: l10n.languageAndRegion,
+      _SettingsCategory.general: l10n.general,
+    };
+    final page = _profile
+        ? ProfileContent(theme: theme)
+        : _about
+        ? AboutContent(theme: theme)
+        : switch (_category) {
+            _SettingsCategory.appearance => PersonalizationContent(
+              theme: theme,
+            ),
+            _SettingsCategory.language => LanguageAndRegionContent(
+              theme: theme,
+            ),
+            _SettingsCategory.general => GeneralSettingsContent(theme: theme),
+          };
+    final content = KeyedSubtree(
+      key: ValueKey(
+        _profile
+            ? 'profile'
+            : _about
+            ? 'about'
+            : _category.name,
+      ),
+      child: page,
+    );
+    return ColoredBox(
+      color: colors.content,
+      child: mobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 18, 8),
+                  child: Row(
+                    children: [
+                      AppTooltip(
+                        message: l10n.back,
+                        verticalOffset: 16,
+                        child: _iconButton(
+                          theme,
+                          Symbols.arrow_back_rounded,
+                          onBack,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _profile
+                              ? l10n.profile
+                              : _about
+                              ? l10n.about
+                              : titles[_category]!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.textColorPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(child: content),
+              ],
+            )
+          : Stack(
+              children: [
+                Positioned.fill(child: content),
+                Positioned(
+                  top: 18,
+                  right: 18,
+                  child: AppTooltip(
+                    message: l10n.back,
+                    verticalOffset: 16,
+                    child: _iconButton(theme, Symbols.close_rounded, _close),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _iconButton(AppTheme theme, IconData icon, VoidCallback onPressed) =>
+      TitleBarIconButton(
+        theme: theme,
+        isFocused: true,
+        icon: icon,
+        size: 28,
+        iconSize: 18,
+        onPressed: onPressed,
+      );
 }

@@ -2,7 +2,7 @@
  * @Description: 集中创建并注入应用级状态管理对象。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-02 22:01:29
  * @License: GPL 3.0
  */
 
@@ -18,10 +18,43 @@ import '../features/devices/state/manager_provider.dart';
 import 'navigation/provider.dart';
 import 'shell/state/provider.dart';
 
-class AppProviders extends StatelessWidget {
+class AppProviders extends StatefulWidget {
   const AppProviders({super.key, required this.child});
 
   final Widget child;
+
+  @override
+  State<AppProviders> createState() => _AppProvidersState();
+}
+
+class _AppProvidersState extends State<AppProviders>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  late final ThemeProvider _theme = ThemeProvider(vsync: this);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    didChangeAccessibilityFeatures();
+  }
+
+  @override
+  void didChangeAccessibilityFeatures() {
+    _theme.setDisableAnimations(
+      WidgetsBinding
+          .instance
+          .platformDispatcher
+          .accessibilityFeatures
+          .disableAnimations,
+    );
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _theme.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +62,7 @@ class AppProviders extends StatelessWidget {
     // 排序大致按作用域从基础设施到业务状态排列，后续新增全局状态也优先放在这里。
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider.value(value: _theme),
         ChangeNotifierProvider(create: (_) => WindowProvider()),
         ChangeNotifierProvider(create: (_) => AppNavigationProvider()),
         ChangeNotifierProvider(create: (_) => SplitViewProvider()),
@@ -38,7 +71,7 @@ class AppProviders extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AppShellProvider()),
         ChangeNotifierProvider(create: (_) => DeviceManagerProvider()),
       ],
-      child: child,
+      child: widget.child,
     );
   }
 }

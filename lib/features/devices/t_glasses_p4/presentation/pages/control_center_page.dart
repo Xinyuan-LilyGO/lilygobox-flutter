@@ -2,7 +2,7 @@
  * @Description: 根据 T-Glasses-P4 的配对和连接状态展示控制中心内容。
  * @Author: LILYGO_L
  * @Date: 2025-11-21 15:43:04
- * @LastEditTime: 2025-11-25 14:17:43
+ * @LastEditTime: 2026-10-02 22:01:29
  * @License: GPL 3.0
  */
 
@@ -11,6 +11,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../core/theme/provider.dart';
+import '../../../../../core/widgets/interaction_decoration.dart';
 import '../../domain/connection_status.dart';
 
 class TGlassesP4PageControlCenter extends StatefulWidget {
@@ -253,50 +254,57 @@ class _TGlassesP4PageControlCenterState
               cursor: SystemMouseCursors.click,
               onEnter: (_) => setState(() => _isPairButtonHovered = true),
               onExit: (_) => setState(() => _isPairButtonHovered = false),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
+              child: SizedBox(
                 width: 600,
                 height: 70,
-                decoration: BoxDecoration(
-                  color: _isPairButtonHovered
-                      ? theme.basePrimary
-                      : theme.tertiaryTextBackgroundColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    hoverColor: Colors.transparent,
-                    // splashColor: Colors.transparent,
-                    // highlightColor: Colors.transparent,
+                child: InteractionDecoration(
+                  palette: theme,
+                  decoration: BoxDecoration(
+                    color: _isPairButtonHovered
+                        ? theme.adaptiveColor(
+                            dark: theme.basePrimary,
+                            light: Color.alphaBlend(
+                              theme.basePrimary.withValues(alpha: 0.22),
+                              theme.primary,
+                            ),
+                          )
+                        : theme.tertiaryTextBackgroundColor,
                     borderRadius: BorderRadius.circular(8),
-                    onTap: widget.onPair,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        const SizedBox(width: 25),
-                        Icon(
-                          Symbols.connect_without_contact,
-                          size: 40,
-                          color: theme.iconColor,
-                        ),
-                        const SizedBox(width: 15),
-                        Text(
-                          "配对设备",
-                          style: TextStyle(
-                            fontSize: 17,
-                            color: theme.textColorPrimary,
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      hoverColor: Colors.transparent,
+                      // splashColor: Colors.transparent,
+                      // highlightColor: Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: widget.onPair,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          const SizedBox(width: 25),
+                          Icon(
+                            Symbols.connect_without_contact,
+                            size: 40,
+                            color: theme.iconColor,
                           ),
-                        ),
-                        const Spacer(),
-                        Icon(
-                          Icons.arrow_forward_ios,
-                          size: 20,
-                          color: theme.iconColor,
-                        ),
-                        const SizedBox(width: 20),
-                      ],
+                          const SizedBox(width: 15),
+                          Text(
+                            "配对设备",
+                            style: TextStyle(
+                              fontSize: 17,
+                              color: theme.textColorPrimary,
+                            ),
+                          ),
+                          const Spacer(),
+                          Icon(
+                            Icons.arrow_forward_ios,
+                            size: 20,
+                            color: theme.iconColor,
+                          ),
+                          const SizedBox(width: 20),
+                        ],
+                      ),
                     ),
                   ),
                 ),

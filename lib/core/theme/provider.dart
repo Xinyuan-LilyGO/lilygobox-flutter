@@ -1,8 +1,8 @@
 /*
- * @Description: 维护深浅主题配色，并管理当前主题及切换通知。
+ * @Description: 维护深浅主题配色，统一驱动主题渐变并支持减少动画。
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2026-10-01 16:54:38
+ * @LastEditTime: 2026-10-02 22:01:29
  * @License: GPL 3.0
  */
 
@@ -13,6 +13,38 @@ import 'definition.dart';
 export 'definition.dart';
 
 class ThemeProvider with ChangeNotifier {
+  ThemeProvider({TickerProvider? vsync}) {
+    if (vsync != null) {
+      _transition = AnimationController(
+        vsync: vsync,
+        duration: transitionDuration,
+        value: 1,
+      )..addListener(_onTransition);
+    }
+  }
+
+  static const transitionDuration = Duration(milliseconds: 180);
+  AnimationController? _transition;
+  AppTheme? _displayedTheme;
+  AppTheme? _transitionStart;
+  bool _disableAnimations = false;
+
+  void _onTransition() {
+    _displayedTheme = AppTheme.lerp(
+      _transitionStart!,
+      _themes[_currentTheme]!,
+      Curves.easeInOut.transform(_transition!.value),
+    );
+    notifyListeners();
+  }
+
+  void setDisableAnimations(bool value) {
+    _disableAnimations = value;
+    if (value && (_transition?.isAnimating ?? false)) {
+      _transition!.value = 1;
+    }
+  }
+
   ThemeType _currentTheme = ThemeType.dark;
 
   final Map<ThemeType, AppTheme> _themes = {
@@ -87,25 +119,39 @@ class ThemeProvider with ChangeNotifier {
       sidebarIconBackgroundColor: const Color.fromARGB(255, 200, 200, 200),
       sidebarIndicatorColor: const Color.fromARGB(255, 40, 40, 40),
       dividerColor: const Color.fromARGB(255, 80, 80, 80),
-      dividerColorNormal: const Color.fromARGB(255, 182, 168, 255),
-      basePrimary: const Color.fromARGB(255, 182, 168, 255),
-      baseSecondary: const Color.fromARGB(255, 182, 168, 255),
-      baseTertiary: const Color.fromARGB(255, 182, 168, 255),
+      dividerColorNormal: const Color(0xFF7963C6),
+      basePrimary: const Color(0xFF7963C6),
+      baseSecondary: const Color(0xFF7963C6),
+      baseTertiary: const Color(0xFF7963C6),
     ),
   };
 
   ThemeType get currentTheme => _currentTheme;
-  AppTheme get themeData => _themes[_currentTheme]!;
+  AppTheme get themeData => _displayedTheme ?? _themes[_currentTheme]!;
   List<AppTheme> get allThemes => _themes.values.toList();
 
   void cycleTheme() {
     final nextTheme = (_currentTheme.index + 1) % ThemeType.values.length;
-    _currentTheme = ThemeType.values[nextTheme];
-    notifyListeners();
+    setTheme(ThemeType.values[nextTheme]);
   }
 
   void setTheme(ThemeType themeType) {
+    if (_currentTheme == themeType) return;
+    // 连续切换时从当前屏幕配色接续，不跳回上一次主题端点。
+    _transitionStart = themeData;
     _currentTheme = themeType;
+    if (_transition == null || _disableAnimations) {
+      _transition?.stop();
+      _displayedTheme = _themes[themeType];
+    } else {
+      _transition!.forward(from: 0);
+    }
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _transition?.dispose();
+    super.dispose();
   }
 }

@@ -2,7 +2,7 @@
  * @Description: 提供添加设备页面的调试状态选择菜单与退出预览入口。
  * @Author: LILYGO_L
  * @Date: 2026-10-02 14:19:09
- * @LastEditTime: 2026-10-02 14:19:09
+ * @LastEditTime: 2026-10-02 22:01:29
  * @License: GPL 3.0
  */
 
@@ -63,9 +63,10 @@ class _DiscoveryPreviewMenuState extends State<DiscoveryPreviewMenu> {
         key: ValueKey('preview-${phase?.name ?? 'exit'}'),
         theme: theme,
         backgroundColor: background,
-        hoverColor: theme.type == ThemeType.dark
-            ? theme.secondaryTextHoverColorAlt
-            : theme.primaryTextHoverColor,
+        hoverColor: theme.adaptiveColor(
+          dark: theme.secondaryTextHoverColorAlt,
+          light: theme.primaryTextHoverColor,
+        ),
         borderRadius: BorderRadius.circular(6),
         onPressed: () {
           controller.close();

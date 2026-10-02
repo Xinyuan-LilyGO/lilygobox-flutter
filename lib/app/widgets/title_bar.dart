@@ -2,7 +2,7 @@
  * @Description: 构建主窗口标题栏，提供标题淡入淡出、侧栏开关及窗口控制。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-02 13:35:30
+ * @LastEditTime: 2026-10-02 21:44:28
  * @License: GPL 3.0
  */
 
@@ -158,12 +158,14 @@ class AppTitleBarControls extends StatelessWidget {
         AppTitleBarControlsButtonTemplate(
           icon: Symbols.remove_rounded,
           onPressed: () => unawaited(windowProvider.minimize()),
+          backgroundColor: theme.primary,
           hoverColor: theme.primaryTextHoverColor,
           iconColor: iconColor,
         ),
         AppTitleBarControlsButtonTemplate(
           icon: isMaximized ? Symbols.filter_none : Symbols.crop_square_rounded,
           onPressed: () => unawaited(windowProvider.handleMaximizeRestore()),
+          backgroundColor: theme.primary,
           hoverColor: theme.primaryTextHoverColor,
           iconSize: isMaximized ? 13.5 : 14,
           iconWeight: 510.0,
@@ -173,7 +175,9 @@ class AppTitleBarControls extends StatelessWidget {
         AppTitleBarControlsButtonTemplate(
           icon: Symbols.close_rounded,
           onPressed: () => unawaited(windowProvider.close()),
+          backgroundColor: theme.primary,
           hoverColor: Colors.red.shade600,
+          hoverIconColor: Colors.white,
           iconColor: iconColor,
         ),
       ],

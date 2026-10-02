@@ -2,13 +2,14 @@
  * @Description: 统一标题栏圆形图标按钮的尺寸、悬停动画和点击反馈。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-02 13:58:08
+ * @LastEditTime: 2026-10-02 21:44:28
  * @License: GPL 3.0
  */
 
 import 'package:flutter/material.dart';
 
 import '../theme/definition.dart';
+import 'interaction_decoration.dart';
 import 'menu_item_surface.dart';
 
 /// 标题栏的共用圆形图标按钮，统一尺寸、悬停过渡、波纹和窗口失焦配色。
@@ -42,9 +43,8 @@ class _TitleBarIconButtonState extends State<TitleBarIconButton> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        width: widget.size,
-        height: widget.size,
+      child: InteractionDecoration(
+        palette: widget.theme,
         duration: MenuItemSurface.animationDuration,
         curve: MenuItemSurface.animationCurve,
         decoration: BoxDecoration(
@@ -54,28 +54,34 @@ class _TitleBarIconButtonState extends State<TitleBarIconButton> {
           shape: BoxShape.circle,
         ),
         // 墨水层位于背景上方，点击波纹不会被悬停背景遮挡。
-        child: Material(
-          type: MaterialType.transparency,
-          shape: const CircleBorder(),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: widget.onPressed,
-            splashFactory: InkRipple.splashFactory,
-            customBorder: const CircleBorder(),
-            hoverColor: Colors.transparent,
-            highlightColor: widget.theme.textColorPrimary.withValues(
-              alpha: 0.04,
-            ),
-            splashColor: widget.theme.textColorPrimary.withValues(alpha: 0.12),
-            child: Center(
-              child: Icon(
-                widget.icon,
-                size: widget.iconSize,
-                color: widget.isFocused
-                    ? widget.theme.iconColor
-                    : widget.theme.inactiveIconColor,
-                fill: 1,
-                weight: 400,
+        child: SizedBox(
+          width: widget.size,
+          height: widget.size,
+          child: Material(
+            type: MaterialType.transparency,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: widget.onPressed,
+              splashFactory: InkRipple.splashFactory,
+              customBorder: const CircleBorder(),
+              hoverColor: Colors.transparent,
+              highlightColor: widget.theme.textColorPrimary.withValues(
+                alpha: 0.04,
+              ),
+              splashColor: widget.theme.textColorPrimary.withValues(
+                alpha: 0.12,
+              ),
+              child: Center(
+                child: Icon(
+                  widget.icon,
+                  size: widget.iconSize,
+                  color: widget.isFocused
+                      ? widget.theme.iconColor
+                      : widget.theme.inactiveIconColor,
+                  fill: 1,
+                  weight: 400,
+                ),
               ),
             ),
           ),

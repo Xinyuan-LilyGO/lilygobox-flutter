@@ -2,13 +2,14 @@
  * @Description: 统一菜单和设置控件的选中配色、悬停渐变与点击波纹。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-02 21:44:28
  * @License: GPL 3.0
  */
 
 import 'package:flutter/material.dart';
 
 import '../theme/definition.dart';
+import 'interaction_decoration.dart';
 
 /// 设置菜单与侧栏入口共用的交互表面。
 ///
@@ -44,8 +45,8 @@ class MenuItemSurface extends StatefulWidget {
     child: child,
   );
 
-  static const animationDuration = Duration(milliseconds: 150);
-  static const animationCurve = Curves.linear;
+  static const animationDuration = InteractionDecoration.animationDuration;
+  static const animationCurve = InteractionDecoration.animationCurve;
 
   final AppTheme theme;
   final VoidCallback? onPressed;
@@ -81,7 +82,8 @@ class _MenuItemSurfaceState extends State<MenuItemSurface> {
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
-        child: AnimatedContainer(
+        child: InteractionDecoration(
+          palette: theme,
           duration: MenuItemSurface.animationDuration,
           curve: MenuItemSurface.animationCurve,
           decoration: BoxDecoration(
@@ -89,28 +91,30 @@ class _MenuItemSurfaceState extends State<MenuItemSurface> {
             borderRadius: widget.borderRadius,
           ),
           // 边框只绘制，不额外增加控件尺寸或改变下拉菜单的定位。
-          foregroundDecoration: widget.border == null
-              ? null
-              : BoxDecoration(
-                  border: widget.border,
-                  borderRadius: widget.borderRadius,
-                ),
-          // 墨水层放在渐变背景上方，避免点击波纹被遮挡。
-          child: Material(
-            type: MaterialType.transparency,
-            borderRadius: widget.borderRadius,
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: enabled ? widget.onPressed : null,
-              mouseCursor: enabled
-                  ? SystemMouseCursors.click
-                  : SystemMouseCursors.basic,
+          child: Container(
+            foregroundDecoration: widget.border == null
+                ? null
+                : BoxDecoration(
+                    border: widget.border,
+                    borderRadius: widget.borderRadius,
+                  ),
+            // 墨水层放在渐变背景上方，避免点击波纹被遮挡。
+            child: Material(
+              type: MaterialType.transparency,
               borderRadius: widget.borderRadius,
-              hoverColor: Colors.transparent,
-              highlightColor: theme.textColorPrimary.withValues(alpha: 0.04),
-              splashColor: theme.textColorPrimary.withValues(alpha: 0.12),
-              splashFactory: InkRipple.splashFactory,
-              child: widget.child,
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: enabled ? widget.onPressed : null,
+                mouseCursor: enabled
+                    ? SystemMouseCursors.click
+                    : SystemMouseCursors.basic,
+                borderRadius: widget.borderRadius,
+                hoverColor: Colors.transparent,
+                highlightColor: theme.textColorPrimary.withValues(alpha: 0.04),
+                splashColor: theme.textColorPrimary.withValues(alpha: 0.12),
+                splashFactory: InkRipple.splashFactory,
+                child: widget.child,
+              ),
             ),
           ),
         ),

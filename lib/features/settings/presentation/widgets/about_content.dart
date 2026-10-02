@@ -2,7 +2,7 @@
  * @Description: 展示应用版本、版权等关于信息。
  * @Author: LILYGO_L
  * @Date: 2025-11-17 11:28:26
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-02 20:42:05
  * @License: GPL 3.0
  */
 
@@ -12,7 +12,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/app_info/package_info_provider.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
-import '../../../../core/widgets/settings/widgets.dart';
+import 'content_layout.dart';
 
 class AboutContent extends StatelessWidget {
   const AboutContent({super.key, required this.theme});
@@ -23,30 +23,23 @@ class AboutContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final packageInfoProvider = context.watch<PackageInfoProvider>();
 
-    return SettingsPageLayout(
+    return SettingsContentLayout(
       theme: theme,
       title: context.l10n.about,
+      description: context.l10n.aboutSettingsDescription,
       children: [
-        SettingsRow(
+        SettingsField(
           theme: theme,
           title: context.l10n.version,
-          description: context.l10n.version,
-          showMoreButton: false,
-          control: SettingReadOnlyField(
-            theme: theme,
-            value: 'v${packageInfoProvider.version}',
-          ),
+          description: 'v${packageInfoProvider.version}',
+          child: const SizedBox.shrink(),
         ),
-        SettingsRow(
+        const SizedBox(height: 16),
+        SettingsField(
           theme: theme,
           title: context.l10n.copyright,
-          description: context.l10n.copyright,
-          controlWidth: 260.0,
-          showMoreButton: false,
-          control: SettingReadOnlyField(
-            theme: theme,
-            value: '${packageInfoProvider.appName} 2025 LILYGO Corporation',
-          ),
+          description: '${packageInfoProvider.appName} 2025 LILYGO Corporation',
+          child: const SizedBox.shrink(),
         ),
       ],
     );

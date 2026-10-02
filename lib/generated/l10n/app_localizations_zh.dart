@@ -238,4 +238,44 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get statePreviewNoDevice => '这是状态预览，不会添加设备或打开真实设备页面。';
+
+  @override
+  String get resizeSettingsSidebar => '调整设置侧栏宽度';
+
+  @override
+  String get appearanceSettingsDescription => '调整界面外观，选择适合你的主题。';
+
+  @override
+  String get languageSettingsDescription => '选择 LilygoBox 使用的显示语言。';
+
+  @override
+  String get generalSettingsDescription => '管理应用偏好与默认设置。';
+
+  @override
+  String get aboutSettingsDescription => '应用信息与版本。';
+
+  @override
+  String get restoreDefaults => '恢复默认设置';
+
+  @override
+  String get restoreDefaultsDescription => '将应用偏好恢复为初始状态，保留账号和已添加的设备。';
+
+  @override
+  String get restoreDefaultsConfirmTitle => '恢复默认设置？';
+
+  @override
+  String get restoreDefaultsConfirmDescription =>
+      '主题将恢复为深色，语言将恢复为英语。账号和已添加的设备不会被清除。';
+
+  @override
+  String get settingsCancel => '取消';
+
+  @override
+  String get profileDescription => '查看和管理你的个人资料。';
+
+  @override
+  String get signIn => '登录';
+
+  @override
+  String get createAccount => '注册';
 }

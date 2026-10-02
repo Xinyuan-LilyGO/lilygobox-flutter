@@ -2,7 +2,7 @@
  * @Description: 绘制首页空状态的设备插画，适配深浅主题与显示缩放。
  * @Author: LILYGO_L
  * @Date: 2026-10-02 01:00:00
- * @LastEditTime: 2026-10-02 18:51:10
+ * @LastEditTime: 2026-10-02 22:01:29
  * @License: GPL 3.0
  */
 
@@ -41,9 +41,10 @@ class HomeDeviceIllustration extends StatelessWidget {
                 size: 44,
                 weight: 400,
                 opticalSize: 48,
-                color: theme.type == ThemeType.dark
-                    ? theme.baseTertiary
-                    : theme.textColorPrimary.withValues(alpha: 0.65),
+                color: theme.adaptiveColor(
+                  dark: theme.baseTertiary,
+                  light: theme.textColorPrimary.withValues(alpha: 0.65),
+                ),
               ),
             ),
           ],

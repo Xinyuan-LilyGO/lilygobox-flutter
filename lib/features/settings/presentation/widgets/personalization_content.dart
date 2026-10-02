@@ -1,8 +1,8 @@
 /*
- * @Description: 展示外观设置，支持主题预览卡片切换及恢复默认主题。
+ * @Description: 展示外观设置，支持紧凑主题预览卡片切换。
  * @Author: LILYGO_L
  * @Date: 2025-10-31 17:01:16
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-02 20:42:05
  * @License: GPL 3.0
  */
 
@@ -11,7 +11,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
-import '../../../../core/widgets/settings/widgets.dart';
+import 'content_layout.dart';
 import 'theme_picker.dart';
 
 class PersonalizationContent extends StatefulWidget {
@@ -30,18 +30,16 @@ class _PersonalizationContentState extends State<PersonalizationContent> {
     final currentThemeType = themeProvider.currentTheme;
     final theme = widget.theme;
 
-    return SettingsPageLayout(
+    return SettingsContentLayout(
       theme: theme,
       title: context.l10n.personalization,
+      description: context.l10n.appearanceSettingsDescription,
       children: [
-        SettingsRow(
+        SettingsField(
           theme: theme,
           title: context.l10n.theme,
           description: context.l10n.themeDescription,
-          modified: currentThemeType != ThemeType.dark,
-          onReset: () => themeProvider.setTheme(ThemeType.dark),
-          controlWidth: 240,
-          control: ThemePicker(
+          child: ThemePicker(
             theme: theme,
             value: currentThemeType,
             themes: themeProvider.allThemes,

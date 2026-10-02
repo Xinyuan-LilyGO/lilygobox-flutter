@@ -72,5 +72,18 @@
     "statePreview": "State preview",
     "exitStatePreview": "Exit preview",
     "statePreviewActive": "Preview mode · Simulated data",
-    "statePreviewNoDevice": "This preview does not add devices or open a real device page."
+    "statePreviewNoDevice": "This preview does not add devices or open a real device page.",
+    "resizeSettingsSidebar": "Resize settings sidebar",
+    "appearanceSettingsDescription": "Customize the interface with your preferred theme.",
+    "languageSettingsDescription": "Choose the display language for LilygoBox.",
+    "generalSettingsDescription": "Manage application preferences and defaults.",
+    "aboutSettingsDescription": "Application information and version.",
+    "restoreDefaults": "Restore defaults",
+    "restoreDefaultsDescription": "Reset application preferences while keeping your account and added devices.",
+    "restoreDefaultsConfirmTitle": "Restore default settings?",
+    "restoreDefaultsConfirmDescription": "The theme will reset to Dark and the language to English. Your account and added devices will be kept.",
+    "settingsCancel": "Cancel",
+    "profileDescription": "View and manage your personal profile.",
+    "signIn": "Sign in",
+    "createAccount": "Create account"
 }

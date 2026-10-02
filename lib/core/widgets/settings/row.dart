@@ -2,14 +2,14 @@
  * @Description: 组合设置说明、控件和重置入口，支持窄窗口布局。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-02 22:01:29
  * @License: GPL 3.0
  */
 
 import 'package:flutter/material.dart';
 
 import '../../theme/definition.dart';
-import '../menu_item_surface.dart';
+import '../interaction_decoration.dart';
 import 'more_button.dart';
 
 /// 带说明、控件和重置入口的设置项，窄窗口下自动换行。
@@ -50,11 +50,12 @@ class SettingsRow extends StatelessWidget {
             left: 0,
             top: 0,
             bottom: 0,
-            child: AnimatedContainer(
-              duration: MenuItemSurface.animationDuration,
-              curve: MenuItemSurface.animationCurve,
-              width: 2.0,
-              color: modified ? theme.dividerColorNormal : Colors.transparent,
+            child: InteractionDecoration(
+              palette: theme,
+              decoration: BoxDecoration(
+                color: modified ? theme.dividerColorNormal : Colors.transparent,
+              ),
+              child: const SizedBox(width: 2),
             ),
           ),
           Padding(

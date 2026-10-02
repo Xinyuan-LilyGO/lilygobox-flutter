@@ -2,7 +2,7 @@
  * @Description: 统一弹出菜单的无边框浮层背景和阴影，区分菜单与底层页面。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 16:15:15
- * @LastEditTime: 2026-10-01 16:30:12
+ * @LastEditTime: 2026-10-02 22:01:29
  * @License: GPL 3.0
  */
 
@@ -26,14 +26,13 @@ class PopupMenuSurface extends StatelessWidget {
   final BorderRadius borderRadius;
 
   /// 菜单项使用相同的实色起点，让悬停颜色直接插值，避免透明叠加。
-  static Color backgroundColorFor(AppTheme theme) =>
-      theme.type == ThemeType.dark
-      ? Color.lerp(theme.secondary, theme.tertiary, 0.55)!
-      : Colors.white;
+  static Color backgroundColorFor(AppTheme theme) => theme.adaptiveColor(
+    dark: Color.lerp(theme.secondary, theme.tertiary, 0.55)!,
+    light: Colors.white,
+  );
 
   @override
   Widget build(BuildContext context) {
-    final isDark = theme.type == ThemeType.dark;
     return Container(
       padding: padding,
       decoration: BoxDecoration(
@@ -41,7 +40,9 @@ class PopupMenuSurface extends StatelessWidget {
         borderRadius: borderRadius,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.32 : 0.12),
+            color: Colors.black.withValues(
+              alpha: 0.32 - 0.2 * theme.lightProgress,
+            ),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),

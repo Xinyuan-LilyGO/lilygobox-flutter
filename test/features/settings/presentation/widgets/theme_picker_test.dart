@@ -1,8 +1,8 @@
 /*
- * @Description: 验证主题卡片切换、重复选中限制、重置及窄窗口布局。
+ * @Description: 验证主题卡片切换、重复选中限制及窄窗口布局。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 17:29:40
+ * @LastEditTime: 2026-10-02 19:41:48
  * @License: GPL 3.0
  */
 
@@ -16,7 +16,7 @@ import 'package:provider/provider.dart';
 
 void main() {
   testWidgets(
-    'theme cards switch immediately and retain reset at narrow width',
+    'theme cards switch immediately without per-setting reset at narrow width',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(360, 640));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -60,13 +60,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(themes.currentTheme, ThemeType.dark);
 
-      await tester.tap(light);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.more_horiz_rounded));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('重置此选项栏'));
-      await tester.pumpAndSettle();
-      expect(themes.currentTheme, ThemeType.dark);
+      expect(find.byIcon(Icons.more_horiz_rounded), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
