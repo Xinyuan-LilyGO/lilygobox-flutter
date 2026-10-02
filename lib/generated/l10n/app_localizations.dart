@@ -353,6 +353,198 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Hide sidebar'**
   String get hideSidebar;
+
+  /// No description provided for @homeDevicesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your LILYGO devices, all in one place'**
+  String get homeDevicesSubtitle;
+
+  /// No description provided for @homeDevicesEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No devices yet'**
+  String get homeDevicesEmpty;
+
+  /// No description provided for @homeDevicesEmptyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your first device\nand bring it into LilygoBox.'**
+  String get homeDevicesEmptyDescription;
+
+  /// No description provided for @homeDevicesReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Your devices are ready'**
+  String get homeDevicesReady;
+
+  /// No description provided for @homeDevicesReadyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Open a device from the sidebar,\nor add another device.'**
+  String get homeDevicesReadyDescription;
+
+  /// No description provided for @back.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get back;
+
+  /// No description provided for @connectYourDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your device'**
+  String get connectYourDevice;
+
+  /// No description provided for @discoveryDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on your device. LilygoBox will find available devices automatically.'**
+  String get discoveryDescription;
+
+  /// No description provided for @discoveredDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Discovered devices'**
+  String get discoveredDevices;
+
+  /// No description provided for @searchingDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Looking for devices…'**
+  String get searchingDevices;
+
+  /// No description provided for @discoveryEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No devices found'**
+  String get discoveryEmpty;
+
+  /// No description provided for @discoveryEmptyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Make sure your device is on and ready to connect.'**
+  String get discoveryEmptyDescription;
+
+  /// No description provided for @discoveryUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Device discovery unavailable'**
+  String get discoveryUnavailable;
+
+  /// No description provided for @discoveryUnavailableDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Device connections are not available in this version yet.'**
+  String get discoveryUnavailableDescription;
+
+  /// No description provided for @discoveryFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to find devices'**
+  String get discoveryFailed;
+
+  /// No description provided for @discoveryFailedDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your device and access permissions, then try again.'**
+  String get discoveryFailedDescription;
+
+  /// No description provided for @searchAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Search again'**
+  String get searchAgain;
+
+  /// No description provided for @deviceConnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting to your device…'**
+  String get deviceConnecting;
+
+  /// No description provided for @keepDeviceOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep your device turned on'**
+  String get keepDeviceOn;
+
+  /// No description provided for @deviceConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Device connected'**
+  String get deviceConnected;
+
+  /// No description provided for @deviceConnectionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not connect'**
+  String get deviceConnectionFailed;
+
+  /// No description provided for @deviceConnectionFailedDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Make sure your device is still on and ready to connect, then try again.'**
+  String get deviceConnectionFailedDescription;
+
+  /// No description provided for @retryConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get retryConnection;
+
+  /// No description provided for @cancelConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel connection'**
+  String get cancelConnection;
+
+  /// No description provided for @openDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Open device'**
+  String get openDevice;
+
+  /// No description provided for @deviceConnectionHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection help'**
+  String get deviceConnectionHelp;
+
+  /// No description provided for @deviceConnectionHelpDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Make sure your device is on and ready to connect.\nFollow any permission or confirmation prompts on your devices.'**
+  String get deviceConnectionHelpDescription;
+
+  /// No description provided for @tapToConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Select to connect'**
+  String get tapToConnect;
+
+  /// No description provided for @statePreview.
+  ///
+  /// In en, this message translates to:
+  /// **'State preview'**
+  String get statePreview;
+
+  /// No description provided for @exitStatePreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Exit preview'**
+  String get exitStatePreview;
+
+  /// No description provided for @statePreviewActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview mode · Simulated data'**
+  String get statePreviewActive;
+
+  /// No description provided for @statePreviewNoDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'This preview does not add devices or open a real device page.'**
+  String get statePreviewNoDevice;
 }
 
 class _AppLocalizationsDelegate

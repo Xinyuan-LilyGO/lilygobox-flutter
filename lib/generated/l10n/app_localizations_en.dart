@@ -146,4 +146,109 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get hideSidebar => 'Hide sidebar';
+
+  @override
+  String get homeDevicesSubtitle => 'Your LILYGO devices, all in one place';
+
+  @override
+  String get homeDevicesEmpty => 'No devices yet';
+
+  @override
+  String get homeDevicesEmptyDescription =>
+      'Add your first device\nand bring it into LilygoBox.';
+
+  @override
+  String get homeDevicesReady => 'Your devices are ready';
+
+  @override
+  String get homeDevicesReadyDescription =>
+      'Open a device from the sidebar,\nor add another device.';
+
+  @override
+  String get back => 'Back';
+
+  @override
+  String get connectYourDevice => 'Connect your device';
+
+  @override
+  String get discoveryDescription =>
+      'Turn on your device. LilygoBox will find available devices automatically.';
+
+  @override
+  String get discoveredDevices => 'Discovered devices';
+
+  @override
+  String get searchingDevices => 'Looking for devices…';
+
+  @override
+  String get discoveryEmpty => 'No devices found';
+
+  @override
+  String get discoveryEmptyDescription =>
+      'Make sure your device is on and ready to connect.';
+
+  @override
+  String get discoveryUnavailable => 'Device discovery unavailable';
+
+  @override
+  String get discoveryUnavailableDescription =>
+      'Device connections are not available in this version yet.';
+
+  @override
+  String get discoveryFailed => 'Unable to find devices';
+
+  @override
+  String get discoveryFailedDescription =>
+      'Check your device and access permissions, then try again.';
+
+  @override
+  String get searchAgain => 'Search again';
+
+  @override
+  String get deviceConnecting => 'Connecting to your device…';
+
+  @override
+  String get keepDeviceOn => 'Keep your device turned on';
+
+  @override
+  String get deviceConnected => 'Device connected';
+
+  @override
+  String get deviceConnectionFailed => 'Could not connect';
+
+  @override
+  String get deviceConnectionFailedDescription =>
+      'Make sure your device is still on and ready to connect, then try again.';
+
+  @override
+  String get retryConnection => 'Try again';
+
+  @override
+  String get cancelConnection => 'Cancel connection';
+
+  @override
+  String get openDevice => 'Open device';
+
+  @override
+  String get deviceConnectionHelp => 'Connection help';
+
+  @override
+  String get deviceConnectionHelpDescription =>
+      'Make sure your device is on and ready to connect.\nFollow any permission or confirmation prompts on your devices.';
+
+  @override
+  String get tapToConnect => 'Select to connect';
+
+  @override
+  String get statePreview => 'State preview';
+
+  @override
+  String get exitStatePreview => 'Exit preview';
+
+  @override
+  String get statePreviewActive => 'Preview mode · Simulated data';
+
+  @override
+  String get statePreviewNoDevice =>
+      'This preview does not add devices or open a real device page.';
 }

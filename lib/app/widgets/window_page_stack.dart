@@ -1,8 +1,8 @@
 /*
- * @Description: 根据导航状态切换主窗口页面，并叠加添加设备弹层。
+ * @Description: 根据导航状态切换主窗口外壳、设置及设备设置页面。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-02 13:35:30
  * @License: GPL 3.0
  */
 
@@ -10,14 +10,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../features/devices/presentation/catalog.dart';
-import '../../features/devices/presentation/pages/add_page.dart';
 import '../../features/settings/presentation/pages/page.dart';
 import '../navigation/provider.dart';
 import '../shell/pages/page.dart';
 
 /// 主窗口内容栈。
 ///
-/// 普通页面以 base page 的形式切换；“添加设备”作为模态层叠在当前页面之上。
+/// 添加设备由主外壳内容区承载，设置页面覆盖主外壳。
 class WindowPageStack extends StatelessWidget {
   const WindowPageStack({super.key});
 
@@ -27,13 +26,13 @@ class WindowPageStack extends StatelessWidget {
       builder: (context, navigationProvider, child) {
         final currentPage = navigationProvider.currentPage;
 
-        // 设置页和设备设置页会替换主内容区域；添加设备页则保持主页在底层。
+        // 设置页和设备设置页替换主外壳，添加设备时保留侧栏。
         final isStandalonePage =
             currentPage == AppPage.settings ||
             currentPage == AppPage.deviceSettings;
         final basePageKey = isStandalonePage ? currentPage : AppPage.home;
 
-        // base page 负责主内容切换动画，避免弹层状态影响主页内部选择状态。
+        // base page 负责主内容切换动画，保留主外壳内部选择状态。
         final baseContent = AnimatedSwitcher(
           duration: const Duration(milliseconds: 500),
           switchInCurve: Curves.easeOutCubic,
@@ -59,39 +58,7 @@ class WindowPageStack extends StatelessWidget {
           ),
         );
 
-        // 模态遮罩和模态内容分开做动画，便于以后调整遮罩透明度或弹层动效。
-        final modalBarrier = AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          transitionBuilder: (child, animation) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-          child: currentPage == AppPage.addDevice
-              ? const ModalBarrier(
-                  key: ValueKey('modal_barrier_active'),
-                  color: Color.fromARGB(100, 0, 0, 0),
-                )
-              : Container(key: const ValueKey('modal_barrier_inactive')),
-        );
-
-        final modalContent = AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          transitionBuilder: (child, animation) {
-            return ScaleTransition(
-              scale: CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeInOut,
-              ),
-              child: child,
-            );
-          },
-          child: currentPage == AppPage.addDevice
-              ? const AddDevicePage(key: ValueKey(AppPage.addDevice))
-              : Container(key: const ValueKey('empty_modal_content')),
-        );
-
-        return Expanded(
-          child: Stack(children: [baseContent, modalBarrier, modalContent]),
-        );
+        return Expanded(child: baseContent);
       },
     );
   }

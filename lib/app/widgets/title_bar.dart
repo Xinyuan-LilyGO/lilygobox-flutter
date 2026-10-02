@@ -2,7 +2,7 @@
  * @Description: 构建主窗口标题栏，提供标题淡入淡出、侧栏开关及窗口控制。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-02 00:14:33
+ * @LastEditTime: 2026-10-02 13:35:30
  * @License: GPL 3.0
  */
 
@@ -43,7 +43,9 @@ class AppTitleBar extends StatelessWidget {
       (provider) => provider.isSidebarVisible,
     );
     final showSidebarToggle = context.select<AppNavigationProvider, bool>(
-      (provider) => provider.currentPage == AppPage.home,
+      (provider) =>
+          provider.currentPage == AppPage.home ||
+          provider.currentPage == AppPage.addDevice,
     );
     final fadeDuration = MediaQuery.disableAnimationsOf(context)
         ? Duration.zero

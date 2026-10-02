@@ -2,7 +2,7 @@
  * @Description: 统一标题栏圆形图标按钮的尺寸、悬停动画和点击反馈。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 16:54:38
+ * @LastEditTime: 2026-10-02 13:58:08
  * @License: GPL 3.0
  */
 
@@ -19,20 +19,22 @@ class TitleBarIconButton extends StatefulWidget {
     required this.isFocused,
     required this.theme,
     required this.icon,
+    this.size = 24,
+    this.iconSize = 16,
   });
 
   final VoidCallback onPressed;
   final bool isFocused;
   final AppTheme theme;
   final IconData icon;
+  final double size;
+  final double iconSize;
 
   @override
   State<TitleBarIconButton> createState() => _TitleBarIconButtonState();
 }
 
 class _TitleBarIconButtonState extends State<TitleBarIconButton> {
-  static const double _diameter = 24;
-  static const double _iconSize = 16;
   bool _isHovered = false;
 
   @override
@@ -41,8 +43,8 @@ class _TitleBarIconButtonState extends State<TitleBarIconButton> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
-        width: _diameter,
-        height: _diameter,
+        width: widget.size,
+        height: widget.size,
         duration: MenuItemSurface.animationDuration,
         curve: MenuItemSurface.animationCurve,
         decoration: BoxDecoration(
@@ -68,7 +70,7 @@ class _TitleBarIconButtonState extends State<TitleBarIconButton> {
             child: Center(
               child: Icon(
                 widget.icon,
-                size: _iconSize,
+                size: widget.iconSize,
                 color: widget.isFocused
                     ? widget.theme.iconColor
                     : widget.theme.inactiveIconColor,

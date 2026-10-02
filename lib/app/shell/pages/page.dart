@@ -2,7 +2,7 @@
  * @Description: 构建品牌侧栏、设备导航、账号入口和当前页面内容。
  * @Author: LILYGO_L
  * @Date: 2025-11-06 14:22:51
- * @LastEditTime: 2026-10-01 17:56:56
+ * @LastEditTime: 2026-10-02 14:08:15
  * @License: GPL 3.0
  */
 
@@ -16,7 +16,9 @@ import 'package:vector_graphics/vector_graphics_compat.dart'
 import '../../../core/l10n/language_provider.dart';
 import '../../../core/theme/provider.dart';
 import '../../../features/devices/presentation/catalog.dart';
+import '../../../features/devices/presentation/pages/add_page.dart';
 import '../../../features/devices/state/manager_provider.dart';
+import '../../navigation/provider.dart';
 import '../state/provider.dart';
 import '../widgets/resizable_sidebar.dart';
 import '../widgets/sidebar_account_button.dart';
@@ -37,6 +39,7 @@ class _AppShellState extends State<AppShell> {
   void _selectItem(int index) {
     final shellProvider = Provider.of<AppShellProvider>(context, listen: false);
     shellProvider.updateSelectedIndex(index);
+    context.read<AppNavigationProvider>().goHome();
   }
 
   @override
@@ -44,6 +47,8 @@ class _AppShellState extends State<AppShell> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final theme = themeProvider.themeData;
     final deviceManager = Provider.of<DeviceManagerProvider>(context);
+    final addingDevice =
+        context.watch<AppNavigationProvider>().currentPage == AppPage.addDevice;
     final selectedIndex = context.select<AppShellProvider, int>(
       (provider) => provider.selectedIndex,
     );
@@ -52,7 +57,8 @@ class _AppShellState extends State<AppShell> {
       sidebar: _buildLeftSidebar(
         context,
         deviceManager.addedDevices,
-        selectedIndex,
+        addingDevice ? 0 : selectedIndex,
+        addingDevice: addingDevice,
       ),
       content: Container(
         decoration: BoxDecoration(
@@ -60,15 +66,19 @@ class _AppShellState extends State<AppShell> {
           borderRadius: const BorderRadius.only(topLeft: Radius.circular(10)),
         ),
         child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 200),
           transitionBuilder: (child, animation) {
             return FadeTransition(opacity: animation, child: child);
           },
-          child: _buildCurrentPage(
-            context,
-            deviceManager.addedDevices,
-            selectedIndex,
-          ),
+          child: addingDevice
+              ? const AddDevicePage(key: ValueKey(AppPage.addDevice))
+              : _buildCurrentPage(
+                  context,
+                  deviceManager.addedDevices,
+                  selectedIndex,
+                ),
         ),
       ),
     );
@@ -77,8 +87,9 @@ class _AppShellState extends State<AppShell> {
   Widget _buildLeftSidebar(
     BuildContext context,
     List<String> addedDevices,
-    int selectedIndex,
-  ) {
+    int selectedIndex, {
+    required bool addingDevice,
+  }) {
     final theme = context.read<ThemeProvider>().themeData;
 
     return ColoredBox(
@@ -130,6 +141,7 @@ class _AppShellState extends State<AppShell> {
             label: context.l10n.sidebarHome,
             onPressed: () => _selectItem(0),
             isSelected: selectedIndex == 0,
+            disableWhenSelected: !addingDevice,
           ),
           const SizedBox(height: 12),
           Expanded(
