@@ -2,7 +2,7 @@
  * @Description: 提供通用设置分类的页面布局。
  * @Author: LILYGO_L
  * @Date: 2026-05-24 23:22:38
- * @LastEditTime: 2026-10-02 20:42:05
+ * @LastEditTime: 2026-10-03 18:10:36
  * @License: GPL 3.0
  */
 
@@ -11,7 +11,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
-import '../../../../core/widgets/menu_item_surface.dart';
+import '../../../../core/widgets/action_button.dart';
 import 'content_layout.dart';
 
 class GeneralSettingsContent extends StatelessWidget {
@@ -30,19 +30,14 @@ class GeneralSettingsContent extends StatelessWidget {
           theme: theme,
           title: context.l10n.restoreDefaults,
           description: context.l10n.restoreDefaultsDescription,
-          child: MenuItemSurface(
+          child: AppActionButton(
             key: const ValueKey('restore-defaults'),
             theme: theme,
-            backgroundColor: SettingsColors(theme).control,
-            hoverColor: SettingsColors(theme).hover,
+            label: context.l10n.restoreDefaults,
             onPressed: () => _confirmReset(context),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              child: Text(
-                context.l10n.restoreDefaults,
-                style: TextStyle(fontSize: 12, color: theme.textColorPrimary),
-              ),
-            ),
+            fontSize: 12,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            borderRadius: BorderRadius.circular(8),
           ),
         ),
       ],
@@ -82,30 +77,16 @@ class GeneralSettingsContent extends StatelessWidget {
   }
 
   Widget _dialogAction(BuildContext context, String label, bool confirm) =>
-      MenuItemSurface(
+      AppActionButton(
         key: ValueKey(
           confirm ? 'confirm-restore-defaults' : 'cancel-restore-defaults',
         ),
         theme: theme,
-        backgroundColor: confirm
-            ? theme.basePrimary
-            : SettingsColors(theme).control,
-        hoverColor: confirm ? theme.baseTertiary : SettingsColors(theme).hover,
+        label: label,
+        primary: confirm,
         onPressed: () => Navigator.pop(context, confirm),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color:
-                  confirm &&
-                      ThemeData.estimateBrightnessForColor(theme.basePrimary) ==
-                          Brightness.dark
-                  ? Colors.white
-                  : theme.textColorPrimary,
-            ),
-          ),
-        ),
+        fontSize: 12,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        borderRadius: BorderRadius.circular(8),
       );
 }

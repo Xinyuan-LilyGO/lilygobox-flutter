@@ -2,7 +2,7 @@
  * @Description: 展示单页设备首页、默认空状态和添加设备入口。
  * @Author: LILYGO_L
  * @Date: 2025-11-07 11:23:45
- * @LastEditTime: 2026-10-02 18:55:31
+ * @LastEditTime: 2026-10-03 18:10:36
  * @License: GPL 3.0
  */
 
@@ -12,7 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/l10n/language_provider.dart';
 import '../../../core/theme/provider.dart';
-import '../../../core/widgets/menu_item_surface.dart';
+import '../../../core/widgets/action_button.dart';
 import '../../../features/devices/state/manager_provider.dart';
 import '../../navigation/provider.dart';
 import '../widgets/home_device_illustration.dart';
@@ -27,12 +27,6 @@ class HomePageContent extends StatelessWidget {
       (devices) => devices.addedDevices.isNotEmpty,
     );
     final l10n = context.l10n;
-    final buttonColor = theme.basePrimary;
-    final buttonInk =
-        ThemeData.estimateBrightnessForColor(buttonColor) == Brightness.dark
-        ? Colors.white
-        : const Color(0xFF191919);
-
     return ClipRRect(
       borderRadius: const BorderRadius.only(topLeft: Radius.circular(10)),
       child: ColoredBox(
@@ -122,53 +116,14 @@ class HomePageContent extends StatelessWidget {
                                         ),
                                       ),
                                       const SizedBox(height: 26),
-                                      Semantics(
-                                        button: true,
-                                        child: MenuItemSurface(
-                                          theme: theme,
-                                          backgroundColor: buttonColor,
-                                          hoverColor: Color.alphaBlend(
-                                            buttonInk.withValues(alpha: 0.1),
-                                            buttonColor,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                          onPressed: () => context
-                                              .read<AppNavigationProvider>()
-                                              .setPage(AppPage.addDevice),
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 8,
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Icon(
-                                                  Symbols.add_rounded,
-                                                  size: 20,
-                                                  color: buttonInk,
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Flexible(
-                                                  child: Text(
-                                                    l10n.addDevice,
-                                                    textAlign: TextAlign.center,
-                                                    style: TextStyle(
-                                                      fontSize: 14,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      color: buttonInk,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
+                                      AppActionButton(
+                                        theme: theme,
+                                        label: l10n.addDevice,
+                                        icon: Symbols.add_rounded,
+                                        primary: true,
+                                        onPressed: () => context
+                                            .read<AppNavigationProvider>()
+                                            .setPage(AppPage.addDevice),
                                       ),
                                     ],
                                   ),

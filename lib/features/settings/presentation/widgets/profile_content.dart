@@ -2,7 +2,7 @@
  * @Description: 展示 GitHub 个人资料、设备授权验证码和本地登录会话操作。
  * @Author: LILYGO_L
  * @Date: 2026-10-02 20:56:44
- * @LastEditTime: 2026-10-03 14:22:16
+ * @LastEditTime: 2026-10-03 18:10:36
  * @License: GPL 3.0
  */
 
@@ -12,7 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
-import '../../../../core/widgets/menu_item_surface.dart';
+import '../../../../core/widgets/action_button.dart';
 import '../../../../generated/l10n/app_localizations.dart';
 import '../../../account/domain/models.dart';
 import '../../../account/presentation/widgets/avatar.dart';
@@ -206,31 +206,16 @@ class ProfileContent extends StatelessWidget {
     String label,
     VoidCallback? onPressed, {
     bool primary = false,
-  }) {
-    final colors = SettingsColors(theme);
-    final foreground = primary ? Colors.white : theme.textColorPrimary;
-    final background = primary ? theme.basePrimary : colors.control;
-    return MenuItemSurface(
-      key: ValueKey(key),
-      theme: theme,
-      backgroundColor: background,
-      hoverColor: primary
-          ? Color.alphaBlend(foreground.withValues(alpha: .1), background)
-          : colors.hover,
-      onPressed: onPressed,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: primary ? FontWeight.w600 : FontWeight.w400,
-            color: foreground,
-          ),
-        ),
-      ),
-    );
-  }
+  }) => AppActionButton(
+    key: ValueKey(key),
+    theme: theme,
+    label: label,
+    onPressed: onPressed,
+    primary: primary,
+    fontSize: 13,
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+    borderRadius: BorderRadius.circular(8),
+  );
 
   String _error(AppLocalizations l10n, AccountError error) => switch (error) {
     AccountError.notConfigured => l10n.githubNotConfigured,

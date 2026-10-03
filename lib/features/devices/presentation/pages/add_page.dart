@@ -2,7 +2,7 @@
  * @Description: 在主页内容区自动发现设备，展示连接反馈、重试和连接帮助。
  * @Author: LILYGO_L
  * @Date: 2025-11-05 09:52:14
- * @LastEditTime: 2026-10-02 18:31:57
+ * @LastEditTime: 2026-10-03 18:10:36
  * @License: GPL 3.0
  */
 
@@ -18,6 +18,7 @@ import '../../../../app/navigation/provider.dart';
 import '../../../../app/shell/state/provider.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
+import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
@@ -457,39 +458,15 @@ class _AddDevicePageState extends State<AddDevicePage> {
     VoidCallback onPressed, {
     bool primary = true,
     bool compact = false,
-  }) {
-    final background = primary ? theme.basePrimary : theme.secondary;
-    final foreground = primary
-        ? (ThemeData.estimateBrightnessForColor(background) == Brightness.dark
-              ? Colors.white
-              : const Color(0xFF191919))
-        : theme.textColorSecondary;
-    return Semantics(
-      button: true,
-      child: MenuItemSurface(
-        theme: theme,
-        onPressed: onPressed,
-        backgroundColor: background,
-        hoverColor: primary
-            ? Color.alphaBlend(foreground.withValues(alpha: 0.1), background)
-            : theme.secondaryTextHoverColor,
-        borderRadius: BorderRadius.circular(compact ? 8 : 10),
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: compact ? 10 : 16,
-            vertical: compact ? 5 : 8,
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: primary ? FontWeight.w600 : FontWeight.w400,
-              color: foreground,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  }) => AppActionButton(
+    theme: theme,
+    label: label,
+    onPressed: onPressed,
+    primary: primary,
+    padding: EdgeInsets.symmetric(
+      horizontal: compact ? 14 : 16,
+      vertical: compact ? 7 : 8,
+    ),
+    borderRadius: BorderRadius.circular(compact ? 8 : 10),
+  );
 }

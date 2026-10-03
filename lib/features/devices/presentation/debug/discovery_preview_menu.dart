@@ -2,7 +2,7 @@
  * @Description: 提供添加设备页面的调试状态选择菜单与退出预览入口。
  * @Author: LILYGO_L
  * @Date: 2026-10-02 14:19:09
- * @LastEditTime: 2026-10-02 22:01:29
+ * @LastEditTime: 2026-10-03 18:10:36
  * @License: GPL 3.0
  */
 
@@ -12,6 +12,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
+import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/popup_menu_surface.dart';
@@ -116,35 +117,17 @@ class _DiscoveryPreviewMenuState extends State<DiscoveryPreviewMenu> {
         child: Semantics(
           label: compact ? l10n.statePreview : null,
           button: true,
-          child: MenuItemSurface(
+          child: AppActionButton(
             key: const ValueKey('discovery-preview-menu'),
             theme: theme,
-            backgroundColor: theme.secondary,
-            hoverColor: theme.secondaryTextHoverColor,
+            label: compact ? '' : l10n.statePreview,
+            icon: Symbols.science_rounded,
+            iconSize: 16,
+            iconSpacing: 6,
+            fontSize: 12,
+            padding: const EdgeInsets.all(6),
+            borderRadius: BorderRadius.circular(8),
             onPressed: () => menu.isOpen ? menu.close() : menu.open(),
-            child: Padding(
-              padding: const EdgeInsets.all(6),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Symbols.science_rounded,
-                    size: 16,
-                    color: theme.textColorTertiary,
-                  ),
-                  if (!compact) ...[
-                    const SizedBox(width: 6),
-                    Text(
-                      l10n.statePreview,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.textColorSecondary,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
           ),
         ),
       ),

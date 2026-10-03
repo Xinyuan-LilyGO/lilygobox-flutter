@@ -2,14 +2,14 @@
  * @Description: 提供沿用设置控件配色和交互动画的文字操作按钮。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-03 18:10:36
  * @License: GPL 3.0
  */
 
 import 'package:flutter/material.dart';
 
 import '../../theme/definition.dart';
-import '../menu_item_surface.dart';
+import '../action_button.dart';
 
 class SettingActionButton extends StatelessWidget {
   const SettingActionButton({
@@ -24,25 +24,16 @@ class SettingActionButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) {
-    return MenuItemSurface.control(
+  Widget build(BuildContext context) => SizedBox(
+    height: 32,
+    width: double.infinity,
+    child: AppActionButton(
       theme: theme,
+      label: label,
       onPressed: onPressed,
-      child: Container(
-        height: 32.0,
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 14.0),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: theme.textColorPrimary,
-            fontSize: 13.0,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-    );
-  }
+      fontSize: 13,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      borderRadius: BorderRadius.circular(4),
+    ),
+  );
 }
