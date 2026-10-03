@@ -98,6 +98,7 @@
     "githubCodeCopied": "验证码已复制",
     "githubOpenBrowser": "前往 GitHub 授权",
     "githubSignOut": "退出登录",
+    "githubSignOutConfirmTitle": "退出登录？",
     "githubSignOutDescription": "退出会清除此设备保存的登录凭证，不会删除 GitHub 账号或本地设备。若要撤销应用权限，可前往 GitHub 的授权应用设置。",
     "githubNotConfigured": "GitHub 登录尚未配置，请暂时使用本地设备功能。",
     "githubUnsupported": "当前平台暂未开放 GitHub 登录。",

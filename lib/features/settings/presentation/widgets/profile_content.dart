@@ -2,7 +2,7 @@
  * @Description: 展示 GitHub 个人资料、设备授权验证码和本地登录会话操作。
  * @Author: LILYGO_L
  * @Date: 2026-10-02 20:56:44
- * @LastEditTime: 2026-10-03 23:20:36
+ * @LastEditTime: 2026-10-03 23:41:53
  * @License: GPL 3.0
  */
 
@@ -15,6 +15,7 @@ import '../../../../core/theme/definition.dart';
 import '../../../../core/widgets/action_button.dart';
 import '../../../../generated/l10n/app_localizations.dart';
 import '../../../account/domain/models.dart';
+import '../../../account/presentation/confirm_sign_out.dart';
 import '../../../account/presentation/widgets/avatar.dart';
 import '../../../account/state/provider.dart';
 import 'content_layout.dart';
@@ -166,7 +167,9 @@ class ProfileContent extends StatelessWidget {
             child: _action(
               'github-sign-out',
               l10n.githubSignOut,
-              account.busy ? null : account.signOut,
+              account.busy
+                  ? null
+                  : () => confirmAccountSignOut(context, theme: theme),
             ),
           ),
         ] else if (!account.busy)

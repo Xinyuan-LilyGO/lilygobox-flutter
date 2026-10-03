@@ -316,6 +316,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get githubSignOut => '退出登录';
 
   @override
+  String get githubSignOutConfirmTitle => '退出登录？';
+
+  @override
   String get githubSignOutDescription =>
       '退出会清除此设备保存的登录凭证，不会删除 GitHub 账号或本地设备。若要撤销应用权限，可前往 GitHub 的授权应用设置。';
 

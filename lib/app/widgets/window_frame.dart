@@ -1,27 +1,26 @@
 /*
- * @Description: 组合窗口标题栏和页面内容，绘制窗口圆角、阴影与边缘。
+ * @Description: 绘制窗口圆角与阴影，将页面及弹层统一裁剪在窗口内部。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-03 23:41:53
  * @License: GPL 3.0
  */
 
 import 'package:flutter/material.dart';
 
 import '../../core/theme/definition.dart';
-import 'title_bar.dart';
-import 'window_page_stack.dart';
-import 'window_resize_overlay.dart';
 
 class AppWindowFrame extends StatelessWidget {
   const AppWindowFrame({
     super.key,
     required this.theme,
     required this.isMaximized,
+    required this.child,
   });
 
   final AppTheme theme;
   final bool isMaximized;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
@@ -29,22 +28,16 @@ class AppWindowFrame extends StatelessWidget {
       margin: isMaximized ? EdgeInsets.zero : const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: theme.primary,
-        borderRadius: isMaximized ? BorderRadius.zero : BorderRadius.circular(10),
+        borderRadius: isMaximized
+            ? BorderRadius.zero
+            : BorderRadius.circular(10),
         boxShadow: isMaximized ? [] : _buildBoxShadow(),
       ),
       child: ClipRRect(
-        borderRadius: isMaximized ? BorderRadius.zero : BorderRadius.circular(10),
-        child: const Stack(
-          children: [
-            Column(
-              children: [
-                AppTitleBar(),
-                WindowPageStack(),
-              ],
-            ),
-            WindowResizeOverlay(),
-          ],
-        ),
+        borderRadius: isMaximized
+            ? BorderRadius.zero
+            : BorderRadius.circular(10),
+        child: child,
       ),
     );
   }

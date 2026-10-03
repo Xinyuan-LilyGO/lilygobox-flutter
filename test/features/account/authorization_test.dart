@@ -2,7 +2,7 @@
  * @Description: 验证 GitHub 授权请求、轮询限速、取消竞态、凭证保存和失效处理。
  * @Author: LILYGO_L
  * @Date: 2026-10-03 14:22:16
- * @LastEditTime: 2026-10-03 14:22:16
+ * @LastEditTime: 2026-10-03 23:41:53
  * @License: GPL 3.0
  */
 
@@ -96,10 +96,11 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
       for (final locale in ['zh', 'en']) {
         final api = FakeApi();
+        final store = MemoryStore();
         final account = AccountProvider(
           clientId: 'test',
           api: api,
-          store: MemoryStore(),
+          store: store,
           openBrowser: (_) async => false,
         );
         final theme = ThemeProvider();
@@ -139,7 +140,25 @@ void main() {
         await tester.ensureVisible(signOut);
         await tester.tap(signOut);
         await tester.pumpAndSettle();
+        expect(find.byType(AlertDialog), findsOneWidget);
+        expect(account.user, isNotNull);
+        expect(store.token, isNotNull);
+        await tester.tap(find.byKey(const ValueKey('cancel-github-sign-out')));
+        await tester.pumpAndSettle();
+        expect(account.user, isNotNull);
+        expect(store.token, isNotNull);
+        await tester.tap(signOut);
+        await tester.pumpAndSettle();
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(account.user, isNotNull);
+        expect(store.token, isNotNull);
+        await tester.tap(signOut);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('confirm-github-sign-out')));
+        await tester.pumpAndSettle();
         expect(account.user, isNull);
+        expect(store.token, isNull);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
         account.dispose();

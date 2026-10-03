@@ -2,7 +2,7 @@
  * @Description: 提供通用设置分类的页面布局。
  * @Author: LILYGO_L
  * @Date: 2026-05-24 23:22:38
- * @LastEditTime: 2026-10-03 20:29:43
+ * @LastEditTime: 2026-10-03 23:41:53
  * @License: GPL 3.0
  */
 
@@ -15,6 +15,7 @@ import '../../../../core/layout/split_view_provider.dart';
 import '../../../../core/storage/preferences.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/action_button.dart';
+import '../../../../core/widgets/confirmation_dialog.dart';
 import 'content_layout.dart';
 
 class GeneralSettingsContent extends StatelessWidget {
@@ -49,29 +50,13 @@ class GeneralSettingsContent extends StatelessWidget {
 
   Future<void> _confirmReset(BuildContext context) async {
     final l10n = context.l10n;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppConfirmation(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: SettingsColors(theme).control,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text(
-          l10n.restoreDefaultsConfirmTitle,
-          style: TextStyle(fontSize: 18, color: theme.textColorPrimary),
-        ),
-        content: Text(
-          l10n.restoreDefaultsConfirmDescription,
-          style: TextStyle(
-            fontSize: 13,
-            height: 1.5,
-            color: theme.textColorSecondary,
-          ),
-        ),
-        actions: [
-          _dialogAction(dialogContext, l10n.settingsCancel, false),
-          _dialogAction(dialogContext, l10n.restoreDefaults, true),
-        ],
-      ),
+      theme: theme,
+      actionKey: 'restore-defaults',
+      title: l10n.restoreDefaultsConfirmTitle,
+      description: l10n.restoreDefaultsConfirmDescription,
+      confirmLabel: l10n.restoreDefaults,
     );
     if (confirmed != true || !context.mounted) return;
     // 仅重置明确的应用偏好，不清空设备列表或其他持久化数据。
@@ -81,18 +66,4 @@ class GeneralSettingsContent extends StatelessWidget {
     context.read<SplitViewProvider?>()?.resetSplitWidth();
     context.read<AppPreferences?>()?.setValue('settingsSidebarWidth', 212.0);
   }
-
-  Widget _dialogAction(BuildContext context, String label, bool confirm) =>
-      AppActionButton(
-        key: ValueKey(
-          confirm ? 'confirm-restore-defaults' : 'cancel-restore-defaults',
-        ),
-        theme: theme,
-        label: label,
-        primary: confirm,
-        onPressed: () => Navigator.pop(context, confirm),
-        fontSize: 12,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        borderRadius: BorderRadius.circular(8),
-      );
 }

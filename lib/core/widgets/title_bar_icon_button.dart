@@ -2,7 +2,7 @@
  * @Description: 统一标题栏圆形图标按钮的尺寸、悬停动画和点击反馈。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-02 21:44:28
+ * @LastEditTime: 2026-10-03 23:56:45
  * @License: GPL 3.0
  */
 
@@ -24,7 +24,7 @@ class TitleBarIconButton extends StatefulWidget {
     this.iconSize = 16,
   });
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool isFocused;
   final AppTheme theme;
   final IconData icon;
@@ -41,14 +41,14 @@ class _TitleBarIconButtonState extends State<TitleBarIconButton> {
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
+      onEnter: (_) => setState(() => _isHovered = widget.onPressed != null),
       onExit: (_) => setState(() => _isHovered = false),
       child: InteractionDecoration(
         palette: widget.theme,
         duration: MenuItemSurface.animationDuration,
         curve: MenuItemSurface.animationCurve,
         decoration: BoxDecoration(
-          color: _isHovered
+          color: _isHovered && widget.onPressed != null
               ? widget.theme.primaryTextHoverColor
               : widget.theme.primary,
           shape: BoxShape.circle,

@@ -2,7 +2,7 @@
  * @Description: 构建主窗口标题栏，提供标题淡入淡出、侧栏开关及窗口控制。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-02 21:44:28
+ * @LastEditTime: 2026-10-03 23:56:45
  * @License: GPL 3.0
  */
 
@@ -24,7 +24,9 @@ import '../shell/state/provider.dart';
 import 'title_bar_control_button.dart';
 
 class AppTitleBar extends StatelessWidget {
-  const AppTitleBar({super.key});
+  const AppTitleBar({super.key, this.navigationEnabled = true});
+
+  final bool navigationEnabled;
 
   static const double height = 30.0;
 
@@ -105,9 +107,11 @@ class AppTitleBar extends StatelessWidget {
                               child: TitleBarIconButton(
                                 key: const ValueKey('toggle-sidebar'),
                                 icon: Symbols.dock_to_right,
-                                onPressed: context
-                                    .read<AppShellProvider>()
-                                    .toggleSidebar,
+                                onPressed: navigationEnabled
+                                    ? context
+                                          .read<AppShellProvider>()
+                                          .toggleSidebar
+                                    : null,
                                 isFocused: isFocused,
                                 theme: theme,
                               ),
@@ -126,8 +130,11 @@ class AppTitleBar extends StatelessWidget {
               verticalOffset: 16,
               message: context.l10n.settings,
               child: TitleBarIconButton(
+                key: const ValueKey('titlebar-settings'),
                 icon: Symbols.settings,
-                onPressed: () => navigationProvider.setPage(AppPage.settings),
+                onPressed: navigationEnabled
+                    ? () => navigationProvider.setPage(AppPage.settings)
+                    : null,
                 isFocused: isFocused,
                 theme: theme,
               ),

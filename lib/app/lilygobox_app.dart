@@ -2,7 +2,7 @@
  * @Description: 配置应用根组件、本地化资源和主窗口内容。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-03 20:29:43
+ * @LastEditTime: 2026-10-03 23:56:45
  * @License: GPL 3.0
  */
 
@@ -16,11 +16,28 @@ import '../core/l10n/language_provider.dart';
 import '../core/theme/provider.dart';
 import '../core/window/provider.dart';
 import '../generated/l10n/app_localizations.dart';
+import 'navigation/dialog_observer.dart';
 import 'widgets/preferences_notice.dart';
+import 'widgets/title_bar.dart';
 import 'widgets/window_frame.dart';
+import 'widgets/window_page_stack.dart';
+import 'widgets/window_resize_overlay.dart';
 
-class LilygoBoxApp extends StatelessWidget {
+class LilygoBoxApp extends StatefulWidget {
   const LilygoBoxApp({super.key});
+
+  @override
+  State<LilygoBoxApp> createState() => _LilygoBoxAppState();
+}
+
+class _LilygoBoxAppState extends State<LilygoBoxApp> {
+  final _dialogs = AppDialogObserver();
+
+  @override
+  void dispose() {
+    _dialogs.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +53,9 @@ class LilygoBoxApp extends StatelessWidget {
               locale: languageProvider.locale,
               localizationsDelegates: AppLocalizations.localizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
-              home: Scaffold(
+              navigatorObservers: [_dialogs],
+              // 标题栏位于 Navigator 上方，弹窗只覆盖下方内容区。
+              builder: (context, navigator) => Scaffold(
                 backgroundColor: Colors.transparent,
                 body: Column(
                   children: [
@@ -44,11 +63,35 @@ class LilygoBoxApp extends StatelessWidget {
                       child: AppWindowFrame(
                         theme: themeProvider.themeData,
                         isMaximized: windowProvider.isMaximized,
+                        child: Overlay.wrap(
+                          // 独立 Overlay 为标题栏悬停提示提供显示空间。
+                          child: Stack(
+                            children: [
+                              Column(
+                                children: [
+                                  ValueListenableBuilder<bool>(
+                                    valueListenable: _dialogs.hasDialog,
+                                    builder: (context, blocked, _) =>
+                                        AppTitleBar(
+                                          navigationEnabled: !blocked,
+                                        ),
+                                  ),
+                                  Expanded(child: ClipRect(child: navigator!)),
+                                ],
+                              ),
+                              const WindowResizeOverlay(),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                     const PreferencesNotice(),
                   ],
                 ),
+              ),
+              home: const Scaffold(
+                backgroundColor: Colors.transparent,
+                body: Column(children: [WindowPageStack()]),
               ),
             );
           },

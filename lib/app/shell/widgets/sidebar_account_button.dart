@@ -2,9 +2,11 @@
  * @Description: 展示侧栏账号入口及等宽浮动菜单卡片，管理展开收起动画。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-03 23:20:36
+ * @LastEditTime: 2026-10-03 23:41:53
  * @License: GPL 3.0
  */
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,6 +17,7 @@ import '../../../core/l10n/language_provider.dart';
 import '../../../core/theme/provider.dart';
 import '../../../core/widgets/menu_item_surface.dart';
 import '../../../core/widgets/popup_menu_surface.dart';
+import '../../../features/account/presentation/confirm_sign_out.dart';
 import '../../../features/account/presentation/widgets/avatar.dart';
 import '../../../features/account/state/provider.dart';
 import '../../navigation/provider.dart';
@@ -98,6 +101,7 @@ class _SidebarAccountButtonState extends State<SidebarAccountButton>
 
   Widget _buildMenu(BuildContext context, RawMenuOverlayInfo info) {
     final theme = context.watch<ThemeProvider>().themeData;
+    final account = context.watch<AccountProvider?>();
     return Positioned(
       left: info.anchorRect.left,
       bottom: info.overlaySize.height - info.anchorRect.top + 8,
@@ -138,51 +142,41 @@ class _SidebarAccountButtonState extends State<SidebarAccountButton>
                   child: PopupMenuSurface(
                     key: const ValueKey('account-menu-card'),
                     theme: theme,
-                    child: MenuItemSurface(
-                      theme: theme,
-                      backgroundColor: PopupMenuSurface.backgroundColorFor(
-                        theme,
-                      ),
-                      hoverColor: theme.adaptiveColor(
-                        dark: theme.secondaryTextHoverColorAlt,
-                        light: theme.primaryTextHoverColor,
-                      ),
-                      borderRadius: BorderRadius.circular(6),
-                      onPressed: () {
-                        final navigation = context
-                            .read<AppNavigationProvider>();
-                        _afterClose = () =>
-                            navigation.setPage(AppPage.settings);
-                        _menuController.close();
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(minHeight: 30),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Symbols.settings_rounded,
-                                size: 16,
-                                fill: 1,
-                                color: theme.textColorSecondary,
-                                weight: 400,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  context.l10n.settings,
-                                  style: TextStyle(
-                                    color: theme.textColorPrimary,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _menuItem(
+                          theme: theme,
+                          icon: Symbols.settings_rounded,
+                          label: context.l10n.settings,
+                          onPressed: () {
+                            final navigation = context
+                                .read<AppNavigationProvider>();
+                            _afterClose = () =>
+                                navigation.setPage(AppPage.settings);
+                            _menuController.close();
+                          },
                         ),
-                      ),
+                        if (account?.user != null)
+                          _menuItem(
+                            key: const ValueKey('account-menu-sign-out'),
+                            theme: theme,
+                            icon: Symbols.logout_rounded,
+                            label: context.l10n.githubSignOut,
+                            onPressed: account!.busy
+                                ? null
+                                : () {
+                                    // 菜单收起后使用入口的上下文，避免访问已移除的浮层。
+                                    _afterClose = () => unawaited(
+                                      confirmAccountSignOut(
+                                        this.context,
+                                        theme: theme,
+                                      ),
+                                    );
+                                    _menuController.close();
+                                  },
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -193,6 +187,52 @@ class _SidebarAccountButtonState extends State<SidebarAccountButton>
       ),
     );
   }
+
+  Widget _menuItem({
+    Key? key,
+    required AppTheme theme,
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+  }) => MenuItemSurface(
+    key: key,
+    theme: theme,
+    backgroundColor: PopupMenuSurface.backgroundColorFor(theme),
+    hoverColor: theme.adaptiveColor(
+      dark: theme.secondaryTextHoverColorAlt,
+      light: theme.primaryTextHoverColor,
+    ),
+    borderRadius: BorderRadius.circular(6),
+    onPressed: onPressed,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 30),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              fill: 1,
+              color: theme.textColorSecondary,
+              weight: 400,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: theme.textColorPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {

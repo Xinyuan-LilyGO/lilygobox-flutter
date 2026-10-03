@@ -98,6 +98,7 @@
     "githubCodeCopied": "Code copied",
     "githubOpenBrowser": "Open GitHub authorization",
     "githubSignOut": "Sign out",
+    "githubSignOutConfirmTitle": "Sign out?",
     "githubSignOutDescription": "Signing out removes the saved session on this device. Your GitHub account and local devices are kept. Revoke app access in GitHub authorized application settings.",
     "githubNotConfigured": "GitHub sign-in is not configured yet. Local device features are available.",
     "githubUnsupported": "GitHub sign-in is not available on this platform yet.",

@@ -335,6 +335,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get githubSignOut => 'Sign out';
 
   @override
+  String get githubSignOutConfirmTitle => 'Sign out?';
+
+  @override
   String get githubSignOutDescription =>
       'Signing out removes the saved session on this device. Your GitHub account and local devices are kept. Revoke app access in GitHub authorized application settings.';
 

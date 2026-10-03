@@ -696,6 +696,12 @@ abstract class AppLocalizations {
   /// **'Sign out'**
   String get githubSignOut;
 
+  /// No description provided for @githubSignOutConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out?'**
+  String get githubSignOutConfirmTitle;
+
   /// No description provided for @githubSignOutDescription.
   ///
   /// In en, this message translates to:
