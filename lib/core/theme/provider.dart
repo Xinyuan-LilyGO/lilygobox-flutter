@@ -2,18 +2,23 @@
  * @Description: 维护深浅主题配色，统一驱动主题渐变并支持减少动画。
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2026-10-02 22:01:29
+ * @LastEditTime: 2026-10-03 20:29:43
  * @License: GPL 3.0
  */
 
 import 'package:flutter/material.dart';
 
+import '../storage/preferences.dart';
 import 'definition.dart';
 
 export 'definition.dart';
 
 class ThemeProvider with ChangeNotifier {
-  ThemeProvider({TickerProvider? vsync}) {
+  ThemeProvider({TickerProvider? vsync, AppPreferences? preferences})
+    : _preferences = preferences {
+    _currentTheme = preferences?.stringValue('theme', 'dark') == 'light'
+        ? ThemeType.light
+        : ThemeType.dark;
     if (vsync != null) {
       _transition = AnimationController(
         vsync: vsync,
@@ -22,6 +27,8 @@ class ThemeProvider with ChangeNotifier {
       )..addListener(_onTransition);
     }
   }
+
+  final AppPreferences? _preferences;
 
   static const transitionDuration = Duration(milliseconds: 180);
   AnimationController? _transition;
@@ -140,6 +147,7 @@ class ThemeProvider with ChangeNotifier {
     // 连续切换时从当前屏幕配色接续，不跳回上一次主题端点。
     _transitionStart = themeData;
     _currentTheme = themeType;
+    _preferences?.setValue('theme', themeType.name);
     if (_transition == null || _disableAnimations) {
       _transition?.stop();
       _displayedTheme = _themes[themeType];

@@ -81,7 +81,7 @@
     "restoreDefaults": "恢复默认设置",
     "restoreDefaultsDescription": "将应用偏好恢复为初始状态，保留账号和已添加的设备。",
     "restoreDefaultsConfirmTitle": "恢复默认设置？",
-    "restoreDefaultsConfirmDescription": "主题将恢复为深色，语言将恢复为英语。账号和已添加的设备不会被清除。",
+    "restoreDefaultsConfirmDescription": "主题将恢复为深色，语言恢复为英语，侧栏布局恢复默认。账号与已添加设备会保留。",
     "settingsCancel": "取消",
     "profileDescription": "查看和管理你的个人资料。",
     "signIn": "登录",
@@ -110,5 +110,9 @@
     "githubStorageError": "无法读写系统安全存储，请检查系统权限后重试。",
     "githubBrowserError": "无法打开浏览器，请手动访问 https://github.com/login/device 并输入上方验证码。",
     "githubRetryRestore": "重新验证登录",
-    "githubRetry": "重试"
+    "githubRetry": "重试",
+    "preferencesReadError": "无法读取本地配置，当前使用默认设置。原配置尚未覆盖，请检查目录权限后重试。",
+    "preferencesWriteError": "本地配置保存失败，当前修改可能在重启后丢失。请检查磁盘空间和目录权限后重试。",
+    "preferencesRetry": "重试",
+    "preferencesExitWithoutSaving": "不保存并退出"
 }

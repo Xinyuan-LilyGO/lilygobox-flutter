@@ -2,13 +2,13 @@
  * @Description: 管理桌面窗口焦点、最大化状态及最小化和关闭操作。
  * @Author: LILYGO_L
  * @Date: 2025-11-05 14:38:38
- * @LastEditTime: 2026-05-15 10:45:07
+ * @LastEditTime: 2026-10-03 21:12:12
  * @License: GPL 3.0
  */
 
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// 桌面窗口状态和窗口操作入口。
@@ -21,18 +21,29 @@ class WindowProvider with ChangeNotifier, WindowListener {
   bool get isMaximized => _isMaximized;
   bool get isFocused => _isFocused;
 
-  WindowProvider() {
-    windowManager.addListener(this);
-    unawaited(_init());
+  WindowProvider({this.beforeClose}) {
+    if (_desktop) {
+      windowManager.addListener(this);
+      unawaited(_init());
+    }
   }
+
+  final Future<bool> Function()? beforeClose;
+  bool _closing = false;
+  bool get _desktop =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux ||
+          defaultTargetPlatform == TargetPlatform.macOS);
 
   @override
   void dispose() {
-    windowManager.removeListener(this);
+    if (_desktop) windowManager.removeListener(this);
     super.dispose();
   }
 
   Future<void> _init() async {
+    await windowManager.setPreventClose(true);
     _isMaximized = await windowManager.isMaximized();
     _isFocused = await windowManager.isFocused();
     notifyListeners();
@@ -81,7 +92,25 @@ class WindowProvider with ChangeNotifier, WindowListener {
   }
 
   // 关闭窗口
-  Future<void> close() async {
-    await windowManager.close();
+  Future<void> close({bool discardUnsaved = false}) async {
+    if (_closing) return;
+    _closing = true;
+    try {
+      if (!discardUnsaved && beforeClose != null && !await beforeClose!()) {
+        _closing = false;
+        return;
+      }
+      // 保存完成后走系统正常关闭流程，避免直接退出消息循环时窗口
+      // 仍停留在屏幕上等待引擎释放；保持关闭标记以忽略二次关闭事件。
+      await windowManager.setPreventClose(false);
+      await windowManager.close();
+    } catch (_) {
+      await windowManager.setPreventClose(true);
+      _closing = false;
+      rethrow;
+    }
   }
+
+  @override
+  void onWindowClose() => unawaited(close());
 }

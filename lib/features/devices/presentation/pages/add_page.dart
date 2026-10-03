@@ -2,7 +2,7 @@
  * @Description: 在主页内容区自动发现设备，展示连接反馈、重试和连接帮助。
  * @Author: LILYGO_L
  * @Date: 2025-11-05 09:52:14
- * @LastEditTime: 2026-10-03 18:10:36
+ * @LastEditTime: 2026-10-03 20:29:43
  * @License: GPL 3.0
  */
 
@@ -104,7 +104,11 @@ class _AddDevicePageState extends State<AddDevicePage> {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) _goBack();
+        if (!didPop &&
+            context.read<AppNavigationProvider>().currentPage ==
+                AppPage.addDevice) {
+          _goBack();
+        }
       },
       child: CallbackShortcuts(
         bindings: {const SingleActivator(LogicalKeyboardKey.escape): _goBack},

@@ -2,15 +2,22 @@
  * @Description: 管理中英文界面语言、语言切换及本地化文本访问。
  * @Author: LILYGO_L
  * @Date: 2025-10-27 10:06:04
- * @LastEditTime: 2025-11-17 11:27:21
+ * @LastEditTime: 2026-10-03 20:29:43
  * @License: GPL 3.0
  */
 
 import 'package:flutter/material.dart';
 
 import '../../generated/l10n/app_localizations.dart';
+import '../storage/preferences.dart';
 
 class LanguageProvider with ChangeNotifier {
+  LanguageProvider({AppPreferences? preferences}) : _preferences = preferences {
+    final code = preferences?.stringValue('language', 'en');
+    _locale = Locale(code == 'zh' ? 'zh' : 'en');
+  }
+
+  final AppPreferences? _preferences;
   Locale _locale = const Locale('en');
 
   Locale get locale => _locale;
@@ -22,6 +29,7 @@ class LanguageProvider with ChangeNotifier {
     final nextLocale = isSupported ? locale : const Locale('en');
     if (_locale == nextLocale) return;
     _locale = nextLocale;
+    _preferences?.setValue('language', _locale.languageCode);
     notifyListeners();
   }
 

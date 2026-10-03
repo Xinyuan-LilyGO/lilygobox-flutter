@@ -2,7 +2,7 @@
  * @Description: 应用启动入口，初始化 Flutter 绑定、桌面窗口和全局状态。
  * @Author: LILYGO_L
  * @Date: 2025-10-17 22:29:20
- * @LastEditTime: 2026-10-01 17:29:40
+ * @LastEditTime: 2026-10-03 20:29:43
  * @License: GPL 3.0
  */
 
@@ -12,14 +12,16 @@ import 'package:flutter/rendering.dart';
 import 'app/bootstrap/window_bootstrap.dart';
 import 'app/lilygobox_app.dart';
 import 'app/providers.dart';
+import 'core/storage/preferences.dart';
 
 void main() async {
   debugPaintSizeEnabled = false; // 部件边界调试
 
   // 确保 Flutter 绑定已初始化
   WidgetsFlutterBinding.ensureInitialized();
+  final preferences = await AppPreferences.load();
   await configureDesktopWindow();
 
   // 启动Flutter应用
-  runApp(const AppProviders(child: LilygoBoxApp()));
+  runApp(AppProviders(preferences: preferences, child: const LilygoBoxApp()));
 }

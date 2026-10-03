@@ -2,7 +2,7 @@
  * @Description: 配置应用根组件、本地化资源和主窗口内容。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-01 17:29:40
+ * @LastEditTime: 2026-10-03 20:29:43
  * @License: GPL 3.0
  */
 
@@ -16,6 +16,7 @@ import '../core/l10n/language_provider.dart';
 import '../core/theme/provider.dart';
 import '../core/window/provider.dart';
 import '../generated/l10n/app_localizations.dart';
+import 'widgets/preferences_notice.dart';
 import 'widgets/window_frame.dart';
 
 class LilygoBoxApp extends StatelessWidget {
@@ -28,21 +29,29 @@ class LilygoBoxApp extends StatelessWidget {
     });
 
     return Consumer3<ThemeProvider, WindowProvider, LanguageProvider>(
-      builder: (context, themeProvider, windowProvider, languageProvider, child) {
-        return MaterialApp(
-          debugShowCheckedModeBanner: false,
-          locale: languageProvider.locale,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: Scaffold(
-            backgroundColor: Colors.transparent,
-            body: AppWindowFrame(
-              theme: themeProvider.themeData,
-              isMaximized: windowProvider.isMaximized,
-            ),
-          ),
-        );
-      },
+      builder:
+          (context, themeProvider, windowProvider, languageProvider, child) {
+            return MaterialApp(
+              debugShowCheckedModeBanner: false,
+              locale: languageProvider.locale,
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: Scaffold(
+                backgroundColor: Colors.transparent,
+                body: Column(
+                  children: [
+                    Expanded(
+                      child: AppWindowFrame(
+                        theme: themeProvider.themeData,
+                        isMaximized: windowProvider.isMaximized,
+                      ),
+                    ),
+                    const PreferencesNotice(),
+                  ],
+                ),
+              ),
+            );
+          },
     );
   }
 }

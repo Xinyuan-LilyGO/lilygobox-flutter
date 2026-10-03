@@ -2,7 +2,7 @@
  * @Description: 构建 T-Glasses-P4 设备导航、页面分栏及连接状态展示。
  * @Author: LILYGO_L
  * @Date: 2025-11-17 13:38:52
- * @LastEditTime: 2026-10-02 22:01:29
+ * @LastEditTime: 2026-10-03 20:29:43
  * @License: GPL 3.0
  */
 
@@ -17,6 +17,7 @@ import '../../../../../core/layout/split_view_provider.dart';
 import '../../../../../core/theme/provider.dart';
 import '../../../../../core/widgets/interaction_decoration.dart';
 import '../../../../../core/widgets/resizable_split_view.dart';
+import '../../../../../core/widgets/retained_page_stack.dart';
 import '../../../domain/catalog.dart';
 import '../../domain/connection_status.dart';
 import '../widgets/right_click_menu.dart';
@@ -218,12 +219,9 @@ class _DevicePageContentTGlassesP4State
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final themeProvider = Provider.of<ThemeProvider>(context);
     final theme = themeProvider.themeData;
-    final splitViewProvider = Provider.of<SplitViewProvider>(
-      context,
-      listen: false,
-    );
+    final splitViewProvider = context.watch<SplitViewProvider>();
 
     final menuItems = _getMenuItems(context);
 
@@ -547,15 +545,16 @@ class _DevicePageContentTGlassesP4State
     // 右侧面板内容
     final rightPanelContent = Container(
       color: theme.tertiary,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
-        transitionBuilder: (child, animation) {
-          return FadeTransition(opacity: animation, child: child);
+      child: RetainedPageStack(
+        activeKey: _selectedTitleKey,
+        pages: {
+          for (final item in menuItems)
+            if (item['type'] == 'item' || item['type'] == 'standalone_item')
+              item['key'] as String: _buildRightContent(
+                item['key'] as String,
+                context,
+              ),
         },
-        child: Container(
-          key: ValueKey(_selectedTitleKey),
-          child: _buildRightContent(_selectedTitleKey, context),
-        ),
       ),
     );
 

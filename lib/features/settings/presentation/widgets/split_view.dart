@@ -2,17 +2,20 @@
  * @Description: 构建可拖动且不折叠的设置导航、移动端分类导航。
  * @Author: LILYGO_L
  * @Date: 2025-10-31 17:01:16
- * @LastEditTime: 2026-10-03 14:22:16
+ * @LastEditTime: 2026-10-03 20:29:43
  * @License: GPL 3.0
  */
 
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
+
 import '../../../../app/navigation/provider.dart';
 import '../../../../core/l10n/language_provider.dart';
+import '../../../../core/storage/preferences.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
@@ -43,7 +46,13 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
   double _dragStartX = 0;
   double _dragStartWidth = 212;
 
-  void _close() => context.read<AppNavigationProvider>().goHome();
+  void _close() => context.read<AppNavigationProvider>().closeSettings();
+
+  void _resizeSidebar(double width) {
+    setState(() => _sidebarWidth = width);
+    context.read<AppPreferences?>()?.setValue('settingsSidebarWidth', width);
+  }
+
   void _select(bool about, {_SettingsCategory? category}) => setState(() {
     _about = about;
     _profile = false;
@@ -61,6 +70,10 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeProvider>().themeData;
     final colors = SettingsColors(theme);
+    final preferences = context.watch<AppPreferences?>();
+    final savedWidth =
+        preferences?.doubleValue('settingsSidebarWidth', 212, 176, 300) ??
+        _sidebarWidth;
     return LayoutBuilder(
       builder: (context, constraints) {
         final mobile = constraints.maxWidth < 600;
@@ -68,7 +81,7 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
           176.0,
           math.min(300.0, constraints.maxWidth * 0.4),
         );
-        final width = _sidebarWidth.clamp(176.0, maxSidebar).toDouble();
+        final width = savedWidth.clamp(176.0, maxSidebar).toDouble();
         void back() {
           if (mobile && _mobileDetail) {
             setState(() => _mobileDetail = false);
@@ -124,15 +137,11 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
                                 .clamp(176, maxSidebar)
                                 .round()
                                 .toString(),
-                            onIncrease: () => setState(
-                              () => _sidebarWidth = (width + 8)
-                                  .clamp(176, maxSidebar)
-                                  .toDouble(),
+                            onIncrease: () => _resizeSidebar(
+                              (width + 8).clamp(176, maxSidebar).toDouble(),
                             ),
-                            onDecrease: () => setState(
-                              () => _sidebarWidth = (width - 8)
-                                  .clamp(176, maxSidebar)
-                                  .toDouble(),
+                            onDecrease: () => _resizeSidebar(
+                              (width - 8).clamp(176, maxSidebar).toDouble(),
                             ),
                             child: MouseRegion(
                               cursor: SystemMouseCursors.resizeLeftRight,
@@ -144,14 +153,13 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
                                   _dragStartWidth = width;
                                 },
                                 onHorizontalDragUpdate: (details) =>
-                                    setState(() {
-                                      _sidebarWidth =
-                                          (_dragStartWidth +
-                                                  details.globalPosition.dx -
-                                                  _dragStartX)
-                                              .clamp(176, maxSidebar)
-                                              .toDouble();
-                                    }),
+                                    _resizeSidebar(
+                                      (_dragStartWidth +
+                                              details.globalPosition.dx -
+                                              _dragStartX)
+                                          .clamp(176, maxSidebar)
+                                          .toDouble(),
+                                    ),
                                 child: const SizedBox(width: 8),
                               ),
                             ),

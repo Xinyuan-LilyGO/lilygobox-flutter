@@ -265,7 +265,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get restoreDefaultsConfirmDescription =>
-      '主题将恢复为深色，语言将恢复为英语。账号和已添加的设备不会被清除。';
+      '主题将恢复为深色，语言恢复为英语，侧栏布局恢复默认。账号与已添加设备会保留。';
 
   @override
   String get settingsCancel => '取消';
@@ -355,4 +355,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get githubRetry => '重试';
+
+  @override
+  String get preferencesReadError => '无法读取本地配置，当前使用默认设置。原配置尚未覆盖，请检查目录权限后重试。';
+
+  @override
+  String get preferencesWriteError => '本地配置保存失败，当前修改可能在重启后丢失。请检查磁盘空间和目录权限后重试。';
+
+  @override
+  String get preferencesRetry => '重试';
+
+  @override
+  String get preferencesExitWithoutSaving => '不保存并退出';
 }

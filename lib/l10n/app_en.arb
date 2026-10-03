@@ -81,7 +81,7 @@
     "restoreDefaults": "Restore defaults",
     "restoreDefaultsDescription": "Reset application preferences while keeping your account and added devices.",
     "restoreDefaultsConfirmTitle": "Restore default settings?",
-    "restoreDefaultsConfirmDescription": "The theme will reset to Dark and the language to English. Your account and added devices will be kept.",
+    "restoreDefaultsConfirmDescription": "The theme will reset to Dark, the language to English, and sidebar layouts to their defaults. Your account and added devices will be kept.",
     "settingsCancel": "Cancel",
     "profileDescription": "View and manage your personal profile.",
     "signIn": "Sign in",
@@ -110,5 +110,9 @@
     "githubStorageError": "Cannot access secure storage. Check system permissions and try again.",
     "githubBrowserError": "Cannot open the browser. Visit https://github.com/login/device and enter the code above.",
     "githubRetryRestore": "Retry session verification",
-    "githubRetry": "Retry"
+    "githubRetry": "Retry",
+    "preferencesReadError": "Local settings could not be read. Defaults are in use and the original settings have not been overwritten. Check folder permissions and retry.",
+    "preferencesWriteError": "Local settings could not be saved. Changes may be lost after restarting. Check disk space and folder permissions, then retry.",
+    "preferencesRetry": "Retry",
+    "preferencesExitWithoutSaving": "Exit without saving"
 }

@@ -282,7 +282,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get restoreDefaultsConfirmDescription =>
-      'The theme will reset to Dark and the language to English. Your account and added devices will be kept.';
+      'The theme will reset to Dark, the language to English, and sidebar layouts to their defaults. Your account and added devices will be kept.';
 
   @override
   String get settingsCancel => 'Cancel';
@@ -383,4 +383,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get githubRetry => 'Retry';
+
+  @override
+  String get preferencesReadError =>
+      'Local settings could not be read. Defaults are in use and the original settings have not been overwritten. Check folder permissions and retry.';
+
+  @override
+  String get preferencesWriteError =>
+      'Local settings could not be saved. Changes may be lost after restarting. Check disk space and folder permissions, then retry.';
+
+  @override
+  String get preferencesRetry => 'Retry';
+
+  @override
+  String get preferencesExitWithoutSaving => 'Exit without saving';
 }

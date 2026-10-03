@@ -2,7 +2,7 @@
  * @Description: 管理主窗口内的页面导航与弹层切换状态。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-03 20:29:43
  * @License: GPL 3.0
  */
 
@@ -19,9 +19,12 @@ enum AppPage { home, settings, addDevice, deviceSettings }
 class AppNavigationProvider with ChangeNotifier {
   AppPage _currentPage = AppPage.home;
   String? _settingsDeviceName;
+  AppPage _contentPage = AppPage.home;
+  final List<(AppPage, String?)> _history = [];
 
   AppPage get currentPage => _currentPage;
   String? get settingsDeviceName => _settingsDeviceName;
+  AppPage get contentPage => _contentPage;
 
   /// 切换到指定页面；重复设置同一页面时不通知，减少无意义重建。
   void setPage(AppPage page, {String? deviceName}) {
@@ -34,6 +37,12 @@ class AppNavigationProvider with ChangeNotifier {
       return;
     }
 
+    if (page == AppPage.home || page == AppPage.addDevice) {
+      _contentPage = page;
+      _history.clear();
+    } else if (_currentPage != page) {
+      _history.add((_currentPage, _settingsDeviceName));
+    }
     _currentPage = page;
     _settingsDeviceName = nextDeviceName;
     notifyListeners();
@@ -46,5 +55,19 @@ class AppNavigationProvider with ChangeNotifier {
 
   void goHome() {
     setPage(AppPage.home);
+  }
+
+  /// 关闭覆盖页时返回进入前的页面，保留添加设备和设备详情状态。
+  void closeSettings() {
+    if (_currentPage != AppPage.settings &&
+        _currentPage != AppPage.deviceSettings) {
+      return;
+    }
+    final previous = _history.isEmpty
+        ? (_contentPage, null)
+        : _history.removeLast();
+    _currentPage = previous.$1;
+    _settingsDeviceName = previous.$2;
+    notifyListeners();
   }
 }

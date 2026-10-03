@@ -2,7 +2,7 @@
  * @Description: 构建品牌侧栏、设备导航、账号入口和当前页面内容。
  * @Author: LILYGO_L
  * @Date: 2025-11-06 14:22:51
- * @LastEditTime: 2026-10-02 14:08:15
+ * @LastEditTime: 2026-10-03 20:29:43
  * @License: GPL 3.0
  */
 
@@ -15,6 +15,7 @@ import 'package:vector_graphics/vector_graphics_compat.dart'
 
 import '../../../core/l10n/language_provider.dart';
 import '../../../core/theme/provider.dart';
+import '../../../core/widgets/retained_page_stack.dart';
 import '../../../features/devices/presentation/catalog.dart';
 import '../../../features/devices/presentation/pages/add_page.dart';
 import '../../../features/devices/state/manager_provider.dart';
@@ -48,7 +49,7 @@ class _AppShellState extends State<AppShell> {
     final theme = themeProvider.themeData;
     final deviceManager = Provider.of<DeviceManagerProvider>(context);
     final addingDevice =
-        context.watch<AppNavigationProvider>().currentPage == AppPage.addDevice;
+        context.watch<AppNavigationProvider>().contentPage == AppPage.addDevice;
     final selectedIndex = context.select<AppShellProvider, int>(
       (provider) => provider.selectedIndex,
     );
@@ -65,20 +66,19 @@ class _AppShellState extends State<AppShell> {
           color: theme.secondary,
           borderRadius: const BorderRadius.only(topLeft: Radius.circular(10)),
         ),
-        child: AnimatedSwitcher(
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 200),
-          transitionBuilder: (child, animation) {
-            return FadeTransition(opacity: animation, child: child);
+        child: RetainedPageStack(
+          activeKey: addingDevice
+              ? AppPage.addDevice
+              : selectedIndex > 0 &&
+                    selectedIndex <= deviceManager.addedDevices.length
+              ? deviceManager.addedDevices[selectedIndex - 1]
+              : AppPage.home,
+          pages: {
+            AppPage.home: const HomePageContent(),
+            for (final name in deviceManager.addedDevices)
+              name: DevicePresentationCatalog.pageFor(name),
+            if (addingDevice) AppPage.addDevice: const AddDevicePage(),
           },
-          child: addingDevice
-              ? const AddDevicePage(key: ValueKey(AppPage.addDevice))
-              : _buildCurrentPage(
-                  context,
-                  deviceManager.addedDevices,
-                  selectedIndex,
-                ),
         ),
       ),
     );
@@ -164,28 +164,5 @@ class _AppShellState extends State<AppShell> {
         ],
       ),
     );
-  }
-
-  Widget _buildCurrentPage(
-    BuildContext context,
-    List<String> addedDevices,
-    int selectedIndex,
-  ) {
-    // 主页使用索引零；后续索引对应 addedDevices 中的设备顺序。
-    if (selectedIndex == 0) {
-      return const HomePageContent(key: ValueKey<int>(0));
-    }
-
-    // 选中已添加设备时，按设备顺序展示对应页面。
-    if (selectedIndex >= 1) {
-      final dynamicIndex = selectedIndex - 1;
-      if (dynamicIndex < addedDevices.length) {
-        final deviceName = addedDevices[dynamicIndex];
-        return DevicePresentationCatalog.pageFor(deviceName);
-      }
-    }
-
-    // 其他值（如 -1 或超出范围）
-    return const Center(key: ValueKey<int>(-1), child: Text('页面未找到'));
   }
 }

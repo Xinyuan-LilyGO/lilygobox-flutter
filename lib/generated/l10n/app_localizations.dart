@@ -597,7 +597,7 @@ abstract class AppLocalizations {
   /// No description provided for @restoreDefaultsConfirmDescription.
   ///
   /// In en, this message translates to:
-  /// **'The theme will reset to Dark and the language to English. Your account and added devices will be kept.'**
+  /// **'The theme will reset to Dark, the language to English, and sidebar layouts to their defaults. Your account and added devices will be kept.'**
   String get restoreDefaultsConfirmDescription;
 
   /// No description provided for @settingsCancel.
@@ -773,6 +773,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Retry'**
   String get githubRetry;
+
+  /// No description provided for @preferencesReadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Local settings could not be read. Defaults are in use and the original settings have not been overwritten. Check folder permissions and retry.'**
+  String get preferencesReadError;
+
+  /// No description provided for @preferencesWriteError.
+  ///
+  /// In en, this message translates to:
+  /// **'Local settings could not be saved. Changes may be lost after restarting. Check disk space and folder permissions, then retry.'**
+  String get preferencesWriteError;
+
+  /// No description provided for @preferencesRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get preferencesRetry;
+
+  /// No description provided for @preferencesExitWithoutSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Exit without saving'**
+  String get preferencesExitWithoutSaving;
 }
 
 class _AppLocalizationsDelegate
