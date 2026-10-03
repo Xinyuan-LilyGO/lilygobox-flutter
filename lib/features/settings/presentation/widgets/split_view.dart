@@ -2,7 +2,7 @@
  * @Description: 构建可拖动且不折叠的设置导航、移动端分类导航。
  * @Author: LILYGO_L
  * @Date: 2025-10-31 17:01:16
- * @LastEditTime: 2026-10-02 21:16:15
+ * @LastEditTime: 2026-10-03 14:22:16
  * @License: GPL 3.0
  */
 
@@ -17,6 +17,8 @@ import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
+import '../../../account/presentation/widgets/avatar.dart';
+import '../../../account/state/provider.dart';
 import 'about_content.dart';
 import 'content_layout.dart';
 import 'general_content.dart';
@@ -170,6 +172,7 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
     bool mobile = false,
   }) {
     final l10n = context.l10n;
+    final user = context.watch<AccountProvider?>()?.user;
     final categories = {
       _SettingsCategory.appearance: (
         l10n.personalization,
@@ -208,27 +211,16 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
                       ),
                       child: Row(
                         children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: colors.hover,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Symbols.person_rounded,
-                              fill: 1,
-                              size: 23,
-                              color: theme.textColorTertiary,
-                            ),
-                          ),
+                          AccountAvatar(theme: theme, user: user, radius: 16),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  l10n.profile,
+                                  user?.displayName ?? l10n.profile,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: _profile
@@ -239,7 +231,11 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
                                 ),
                                 const SizedBox(height: 1),
                                 Text(
-                                  l10n.notSignedIn,
+                                  user == null
+                                      ? l10n.notSignedIn
+                                      : '@${user.login}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: theme.textColorTertiary,

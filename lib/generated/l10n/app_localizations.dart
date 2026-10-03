@@ -623,6 +623,156 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Create account'**
   String get createAccount;
+
+  /// No description provided for @githubSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with GitHub'**
+  String get githubSignIn;
+
+  /// No description provided for @githubAccountDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Link your public GitHub profile. Devices and app settings stay on this device.'**
+  String get githubAccountDescription;
+
+  /// No description provided for @githubRequesting.
+  ///
+  /// In en, this message translates to:
+  /// **'Requesting an authorization code…'**
+  String get githubRequesting;
+
+  /// No description provided for @githubRestoring.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking your session…'**
+  String get githubRestoring;
+
+  /// No description provided for @githubCompleting.
+  ///
+  /// In en, this message translates to:
+  /// **'Finishing sign-in…'**
+  String get githubCompleting;
+
+  /// No description provided for @githubSigningOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Signing out…'**
+  String get githubSigningOut;
+
+  /// No description provided for @githubCodeInstructions.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy the code below, enter it on GitHub, and approve access. Then return to the app.'**
+  String get githubCodeInstructions;
+
+  /// No description provided for @githubWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for GitHub authorization…'**
+  String get githubWaiting;
+
+  /// No description provided for @githubCopyCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy code'**
+  String get githubCopyCode;
+
+  /// No description provided for @githubCodeCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Code copied'**
+  String get githubCodeCopied;
+
+  /// No description provided for @githubOpenBrowser.
+  ///
+  /// In en, this message translates to:
+  /// **'Open GitHub authorization'**
+  String get githubOpenBrowser;
+
+  /// No description provided for @githubSignOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get githubSignOut;
+
+  /// No description provided for @githubSignOutDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Signing out removes the saved session on this device. Your GitHub account and local devices are kept. Revoke app access in GitHub authorized application settings.'**
+  String get githubSignOutDescription;
+
+  /// No description provided for @githubNotConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub sign-in is not configured yet. Local device features are available.'**
+  String get githubNotConfigured;
+
+  /// No description provided for @githubUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub sign-in is not available on this platform yet.'**
+  String get githubUnsupported;
+
+  /// No description provided for @githubNetworkError.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot connect to GitHub. Check your connection and try again.'**
+  String get githubNetworkError;
+
+  /// No description provided for @githubDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Authorization was declined. You can start sign-in again.'**
+  String get githubDenied;
+
+  /// No description provided for @githubExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'The authorization code or session has expired. Please sign in again.'**
+  String get githubExpired;
+
+  /// No description provided for @githubConfigurationError.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub sign-in is misconfigured. Please contact the app maintainer.'**
+  String get githubConfigurationError;
+
+  /// No description provided for @githubRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub has limited requests. Please try again later.'**
+  String get githubRateLimited;
+
+  /// No description provided for @githubInvalidResponse.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not complete GitHub authorization. Please try again later.'**
+  String get githubInvalidResponse;
+
+  /// No description provided for @githubStorageError.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot access secure storage. Check system permissions and try again.'**
+  String get githubStorageError;
+
+  /// No description provided for @githubBrowserError.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot open the browser. Visit https://github.com/login/device and enter the code above.'**
+  String get githubBrowserError;
+
+  /// No description provided for @githubRetryRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry session verification'**
+  String get githubRetryRestore;
+
+  /// No description provided for @githubRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get githubRetry;
 }
 
 class _AppLocalizationsDelegate

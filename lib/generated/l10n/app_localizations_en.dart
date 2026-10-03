@@ -295,4 +295,92 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get createAccount => 'Create account';
+
+  @override
+  String get githubSignIn => 'Sign in with GitHub';
+
+  @override
+  String get githubAccountDescription =>
+      'Link your public GitHub profile. Devices and app settings stay on this device.';
+
+  @override
+  String get githubRequesting => 'Requesting an authorization code…';
+
+  @override
+  String get githubRestoring => 'Checking your session…';
+
+  @override
+  String get githubCompleting => 'Finishing sign-in…';
+
+  @override
+  String get githubSigningOut => 'Signing out…';
+
+  @override
+  String get githubCodeInstructions =>
+      'Copy the code below, enter it on GitHub, and approve access. Then return to the app.';
+
+  @override
+  String get githubWaiting => 'Waiting for GitHub authorization…';
+
+  @override
+  String get githubCopyCode => 'Copy code';
+
+  @override
+  String get githubCodeCopied => 'Code copied';
+
+  @override
+  String get githubOpenBrowser => 'Open GitHub authorization';
+
+  @override
+  String get githubSignOut => 'Sign out';
+
+  @override
+  String get githubSignOutDescription =>
+      'Signing out removes the saved session on this device. Your GitHub account and local devices are kept. Revoke app access in GitHub authorized application settings.';
+
+  @override
+  String get githubNotConfigured =>
+      'GitHub sign-in is not configured yet. Local device features are available.';
+
+  @override
+  String get githubUnsupported =>
+      'GitHub sign-in is not available on this platform yet.';
+
+  @override
+  String get githubNetworkError =>
+      'Cannot connect to GitHub. Check your connection and try again.';
+
+  @override
+  String get githubDenied =>
+      'Authorization was declined. You can start sign-in again.';
+
+  @override
+  String get githubExpired =>
+      'The authorization code or session has expired. Please sign in again.';
+
+  @override
+  String get githubConfigurationError =>
+      'GitHub sign-in is misconfigured. Please contact the app maintainer.';
+
+  @override
+  String get githubRateLimited =>
+      'GitHub has limited requests. Please try again later.';
+
+  @override
+  String get githubInvalidResponse =>
+      'Could not complete GitHub authorization. Please try again later.';
+
+  @override
+  String get githubStorageError =>
+      'Cannot access secure storage. Check system permissions and try again.';
+
+  @override
+  String get githubBrowserError =>
+      'Cannot open the browser. Visit https://github.com/login/device and enter the code above.';
+
+  @override
+  String get githubRetryRestore => 'Retry session verification';
+
+  @override
+  String get githubRetry => 'Retry';
 }

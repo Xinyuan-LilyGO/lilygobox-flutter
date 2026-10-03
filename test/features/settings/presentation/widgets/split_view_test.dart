@@ -2,7 +2,7 @@
  * @Description: 验证设置侧栏拖动、窄屏导航、主题语言切换和确认后仅重置应用偏好。
  * @Author: LILYGO_L
  * @Date: 2026-10-02 19:41:48
- * @LastEditTime: 2026-10-02 19:41:48
+ * @LastEditTime: 2026-10-03 16:53:55
  * @License: GPL 3.0
  */
 
@@ -12,6 +12,7 @@ import 'package:lilygobox/app/navigation/provider.dart';
 import 'package:lilygobox/core/app_info/package_info_provider.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/features/account/state/provider.dart';
 import 'package:lilygobox/features/devices/state/manager_provider.dart';
 import 'package:lilygobox/features/settings/presentation/pages/page.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
@@ -40,6 +41,9 @@ void main() {
 
   Widget app({double textScale = 1}) => MultiProvider(
     providers: [
+      ChangeNotifierProvider(
+        create: (_) => AccountProvider.production(clientId: ''),
+      ),
       ChangeNotifierProvider.value(value: theme),
       ChangeNotifierProvider.value(value: language),
       ChangeNotifierProvider.value(value: navigation),
@@ -170,7 +174,7 @@ void main() {
       expect(navigation.currentPage, AppPage.settings);
       await tester.tap(find.byKey(const ValueKey('profile-sign-in')));
       await tester.pumpAndSettle();
-      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('GitHub 登录尚未配置，请暂时使用本地设备功能。'), findsOneWidget);
       expect(find.text('未登录'), findsWidgets);
       expect(devices.addedDevices, ['T-Display-P4']);
       await tester.tap(
@@ -180,9 +184,9 @@ void main() {
       expect(find.byKey(const ValueKey('profile-sign-in')), findsNothing);
       await tester.tap(find.byKey(const ValueKey('settings-profile')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('profile-create-account')));
+      await tester.tap(find.byKey(const ValueKey('profile-sign-in')));
       await tester.pumpAndSettle();
-      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('GitHub 登录尚未配置，请暂时使用本地设备功能。'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -201,7 +205,7 @@ void main() {
           await tester.pumpAndSettle();
           await tester.tap(find.byKey(const ValueKey('settings-profile')));
           await tester.pumpAndSettle();
-          final register = find.byKey(const ValueKey('profile-create-account'));
+          final register = find.byKey(const ValueKey('profile-sign-in'));
           await tester.ensureVisible(register);
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);

@@ -2,7 +2,7 @@
  * @Description: 集中创建并注入应用级状态管理对象。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-02 22:01:29
+ * @LastEditTime: 2026-10-03 14:22:16
  * @License: GPL 3.0
  */
 
@@ -14,6 +14,7 @@ import '../core/l10n/language_provider.dart';
 import '../core/layout/split_view_provider.dart';
 import '../core/theme/provider.dart';
 import '../core/window/provider.dart';
+import '../features/account/state/provider.dart';
 import '../features/devices/state/manager_provider.dart';
 import 'navigation/provider.dart';
 import 'shell/state/provider.dart';
@@ -70,6 +71,10 @@ class _AppProvidersState extends State<AppProviders>
         ChangeNotifierProvider(create: (_) => PackageInfoProvider()),
         ChangeNotifierProvider(create: (_) => AppShellProvider()),
         ChangeNotifierProvider(create: (_) => DeviceManagerProvider()),
+        ChangeNotifierProvider(
+          lazy: false,
+          create: (_) => AccountProvider.production()..restore(),
+        ),
       ],
       child: widget.child,
     );

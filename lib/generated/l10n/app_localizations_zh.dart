@@ -278,4 +278,81 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get createAccount => '注册';
+
+  @override
+  String get githubSignIn => '使用 GitHub 登录';
+
+  @override
+  String get githubAccountDescription => '关联 GitHub 公开资料，设备和软件设置仍保存在本地。';
+
+  @override
+  String get githubRequesting => '正在获取授权码…';
+
+  @override
+  String get githubRestoring => '正在验证登录状态…';
+
+  @override
+  String get githubCompleting => '正在完成登录…';
+
+  @override
+  String get githubSigningOut => '正在退出登录…';
+
+  @override
+  String get githubCodeInstructions => '复制下方验证码，在 GitHub 页面输入并确认授权。完成后回到软件即可。';
+
+  @override
+  String get githubWaiting => '等待 GitHub 授权…';
+
+  @override
+  String get githubCopyCode => '复制验证码';
+
+  @override
+  String get githubCodeCopied => '验证码已复制';
+
+  @override
+  String get githubOpenBrowser => '前往 GitHub 授权';
+
+  @override
+  String get githubSignOut => '退出登录';
+
+  @override
+  String get githubSignOutDescription =>
+      '退出会清除此设备保存的登录凭证，不会删除 GitHub 账号或本地设备。若要撤销应用权限，可前往 GitHub 的授权应用设置。';
+
+  @override
+  String get githubNotConfigured => 'GitHub 登录尚未配置，请暂时使用本地设备功能。';
+
+  @override
+  String get githubUnsupported => '当前平台暂未开放 GitHub 登录。';
+
+  @override
+  String get githubNetworkError => '暂时无法连接 GitHub，请检查网络后重试。';
+
+  @override
+  String get githubDenied => '你已拒绝本次授权，可以重新发起登录。';
+
+  @override
+  String get githubExpired => '授权码或登录凭证已失效，请重新登录。';
+
+  @override
+  String get githubConfigurationError => 'GitHub 登录配置有误，请联系应用维护者。';
+
+  @override
+  String get githubRateLimited => 'GitHub 暂时限制了请求，请稍后再试。';
+
+  @override
+  String get githubInvalidResponse => '未能完成 GitHub 授权，请稍后重试。';
+
+  @override
+  String get githubStorageError => '无法读写系统安全存储，请检查系统权限后重试。';
+
+  @override
+  String get githubBrowserError =>
+      '无法打开浏览器，请手动访问 https://github.com/login/device 并输入上方验证码。';
+
+  @override
+  String get githubRetryRestore => '重新验证登录';
+
+  @override
+  String get githubRetry => '重试';
 }

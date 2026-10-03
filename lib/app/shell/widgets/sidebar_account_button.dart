@@ -2,7 +2,7 @@
  * @Description: 展示侧栏账号入口及等宽浮动菜单卡片，管理展开收起动画。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-02 22:01:29
+ * @LastEditTime: 2026-10-03 14:22:16
  * @License: GPL 3.0
  */
 
@@ -15,6 +15,8 @@ import '../../../core/l10n/language_provider.dart';
 import '../../../core/theme/provider.dart';
 import '../../../core/widgets/menu_item_surface.dart';
 import '../../../core/widgets/popup_menu_surface.dart';
+import '../../../features/account/presentation/widgets/avatar.dart';
+import '../../../features/account/state/provider.dart';
 import '../../navigation/provider.dart';
 
 class SidebarAccountButton extends StatefulWidget {
@@ -195,6 +197,7 @@ class _SidebarAccountButtonState extends State<SidebarAccountButton>
   @override
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeProvider>().themeData;
+    final user = context.watch<AccountProvider?>()?.user;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
@@ -217,16 +220,7 @@ class _SidebarAccountButtonState extends State<SidebarAccountButton>
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 17,
-                  backgroundColor: theme.sidebarIconBackgroundColor,
-                  child: Icon(
-                    Symbols.person,
-                    size: 22,
-                    fill: 1,
-                    color: theme.sidebarIconColor,
-                  ),
-                ),
+                AccountAvatar(theme: theme, user: user, radius: 17),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -234,7 +228,7 @@ class _SidebarAccountButtonState extends State<SidebarAccountButton>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        context.l10n.profile,
+                        user?.displayName ?? context.l10n.profile,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -245,7 +239,9 @@ class _SidebarAccountButtonState extends State<SidebarAccountButton>
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        context.l10n.notSignedIn,
+                        user == null
+                            ? context.l10n.notSignedIn
+                            : '@${user.login}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
