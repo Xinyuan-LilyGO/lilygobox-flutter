@@ -2,7 +2,7 @@
  * @Description: 根据导航状态切换主窗口外壳、设置及设备设置页面。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-03 20:29:43
+ * @LastEditTime: 2026-10-03 23:10:59
  * @License: GPL 3.0
  */
 
@@ -33,6 +33,8 @@ class _WindowPageStackState extends State<WindowPageStack>
     curve: Curves.easeOutCubic,
     reverseCurve: Curves.easeInCubic,
   );
+  // 与设置页共用进度，恢复旧版底层页面的渐隐和返回时的渐显。
+  late final Animation<double> _backgroundOpacity = ReverseAnimation(_curve);
   AppPage? _overlay;
   String? _deviceName;
 
@@ -77,7 +79,10 @@ class _WindowPageStackState extends State<WindowPageStack>
                       excluding: overlayVisible,
                       child: IgnorePointer(
                         ignoring: overlayVisible,
-                        child: const AppShell(),
+                        child: FadeTransition(
+                          opacity: _backgroundOpacity,
+                          child: const AppShell(),
+                        ),
                       ),
                     ),
                   ),

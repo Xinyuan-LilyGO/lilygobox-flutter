@@ -2,7 +2,7 @@
  * @Description: 展示 GitHub 个人资料、设备授权验证码和本地登录会话操作。
  * @Author: LILYGO_L
  * @Date: 2026-10-02 20:56:44
- * @LastEditTime: 2026-10-03 18:10:36
+ * @LastEditTime: 2026-10-03 23:20:36
  * @License: GPL 3.0
  */
 
@@ -66,6 +66,7 @@ class ProfileContent extends StatelessWidget {
                       '@${user.login}',
                       style: TextStyle(
                         fontSize: 12,
+                        fontWeight: FontWeight.w400,
                         color: theme.textColorTertiary,
                       ),
                     ),

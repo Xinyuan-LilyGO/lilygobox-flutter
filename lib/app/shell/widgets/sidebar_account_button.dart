@@ -2,7 +2,7 @@
  * @Description: 展示侧栏账号入口及等宽浮动菜单卡片，管理展开收起动画。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-03 14:22:16
+ * @LastEditTime: 2026-10-03 23:20:36
  * @License: GPL 3.0
  */
 
@@ -234,7 +234,7 @@ class _SidebarAccountButtonState extends State<SidebarAccountButton>
                         style: TextStyle(
                           color: theme.textColorPrimary,
                           fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -247,6 +247,7 @@ class _SidebarAccountButtonState extends State<SidebarAccountButton>
                         style: TextStyle(
                           color: theme.textColorTertiary,
                           fontSize: 11,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ],

@@ -2,7 +2,7 @@
  * @Description: 构建可拖动且不折叠的设置导航、移动端分类导航。
  * @Author: LILYGO_L
  * @Date: 2025-10-31 17:01:16
- * @LastEditTime: 2026-10-03 20:29:43
+ * @LastEditTime: 2026-10-03 23:20:36
  * @License: GPL 3.0
  */
 
@@ -231,9 +231,7 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 12,
-                                    fontWeight: _profile
-                                        ? FontWeight.w600
-                                        : FontWeight.w500,
+                                    fontWeight: FontWeight.w600,
                                     color: theme.textColorPrimary,
                                   ),
                                 ),
@@ -246,6 +244,7 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 11,
+                                    fontWeight: FontWeight.w400,
                                     color: theme.textColorTertiary,
                                   ),
                                 ),
