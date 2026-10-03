@@ -18,12 +18,14 @@ class PopupMenuSurface extends StatelessWidget {
     required this.child,
     this.padding = const EdgeInsets.all(5),
     this.borderRadius = const BorderRadius.all(Radius.circular(8)),
+    this.backgroundColor,
   });
 
   final AppTheme theme;
   final Widget child;
   final EdgeInsetsGeometry padding;
   final BorderRadius borderRadius;
+  final Color? backgroundColor;
 
   /// 菜单项使用相同的实色起点，让悬停颜色直接插值，避免透明叠加。
   static Color backgroundColorFor(AppTheme theme) => theme.adaptiveColor(
@@ -36,7 +38,7 @@ class PopupMenuSurface extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: backgroundColorFor(theme),
+        color: backgroundColor ?? backgroundColorFor(theme),
         borderRadius: borderRadius,
         boxShadow: [
           BoxShadow(

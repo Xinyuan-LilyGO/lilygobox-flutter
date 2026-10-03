@@ -115,5 +115,7 @@
     "preferencesReadError": "无法读取本地配置，当前使用默认设置。原配置尚未覆盖，请检查目录权限后重试。",
     "preferencesWriteError": "本地配置保存失败，当前修改可能在重启后丢失。请检查磁盘空间和目录权限后重试。",
     "preferencesRetry": "重试",
-    "preferencesExitWithoutSaving": "不保存并退出"
+    "preferencesExitWithoutSaving": "不保存并退出",
+    "trayShowWindow": "显示窗口",
+    "trayExit": "退出"
 }

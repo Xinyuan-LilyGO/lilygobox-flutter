@@ -115,5 +115,7 @@
     "preferencesReadError": "Local settings could not be read. Defaults are in use and the original settings have not been overwritten. Check folder permissions and retry.",
     "preferencesWriteError": "Local settings could not be saved. Changes may be lost after restarting. Check disk space and folder permissions, then retry.",
     "preferencesRetry": "Retry",
-    "preferencesExitWithoutSaving": "Exit without saving"
+    "preferencesExitWithoutSaving": "Exit without saving",
+    "trayShowWindow": "Show window",
+    "trayExit": "Exit"
 }

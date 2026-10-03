@@ -803,6 +803,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Exit without saving'**
   String get preferencesExitWithoutSaving;
+
+  /// No description provided for @trayShowWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'Show window'**
+  String get trayShowWindow;
+
+  /// No description provided for @trayExit.
+  ///
+  /// In en, this message translates to:
+  /// **'Exit'**
+  String get trayExit;
 }
 
 class _AppLocalizationsDelegate

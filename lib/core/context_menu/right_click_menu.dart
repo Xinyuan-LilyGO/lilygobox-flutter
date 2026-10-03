@@ -92,22 +92,7 @@ class RightClickMenuBuilder {
         padding: WidgetStateProperty.all(EdgeInsets.zero),
       ),
       menuChildren: [
-        SizedBox(
-          width: menuWidth,
-          child: PopupMenuSurface(
-            theme: theme,
-            padding: const EdgeInsets.all(menuPadding),
-            borderRadius: BorderRadius.circular(8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: _buildMenuItemsWithDividers(
-                menuItems: menuItems,
-                theme: theme,
-                menuWidth: menuWidth - menuPadding * 2, // 减去内边距后的实际内容宽度
-              ),
-            ),
-          ),
-        ),
+        buildMenuPanel(menuItems: menuItems, theme: theme, width: menuWidth),
       ],
       child: GestureDetector(
         onSecondaryTapDown: onSecondaryTapDown == null
@@ -126,11 +111,35 @@ class RightClickMenuBuilder {
     );
   }
 
+  /// 页面弹层与桌面托盘窗口复用同一份菜单内容、图标和交互动画。
+  static Widget buildMenuPanel({
+    required List<RightClickMenuItem> menuItems,
+    required AppTheme theme,
+    double width = 150,
+    Color? backgroundColor,
+  }) => SizedBox(
+    width: width,
+    child: PopupMenuSurface(
+      theme: theme,
+      backgroundColor: backgroundColor,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: _buildMenuItemsWithDividers(
+          menuItems: menuItems,
+          theme: theme,
+          menuWidth: width - 10,
+          backgroundColor: backgroundColor,
+        ),
+      ),
+    ),
+  );
+
   // 构建带分割线的菜单项列表。
   static List<Widget> _buildMenuItemsWithDividers({
     required List<RightClickMenuItem> menuItems,
     required AppTheme theme,
     required double menuWidth,
+    Color? backgroundColor,
   }) {
     List<Widget> widgets = [];
 
@@ -144,6 +153,7 @@ class RightClickMenuBuilder {
           item: item,
           theme: theme,
           menuWidth: menuWidth,
+          backgroundColor: backgroundColor,
           isLast: isLast && !item.showDivider, // 如果是最后一项且不显示分割线，则应用底部圆角
         ),
       );
@@ -185,15 +195,17 @@ class RightClickMenuBuilder {
     required AppTheme theme,
     required double menuWidth,
     required bool isLast,
+    Color? backgroundColor,
   }) {
     return MenuItemSurface(
       theme: theme,
-      backgroundColor: PopupMenuSurface.backgroundColorFor(theme),
+      backgroundColor:
+          backgroundColor ?? PopupMenuSurface.backgroundColorFor(theme),
       hoverColor: theme.adaptiveColor(
         dark: theme.basePrimary,
         light: Color.alphaBlend(
           theme.basePrimary.withValues(alpha: 0.22),
-          PopupMenuSurface.backgroundColorFor(theme),
+          backgroundColor ?? PopupMenuSurface.backgroundColorFor(theme),
         ),
       ),
       onPressed: item.isEnabled ? item.onTap : null,

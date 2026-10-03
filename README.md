@@ -25,6 +25,8 @@ The current application focus is the Windows desktop experience. Other platform 
 
 The app shell contains the desktop frame, title bar, resize overlay, page stack, and left-side navigation. Page navigation is separated from desktop window state, keeping application UI routing independent from window maximize, focus, minimize, and close behavior.
 
+On Windows, closing the window (including Alt+F4) keeps LilygoBox running in the system tray. Click its tray icon to restore the current page, or right-click for **Show window** and **Exit**. Exit saves pending settings before terminating; if saving fails, the window reopens with the existing retry notice. If the tray is unavailable, closing minimizes the window instead. The tray icon may appear under Windows' hidden-icons arrow.
+
 ### Device-Oriented Architecture
 
 Device definitions are separated from their presentation mapping. Shared device state lives in the devices feature, while device-specific pages such as **T-Glasses-P4** live under their own feature folder.

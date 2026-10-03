@@ -1,8 +1,8 @@
 /*
- * @Description: 管理桌面窗口焦点、最大化状态及最小化和关闭操作。
+ * @Description: 管理桌面窗口状态、托盘后台运行及保存配置后的完整退出。
  * @Author: LILYGO_L
  * @Date: 2025-11-05 14:38:38
- * @LastEditTime: 2026-10-03 21:12:12
+ * @LastEditTime: 2026-10-04 00:20:00
  * @License: GPL 3.0
  */
 
@@ -10,6 +10,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:window_manager/window_manager.dart';
+
+import 'tray.dart';
 
 /// 桌面窗口状态和窗口操作入口。
 ///
@@ -22,6 +24,9 @@ class WindowProvider with ChangeNotifier, WindowListener {
   bool get isFocused => _isFocused;
 
   WindowProvider({this.beforeClose}) {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      _tray = WindowTray(onShow: show, onExit: exit);
+    }
     if (_desktop) {
       windowManager.addListener(this);
       unawaited(_init());
@@ -30,6 +35,20 @@ class WindowProvider with ChangeNotifier, WindowListener {
 
   final Future<bool> Function()? beforeClose;
   bool _closing = false;
+  WindowTray? _tray;
+  bool _hiding = false;
+  bool _disposed = false;
+  Map<String, Object>? _trayAppearance;
+
+  Future<void> configureTray(Map<String, Object> appearance) async {
+    if (_tray == null || mapEquals(_trayAppearance, appearance)) return;
+    try {
+      if (await _tray!.configure(appearance)) _trayAppearance = appearance;
+    } catch (error) {
+      debugPrint('Tray configuration failed: $error');
+    }
+  }
+
   bool get _desktop =>
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.windows ||
@@ -38,6 +57,8 @@ class WindowProvider with ChangeNotifier, WindowListener {
 
   @override
   void dispose() {
+    _disposed = true;
+    _tray?.dispose();
     if (_desktop) windowManager.removeListener(this);
     super.dispose();
   }
@@ -46,7 +67,7 @@ class WindowProvider with ChangeNotifier, WindowListener {
     await windowManager.setPreventClose(true);
     _isMaximized = await windowManager.isMaximized();
     _isFocused = await windowManager.isFocused();
-    notifyListeners();
+    if (!_disposed) notifyListeners();
   }
 
   // 监听窗口最大化事件
@@ -91,13 +112,38 @@ class WindowProvider with ChangeNotifier, WindowListener {
     await windowManager.minimize();
   }
 
-  // 关闭窗口
+  // Windows 关闭只隐藏窗口，保留页面、设备任务和登录状态。
   Future<void> close({bool discardUnsaved = false}) async {
+    if (discardUnsaved || _tray == null) {
+      await exit(discardUnsaved: discardUnsaved);
+      return;
+    }
+    if (_closing || _hiding) return;
+    _hiding = true;
+    try {
+      if (!await _tray!.hide()) await minimize();
+    } catch (error) {
+      debugPrint('Tray unavailable, minimizing instead: $error');
+      await minimize();
+    } finally {
+      _hiding = false;
+    }
+  }
+
+  Future<void> show() async {
+    if (_closing || _disposed) return;
+    await windowManager.show();
+    await windowManager.focus();
+  }
+
+  // 仅显式退出才等待配置保存，并进入原有系统关闭流程。
+  Future<void> exit({bool discardUnsaved = false}) async {
     if (_closing) return;
     _closing = true;
     try {
       if (!discardUnsaved && beforeClose != null && !await beforeClose!()) {
         _closing = false;
+        await show();
         return;
       }
       // 保存完成后走系统正常关闭流程，避免直接退出消息循环时窗口
@@ -107,6 +153,7 @@ class WindowProvider with ChangeNotifier, WindowListener {
     } catch (_) {
       await windowManager.setPreventClose(true);
       _closing = false;
+      await show();
       rethrow;
     }
   }

@@ -2,7 +2,7 @@
  * @Description: 配置读写失败时显示可重试提示，避免保存失败被误认为成功。
  * @Author: LILYGO_L
  * @Date: 2026-10-03 20:29:43
- * @LastEditTime: 2026-10-03 20:29:43
+ * @LastEditTime: 2026-10-04 00:20:00
  * @License: GPL 3.0
  */
 
@@ -60,7 +60,7 @@ class PreferencesNotice extends StatelessWidget {
                   AppActionButton(
                     theme: theme,
                     label: l10n.preferencesExitWithoutSaving,
-                    onPressed: () => context.read<WindowProvider>().close(
+                    onPressed: () => context.read<WindowProvider>().exit(
                       discardUnsaved: true,
                     ),
                     fontSize: 12,

@@ -400,4 +400,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get preferencesExitWithoutSaving => 'Exit without saving';
+
+  @override
+  String get trayShowWindow => 'Show window';
+
+  @override
+  String get trayExit => 'Exit';
 }

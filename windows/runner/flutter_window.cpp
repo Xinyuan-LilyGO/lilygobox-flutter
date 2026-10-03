@@ -25,6 +25,7 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  tray_ = std::make_unique<TrayIcon>(GetHandle(), flutter_controller_->engine()->messenger(), project_);
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -40,6 +41,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  tray_.reset();
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -51,6 +53,7 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  if (tray_ && tray_->HandleMessage(message, wparam, lparam)) return 0;
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =

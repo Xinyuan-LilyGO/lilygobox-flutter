@@ -370,4 +370,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get preferencesExitWithoutSaving => '不保存并退出';
+
+  @override
+  String get trayShowWindow => '显示窗口';
+
+  @override
+  String get trayExit => '退出';
 }
