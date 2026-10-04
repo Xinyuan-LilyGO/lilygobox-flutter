@@ -2,7 +2,7 @@
  * @Description: 根据 T-Glasses-P4 的配对和连接状态展示控制中心内容。
  * @Author: LILYGO_L
  * @Date: 2025-11-21 15:43:04
- * @LastEditTime: 2026-10-02 22:01:29
+ * @LastEditTime: 2026-10-04 12:33:13
  * @License: GPL 3.0
  */
 
@@ -10,7 +10,9 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../../core/l10n/language_provider.dart';
 import '../../../../../core/theme/provider.dart';
+import '../../../../../core/widgets/app_tooltip.dart';
 import '../../../../../core/widgets/interaction_decoration.dart';
 import '../../domain/connection_status.dart';
 
@@ -125,12 +127,16 @@ class _TGlassesP4PageControlCenterState
                   ),
                   // 未连接状态显示刷新按钮
                   if (widget.connectionStatus == ConnectionStatus.disconnected)
-                    IconButton(
-                      icon: Icon(
-                        Symbols.refresh,
-                        color: theme.textColorTertiary,
+                    AppTooltip(
+                      message: context.l10n.refresh,
+                      verticalOffset: 16,
+                      child: IconButton(
+                        icon: Icon(
+                          Symbols.refresh,
+                          color: theme.textColorTertiary,
+                        ),
+                        onPressed: widget.onRefresh,
                       ),
-                      onPressed: widget.onRefresh,
                     ),
                 ],
               ),

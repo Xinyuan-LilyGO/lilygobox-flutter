@@ -2,7 +2,7 @@
  * @Description: 托盘原生桥接只处理图标和窗口，右键菜单由独立 Flutter 视图绘制。
  * @Author: LILYGO_L
  * @Date: 2026-10-04 00:20:00
- * @LastEditTime: 2026-10-04 01:57:39
+ * @LastEditTime: 2026-10-04 13:14:48
  * @License: GPL 3.0
  */
 #include "tray_icon.h"
@@ -17,6 +17,7 @@ constexpr UINT kTrayMessage = WM_APP + 71;
 constexpr UINT kDismissMenuMessage = WM_APP + 72;
 constexpr UINT_PTR kWarmupTimer = 0x4c47;
 constexpr UINT_PTR kFadeTimer = 0x4c48;
+constexpr UINT_PTR kMenuWatchTimer = 0x4c49;
 constexpr wchar_t kMenuClass[] = L"LilygoBoxTrayMenu";
 // 卡片为 150×75；透明边距容纳 Flutter 圆角的半透明像素和柔和阴影。
 constexpr int kShadowPadding = 16;
@@ -139,6 +140,7 @@ void TrayIcon::OpenMenu() {
   KillTimer(owner_, kWarmupTimer);
   warmup_scheduled_ = false;
   GetCursorPos(&menu_position_);
+  menu_foreground_ = GetForegroundWindow();
   menu_requested_ = true;
   menu_presented_ = false;
   if (!EnsureMenu()) return;
@@ -154,7 +156,8 @@ bool TrayIcon::EnsureMenu() {
     wc.lpszClassName = kMenuClass;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     RegisterClassW(&wc);
-    menu_ = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED, kMenuClass,
+    menu_ = CreateWindowExW(
+        WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_NOACTIVATE, kMenuClass,
         L"LilygoBox Tray Menu", WS_POPUP | WS_CLIPCHILDREN,
         menu_position_.x, menu_position_.y, kMenuWidth, kMenuHeight,
         nullptr, nullptr, wc.hInstance, this);
@@ -245,6 +248,8 @@ void TrayIcon::PresentMenu() {
     ShowWindow(menu_, SW_SHOWNOACTIVATE);
   }
   StartMouseWatch();
+  // 菜单不激活就不会收到失焦和键盘消息，仅在打开期间检查关闭条件。
+  SetTimer(menu_, kMenuWatchTimer, 50, nullptr);
   menu_channel_->InvokeMethod("present", std::make_unique<flutter::EncodableValue>(args));
   menu_controller_->ForceRedraw();
 }
@@ -264,13 +269,22 @@ void TrayIcon::ShowMenu(int duration_ms) {
     fade_started_ = GetTickCount64();
     // 宿主窗口的透明度同时影响卡片背景、图标和文字。
     SetLayeredWindowAttributes(menu_, 0, duration_ms > 0 ? 0 : 255, LWA_ALPHA);
-    ShowWindow(menu_, SW_SHOW);
+    ShowWindow(menu_, SW_SHOWNOACTIVATE);
     if (duration_ms > 0 && !SetTimer(menu_, kFadeTimer, 16, nullptr)) {
       SetLayeredWindowAttributes(menu_, 0, 255, LWA_ALPHA);
     }
   }
-  SetForegroundWindow(menu_);
-  SetFocus(menu_controller_->view()->GetNativeWindow());
+  // 不抢占 Explorer 的焦点，否则隐藏图标面板会在菜单交互期间收起。
+}
+
+void TrayIcon::CheckMenuDismissal() {
+  if (!menu_requested_) return;
+  const HWND foreground = GetForegroundWindow();
+  if ((GetAsyncKeyState(VK_ESCAPE) & 0x8000) ||
+      (foreground && foreground != menu_foreground_ && foreground != menu_ &&
+       !IsChild(menu_, foreground))) {
+    DismissMenu();
+  }
 }
 
 void TrayIcon::TickFade() {
@@ -288,6 +302,7 @@ void TrayIcon::DismissMenu() {
   if (!swallow_mouse_up_) StopMouseWatch();
   if (menu_) {
     KillTimer(menu_, kFadeTimer);
+    KillTimer(menu_, kMenuWatchTimer);
     ShowWindow(menu_, SW_HIDE);
   }
   if (menu_ready_) {
@@ -364,6 +379,12 @@ LRESULT CALLBACK TrayIcon::MenuProc(HWND hwnd, UINT message, WPARAM wparam, LPAR
     self->TickFade();
     return 0;
   }
+  if (message == WM_TIMER && wparam == kMenuWatchTimer) {
+    self->CheckMenuDismissal();
+    return 0;
+  }
+  // 点击或系统的悬停激活设置都不应激活菜单，鼠标事件仍交给 Flutter。
+  if (message == WM_MOUSEACTIVATE) return MA_NOACTIVATE;
   // 先处理菜单退出条件，避免 Flutter 提前消费窗口消息后漏掉失焦关闭。
   if (self->menu_presented_ && ((message == WM_ACTIVATE && LOWORD(wparam) == WA_INACTIVE) ||
       (message == WM_ACTIVATEAPP && !wparam) || message == WM_CANCELMODE)) {

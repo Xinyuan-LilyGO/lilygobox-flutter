@@ -2,7 +2,7 @@
  * @Description: Windows 托盘图标及独立右键菜单，支持窗口隐藏后显示和退出。
  * @Author: LILYGO_L
  * @Date: 2026-10-04 00:20:00
- * @LastEditTime: 2026-10-04 01:57:39
+ * @LastEditTime: 2026-10-04 13:14:48
  * @License: GPL 3.0
  */
 #ifndef RUNNER_TRAY_ICON_H_
@@ -29,6 +29,7 @@ class TrayIcon {
   void PrepareMenu();
   void ShowMenu(int duration_ms);
   void TickFade();
+  void CheckMenuDismissal();
   void OpenMenu();
   void PresentMenu();
   void DismissMenu();
@@ -44,6 +45,7 @@ class TrayIcon {
 
   HWND owner_;
   HWND menu_ = nullptr;
+  HWND menu_foreground_ = nullptr;
   NOTIFYICONDATAW icon_{};
   UINT taskbar_created_;
   bool configured_ = false;

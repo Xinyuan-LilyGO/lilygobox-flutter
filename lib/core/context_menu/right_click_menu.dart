@@ -2,7 +2,7 @@
  * @Description: 定义共用弹出菜单样式，支持右键定位和锚点上方展开。
  * @Author: LILYGO_L
  * @Date: 2025-11-18 14:00:00
- * @LastEditTime: 2026-10-02 22:01:29
+ * @LastEditTime: 2026-10-04 13:01:33
  * @License: GPL 3.0
  */
 
@@ -201,13 +201,15 @@ class RightClickMenuBuilder {
       theme: theme,
       backgroundColor:
           backgroundColor ?? PopupMenuSurface.backgroundColorFor(theme),
-      hoverColor: theme.adaptiveColor(
-        dark: theme.basePrimary,
-        light: Color.alphaBlend(
-          theme.basePrimary.withValues(alpha: 0.22),
-          backgroundColor ?? PopupMenuSurface.backgroundColorFor(theme),
-        ),
-      ),
+      hoverColor: theme.basePrimary,
+      foregroundColor: item.isEnabled
+          ? theme.textColorSecondary
+          : theme.textColorTertiary,
+      hoverForegroundColor:
+          ThemeData.estimateBrightnessForColor(theme.basePrimary) ==
+              Brightness.dark
+          ? Colors.white
+          : const Color(0xFF191919),
       onPressed: item.isEnabled ? item.onTap : null,
       borderRadius: BorderRadius.circular(5),
       child: Container(
@@ -220,9 +222,6 @@ class RightClickMenuBuilder {
               Icon(
                 item.icon,
                 size: 16,
-                color: item.isEnabled
-                    ? theme.textColorSecondary
-                    : theme.textColorTertiary,
                 fill: 1,
                 grade: 200,
                 opticalSize: 20,
@@ -235,9 +234,6 @@ class RightClickMenuBuilder {
                 item.label,
                 style: TextStyle(
                   fontSize: 13,
-                  color: item.isEnabled
-                      ? theme.textColorSecondary
-                      : theme.textColorTertiary,
                   fontWeight: item.isEnabled
                       ? FontWeight.normal
                       : FontWeight.w300,

@@ -354,6 +354,48 @@ abstract class AppLocalizations {
   /// **'Hide sidebar'**
   String get hideSidebar;
 
+  /// No description provided for @minimizeWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimize'**
+  String get minimizeWindow;
+
+  /// No description provided for @maximizeWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximize'**
+  String get maximizeWindow;
+
+  /// No description provided for @restoreWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get restoreWindow;
+
+  /// No description provided for @closeWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get closeWindow;
+
+  /// No description provided for @closeSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Close settings'**
+  String get closeSettings;
+
+  /// No description provided for @decreaseValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Decrease value'**
+  String get decreaseValue;
+
+  /// No description provided for @increaseValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Increase value'**
+  String get increaseValue;
+
   /// No description provided for @homeDevicesSubtitle.
   ///
   /// In en, this message translates to:

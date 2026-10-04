@@ -2,7 +2,7 @@
  * @Description: 统一菜单和设置控件的选中配色、悬停渐变与点击波纹。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-02 21:44:28
+ * @LastEditTime: 2026-10-04 13:01:33
  * @License: GPL 3.0
  */
 
@@ -24,6 +24,8 @@ class MenuItemSurface extends StatefulWidget {
     this.disableWhenSelected = true,
     this.backgroundColor,
     this.hoverColor,
+    this.foregroundColor,
+    this.hoverForegroundColor,
     this.border,
     this.borderRadius = const BorderRadius.all(Radius.circular(8)),
   });
@@ -55,6 +57,8 @@ class MenuItemSurface extends StatefulWidget {
   final bool disableWhenSelected;
   final Color? backgroundColor;
   final Color? hoverColor;
+  final Color? foregroundColor;
+  final Color? hoverForegroundColor;
   final BoxBorder? border;
   final BorderRadius borderRadius;
 
@@ -76,6 +80,9 @@ class _MenuItemSurfaceState extends State<MenuItemSurface> {
         : _isHovered && enabled
         ? widget.hoverColor ?? theme.primaryTextHoverColor
         : widget.backgroundColor ?? theme.primary;
+    final foregroundColor = _isHovered && enabled && !widget.isSelected
+        ? widget.hoverForegroundColor ?? widget.foregroundColor
+        : widget.foregroundColor;
 
     return Semantics(
       selected: widget.isSelected,
@@ -113,7 +120,19 @@ class _MenuItemSurfaceState extends State<MenuItemSurface> {
                 highlightColor: theme.textColorPrimary.withValues(alpha: 0.04),
                 splashColor: theme.textColorPrimary.withValues(alpha: 0.12),
                 splashFactory: InkRipple.splashFactory,
-                child: widget.child,
+                child: foregroundColor == null
+                    ? widget.child
+                    : InteractionDecoration.color(
+                        palette: theme,
+                        color: foregroundColor,
+                        builder: (context, color) => IconTheme.merge(
+                          data: IconThemeData(color: color),
+                          child: DefaultTextStyle.merge(
+                            style: TextStyle(color: color),
+                            child: widget.child,
+                          ),
+                        ),
+                      ),
               ),
             ),
           ),

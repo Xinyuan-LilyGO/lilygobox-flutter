@@ -2,7 +2,7 @@
  * @Description: 构建主窗口标题栏，提供标题淡入淡出、侧栏开关及窗口控制。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-03 23:56:45
+ * @LastEditTime: 2026-10-04 12:33:13
  * @License: GPL 3.0
  */
 
@@ -162,30 +162,46 @@ class AppTitleBarControls extends StatelessWidget {
 
     return Row(
       children: [
-        AppTitleBarControlsButtonTemplate(
-          icon: Symbols.remove_rounded,
-          onPressed: () => unawaited(windowProvider.minimize()),
-          backgroundColor: theme.primary,
-          hoverColor: theme.primaryTextHoverColor,
-          iconColor: iconColor,
+        AppTooltip(
+          message: context.l10n.minimizeWindow,
+          verticalOffset: 16,
+          child: AppTitleBarControlsButtonTemplate(
+            icon: Symbols.remove_rounded,
+            onPressed: () => unawaited(windowProvider.minimize()),
+            backgroundColor: theme.primary,
+            hoverColor: theme.primaryTextHoverColor,
+            iconColor: iconColor,
+          ),
         ),
-        AppTitleBarControlsButtonTemplate(
-          icon: isMaximized ? Symbols.filter_none : Symbols.crop_square_rounded,
-          onPressed: () => unawaited(windowProvider.handleMaximizeRestore()),
-          backgroundColor: theme.primary,
-          hoverColor: theme.primaryTextHoverColor,
-          iconSize: isMaximized ? 13.5 : 14,
-          iconWeight: 510.0,
-          rotateAngle: isMaximized ? 180 : 0,
-          iconColor: iconColor,
+        AppTooltip(
+          message: isMaximized
+              ? context.l10n.restoreWindow
+              : context.l10n.maximizeWindow,
+          verticalOffset: 16,
+          child: AppTitleBarControlsButtonTemplate(
+            icon: isMaximized
+                ? Symbols.filter_none
+                : Symbols.crop_square_rounded,
+            onPressed: () => unawaited(windowProvider.handleMaximizeRestore()),
+            backgroundColor: theme.primary,
+            hoverColor: theme.primaryTextHoverColor,
+            iconSize: isMaximized ? 13.5 : 14,
+            iconWeight: 510.0,
+            rotateAngle: isMaximized ? 180 : 0,
+            iconColor: iconColor,
+          ),
         ),
-        AppTitleBarControlsButtonTemplate(
-          icon: Symbols.close_rounded,
-          onPressed: () => unawaited(windowProvider.close()),
-          backgroundColor: theme.primary,
-          hoverColor: Colors.red.shade600,
-          hoverIconColor: Colors.white,
-          iconColor: iconColor,
+        AppTooltip(
+          message: context.l10n.closeWindow,
+          verticalOffset: 16,
+          child: AppTitleBarControlsButtonTemplate(
+            icon: Symbols.close_rounded,
+            onPressed: () => unawaited(windowProvider.close()),
+            backgroundColor: theme.primary,
+            hoverColor: Colors.red.shade600,
+            hoverIconColor: Colors.white,
+            iconColor: iconColor,
+          ),
         ),
       ],
     );

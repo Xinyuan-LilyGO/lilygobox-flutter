@@ -2,7 +2,7 @@
  * @Description: 构建可拖动且不折叠的设置导航、移动端分类导航。
  * @Author: LILYGO_L
  * @Date: 2025-10-31 17:01:16
- * @LastEditTime: 2026-10-03 23:20:36
+ * @LastEditTime: 2026-10-04 13:01:33
  * @License: GPL 3.0
  */
 
@@ -190,7 +190,6 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
         l10n.languageAndRegion,
         Symbols.language_rounded,
       ),
-      _SettingsCategory.general: (l10n.general, Symbols.tune_rounded),
     };
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -272,17 +271,27 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(10, 18, 10, 12),
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(left: 10, bottom: 10),
-                  child: Text(
-                    l10n.application,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: theme.textColorTertiary,
-                    ),
-                  ),
+                _sectionTitle(theme, l10n.basic),
+                _navigationItem(
+                  theme,
+                  colors,
+                  Symbols.tune_rounded,
+                  l10n.general,
+                  !_profile &&
+                      !_about &&
+                      _category == _SettingsCategory.general &&
+                      !mobile,
+                  () => _select(false, category: _SettingsCategory.general),
+                  const ValueKey('settings-category-general'),
                 ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 14,
+                  ),
+                  child: Divider(height: 1, color: colors.divider),
+                ),
+                _sectionTitle(theme, l10n.application),
                 for (final entry in categories.entries)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4),
@@ -296,13 +305,6 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
                       ValueKey('settings-category-${entry.key.name}'),
                     ),
                   ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 10,
-                  ),
-                  child: Divider(height: 1, color: colors.divider),
-                ),
                 _navigationItem(
                   theme,
                   colors,
@@ -319,6 +321,18 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
       ),
     );
   }
+
+  Widget _sectionTitle(AppTheme theme, String title) => Padding(
+    padding: const EdgeInsets.only(left: 10, bottom: 10),
+    child: Text(
+      title,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: theme.textColorTertiary,
+      ),
+    ),
+  );
 
   Widget _navigationItem(
     AppTheme theme,
@@ -445,7 +459,7 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
                   top: 18,
                   right: 18,
                   child: AppTooltip(
-                    message: l10n.back,
+                    message: l10n.closeSettings,
                     verticalOffset: 16,
                     child: _iconButton(theme, Symbols.close_rounded, _close),
                   ),

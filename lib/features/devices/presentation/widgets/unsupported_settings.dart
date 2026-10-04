@@ -2,7 +2,7 @@
  * @Description: 为尚未适配设置页的设备显示说明，并提供返回入口。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-04 12:33:13
  * @License: GPL 3.0
  */
 
@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/animated_circle_icon_button.dart';
+import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/settings/widgets.dart';
 
 class UnsupportedDeviceSettings extends StatelessWidget {
@@ -47,12 +48,16 @@ class UnsupportedDeviceSettings extends StatelessWidget {
           Positioned(
             top: 20,
             right: 20,
-            child: AnimatedCircleIconButton(
-              icon: Icons.close_rounded,
-              theme: theme,
-              size: 40,
-              iconSize: 22,
-              onPressed: onClose,
+            child: AppTooltip(
+              message: context.l10n.closeSettings,
+              verticalOffset: 16,
+              child: AnimatedCircleIconButton(
+                icon: Icons.close_rounded,
+                theme: theme,
+                size: 40,
+                iconSize: 22,
+                onPressed: onClose,
+              ),
             ),
           ),
         ],

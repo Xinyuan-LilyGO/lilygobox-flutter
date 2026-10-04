@@ -148,6 +148,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hideSidebar => 'Hide sidebar';
 
   @override
+  String get minimizeWindow => 'Minimize';
+
+  @override
+  String get maximizeWindow => 'Maximize';
+
+  @override
+  String get restoreWindow => 'Restore';
+
+  @override
+  String get closeWindow => 'Close';
+
+  @override
+  String get closeSettings => 'Close settings';
+
+  @override
+  String get decreaseValue => 'Decrease value';
+
+  @override
+  String get increaseValue => 'Increase value';
+
+  @override
   String get homeDevicesSubtitle => 'Your LILYGO devices, all in one place';
 
   @override

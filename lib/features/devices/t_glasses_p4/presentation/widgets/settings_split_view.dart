@@ -2,7 +2,7 @@
  * @Description: 构建 T-Glasses-P4 设置分类导航及设备信息详情区域。
  * @Author: LILYGO_L
  * @Date: 2025-11-19 11:49:06
- * @LastEditTime: 2026-10-02 22:01:29
+ * @LastEditTime: 2026-10-04 12:33:13
  * @License: GPL 3.0
  */
 
@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import '../../../../../core/l10n/language_provider.dart';
 import '../../../../../core/theme/provider.dart';
 import '../../../../../core/widgets/animated_circle_icon_button.dart';
+import '../../../../../core/widgets/app_tooltip.dart';
 import '../../../../../core/widgets/interaction_decoration.dart';
 import '../../../../../core/widgets/settings/widgets.dart';
 
@@ -310,12 +311,16 @@ class _TGlassesP4SettingsSplitViewState
                   Positioned(
                     top: 20,
                     right: 20,
-                    child: AnimatedCircleIconButton(
-                      icon: Symbols.close_rounded,
-                      theme: theme,
-                      size: 40,
-                      iconSize: 22,
-                      onPressed: widget.onClose,
+                    child: AppTooltip(
+                      message: context.l10n.closeSettings,
+                      verticalOffset: 16,
+                      child: AnimatedCircleIconButton(
+                        icon: Symbols.close_rounded,
+                        theme: theme,
+                        size: 40,
+                        iconSize: 22,
+                        onPressed: widget.onClose,
+                      ),
                     ),
                   ),
                 ],

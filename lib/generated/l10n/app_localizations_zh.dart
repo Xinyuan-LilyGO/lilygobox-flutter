@@ -143,6 +143,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get hideSidebar => '隐藏侧边栏';
 
   @override
+  String get minimizeWindow => '最小化';
+
+  @override
+  String get maximizeWindow => '最大化';
+
+  @override
+  String get restoreWindow => '还原';
+
+  @override
+  String get closeWindow => '关闭';
+
+  @override
+  String get closeSettings => '关闭设置';
+
+  @override
+  String get decreaseValue => '减小数值';
+
+  @override
+  String get increaseValue => '增大数值';
+
+  @override
   String get homeDevicesSubtitle => '在这里管理你的 LILYGO 设备';
 
   @override

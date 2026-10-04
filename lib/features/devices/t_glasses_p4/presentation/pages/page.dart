@@ -2,7 +2,7 @@
  * @Description: 构建 T-Glasses-P4 设备导航、页面分栏及连接状态展示。
  * @Author: LILYGO_L
  * @Date: 2025-11-17 13:38:52
- * @LastEditTime: 2026-10-03 20:29:43
+ * @LastEditTime: 2026-10-04 13:10:34
  * @License: GPL 3.0
  */
 
@@ -54,9 +54,6 @@ class _DevicePageContentTGlassesP4State
   // 右键菜单控制器
   final RightClickMenuController _menuController = RightClickMenuController();
 
-  // 设备状态管理 - 简化为只管理连接状态
-  bool _isConnected = false;
-
   void _handleDelete() {
     // 处理删除逻辑
     debugPrint('删除 T-Glasses-P4');
@@ -74,36 +71,20 @@ class _DevicePageContentTGlassesP4State
     );
   }
 
-  void _handleRefresh() {
-    // 处理刷新逻辑
-    debugPrint('刷新 T-Glasses-P4 数据');
-    _menuController.close(); // 确保菜单关闭
-    // TODO(lilygo): 实现刷新功能
-  }
-
   void _connectToDevice() {
-    // 模拟连接过程
-    setState(() {
-      _isConnected = true;
-    });
+    // TODO(lilygo): 接入真实设备连接，并根据通信结果更新连接状态。
   }
 
   void _disconnectDevice() {
-    setState(() {
-      _isConnected = false;
-    });
+    // TODO(lilygo): 接入真实设备断开连接。
   }
 
   void _pair() {
-    setState(() {
-      _isConnected = false;
-    });
+    // TODO(lilygo): 接入真实设备配对。
   }
 
   void _refresh() {
-    setState(() {
-      _isConnected = false;
-    });
+    // TODO(lilygo): 从设备读取最新连接状态和数据。
   }
 
   @override

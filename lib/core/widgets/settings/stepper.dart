@@ -2,13 +2,15 @@
  * @Description: 提供数值设置的增减按钮及数值显示。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-04 12:33:13
  * @License: GPL 3.0
  */
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/language_provider.dart';
 import '../../theme/definition.dart';
+import '../app_tooltip.dart';
 import '../menu_item_surface.dart';
 import 'decoration.dart';
 
@@ -34,6 +36,7 @@ class SettingStepper extends StatelessWidget {
       child: Row(
         children: [
           _SettingStepperButton(
+            tooltip: context.l10n.decreaseValue,
             theme: theme,
             icon: Icons.remove_rounded,
             onPressed: onDecrement,
@@ -53,6 +56,7 @@ class SettingStepper extends StatelessWidget {
             ),
           ),
           _SettingStepperButton(
+            tooltip: context.l10n.increaseValue,
             theme: theme,
             icon: Icons.add_rounded,
             onPressed: onIncrement,
@@ -65,6 +69,7 @@ class SettingStepper extends StatelessWidget {
 
 class _SettingStepperButton extends StatelessWidget {
   const _SettingStepperButton({
+    required this.tooltip,
     required this.theme,
     required this.icon,
     required this.onPressed,
@@ -72,20 +77,25 @@ class _SettingStepperButton extends StatelessWidget {
 
   final AppTheme theme;
   final IconData icon;
+  final String tooltip;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return MenuItemSurface(
-      theme: theme,
-      onPressed: onPressed,
-      backgroundColor: Colors.transparent,
-      hoverColor: theme.secondaryTextHoverColor,
-      borderRadius: BorderRadius.circular(4),
-      child: SizedBox(
-        width: 32.0,
-        height: 32.0,
-        child: Icon(icon, color: theme.textColorPrimary, size: 16.0),
+    return AppTooltip(
+      message: tooltip,
+      verticalOffset: 16,
+      child: MenuItemSurface(
+        theme: theme,
+        onPressed: onPressed,
+        backgroundColor: Colors.transparent,
+        hoverColor: theme.secondaryTextHoverColor,
+        borderRadius: BorderRadius.circular(4),
+        child: SizedBox(
+          width: 32.0,
+          height: 32.0,
+          child: Icon(icon, color: theme.textColorPrimary, size: 16.0),
+        ),
       ),
     );
   }
