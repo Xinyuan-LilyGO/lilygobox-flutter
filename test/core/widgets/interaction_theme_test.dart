@@ -60,9 +60,9 @@ void main() {
                   icon: Icons.settings,
                 ),
                 _ => AppTitleBarControlsButtonTemplate(
+                  theme: theme,
                   icon: Icons.close,
                   onPressed: onTap,
-                  backgroundColor: resting(theme),
                   hoverColor: hovered(theme),
                   iconColor: theme.iconColor,
                   hoverIconColor: kind == 'close' ? Colors.white : null,
@@ -82,7 +82,7 @@ void main() {
         ),
       );
 
-      final surface = find.byType(InteractionDecoration);
+      final surface = find.byType(InteractionDecoration).first;
       Color background() =>
           (tester
                       .widget<DecoratedBox>(
@@ -125,7 +125,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 30));
       expect(background(), hovered(provider.themeData));
       if (kind == 'close') {
-        expect(tester.widget<Icon>(find.byType(Icon)).color, Colors.white);
+        expect(
+          IconTheme.of(tester.element(find.byType(Icon))).color,
+          Colors.white,
+        );
       }
 
       await mouse.moveTo(Offset.zero);

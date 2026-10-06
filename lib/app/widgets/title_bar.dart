@@ -166,10 +166,9 @@ class AppTitleBarControls extends StatelessWidget {
           message: context.l10n.minimizeWindow,
           verticalOffset: 16,
           child: AppTitleBarControlsButtonTemplate(
+            theme: theme,
             icon: Symbols.remove_rounded,
             onPressed: () => unawaited(windowProvider.minimize()),
-            backgroundColor: theme.primary,
-            hoverColor: theme.primaryTextHoverColor,
             iconColor: iconColor,
           ),
         ),
@@ -179,12 +178,11 @@ class AppTitleBarControls extends StatelessWidget {
               : context.l10n.maximizeWindow,
           verticalOffset: 16,
           child: AppTitleBarControlsButtonTemplate(
+            theme: theme,
             icon: isMaximized
                 ? Symbols.filter_none
                 : Symbols.crop_square_rounded,
             onPressed: () => unawaited(windowProvider.handleMaximizeRestore()),
-            backgroundColor: theme.primary,
-            hoverColor: theme.primaryTextHoverColor,
             iconSize: isMaximized ? 13.5 : 14,
             iconWeight: 510.0,
             rotateAngle: isMaximized ? 180 : 0,
@@ -195,9 +193,9 @@ class AppTitleBarControls extends StatelessWidget {
           message: context.l10n.closeWindow,
           verticalOffset: 16,
           child: AppTitleBarControlsButtonTemplate(
+            theme: theme,
             icon: Symbols.close_rounded,
             onPressed: () => unawaited(windowProvider.close()),
-            backgroundColor: theme.primary,
             hoverColor: Colors.red.shade600,
             hoverIconColor: Colors.white,
             iconColor: iconColor,

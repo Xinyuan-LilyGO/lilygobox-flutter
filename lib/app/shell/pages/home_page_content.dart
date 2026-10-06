@@ -276,16 +276,10 @@ class _HomePageContentState extends State<HomePageContent> {
                                 final scale =
                                     MediaQuery.textScalerOf(context).scale(14) /
                                     14;
-                                final columns = math.max(
-                                  1,
-                                  ((grid.maxWidth + 16) /
-                                          (240 * math.max(1.0, scale) + 16))
-                                      .floor(),
-                                );
+                                // 固定卡片宽度，侧栏拖动只触发换行；窄屏时才收窄。
                                 final cardWidth = math.min(
-                                  320.0 * math.max(1.0, scale),
-                                  (grid.maxWidth - (columns - 1) * 16) /
-                                      columns,
+                                  280.0 * math.max(1.0, scale),
+                                  grid.maxWidth,
                                 );
                                 return Wrap(
                                   spacing: 16,
