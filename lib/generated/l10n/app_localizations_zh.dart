@@ -173,10 +173,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeDevicesEmptyDescription => '添加你的第一台设备，\n让 LilygoBox 与你的设备相连。';
 
   @override
-  String get homeDevicesReady => '设备已添加';
+  String get homeDeviceSearch => '搜索设备名称或型号';
 
   @override
-  String get homeDevicesReadyDescription => '从侧边栏打开设备，\n或继续添加你需要的设备。';
+  String get homeClearSearch => '清除搜索';
+
+  @override
+  String get homeDeviceOnline => '在线';
+
+  @override
+  String get homeDeviceOffline => '离线';
+
+  @override
+  String get homeDeviceConnecting => '连接中…';
+
+  @override
+  String get homeDevicesNoResults => '没有找到符合条件的设备';
 
   @override
   String get back => '返回';
@@ -185,7 +197,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get connectYourDevice => '连接你的设备';
 
   @override
-  String get discoveryDescription => '请开启设备，LilygoBox 会自动查找可连接的设备。';
+  String get discoveryDescription => '请在设备的「更多连接 → LilygoBox 应用连接」中点击「添加连接」。';
 
   @override
   String get discoveredDevices => '发现的设备';
@@ -218,7 +230,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceConnecting => '正在连接设备…';
 
   @override
-  String get keepDeviceOn => '请保持设备开启';
+  String get keepDeviceOn => '请在设备上允许本次连接';
 
   @override
   String get deviceConnected => '设备已连接';
@@ -227,7 +239,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceConnectionFailed => '未能连接设备';
 
   @override
-  String get deviceConnectionFailedDescription => '请确认设备仍已开启并准备连接，然后重试。';
+  String get deviceConnectionFailedDescription =>
+      '设备未确认连接或已离线，请在设备上点击「添加连接」后重试。';
 
   @override
   String get retryConnection => '重新连接';
@@ -243,22 +256,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceConnectionHelpDescription =>
-      '请确认设备已开启，并处于允许连接的状态。\n若出现系统授权或设备确认提示，请按提示完成。';
+      '请让电脑或手机与设备连接到同一局域网。在设备上打开「设置 → 更多连接 → LilygoBox 应用连接 → 添加连接」。\n出现提示后，在设备上允许连接。如果无法发现设备，请检查 Windows 防火墙和路由器的客户端隔离设置。';
 
   @override
   String get tapToConnect => '点击连接';
-
-  @override
-  String get statePreview => '状态预览';
-
-  @override
-  String get exitStatePreview => '退出预览';
-
-  @override
-  String get statePreviewActive => '预览模式 · 模拟数据';
-
-  @override
-  String get statePreviewNoDevice => '这是状态预览，不会添加设备或打开真实设备页面。';
 
   @override
   String get resizeSettingsSidebar => '调整设置侧栏宽度';
@@ -397,4 +398,38 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get trayExit => '退出';
+
+  @override
+  String get lanOffline => '未连接';
+
+  @override
+  String get lanModel => '设备型号';
+
+  @override
+  String get lanMacAddress => 'MAC 地址';
+
+  @override
+  String get lanDeviceId => '设备 ID';
+
+  @override
+  String get lanAddress => 'IP 地址';
+
+  @override
+  String get lanFirmware => '固件版本';
+
+  @override
+  String get lanUptime => '设备运行时间';
+
+  @override
+  String get lanDisconnect => '断开连接';
+
+  @override
+  String get lanConnectedDescription => '设备已确认本次连接，设备信息会自动刷新。';
+
+  @override
+  String get lanConfirmOnDevice => '请在设备上允许本次连接。';
+
+  @override
+  String get lanReconnectDescription =>
+      '请在设备的「设置 → 更多连接 → LilygoBox 应用连接」中点击「添加连接」，然后重试。如果设备地址已变化，请重新搜索。';
 }

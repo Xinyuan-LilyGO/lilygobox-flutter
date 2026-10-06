@@ -2,7 +2,7 @@
  * @Description: 根据 T-Glasses-P4 的配对和连接状态展示控制中心内容。
  * @Author: LILYGO_L
  * @Date: 2025-11-21 15:43:04
- * @LastEditTime: 2026-10-04 12:33:13
+ * @LastEditTime: 2026-10-06 14:02:45
  * @License: GPL 3.0
  */
 
@@ -105,7 +105,7 @@ class _TGlassesP4PageControlCenterState
                       ),
                     ),
                     child: Icon(
-                      Symbols.developer_board, // 改为 developer_board 图标
+                      Symbols.wifi,
                       size: 30,
                       color: _getStatusColor(theme),
                     ),

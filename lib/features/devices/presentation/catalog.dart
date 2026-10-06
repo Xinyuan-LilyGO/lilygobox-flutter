@@ -1,8 +1,8 @@
 /*
- * @Description: 将设备名称映射为导航图标和对应的设备页面。
+ * @Description: 将设备型号映射为连接方式图标和对应的设备页面。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-06 14:02:45
  * @License: GPL 3.0
  */
 
@@ -22,9 +22,10 @@ class DevicePresentationCatalog {
   const DevicePresentationCatalog._();
 
   static IconData iconFor(String deviceName) {
-    return deviceName == DeviceCatalog.tGlassesP4Name
-        ? Symbols.developer_board
-        : Symbols.developer_board_rounded;
+    return deviceName == DeviceCatalog.tGlassesP4Name ||
+            deviceName == 'T-Display-P4'
+        ? Symbols.wifi
+        : Symbols.link;
   }
 
   /// 根据设备名称返回对应页面。
@@ -38,6 +39,7 @@ class DevicePresentationCatalog {
         : GenericDevicePageContent(
             key: ValueKey<String>(deviceName),
             deviceName: deviceName,
+            icon: iconFor(deviceName),
           );
   }
 

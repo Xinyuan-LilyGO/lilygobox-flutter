@@ -2,7 +2,7 @@
  * @Description: 管理设备发现、去重、连接、超时及离开页面后的取消行为。
  * @Author: LILYGO_L
  * @Date: 2026-10-02 13:35:30
- * @LastEditTime: 2026-10-02 13:35:30
+ * @LastEditTime: 2026-10-06 14:21:20
  * @License: GPL 3.0
  */
 
@@ -26,11 +26,13 @@ enum DiscoveryPhase {
 class DiscoveryController extends ChangeNotifier {
   DiscoveryController({
     required this.service,
+    this.includeDevice,
     this.searchTimeout = const Duration(seconds: 12),
     this.connectionTimeout = const Duration(seconds: 20),
   });
 
   final DeviceDiscoveryService service;
+  final bool Function(DiscoveredDevice device)? includeDevice;
   final Duration searchTimeout;
   final Duration connectionTimeout;
   final Map<String, DiscoveredDevice> _devices = {};
@@ -47,6 +49,23 @@ class DiscoveryController extends ChangeNotifier {
   List<DiscoveredDevice> get devices => List.unmodifiable(_devices.values);
   bool get isSearching => phase == DiscoveryPhase.searching;
   bool _isCurrent(int generation) => !_disposed && generation == _generation;
+
+  /// 已添加列表变化时同步发现结果，不干扰正在连接或已完成的确认页面。
+  void refreshDevices() {
+    if (_disposed ||
+        (phase != DiscoveryPhase.searching &&
+            phase != DiscoveryPhase.found &&
+            phase != DiscoveryPhase.empty)) {
+      return;
+    }
+    final previousCount = _devices.length;
+    _devices.removeWhere((_, device) => includeDevice?.call(device) == false);
+    if (previousCount == _devices.length) return;
+    if (phase == DiscoveryPhase.found && _devices.isEmpty) {
+      phase = DiscoveryPhase.empty;
+    }
+    notifyListeners();
+  }
 
   // 串行清理旧任务，防止快速重试时旧连接的取消影响新连接。
   Future<void> _stopOperations() {
@@ -90,6 +109,7 @@ class DiscoveryController extends ChangeNotifier {
         (device) {
           if (!_isCurrent(generation) || !isSearching) return;
           if (device.id.isEmpty || device.name.isEmpty) return;
+          if (includeDevice?.call(device) == false) return;
           _devices[device.id] = device;
           notifyListeners();
         },
@@ -127,7 +147,10 @@ class DiscoveryController extends ChangeNotifier {
         phase == DiscoveryPhase.connected) {
       return;
     }
-    if (!_devices.containsKey(device.id)) return;
+    if (!_devices.containsKey(device.id) ||
+        includeDevice?.call(device) == false) {
+      return;
+    }
     final generation = ++_generation;
     final cleanup = _stopOperations();
     selectedDevice = device;
@@ -173,6 +196,13 @@ class DiscoveryController extends ChangeNotifier {
   }
 
   Future<void> cancelConnection() => search();
+
+  // 连接服务独立于页面；页面可见期间仍需反映已建立会话的断开。
+  void reportConnectionLost() {
+    if (_disposed || phase != DiscoveryPhase.connected) return;
+    phase = DiscoveryPhase.connectionFailed;
+    notifyListeners();
+  }
 
   @override
   void dispose() {

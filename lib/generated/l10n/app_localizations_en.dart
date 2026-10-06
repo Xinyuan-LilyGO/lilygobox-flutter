@@ -179,11 +179,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'Add your first device\nand bring it into LilygoBox.';
 
   @override
-  String get homeDevicesReady => 'Your devices are ready';
+  String get homeDeviceSearch => 'Search by name or model';
 
   @override
-  String get homeDevicesReadyDescription =>
-      'Open a device from the sidebar,\nor add another device.';
+  String get homeClearSearch => 'Clear search';
+
+  @override
+  String get homeDeviceOnline => 'Online';
+
+  @override
+  String get homeDeviceOffline => 'Offline';
+
+  @override
+  String get homeDeviceConnecting => 'Connecting…';
+
+  @override
+  String get homeDevicesNoResults => 'No matching devices';
 
   @override
   String get back => 'Back';
@@ -193,7 +204,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get discoveryDescription =>
-      'Turn on your device. LilygoBox will find available devices automatically.';
+      'On your device, open More Connections > LilygoBox App Connection and select Add connection.';
 
   @override
   String get discoveredDevices => 'Discovered devices';
@@ -229,7 +240,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceConnecting => 'Connecting to your device…';
 
   @override
-  String get keepDeviceOn => 'Keep your device turned on';
+  String get keepDeviceOn => 'Please allow the connection on your device';
 
   @override
   String get deviceConnected => 'Device connected';
@@ -239,7 +250,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceConnectionFailedDescription =>
-      'Make sure your device is still on and ready to connect, then try again.';
+      'The connection was not confirmed or the device is offline. Select Add connection on the device and try again.';
 
   @override
   String get retryConnection => 'Try again';
@@ -255,23 +266,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceConnectionHelpDescription =>
-      'Make sure your device is on and ready to connect.\nFollow any permission or confirmation prompts on your devices.';
+      'Connect both devices to the same local network. On the device, open Settings > More Connections > LilygoBox App Connection > Add connection.\nWhen prompted, allow the connection on the device. If nothing is found, check Windows Firewall and router client isolation.';
 
   @override
   String get tapToConnect => 'Select to connect';
-
-  @override
-  String get statePreview => 'State preview';
-
-  @override
-  String get exitStatePreview => 'Exit preview';
-
-  @override
-  String get statePreviewActive => 'Preview mode · Simulated data';
-
-  @override
-  String get statePreviewNoDevice =>
-      'This preview does not add devices or open a real device page.';
 
   @override
   String get resizeSettingsSidebar => 'Resize settings sidebar';
@@ -427,4 +425,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get trayExit => 'Exit';
+
+  @override
+  String get lanOffline => 'Not connected';
+
+  @override
+  String get lanModel => 'Model';
+
+  @override
+  String get lanMacAddress => 'MAC address';
+
+  @override
+  String get lanDeviceId => 'Device ID';
+
+  @override
+  String get lanAddress => 'IP address';
+
+  @override
+  String get lanFirmware => 'Firmware';
+
+  @override
+  String get lanUptime => 'Device uptime';
+
+  @override
+  String get lanDisconnect => 'Disconnect';
+
+  @override
+  String get lanConnectedDescription =>
+      'The device has confirmed this connection. Device information is refreshed automatically.';
+
+  @override
+  String get lanConfirmOnDevice =>
+      'Please allow the connection on your device.';
+
+  @override
+  String get lanReconnectDescription =>
+      'On the device, open Settings > More Connections > LilygoBox App Connection and select Add connection, then retry. If its address changed, search again.';
 }

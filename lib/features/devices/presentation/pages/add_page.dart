@@ -2,13 +2,12 @@
  * @Description: 在主页内容区自动发现设备，展示连接反馈、重试和连接帮助。
  * @Author: LILYGO_L
  * @Date: 2025-11-05 09:52:14
- * @LastEditTime: 2026-10-03 20:29:43
+ * @LastEditTime: 2026-10-06 14:21:20
  * @License: GPL 3.0
  */
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -22,77 +21,85 @@ import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
+import '../../data/lan_discovery.dart';
 import '../../domain/discovery_service.dart';
 import '../../state/discovery_controller.dart';
+import '../../state/lan_connection.dart';
 import '../../state/manager_provider.dart';
-import '../debug/discovery_preview_controller.dart';
-import '../debug/discovery_preview_menu.dart';
 
 class AddDevicePage extends StatefulWidget {
-  const AddDevicePage({
-    super.key,
-    this.discoveryService = const UnavailableDeviceDiscoveryService(),
-  });
+  const AddDevicePage({super.key, this.discoveryService});
 
-  final DeviceDiscoveryService discoveryService;
+  final DeviceDiscoveryService? discoveryService;
 
   @override
   State<AddDevicePage> createState() => _AddDevicePageState();
 }
 
 class _AddDevicePageState extends State<AddDevicePage> {
-  late DiscoveryController _discovery;
-  bool get _isPreview => kDebugMode && _discovery is DiscoveryPreviewController;
+  late final DiscoveryController _discovery;
+  late final DeviceDiscoveryService _service;
+  late final DeviceManagerProvider? _deviceManager;
   bool _showHelp = false;
 
   @override
   void initState() {
     super.initState();
-    _discovery = DiscoveryController(service: widget.discoveryService);
+    _service =
+        widget.discoveryService ??
+        context.read<LanConnection?>() ??
+        const UnavailableDeviceDiscoveryService();
+    _deviceManager = context.read<DeviceManagerProvider?>();
+    _discovery = _createDiscovery();
+    _deviceManager?.addListener(_discovery.refreshDevices);
+    if (_service is LanConnection) {
+      _service.addListener(_sessionChanged);
+    }
     unawaited(_discovery.search());
   }
 
   @override
   void dispose() {
+    _deviceManager?.removeListener(_discovery.refreshDevices);
+    if (_service is LanConnection) {
+      _service.removeListener(_sessionChanged);
+    }
     _discovery.dispose();
     super.dispose();
   }
 
   void _goBack() => context.read<AppNavigationProvider>().goHome();
 
-  void _setPreview(DiscoveryPhase? phase) {
-    if (!kDebugMode) return;
-    setState(() {
-      _showHelp = false;
-      if (phase == null) {
-        _discovery.dispose();
-        _discovery = DiscoveryController(service: widget.discoveryService);
-        unawaited(_discovery.search());
-      } else {
-        if (!_isPreview) {
-          _discovery.dispose();
-          _discovery = DiscoveryPreviewController();
-        }
-        (_discovery as DiscoveryPreviewController).showPhase(phase);
-      }
-    });
+  DiscoveryController _createDiscovery() => DiscoveryController(
+    service: _service,
+    // 使用持久化设备 ID 排除已添加项，离线或名称/IP 变化不影响判断。
+    includeDevice: (device) =>
+        !(_deviceManager?.addedDevices.contains(device.id) ?? false),
+    connectionTimeout: _service is LanConnection
+        ? const Duration(seconds: 65)
+        : const Duration(seconds: 20),
+  );
+
+  void _sessionChanged() {
+    final session = _service as LanConnection;
+    if (_discovery.phase == DiscoveryPhase.connected && !session.connected) {
+      _discovery.reportConnectionLost();
+    }
   }
 
   void _openDevice() {
-    if (_isPreview) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.statePreviewNoDevice)),
-      );
-      return;
-    }
     final device = _discovery.selectedDevice;
     if (device == null || _discovery.phase != DiscoveryPhase.connected) return;
     final manager = context.read<DeviceManagerProvider>();
-    if (!manager.addedDevices.contains(device.name)) {
+    final key = device is LanDevice ? device.id : device.name;
+    if (device is LanDevice) {
+      if (_service is LanConnection && !_service.connected) return;
+      manager.addLanDevice(device);
+    } else if (!manager.addedDevices.contains(device.name)) {
       manager.addDevice(device.name);
     }
     context.read<AppShellProvider>().updateSelectedIndex(
-      manager.addedDevices.indexOf(device.name) + 1,
+      manager.addedDevices.indexOf(key) + 1,
     );
     context.read<AppNavigationProvider>().goHome();
   }
@@ -154,21 +161,6 @@ class _AddDevicePageState extends State<AddDevicePage> {
                                 ),
                               ),
                             ),
-                            if (kDebugMode) ...[
-                              const SizedBox(width: 8),
-                              ListenableBuilder(
-                                listenable: _discovery,
-                                builder: (context, child) =>
-                                    DiscoveryPreviewMenu(
-                                      theme: theme,
-                                      compact: constraints.maxWidth < 520,
-                                      selectedPhase: _isPreview
-                                          ? _discovery.phase
-                                          : null,
-                                      onSelected: _setPreview,
-                                    ),
-                              ),
-                            ],
                           ],
                         ),
                       ),
@@ -220,6 +212,7 @@ class _AddDevicePageState extends State<AddDevicePage> {
   Widget _buildContent(AppTheme theme) {
     final l10n = context.l10n;
     final phase = _discovery.phase;
+    final selected = _discovery.selectedDevice;
     final (title, description) = switch (phase) {
       DiscoveryPhase.empty => (
         l10n.discoveryEmpty,
@@ -253,14 +246,6 @@ class _AddDevicePageState extends State<AddDevicePage> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (_isPreview) ...[
-          Text(
-            l10n.statePreviewActive,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: theme.textColorTertiary),
-          ),
-          const SizedBox(height: 12),
-        ],
         if (phase == DiscoveryPhase.connected) ...[
           Icon(
             Symbols.check_circle_rounded,
@@ -291,6 +276,17 @@ class _AddDevicePageState extends State<AddDevicePage> {
             color: theme.textColorTertiary,
           ),
         ),
+        if (selected is LanDevice &&
+            (phase == DiscoveryPhase.connecting ||
+                phase == DiscoveryPhase.connected ||
+                phase == DiscoveryPhase.connectionFailed)) ...[
+          const SizedBox(height: 4),
+          Text(
+            'MAC ${selected.macAddress}',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: theme.textColorTertiary),
+          ),
+        ],
         const SizedBox(height: 28),
         if (showDevices) ...[
           Align(
@@ -414,11 +410,7 @@ class _AddDevicePageState extends State<AddDevicePage> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              Icon(
-                Symbols.developer_board_rounded,
-                size: 26,
-                color: theme.baseTertiary,
-              ),
+              Icon(Symbols.wifi, size: 26, color: theme.baseTertiary),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -434,7 +426,9 @@ class _AddDevicePageState extends State<AddDevicePage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      context.l10n.tapToConnect,
+                      device is LanDevice
+                          ? 'MAC ${device.macAddress}'
+                          : context.l10n.tapToConnect,
                       style: TextStyle(
                         fontSize: 13,
                         color: theme.textColorTertiary,

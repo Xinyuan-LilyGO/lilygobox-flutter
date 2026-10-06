@@ -44,7 +44,7 @@ flutter build apk --release --dart-define=GITHUB_CLIENT_ID=YOUR_CLIENT_ID
 - 软件重新启动时通过 `/user` 验证保存的凭证。断网时保留凭证并提供重新验证入口，不伪造验证成功。
 - 退出登录清除本机凭证，不会删除 GitHub 账号或本地设备，也不会撤销 GitHub 上的授权。撤销授权：<https://github.com/settings/applications> → Authorized OAuth Apps。
 - 当前不自动刷新过期访问令牌；过期或被撤销后需要重新授权。未申请 `offline_access`，不保存刷新令牌。
-- 数据仍然保存在本机，没有新增云端设备同步或独立的 LilygoBox 服务端账号。
+- 数据保存在用户设备上，当前不提供云端设备同步或独立的 LilygoBox 服务端账号。
 
 ## 验证与限制
 
@@ -52,6 +52,6 @@ flutter build apk --release --dart-define=GITHUB_CLIENT_ID=YOUR_CLIENT_ID
 
 Android 已在主 Manifest 添加联网权限并关闭自动备份，避免安全凭证备份恢复后无法解密。Web、iOS、macOS 和 Linux 登录暂未启用。
 
-免费不等于不限量。GitHub Device Flow 有轮询间隔限制，官方还列出了每应用每小时验证码提交次数限制（查阅时为 50 次）；大规模公开发行前需要重新评估此流程，不能把它当成支持数千万用户的无限免费认证服务。
+GitHub Device Flow 受轮询间隔和验证码提交频率限制。部署前请查阅官方文档中的最新限制，并根据预计用户规模评估适用性。
 
 参考：<https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow>。

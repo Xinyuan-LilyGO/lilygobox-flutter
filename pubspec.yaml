@@ -21,6 +21,7 @@ dependencies:
   flutter_svg: ^2.2.3
   vector_graphics: ^1.1.19
   http: ^1.6.0
+  crypto: ^3.0.7
   flutter_secure_storage: ^10.3.4
   url_launcher: ^6.3.2
   shared_preferences: ^2.5.5

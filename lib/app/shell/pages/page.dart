@@ -1,8 +1,8 @@
 /*
- * @Description: 构建品牌侧栏、设备导航、账号入口和当前页面内容。
+ * @Description: 构建品牌侧栏、主页设备入口、账号入口和保留状态的内容页。
  * @Author: LILYGO_L
  * @Date: 2025-11-06 14:22:51
- * @LastEditTime: 2026-10-03 20:29:43
+ * @LastEditTime: 2026-10-06 14:02:45
  * @License: GPL 3.0
  */
 
@@ -18,6 +18,8 @@ import '../../../core/theme/provider.dart';
 import '../../../core/widgets/retained_page_stack.dart';
 import '../../../features/devices/presentation/catalog.dart';
 import '../../../features/devices/presentation/pages/add_page.dart';
+import '../../../features/devices/presentation/pages/connected_page.dart';
+import '../../../features/devices/presentation/widgets/device_page_frame.dart';
 import '../../../features/devices/state/manager_provider.dart';
 import '../../navigation/provider.dart';
 import '../state/provider.dart';
@@ -28,7 +30,7 @@ import 'home_page_content.dart';
 
 /// 应用主外壳。
 ///
-/// 左侧是全局设备导航，右侧根据选中项显示主页或具体设备页面。
+/// 左侧保留全局导航，设备从主页卡片进入独立详情页。
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -57,9 +59,7 @@ class _AppShellState extends State<AppShell> {
     return ResizableSidebar(
       sidebar: _buildLeftSidebar(
         context,
-        deviceManager.addedDevices,
-        addingDevice ? 0 : selectedIndex,
-        addingDevice: addingDevice,
+        isOverview: !addingDevice && selectedIndex == 0,
       ),
       content: Container(
         decoration: BoxDecoration(
@@ -76,7 +76,16 @@ class _AppShellState extends State<AppShell> {
           pages: {
             AppPage.home: const HomePageContent(),
             for (final name in deviceManager.addedDevices)
-              name: DevicePresentationCatalog.pageFor(name),
+              name: DevicePageFrame(
+                active:
+                    !addingDevice &&
+                    selectedIndex ==
+                        deviceManager.addedDevices.indexOf(name) + 1,
+                onBack: () => _selectItem(0),
+                child: deviceManager.lanDevice(name) != null
+                    ? ConnectedDevicePage(deviceId: name)
+                    : DevicePresentationCatalog.pageFor(name),
+              ),
             if (addingDevice) AppPage.addDevice: const AddDevicePage(),
           },
         ),
@@ -84,12 +93,7 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  Widget _buildLeftSidebar(
-    BuildContext context,
-    List<String> addedDevices,
-    int selectedIndex, {
-    required bool addingDevice,
-  }) {
+  Widget _buildLeftSidebar(BuildContext context, {required bool isOverview}) {
     final theme = context.read<ThemeProvider>().themeData;
 
     return ColoredBox(
@@ -140,26 +144,10 @@ class _AppShellState extends State<AppShell> {
             iconColor: theme.textColorSecondary,
             label: context.l10n.sidebarHome,
             onPressed: () => _selectItem(0),
-            isSelected: selectedIndex == 0,
-            disableWhenSelected: !addingDevice,
+            isSelected: true,
+            disableWhenSelected: isOverview,
           ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: ListView.builder(
-              padding: EdgeInsets.zero,
-              itemCount: addedDevices.length,
-              itemBuilder: (context, index) {
-                final deviceIndex = index + 1;
-                final deviceName = addedDevices[index];
-                return SidebarNavigationItem(
-                  icon: DevicePresentationCatalog.iconFor(deviceName),
-                  label: deviceName,
-                  onPressed: () => _selectItem(deviceIndex),
-                  isSelected: selectedIndex == deviceIndex,
-                );
-              },
-            ),
-          ),
+          const Spacer(),
           const SidebarAccountButton(),
         ],
       ),

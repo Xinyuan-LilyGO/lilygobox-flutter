@@ -2,7 +2,7 @@
  * @Description: 集中创建并注入应用级状态管理对象。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-03 20:29:43
+ * @LastEditTime: 2026-10-06 09:16:32
  * @License: GPL 3.0
  */
 
@@ -18,6 +18,8 @@ import '../core/storage/preferences.dart';
 import '../core/theme/provider.dart';
 import '../core/window/provider.dart';
 import '../features/account/state/provider.dart';
+import '../features/devices/data/pairing_store.dart';
+import '../features/devices/state/lan_connection.dart';
 import '../features/devices/state/manager_provider.dart';
 import 'navigation/provider.dart';
 import 'shell/state/provider.dart';
@@ -99,6 +101,26 @@ class _AppProvidersState extends State<AppProviders>
         ),
         ChangeNotifierProvider(
           create: (_) => DeviceManagerProvider(preferences: widget.preferences),
+        ),
+        ChangeNotifierProvider(
+          create: (context) {
+            final devices = context.read<DeviceManagerProvider>();
+            final connection = LanConnection(
+              pairingStore: SecureDevicePairingStore(),
+            );
+            unawaited(
+              connection.restorePairings(
+                devices.addedDevices.map(devices.lanDevice).whereType(),
+              ),
+            );
+            connection.addListener(() {
+              if (connection.connected && connection.device != null) {
+                devices.addLanDevice(connection.device!);
+              }
+            });
+            return connection;
+          },
+          lazy: false,
         ),
         ChangeNotifierProvider(
           lazy: false,

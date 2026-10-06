@@ -2,7 +2,7 @@
  * @Description: 验证设置覆盖页的返回路径、连接页面保留及隐藏页面资源释放。
  * @Author: LILYGO_L
  * @Date: 2026-10-03 20:29:43
- * @LastEditTime: 2026-10-03 20:29:43
+ * @LastEditTime: 2026-10-04 20:58:06
  * @License: GPL 3.0
  */
 
@@ -17,7 +17,9 @@ import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/widgets/retained_page_stack.dart';
 import 'package:lilygobox/core/widgets/title_bar_icon_button.dart';
 import 'package:lilygobox/features/account/state/provider.dart';
+import 'package:lilygobox/features/devices/domain/discovery_service.dart';
 import 'package:lilygobox/features/devices/presentation/pages/add_page.dart';
+import 'package:lilygobox/features/devices/state/lan_connection.dart';
 import 'package:lilygobox/features/devices/state/manager_provider.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
@@ -26,6 +28,19 @@ import '../../features/account/authorization_test.dart'
     show FakeApi, MemoryStore;
 import '../../features/devices/discovery_test.dart'
     show TestDiscoveryService, device;
+
+class _TestLanConnection extends LanConnection {
+  final service = TestDiscoveryService();
+
+  @override
+  Stream<DiscoveredDevice> discover() => service.discover();
+
+  @override
+  Future<bool> connect(DiscoveredDevice device) => service.connect(device);
+
+  @override
+  Future<void> cancelConnection() => service.cancelConnection();
+}
 
 void main() {
   test(
@@ -50,7 +65,7 @@ void main() {
     },
   );
 
-  testWidgets('settings preserves the add page and its preview state', (
+  testWidgets('settings preserves the add page and its pending connection', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1150, 800));
@@ -61,6 +76,7 @@ void main() {
     final devices = DeviceManagerProvider();
     final split = SplitViewProvider();
     final language = LanguageProvider();
+    final connection = _TestLanConnection();
     final account = AccountProvider(
       clientId: 'test',
       api: FakeApi(),
@@ -74,6 +90,7 @@ void main() {
       split,
       language,
       account,
+      connection,
     ]) {
       addTearDown(provider.dispose);
     }
@@ -87,6 +104,7 @@ void main() {
           ChangeNotifierProvider.value(value: split),
           ChangeNotifierProvider.value(value: language),
           ChangeNotifierProvider.value(value: account),
+          ChangeNotifierProvider<LanConnection>.value(value: connection),
         ],
         child: MaterialApp(
           locale: const Locale('zh'),
@@ -102,9 +120,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     final originalState = tester.state(find.byType(AddDevicePage));
-    await tester.tap(find.byKey(const ValueKey('discovery-preview-menu')));
+    connection.service.scans.single.add(device);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('preview-connecting')));
+    await tester.tap(find.text('T-Display-P4'));
     await tester.pumpAndSettle();
     expect(find.text('取消连接'), findsOneWidget);
     navigation.setPage(AppPage.settings);

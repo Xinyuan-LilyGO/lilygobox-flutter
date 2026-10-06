@@ -2,17 +2,24 @@
  * @Description: 为尚未适配专属界面的设备提供通用占位页面。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-10-06 14:02:45
  * @License: GPL 3.0
  */
 
 import 'package:flutter/material.dart';
 
+import 'package:material_symbols_icons/symbols.dart';
+
 // 通用板子页面内容（用于其他板子类型）
 class GenericDevicePageContent extends StatelessWidget {
   final String deviceName;
+  final IconData icon;
 
-  const GenericDevicePageContent({super.key, required this.deviceName});
+  const GenericDevicePageContent({
+    super.key,
+    required this.deviceName,
+    this.icon = Symbols.link,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +27,7 @@ class GenericDevicePageContent extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.developer_board, size: 64, color: Colors.grey),
+          Icon(icon, size: 64, color: Colors.grey),
           const SizedBox(height: 16),
           Text(
             '$deviceName 页面',

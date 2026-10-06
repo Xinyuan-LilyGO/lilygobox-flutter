@@ -414,17 +414,41 @@ abstract class AppLocalizations {
   /// **'Add your first device\nand bring it into LilygoBox.'**
   String get homeDevicesEmptyDescription;
 
-  /// No description provided for @homeDevicesReady.
+  /// No description provided for @homeDeviceSearch.
   ///
   /// In en, this message translates to:
-  /// **'Your devices are ready'**
-  String get homeDevicesReady;
+  /// **'Search by name or model'**
+  String get homeDeviceSearch;
 
-  /// No description provided for @homeDevicesReadyDescription.
+  /// No description provided for @homeClearSearch.
   ///
   /// In en, this message translates to:
-  /// **'Open a device from the sidebar,\nor add another device.'**
-  String get homeDevicesReadyDescription;
+  /// **'Clear search'**
+  String get homeClearSearch;
+
+  /// No description provided for @homeDeviceOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'Online'**
+  String get homeDeviceOnline;
+
+  /// No description provided for @homeDeviceOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline'**
+  String get homeDeviceOffline;
+
+  /// No description provided for @homeDeviceConnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting…'**
+  String get homeDeviceConnecting;
+
+  /// No description provided for @homeDevicesNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching devices'**
+  String get homeDevicesNoResults;
 
   /// No description provided for @back.
   ///
@@ -441,7 +465,7 @@ abstract class AppLocalizations {
   /// No description provided for @discoveryDescription.
   ///
   /// In en, this message translates to:
-  /// **'Turn on your device. LilygoBox will find available devices automatically.'**
+  /// **'On your device, open More Connections > LilygoBox App Connection and select Add connection.'**
   String get discoveryDescription;
 
   /// No description provided for @discoveredDevices.
@@ -507,7 +531,7 @@ abstract class AppLocalizations {
   /// No description provided for @keepDeviceOn.
   ///
   /// In en, this message translates to:
-  /// **'Keep your device turned on'**
+  /// **'Please allow the connection on your device'**
   String get keepDeviceOn;
 
   /// No description provided for @deviceConnected.
@@ -525,7 +549,7 @@ abstract class AppLocalizations {
   /// No description provided for @deviceConnectionFailedDescription.
   ///
   /// In en, this message translates to:
-  /// **'Make sure your device is still on and ready to connect, then try again.'**
+  /// **'The connection was not confirmed or the device is offline. Select Add connection on the device and try again.'**
   String get deviceConnectionFailedDescription;
 
   /// No description provided for @retryConnection.
@@ -555,7 +579,7 @@ abstract class AppLocalizations {
   /// No description provided for @deviceConnectionHelpDescription.
   ///
   /// In en, this message translates to:
-  /// **'Make sure your device is on and ready to connect.\nFollow any permission or confirmation prompts on your devices.'**
+  /// **'Connect both devices to the same local network. On the device, open Settings > More Connections > LilygoBox App Connection > Add connection.\nWhen prompted, allow the connection on the device. If nothing is found, check Windows Firewall and router client isolation.'**
   String get deviceConnectionHelpDescription;
 
   /// No description provided for @tapToConnect.
@@ -563,30 +587,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select to connect'**
   String get tapToConnect;
-
-  /// No description provided for @statePreview.
-  ///
-  /// In en, this message translates to:
-  /// **'State preview'**
-  String get statePreview;
-
-  /// No description provided for @exitStatePreview.
-  ///
-  /// In en, this message translates to:
-  /// **'Exit preview'**
-  String get exitStatePreview;
-
-  /// No description provided for @statePreviewActive.
-  ///
-  /// In en, this message translates to:
-  /// **'Preview mode · Simulated data'**
-  String get statePreviewActive;
-
-  /// No description provided for @statePreviewNoDevice.
-  ///
-  /// In en, this message translates to:
-  /// **'This preview does not add devices or open a real device page.'**
-  String get statePreviewNoDevice;
 
   /// No description provided for @resizeSettingsSidebar.
   ///
@@ -857,6 +857,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Exit'**
   String get trayExit;
+
+  /// No description provided for @lanOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Not connected'**
+  String get lanOffline;
+
+  /// No description provided for @lanModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Model'**
+  String get lanModel;
+
+  /// No description provided for @lanMacAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'MAC address'**
+  String get lanMacAddress;
+
+  /// No description provided for @lanDeviceId.
+  ///
+  /// In en, this message translates to:
+  /// **'Device ID'**
+  String get lanDeviceId;
+
+  /// No description provided for @lanAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'IP address'**
+  String get lanAddress;
+
+  /// No description provided for @lanFirmware.
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware'**
+  String get lanFirmware;
+
+  /// No description provided for @lanUptime.
+  ///
+  /// In en, this message translates to:
+  /// **'Device uptime'**
+  String get lanUptime;
+
+  /// No description provided for @lanDisconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect'**
+  String get lanDisconnect;
+
+  /// No description provided for @lanConnectedDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The device has confirmed this connection. Device information is refreshed automatically.'**
+  String get lanConnectedDescription;
+
+  /// No description provided for @lanConfirmOnDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Please allow the connection on your device.'**
+  String get lanConfirmOnDevice;
+
+  /// No description provided for @lanReconnectDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'On the device, open Settings > More Connections > LilygoBox App Connection and select Add connection, then retry. If its address changed, search again.'**
+  String get lanReconnectDescription;
 }
 
 class _AppLocalizationsDelegate

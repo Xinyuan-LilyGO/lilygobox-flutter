@@ -1,10 +1,12 @@
 /*
- * @Description: 展示单页设备首页、默认空状态和添加设备入口。
+ * @Description: 展示主页设备卡片、名称搜索、默认空状态与悬浮添加入口。
  * @Author: LILYGO_L
  * @Date: 2025-11-07 11:23:45
- * @LastEditTime: 2026-10-03 18:10:36
+ * @LastEditTime: 2026-10-06 14:24:23
  * @License: GPL 3.0
  */
+
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -13,127 +15,342 @@ import 'package:provider/provider.dart';
 import '../../../core/l10n/language_provider.dart';
 import '../../../core/theme/provider.dart';
 import '../../../core/widgets/action_button.dart';
+import '../../../core/widgets/app_tooltip.dart';
+import '../../../features/devices/presentation/widgets/home_device_card.dart';
+import '../../../features/devices/state/lan_connection.dart';
 import '../../../features/devices/state/manager_provider.dart';
 import '../../navigation/provider.dart';
+import '../state/provider.dart';
 import '../widgets/home_device_illustration.dart';
 
-class HomePageContent extends StatelessWidget {
+class HomePageContent extends StatefulWidget {
   const HomePageContent({super.key});
+
+  @override
+  State<HomePageContent> createState() => _HomePageContentState();
+}
+
+class _HomePageContentState extends State<HomePageContent> {
+  final _search = TextEditingController();
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _addDevice() =>
+      context.read<AppNavigationProvider>().setPage(AppPage.addDevice);
+
+  void _openDevice(String id) {
+    final index = context.read<DeviceManagerProvider>().addedDevices.indexOf(
+      id,
+    );
+    if (index < 0) return;
+    context.read<AppShellProvider>().updateSelectedIndex(index + 1);
+    context.read<AppNavigationProvider>().goHome();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeProvider>().themeData;
-    final hasDevices = context.select<DeviceManagerProvider, bool>(
-      (devices) => devices.addedDevices.isNotEmpty,
-    );
+    final devices = context.watch<DeviceManagerProvider>();
+    final session = context.watch<LanConnection?>();
+    final hasDevices = devices.addedDevices.isNotEmpty;
     final l10n = context.l10n;
+    bool isConnected(String id) =>
+        session?.device?.id == id && session?.connected == true;
+    final query = _search.text.trim().toLowerCase();
+    final visible = devices.addedDevices.where((id) {
+      final matches =
+          '${devices.displayName(id)} ${devices.lanDevice(id)?.model ?? id} $id ${devices.lanDevice(id)?.macAddress ?? ''}'
+              .toLowerCase()
+              .contains(query);
+      return matches;
+    }).toList();
+
     return ClipRRect(
       borderRadius: const BorderRadius.only(topLeft: Radius.circular(10)),
       child: ColoredBox(
         color: theme.secondary,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final compact = constraints.maxWidth < 520;
-            final inset = compact ? 20.0 : 32.0;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            final inset = constraints.maxWidth < 520 ? 20.0 : 32.0;
+            return Stack(
               children: [
-                SizedBox(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(inset, 24, inset, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.home,
-                          style: TextStyle(
-                            fontSize: 23,
-                            fontWeight: FontWeight.w700,
-                            color: theme.textColorPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          l10n.homeDevicesSubtitle,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: theme.textColorTertiary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, bodyConstraints) =>
-                        SingleChildScrollView(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minHeight: bodyConstraints.maxHeight,
-                            ),
-                            child: Padding(
-                              padding: EdgeInsets.fromLTRB(
-                                inset,
-                                24,
-                                inset,
-                                // 补偿顶部标题高度，使主体相对整个内容页居中。
-                                24 +
-                                    constraints.maxHeight -
-                                    bodyConstraints.maxHeight,
+                CustomScrollView(
+                  key: const PageStorageKey('home-devices-scroll'),
+                  slivers: [
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(inset, 24, inset, 20),
+                      sliver: SliverToBoxAdapter(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l10n.home,
+                              style: TextStyle(
+                                fontSize: 23,
+                                fontWeight: FontWeight.w700,
+                                color: theme.textColorPrimary,
                               ),
-                              child: Center(
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 380,
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      HomeDeviceIllustration(theme: theme),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        hasDevices
-                                            ? l10n.homeDevicesReady
-                                            : l10n.homeDevicesEmpty,
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.w600,
-                                          color: theme.textColorPrimary,
-                                        ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              l10n.homeDevicesSubtitle,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: theme.textColorTertiary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (!hasDevices)
+                      SliverToBoxAdapter(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: math.max(0, constraints.maxHeight - 90),
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.fromLTRB(inset, 24, inset, 110),
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 380,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    HomeDeviceIllustration(theme: theme),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      l10n.homeDevicesEmpty,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w600,
+                                        color: theme.textColorPrimary,
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        hasDevices
-                                            ? l10n.homeDevicesReadyDescription
-                                            : l10n.homeDevicesEmptyDescription,
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          height: 1.35,
-                                          color: theme.textColorTertiary,
-                                        ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      l10n.homeDevicesEmptyDescription,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        height: 1.35,
+                                        color: theme.textColorTertiary,
                                       ),
-                                      const SizedBox(height: 26),
-                                      AppActionButton(
-                                        theme: theme,
-                                        label: l10n.addDevice,
-                                        icon: Symbols.add_rounded,
-                                        primary: true,
-                                        onPressed: () => context
-                                            .read<AppNavigationProvider>()
-                                            .setPage(AppPage.addDevice),
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                    const SizedBox(height: 26),
+                                    AppActionButton(
+                                      theme: theme,
+                                      label: l10n.addDevice,
+                                      icon: Symbols.add_rounded,
+                                      primary: true,
+                                      onPressed: _addDevice,
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
                           ),
                         ),
-                  ),
+                      )
+                    else ...[
+                      SliverPadding(
+                        padding: EdgeInsets.symmetric(horizontal: inset),
+                        sliver: SliverToBoxAdapter(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 320,
+                                ),
+                                child: TextField(
+                                  controller: _search,
+                                  onChanged: (_) => setState(() {}),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: theme.textColorPrimary,
+                                  ),
+                                  cursorColor: theme.basePrimary,
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    hintText: l10n.homeDeviceSearch,
+                                    hintStyle: TextStyle(
+                                      color: theme.textColorTertiary,
+                                    ),
+                                    filled: true,
+                                    fillColor: theme.primary,
+                                    prefixIcon: Icon(
+                                      Symbols.search,
+                                      size: 18,
+                                      color: theme.textColorTertiary,
+                                    ),
+                                    prefixIconConstraints: const BoxConstraints(
+                                      minWidth: 36,
+                                      minHeight: 36,
+                                    ),
+                                    suffixIconConstraints: const BoxConstraints(
+                                      minWidth: 36,
+                                      minHeight: 36,
+                                    ),
+                                    suffixIcon: _search.text.isEmpty
+                                        ? null
+                                        : IconButton(
+                                            constraints:
+                                                const BoxConstraints.tightFor(
+                                                  width: 36,
+                                                  height: 36,
+                                                ),
+                                            padding: const EdgeInsets.all(8),
+                                            tooltip: l10n.homeClearSearch,
+                                            onPressed: () =>
+                                                setState(_search.clear),
+                                            icon: Icon(
+                                              Symbols.close,
+                                              size: 16,
+                                              color: theme.textColorSecondary,
+                                            ),
+                                          ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: BorderSide(
+                                        color: theme.basePrimary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (visible.isEmpty)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Padding(
+                            padding: EdgeInsets.fromLTRB(inset, 28, inset, 104),
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    l10n.homeDevicesNoResults,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: theme.textColorSecondary,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  AppActionButton(
+                                    theme: theme,
+                                    label: l10n.homeClearSearch,
+                                    onPressed: () => setState(_search.clear),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(inset, 0, inset, 104),
+                          sliver: SliverToBoxAdapter(
+                            child: LayoutBuilder(
+                              builder: (context, grid) {
+                                final scale =
+                                    MediaQuery.textScalerOf(context).scale(14) /
+                                    14;
+                                final columns = math.max(
+                                  1,
+                                  ((grid.maxWidth + 16) /
+                                          (240 * math.max(1.0, scale) + 16))
+                                      .floor(),
+                                );
+                                final cardWidth = math.min(
+                                  320.0 * math.max(1.0, scale),
+                                  (grid.maxWidth - (columns - 1) * 16) /
+                                      columns,
+                                );
+                                return Wrap(
+                                  spacing: 16,
+                                  runSpacing: 16,
+                                  children: [
+                                    for (final id in visible)
+                                      SizedBox(
+                                        width: cardWidth,
+                                        child: HomeDeviceCard(
+                                          key: ValueKey('home-device-$id'),
+                                          name: devices.displayName(id),
+                                          model:
+                                              devices.lanDevice(id)?.model ??
+                                              id,
+                                          connected: isConnected(id),
+                                          macAddress: devices
+                                              .lanDevice(id)
+                                              ?.macAddress,
+                                          usesWifi:
+                                              devices.lanDevice(id) != null,
+                                          connecting:
+                                              session?.device?.id == id &&
+                                              session?.busy == true,
+                                          onPressed: () => _openDevice(id),
+                                        ),
+                                      ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                    ],
+                  ],
                 ),
+                if (hasDevices)
+                  Positioned(
+                    right: inset,
+                    bottom: 24,
+                    child: SafeArea(
+                      top: false,
+                      left: false,
+                      child: AppTooltip(
+                        message: l10n.addDevice,
+                        child: Semantics(
+                          label: l10n.addDevice,
+                          child: SizedBox(
+                            key: const ValueKey('home-add-device'),
+                            width: 48,
+                            height: 48,
+                            child: AppActionButton(
+                              theme: theme,
+                              label: '',
+                              icon: Symbols.add_rounded,
+                              iconSize: 26,
+                              primary: true,
+                              padding: EdgeInsets.zero,
+                              borderRadius: BorderRadius.circular(24),
+                              onPressed: _addDevice,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             );
           },
