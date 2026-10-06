@@ -87,6 +87,11 @@ void main() {
       FlutterSecureStorage.setMockInitialValues({oldKey: 'existing-token'});
       final store = SecureDevicePairingStore();
       const storage = FlutterSecureStorage();
+      await store.writeFingerprint(id, 'certificate-fingerprint');
+      expect(
+        await SecureDevicePairingStore().readFingerprint(id),
+        'certificate-fingerprint',
+      );
       expect(await store.read(id), 'existing-token');
       expect(await storage.read(key: newKey), 'existing-token');
       expect(await storage.read(key: oldKey), isNull);
@@ -96,6 +101,10 @@ void main() {
       expect(await store.read(id), isNull);
       expect(await storage.read(key: oldKey), isNull);
       expect(await storage.read(key: newKey), isNull);
+      // 撤销授权保留设备身份，重新配对时才单独清除。
+      expect(await store.readFingerprint(id), 'certificate-fingerprint');
+      await store.deleteFingerprint(id);
+      expect(await store.readFingerprint(id), isNull);
     },
   );
 }

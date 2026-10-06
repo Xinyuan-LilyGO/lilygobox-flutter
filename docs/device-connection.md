@@ -4,11 +4,15 @@
 
 当前支持 Flutter 与 T-Display-P4 的真实连接，包含自动发现、首次设备确认、授权保存、断线自动重连、设备信息读取及心跳。AI、投屏、亮度和 Radio 控制均未接入。
 
-这是受信任局域网中的连接验证版：UDP 发现 + 明文 WebSocket，不是正式安全配对协议。设备名称、设备 ID 和确认弹窗不提供密码学身份认证。设备最多保存五个已授权应用各自的随机 256 位连接密钥，不涉及 GitHub 账号令牌。首次配对仍经明文连接传递密钥，应在受信任局域网完成；后续通过每次会话的新随机挑战和 HMAC-SHA256 双向证明恢复授权，不在重连消息中发送密钥。应用端使用系统安全存储，设备端使用独立 app_nvs 分区中的 TLV 存储域。该机制不加密设备信息，也不能替代 TLS；后续开放控制能力前仍需完善安全传输。
+连接采用 UDP 发现和 TLS 加密的 WebSocket。每台设备首次启动连接服务时生成独立的 ECDSA P-256 密钥与自签证书，保存后重复使用；应用在配对成功后将证书的 SHA-256 指纹保存到系统安全存储，后续连接必须匹配。无需云端服务器或付费证书。
+
+首次配对采用首次使用信任（TOFU），需要在可信局域网完成并在设备上确认。TLS 保护传输内容，但首次配对尚未通过独立渠道验证设备身份，不能完全防止首次连接时的中间人攻击。设备名称和 MAC 地址仅用于识别目标，不能替代身份验证。
+
+设备最多保存五份应用授权，每份使用独立的随机 256 位连接密钥。重连通过随机挑战和 HMAC-SHA256 双向证明恢复授权，授权消息和业务数据均在 TLS 连接内传输。应用端使用系统安全存储，设备端使用独立 `app_nvs` 分区；应用授权采用 TLV 存储，TLS 身份作为独立记录持久保存。不涉及 GitHub 账号令牌。
 
 ## 实机操作
 
-1. 使用 ESP-IDF 编译并烧录 LilygoBox 设备固件。固件配置需启用 `CONFIG_HTTPD_WS_SUPPORT=y`，默认配置由 `sdkconfig.defaults` 提供。
+1. 使用 ESP-IDF 编译并烧录 LilygoBox 设备固件。固件配置需启用 `CONFIG_HTTPD_WS_SUPPORT=y` 和 `CONFIG_ESP_HTTPS_SERVER_ENABLE=y`，默认配置由 `sdkconfig.defaults` 提供。
 2. 设备通过 WLAN 连接路由器；Windows 电脑连接同一可互通的局域网。有线连接电脑也可以，不要求访问互联网。
 3. 设备上进入 **Settings → More Connections → LilygoBox App**，开启 **Auto-connect**。未开启 WLAN 或尚未获得局域网地址时，开关仍保持开启并保存偏好，公共提示框提醒开启 WLAN 或连接网络；网络恢复后自动继续，无需互联网访问。开关和授权会持久保存，退出设置后仍保持后台发现；关闭开关会停止发现并断开当前会话，保留授权。
 4. Windows LilygoBox 首页点击 **添加设备**，根据名称和 MAC 地址确认目标设备后点击连接。搜索结果会排除已添加的设备。
@@ -25,11 +29,11 @@
 ## 协议 v1
 
 - UDP 发现端口：18463。Flutter 从本机各 IPv4 网卡的临时端口发送广播，设备向请求来源单播响应。
-- WebSocket：`ws://<设备 IP>:18464/api/v1/ws`。
+- 加密 WebSocket：`wss://<设备 IP>:18464/api/v1/ws`。客户端要求 TLS 连接，不自动降级为明文通信。
 - 消息使用 UTF-8 JSON，公共字段 `v: 1`、`type`；设备响应包含 `deviceId`。
 - `deviceId` 使用 ESP 出厂基础 MAC 的 12 位小写十六进制；界面以 `AA:BB:CC:DD:EE:FF` 格式显示 MAC。它用于区分设备，不是授权凭证。
 - 发现请求：`{"v":1,"type":"lilygobox.discover","nonce":"本轮随机字符串"}`。
-- 发现响应：`lilygobox.device`，原样回传 nonce，并包含 deviceId、name、model、firmware、port。客户端只使用 UDP 报文来源作为设备地址。
+- 发现响应：`lilygobox.device`，原样回传 nonce，并包含 deviceId、name、model、firmware、port、`transport: "wss"`。客户端只使用 UDP 报文来源作为设备地址；发现信息不决定证书信任。
 - 会话顺序：`hello`（deviceId、clientName、pairingVersion: 2）→ `waiting` → 客户端每秒 `poll` → 设备确认后 `ready`。
 - 首次确认后 `ready` 包含 name、model、firmware、uptimeMs、pairingToken；凭据持久化后才发送，发送成功后设备才标记已连接。不要把 pairingToken 写入日志。
 - 自动恢复：`hello` 增加 `resume: true` 和 `pairingId`（pairingToken 的 UTF-8 字节的 SHA-256，小写十六进制公开标识） → `challenge`（64 位十六进制随机 challenge、设备 proof）→ `authenticate`（应用 proof）→ `queued` → 每秒 `poll` → `ready`。HMAC 的 key 是 pairingToken 的 UTF-8 字节，消息为 `server|deviceId|challenge` 或 `client|deviceId|challenge`，输出小写十六进制 SHA-256。
@@ -53,12 +57,16 @@
 - 未发现：确认设备 Auto-connect 已开启并获得 WLAN 地址，两端不是隔离的访客网络。
 - Windows 防火墙提示时，只在受信任的专用网络允许应用通信。不要关闭整个防火墙。
 - VPN、多网卡或路由器 AP 隔离可能影响广播；连接同一 SSID 也不一定表示客户端之间可互通。
-- 确认服务已经启动：系统日志包含 `Local discovery and WebSocket ready`。固件使用项目统一的 `LogMessage` 接口输出连接日志。
+- 确认服务已经启动：系统日志包含 `Local discovery and encrypted WebSocket ready`。固件使用项目统一的 `LogMessage` 接口输出连接日志，不记录私钥或配对密钥。
+- 提示设备身份变化：连接会停止，已保存的证书不会自动替换。仅在确认设备确实已重置后点击 **重新配对**，通过确认弹窗清除本地信任，再到设备上允许连接。
+- 设备证书保存失败或记录损坏时，加密服务不会启动，也不会自行替换身份。检查设备存储和日志。
 - 不能确认：解锁设备，检查是否出现公共 Allow 提示；拒绝或超时后重新发起。
 
 ## 验证边界
 
-自动测试使用真实回环 UDP/WebSocket 检查发现过滤、身份检查、确认流程、心跳超时、取消竞态、授权持久化、自动重连、地址变更、撤销授权和伪造挑战拒绝。回环测试不代表设备无线链路已经实测通过。
+自动测试使用真实回环 UDP/TLS WebSocket 检查发现过滤、身份检查、确认流程、心跳超时、取消竞态、授权持久化、自动重连、地址变更、撤销授权和伪造挑战拒绝，并验证证书变化拒绝、证书保存失败及明文连接拒绝。测试证书仅用于回环测试，设备运行时生成自己的密钥。回环测试不代表设备无线链路已经实测通过。
+
+TLS 握手只发生在建立连接时，已连接后的指令和心跳共用同一条加密通道。服务串行执行握手，单次握手限时 3 秒，最多保留六条候选或活动会话；实际内存占用、握手耗时和大流量吞吐量需要在设备上测量。
 
 ### 五应用优先级回归
 

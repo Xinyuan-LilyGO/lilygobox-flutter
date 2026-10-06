@@ -13,11 +13,29 @@ abstract class DevicePairingStore {
   Future<String?> read(String deviceId);
   Future<void> write(String deviceId, String token);
   Future<void> delete(String deviceId);
+  Future<String?> readFingerprint(String deviceId);
+  Future<void> writeFingerprint(String deviceId, String fingerprint);
+  Future<void> deleteFingerprint(String deviceId);
 }
 
 class SecureDevicePairingStore implements DevicePairingStore {
   final _storage = const FlutterSecureStorage();
   String _key(String id) => 'lilygobox.device.$id.pairing.v1';
+  String _fingerprintKey(String id) =>
+      'lilygobox.device.${LanDevice.normalizeId(id)}.tls.v1';
+
+  @override
+  Future<String?> readFingerprint(String deviceId) =>
+      _storage.read(key: _fingerprintKey(deviceId));
+
+  @override
+  Future<void> writeFingerprint(String deviceId, String fingerprint) =>
+      _storage.write(key: _fingerprintKey(deviceId), value: fingerprint);
+
+  // 撤销应用授权不删除设备身份；仅由用户明确确认重新配对时清除。
+  @override
+  Future<void> deleteFingerprint(String deviceId) =>
+      _storage.delete(key: _fingerprintKey(deviceId));
 
   @override
   Future<String?> read(String deviceId) async {

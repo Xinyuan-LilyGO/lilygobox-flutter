@@ -30,6 +30,18 @@ Future<void> waitFor(bool Function() condition) async {
 
 class MemoryPairingStore implements DevicePairingStore {
   final tokens = <String, String>{};
+  final fingerprints = <String, String>{};
+  bool failFingerprintWrite = false;
+  @override
+  Future<String?> readFingerprint(String id) async => fingerprints[id];
+  @override
+  Future<void> writeFingerprint(String id, String fingerprint) async {
+    if (failFingerprintWrite) throw StateError('storage unavailable');
+    fingerprints[id] = fingerprint;
+  }
+
+  @override
+  Future<void> deleteFingerprint(String id) async => fingerprints.remove(id);
   @override
   Future<String?> read(String id) async => tokens[id];
   @override
@@ -41,6 +53,20 @@ class MemoryPairingStore implements DevicePairingStore {
   Future<void> delete(String id) async {
     tokens.remove(id);
   }
+}
+
+SecurityContext deviceTlsContext([String name = 'device']) => SecurityContext()
+  ..useCertificateChain('test/fixtures/device_tls/$name-cert.pem')
+  ..usePrivateKey('test/fixtures/device_tls/$name-key.pem');
+
+String deviceFingerprint([String name = 'device']) {
+  final pem = File(
+    'test/fixtures/device_tls/$name-cert.pem',
+  ).readAsStringSync();
+  final der = base64Decode(
+    pem.split('\n').where((line) => !line.startsWith('---')).join(),
+  );
+  return sha256.convert(der).toString();
 }
 
 class TestLanDiscovery extends LanDiscovery {
@@ -110,7 +136,11 @@ void main() {
   final sockets = <WebSocket>[];
 
   setUp(() async {
-    server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server = await HttpServer.bindSecure(
+      InternetAddress.loopbackIPv4,
+      0,
+      deviceTlsContext(),
+    );
     device = LanDevice(
       id: deviceId,
       name: 'T-Display-P4',
@@ -144,15 +174,23 @@ void main() {
   };
 
   void serve(void Function(WebSocket, Map<String, dynamic>) handler) {
-    server.listen((request) async {
-      expect(request.uri.path, '/api/v1/ws');
-      final socket = await WebSocketTransformer.upgrade(request);
-      sockets.add(socket);
-      socket.listen(
-        (data) =>
-            handler(socket, jsonDecode(data as String) as Map<String, dynamic>),
-      );
-    });
+    server.listen(
+      (request) async {
+        expect(request.uri.path, '/api/v1/ws');
+        final socket = await WebSocketTransformer.upgrade(request);
+        sockets.add(socket);
+        socket.listen(
+          (data) => handler(
+            socket,
+            jsonDecode(data as String) as Map<String, dynamic>,
+          ),
+        );
+      },
+      onError: (Object error) {
+        // 客户端拒绝测试证书时，服务端可能收到对应的握手失败事件。
+        if (error is! HandshakeException) throw error;
+      },
+    );
   }
 
   test(
@@ -299,40 +337,37 @@ void main() {
       }
     }
 
-    test(
-      'old firmware resumes with canonical storage ID and legacy HMAC ID',
-      () async {
-        store.tokens[deviceId] = token;
-        final legacy = LanDevice.fromJson({
-          ...device.toJson(),
-          'id': 'lgb-$deviceId',
-        })!;
-        String legacyProof(String role) => Hmac(sha256, utf8.encode(token))
-            .convert(utf8.encode('$role|${legacy.protocolId}|$challenge'))
-            .toString();
-        serve((socket, message) {
-          if (message['type'] == 'hello') {
-            expect(message['deviceId'], legacy.protocolId);
-            expect(message['resume'], isTrue);
-            socket.add(
-              jsonEncode({
-                ...response('challenge', id: legacy.protocolId),
-                'challenge': challenge,
-                'proof': legacyProof('server'),
-              }),
-            );
-          } else if (message['type'] == 'authenticate') {
-            expect(message['proof'], legacyProof('client'));
-            socket.add(jsonEncode(response('ready', id: legacy.protocolId)));
-          } else if (message['type'] == 'ping') {
-            socket.add(jsonEncode(response('pong', id: legacy.protocolId)));
-          }
-        });
-        expect(await connection.connect(legacy), isTrue);
-        expect(connection.device!.id, deviceId);
-        expect(store.tokens.keys, [deviceId]);
-      },
-    );
+    test('prefixed protocol IDs retain exact HMAC identity over TLS', () async {
+      store.tokens[deviceId] = token;
+      final legacy = LanDevice.fromJson({
+        ...device.toJson(),
+        'id': 'lgb-$deviceId',
+      })!;
+      String legacyProof(String role) => Hmac(sha256, utf8.encode(token))
+          .convert(utf8.encode('$role|${legacy.protocolId}|$challenge'))
+          .toString();
+      serve((socket, message) {
+        if (message['type'] == 'hello') {
+          expect(message['deviceId'], legacy.protocolId);
+          expect(message['resume'], isTrue);
+          socket.add(
+            jsonEncode({
+              ...response('challenge', id: legacy.protocolId),
+              'challenge': challenge,
+              'proof': legacyProof('server'),
+            }),
+          );
+        } else if (message['type'] == 'authenticate') {
+          expect(message['proof'], legacyProof('client'));
+          socket.add(jsonEncode(response('ready', id: legacy.protocolId)));
+        } else if (message['type'] == 'ping') {
+          socket.add(jsonEncode(response('pong', id: legacy.protocolId)));
+        }
+      });
+      expect(await connection.connect(legacy), isTrue);
+      expect(connection.device!.id, deviceId);
+      expect(store.tokens.keys, [deviceId]);
+    });
 
     test(
       'discovery hides connected ID, retains same-name devices and finds it after disconnect',
@@ -376,11 +411,13 @@ void main() {
         await waitFor(
           () => connection.phase == LanConnectionPhase.awaitingApproval,
         );
+        expect(store.fingerprints, isEmpty);
         sockets.single.add(
           jsonEncode({...response('ready'), 'pairingToken': token}),
         );
         expect(await pending, isTrue);
         expect(store.tokens[deviceId], token);
+        expect(store.fingerprints[deviceId], deviceFingerprint());
         await sockets.first.close();
         await waitFor(() => sockets.length == 2 && connection.connected);
         expect(approvals, 1);
@@ -411,6 +448,7 @@ void main() {
       'revoked authorization is deleted and automatic retries stop',
       () async {
         store.tokens[deviceId] = token;
+        store.fingerprints[deviceId] = deviceFingerprint();
         serve((socket, message) {
           socket.add(jsonEncode(response('authorization_revoked')));
         });
@@ -420,6 +458,7 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 180));
         expect(discovery.scans, scans);
         expect(connection.connected, isFalse);
+        expect(store.fingerprints[deviceId], deviceFingerprint());
       },
     );
 
@@ -666,6 +705,116 @@ void main() {
         serve((socket, message) => socket.add(jsonEncode(response('ready'))));
         expect(await connection.connect(device), isFalse);
         expect(connection.connected, isFalse);
+        expect(store.fingerprints, isEmpty);
+      },
+    );
+
+    test(
+      'changed certificate is rejected before hello and requires explicit reset',
+      () async {
+        store.tokens[deviceId] = token;
+        store.fingerprints[deviceId] = deviceFingerprint('other');
+        var messages = 0;
+        serve((socket, message) {
+          messages++;
+          if (message['type'] == 'hello') {
+            expect(message['resume'], isNull);
+            socket.add(
+              jsonEncode({...response('ready'), 'pairingToken': token}),
+            );
+          } else if (message['type'] == 'ping') {
+            socket.add(jsonEncode(response('pong')));
+          }
+        });
+        expect(await connection.connect(device), isFalse);
+        expect(connection.identityChanged, isTrue);
+        expect(messages, 0);
+        expect(store.tokens[deviceId], token);
+        expect(store.fingerprints[deviceId], deviceFingerprint('other'));
+        await Future<void>.delayed(const Duration(milliseconds: 160));
+        expect(discovery.scans, 0);
+        expect(await connection.resetDeviceTrust('ffffffffffff'), isFalse);
+        expect(await connection.resetDeviceTrust(deviceId), isTrue);
+        expect(store.tokens, isEmpty);
+        expect(store.fingerprints, isEmpty);
+        expect(await connection.connect(device), isTrue);
+        expect(store.fingerprints[deviceId], deviceFingerprint());
+        expect(await connection.resetDeviceTrust(deviceId), isFalse);
+      },
+    );
+
+    test('persisted certificate is checked after app restart', () async {
+      store.tokens[deviceId] = token;
+      serve(authorize);
+      expect(await connection.connect(device), isTrue);
+      expect(store.fingerprints[deviceId], deviceFingerprint());
+      connection.dispose();
+      connection = LanConnection(pairingStore: store);
+      expect(await connection.connect(device), isTrue);
+      expect(connection.identityChanged, isFalse);
+      expect(store.fingerprints[deviceId], deviceFingerprint());
+    });
+
+    test(
+      'certificate save failure never reports a successful connection',
+      () async {
+        store.failFingerprintWrite = true;
+        serve((socket, message) {
+          if (message['type'] == 'hello') {
+            socket.add(
+              jsonEncode({...response('ready'), 'pairingToken': token}),
+            );
+          }
+        });
+        expect(await connection.connect(device), isFalse);
+        expect(connection.connected, isFalse);
+        expect(store.tokens, isEmpty);
+        expect(store.fingerprints, isEmpty);
+      },
+    );
+
+    test('unverified peer cannot erase an existing authorization', () async {
+      store.tokens[deviceId] = token;
+      serve(
+        (socket, message) =>
+            socket.add(jsonEncode(response('authorization_revoked'))),
+      );
+      expect(await connection.connect(device), isFalse);
+      expect(store.tokens[deviceId], token);
+      expect(store.fingerprints, isEmpty);
+      expect(connection.identityChanged, isTrue);
+    });
+
+    test('cancelled initial approval does not persist a certificate', () async {
+      serve((socket, message) {
+        if (message['type'] == 'hello') {
+          socket.add(jsonEncode(response('waiting')));
+        }
+      });
+      final pending = connection.connect(device);
+      await waitFor(
+        () => connection.phase == LanConnectionPhase.awaitingApproval,
+      );
+      await connection.cancelConnection();
+      expect(await pending, isFalse);
+      expect(store.fingerprints, isEmpty);
+      expect(store.tokens, isEmpty);
+    });
+
+    test(
+      'plaintext server receives no application messages or credentials',
+      () async {
+        await server.close(force: true);
+        server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        device = LanDevice.fromJson({...device.toJson(), 'port': server.port})!;
+        store.tokens[deviceId] = token;
+        var messages = 0;
+        serve((socket, message) => messages++);
+        expect(await connection.connect(device), isFalse);
+        expect(messages, 0);
+        expect(connection.connected, isFalse);
+        expect(store.tokens[deviceId], token);
+        expect(store.fingerprints, isEmpty);
       },
     );
   });

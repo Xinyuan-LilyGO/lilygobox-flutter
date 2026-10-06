@@ -26,6 +26,7 @@ import '../../domain/discovery_service.dart';
 import '../../state/discovery_controller.dart';
 import '../../state/lan_connection.dart';
 import '../../state/manager_provider.dart';
+import '../confirm_repair.dart';
 
 class AddDevicePage extends StatefulWidget {
   const AddDevicePage({super.key, this.discoveryService});
@@ -213,6 +214,9 @@ class _AddDevicePageState extends State<AddDevicePage> {
     final l10n = context.l10n;
     final phase = _discovery.phase;
     final selected = _discovery.selectedDevice;
+    final session = _service is LanConnection ? _service : null;
+    final identityChanged =
+        session?.device?.id == selected?.id && session?.identityChanged == true;
     final (title, description) = switch (phase) {
       DiscoveryPhase.empty => (
         l10n.discoveryEmpty,
@@ -236,7 +240,9 @@ class _AddDevicePageState extends State<AddDevicePage> {
       ),
       DiscoveryPhase.connectionFailed => (
         l10n.deviceConnectionFailed,
-        l10n.deviceConnectionFailedDescription,
+        identityChanged
+            ? l10n.lanIdentityChanged
+            : l10n.deviceConnectionFailedDescription,
       ),
       _ => (l10n.connectYourDevice, l10n.discoveryDescription),
     };
@@ -346,8 +352,14 @@ class _AddDevicePageState extends State<AddDevicePage> {
         if (phase == DiscoveryPhase.connectionFailed)
           _action(
             theme,
-            l10n.retryConnection,
-            () => unawaited(_discovery.connect(_discovery.selectedDevice!)),
+            identityChanged ? l10n.lanRepair : l10n.retryConnection,
+            () async {
+              if (identityChanged &&
+                  !await confirmDeviceRepair(context, session!, selected!.id)) {
+                return;
+              }
+              if (mounted) unawaited(_discovery.connect(selected!));
+            },
           ),
         if (phase == DiscoveryPhase.connected)
           _action(theme, l10n.openDevice, _openDevice),

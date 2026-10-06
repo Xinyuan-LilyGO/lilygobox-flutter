@@ -876,6 +876,24 @@ abstract class AppLocalizations {
   /// **'MAC address'**
   String get lanMacAddress;
 
+  /// No description provided for @lanIdentityChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'The device identity has changed. Connection stopped. If you reset this device, pair it again.'**
+  String get lanIdentityChanged;
+
+  /// No description provided for @lanRepair.
+  ///
+  /// In en, this message translates to:
+  /// **'Pair again'**
+  String get lanRepair;
+
+  /// No description provided for @lanRepairDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue only if you reset this device. This clears its local pairing information. You will need to approve the connection on the device again.'**
+  String get lanRepairDescription;
+
   /// No description provided for @lanDeviceId.
   ///
   /// In en, this message translates to:

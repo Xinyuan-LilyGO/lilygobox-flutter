@@ -17,6 +17,7 @@ import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/action_button.dart';
 import '../../state/lan_connection.dart';
 import '../../state/manager_provider.dart';
+import '../confirm_repair.dart';
 
 class ConnectedDevicePage extends StatelessWidget {
   const ConnectedDevicePage({super.key, required this.deviceId});
@@ -32,6 +33,7 @@ class ConnectedDevicePage extends StatelessWidget {
     final selected = session.device?.id == deviceId;
     final online = selected && session.connected;
     final busy = selected && session.busy;
+    final identityChanged = selected && session.identityChanged;
     final device = selected ? session.device : saved;
     final status = online
         ? l10n.deviceConnected
@@ -123,7 +125,9 @@ class ConnectedDevicePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  online
+                  identityChanged
+                      ? l10n.lanIdentityChanged
+                      : online
                       ? l10n.lanConnectedDescription
                       : busy
                       ? l10n.lanConfirmOnDevice
@@ -147,11 +151,25 @@ class ConnectedDevicePage extends StatelessWidget {
                       AppActionButton(
                         theme: theme,
                         primary: true,
-                        label: l10n.retryConnection,
+                        label: identityChanged
+                            ? l10n.lanRepair
+                            : l10n.retryConnection,
                         onPressed:
                             device == null || session.busy || session.connected
                             ? null
-                            : () => unawaited(session.connect(device)),
+                            : () async {
+                                if (identityChanged &&
+                                    !await confirmDeviceRepair(
+                                      context,
+                                      session,
+                                      deviceId,
+                                    )) {
+                                  return;
+                                }
+                                if (context.mounted) {
+                                  unawaited(session.connect(device));
+                                }
+                              },
                       ),
                     if (!online && !busy)
                       AppActionButton(

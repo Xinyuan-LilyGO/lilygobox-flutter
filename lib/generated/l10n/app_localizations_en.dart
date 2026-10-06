@@ -436,6 +436,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get lanMacAddress => 'MAC address';
 
   @override
+  String get lanIdentityChanged =>
+      'The device identity has changed. Connection stopped. If you reset this device, pair it again.';
+
+  @override
+  String get lanRepair => 'Pair again';
+
+  @override
+  String get lanRepairDescription =>
+      'Continue only if you reset this device. This clears its local pairing information. You will need to approve the connection on the device again.';
+
+  @override
   String get lanDeviceId => 'Device ID';
 
   @override

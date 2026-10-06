@@ -41,6 +41,10 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
   final DevicePairingStore? pairingStore;
   final Duration reconnectDelay;
   final Map<String, String> _tokens = {};
+  final Map<String, String> _fingerprints = {};
+  String? _peerFingerprint;
+  bool _peerTrusted = false;
+  bool identityChanged = false;
   Timer? _reconnect;
   StreamSubscription<LanDevice>? _autoScan;
   int _scanGeneration = 0;
@@ -189,23 +193,50 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     uptimeMs = 0;
     lastSeen = null;
     phase = LanConnectionPhase.connecting;
+    identityChanged = false;
+    _peerFingerprint = null;
+    _peerTrusted = false;
     final result = Completer<bool>();
     _result = result;
     _notify();
     _deadline = Timer(approvalTimeout, () => _fail(generation));
     try {
       final token = _tokens[target.id] ?? await pairingStore?.read(target.id);
+      final fingerprint =
+          _fingerprints[target.id] ??
+          await pairingStore?.readFingerprint(target.id);
       if (_disposed || generation != _generation) return false;
       _sessionToken = token;
       _serverVerified = false;
-      final client = HttpClient()
+      // 不使用公共 CA 信任链；设备身份按首次配对保存的 SHA-256 证书指纹验证。
+      final tlsContext = SecurityContext(withTrustedRoots: false)
+        ..minimumTlsProtocolVersion = TlsProtocolVersion.tls1_2;
+      final client = HttpClient(context: tlsContext)
         ..connectionTimeout = const Duration(seconds: 8);
+      client.badCertificateCallback = (certificate, host, port) {
+        if (_disposed ||
+            generation != _generation ||
+            host != target.address ||
+            port != target.port) {
+          return false;
+        }
+        final received = sha256.convert(certificate.der).toString();
+        if (fingerprint != null && fingerprint != received) {
+          identityChanged = true;
+          _manualDisconnect = true;
+          return false;
+        }
+        // 首次仅临时接受证书，设备确认 / 授权校验成功后才保存。
+        _peerFingerprint = received;
+        _peerTrusted = fingerprint != null;
+        return true;
+      };
       // 局域网设备不经过系统 HTTP 代理，避免 VPN/代理把本地请求发送到外网。
       client.findProxy = (_) => 'DIRECT';
       _client = client;
       final socket = await WebSocket.connect(
         Uri(
-          scheme: 'ws',
+          scheme: 'wss',
           host: target.address,
           port: target.port,
           path: '/api/v1/ws',
@@ -216,6 +247,10 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
       if (_disposed || generation != _generation) {
         await socket.close();
         return false;
+      }
+      if (_peerFingerprint == null) {
+        await socket.close();
+        throw const HandshakeException('Missing device certificate');
       }
       _socket = socket;
       socket
@@ -267,6 +302,15 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
         throw const FormatException();
       }
       final type = data['type'];
+      if (_sessionToken != null &&
+          !_peerTrusted &&
+          !_serverVerified &&
+          (type == 'authorization_revoked' || type == 'waiting')) {
+        // 尚未建立设备信任时，不允许对端消息擦除现有授权。
+        identityChanged = true;
+        _manualDisconnect = true;
+        throw const FormatException('Device identity not verified');
+      }
       if (type == 'challenge' && busy && _sessionToken != null) {
         final challenge = data['challenge'];
         if (challenge is! String ||
@@ -344,11 +388,18 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
                 !RegExp(r'^[0-9a-f]{64}$').hasMatch(token)) {
               throw const FormatException();
             }
-            if (pairingStore != null) {
-              await pairingStore!.write(device!.id, token);
-              if (_disposed || generation != _generation) return;
-            }
-            _tokens[device!.id] = token;
+          }
+          final id = device!.id;
+          final fingerprint = _peerFingerprint!;
+          if (_fingerprints[id] != fingerprint) {
+            await pairingStore?.writeFingerprint(id, fingerprint);
+            if (_disposed || generation != _generation) return;
+            _fingerprints[id] = fingerprint;
+          }
+          if (token is String) {
+            await pairingStore?.write(id, token);
+            if (_disposed || generation != _generation) return;
+            _tokens[id] = token;
           }
           _poll?.cancel();
           _deadline?.cancel();
@@ -379,6 +430,31 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     _close();
     phase = LanConnectionPhase.offline;
     _notify();
+  }
+
+  /// 用户确认设备身份变化后清除本地信任，下次连接须在设备上重新授权。
+  Future<bool> resetDeviceTrust(String id) async {
+    if (_disposed ||
+        busy ||
+        connected ||
+        device?.id != id ||
+        !identityChanged) {
+      return false;
+    }
+    disconnect();
+    final generation = _generation;
+    try {
+      await pairingStore?.delete(id);
+      await pairingStore?.deleteFingerprint(id);
+      if (_disposed || generation != _generation) return false;
+      _tokens.remove(id);
+      _fingerprints.remove(id);
+      identityChanged = false;
+      _notify();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   @override

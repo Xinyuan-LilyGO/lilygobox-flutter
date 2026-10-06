@@ -409,6 +409,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get lanMacAddress => 'MAC 地址';
 
   @override
+  String get lanIdentityChanged => '设备身份已变化，连接已停止。如果你重置了这台设备，请重新配对。';
+
+  @override
+  String get lanRepair => '重新配对';
+
+  @override
+  String get lanRepairDescription => '仅当你确实重置了这台设备时继续。将清除本机配对信息，需要在设备上重新允许连接。';
+
+  @override
   String get lanDeviceId => '设备 ID';
 
   @override
