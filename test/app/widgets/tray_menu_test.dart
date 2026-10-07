@@ -17,6 +17,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/tray/menu_app.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/widgets/menu_item_surface.dart';
+import 'package:lilygobox/core/widgets/popup_menu_surface.dart';
+import 'package:lilygobox/core/widgets/popup_menu_transition.dart';
 
 void main() {
   testWidgets(
@@ -103,6 +105,28 @@ void main() {
             at(165, 90),
             at(90, 55),
           ];
+          // 贴边阴影应在卡片外约 9 像素处消退，而不是形成大片灰色光晕。
+          for (final value in [at(7, 53), at(174, 53), at(90, 7), at(90, 99)]) {
+            expect(value, lessThanOrEqualTo(1));
+          }
+          // 窗口四边应已淡到透明，防止阴影被裁出可见的矩形边界。
+          for (var x = 0; x < image.width; x++) {
+            expect(data.getUint8(x * 4 + 3), lessThanOrEqualTo(1));
+            expect(
+              data.getUint8(((image.height - 1) * image.width + x) * 4 + 3),
+              lessThanOrEqualTo(1),
+            );
+          }
+          for (var y = 0; y < image.height; y++) {
+            expect(
+              data.getUint8(y * image.width * 4 + 3),
+              lessThanOrEqualTo(1),
+            );
+            expect(
+              data.getUint8((y * image.width + image.width - 1) * 4 + 3),
+              lessThanOrEqualTo(1),
+            );
+          }
           image.dispose();
           return result;
         }))!;
@@ -127,6 +151,7 @@ void main() {
         expect(fadeRequests.last['fadeDurationMs'], 150);
         expect(fadeRequests.last['reduceMotion'], false);
         expect(find.byType(Opacity), findsNothing);
+        expect(find.byType(PopupMenuTransition), findsOneWidget);
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
         final item = find.byType(MenuItemSurface).first;
@@ -145,7 +170,7 @@ void main() {
                 .color!;
         final idle = background();
         final hover = tester.widget<MenuItemSurface>(item).hoverColor!;
-        expect(idle, theme.primary);
+        expect(idle, PopupMenuSurface.backgroundColorFor(theme));
         expect(tester.getSize(item).height, 28);
         expect(tester.widget<Icon>(find.byType(Icon).first).fill, 1);
         await mouse.moveTo(tester.getCenter(item));

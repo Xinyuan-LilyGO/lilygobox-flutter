@@ -79,7 +79,11 @@ class _LilygoBoxAppState extends State<LilygoBoxApp> {
                                           ),
                                     ),
                                     Expanded(
-                                      child: ClipRect(child: navigator!),
+                                      child: ClipRect(
+                                        child: ScaffoldMessenger(
+                                          child: navigator!,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),

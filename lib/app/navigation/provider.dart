@@ -21,6 +21,8 @@ class AppNavigationProvider with ChangeNotifier {
   String? _settingsDeviceName;
   AppPage _contentPage = AppPage.home;
   final List<(AppPage, String?)> _history = [];
+  String? _addedDeviceId;
+  String? get addedDeviceId => _addedDeviceId;
 
   AppPage get currentPage => _currentPage;
   String? get settingsDeviceName => _settingsDeviceName;
@@ -38,6 +40,7 @@ class AppNavigationProvider with ChangeNotifier {
     }
 
     if (page == AppPage.home || page == AppPage.addDevice) {
+      _addedDeviceId = null;
       _contentPage = page;
       _history.clear();
     } else if (_currentPage != page) {
@@ -55,6 +58,13 @@ class AppNavigationProvider with ChangeNotifier {
 
   void goHome() {
     setPage(AppPage.home);
+  }
+
+  /// 保留本轮添加成功的设备标识，由完成页展示结果，用户决定何时返回。
+  void reportDeviceAdded(String id) {
+    if (_contentPage != AppPage.addDevice || _addedDeviceId == id) return;
+    _addedDeviceId = id;
+    notifyListeners();
   }
 
   /// 关闭覆盖页时返回进入前的页面，保留添加设备和设备详情状态。

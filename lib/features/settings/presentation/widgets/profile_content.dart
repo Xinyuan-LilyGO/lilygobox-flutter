@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/widgets/action_button.dart';
@@ -106,6 +107,7 @@ class ProfileContent extends StatelessWidget {
             ),
             child: SelectableText(
               code.userCode,
+              contextMenuBuilder: AppTextSelectionMenu.build,
               key: const ValueKey('github-user-code'),
               style: TextStyle(
                 fontFamily: 'monospace',

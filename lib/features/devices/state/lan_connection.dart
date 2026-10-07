@@ -42,6 +42,9 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
   final Duration reconnectDelay;
   final Map<String, String> _tokens = {};
   final Map<String, String> _fingerprints = {};
+  final Map<String, Future<void>> _pairingOperations = {};
+  final Map<String, Future<bool>> _forgettingDevices = {};
+  final Set<String> _forgottenDevices = {};
   String? _peerFingerprint;
   bool _peerTrusted = false;
   bool identityChanged = false;
@@ -57,11 +60,35 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     utf8.encode(_sessionToken!),
   ).convert(utf8.encode('$role|${device!.protocolId}|$challenge')).toString();
 
+  // 同一设备的安全存储操作串行执行，删除必须排在尚未完成的配对写入之后。
+  Future<T> _pairingOperation<T>(String id, Future<T> Function() operation) {
+    final previous = _pairingOperations[id] ?? Future<void>.value();
+    final result = previous.then((_) => operation());
+    final completion = result.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stack) {},
+    );
+    _pairingOperations[id] = completion;
+    unawaited(
+      completion.then((_) {
+        if (identical(_pairingOperations[id], completion)) {
+          _pairingOperations.remove(id);
+        }
+      }),
+    );
+    return result;
+  }
+
   Future<void> restorePairings(Iterable<LanDevice> devices) async {
     for (final target in devices) {
+      if (_forgottenDevices.contains(target.id)) continue;
       try {
-        final token = await pairingStore?.read(target.id);
+        final token = await _pairingOperation(
+          target.id,
+          () async => pairingStore?.read(target.id),
+        );
         if (_disposed) return;
+        if (_forgottenDevices.contains(target.id)) continue;
         if (token != null && RegExp(r'^[0-9a-f]{64}$').hasMatch(token)) {
           _tokens[target.id] = token;
         }
@@ -182,7 +209,13 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     DiscoveredDevice target, {
     bool automatic = false,
   }) async {
-    if (_disposed || target is! LanDevice) return false;
+    if (_disposed ||
+        target is! LanDevice ||
+        _forgettingDevices.containsKey(target.id) ||
+        (automatic && _forgottenDevices.contains(target.id))) {
+      return false;
+    }
+    if (!automatic) _forgottenDevices.remove(target.id);
     if (connected && device?.id == target.id) return true;
     _stopAutoScan();
     if (!automatic) _manualDisconnect = false;
@@ -201,10 +234,18 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     _notify();
     _deadline = Timer(approvalTimeout, () => _fail(generation));
     try {
-      final token = _tokens[target.id] ?? await pairingStore?.read(target.id);
+      final token =
+          _tokens[target.id] ??
+          await _pairingOperation(
+            target.id,
+            () async => pairingStore?.read(target.id),
+          );
       final fingerprint =
           _fingerprints[target.id] ??
-          await pairingStore?.readFingerprint(target.id);
+          await _pairingOperation(
+            target.id,
+            () async => pairingStore?.readFingerprint(target.id),
+          );
       if (_disposed || generation != _generation) return false;
       _sessionToken = token;
       _serverVerified = false;
@@ -342,13 +383,14 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
       } else if (type == 'authorization_revoked') {
         final id = device!.id;
         _tokens.remove(id);
-        await pairingStore?.delete(id);
+        await _pairingOperation(id, () async => pairingStore?.delete(id));
         _fail(generation);
       } else if (type == 'waiting' && busy) {
         // 自动恢复不产生新的授权请求；设备清除授权后需用户重新添加。
         if (_sessionToken != null) {
-          _tokens.remove(device!.id);
-          await pairingStore?.delete(device!.id);
+          final id = device!.id;
+          _tokens.remove(id);
+          await _pairingOperation(id, () async => pairingStore?.delete(id));
           _fail(generation);
           return;
         }
@@ -392,12 +434,18 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
           final id = device!.id;
           final fingerprint = _peerFingerprint!;
           if (_fingerprints[id] != fingerprint) {
-            await pairingStore?.writeFingerprint(id, fingerprint);
+            await _pairingOperation(
+              id,
+              () async => pairingStore?.writeFingerprint(id, fingerprint),
+            );
             if (_disposed || generation != _generation) return;
             _fingerprints[id] = fingerprint;
           }
           if (token is String) {
-            await pairingStore?.write(id, token);
+            await _pairingOperation(
+              id,
+              () async => pairingStore?.write(id, token),
+            );
             if (_disposed || generation != _generation) return;
             _tokens[id] = token;
           }
@@ -432,6 +480,58 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     _notify();
   }
 
+  /// 删除指定设备的本地授权与信任，并阻止旧异步结果恢复其自动连接。
+  Future<bool> forgetDevice(String deviceId) {
+    if (_disposed) return Future.value(false);
+    final id = LanDevice.normalizeId(deviceId);
+    final pending = _forgettingDevices[id];
+    if (pending != null) return pending;
+    // 先登记任务，再开始通知；重复点击和通知回调不能启动第二次删除。
+    final result = Completer<bool>();
+    _forgettingDevices[id] = result.future;
+    unawaited(
+      _forgetDevice(id).then((success) {
+        _forgettingDevices.remove(id);
+        result.complete(success);
+      }),
+    );
+    return result.future;
+  }
+
+  Future<bool> _forgetDevice(String id) async {
+    _forgottenDevices.add(id);
+    _stopAutoScan();
+    _tokens.remove(id);
+    _fingerprints.remove(id);
+    if (device?.id == id) {
+      _close();
+      device = null;
+      phase = LanConnectionPhase.offline;
+      firmware = '';
+      uptimeMs = 0;
+      lastSeen = null;
+      identityChanged = false;
+      _sessionToken = null;
+      _peerFingerprint = null;
+      _peerTrusted = false;
+      _serverVerified = false;
+      _notify();
+    }
+    try {
+      await _pairingOperation(id, () async {
+        await pairingStore?.delete(id);
+        await pairingStore?.deleteFingerprint(id);
+      });
+      return true;
+    } catch (_) {
+      debugPrint('Device authorization could not be removed.');
+      return false;
+    } finally {
+      // 删除离线设备不能断开其他设备；剩余授权仍可按原规则自动恢复。
+      _scheduleReconnect();
+    }
+  }
+
   /// 用户确认设备身份变化后清除本地信任，下次连接须在设备上重新授权。
   Future<bool> resetDeviceTrust(String id) async {
     if (_disposed ||
@@ -444,8 +544,10 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     disconnect();
     final generation = _generation;
     try {
-      await pairingStore?.delete(id);
-      await pairingStore?.deleteFingerprint(id);
+      await _pairingOperation(id, () async {
+        await pairingStore?.delete(id);
+        await pairingStore?.deleteFingerprint(id);
+      });
       if (_disposed || generation != _generation) return false;
       _tokens.remove(id);
       _fingerprints.remove(id);

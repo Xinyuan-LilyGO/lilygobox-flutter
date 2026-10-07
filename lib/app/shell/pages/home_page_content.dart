@@ -6,16 +6,19 @@
  * @License: GPL 3.0
  */
 
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/context_menu/text_selection_menu.dart';
 import '../../../core/l10n/language_provider.dart';
 import '../../../core/theme/provider.dart';
 import '../../../core/widgets/action_button.dart';
 import '../../../core/widgets/app_tooltip.dart';
+import '../../../core/widgets/confirmation_dialog.dart';
 import '../../../features/devices/presentation/widgets/home_device_card.dart';
 import '../../../features/devices/state/lan_connection.dart';
 import '../../../features/devices/state/manager_provider.dart';
@@ -32,6 +35,7 @@ class HomePageContent extends StatefulWidget {
 
 class _HomePageContentState extends State<HomePageContent> {
   final _search = TextEditingController();
+  final Set<String> _deletingDevices = {};
 
   @override
   void dispose() {
@@ -49,6 +53,66 @@ class _HomePageContentState extends State<HomePageContent> {
     if (index < 0) return;
     context.read<AppShellProvider>().updateSelectedIndex(index + 1);
     context.read<AppNavigationProvider>().goHome();
+  }
+
+  Future<void> _deleteDevice(String id) async {
+    if (!_deletingDevices.add(id)) return;
+    final manager = context.read<DeviceManagerProvider>();
+    final session = context.read<LanConnection?>();
+    final shell = context.read<AppShellProvider>();
+    final l10n = context.l10n;
+    setState(() {});
+    bool deleted = false;
+    bool attempted = false;
+    try {
+      final confirmed = await showAppConfirmation(
+        context: context,
+        theme: context.read<ThemeProvider>().themeData,
+        actionKey: 'delete-device',
+        title: l10n.deleteDeviceConfirmTitle,
+        description: l10n.deleteDeviceConfirmDescription(
+          manager.displayName(id),
+        ),
+        confirmLabel: l10n.delete,
+      );
+      // 取消或关闭弹窗时不触碰连接和凭据；页面退出后也不继续删除。
+      if (!confirmed || !mounted || !manager.addedDevices.contains(id)) return;
+      attempted = true;
+      final saved = manager.lanDevice(id);
+      final cleared = saved == null || await session?.forgetDevice(id) == true;
+      if (cleared) {
+        // 按设备标识保留其他页面的选择，避免删除前面的卡片后索引指向错设备。
+        final selectedIndex = shell.selectedIndex;
+        final before = manager.addedDevices;
+        final selectedId = selectedIndex > 0 && selectedIndex <= before.length
+            ? before[selectedIndex - 1]
+            : null;
+        deleted = await manager.removeDeviceAndSave(id);
+        if (mounted && shell.selectedIndex == selectedIndex) {
+          shell.updateSelectedIndex(
+            selectedId == null
+                ? 0
+                : manager.addedDevices.indexOf(selectedId) + 1,
+          );
+        }
+      }
+    } catch (_) {
+      deleted = false;
+    } finally {
+      _deletingDevices.remove(id);
+      if (mounted) {
+        setState(() {});
+        if (attempted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                deleted ? l10n.deleteDeviceSucceeded : l10n.deleteDeviceFailed,
+              ),
+            ),
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -171,6 +235,8 @@ class _HomePageContentState extends State<HomePageContent> {
                                   maxWidth: 320,
                                 ),
                                 child: TextField(
+                                  contextMenuBuilder:
+                                      AppTextSelectionMenu.build,
                                   controller: _search,
                                   onChanged: (_) => setState(() {}),
                                   style: TextStyle(
@@ -186,13 +252,25 @@ class _HomePageContentState extends State<HomePageContent> {
                                     ),
                                     filled: true,
                                     fillColor: theme.primary,
-                                    prefixIcon: Icon(
-                                      Symbols.search,
-                                      size: 18,
-                                      color: theme.textColorTertiary,
+                                    hoverColor: Colors.transparent,
+                                    prefixIcon: Padding(
+                                      padding: const EdgeInsetsDirectional.only(
+                                        start: 6,
+                                        top: 6,
+                                        bottom: 6,
+                                      ),
+                                      child: SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: Icon(
+                                          Symbols.search,
+                                          size: 18,
+                                          color: theme.textColorSecondary,
+                                        ),
+                                      ),
                                     ),
                                     prefixIconConstraints: const BoxConstraints(
-                                      minWidth: 36,
+                                      minWidth: 30,
                                       minHeight: 36,
                                     ),
                                     suffixIconConstraints: const BoxConstraints(
@@ -201,20 +279,29 @@ class _HomePageContentState extends State<HomePageContent> {
                                     ),
                                     suffixIcon: _search.text.isEmpty
                                         ? null
-                                        : IconButton(
-                                            constraints:
-                                                const BoxConstraints.tightFor(
-                                                  width: 36,
-                                                  height: 36,
-                                                ),
-                                            padding: const EdgeInsets.all(8),
-                                            tooltip: l10n.homeClearSearch,
-                                            onPressed: () =>
-                                                setState(_search.clear),
-                                            icon: Icon(
-                                              Symbols.close,
-                                              size: 16,
-                                              color: theme.textColorSecondary,
+                                        : Padding(
+                                            padding: const EdgeInsets.all(6),
+                                            child: IconButton(
+                                              constraints:
+                                                  const BoxConstraints.tightFor(
+                                                    width: 24,
+                                                    height: 24,
+                                                  ),
+                                              padding: const EdgeInsets.all(4),
+                                              style: IconButton.styleFrom(
+                                                tapTargetSize:
+                                                    MaterialTapTargetSize
+                                                        .shrinkWrap,
+                                                shape: const CircleBorder(),
+                                              ),
+                                              tooltip: l10n.homeClearSearch,
+                                              onPressed: () =>
+                                                  setState(_search.clear),
+                                              icon: Icon(
+                                                Symbols.close,
+                                                size: 14,
+                                                color: theme.textColorSecondary,
+                                              ),
                                             ),
                                           ),
                                     contentPadding: const EdgeInsets.symmetric(
@@ -222,11 +309,11 @@ class _HomePageContentState extends State<HomePageContent> {
                                       vertical: 8,
                                     ),
                                     border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                      borderRadius: BorderRadius.circular(999),
                                       borderSide: BorderSide.none,
                                     ),
                                     focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                      borderRadius: BorderRadius.circular(999),
                                       borderSide: BorderSide(
                                         color: theme.basePrimary,
                                       ),
@@ -287,6 +374,9 @@ class _HomePageContentState extends State<HomePageContent> {
                                   children: [
                                     for (final id in visible)
                                       SizedBox(
+                                        key: ValueKey(
+                                          'home-device-container-$id',
+                                        ),
                                         width: cardWidth,
                                         child: HomeDeviceCard(
                                           key: ValueKey('home-device-$id'),
@@ -304,6 +394,12 @@ class _HomePageContentState extends State<HomePageContent> {
                                               session?.device?.id == id &&
                                               session?.busy == true,
                                           onPressed: () => _openDevice(id),
+                                          onDelete:
+                                              _deletingDevices.contains(id)
+                                              ? null
+                                              : () => unawaited(
+                                                  _deleteDevice(id),
+                                                ),
                                         ),
                                       ),
                                   ],

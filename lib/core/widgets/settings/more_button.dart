@@ -9,9 +9,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../generated/l10n/app_localizations.dart';
+import '../../context_menu/right_click_menu.dart';
 import '../../theme/definition.dart';
 import '../app_tooltip.dart';
 import '../menu_item_surface.dart';
+import '../popup_menu_transition.dart';
 
 class SettingMoreButton extends StatefulWidget {
   const SettingMoreButton({
@@ -29,10 +31,9 @@ class SettingMoreButton extends StatefulWidget {
 
 class _SettingMoreButtonState extends State<SettingMoreButton>
     with SingleTickerProviderStateMixin {
-  static const Duration _menuAnimationDuration = Duration(milliseconds: 150);
+  static const _menuAnimationDuration = PopupMenuTransition.duration;
   static const double _buttonSize = 32.0;
   static const double _menuWidth = 132.0;
-  static const double _menuHeight = 32.0;
 
   bool _isRemoving = false;
   bool _disposed = false;
@@ -100,7 +101,11 @@ class _SettingMoreButtonState extends State<SettingMoreButton>
     _isRemoving = false;
     _overlayEntry = OverlayEntry(builder: _buildMenuOverlay);
     Overlay.of(context).insert(_overlayEntry!);
-    _menuController.forward(from: 0.0);
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _menuController.value = 1;
+    } else {
+      _menuController.forward(from: 0.0);
+    }
   }
 
   void _removeMenu({bool animated = true}) {
@@ -120,7 +125,7 @@ class _SettingMoreButtonState extends State<SettingMoreButton>
       _isRemoving = false;
     }
 
-    if (!animated) {
+    if (!animated || MediaQuery.disableAnimationsOf(context)) {
       completeRemoval();
       return;
     }
@@ -130,83 +135,39 @@ class _SettingMoreButtonState extends State<SettingMoreButton>
 
   Widget _buildMenuOverlay(BuildContext context) {
     return Positioned.fill(
-      child: AnimatedBuilder(
-        animation: _menuController,
-        builder: (context, child) {
-          final animationValue = Curves.easeInOut.transform(
-            _menuController.value,
-          );
-
-          return Stack(
-            children: [
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: _removeMenu,
-                  child: const SizedBox.expand(),
-                ),
-              ),
-              Positioned(
-                left: _menuPosition.dx,
-                top: _menuPosition.dy,
-                width: _menuWidth,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4.0),
-                  child: SizedBox(
-                    height: _menuHeight * animationValue,
-                    child: OverflowBox(
-                      alignment: Alignment.topCenter,
-                      minHeight: _menuHeight,
-                      maxHeight: _menuHeight,
-                      child: SizedBox(
-                        width: _menuWidth,
-                        height: _menuHeight,
-                        child: _SettingMoreMenu(
-                          theme: widget.theme,
-                          onReset: () {
-                            widget.onReset?.call();
-                            _removeMenu();
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _SettingMoreMenu extends StatelessWidget {
-  const _SettingMoreMenu({required this.theme, required this.onReset});
-
-  final AppTheme theme;
-  final VoidCallback onReset;
-
-  @override
-  Widget build(BuildContext context) {
-    return MenuItemSurface(
-      theme: theme,
-      onPressed: onReset,
-      borderRadius: BorderRadius.circular(4),
-      border: Border.all(color: theme.dividerColor.withValues(alpha: 0.28)),
-      child: Container(
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 10.0),
-        child: Text(
-          AppLocalizations.of(context).resetThisSetting,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: theme.textColorPrimary,
-            fontSize: 13.0,
-            fontWeight: FontWeight.w600,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: _removeMenu,
+              child: const SizedBox.expand(),
+            ),
           ),
-        ),
+          Positioned(
+            left: _menuPosition.dx,
+            top: _menuPosition.dy,
+            width: _menuWidth,
+            child: PopupMenuTransition(
+              animation: _menuController,
+              child: RightClickMenuBuilder.buildMenuPanel(
+                theme: widget.theme,
+                width: _menuWidth,
+                menuItems: [
+                  RightClickMenuItem(
+                    label: AppLocalizations.of(context).resetThisSetting,
+                    isEnabled: widget.onReset != null,
+                    onTap: () {
+                      if (_isRemoving) return;
+                      widget.onReset?.call();
+                      _removeMenu();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

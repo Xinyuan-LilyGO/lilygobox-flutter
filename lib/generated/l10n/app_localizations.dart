@@ -480,6 +480,36 @@ abstract class AppLocalizations {
   /// **'Looking for devices…'**
   String get searchingDevices;
 
+  /// No description provided for @deleteDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete device'**
+  String get deleteDevice;
+
+  /// No description provided for @deleteDeviceConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete device?'**
+  String get deleteDeviceConfirmTitle;
+
+  /// No description provided for @deleteDeviceConfirmDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'This will disconnect from “{deviceName}” and remove its settings and pairing information from this computer. Adding it again will require new approval.'**
+  String deleteDeviceConfirmDescription(String deviceName);
+
+  /// No description provided for @deleteDeviceSucceeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Device deleted.'**
+  String get deleteDeviceSucceeded;
+
+  /// No description provided for @deleteDeviceFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to delete this device. Please try again.'**
+  String get deleteDeviceFailed;
+
   /// No description provided for @discoveryEmpty.
   ///
   /// In en, this message translates to:
@@ -539,6 +569,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Device connected'**
   String get deviceConnected;
+
+  /// No description provided for @deviceConnectionComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection complete'**
+  String get deviceConnectionComplete;
+
+  /// No description provided for @backToHome.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to home'**
+  String get backToHome;
 
   /// No description provided for @deviceConnectionFailed.
   ///

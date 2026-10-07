@@ -21,6 +21,7 @@ import '../features/account/state/provider.dart';
 import '../features/devices/data/pairing_store.dart';
 import '../features/devices/state/lan_connection.dart';
 import '../features/devices/state/manager_provider.dart';
+import 'device_connection_coordinator.dart';
 import 'navigation/provider.dart';
 import 'shell/state/provider.dart';
 
@@ -113,14 +114,18 @@ class _AppProvidersState extends State<AppProviders>
                 devices.addedDevices.map(devices.lanDevice).whereType(),
               ),
             );
-            connection.addListener(() {
-              if (connection.connected && connection.device != null) {
-                devices.addLanDevice(connection.device!);
-              }
-            });
             return connection;
           },
           lazy: false,
+        ),
+        Provider(
+          lazy: false,
+          create: (context) => DeviceConnectionCoordinator(
+            connection: context.read<LanConnection>(),
+            devices: context.read<DeviceManagerProvider>(),
+            navigation: context.read<AppNavigationProvider>(),
+          ),
+          dispose: (_, coordinator) => coordinator.dispose(),
         ),
         ChangeNotifierProvider(
           lazy: false,

@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/definition.dart';
+import '../../core/widgets/window_shadow.dart';
 
 class AppWindowFrame extends StatelessWidget {
   const AppWindowFrame({
@@ -24,51 +25,47 @@ class AppWindowFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: isMaximized ? EdgeInsets.zero : const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: theme.primary,
-        borderRadius: isMaximized
-            ? BorderRadius.zero
-            : BorderRadius.circular(10),
-        boxShadow: isMaximized ? [] : _buildBoxShadow(),
-      ),
-      child: ClipRRect(
-        borderRadius: isMaximized
-            ? BorderRadius.zero
-            : BorderRadius.circular(10),
-        child: child,
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final ratio = MediaQuery.devicePixelRatioOf(context);
+        final inset = (10 * ratio).ceilToDouble() / ratio;
+        // 125% 等缩放下，矩形边界也要落到完整物理像素，避免底色与遮罩重复抗锯齿。
+        final margin = isMaximized
+            ? EdgeInsets.zero
+            : EdgeInsets.fromLTRB(
+                inset,
+                inset,
+                constraints.hasBoundedWidth
+                    ? constraints.maxWidth -
+                          ((constraints.maxWidth - 10) * ratio)
+                                  .floorToDouble() /
+                              ratio
+                    : inset,
+                constraints.hasBoundedHeight
+                    ? constraints.maxHeight -
+                          ((constraints.maxHeight - 10) * ratio)
+                                  .floorToDouble() /
+                              ratio
+                    : inset,
+              );
+        return Container(
+          margin: margin,
+          decoration: BoxDecoration(
+            borderRadius: isMaximized
+                ? BorderRadius.zero
+                : BorderRadius.circular(10),
+            boxShadow: isMaximized ? [] : appWindowShadows,
+          ),
+          child: ClipRRect(
+            // 底色与遮罩先合成再裁剪，避免圆角抗锯齿边缘透出未变暗的底色。
+            clipBehavior: Clip.antiAliasWithSaveLayer,
+            borderRadius: isMaximized
+                ? BorderRadius.zero
+                : BorderRadius.circular(10),
+            child: ColoredBox(color: theme.primary, child: child),
+          ),
+        );
+      },
     );
-  }
-
-  List<BoxShadow> _buildBoxShadow() {
-    return [
-      BoxShadow(
-        color: Colors.black.withValues(alpha: 0.3),
-        blurRadius: 5,
-        spreadRadius: -1,
-      ),
-      BoxShadow(
-        color: Colors.black.withValues(alpha: 0.3),
-        blurRadius: 4,
-        spreadRadius: -2,
-      ),
-      BoxShadow(
-        color: Colors.black.withValues(alpha: 0.2),
-        blurRadius: 3,
-        spreadRadius: -3,
-      ),
-      BoxShadow(
-        color: Colors.black.withValues(alpha: 0.2),
-        blurRadius: 2,
-        spreadRadius: -4,
-      ),
-      BoxShadow(
-        color: Colors.black.withValues(alpha: 0.1),
-        blurRadius: 1,
-        spreadRadius: -5,
-      ),
-    ];
   }
 }

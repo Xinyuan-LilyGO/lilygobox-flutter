@@ -51,6 +51,7 @@ class DeviceManagerProvider extends ChangeNotifier {
   final AppPreferences? _preferences;
   final List<String> _addedDevices;
   final Map<String, LanDevice> _lanDevices = {};
+  bool _disposed = false;
 
   LanDevice? lanDevice(String id) => _lanDevices[id];
   String displayName(String id) => _lanDevices[id]?.name ?? id;
@@ -94,11 +95,34 @@ class DeviceManagerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 删除设备资料并立即保存；写入失败时恢复卡片，便于用户再次删除。
+  Future<bool> removeDeviceAndSave(String id) async {
+    if (_disposed) return false;
+    final index = _addedDevices.indexOf(id);
+    final saved = _lanDevices[id];
+    removeDevice(id);
+    if (await _preferences?.flush() ?? true) return true;
+    if (index >= 0 && !_addedDevices.contains(id)) {
+      _addedDevices.insert(index.clamp(0, _addedDevices.length), id);
+    }
+    if (saved != null) _lanDevices.putIfAbsent(id, () => saved);
+    _saveLanDevices();
+    _preferences?.setValue('devices', _addedDevices);
+    if (!_disposed) notifyListeners();
+    return false;
+  }
+
   void clearDevices() {
     _lanDevices.clear();
     _saveLanDevices();
     _addedDevices.clear();
     _preferences?.setValue('devices', _addedDevices);
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }

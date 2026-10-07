@@ -8,6 +8,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../context_menu/text_selection_menu.dart';
 import '../../theme/definition.dart';
 
 class SettingTextField extends StatelessWidget {
@@ -27,6 +28,7 @@ class SettingTextField extends StatelessWidget {
     return SizedBox(
       height: 32.0,
       child: TextFormField(
+        contextMenuBuilder: AppTextSelectionMenu.build,
         initialValue: value,
         onChanged: onChanged,
         cursorColor: theme.dividerColorNormal,

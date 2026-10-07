@@ -13,10 +13,11 @@ import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/context_menu/right_click_menu.dart';
 import '../../../core/l10n/language_provider.dart';
 import '../../../core/theme/provider.dart';
 import '../../../core/widgets/menu_item_surface.dart';
-import '../../../core/widgets/popup_menu_surface.dart';
+import '../../../core/widgets/popup_menu_transition.dart';
 import '../../../features/account/presentation/confirm_sign_out.dart';
 import '../../../features/account/presentation/widgets/avatar.dart';
 import '../../../features/account/state/provider.dart';
@@ -33,7 +34,6 @@ class _SidebarAccountButtonState extends State<SidebarAccountButton>
     with SingleTickerProviderStateMixin {
   final _menuController = MenuController();
   late final AnimationController _animation;
-  late final CurvedAnimation _curve;
   VoidCallback? _hideOverlay;
   VoidCallback? _afterClose;
 
@@ -42,14 +42,9 @@ class _SidebarAccountButtonState extends State<SidebarAccountButton>
     super.initState();
     _animation = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 220),
-      reverseDuration: const Duration(milliseconds: 150),
+      duration: PopupMenuTransition.duration,
+      reverseDuration: PopupMenuTransition.duration,
     )..addStatusListener(_onAnimationStatus);
-    _curve = CurvedAnimation(
-      parent: _animation,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    );
   }
 
   void _onAnimationStatus(AnimationStatus status) {
@@ -94,7 +89,6 @@ class _SidebarAccountButtonState extends State<SidebarAccountButton>
   void dispose() {
     _afterClose = null;
     _hideOverlay = null;
-    _curve.dispose();
     _animation.dispose();
     super.dispose();
   }
@@ -128,58 +122,39 @@ class _SidebarAccountButtonState extends State<SidebarAccountButton>
                 child: child!,
               ),
             ),
-            child: FadeTransition(
-              key: const ValueKey('account-menu-fade'),
-              opacity: _curve,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, 0.14),
-                  end: Offset.zero,
-                ).animate(_curve),
-                child: ScaleTransition(
-                  alignment: Alignment.bottomCenter,
-                  scale: Tween<double>(begin: 0.96, end: 1).animate(_curve),
-                  child: PopupMenuSurface(
-                    key: const ValueKey('account-menu-card'),
-                    theme: theme,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _menuItem(
-                          theme: theme,
-                          icon: Symbols.settings_rounded,
-                          label: context.l10n.settings,
-                          onPressed: () {
-                            final navigation = context
-                                .read<AppNavigationProvider>();
-                            _afterClose = () =>
-                                navigation.setPage(AppPage.settings);
-                            _menuController.close();
-                          },
-                        ),
-                        if (account?.user != null)
-                          _menuItem(
-                            key: const ValueKey('account-menu-sign-out'),
-                            theme: theme,
-                            icon: Symbols.logout_rounded,
-                            label: context.l10n.githubSignOut,
-                            onPressed: account!.busy
-                                ? null
-                                : () {
-                                    // 菜单收起后使用入口的上下文，避免访问已移除的浮层。
-                                    _afterClose = () => unawaited(
-                                      confirmAccountSignOut(
-                                        this.context,
-                                        theme: theme,
-                                      ),
-                                    );
-                                    _menuController.close();
-                                  },
-                          ),
-                      ],
-                    ),
+            child: PopupMenuTransition(
+              fadeKey: const ValueKey('account-menu-fade'),
+              animation: _animation,
+              alignment: Alignment.bottomLeft,
+              child: RightClickMenuBuilder.buildMenuPanel(
+                key: const ValueKey('account-menu-card'),
+                theme: theme,
+                width: info.anchorRect.width,
+                menuItems: [
+                  RightClickMenuItem(
+                    icon: Symbols.settings_rounded,
+                    label: context.l10n.settings,
+                    onTap: () {
+                      final navigation = context.read<AppNavigationProvider>();
+                      _afterClose = () => navigation.setPage(AppPage.settings);
+                      _menuController.close();
+                    },
                   ),
-                ),
+                  if (account?.user != null)
+                    RightClickMenuItem(
+                      key: const ValueKey('account-menu-sign-out'),
+                      icon: Symbols.logout_rounded,
+                      label: context.l10n.githubSignOut,
+                      isEnabled: !account!.busy,
+                      onTap: () {
+                        // 菜单收起后使用入口上下文，避免访问已移除的浮层。
+                        _afterClose = () => unawaited(
+                          confirmAccountSignOut(this.context, theme: theme),
+                        );
+                        _menuController.close();
+                      },
+                    ),
+                ],
               ),
             ),
           ),
@@ -187,52 +162,6 @@ class _SidebarAccountButtonState extends State<SidebarAccountButton>
       ),
     );
   }
-
-  Widget _menuItem({
-    Key? key,
-    required AppTheme theme,
-    required IconData icon,
-    required String label,
-    required VoidCallback? onPressed,
-  }) => MenuItemSurface(
-    key: key,
-    theme: theme,
-    backgroundColor: PopupMenuSurface.backgroundColorFor(theme),
-    hoverColor: theme.adaptiveColor(
-      dark: theme.secondaryTextHoverColorAlt,
-      light: theme.primaryTextHoverColor,
-    ),
-    borderRadius: BorderRadius.circular(6),
-    onPressed: onPressed,
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 30),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              fill: 1,
-              color: theme.textColorSecondary,
-              weight: 400,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: theme.textColorPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
 
   @override
   Widget build(BuildContext context) {

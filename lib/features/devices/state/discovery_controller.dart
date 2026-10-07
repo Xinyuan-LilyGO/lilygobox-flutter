@@ -147,8 +147,13 @@ class DiscoveryController extends ChangeNotifier {
         phase == DiscoveryPhase.connected) {
       return;
     }
-    if (!_devices.containsKey(device.id) ||
-        includeDevice?.call(device) == false) {
+    // 已确认过的设备断线后允许主动重试，即使它已被已添加列表过滤。
+    final retryingSelected =
+        phase == DiscoveryPhase.connectionFailed &&
+        selectedDevice?.id == device.id;
+    if (!retryingSelected &&
+        (!_devices.containsKey(device.id) ||
+            includeDevice?.call(device) == false)) {
       return;
     }
     final generation = ++_generation;
@@ -196,6 +201,21 @@ class DiscoveryController extends ChangeNotifier {
   }
 
   Future<void> cancelConnection() => search();
+
+  /// 同步服务在后台确认建立的连接，停止本轮查找，防止超时覆盖成功页面。
+  void reportConnectionEstablished(DiscoveredDevice device) {
+    if (_disposed) return;
+    if (phase == DiscoveryPhase.connected && selectedDevice?.id == device.id) {
+      return;
+    }
+    ++_generation;
+    selectedDevice = device;
+    phase = DiscoveryPhase.connected;
+    // 会话已成功，清理页面的发现任务时不能再取消这个连接。
+    _connecting = false;
+    unawaited(_stopOperations());
+    notifyListeners();
+  }
 
   // 连接服务独立于页面；页面可见期间仍需反映已建立会话的断开。
   void reportConnectionLost() {

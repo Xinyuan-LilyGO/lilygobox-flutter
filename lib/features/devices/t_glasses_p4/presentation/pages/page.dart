@@ -227,7 +227,7 @@ class _DevicePageContentTGlassesP4State
               controller: _menuController,
               menuItems: menuItemsList,
               theme: theme,
-              onSecondaryTapDown: () {
+              onSecondaryTap: () {
                 // 可以在这里添加额外的处理逻辑
               },
               child: MouseRegion(

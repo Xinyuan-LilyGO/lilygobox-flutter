@@ -8,9 +8,11 @@
 
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lilygobox/app/device_connection_coordinator.dart';
 import 'package:lilygobox/app/lilygobox_app.dart';
 import 'package:lilygobox/app/navigation/provider.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
@@ -25,6 +27,9 @@ import 'package:lilygobox/core/widgets/title_bar_icon_button.dart';
 import 'package:lilygobox/core/window/provider.dart';
 import 'package:lilygobox/features/account/domain/models.dart';
 import 'package:lilygobox/features/account/state/provider.dart';
+import 'package:lilygobox/features/devices/data/lan_discovery.dart';
+import 'package:lilygobox/features/devices/presentation/widgets/home_device_card.dart';
+import 'package:lilygobox/features/devices/state/lan_connection.dart';
 import 'package:lilygobox/features/devices/state/manager_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
@@ -49,7 +54,72 @@ class TestWindowProvider extends WindowProvider {
   Future<void> close({bool discardUnsaved = false}) async => closeCalls++;
 }
 
+class _Connection extends LanConnection {
+  void publish(LanDevice target) {
+    device = target;
+    phase = LanConnectionPhase.connected;
+    notifyListeners();
+  }
+}
+
 void main() {
+  testWidgets(
+    'rounded window compositing does not leak the light base through a mask',
+    (tester) async {
+      final theme = ThemeProvider();
+      addTearDown(theme.dispose);
+      final key = GlobalKey();
+      for (final mode in ThemeType.values) {
+        theme.setTheme(mode);
+        for (final ratio in [1.0, 1.25, 1.5]) {
+          await tester.pumpWidget(
+            MediaQuery(
+              data: MediaQueryData(devicePixelRatio: ratio),
+              child: Directionality(
+                textDirection: TextDirection.ltr,
+                child: Center(
+                  child: RepaintBoundary(
+                    key: key,
+                    child: SizedBox(
+                      width: 100,
+                      height: 80,
+                      child: AppWindowFrame(
+                        theme: theme.themeData,
+                        isMaximized: false,
+                        child: const ColoredBox(color: Colors.black),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final boundary =
+              key.currentContext!.findRenderObject() as RenderRepaintBoundary;
+          final leakedPixels = await tester.runAsync(() async {
+            final image = await boundary.toImage(pixelRatio: ratio);
+            final data = await image.toByteData(
+              format: ui.ImageByteFormat.rawRgba,
+            );
+            final bytes = data!.buffer.asUint8List();
+            var leaked = 0;
+            // 全黑遮罩和黑色阴影之外不应残留浅色底板的抗锯齿亮边。
+            for (var i = 0; i < bytes.length; i += 4) {
+              if (bytes[i + 3] > 0 &&
+                  (bytes[i] > 0 || bytes[i + 1] > 0 || bytes[i + 2] > 0)) {
+                leaked++;
+              }
+            }
+            image.dispose();
+            return leaked;
+          });
+          expect(leakedPixels, 0, reason: '$mode at $ratio');
+        }
+      }
+    },
+  );
+
   testWidgets('dialog stays inside the frame through window size changes', (
     tester,
   ) async {
@@ -69,6 +139,13 @@ void main() {
     final shell = AppShellProvider();
     final split = SplitViewProvider();
     final devices = DeviceManagerProvider();
+    final connection = _Connection();
+    final coordinator = DeviceConnectionCoordinator(
+      connection: connection,
+      devices: devices,
+      navigation: navigation,
+    );
+    addTearDown(coordinator.dispose);
     final info = PackageInfoProvider();
     final preferences = await AppPreferences.load(
       storage: MemoryPreferencesStorage(),
@@ -91,6 +168,7 @@ void main() {
       info,
       preferences,
       account,
+      connection,
     ]) {
       addTearDown(provider.dispose);
     }
@@ -133,6 +211,8 @@ void main() {
           ChangeNotifierProvider.value(value: info),
           ChangeNotifierProvider.value(value: preferences),
           ChangeNotifierProvider.value(value: account),
+          ChangeNotifierProvider<LanConnection>.value(value: connection),
+          Provider.value(value: coordinator),
         ],
         child: RepaintBoundary(key: boundaryKey, child: const LilygoBoxApp()),
       ),
@@ -256,6 +336,52 @@ void main() {
     expect(find.text('设置'), findsOneWidget);
     await mouse.removePointer();
     await tester.pumpAndSettle();
+    // 连接不弹提示，原有底部删除提示必须留在窗口圆角内部。
+    const target = LanDevice(
+      id: '001122334455',
+      name: 'Desk P4',
+      model: 'T-Display-P4',
+      address: '192.168.1.8',
+      port: 18464,
+    );
+    connection.publish(target);
+    await tester.pumpAndSettle();
+    final notice = find.byType(SnackBar);
+    final noticeSurface = find
+        .descendant(of: notice, matching: find.byType(Material))
+        .first;
+    final frameRect = tester.getRect(frameClip);
+    expect(notice, findsNothing);
+    await tester.tap(
+      find.byType(HomeDeviceCard),
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除设备'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('confirm-delete-device')));
+    await tester.pumpAndSettle();
+    expect(find.text('设备已删除。'), findsOneWidget);
+    expect(tester.widget<SnackBar>(notice).behavior, isNull);
+    expect(
+      tester.getRect(noticeSurface).left,
+      greaterThanOrEqualTo(frameRect.left),
+    );
+    expect(
+      tester.getRect(noticeSurface).right,
+      lessThanOrEqualTo(frameRect.right),
+    );
+    expect(find.ancestor(of: notice, matching: frameClip), findsOneWidget);
+    expect(
+      tester.getRect(noticeSurface).bottom,
+      lessThanOrEqualTo(frameRect.bottom),
+    );
+    window.onWindowMaximize();
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(noticeSurface).right,
+      lessThanOrEqualTo(tester.getRect(frameClip).right),
+    );
     expect(tester.takeException(), isNull);
   });
 }

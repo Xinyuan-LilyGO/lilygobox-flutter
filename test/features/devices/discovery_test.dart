@@ -141,6 +141,69 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'background success stops discovery and allows saved-device retry',
+    (tester) async {
+      final service = TestDiscoveryService();
+      final controller = DiscoveryController(
+        service: service,
+        includeDevice: (_) => false,
+        searchTimeout: const Duration(seconds: 1),
+      );
+      unawaited(controller.search());
+      await tester.pump();
+      controller.reportConnectionEstablished(device);
+      await tester.pump();
+      expect(controller.phase, DiscoveryPhase.connected);
+      expect(controller.selectedDevice, same(device));
+      expect(service.cancelledScans, 1);
+      expect(service.cancelledConnections, 0);
+      service.scans.single.add(device);
+      await tester.pump(const Duration(seconds: 2));
+      expect(controller.phase, DiscoveryPhase.connected);
+
+      controller.reportConnectionLost();
+      unawaited(
+        controller.connect(
+          const DiscoveredDevice(id: 'other', name: 'Other device'),
+        ),
+      );
+      await tester.pump();
+      expect(service.connections, isEmpty);
+      unawaited(controller.connect(device));
+      await tester.pump();
+      expect(controller.phase, DiscoveryPhase.connecting);
+      service.connections.single.complete(true);
+      await tester.pump();
+      expect(controller.phase, DiscoveryPhase.connected);
+      controller.dispose();
+      await tester.pump();
+      expect(service.cancelledConnections, 0);
+    },
+  );
+
+  testWidgets('session confirmation wins over a pending connection result', (
+    tester,
+  ) async {
+    final service = TestDiscoveryService();
+    final controller = DiscoveryController(service: service);
+    unawaited(controller.search());
+    await tester.pump();
+    service.scans.single.add(device);
+    await tester.pump();
+    unawaited(controller.connect(device));
+    await tester.pump();
+    controller.reportConnectionEstablished(device);
+    service.connections.single.complete(false);
+    await tester.pump(const Duration(seconds: 25));
+    expect(controller.phase, DiscoveryPhase.connected);
+    expect(service.cancelledConnections, 0);
+    controller.dispose();
+    controller.reportConnectionEstablished(device);
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('scan and connection timeouts release pending work', (
     tester,
   ) async {

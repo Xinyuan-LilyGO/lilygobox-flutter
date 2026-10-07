@@ -15,11 +15,14 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../core/context_menu/right_click_menu.dart';
 import '../../core/theme/provider.dart';
 import '../../core/widgets/menu_item_surface.dart';
+import '../../core/widgets/popup_menu_transition.dart';
+import '../../core/widgets/window_shadow.dart';
 
 class TrayMenuApp extends StatefulWidget {
   const TrayMenuApp({super.key});
 
   static const channel = MethodChannel('lilygobox/tray_menu');
+  // 与原生窗口同步；主窗口的紧凑阴影无需大片透明边距。
   static const shadowPadding = 16.0;
   static final cardBounds = RRect.fromRectAndRadius(
     const Rect.fromLTWH(shadowPadding, shadowPadding, 150, 75),
@@ -30,7 +33,13 @@ class TrayMenuApp extends StatefulWidget {
   State<TrayMenuApp> createState() => _TrayMenuAppState();
 }
 
-class _TrayMenuAppState extends State<TrayMenuApp> {
+class _TrayMenuAppState extends State<TrayMenuApp>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _entrance = AnimationController(
+    vsync: this,
+    duration: PopupMenuTransition.duration,
+    value: 1,
+  );
   final _theme = ThemeProvider();
   String _show = '';
   String _exit = '';
@@ -63,15 +72,23 @@ class _TrayMenuAppState extends State<TrayMenuApp> {
           _activating = false;
           _generation++;
         });
+        _entrance.value = presenting && !_reducedMotion ? 0 : 1;
         final generation = _generation;
         // 首帧完成后再显示原生窗口，避免首次展开闪白或显示旧的语言。
         await WidgetsBinding.instance.endOfFrame;
         if (mounted && presenting && _visible && generation == _generation) {
           await TrayMenuApp.channel.invokeMethod<void>('painted', {
             'requestId': requestId,
-            'fadeDurationMs': MenuItemSurface.animationDuration.inMilliseconds,
+            'fadeDurationMs': PopupMenuTransition.duration.inMilliseconds,
             'reduceMotion': _reducedMotion,
           });
+          // 宿主开始淡入后同步播放轻微展开，透明度仍只由宿主处理一次。
+          if (mounted &&
+              _visible &&
+              generation == _generation &&
+              !_reducedMotion) {
+            unawaited(_entrance.forward());
+          }
         }
       } else if (call.method == 'dismiss') {
         final args = call.arguments as Map?;
@@ -121,6 +138,7 @@ class _TrayMenuAppState extends State<TrayMenuApp> {
   void dispose() {
     TrayMenuApp.channel.setMethodCallHandler(null);
     _theme.dispose();
+    _entrance.dispose();
     super.dispose();
   }
 
@@ -158,22 +176,27 @@ class _TrayMenuAppState extends State<TrayMenuApp> {
                         padding: const EdgeInsets.all(
                           TrayMenuApp.shadowPadding,
                         ),
-                        child: RightClickMenuBuilder.buildMenuPanel(
-                          theme: _theme.themeData,
-                          backgroundColor: _theme.themeData.primary,
-                          menuItems: [
-                            RightClickMenuItem(
-                              label: _show,
-                              icon: Symbols.open_in_new_rounded,
-                              showDivider: true,
-                              onTap: () => unawaited(_activate('show')),
-                            ),
-                            RightClickMenuItem(
-                              label: _exit,
-                              icon: Symbols.power_settings_new_rounded,
-                              onTap: () => unawaited(_activate('exit')),
-                            ),
-                          ],
+                        child: PopupMenuTransition(
+                          animation: _entrance,
+                          alignment: Alignment.bottomLeft,
+                          fade: false,
+                          child: RightClickMenuBuilder.buildMenuPanel(
+                            theme: _theme.themeData,
+                            shadows: appWindowShadows,
+                            menuItems: [
+                              RightClickMenuItem(
+                                label: _show,
+                                icon: Symbols.open_in_new_rounded,
+                                showDivider: true,
+                                onTap: () => unawaited(_activate('show')),
+                              ),
+                              RightClickMenuItem(
+                                label: _exit,
+                                icon: Symbols.power_settings_new_rounded,
+                                onTap: () => unawaited(_activate('exit')),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     )

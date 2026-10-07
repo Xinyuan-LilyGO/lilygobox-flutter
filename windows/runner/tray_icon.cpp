@@ -8,6 +8,7 @@
 #include "tray_icon.h"
 
 #include <flutter/standard_method_codec.h>
+#include <dwmapi.h>
 #include <algorithm>
 #include <cmath>
 #include "resource.h"
@@ -19,7 +20,7 @@ constexpr UINT_PTR kWarmupTimer = 0x4c47;
 constexpr UINT_PTR kFadeTimer = 0x4c48;
 constexpr UINT_PTR kMenuWatchTimer = 0x4c49;
 constexpr wchar_t kMenuClass[] = L"LilygoBoxTrayMenu";
-// 卡片为 150×75；透明边距容纳 Flutter 圆角的半透明像素和柔和阴影。
+// 与 Flutter 托盘视图保持一致，容纳主窗口样式的紧凑阴影。
 constexpr int kShadowPadding = 16;
 constexpr int kMenuWidth = 150 + kShadowPadding * 2;
 constexpr int kMenuHeight = 75 + kShadowPadding * 2;
@@ -35,6 +36,9 @@ int64_t ReadRequestId(const flutter::EncodableValue* arguments) {
 }
 
 void EnableTransparentComposition(HWND window) {
+  // 阴影只由 Flutter 按卡片轮廓绘制，禁用宿主矩形的系统非客户区装饰。
+  const DWMNCRENDERINGPOLICY rendering = DWMNCRP_DISABLED;
+  DwmSetWindowAttribute(window, DWMWA_NCRENDERING_POLICY, &rendering, sizeof(rendering));
   // 与 window_manager 的透明主窗口保持相同的 Windows 合成设置。
   struct AccentPolicy { int state; int flags; int color; int animation; };
   struct CompositionData { int attribute; void* data; ULONG size; };
@@ -231,10 +235,22 @@ void TrayIcon::ResizeMenu() {
   const int width = static_cast<int>(std::ceil(kMenuWidth * scale_));
   const int height = static_cast<int>(std::ceil(kMenuHeight * scale_));
   const int padding = static_cast<int>(std::lround(kShadowPadding * scale_));
-  const int x = std::clamp(static_cast<int>(menu_position_.x) - padding,
-      static_cast<int>(monitor.rcWork.left), static_cast<int>(monitor.rcWork.right) - width);
-  const int y = std::clamp(static_cast<int>(menu_position_.y) - height + padding,
-      static_cast<int>(monitor.rcWork.top), static_cast<int>(monitor.rcWork.bottom) - height);
+  const int card_width = static_cast<int>(std::ceil(150 * scale_));
+  const int card_height = static_cast<int>(std::ceil(75 * scale_));
+  const int gap = static_cast<int>(std::lround(4 * scale_));
+  // 卡片左下角对齐右键松开的位置，允许覆盖任务栏；只按整个屏幕避让，
+  // 不能用 rcWork 或图标顶部，否则菜单会被推到任务栏上方而远离点击点。
+  int card_x = menu_position_.x;
+  int card_y = menu_position_.y - card_height;
+  if (card_y < monitor.rcMonitor.top + gap) card_y = menu_position_.y;
+  card_x = std::clamp(card_x, static_cast<int>(monitor.rcMonitor.left) + gap,
+      std::max(static_cast<int>(monitor.rcMonitor.left) + gap,
+               static_cast<int>(monitor.rcMonitor.right) - gap - card_width));
+  card_y = std::clamp(card_y, static_cast<int>(monitor.rcMonitor.top) + gap,
+      std::max(static_cast<int>(monitor.rcMonitor.top) + gap,
+               static_cast<int>(monitor.rcMonitor.bottom) - gap - card_height));
+  const int x = card_x - padding;
+  const int y = card_y - padding;
   // 不使用整数像素区域裁剪，保留 Flutter 圆角边缘的逐像素透明度。
   SetWindowPos(menu_, HWND_TOPMOST, x, y, width, height, SWP_NOACTIVATE);
 }

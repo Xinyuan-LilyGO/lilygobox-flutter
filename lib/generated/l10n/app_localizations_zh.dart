@@ -206,6 +206,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchingDevices => '正在查找设备…';
 
   @override
+  String get deleteDevice => '删除设备';
+
+  @override
+  String get deleteDeviceConfirmTitle => '删除设备？';
+
+  @override
+  String deleteDeviceConfirmDescription(String deviceName) {
+    return '将断开与「$deviceName」的连接，并清除本机保存的设备配置和配对信息。再次添加时需要重新授权。';
+  }
+
+  @override
+  String get deleteDeviceSucceeded => '设备已删除。';
+
+  @override
+  String get deleteDeviceFailed => '删除设备失败，请重试。';
+
+  @override
   String get discoveryEmpty => '暂未发现设备';
 
   @override
@@ -234,6 +251,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceConnected => '设备已连接';
+
+  @override
+  String get deviceConnectionComplete => '连接完成';
+
+  @override
+  String get backToHome => '返回主页';
 
   @override
   String get deviceConnectionFailed => '未能连接设备';

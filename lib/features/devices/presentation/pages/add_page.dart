@@ -41,6 +41,7 @@ class _AddDevicePageState extends State<AddDevicePage> {
   late final DiscoveryController _discovery;
   late final DeviceDiscoveryService _service;
   late final DeviceManagerProvider? _deviceManager;
+  String? _lastConnectedDeviceId;
   bool _showHelp = false;
 
   @override
@@ -52,15 +53,27 @@ class _AddDevicePageState extends State<AddDevicePage> {
         const UnavailableDeviceDiscoveryService();
     _deviceManager = context.read<DeviceManagerProvider?>();
     _discovery = _createDiscovery();
+    _discovery.addListener(_connectionChanged);
     _deviceManager?.addListener(_discovery.refreshDevices);
     if (_service is LanConnection) {
+      // 已连接时仍允许进入添加页查找其他设备，不能被旧会话的心跳抢走页面。
+      _lastConnectedDeviceId = _service.connected ? _service.device?.id : null;
       _service.addListener(_sessionChanged);
     }
     unawaited(_discovery.search());
+    // ready 可能早于本页初始化；恢复本轮添加结果，不能再次搜索后显示空列表。
+    if (_service is LanConnection &&
+        _service.connected &&
+        context.read<AppNavigationProvider?>()?.addedDeviceId ==
+            _service.device?.id &&
+        _service.device != null) {
+      _discovery.reportConnectionEstablished(_service.device!);
+    }
   }
 
   @override
   void dispose() {
+    _discovery.removeListener(_connectionChanged);
     _deviceManager?.removeListener(_discovery.refreshDevices);
     if (_service is LanConnection) {
       _service.removeListener(_sessionChanged);
@@ -69,7 +82,10 @@ class _AddDevicePageState extends State<AddDevicePage> {
     super.dispose();
   }
 
-  void _goBack() => context.read<AppNavigationProvider>().goHome();
+  void _goBack() {
+    context.read<AppShellProvider>().updateSelectedIndex(0);
+    context.read<AppNavigationProvider>().goHome();
+  }
 
   DiscoveryController _createDiscovery() => DiscoveryController(
     service: _service,
@@ -83,26 +99,37 @@ class _AddDevicePageState extends State<AddDevicePage> {
 
   void _sessionChanged() {
     final session = _service as LanConnection;
-    if (_discovery.phase == DiscoveryPhase.connected && !session.connected) {
+    final connectedDevice = session.connected ? session.device : null;
+    final previousId = _lastConnectedDeviceId;
+    _lastConnectedDeviceId = connectedDevice?.id;
+    if (connectedDevice != null && connectedDevice.id != previousId) {
+      _discovery.reportConnectionEstablished(connectedDevice);
+    } else if (_discovery.phase == DiscoveryPhase.connected &&
+        connectedDevice?.id != _discovery.selectedDevice?.id) {
       _discovery.reportConnectionLost();
     }
   }
 
-  void _openDevice() {
-    final device = _discovery.selectedDevice;
-    if (device == null || _discovery.phase != DiscoveryPhase.connected) return;
-    final manager = context.read<DeviceManagerProvider>();
-    final key = device is LanDevice ? device.id : device.name;
-    if (device is LanDevice) {
-      if (_service is LanConnection && !_service.connected) return;
-      manager.addLanDevice(device);
-    } else if (!manager.addedDevices.contains(device.name)) {
-      manager.addDevice(device.name);
-    }
-    context.read<AppShellProvider>().updateSelectedIndex(
-      manager.addedDevices.indexOf(key) + 1,
-    );
-    context.read<AppNavigationProvider>().goHome();
+  // 成功后立即保存资料，但保留完成页面，等待用户点击返回主页。
+  void _connectionChanged() {
+    if (_discovery.phase != DiscoveryPhase.connected) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _discovery.phase != DiscoveryPhase.connected) return;
+      final navigation = context.read<AppNavigationProvider>();
+      if (navigation.contentPage != AppPage.addDevice) return;
+      final device = _discovery.selectedDevice;
+      if (device == null) return;
+      final manager = context.read<DeviceManagerProvider>();
+      if (device is LanDevice) {
+        if (_service is LanConnection &&
+            (!_service.connected || _service.device?.id != device.id)) {
+          return;
+        }
+        manager.addLanDevice(device);
+      } else {
+        manager.addDevice(device.name);
+      }
+    });
   }
 
   @override
@@ -235,7 +262,7 @@ class _AddDevicePageState extends State<AddDevicePage> {
         _discovery.selectedDevice!.name,
       ),
       DiscoveryPhase.connected => (
-        l10n.deviceConnected,
+        l10n.deviceConnectionComplete,
         _discovery.selectedDevice!.name,
       ),
       DiscoveryPhase.connectionFailed => (
@@ -255,6 +282,7 @@ class _AddDevicePageState extends State<AddDevicePage> {
         if (phase == DiscoveryPhase.connected) ...[
           Icon(
             Symbols.check_circle_rounded,
+            fill: 1,
             size: 56,
             color: theme.baseTertiary,
           ),
@@ -293,7 +321,23 @@ class _AddDevicePageState extends State<AddDevicePage> {
             style: TextStyle(fontSize: 13, color: theme.textColorTertiary),
           ),
         ],
+        if (phase == DiscoveryPhase.connected && selected is LanDevice) ...[
+          const SizedBox(height: 4),
+          Text(
+            '${l10n.lanModel}: ${selected.model}',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: theme.textColorTertiary),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${l10n.lanAddress}: ${selected.address}',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: theme.textColorTertiary),
+          ),
+        ],
         const SizedBox(height: 28),
+        if (phase == DiscoveryPhase.connected)
+          _action(theme, l10n.backToHome, _goBack),
         if (showDevices) ...[
           Align(
             alignment: Alignment.centerLeft,
@@ -361,8 +405,6 @@ class _AddDevicePageState extends State<AddDevicePage> {
               if (mounted) unawaited(_discovery.connect(selected!));
             },
           ),
-        if (phase == DiscoveryPhase.connected)
-          _action(theme, l10n.openDevice, _openDevice),
         if (phase == DiscoveryPhase.connecting) ...[
           const SizedBox(height: 16),
           _action(

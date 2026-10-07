@@ -6,7 +6,9 @@
  * @License: GPL 3.0
  */
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/navigation/provider.dart';
 import 'package:lilygobox/app/shell/pages/home_page_content.dart';
@@ -14,6 +16,7 @@ import 'package:lilygobox/app/shell/pages/page.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
 import 'package:lilygobox/app/shell/widgets/sidebar_navigation_item.dart';
 import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/core/widgets/popup_menu_surface.dart';
 import 'package:lilygobox/features/devices/data/lan_discovery.dart';
 import 'package:lilygobox/features/devices/presentation/pages/connected_page.dart';
 import 'package:lilygobox/features/devices/presentation/widgets/home_device_card.dart';
@@ -23,6 +26,12 @@ import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 class _Connection extends LanConnection {
+  bool failForget = false;
+
+  @override
+  Future<bool> forgetDevice(String id) =>
+      failForget ? Future.value(false) : super.forgetDevice(id);
+
   void showStatus(LanDevice target, LanConnectionPhase value) {
     device = target;
     phase = value;
@@ -111,6 +120,161 @@ void main() {
     expect(find.text('No devices yet'), findsOneWidget);
   });
 
+  testWidgets(
+    'device heartbeats keep the open search menu mounted',
+    (tester) async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'Clipboard.hasStrings') return {'value': true};
+            return null;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      devices.addLanDevice(_device);
+      connection.showStatus(_device, LanConnectionPhase.connected);
+      await tester.pumpWidget(app());
+      await tester.enterText(find.byType(TextField), 'Desk');
+      final editable = tester.state<EditableTextState>(
+        find.byType(EditableText),
+      );
+      editable.widget.controller.selection = const TextSelection(
+        baseOffset: 0,
+        extentOffset: 4,
+      );
+      await tester.tap(find.byType(TextField), buttons: kSecondaryMouseButton);
+      await tester.pumpAndSettle();
+      final panel = find.byType(PopupMenuSurface);
+      final element = tester.element(panel);
+      final overlay = editable.selectionOverlay;
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(seconds: 5));
+        connection.showStatus(_device, LanConnectionPhase.connected);
+        await tester.pump();
+        expect(editable.selectionOverlay, same(overlay));
+        expect(tester.element(panel), same(element));
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.element(panel), same(element));
+      }
+      theme.setTheme(ThemeType.light);
+      await tester.pump();
+      expect(editable.selectionOverlay, same(overlay));
+      await tester.pumpAndSettle();
+      expect(tester.element(panel), same(element));
+      expect(tester.widget<PopupMenuSurface>(panel).theme, theme.themeData);
+      await tester.tap(find.text('Copy'));
+      await tester.pumpAndSettle();
+      expect(panel, findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets('right-click deletes an online device and restores empty home', (
+    tester,
+  ) async {
+    devices.addLanDevice(_device);
+    connection.showStatus(_device, LanConnectionPhase.connected);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byType(HomeDeviceCard),
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Delete device'), findsOneWidget);
+    expect(shell.selectedIndex, 0);
+    expect(devices.addedDevices, [_device.id]);
+    await tester.tap(find.text('Delete device'));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete device?'), findsOneWidget);
+    expect(find.textContaining('Desk P4', findRichText: true), findsWidgets);
+    expect(devices.addedDevices, [_device.id]);
+    expect(connection.connected, isTrue);
+    await tester.tap(find.byKey(const ValueKey('cancel-delete-device')));
+    await tester.pumpAndSettle();
+    expect(devices.addedDevices, [_device.id]);
+    expect(connection.connected, isTrue);
+    expect(find.byType(SnackBar), findsNothing);
+    await tester.tap(
+      find.byType(HomeDeviceCard),
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete device'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('confirm-delete-device')));
+    await tester.pumpAndSettle();
+    expect(devices.addedDevices, isEmpty);
+    expect(devices.lanDevice(_device.id), isNull);
+    expect(connection.device, isNull);
+    expect(connection.connected, isFalse);
+    expect(find.text('No devices yet'), findsOneWidget);
+    expect(find.text('Delete device'), findsNothing);
+    expect(find.text('Device deleted.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('deleting an offline card preserves the current connected card', (
+    tester,
+  ) async {
+    const other = LanDevice(
+      id: '001122334455',
+      name: 'Spare P4',
+      address: '192.168.1.9',
+      port: 18464,
+      model: 'T-Display-P4',
+    );
+    devices.addLanDevice(other);
+    devices.addLanDevice(_device);
+    connection.showStatus(_device, LanConnectionPhase.connected);
+    await tester.pumpWidget(app(locale: 'zh'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('home-device-001122334455')),
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除设备'));
+    await tester.pumpAndSettle();
+    expect(find.text('删除设备？'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('confirm-delete-device')));
+    await tester.pumpAndSettle();
+    expect(devices.addedDevices, [_device.id]);
+    expect(connection.device, _device);
+    expect(connection.connected, isTrue);
+    expect(find.byType(HomeDeviceCard), findsOneWidget);
+    expect(find.text('Desk P4'), findsOneWidget);
+    expect(find.text('设备已删除。'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('failed deletion retains the card and displays a retry message', (
+    tester,
+  ) async {
+    devices.addLanDevice(_device);
+    connection.failForget = true;
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byType(HomeDeviceCard),
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete device'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('confirm-delete-device')));
+    await tester.pumpAndSettle();
+    expect(devices.addedDevices, [_device.id]);
+    expect(find.byType(HomeDeviceCard), findsOneWidget);
+    expect(
+      find.text('Unable to delete this device. Please try again.'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('cards reflect session status and search by name and model', (
     tester,
   ) async {
@@ -161,9 +325,17 @@ void main() {
       await tester.enterText(find.byType(TextField), 'Desk');
       await tester.pumpAndSettle();
       final homeState = tester.state(find.byType(HomePageContent));
-      await tester.tap(find.byType(HomeDeviceCard));
+      final card = find.byType(HomeDeviceCard);
+      await tester.tapAt(
+        tester.getTopLeft(card) + const Offset(24, 24),
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Delete device'), findsOneWidget);
+      await tester.tapAt(tester.getBottomLeft(card) + const Offset(80, -24));
       await tester.pumpAndSettle();
       expect(find.byType(ConnectedDevicePage), findsOneWidget);
+      expect(find.text('Delete device'), findsNothing);
       expect(
         tester
             .widget<SidebarNavigationItem>(find.byType(SidebarNavigationItem))
@@ -173,6 +345,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('device-back-home')));
       await tester.pumpAndSettle();
       expect(tester.state(find.byType(HomePageContent)), same(homeState));
+      expect(find.text('Delete device'), findsNothing);
       expect(
         tester.widget<TextField>(find.byType(TextField)).controller!.text,
         'Desk',

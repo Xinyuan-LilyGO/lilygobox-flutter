@@ -12,6 +12,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../app/navigation/provider.dart';
+import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/action_button.dart';
@@ -57,6 +58,7 @@ class ConnectedDevicePage extends StatelessWidget {
           Expanded(
             child: SelectableText(
               value,
+              contextMenuBuilder: AppTextSelectionMenu.build,
               style: TextStyle(color: theme.textColorPrimary),
             ),
           ),

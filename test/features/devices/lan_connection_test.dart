@@ -32,6 +32,11 @@ class MemoryPairingStore implements DevicePairingStore {
   final tokens = <String, String>{};
   final fingerprints = <String, String>{};
   bool failFingerprintWrite = false;
+  bool failDelete = false;
+  Completer<void>? readGate;
+  Completer<void>? writeGate;
+  int reads = 0;
+  int writes = 0;
   @override
   Future<String?> readFingerprint(String id) async => fingerprints[id];
   @override
@@ -43,14 +48,23 @@ class MemoryPairingStore implements DevicePairingStore {
   @override
   Future<void> deleteFingerprint(String id) async => fingerprints.remove(id);
   @override
-  Future<String?> read(String id) async => tokens[id];
+  Future<String?> read(String id) async {
+    reads++;
+    final token = tokens[id];
+    await readGate?.future;
+    return token;
+  }
+
   @override
   Future<void> write(String id, String token) async {
+    writes++;
+    await writeGate?.future;
     tokens[id] = token;
   }
 
   @override
   Future<void> delete(String id) async {
+    if (failDelete) throw StateError('delete failed');
     tokens.remove(id);
   }
 }
@@ -336,6 +350,111 @@ void main() {
         socket.add(jsonEncode(response('pong')));
       }
     }
+
+    test(
+      'forgetting an online device clears trust and requires new approval',
+      () async {
+        store.tokens[deviceId] = token;
+        var newApprovals = 0;
+        serve((socket, message) {
+          if (message['type'] == 'hello' && message['resume'] != true) {
+            newApprovals++;
+            socket.add(
+              jsonEncode({...response('ready'), 'pairingToken': token}),
+            );
+          } else {
+            authorize(socket, message);
+          }
+        });
+        expect(await connection.connect(device), isTrue);
+        expect(await connection.forgetDevice(deviceId), isTrue);
+        expect(connection.connected, isFalse);
+        expect(connection.device, isNull);
+        expect(connection.firmware, isEmpty);
+        expect(store.tokens, isEmpty);
+        expect(store.fingerprints, isEmpty);
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+        expect(sockets, hasLength(1));
+        expect(await connection.connect(device), isTrue);
+        expect(newApprovals, 1);
+      },
+    );
+
+    test(
+      'forgetting another device keeps the current connection and credentials',
+      () async {
+        const otherId = 'aabbccddeeff';
+        store.tokens[deviceId] = token;
+        store.tokens[otherId] = token;
+        store.fingerprints[otherId] = 'other-fingerprint';
+        serve(authorize);
+        expect(await connection.connect(device), isTrue);
+        expect(await connection.forgetDevice(otherId), isTrue);
+        expect(connection.connected, isTrue);
+        expect(connection.device!.id, deviceId);
+        expect(store.tokens.keys, [deviceId]);
+        expect(store.fingerprints.keys, [deviceId]);
+      },
+    );
+
+    test(
+      'forget waits for an in-flight credential write and ignores late ready',
+      () async {
+        store.writeGate = Completer<void>();
+        serve((socket, message) {
+          if (message['type'] == 'hello') {
+            socket.add(
+              jsonEncode({...response('ready'), 'pairingToken': token}),
+            );
+          }
+        });
+        final connecting = connection.connect(device);
+        await waitFor(() => store.writes == 1);
+        final deleting = connection.forgetDevice(deviceId);
+        expect(identical(deleting, connection.forgetDevice(deviceId)), isTrue);
+        expect(await connection.connect(device), isFalse);
+        store.writeGate!.complete();
+        expect(await deleting, isTrue);
+        expect(await connecting, isFalse);
+        expect(store.tokens, isEmpty);
+        expect(store.fingerprints, isEmpty);
+        expect(connection.connected, isFalse);
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+        expect(sockets, hasLength(1));
+      },
+    );
+
+    test(
+      'forget prevents a pending startup restore from reconnecting',
+      () async {
+        store.tokens[deviceId] = token;
+        store.readGate = Completer<void>();
+        serve(authorize);
+        final restoring = connection.restorePairings([device]);
+        await waitFor(() => store.reads == 1);
+        final deleting = connection.forgetDevice(deviceId);
+        store.readGate!.complete();
+        await restoring;
+        expect(await deleting, isTrue);
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+        expect(sockets, isEmpty);
+        expect(store.tokens, isEmpty);
+      },
+    );
+
+    test(
+      'failed credential removal can be retried without claiming success',
+      () async {
+        store.tokens[deviceId] = token;
+        store.failDelete = true;
+        expect(await connection.forgetDevice(deviceId), isFalse);
+        expect(store.tokens[deviceId], token);
+        store.failDelete = false;
+        expect(await connection.forgetDevice(deviceId), isTrue);
+        expect(store.tokens, isEmpty);
+        expect(store.fingerprints, isEmpty);
+      },
+    );
 
     test('prefixed protocol IDs retain exact HMAC identity over TLS', () async {
       store.tokens[deviceId] = token;

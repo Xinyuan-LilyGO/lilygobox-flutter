@@ -10,13 +10,14 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/context_menu/right_click_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../catalog.dart';
 
-class HomeDeviceCard extends StatelessWidget {
+class HomeDeviceCard extends StatefulWidget {
   const HomeDeviceCard({
     super.key,
     required this.name,
@@ -26,6 +27,7 @@ class HomeDeviceCard extends StatelessWidget {
     required this.onPressed,
     this.usesWifi = false,
     this.macAddress,
+    this.onDelete,
   });
 
   final String name;
@@ -35,9 +37,23 @@ class HomeDeviceCard extends StatelessWidget {
   final VoidCallback onPressed;
   final bool usesWifi;
   final String? macAddress;
+  final VoidCallback? onDelete;
+
+  @override
+  State<HomeDeviceCard> createState() => _HomeDeviceCardState();
+}
+
+class _HomeDeviceCardState extends State<HomeDeviceCard> {
+  final _menu = RightClickMenuController();
 
   @override
   Widget build(BuildContext context) {
+    final name = widget.name;
+    final model = widget.model;
+    final connected = widget.connected;
+    final connecting = widget.connecting;
+    final usesWifi = widget.usesWifi;
+    final macAddress = widget.macAddress;
     final theme = context.watch<ThemeProvider>().themeData;
     final l10n = context.l10n;
     final status = connected
@@ -45,11 +61,15 @@ class HomeDeviceCard extends StatelessWidget {
         : connecting
         ? l10n.homeDeviceConnecting
         : l10n.homeDeviceOffline;
-    return Semantics(
+    final card = Semantics(
       button: true,
       child: MenuItemSurface(
         theme: theme,
-        onPressed: onPressed,
+        onPressed: () {
+          // 首页会保留在页面栈中，进入详情前主动移除其菜单浮层。
+          _menu.close();
+          widget.onPressed();
+        },
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -174,6 +194,24 @@ class HomeDeviceCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+    return RightClickMenuBuilder.buildMenuAnchor(
+      context: context,
+      controller: _menu,
+      theme: theme,
+      onSecondaryTap: () {},
+      menuItems: [
+        RightClickMenuItem(
+          label: l10n.deleteDevice,
+          icon: Symbols.delete_rounded,
+          isEnabled: widget.onDelete != null,
+          onTap: () {
+            _menu.close();
+            widget.onDelete?.call();
+          },
+        ),
+      ],
+      child: card,
     );
   }
 }

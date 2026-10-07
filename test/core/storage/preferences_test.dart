@@ -15,6 +15,7 @@ import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/storage/preferences.dart';
 import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/features/devices/data/lan_discovery.dart';
 import 'package:lilygobox/features/devices/state/manager_provider.dart';
 
 class MemoryPreferencesStorage implements PreferencesStorage {
@@ -40,6 +41,60 @@ class MemoryPreferencesStorage implements PreferencesStorage {
 }
 
 void main() {
+  const device = LanDevice(
+    id: '001122334455',
+    name: 'Desk P4',
+    address: '192.168.1.9',
+    port: 18464,
+    model: 'T-Display-P4',
+  );
+
+  test(
+    'deleted device stays removed after restart without changing other settings',
+    () async {
+      final storage = MemoryPreferencesStorage();
+      final preferences = await AppPreferences.load(storage: storage);
+      final devices = DeviceManagerProvider(preferences: preferences);
+      addTearDown(preferences.dispose);
+      addTearDown(devices.dispose);
+      preferences.setValue('language', 'zh');
+      devices.addLanDevice(device);
+      devices.addDevice('T-Glasses-P4');
+      expect(await preferences.flush(), isTrue);
+      expect(await devices.removeDeviceAndSave(device.id), isTrue);
+      final restored = await AppPreferences.load(storage: storage);
+      final restoredDevices = DeviceManagerProvider(preferences: restored);
+      addTearDown(restored.dispose);
+      addTearDown(restoredDevices.dispose);
+      expect(restoredDevices.addedDevices, ['T-Glasses-P4']);
+      expect(restoredDevices.lanDevice(device.id), isNull);
+      expect(jsonDecode(restored.stringValue('devices.lan.v1', '[]')), isEmpty);
+      expect(restored.stringValue('language', ''), 'zh');
+    },
+  );
+
+  test(
+    'failed device deletion restores its record and supports retry',
+    () async {
+      final storage = MemoryPreferencesStorage();
+      final preferences = await AppPreferences.load(storage: storage);
+      final devices = DeviceManagerProvider(preferences: preferences);
+      addTearDown(preferences.dispose);
+      addTearDown(devices.dispose);
+      devices.addLanDevice(device);
+      devices.addDevice('T-Glasses-P4');
+      expect(await preferences.flush(), isTrue);
+      storage.failWrite = true;
+      expect(await devices.removeDeviceAndSave(device.id), isFalse);
+      expect(devices.addedDevices, [device.id, 'T-Glasses-P4']);
+      expect(devices.lanDevice(device.id), device);
+      storage.failWrite = false;
+      expect(await devices.removeDeviceAndSave(device.id), isTrue);
+      expect(jsonDecode(storage.value!)['devices'], ['T-Glasses-P4']);
+      expect(jsonDecode(jsonDecode(storage.value!)['devices.lan.v1']), isEmpty);
+    },
+  );
+
   testWidgets('changes save automatically after a short quiet interval', (
     tester,
   ) async {

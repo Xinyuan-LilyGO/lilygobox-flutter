@@ -213,6 +213,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchingDevices => 'Looking for devices…';
 
   @override
+  String get deleteDevice => 'Delete device';
+
+  @override
+  String get deleteDeviceConfirmTitle => 'Delete device?';
+
+  @override
+  String deleteDeviceConfirmDescription(String deviceName) {
+    return 'This will disconnect from “$deviceName” and remove its settings and pairing information from this computer. Adding it again will require new approval.';
+  }
+
+  @override
+  String get deleteDeviceSucceeded => 'Device deleted.';
+
+  @override
+  String get deleteDeviceFailed =>
+      'Unable to delete this device. Please try again.';
+
+  @override
   String get discoveryEmpty => 'No devices found';
 
   @override
@@ -244,6 +262,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceConnected => 'Device connected';
+
+  @override
+  String get deviceConnectionComplete => 'Connection complete';
+
+  @override
+  String get backToHome => 'Back to home';
 
   @override
   String get deviceConnectionFailed => 'Could not connect';

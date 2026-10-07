@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/widgets/menu_item_surface.dart';
+import 'package:lilygobox/core/widgets/popup_menu_surface.dart';
 import 'package:lilygobox/core/widgets/settings/widgets.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
 
@@ -78,19 +79,30 @@ void main() {
     await tester.pump(const Duration(milliseconds: 75));
     expect(
       background(tester, option),
-      Color.lerp(theme.primary, theme.primaryTextHoverColor, .5),
+      Color.lerp(
+        PopupMenuSurface.backgroundColorFor(theme),
+        theme.basePrimary,
+        .5,
+      ),
     );
     await tester.pumpAndSettle();
-    expect(background(tester, option), theme.primaryTextHoverColor);
+    expect(background(tester, option), theme.basePrimary);
     await mouse.moveTo(Offset.zero);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 75));
     expect(
       background(tester, option),
-      Color.lerp(theme.primaryTextHoverColor, theme.primary, .5),
+      Color.lerp(
+        theme.basePrimary,
+        PopupMenuSurface.backgroundColorFor(theme),
+        .5,
+      ),
     );
     await tester.pumpAndSettle();
-    expect(background(tester, option), theme.primary);
+    expect(
+      background(tester, option),
+      PopupMenuSurface.backgroundColorFor(theme),
+    );
 
     await tester.tap(option);
     await tester.pumpAndSettle();
@@ -155,8 +167,8 @@ void main() {
     expect(
       background(tester, reset),
       Color.lerp(
-        themes.themeData.primary,
-        themes.themeData.primaryTextHoverColor,
+        PopupMenuSurface.backgroundColorFor(themes.themeData),
+        themes.themeData.basePrimary,
         .5,
       ),
     );

@@ -145,14 +145,19 @@ void main() {
     'hidden connection continues and only removal disposes the page',
     (tester) async {
       final theme = ThemeProvider();
+      final navigation = AppNavigationProvider();
       final service = TestDiscoveryService();
       addTearDown(theme.dispose);
+      addTearDown(navigation.dispose);
       var active = 'add';
       var includeAdd = true;
       late StateSetter rebuild;
       await tester.pumpWidget(
-        ChangeNotifierProvider.value(
-          value: theme,
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: theme),
+            ChangeNotifierProvider.value(value: navigation),
+          ],
           child: MaterialApp(
             locale: const Locale('zh'),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -195,7 +200,7 @@ void main() {
       rebuild(() => active = 'add');
       await tester.pumpAndSettle();
       expect(tester.state(find.byType(AddDevicePage)), same(pageState));
-      expect(find.text('打开设备'), findsOneWidget);
+      expect(find.text('连接完成'), findsOneWidget);
       rebuild(() {
         active = 'other';
         includeAdd = false;

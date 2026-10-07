@@ -6,32 +6,41 @@
  * @License: GPL 3.0
  */
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/definition.dart';
 import '../widgets/menu_item_surface.dart';
 import '../widgets/popup_menu_surface.dart';
+import '../widgets/popup_menu_transition.dart';
 
 /// 右键菜单项
 class RightClickMenuItem {
+  final Key? key;
   final String label;
+  final Widget? labelWidget;
   final IconData? icon;
   final VoidCallback? onTap;
   final bool isEnabled;
   final bool showDivider; // 是否在该项后显示分割线
+  final bool isSelected;
 
   const RightClickMenuItem({
+    this.key,
     required this.label,
+    this.labelWidget,
     this.icon,
     this.onTap,
     this.isEnabled = true,
     this.showDivider = false, // 默认不显示分割线
+    this.isSelected = false,
   });
 }
 
 /// 右键菜单控制器
 class RightClickMenuController {
   final MenuController _menuController = MenuController();
+  final ValueNotifier<int> _openRevision = ValueNotifier(0);
   bool _isEnabled = true;
 
   void enable() => _isEnabled = true;
@@ -40,6 +49,8 @@ class RightClickMenuController {
 
   void open({Offset? position}) {
     if (_isEnabled) {
+      // 已打开时 MenuAnchor 只更新位置；显式打开请求也必须重新播放入场动画。
+      _openRevision.value++;
       _menuController.open(position: position);
     }
   }
@@ -60,7 +71,7 @@ class RightClickMenuBuilder {
     required List<RightClickMenuItem> menuItems,
     required AppTheme theme,
     required Widget child,
-    VoidCallback? onSecondaryTapDown,
+    VoidCallback? onSecondaryTap,
     bool openAbove = false,
   }) {
     const double menuWidth = 150; // 设置菜单宽度
@@ -92,43 +103,71 @@ class RightClickMenuBuilder {
         padding: WidgetStateProperty.all(EdgeInsets.zero),
       ),
       menuChildren: [
-        buildMenuPanel(menuItems: menuItems, theme: theme, width: menuWidth),
+        ValueListenableBuilder<int>(
+          valueListenable: controller._openRevision,
+          builder: (context, revision, child) => PopupMenuTransition(
+            key: ValueKey(revision),
+            alignment: openAbove ? Alignment.bottomLeft : Alignment.topLeft,
+            child: child!,
+          ),
+          child: buildMenuPanel(
+            menuItems: menuItems,
+            theme: theme,
+            width: menuWidth,
+          ),
+        ),
       ],
-      child: GestureDetector(
-        onSecondaryTapDown: onSecondaryTapDown == null
+      child: Listener(
+        // 按下时立即移除旧菜单，不等待点击手势确认；松手仍由下方手势打开。
+        onPointerDown: onSecondaryTap == null
             ? null
-            : (details) {
-                onSecondaryTapDown();
-                // 调整菜单位置，让菜单更贴近鼠标
-                final adjustedPosition = Offset(
-                  details.localPosition.dx,
-                  details.localPosition.dy - 8, // 向上偏移
-                );
-                controller.open(position: adjustedPosition);
+            : (event) {
+                if (event.buttons & kSecondaryMouseButton != 0) {
+                  controller.close();
+                }
               },
-        child: child,
+        child: GestureDetector(
+          // 遵循桌面上下文菜单的松手触发方式，按住右键时不提前覆盖原控件。
+          onSecondaryTapUp: onSecondaryTap == null
+              ? null
+              : (details) {
+                  onSecondaryTap();
+                  // 调整菜单位置，让菜单更贴近鼠标。
+                  final adjustedPosition = Offset(
+                    details.localPosition.dx,
+                    details.localPosition.dy - 8,
+                  );
+                  controller.open(position: adjustedPosition);
+                },
+          child: child,
+        ),
       ),
     );
   }
 
   /// 页面弹层与桌面托盘窗口复用同一份菜单内容、图标和交互动画。
   static Widget buildMenuPanel({
+    Key? key,
     required List<RightClickMenuItem> menuItems,
     required AppTheme theme,
     double width = 150,
-    Color? backgroundColor,
-  }) => SizedBox(
-    width: width,
-    child: PopupMenuSurface(
-      theme: theme,
-      backgroundColor: backgroundColor,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: _buildMenuItemsWithDividers(
-          menuItems: menuItems,
-          theme: theme,
-          menuWidth: width - 10,
-          backgroundColor: backgroundColor,
+    List<BoxShadow>? shadows,
+  }) => MouseRegion(
+    // 覆盖菜单留白处，避免穿透后沿用底层输入框的文字光标。
+    cursor: SystemMouseCursors.basic,
+    child: SizedBox(
+      width: width,
+      child: PopupMenuSurface(
+        key: key,
+        theme: theme,
+        shadows: shadows,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: _buildMenuItemsWithDividers(
+            menuItems: menuItems,
+            theme: theme,
+            menuWidth: width - 10,
+          ),
         ),
       ),
     ),
@@ -139,7 +178,6 @@ class RightClickMenuBuilder {
     required List<RightClickMenuItem> menuItems,
     required AppTheme theme,
     required double menuWidth,
-    Color? backgroundColor,
   }) {
     List<Widget> widgets = [];
 
@@ -149,12 +187,13 @@ class RightClickMenuBuilder {
 
       // 添加菜单项
       widgets.add(
-        _buildCustomMenuItem(
-          item: item,
-          theme: theme,
-          menuWidth: menuWidth,
-          backgroundColor: backgroundColor,
-          isLast: isLast && !item.showDivider, // 如果是最后一项且不显示分割线，则应用底部圆角
+        // 悬停渐变与波纹只重绘当前项，避免快速切换时反复重绘整块浮层和阴影。
+        RepaintBoundary(
+          child: _buildCustomMenuItem(
+            item: item,
+            theme: theme,
+            menuWidth: menuWidth,
+          ),
         ),
       );
 
@@ -194,13 +233,13 @@ class RightClickMenuBuilder {
     required RightClickMenuItem item,
     required AppTheme theme,
     required double menuWidth,
-    required bool isLast,
-    Color? backgroundColor,
   }) {
     return MenuItemSurface(
+      key: item.key,
       theme: theme,
-      backgroundColor:
-          backgroundColor ?? PopupMenuSurface.backgroundColorFor(theme),
+      isSelected: item.isSelected,
+      disableWhenSelected: false,
+      backgroundColor: PopupMenuSurface.backgroundColorFor(theme),
       hoverColor: theme.basePrimary,
       foregroundColor: item.isEnabled
           ? theme.textColorSecondary
@@ -215,7 +254,7 @@ class RightClickMenuBuilder {
       child: Container(
         width: menuWidth,
         height: 28,
-        padding: const EdgeInsets.only(left: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 6),
         child: Row(
           children: [
             if (item.icon != null) ...[
@@ -230,16 +269,22 @@ class RightClickMenuBuilder {
               const SizedBox(width: 4),
             ],
             Expanded(
-              child: Text(
-                item.label,
+              child: DefaultTextStyle.merge(
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: item.isEnabled
                       ? FontWeight.normal
                       : FontWeight.w300,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                child: item.labelWidget ?? Text(item.label),
               ),
             ),
+            if (item.isSelected) ...[
+              const SizedBox(width: 4),
+              const Icon(Icons.check, size: 16),
+            ],
           ],
         ),
       ),

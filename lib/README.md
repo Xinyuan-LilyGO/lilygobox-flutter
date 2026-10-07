@@ -52,6 +52,8 @@ lib/
 
 菜单、设置行控件和主题选择继续复用 `MenuItemSurface` 的颜色过渡与交互规则。
 
+右键、托盘、个人中心、文本操作和设置下拉菜单统一使用 `RightClickMenuBuilder.buildMenuPanel`，背景、圆角、阴影、字体、图标和悬停配色由公共组件管理。弹出时使用 `PopupMenuTransition` 的 150 毫秒淡入和轻微展开；托盘宿主和 Flutter 文本选择层已有淡入时只接入展开，避免重复叠加透明度。新增文本输入使用固定的 `AppTextSelectionMenu.build` 回调，防止页面刷新时菜单被关闭后重新弹出。
+
 ## 添加设备与设置页
 
 1. 在 `features/devices/domain/catalog.dart` 中登记支持的设备标识。

@@ -8,9 +8,10 @@
 
 import 'package:flutter/material.dart';
 
+import '../../context_menu/right_click_menu.dart';
 import '../../theme/definition.dart';
 import '../menu_item_surface.dart';
-import 'decoration.dart';
+import '../popup_menu_transition.dart';
 
 class SettingSelect<T> extends StatefulWidget {
   const SettingSelect({
@@ -32,9 +33,7 @@ class SettingSelect<T> extends StatefulWidget {
 
 class _SettingSelectState<T> extends State<SettingSelect<T>>
     with SingleTickerProviderStateMixin {
-  static const Duration _dropdownAnimationDuration = Duration(
-    milliseconds: 150,
-  );
+  static const _dropdownAnimationDuration = PopupMenuTransition.duration;
 
   bool _expanded = false;
   bool _isRemoving = false;
@@ -116,7 +115,11 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
     _isRemoving = false;
     _overlayEntry = OverlayEntry(builder: _buildDropdownOverlay);
     Overlay.of(context).insert(_overlayEntry!);
-    _dropdownController.forward(from: 0.0);
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _dropdownController.value = 1;
+    } else {
+      _dropdownController.forward(from: 0.0);
+    }
     setState(() {});
   }
 
@@ -143,7 +146,9 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
       }
     }
 
-    if (!animated || !_dropdownController.isAnimating && !_expanded) {
+    if (!animated ||
+        MediaQuery.disableAnimationsOf(context) ||
+        !_dropdownController.isAnimating && !_expanded) {
       completeRemoval();
       return;
     }
@@ -152,62 +157,39 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
   }
 
   Widget _buildDropdownOverlay(BuildContext context) {
-    const optionHeight = 32.0;
-    final dropdownHeight = widget.items.length * optionHeight + 2.0;
-
     return Positioned.fill(
-      child: AnimatedBuilder(
-        animation: _dropdownController,
-        builder: (context, child) {
-          final animationValue = Curves.easeInOut.transform(
-            _dropdownController.value,
-          );
-
-          return Stack(
-            children: [
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: _removeDropdown,
-                  child: const SizedBox.expand(),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: _removeDropdown,
+              child: const SizedBox.expand(),
+            ),
+          ),
+          Positioned(
+            left: _dropdownPosition.dx,
+            top: _dropdownPosition.dy + _targetSize.height + 3,
+            width: _targetSize.width,
+            child: Material(
+              color: Colors.transparent,
+              child: PopupMenuTransition(
+                animation: _dropdownController,
+                child: _SettingSelectDropdown<T>(
+                  theme: widget.theme,
+                  value: widget.value,
+                  items: widget.items,
+                  width: _targetSize.width,
+                  onSelected: (value) {
+                    if (_isRemoving) return;
+                    widget.onChanged?.call(value);
+                    _removeDropdown();
+                  },
                 ),
               ),
-              Positioned(
-                left: _dropdownPosition.dx,
-                top: _dropdownPosition.dy + optionHeight + 3.0,
-                width: _targetSize.width,
-                child: Material(
-                  color: Colors.transparent,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4.0),
-                    child: SizedBox(
-                      height: dropdownHeight * animationValue,
-                      child: OverflowBox(
-                        alignment: Alignment.topCenter,
-                        minHeight: dropdownHeight,
-                        maxHeight: dropdownHeight,
-                        child: SizedBox(
-                          width: _targetSize.width,
-                          height: dropdownHeight,
-                          child: _SettingSelectDropdown<T>(
-                            theme: widget.theme,
-                            value: widget.value,
-                            items: widget.items,
-                            onSelected: (value) {
-                              widget.onChanged?.call(value);
-                              _removeDropdown();
-                            },
-                            itemTextBuilder: _selectItemText,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -232,80 +214,28 @@ class _SettingSelectDropdown<T> extends StatelessWidget {
     required this.value,
     required this.items,
     required this.onSelected,
-    required this.itemTextBuilder,
+    required this.width,
   });
 
   final AppTheme theme;
   final T value;
   final List<DropdownMenuItem<T>> items;
   final ValueChanged<T?> onSelected;
-  final Widget Function(Widget child) itemTextBuilder;
+  final double width;
 
   @override
-  Widget build(BuildContext context) {
-    const optionHeight = 32.0;
-    final dropdownHeight = items.length * optionHeight + 2.0;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4.0),
-      child: Container(
-        height: dropdownHeight,
-        decoration: settingsControlDecoration(theme, opaque: true),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: items.asMap().entries.map((entry) {
-            final index = entry.key;
-            final item = entry.value;
-            final isSelected = item.value == value;
-
-            return MenuItemSurface(
-              theme: theme,
-              isSelected: isSelected,
-              // 下拉框允许点击当前值收起列表，导航菜单仍禁止重复选中。
-              disableWhenSelected: false,
-              onPressed: item.enabled ? () => onSelected(item.value) : null,
-              borderRadius: _itemBorderRadius(index, items.length),
-              child: Container(
-                height: optionHeight,
-                padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                child: Row(
-                  children: [
-                    Expanded(child: itemTextBuilder(item.child)),
-                    if (isSelected)
-                      Icon(
-                        Icons.check,
-                        size: 16.0,
-                        color: theme.textColorPrimary,
-                      ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
+  Widget build(BuildContext context) => RightClickMenuBuilder.buildMenuPanel(
+    theme: theme,
+    width: width,
+    menuItems: [
+      for (final item in items)
+        RightClickMenuItem(
+          label: '',
+          labelWidget: item.child,
+          isSelected: item.value == value,
+          isEnabled: item.enabled,
+          onTap: () => onSelected(item.value),
         ),
-      ),
-    );
-  }
-
-  BorderRadius _itemBorderRadius(int index, int count) {
-    if (count <= 1) {
-      return BorderRadius.circular(4.0);
-    }
-
-    if (index == 0) {
-      return const BorderRadius.only(
-        topLeft: Radius.circular(4.0),
-        topRight: Radius.circular(4.0),
-      );
-    }
-
-    if (index == count - 1) {
-      return const BorderRadius.only(
-        bottomLeft: Radius.circular(4.0),
-        bottomRight: Radius.circular(4.0),
-      );
-    }
-
-    return BorderRadius.zero;
-  }
+    ],
+  );
 }
