@@ -31,6 +31,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     this.heartbeatInterval = const Duration(seconds: 5),
     this.heartbeatTimeout = const Duration(seconds: 15),
     this.pairingStore,
+    this.clientIdProvider,
     this.reconnectDelay = const Duration(seconds: 3),
   });
 
@@ -39,6 +40,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
   final Duration heartbeatInterval;
   final Duration heartbeatTimeout;
   final DevicePairingStore? pairingStore;
+  final Future<String> Function()? clientIdProvider;
   final Duration reconnectDelay;
   final Map<String, String> _tokens = {};
   final Map<String, String> _fingerprints = {};
@@ -234,6 +236,11 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     _notify();
     _deadline = Timer(approvalTimeout, () => _fail(generation));
     try {
+      final clientId = await clientIdProvider?.call();
+      if (clientId != null && !RegExp(r'^[0-9a-f]{64}$').hasMatch(clientId)) {
+        throw const FormatException('Invalid application identity');
+      }
+      if (_disposed || generation != _generation) return false;
       final token =
           _tokens[target.id] ??
           await _pairingOperation(
@@ -307,6 +314,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
       _send({
         'type': 'hello',
         'pairingVersion': 2,
+        if (clientId != null) 'clientId': clientId,
         'deviceId': target.protocolId,
         'automatic': automatic,
         if (token != null) 'resume': true,

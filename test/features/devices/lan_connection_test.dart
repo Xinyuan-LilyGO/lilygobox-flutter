@@ -240,6 +240,56 @@ void main() {
   });
 
   test(
+    'delete and re-pair retain client identity without resuming old authorization',
+    () async {
+      connection.dispose();
+      final store = MemoryPairingStore();
+      final clientId = List.filled(64, 'a').join();
+      connection = LanConnection(
+        pairingStore: store,
+        clientIdProvider: () async => clientId,
+        approvalTimeout: const Duration(seconds: 2),
+      );
+      final hellos = <Map<String, dynamic>>[];
+      serve((socket, message) {
+        if (message['type'] == 'hello') {
+          hellos.add(message);
+          socket.add(jsonEncode(response('waiting')));
+        }
+      });
+      for (var i = 0; i < 3; i++) {
+        final pending = connection.connect(device);
+        await waitFor(
+          () => connection.phase == LanConnectionPhase.awaitingApproval,
+        );
+        expect(hellos.last['clientId'], clientId);
+        expect(hellos.last.containsKey('resume'), isFalse);
+        expect(hellos.last.containsKey('pairingId'), isFalse);
+        final token = List.filled(64, '$i').join();
+        sockets.last.add(
+          jsonEncode({...response('ready'), 'pairingToken': token}),
+        );
+        expect(await pending, isTrue);
+        expect(store.tokens[deviceId], token);
+        expect(await connection.forgetDevice(deviceId), isTrue);
+        expect(store.tokens, isEmpty);
+        expect(store.fingerprints, isEmpty);
+      }
+      expect(hellos, hasLength(3));
+    },
+  );
+
+  test('identity storage failure prevents a new anonymous pairing', () async {
+    connection.dispose();
+    connection = LanConnection(
+      clientIdProvider: () async => throw StateError('storage unavailable'),
+    );
+    serve((socket, message) => fail('Must not send an anonymous hello'));
+    expect(await connection.connect(device), isFalse);
+    expect(sockets, isEmpty);
+  });
+
+  test(
     'wrong device identity is rejected rather than marked connected',
     () async {
       serve((socket, message) {

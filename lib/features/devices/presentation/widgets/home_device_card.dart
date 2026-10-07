@@ -13,7 +13,6 @@ import 'package:provider/provider.dart';
 import '../../../../core/context_menu/right_click_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
-import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../catalog.dart';
 
@@ -136,17 +135,14 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
                   ),
                 ),
               ),
-              AppTooltip(
-                message: name,
-                child: Text(
-                  name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                    color: theme.textColorPrimary,
-                  ),
+              Text(
+                name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: theme.textColorPrimary,
                 ),
               ),
               const SizedBox(height: 4),

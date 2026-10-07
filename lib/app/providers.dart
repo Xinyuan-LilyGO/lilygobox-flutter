@@ -106,8 +106,10 @@ class _AppProvidersState extends State<AppProviders>
         ChangeNotifierProvider(
           create: (context) {
             final devices = context.read<DeviceManagerProvider>();
+            final pairingStore = SecureDevicePairingStore();
             final connection = LanConnection(
-              pairingStore: SecureDevicePairingStore(),
+              pairingStore: pairingStore,
+              clientIdProvider: pairingStore.getClientId,
             );
             unawaited(
               connection.restorePairings(

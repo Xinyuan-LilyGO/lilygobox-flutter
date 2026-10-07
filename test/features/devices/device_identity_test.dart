@@ -28,6 +28,40 @@ void main() {
     'model': 'T-Display-P4',
   };
 
+  test(
+    'application identity survives device deletion and store recreation',
+    () async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final store = SecureDevicePairingStore();
+      final ids = await Future.wait([
+        store.getClientId(),
+        SecureDevicePairingStore().getClientId(),
+      ]);
+      expect(ids.first, matches(RegExp(r'^[0-9a-f]{64}$')));
+      expect(ids.last, ids.first);
+      await store.write(id, 'pairing-token');
+      await store.writeFingerprint(id, 'fingerprint');
+      await store.delete(id);
+      await store.deleteFingerprint(id);
+      expect(await SecureDevicePairingStore().getClientId(), ids.first);
+      expect(await store.read(id), isNull);
+      expect(await store.readFingerprint(id), isNull);
+      // 独立安装生成不同标识，不使用可能重复的电脑名称作为身份。
+      FlutterSecureStorage.setMockInitialValues({});
+      expect(await SecureDevicePairingStore().getClientId(), isNot(ids.first));
+    },
+  );
+
+  test('corrupt application identity is not silently replaced', () async {
+    FlutterSecureStorage.setMockInitialValues({
+      'lilygobox.app.client-id.v1': 'invalid',
+    });
+    await expectLater(
+      SecureDevicePairingStore().getClientId(),
+      throwsFormatException,
+    );
+  });
+
   test('legacy and new IDs share MAC but retain exact wire identity', () {
     final old = LanDevice.fromJson(record)!;
     final current = LanDevice.fromJson({...record, 'id': id})!;
