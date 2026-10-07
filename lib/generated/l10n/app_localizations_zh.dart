@@ -197,7 +197,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get connectYourDevice => '连接你的设备';
 
   @override
-  String get discoveryDescription => '请在设备的「更多连接 → LilygoBox 应用连接」中点击「添加连接」。';
+  String get discoveryDescription => '请确保设备已开机并允许 LilygoBox 连接，然后选择要连接的设备。';
 
   @override
   String get discoveredDevices => '发现的设备';
@@ -263,7 +263,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceConnectionFailedDescription =>
-      '设备未确认连接或已离线，请在设备上点击「添加连接」后重试。';
+      '连接未获确认或设备已离线。请确保设备在线并允许 LilygoBox 连接，然后重试。';
 
   @override
   String get retryConnection => '重新连接';
@@ -279,7 +279,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceConnectionHelpDescription =>
-      '请让电脑或手机与设备连接到同一局域网。在设备上打开「设置 → 更多连接 → LilygoBox 应用连接 → 添加连接」。\n出现提示后，在设备上允许连接。如果无法发现设备，请检查 Windows 防火墙和路由器的客户端隔离设置。';
+      '请确保设备已开机，并已启用应用连接功能。具体操作请参考对应设备的说明。\n通过局域网连接时，请让电脑或手机与设备连接到同一局域网。首次连接时，请按设备提示确认授权。如果无法发现设备，请检查网络、防火墙和路由器的客户端隔离设置。';
 
   @override
   String get tapToConnect => '点击连接';
@@ -463,5 +463,5 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get lanReconnectDescription =>
-      '请在设备的「设置 → 更多连接 → LilygoBox 应用连接」中点击「添加连接」，然后重试。如果设备地址已变化，请重新搜索。';
+      '请确保设备在线并允许 LilygoBox 连接，然后重试。如果仍无法连接，请重新搜索设备。';
 }

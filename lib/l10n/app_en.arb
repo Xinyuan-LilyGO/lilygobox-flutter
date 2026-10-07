@@ -59,7 +59,7 @@
     "homeDevicesNoResults": "No matching devices",
     "back": "Back",
     "connectYourDevice": "Connect your device",
-    "discoveryDescription": "On your device, open More Connections > LilygoBox App Connection and select Add connection.",
+    "discoveryDescription": "Make sure your device is powered on and allows LilygoBox connections, then select the device to connect.",
     "discoveredDevices": "Discovered devices",
     "searchingDevices": "Looking for devices…",
     "deleteDevice": "Delete device",
@@ -83,12 +83,12 @@
     "deviceConnectionComplete": "Connection complete",
     "backToHome": "Back to home",
     "deviceConnectionFailed": "Could not connect",
-    "deviceConnectionFailedDescription": "The connection was not confirmed or the device is offline. Select Add connection on the device and try again.",
+    "deviceConnectionFailedDescription": "The connection was not confirmed or the device is offline. Make sure it is online and allows LilygoBox connections, then try again.",
     "retryConnection": "Try again",
     "cancelConnection": "Cancel connection",
     "openDevice": "Open device",
     "deviceConnectionHelp": "Connection help",
-    "deviceConnectionHelpDescription": "Connect both devices to the same local network. On the device, open Settings > More Connections > LilygoBox App Connection > Add connection.\nWhen prompted, allow the connection on the device. If nothing is found, check Windows Firewall and router client isolation.",
+    "deviceConnectionHelpDescription": "Make sure your device is powered on and app connections are enabled. Refer to the instructions for your device.\nFor local network connections, connect your computer or phone and the device to the same network. Follow the device prompts to approve the first connection. If no devices are found, check your network, firewall, and router client isolation settings.",
     "tapToConnect": "Select to connect",
     "resizeSettingsSidebar": "Resize settings sidebar",
     "appearanceSettingsDescription": "Customize the interface with your preferred theme.",
@@ -148,5 +148,5 @@
     "lanDisconnect": "Disconnect",
     "lanConnectedDescription": "The device has confirmed this connection. Device information is refreshed automatically.",
     "lanConfirmOnDevice": "Please allow the connection on your device.",
-    "lanReconnectDescription": "On the device, open Settings > More Connections > LilygoBox App Connection and select Add connection, then retry. If its address changed, search again."
+    "lanReconnectDescription": "Make sure your device is online and allows LilygoBox connections, then try again. If you still cannot connect, search for the device again."
 }

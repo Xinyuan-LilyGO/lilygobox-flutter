@@ -59,7 +59,7 @@
     "homeDevicesNoResults": "没有找到符合条件的设备",
     "back": "返回",
     "connectYourDevice": "连接你的设备",
-    "discoveryDescription": "请在设备的「更多连接 → LilygoBox 应用连接」中点击「添加连接」。",
+    "discoveryDescription": "请确保设备已开机并允许 LilygoBox 连接，然后选择要连接的设备。",
     "discoveredDevices": "发现的设备",
     "searchingDevices": "正在查找设备…",
     "deleteDevice": "删除设备",
@@ -83,12 +83,12 @@
     "deviceConnectionComplete": "连接完成",
     "backToHome": "返回主页",
     "deviceConnectionFailed": "未能连接设备",
-    "deviceConnectionFailedDescription": "设备未确认连接或已离线，请在设备上点击「添加连接」后重试。",
+    "deviceConnectionFailedDescription": "连接未获确认或设备已离线。请确保设备在线并允许 LilygoBox 连接，然后重试。",
     "retryConnection": "重新连接",
     "cancelConnection": "取消连接",
     "openDevice": "打开设备",
     "deviceConnectionHelp": "查看连接帮助",
-    "deviceConnectionHelpDescription": "请让电脑或手机与设备连接到同一局域网。在设备上打开「设置 → 更多连接 → LilygoBox 应用连接 → 添加连接」。\n出现提示后，在设备上允许连接。如果无法发现设备，请检查 Windows 防火墙和路由器的客户端隔离设置。",
+    "deviceConnectionHelpDescription": "请确保设备已开机，并已启用应用连接功能。具体操作请参考对应设备的说明。\n通过局域网连接时，请让电脑或手机与设备连接到同一局域网。首次连接时，请按设备提示确认授权。如果无法发现设备，请检查网络、防火墙和路由器的客户端隔离设置。",
     "tapToConnect": "点击连接",
     "resizeSettingsSidebar": "调整设置侧栏宽度",
     "appearanceSettingsDescription": "调整界面外观，选择适合你的主题。",
@@ -148,5 +148,5 @@
     "lanDisconnect": "断开连接",
     "lanConnectedDescription": "设备已确认本次连接，设备信息会自动刷新。",
     "lanConfirmOnDevice": "请在设备上允许本次连接。",
-    "lanReconnectDescription": "请在设备的「设置 → 更多连接 → LilygoBox 应用连接」中点击「添加连接」，然后重试。如果设备地址已变化，请重新搜索。"
+    "lanReconnectDescription": "请确保设备在线并允许 LilygoBox 连接，然后重试。如果仍无法连接，请重新搜索设备。"
 }

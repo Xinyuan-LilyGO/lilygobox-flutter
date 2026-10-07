@@ -465,7 +465,7 @@ abstract class AppLocalizations {
   /// No description provided for @discoveryDescription.
   ///
   /// In en, this message translates to:
-  /// **'On your device, open More Connections > LilygoBox App Connection and select Add connection.'**
+  /// **'Make sure your device is powered on and allows LilygoBox connections, then select the device to connect.'**
   String get discoveryDescription;
 
   /// No description provided for @discoveredDevices.
@@ -591,7 +591,7 @@ abstract class AppLocalizations {
   /// No description provided for @deviceConnectionFailedDescription.
   ///
   /// In en, this message translates to:
-  /// **'The connection was not confirmed or the device is offline. Select Add connection on the device and try again.'**
+  /// **'The connection was not confirmed or the device is offline. Make sure it is online and allows LilygoBox connections, then try again.'**
   String get deviceConnectionFailedDescription;
 
   /// No description provided for @retryConnection.
@@ -621,7 +621,7 @@ abstract class AppLocalizations {
   /// No description provided for @deviceConnectionHelpDescription.
   ///
   /// In en, this message translates to:
-  /// **'Connect both devices to the same local network. On the device, open Settings > More Connections > LilygoBox App Connection > Add connection.\nWhen prompted, allow the connection on the device. If nothing is found, check Windows Firewall and router client isolation.'**
+  /// **'Make sure your device is powered on and app connections are enabled. Refer to the instructions for your device.\nFor local network connections, connect your computer or phone and the device to the same network. Follow the device prompts to approve the first connection. If no devices are found, check your network, firewall, and router client isolation settings.'**
   String get deviceConnectionHelpDescription;
 
   /// No description provided for @tapToConnect.
@@ -981,7 +981,7 @@ abstract class AppLocalizations {
   /// No description provided for @lanReconnectDescription.
   ///
   /// In en, this message translates to:
-  /// **'On the device, open Settings > More Connections > LilygoBox App Connection and select Add connection, then retry. If its address changed, search again.'**
+  /// **'Make sure your device is online and allows LilygoBox connections, then try again. If you still cannot connect, search for the device again.'**
   String get lanReconnectDescription;
 }
 
