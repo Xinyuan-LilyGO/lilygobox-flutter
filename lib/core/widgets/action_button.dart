@@ -19,6 +19,7 @@ class AppActionButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.primary = false,
+    this.destructive = false,
     this.icon,
     this.iconSize = 20,
     this.iconSpacing = 8,
@@ -31,6 +32,9 @@ class AppActionButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
   final bool primary;
+
+  /// 危险操作使用红色底色，继续复用统一的悬停和点击动画。
+  final bool destructive;
   final IconData? icon;
   final double iconSize;
   final double iconSpacing;
@@ -41,13 +45,19 @@ class AppActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 灰色沿用取消连接的默认底色，紫色沿用主页添加设备按钮。
-    final background = primary
+    final filled = primary || destructive;
+    final background = destructive
+        ? theme.adaptiveColor(
+            dark: const Color(0xFFB94A48),
+            light: const Color(0xFFBC3434),
+          )
+        : primary
         ? theme.basePrimary
         : Color.alphaBlend(
             theme.textColorPrimary.withValues(alpha: 0.06),
             theme.secondary,
           );
-    final foreground = primary
+    final foreground = filled
         ? (ThemeData.estimateBrightnessForColor(background) == Brightness.dark
               ? Colors.white
               : const Color(0xFF191919))
@@ -57,7 +67,7 @@ class AppActionButton extends StatelessWidget {
       textAlign: TextAlign.center,
       style: TextStyle(
         fontSize: fontSize,
-        fontWeight: primary ? FontWeight.w600 : FontWeight.w400,
+        fontWeight: filled ? FontWeight.w600 : FontWeight.w400,
         color: foreground,
       ),
     );
@@ -69,7 +79,7 @@ class AppActionButton extends StatelessWidget {
         theme: theme,
         onPressed: onPressed,
         backgroundColor: background,
-        hoverColor: primary
+        hoverColor: filled
             ? Color.alphaBlend(foreground.withValues(alpha: 0.1), background)
             : theme.secondaryTextHoverColor,
         borderRadius: borderRadius,

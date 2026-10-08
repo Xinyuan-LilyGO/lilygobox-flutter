@@ -113,6 +113,49 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceSettings => 'Device Settings';
 
   @override
+  String get deviceDetails => 'Device details';
+
+  @override
+  String get deviceControlTab => 'Control';
+
+  @override
+  String get deviceConnectionTab => 'Connection';
+
+  @override
+  String get deviceInfoTab => 'Info';
+
+  @override
+  String get deviceNameLabel => 'Device name';
+
+  @override
+  String get deviceScreenControls => 'Screen controls';
+
+  @override
+  String get deviceScreenDisplay => 'Screen display';
+
+  @override
+  String get deviceBrightness => 'Brightness';
+
+  @override
+  String get deviceSound => 'Device sounds';
+
+  @override
+  String get deviceDisplaySettings => 'Display settings';
+
+  @override
+  String get deviceControlUnavailable => 'Not supported yet';
+
+  @override
+  String get deviceControlsUnavailable =>
+      'These controls are not available for this device yet.';
+
+  @override
+  String get deviceConnectionStatus => 'Connection status';
+
+  @override
+  String get deviceConnectionMethod => 'Connection method';
+
+  @override
   String get deviceSettingsUnavailable =>
       'Settings are not available for this device yet.';
 
@@ -235,7 +278,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get discoveryEmptyDescription =>
-      'Make sure your device is on and ready to connect.';
+      'Make sure your device is powered on and allows app connections.\nFor local network connections, make sure both devices are on the same network.';
 
   @override
   String get discoveryUnavailable => 'Device discovery unavailable';
@@ -249,7 +292,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get discoveryFailedDescription =>
-      'Check your device and access permissions, then try again.';
+      'The search could not finish. Check your network connection and network access permissions, then try again.';
 
   @override
   String get searchAgain => 'Search again';
@@ -258,7 +301,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceConnecting => 'Connecting to your device…';
 
   @override
-  String get keepDeviceOn => 'Please allow the connection on your device';
+  String get lanConnectingDescription =>
+      'Establishing the connection. Please wait.';
 
   @override
   String get deviceConnected => 'Device connected';
@@ -274,7 +318,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceConnectionFailedDescription =>
-      'The connection was not confirmed or the device is offline. Make sure it is online and allows LilygoBox connections, then try again.';
+      'Could not establish a connection. Make sure the device is online and allows LilygoBox connections, then try again.';
 
   @override
   String get retryConnection => 'Try again';
@@ -289,8 +333,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceConnectionHelp => 'Connection help';
 
   @override
-  String get deviceConnectionHelpDescription =>
-      'Make sure your device is powered on and app connections are enabled. Refer to the instructions for your device.\nFor local network connections, connect your computer or phone and the device to the same network. Follow the device prompts to approve the first connection. If no devices are found, check your network, firewall, and router client isolation settings.';
+  String get deviceConnectionTroubleshooting => 'Troubleshoot connection';
+
+  @override
+  String get closeHelp => 'Close help';
+
+  @override
+  String get deviceHelpPreparation => 'Prepare your device';
+
+  @override
+  String get deviceHelpPreparationDescription =>
+      'Make sure your device is powered on and allows LilygoBox connections. Refer to the instructions for your device.';
+
+  @override
+  String get deviceHelpNetwork => 'Check the network';
+
+  @override
+  String get deviceHelpNetworkDescription =>
+      'For local network connections, connect your computer or phone and the device to the same network. If the device is still not found, check firewall permissions for the app and whether your router blocks communication between devices.';
+
+  @override
+  String get deviceHelpApproval => 'Approve the connection';
+
+  @override
+  String get deviceHelpApprovalDescription =>
+      'Follow the device prompts to approve the first connection. Previously authorized devices usually do not require confirmation again. Adding a deleted device requires new approval.';
 
   @override
   String get tapToConnect => 'Select to connect';
@@ -486,8 +553,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get lanDisconnect => 'Disconnect';
 
   @override
+  String get lanDisconnectConfirmTitle => 'Disconnect device?';
+
+  @override
+  String get lanDisconnectDescription =>
+      'Your pairing information will be kept. Automatic connection will pause for this session. You can reconnect manually or restart the app to resume automatic connection.';
+
+  @override
   String get lanConnectedDescription =>
-      'The device has confirmed this connection. Device information is refreshed automatically.';
+      'Connected to the device. Device information is refreshed automatically.';
 
   @override
   String get lanConfirmOnDevice =>

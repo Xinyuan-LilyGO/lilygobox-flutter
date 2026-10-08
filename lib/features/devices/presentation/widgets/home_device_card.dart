@@ -1,5 +1,5 @@
 /*
- * @Description: 展示主页设备卡片与真实连接状态，预留产品图片并以谷歌连接图标占位。
+ * @Description: 展示主页设备卡片与真实连接状态，预留产品图片并以灰色 Blur On 图标占位。
  * @Author: LILYGO_L
  * @Date: 2026-10-06 14:00:00
  * @LastEditTime: 2026-10-06 14:40:14
@@ -14,7 +14,6 @@ import '../../../../core/context_menu/right_click_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
-import '../catalog.dart';
 
 class HomeDeviceCard extends StatefulWidget {
   const HomeDeviceCard({
@@ -71,7 +70,7 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
         },
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -122,12 +121,13 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
                   ],
                 ],
               ),
-              // 预留正式产品图片区域，当前仅使用 Material Symbols 连接图标占位。
+              // 正式产品图片尚未接入，使用灰色 Material Symbols Blur On 图标占位。
+              const SizedBox(height: 6),
               SizedBox(
                 height: 116,
                 child: Center(
                   child: Icon(
-                    DevicePresentationCatalog.iconFor(model),
+                    Symbols.blur_on,
                     size: 64,
                     fill: 1,
                     weight: 400,

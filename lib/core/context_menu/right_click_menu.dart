@@ -73,6 +73,7 @@ class RightClickMenuBuilder {
     required Widget child,
     VoidCallback? onSecondaryTap,
     bool openAbove = false,
+    Offset alignmentOffset = Offset.zero,
   }) {
     const double menuWidth = 150; // 设置菜单宽度
     const double menuPadding = 5.0; // 菜单内边距
@@ -90,7 +91,9 @@ class RightClickMenuBuilder {
     return MenuAnchor(
       controller: controller._menuController,
       clipBehavior: Clip.none,
-      alignmentOffset: openAbove ? Offset(0, -menuHeight - 8) : Offset.zero,
+      alignmentOffset: openAbove
+          ? Offset(0, -menuHeight - 8) + alignmentOffset
+          : alignmentOffset,
       style: MenuStyle(
         alignment: openAbove ? AlignmentDirectional.topStart : null,
         backgroundColor: WidgetStateProperty.all(Colors.transparent),

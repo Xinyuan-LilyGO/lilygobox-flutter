@@ -27,6 +27,7 @@ import '../../state/discovery_controller.dart';
 import '../../state/lan_connection.dart';
 import '../../state/manager_provider.dart';
 import '../confirm_repair.dart';
+import '../widgets/device_connection_help.dart';
 
 class AddDevicePage extends StatefulWidget {
   const AddDevicePage({super.key, this.discoveryService});
@@ -42,7 +43,6 @@ class _AddDevicePageState extends State<AddDevicePage> {
   late final DeviceDiscoveryService _service;
   late final DeviceManagerProvider? _deviceManager;
   String? _lastConnectedDeviceId;
-  bool _showHelp = false;
 
   @override
   void initState() {
@@ -189,6 +189,7 @@ class _AddDevicePageState extends State<AddDevicePage> {
                                 ),
                               ),
                             ),
+                            const DeviceHelpMenu(),
                           ],
                         ),
                       ),
@@ -214,7 +215,11 @@ class _AddDevicePageState extends State<AddDevicePage> {
                                         maxWidth: 400,
                                       ),
                                       child: ListenableBuilder(
-                                        listenable: _discovery,
+                                        listenable: Listenable.merge([
+                                          _discovery,
+                                          if (_service is LanConnection)
+                                            _service,
+                                        ]),
                                         builder: (context, child) =>
                                             _buildContent(theme),
                                       ),
@@ -244,6 +249,9 @@ class _AddDevicePageState extends State<AddDevicePage> {
     final session = _service is LanConnection ? _service : null;
     final identityChanged =
         session?.device?.id == selected?.id && session?.identityChanged == true;
+    final awaitingApproval =
+        session?.device?.id == selected?.id &&
+        session?.phase == LanConnectionPhase.awaitingApproval;
     final (title, description) = switch (phase) {
       DiscoveryPhase.empty => (
         l10n.discoveryEmpty,
@@ -375,7 +383,9 @@ class _AddDevicePageState extends State<AddDevicePage> {
               Flexible(
                 child: Text(
                   phase == DiscoveryPhase.connecting
-                      ? l10n.keepDeviceOn
+                      ? awaitingApproval
+                            ? l10n.lanConfirmOnDevice
+                            : l10n.lanConnectingDescription
                       : l10n.searchingDevices,
                   style: TextStyle(
                     fontSize: 13,
@@ -414,39 +424,16 @@ class _AddDevicePageState extends State<AddDevicePage> {
             primary: false,
           ),
         ],
-        if (phase != DiscoveryPhase.connected &&
-            phase != DiscoveryPhase.connecting) ...[
-          const SizedBox(height: 18),
-          _action(
-            theme,
-            l10n.deviceConnectionHelp,
-            () => setState(() => _showHelp = !_showHelp),
-            primary: false,
-            compact: true,
+        if (phase == DiscoveryPhase.failed ||
+            phase == DiscoveryPhase.connectionFailed)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: TextButton(
+              style: TextButton.styleFrom(foregroundColor: theme.baseTertiary),
+              onPressed: () => showDeviceConnectionHelp(context),
+              child: Text(l10n.deviceConnectionTroubleshooting),
+            ),
           ),
-          AnimatedSize(
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : MenuItemSurface.animationDuration,
-            alignment: Alignment.topCenter,
-            child: _showHelp
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(
-                      phase == DiscoveryPhase.unavailable
-                          ? l10n.discoveryUnavailableDescription
-                          : l10n.deviceConnectionHelpDescription,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
-                        height: 1.5,
-                        color: theme.textColorTertiary,
-                      ),
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-        ],
       ],
     );
   }
@@ -509,16 +496,10 @@ class _AddDevicePageState extends State<AddDevicePage> {
     String label,
     VoidCallback onPressed, {
     bool primary = true,
-    bool compact = false,
   }) => AppActionButton(
     theme: theme,
     label: label,
     onPressed: onPressed,
     primary: primary,
-    padding: EdgeInsets.symmetric(
-      horizontal: compact ? 14 : 16,
-      vertical: compact ? 7 : 8,
-    ),
-    borderRadius: BorderRadius.circular(compact ? 8 : 10),
   );
 }

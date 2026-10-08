@@ -327,6 +327,16 @@ void main() {
       await tester.tap(find.text('T-Display-P4'));
       await tester.pump();
       expect(find.text('正在连接设备…'), findsOneWidget);
+      expect(find.text('正在建立连接，请稍候。'), findsOneWidget);
+      expect(find.text('请在设备上允许本次连接。'), findsNothing);
+      session.publish(target, LanConnectionPhase.awaitingApproval);
+      await tester.pump();
+      expect(find.text('请在设备上允许本次连接。'), findsOneWidget);
+      expect(find.text('正在建立连接，请稍候。'), findsNothing);
+      session.publish(target, LanConnectionPhase.connecting);
+      await tester.pump();
+      expect(find.text('正在建立连接，请稍候。'), findsOneWidget);
+      expect(find.text('请在设备上允许本次连接。'), findsNothing);
       expect(devices.addedDevices, isEmpty);
       session.discoveryService.connections.single.complete(true);
       await tester.pumpAndSettle();
@@ -485,11 +495,22 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          final help = find.text(locale == 'zh' ? '查看连接帮助' : 'Connection help');
-          await tester.ensureVisible(help);
+          expect(
+            find.text(locale == 'zh' ? '连接帮助' : 'Connection help'),
+            findsNothing,
+          );
+          await tester.tap(find.byKey(const ValueKey('device-help-menu')));
           await tester.pumpAndSettle();
-          await tester.tap(help);
+          await tester.tap(find.byKey(const ValueKey('open-device-help')));
           await tester.pumpAndSettle();
+          final panel = tester.getRect(
+            find.byKey(const ValueKey('device-help-panel')),
+          );
+          expect(panel.width, 296);
+          expect(panel.bottom, 468);
+          await tester.tap(find.byKey(const ValueKey('close-device-help')));
+          await tester.pumpAndSettle();
+          expect(find.byKey(const ValueKey('device-help-panel')), findsNothing);
           expect(tester.takeException(), isNull);
         }
       }

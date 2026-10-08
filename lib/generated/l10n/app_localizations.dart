@@ -288,6 +288,90 @@ abstract class AppLocalizations {
   /// **'Device Settings'**
   String get deviceSettings;
 
+  /// No description provided for @deviceDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Device details'**
+  String get deviceDetails;
+
+  /// No description provided for @deviceControlTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Control'**
+  String get deviceControlTab;
+
+  /// No description provided for @deviceConnectionTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection'**
+  String get deviceConnectionTab;
+
+  /// No description provided for @deviceInfoTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Info'**
+  String get deviceInfoTab;
+
+  /// No description provided for @deviceNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Device name'**
+  String get deviceNameLabel;
+
+  /// No description provided for @deviceScreenControls.
+  ///
+  /// In en, this message translates to:
+  /// **'Screen controls'**
+  String get deviceScreenControls;
+
+  /// No description provided for @deviceScreenDisplay.
+  ///
+  /// In en, this message translates to:
+  /// **'Screen display'**
+  String get deviceScreenDisplay;
+
+  /// No description provided for @deviceBrightness.
+  ///
+  /// In en, this message translates to:
+  /// **'Brightness'**
+  String get deviceBrightness;
+
+  /// No description provided for @deviceSound.
+  ///
+  /// In en, this message translates to:
+  /// **'Device sounds'**
+  String get deviceSound;
+
+  /// No description provided for @deviceDisplaySettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Display settings'**
+  String get deviceDisplaySettings;
+
+  /// No description provided for @deviceControlUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Not supported yet'**
+  String get deviceControlUnavailable;
+
+  /// No description provided for @deviceControlsUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'These controls are not available for this device yet.'**
+  String get deviceControlsUnavailable;
+
+  /// No description provided for @deviceConnectionStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection status'**
+  String get deviceConnectionStatus;
+
+  /// No description provided for @deviceConnectionMethod.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection method'**
+  String get deviceConnectionMethod;
+
   /// No description provided for @deviceSettingsUnavailable.
   ///
   /// In en, this message translates to:
@@ -519,7 +603,7 @@ abstract class AppLocalizations {
   /// No description provided for @discoveryEmptyDescription.
   ///
   /// In en, this message translates to:
-  /// **'Make sure your device is on and ready to connect.'**
+  /// **'Make sure your device is powered on and allows app connections.\nFor local network connections, make sure both devices are on the same network.'**
   String get discoveryEmptyDescription;
 
   /// No description provided for @discoveryUnavailable.
@@ -543,7 +627,7 @@ abstract class AppLocalizations {
   /// No description provided for @discoveryFailedDescription.
   ///
   /// In en, this message translates to:
-  /// **'Check your device and access permissions, then try again.'**
+  /// **'The search could not finish. Check your network connection and network access permissions, then try again.'**
   String get discoveryFailedDescription;
 
   /// No description provided for @searchAgain.
@@ -558,11 +642,11 @@ abstract class AppLocalizations {
   /// **'Connecting to your device…'**
   String get deviceConnecting;
 
-  /// No description provided for @keepDeviceOn.
+  /// No description provided for @lanConnectingDescription.
   ///
   /// In en, this message translates to:
-  /// **'Please allow the connection on your device'**
-  String get keepDeviceOn;
+  /// **'Establishing the connection. Please wait.'**
+  String get lanConnectingDescription;
 
   /// No description provided for @deviceConnected.
   ///
@@ -591,7 +675,7 @@ abstract class AppLocalizations {
   /// No description provided for @deviceConnectionFailedDescription.
   ///
   /// In en, this message translates to:
-  /// **'The connection was not confirmed or the device is offline. Make sure it is online and allows LilygoBox connections, then try again.'**
+  /// **'Could not establish a connection. Make sure the device is online and allows LilygoBox connections, then try again.'**
   String get deviceConnectionFailedDescription;
 
   /// No description provided for @retryConnection.
@@ -618,11 +702,53 @@ abstract class AppLocalizations {
   /// **'Connection help'**
   String get deviceConnectionHelp;
 
-  /// No description provided for @deviceConnectionHelpDescription.
+  /// No description provided for @deviceConnectionTroubleshooting.
   ///
   /// In en, this message translates to:
-  /// **'Make sure your device is powered on and app connections are enabled. Refer to the instructions for your device.\nFor local network connections, connect your computer or phone and the device to the same network. Follow the device prompts to approve the first connection. If no devices are found, check your network, firewall, and router client isolation settings.'**
-  String get deviceConnectionHelpDescription;
+  /// **'Troubleshoot connection'**
+  String get deviceConnectionTroubleshooting;
+
+  /// No description provided for @closeHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Close help'**
+  String get closeHelp;
+
+  /// No description provided for @deviceHelpPreparation.
+  ///
+  /// In en, this message translates to:
+  /// **'Prepare your device'**
+  String get deviceHelpPreparation;
+
+  /// No description provided for @deviceHelpPreparationDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Make sure your device is powered on and allows LilygoBox connections. Refer to the instructions for your device.'**
+  String get deviceHelpPreparationDescription;
+
+  /// No description provided for @deviceHelpNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Check the network'**
+  String get deviceHelpNetwork;
+
+  /// No description provided for @deviceHelpNetworkDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'For local network connections, connect your computer or phone and the device to the same network. If the device is still not found, check firewall permissions for the app and whether your router blocks communication between devices.'**
+  String get deviceHelpNetworkDescription;
+
+  /// No description provided for @deviceHelpApproval.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve the connection'**
+  String get deviceHelpApproval;
+
+  /// No description provided for @deviceHelpApprovalDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow the device prompts to approve the first connection. Previously authorized devices usually do not require confirmation again. Adding a deleted device requires new approval.'**
+  String get deviceHelpApprovalDescription;
 
   /// No description provided for @tapToConnect.
   ///
@@ -966,10 +1092,22 @@ abstract class AppLocalizations {
   /// **'Disconnect'**
   String get lanDisconnect;
 
+  /// No description provided for @lanDisconnectConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect device?'**
+  String get lanDisconnectConfirmTitle;
+
+  /// No description provided for @lanDisconnectDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Your pairing information will be kept. Automatic connection will pause for this session. You can reconnect manually or restart the app to resume automatic connection.'**
+  String get lanDisconnectDescription;
+
   /// No description provided for @lanConnectedDescription.
   ///
   /// In en, this message translates to:
-  /// **'The device has confirmed this connection. Device information is refreshed automatically.'**
+  /// **'Connected to the device. Device information is refreshed automatically.'**
   String get lanConnectedDescription;
 
   /// No description provided for @lanConfirmOnDevice.

@@ -110,6 +110,48 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceSettings => '设备设置';
 
   @override
+  String get deviceDetails => '设备详情';
+
+  @override
+  String get deviceControlTab => '控制';
+
+  @override
+  String get deviceConnectionTab => '连接';
+
+  @override
+  String get deviceInfoTab => '信息';
+
+  @override
+  String get deviceNameLabel => '设备名称';
+
+  @override
+  String get deviceScreenControls => '屏幕控制';
+
+  @override
+  String get deviceScreenDisplay => '屏幕显示';
+
+  @override
+  String get deviceBrightness => '亮度';
+
+  @override
+  String get deviceSound => '设备提示音';
+
+  @override
+  String get deviceDisplaySettings => '显示设置';
+
+  @override
+  String get deviceControlUnavailable => '暂不支持';
+
+  @override
+  String get deviceControlsUnavailable => '此设备暂未提供这些控制功能。';
+
+  @override
+  String get deviceConnectionStatus => '连接状态';
+
+  @override
+  String get deviceConnectionMethod => '连接方式';
+
+  @override
   String get deviceSettingsUnavailable => '此设备暂未提供设置选项。';
 
   @override
@@ -226,7 +268,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get discoveryEmpty => '暂未发现设备';
 
   @override
-  String get discoveryEmptyDescription => '请确认设备已开启并准备连接。';
+  String get discoveryEmptyDescription =>
+      '请确认设备已开机并允许应用连接。\n局域网连接时，请确认双方处于同一网络。';
 
   @override
   String get discoveryUnavailable => '自动发现暂不可用';
@@ -238,7 +281,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get discoveryFailed => '暂时无法查找设备';
 
   @override
-  String get discoveryFailedDescription => '请检查设备状态及访问权限，然后重试。';
+  String get discoveryFailedDescription => '搜索未完成，请检查网络连接与应用的网络访问权限，然后重试。';
 
   @override
   String get searchAgain => '重新查找';
@@ -247,7 +290,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceConnecting => '正在连接设备…';
 
   @override
-  String get keepDeviceOn => '请在设备上允许本次连接';
+  String get lanConnectingDescription => '正在建立连接，请稍候。';
 
   @override
   String get deviceConnected => '设备已连接';
@@ -263,7 +306,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceConnectionFailedDescription =>
-      '连接未获确认或设备已离线。请确保设备在线并允许 LilygoBox 连接，然后重试。';
+      '未能建立连接。请确保设备在线并允许 LilygoBox 连接，然后重试。';
 
   @override
   String get retryConnection => '重新连接';
@@ -275,11 +318,34 @@ class AppLocalizationsZh extends AppLocalizations {
   String get openDevice => '打开设备';
 
   @override
-  String get deviceConnectionHelp => '查看连接帮助';
+  String get deviceConnectionHelp => '连接帮助';
 
   @override
-  String get deviceConnectionHelpDescription =>
-      '请确保设备已开机，并已启用应用连接功能。具体操作请参考对应设备的说明。\n通过局域网连接时，请让电脑或手机与设备连接到同一局域网。首次连接时，请按设备提示确认授权。如果无法发现设备，请检查网络、防火墙和路由器的客户端隔离设置。';
+  String get deviceConnectionTroubleshooting => '排查连接问题';
+
+  @override
+  String get closeHelp => '关闭帮助';
+
+  @override
+  String get deviceHelpPreparation => '准备设备';
+
+  @override
+  String get deviceHelpPreparationDescription =>
+      '确认设备已开机，并允许 LilygoBox 连接。具体操作请参考对应设备的说明。';
+
+  @override
+  String get deviceHelpNetwork => '检查网络';
+
+  @override
+  String get deviceHelpNetworkDescription =>
+      '局域网连接时，请让电脑或手机与设备连接到同一网络。如果仍无法发现设备，请检查应用的防火墙权限，以及路由器是否禁止设备之间互相访问。';
+
+  @override
+  String get deviceHelpApproval => '确认连接';
+
+  @override
+  String get deviceHelpApprovalDescription =>
+      '首次连接时，请按设备提示确认授权。已授权的设备通常无需重复确认；删除后重新添加需要再次授权。';
 
   @override
   String get tapToConnect => '点击连接';
@@ -456,7 +522,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get lanDisconnect => '断开连接';
 
   @override
-  String get lanConnectedDescription => '设备已确认本次连接，设备信息会自动刷新。';
+  String get lanDisconnectConfirmTitle => '断开设备连接？';
+
+  @override
+  String get lanDisconnectDescription =>
+      '断开后将保留配对信息，并暂停本次运行期间的自动连接。你可以手动重新连接，重启应用也会恢复自动连接。';
+
+  @override
+  String get lanConnectedDescription => '已连接到设备，设备信息会自动刷新。';
 
   @override
   String get lanConfirmOnDevice => '请在设备上允许本次连接。';

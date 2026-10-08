@@ -16,6 +16,7 @@ import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
+import 'device_connection_help.dart';
 
 class DevicePageFrame extends StatelessWidget {
   const DevicePageFrame({
@@ -74,7 +75,7 @@ class DevicePageFrame extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        context.l10n.home,
+                        context.l10n.deviceDetails,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -82,6 +83,7 @@ class DevicePageFrame extends StatelessWidget {
                         ),
                       ),
                     ),
+                    const DeviceHelpMenu(),
                   ],
                 ),
               ),
