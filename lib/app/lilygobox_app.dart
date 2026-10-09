@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 
 import '../core/app_info/package_info_provider.dart';
 import '../core/l10n/language_provider.dart';
+import '../core/theme/material_palette.dart';
 import '../core/theme/provider.dart';
 import '../core/window/provider.dart';
 import '../generated/l10n/app_localizations.dart';
@@ -50,6 +51,12 @@ class _LilygoBoxAppState extends State<LilygoBoxApp> {
       builder:
           (context, themeProvider, windowProvider, languageProvider, child) {
             return MaterialApp(
+              theme: ThemeData(
+                useMaterial3: true,
+                colorScheme: themeProvider.themeData.materialColors,
+              ),
+              // 配色已由 AppTheme.lerp 插值，避免内置主题再叠加一轮动画。
+              themeAnimationDuration: Duration.zero,
               debugShowCheckedModeBanner: false,
               locale: languageProvider.locale,
               localizationsDelegates: AppLocalizations.localizationsDelegates,

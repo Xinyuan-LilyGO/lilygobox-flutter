@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/definition.dart';
+import '../theme/material_palette.dart';
 import 'menu_item_surface.dart';
 
 /// 各页面通过 primary 选择紫色或灰色，配色与交互统一由此处管理。
@@ -47,20 +48,17 @@ class AppActionButton extends StatelessWidget {
     // 灰色沿用取消连接的默认底色，紫色沿用主页添加设备按钮。
     final filled = primary || destructive;
     final background = destructive
-        ? theme.adaptiveColor(
-            dark: const Color(0xFFB94A48),
-            light: const Color(0xFFBC3434),
-          )
+        ? theme.materialColors.error
         : primary
         ? theme.basePrimary
         : Color.alphaBlend(
             theme.textColorPrimary.withValues(alpha: 0.06),
             theme.secondary,
           );
-    final foreground = filled
-        ? (ThemeData.estimateBrightnessForColor(background) == Brightness.dark
-              ? Colors.white
-              : const Color(0xFF191919))
+    final foreground = destructive
+        ? theme.materialColors.onError
+        : primary
+        ? theme.materialColors.onPrimary
         : theme.textColorSecondary;
     final text = Text(
       label,

@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/language_provider.dart';
 import '../theme/definition.dart';
+import '../theme/material_palette.dart';
 import 'action_button.dart';
 
 Future<bool> showAppConfirmation({
@@ -24,10 +25,7 @@ Future<bool> showAppConfirmation({
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      backgroundColor: theme.adaptiveColor(
-        dark: const Color(0xFF242424),
-        light: const Color(0xFFEEEEEE),
-      ),
+      backgroundColor: theme.materialColors.surfaceContainerHigh,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       title: Text(

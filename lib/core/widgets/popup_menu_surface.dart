@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/definition.dart';
+import '../theme/material_palette.dart';
 
 /// 账号菜单与右键菜单共用的浮层卡片。
 class PopupMenuSurface extends StatelessWidget {
@@ -30,10 +31,7 @@ class PopupMenuSurface extends StatelessWidget {
   final List<BoxShadow>? shadows;
 
   /// 菜单项使用相同的实色起点，让悬停颜色直接插值，避免透明叠加。
-  static Color backgroundColorFor(AppTheme theme) => theme.adaptiveColor(
-    dark: Color.lerp(theme.secondary, theme.tertiary, 0.55)!,
-    light: Colors.white,
-  );
+  static Color backgroundColorFor(AppTheme theme) => theme.popupSurfaceColor;
 
   @override
   Widget build(BuildContext context) {

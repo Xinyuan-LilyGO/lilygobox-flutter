@@ -13,6 +13,7 @@ import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/context_menu/right_click_menu.dart';
+import '../../core/theme/material_palette.dart';
 import '../../core/theme/provider.dart';
 import '../../core/widgets/menu_item_surface.dart';
 import '../../core/widgets/popup_menu_transition.dart';
@@ -144,6 +145,11 @@ class _TrayMenuAppState extends State<TrayMenuApp>
 
   @override
   Widget build(BuildContext context) => MaterialApp(
+    theme: ThemeData(
+      useMaterial3: true,
+      colorScheme: _theme.themeData.materialColors,
+    ),
+    themeAnimationDuration: Duration.zero,
     debugShowCheckedModeBanner: false,
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context).copyWith(

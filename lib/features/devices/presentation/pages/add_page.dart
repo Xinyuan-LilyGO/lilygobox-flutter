@@ -170,6 +170,7 @@ class _AddDevicePageState extends State<AddDevicePage> {
                                 button: true,
                                 child: TitleBarIconButton(
                                   theme: theme,
+                                  backgroundColor: theme.secondary,
                                   isFocused: true,
                                   icon: Symbols.arrow_back_rounded,
                                   size: 28,
@@ -444,7 +445,8 @@ class _AddDevicePageState extends State<AddDevicePage> {
       child: MenuItemSurface(
         theme: theme,
         backgroundColor: theme.primary,
-        hoverColor: theme.primaryTextHoverColor,
+        // 列表位于二级背景上，悬停仍需与列表外的灰色区域区分。
+        hoverColor: theme.secondaryTextHoverColor,
         borderRadius: BorderRadius.circular(10),
         onPressed: () => unawaited(_discovery.connect(device)),
         child: Padding(

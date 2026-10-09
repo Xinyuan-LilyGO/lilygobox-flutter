@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/definition.dart';
+import '../theme/material_palette.dart';
 import 'interaction_decoration.dart';
 import 'menu_item_surface.dart';
 
@@ -22,6 +23,8 @@ class TitleBarIconButton extends StatefulWidget {
     required this.icon,
     this.size = 24,
     this.iconSize = 16,
+    this.hoverColor,
+    this.backgroundColor,
   });
 
   final VoidCallback? onPressed;
@@ -30,6 +33,12 @@ class TitleBarIconButton extends StatefulWidget {
   final IconData icon;
   final double size;
   final double iconSize;
+
+  /// 位于不同背景层级时，可复用该层级的主题悬停色。
+  final Color? hoverColor;
+
+  /// 页面内按钮传入所在背景，标题栏默认继续使用主背景。
+  final Color? backgroundColor;
 
   @override
   State<TitleBarIconButton> createState() => _TitleBarIconButtonState();
@@ -49,8 +58,11 @@ class _TitleBarIconButtonState extends State<TitleBarIconButton> {
         curve: MenuItemSurface.animationCurve,
         decoration: BoxDecoration(
           color: _isHovered && widget.onPressed != null
-              ? widget.theme.primaryTextHoverColor
-              : widget.theme.primary,
+              ? widget.hoverColor ??
+                    widget.theme.hoverColorForBackground(
+                      widget.backgroundColor ?? widget.theme.primary,
+                    )
+              : widget.backgroundColor ?? widget.theme.primary,
           shape: BoxShape.circle,
         ),
         // 墨水层位于背景上方，点击波纹不会被悬停背景遮挡。

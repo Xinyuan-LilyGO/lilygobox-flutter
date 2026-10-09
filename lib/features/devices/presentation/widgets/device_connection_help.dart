@@ -54,6 +54,7 @@ class _DeviceHelpMenuState extends State<DeviceHelpMenu> {
           child: TitleBarIconButton(
             key: const ValueKey('device-help-menu'),
             theme: theme,
+            backgroundColor: theme.secondary,
             isFocused: true,
             icon: Symbols.more_horiz,
             size: 28,

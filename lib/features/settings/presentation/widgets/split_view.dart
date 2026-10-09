@@ -476,6 +476,7 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
         icon: icon,
         size: 28,
         iconSize: 18,
+        backgroundColor: theme.secondary,
         onPressed: onPressed,
       );
 }

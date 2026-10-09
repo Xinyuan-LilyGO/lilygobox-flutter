@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/definition.dart';
+import '../../../../core/theme/material_palette.dart';
 
 /// 电池专用颜色独立于应用公共主题，避免改变其他卡片的配色。
 class DeviceBatteryColors {
@@ -18,14 +19,8 @@ class DeviceBatteryColors {
   Color get background => theme.primary;
   Color get foreground => theme.textColorPrimary;
   Color get muted => theme.textColorTertiary;
-  Color get fill => theme.adaptiveColor(
-    dark: const Color(0xFFB5A1F2),
-    light: const Color(0xFF7962C3),
-  );
-  Color get empty => theme.adaptiveColor(
-    dark: const Color(0xFF40394F),
-    light: const Color(0xFFE2DDEB),
-  );
+  Color get fill => theme.batteryFillColor;
+  Color get empty => theme.materialColors.primaryContainer;
 }
 
 /// 我的设备使用独立的特色配色；暗色背景与亮色背景分别维护。

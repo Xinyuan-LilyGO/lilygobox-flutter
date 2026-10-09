@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/definition.dart';
+import '../theme/material_palette.dart';
 import 'interaction_decoration.dart';
 
 /// 设置菜单与侧栏入口共用的交互表面。
@@ -88,7 +89,10 @@ class _MenuItemSurfaceState extends State<MenuItemSurface> {
     final backgroundColor = widget.isSelected
         ? widget.selectedColor ?? theme.primaryTextSelectedColor
         : _isHovered && enabled
-        ? widget.hoverColor ?? theme.primaryTextHoverColor
+        ? widget.hoverColor ??
+              theme.hoverColorForBackground(
+                widget.backgroundColor ?? theme.primary,
+              )
         : widget.backgroundColor ?? theme.primary;
     final foregroundColor = _isHovered && enabled && !widget.isSelected
         ? widget.hoverForegroundColor ?? widget.foregroundColor

@@ -10,6 +10,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
+import '../../../../core/theme/material_palette.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import 'device_battery_colors.dart';
@@ -646,7 +647,7 @@ class DeviceDashboard extends StatelessWidget {
                                 Symbols.smartphone,
                                 size: 17,
                                 color: rotation == angle
-                                    ? Colors.white
+                                    ? theme.materialColors.onPrimary
                                     : theme.textColorTertiary,
                               ),
                             ),
@@ -655,7 +656,7 @@ class DeviceDashboard extends StatelessWidget {
                               size: 12,
                               bold: rotation == angle,
                               color: rotation == angle
-                                  ? Colors.white
+                                  ? theme.materialColors.onPrimary
                                   : theme.textColorTertiary,
                             ),
                           ],
@@ -670,7 +671,7 @@ class DeviceDashboard extends StatelessWidget {
         );
         final rotationControl = ConstrainedBox(
           // 限制桌面选项区宽度，避免四个角度随卡片拉伸成大块。
-          constraints: const BoxConstraints(maxWidth: 340),
+          constraints: const BoxConstraints(maxWidth: 280),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -872,7 +873,7 @@ class _QuickSettingsTrackPainter extends CustomPainter {
           fontFamily: icon.fontFamily,
           package: icon.fontPackage,
           fontSize: 18,
-          color: Colors.white,
+          color: theme.materialColors.onPrimary,
         ),
       ),
       textDirection: TextDirection.ltr,

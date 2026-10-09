@@ -8,22 +8,16 @@
 
 import 'package:flutter/material.dart';
 import '../../../../core/theme/definition.dart';
+import '../../../../core/theme/material_palette.dart';
 
 class SettingsColors {
   const SettingsColors(this.theme);
   final AppTheme theme;
-  Color get sidebar =>
-      theme.adaptiveColor(dark: const Color(0xFF141414), light: theme.primary);
+  Color get sidebar => theme.settingsSidebarColor;
   Color get content => theme.secondary;
-  Color get control => theme.adaptiveColor(
-    dark: const Color(0xFF242424),
-    light: const Color(0xFFEEEEEE),
-  );
-  Color get hover => theme.adaptiveColor(
-    dark: const Color(0xFF303030),
-    light: const Color(0xFFE3E3E3),
-  );
-  Color get divider => theme.textColorPrimary.withValues(alpha: 0.07);
+  Color get control => theme.materialColors.surfaceContainerHigh;
+  Color get hover => theme.settingsHoverColor;
+  Color get divider => theme.materialColors.outlineVariant;
 }
 
 class SettingsContentLayout extends StatelessWidget {
