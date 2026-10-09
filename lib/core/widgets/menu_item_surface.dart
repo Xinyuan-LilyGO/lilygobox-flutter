@@ -24,6 +24,9 @@ class MenuItemSurface extends StatefulWidget {
     this.disableWhenSelected = true,
     this.backgroundColor,
     this.hoverColor,
+    this.selectedColor,
+    this.splashColor,
+    this.highlightColor,
     this.foregroundColor,
     this.hoverForegroundColor,
     this.border,
@@ -57,6 +60,13 @@ class MenuItemSurface extends StatefulWidget {
   final bool disableWhenSelected;
   final Color? backgroundColor;
   final Color? hoverColor;
+
+  /// 局部控件可加强选中对比度，默认仍沿用设置导航的选中颜色。
+  final Color? selectedColor;
+
+  /// 特色卡片可指定与自身底色匹配的点击反馈。
+  final Color? splashColor;
+  final Color? highlightColor;
   final Color? foregroundColor;
   final Color? hoverForegroundColor;
   final BoxBorder? border;
@@ -76,7 +86,7 @@ class _MenuItemSurfaceState extends State<MenuItemSurface> {
         widget.onPressed != null &&
         !(widget.isSelected && widget.disableWhenSelected);
     final backgroundColor = widget.isSelected
-        ? theme.primaryTextSelectedColor
+        ? widget.selectedColor ?? theme.primaryTextSelectedColor
         : _isHovered && enabled
         ? widget.hoverColor ?? theme.primaryTextHoverColor
         : widget.backgroundColor ?? theme.primary;
@@ -117,8 +127,12 @@ class _MenuItemSurfaceState extends State<MenuItemSurface> {
                     : SystemMouseCursors.basic,
                 borderRadius: widget.borderRadius,
                 hoverColor: Colors.transparent,
-                highlightColor: theme.textColorPrimary.withValues(alpha: 0.04),
-                splashColor: theme.textColorPrimary.withValues(alpha: 0.12),
+                highlightColor:
+                    widget.highlightColor ??
+                    theme.textColorPrimary.withValues(alpha: 0.04),
+                splashColor:
+                    widget.splashColor ??
+                    theme.textColorPrimary.withValues(alpha: 0.12),
                 splashFactory: InkRipple.splashFactory,
                 child: foregroundColor == null
                     ? widget.child

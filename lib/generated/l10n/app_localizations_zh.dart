@@ -537,4 +537,107 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get lanReconnectDescription =>
       '请确保设备在线并允许 LilygoBox 连接，然后重试。如果仍无法连接，请重新搜索设备。';
+
+  @override
+  String get deviceDashboardSubtitle => '屏幕、声音与设备连接';
+
+  @override
+  String get deviceDashboardMyDevice => '我的设备';
+
+  @override
+  String get deviceDashboardIdentity => '型号、固件与设备信息';
+
+  @override
+  String get deviceDashboardViewInfo => '查看设备信息';
+
+  @override
+  String get deviceDashboardBattery => '电池';
+
+  @override
+  String get deviceDashboardCharging => '充电中';
+
+  @override
+  String get deviceDashboardViewBattery => '查看电量与电池状态';
+
+  @override
+  String get deviceDashboardSound => '声音';
+
+  @override
+  String get deviceDisableVibration => '关闭振动';
+
+  @override
+  String get deviceEnableVibration => '开启振动';
+
+  @override
+  String get deviceMute => '静音';
+
+  @override
+  String get deviceSoundAndHaptics => '声音与触感';
+
+  @override
+  String get deviceVibrationIntensity => '振动强度';
+
+  @override
+  String get deviceUnmute => '恢复声音';
+
+  @override
+  String get deviceScreenTurnOff => '关闭屏幕';
+
+  @override
+  String get deviceScreenTurnOn => '开启屏幕';
+
+  @override
+  String get deviceDashboardScreenOn => '屏幕已开启';
+
+  @override
+  String get deviceDashboardScreenOff => '屏幕已关闭';
+
+  @override
+  String get deviceDashboardRotation => '旋转角度';
+
+  @override
+  String get deviceDashboardConnection => '设备连接';
+
+  @override
+  String get deviceDashboardDemo => '电池数据与控制操作仅作设计演示。';
+
+  @override
+  String get deviceInformationTitle => '设备信息';
+
+  @override
+  String get deviceInformationIdentity => 'LilygoBox 设备';
+
+  @override
+  String get deviceInformationConnection => '连接详情';
+
+  @override
+  String get deviceInformationView => '查看';
+
+  @override
+  String get connectionReady => '连接已就绪';
+
+  @override
+  String get connectionThisComputer => '此电脑';
+
+  @override
+  String get connectionInformation => '连接信息';
+
+  @override
+  String get connectionStatus => '连接状态';
+
+  @override
+  String get connectionMethod => '连接方式';
+
+  @override
+  String get connectionManage => '管理连接';
+
+  @override
+  String get connectionManualRecovery => '手动断开后，点击“重新连接”即可恢复。';
+
+  @override
+  String get connectionCredentialTitle => '连接凭证';
+
+  @override
+  String get connectionCredentialDescription =>
+      '首次授权后会保存连接凭证，再次连接无需重复确认。手动断开不会删除凭证；删除设备会同时清除本机保存的凭证。';
 }

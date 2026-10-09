@@ -1,0 +1,895 @@
+/*
+ * @Description: 设备概览卡片布局，统一信息层级、控制区和自适应间距。
+ * @Author: LILYGO_L
+ * @Date: 2026-10-08 13:48:30
+ * @LastEditTime: 2026-10-09 16:00:00
+ * @License: GPL 3.0
+ */
+import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
+
+import '../../../../core/l10n/language_provider.dart';
+import '../../../../core/theme/definition.dart';
+import '../../../../core/widgets/app_tooltip.dart';
+import '../../../../core/widgets/menu_item_surface.dart';
+import 'device_battery_colors.dart';
+
+/// 根据可用空间组织卡片；同行高度由内容决定，不使用固定卡片尺寸。
+class DeviceDashboard extends StatelessWidget {
+  const DeviceDashboard({
+    super.key,
+    required this.theme,
+    required this.name,
+    required this.status,
+    required this.online,
+    required this.description,
+    required this.connectionAction,
+    required this.brightness,
+    required this.volume,
+    required this.vibration,
+    required this.screenOn,
+    required this.soundOn,
+    required this.vibrationOn,
+    required this.rotation,
+    required this.onBrightness,
+    required this.onVolume,
+    required this.onVibration,
+    required this.onScreen,
+    required this.onSound,
+    required this.onVibrationEnabled,
+    required this.onRotation,
+    required this.onInformation,
+    required this.onBattery,
+  });
+
+  final AppTheme theme;
+  final String name;
+  final String status;
+  final bool online;
+  final String description;
+  final Widget connectionAction;
+  final double brightness;
+  final double volume;
+  final double vibration;
+  final bool screenOn;
+  final bool soundOn;
+  final bool vibrationOn;
+  final int rotation;
+  final ValueChanged<double> onBrightness;
+  final ValueChanged<double> onVolume;
+  final ValueChanged<double> onVibration;
+  final ValueChanged<bool> onScreen;
+  final ValueChanged<bool> onSound;
+  final ValueChanged<bool> onVibrationEnabled;
+  final ValueChanged<int> onRotation;
+  final VoidCallback onInformation;
+  final VoidCallback onBattery;
+
+  Color get tint =>
+      Color.alphaBlend(theme.basePrimary.withValues(alpha: .12), theme.primary);
+
+  Text _text(
+    String value, {
+    double size = 13,
+    bool muted = false,
+    bool bold = false,
+    Color? color,
+  }) => Text(
+    value,
+    style: TextStyle(
+      fontSize: size,
+      height: 1.3,
+      fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
+      color:
+          color ?? (muted ? theme.textColorTertiary : theme.textColorPrimary),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow =
+            constraints.maxWidth < 620 ||
+            MediaQuery.textScalerOf(context).scale(14) > 21;
+        final gap = narrow ? 12.0 : 16.0;
+        final heading = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _text(name, size: narrow ? 24 : 28, bold: true),
+            const SizedBox(height: 7),
+            _text(l10n.deviceDashboardSubtitle, size: 12, muted: true),
+          ],
+        );
+        final badge = Container(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+          decoration: BoxDecoration(
+            color: theme.primary,
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: online
+                      ? theme.adaptiveColor(
+                          dark: const Color(0xFF83B69A),
+                          light: const Color(0xFF438063),
+                        )
+                      : theme.textColorTertiary,
+                ),
+              ),
+              const SizedBox(width: 7),
+              _text(status, size: 12),
+              Container(
+                height: 12,
+                width: 1,
+                margin: const EdgeInsets.symmetric(horizontal: 10),
+                color: theme.dividerColor.withValues(alpha: .22),
+              ),
+              Icon(Symbols.wifi, size: 17, color: theme.textColorTertiary),
+              const SizedBox(width: 6),
+              _text('Wi-Fi', size: 12),
+            ],
+          ),
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (narrow)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [heading, const SizedBox(height: 14), badge],
+              )
+            else
+              Row(
+                children: [
+                  Expanded(child: heading),
+                  const SizedBox(width: 24),
+                  badge,
+                ],
+              ),
+            const SizedBox(height: 20),
+            if (!narrow && constraints.maxWidth >= 900)
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(flex: 28, child: _device(context)),
+                    SizedBox(width: gap),
+                    Expanded(flex: 32, child: _battery(context)),
+                    SizedBox(width: gap),
+                    Expanded(flex: 40, child: _display(context)),
+                  ],
+                ),
+              )
+            else ...[
+              _pair(narrow, gap, _device(context), _battery(context)),
+              SizedBox(height: gap),
+              _display(context),
+            ],
+            SizedBox(height: gap),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                // 桌面屏幕控制卡占半行，旋转选项放在开关行下方。
+                width: !narrow && constraints.maxWidth >= 900
+                    ? ((constraints.maxWidth - gap) / 2).clamp(0.0, 440.0)
+                    : constraints.maxWidth,
+                child: _soundAndHaptics(context),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: _text(l10n.deviceDashboardDemo, size: 11, muted: true),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 卡片同排对齐底边，窄窗口和大字体下改为自然高度的单列。
+  Widget _pair(bool narrow, double gap, Widget left, Widget right) => narrow
+      ? Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            left,
+            SizedBox(height: gap),
+            right,
+          ],
+        )
+      : IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: left),
+              SizedBox(width: gap),
+              Expanded(child: right),
+            ],
+          ),
+        );
+
+  Widget _surface({
+    required Widget child,
+    VoidCallback? onTap,
+    Key? key,
+    Color? color,
+    bool useDefaultFeedback = false,
+    EdgeInsets padding = const EdgeInsets.all(20),
+  }) {
+    final radius = BorderRadius.circular(20);
+    // 特色卡片可能与全局主题明暗相反，点击波纹按实际底色选择对比色。
+    final feedback = (color ?? theme.primary).computeLuminance() < .3
+        ? Colors.white
+        : theme.basePrimary;
+    if (onTap == null) {
+      return Container(
+        decoration: BoxDecoration(
+          color: color ?? theme.primary,
+          borderRadius: radius,
+        ),
+        padding: padding,
+        child: child,
+      );
+    }
+    return Semantics(
+      button: true,
+      child: MenuItemSurface(
+        key: key,
+        theme: theme,
+        onPressed: onTap,
+        backgroundColor: color ?? theme.primary,
+        hoverColor: color ?? theme.primary,
+        splashColor: useDefaultFeedback
+            ? null
+            : feedback.withValues(alpha: .22),
+        highlightColor: useDefaultFeedback
+            ? null
+            : feedback.withValues(alpha: .09),
+        borderRadius: radius,
+        child: Padding(padding: padding, child: child),
+      ),
+    );
+  }
+
+  Widget _title(String title, {Color? color}) =>
+      _text(title, size: 16, bold: true, color: color);
+
+  Widget _device(BuildContext context) {
+    final colors = DeviceIdentityColors(theme);
+    return _surface(
+      key: const ValueKey('device-card-information'),
+      onTap: onInformation,
+      color: colors.background,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _title(
+                context.l10n.deviceDashboardMyDevice,
+                color: colors.foreground,
+              ),
+              const SizedBox(height: 20),
+              // 居中的媒体槽位预留给设备图片，暂时使用 Blur On 图标。
+              Center(
+                child: SizedBox(
+                  width: 104,
+                  height: 104,
+                  child: Icon(Symbols.blur_on, size: 80, color: colors.muted),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Center(
+                child: _text(
+                  name,
+                  size: 20,
+                  bold: true,
+                  color: colors.foreground,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Center(
+                child: _text(
+                  context.l10n.deviceDashboardIdentity,
+                  size: 12,
+                  muted: true,
+                  color: colors.muted,
+                ),
+              ),
+              const SizedBox(height: 28),
+            ],
+          ),
+          _text(
+            context.l10n.deviceDashboardViewInfo,
+            size: 12,
+            color: colors.muted,
+          ),
+          if (!online) ...[
+            const SizedBox(height: 18),
+            _text(description, size: 12, color: colors.muted),
+            const SizedBox(height: 12),
+            connectionAction,
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 电池使用普通卡片底色，图形独立适配亮暗主题并限宽，避免随窗口拉成长条。
+  Widget _battery(BuildContext context) {
+    final colors = DeviceBatteryColors(theme);
+    return _surface(
+      key: const ValueKey('device-card-battery'),
+      onTap: onBattery,
+      color: colors.background,
+      useDefaultFeedback: true,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Symbols.bolt,
+                    fill: 1,
+                    size: 22,
+                    color: colors.foreground,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      online
+                          ? context.l10n.deviceDashboardCharging
+                          : context.l10n.lanOffline,
+                      style: TextStyle(
+                        color: colors.foreground,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Text(
+                online ? '82%' : '—',
+                style: TextStyle(
+                  color: colors.foreground,
+                  fontSize: 36,
+                  height: 1.1,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                context.l10n.deviceDashboardBattery,
+                style: TextStyle(color: colors.muted, fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 236),
+                  child: DeviceBatteryGraphic(
+                    theme: theme,
+                    progress: online ? .82 : 0,
+                    height: 96,
+                    colors: colors,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+          Text(
+            context.l10n.deviceDashboardViewBattery,
+            style: TextStyle(color: colors.muted, fontSize: 12, height: 1.3),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _iconTile(IconData icon, {bool accent = false}) => Container(
+    width: 34,
+    height: 34,
+    decoration: BoxDecoration(
+      color: accent ? tint : theme.secondary.withValues(alpha: .65),
+      borderRadius: BorderRadius.circular(11),
+    ),
+    child: Icon(
+      icon,
+      fill: 1,
+      size: 21,
+      color: accent ? theme.basePrimary : theme.textColorPrimary,
+    ),
+  );
+
+  Widget _percentage(int? value) => Text.rich(
+    TextSpan(
+      children: [
+        TextSpan(
+          text: value == null ? '—' : '$value',
+          style: const TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w600,
+            height: 1.1,
+          ),
+        ),
+        if (value != null)
+          const TextSpan(text: ' %', style: TextStyle(fontSize: 12)),
+      ],
+    ),
+    style: TextStyle(color: theme.textColorPrimary),
+  );
+
+  /// 图标、名称与数值共用一条基线，滑条紧随其下，减少控制区的纵向留白。
+  Widget _control(BuildContext context, {required bool brightnessControl}) {
+    final icon = brightnessControl
+        ? Symbols.brightness_6
+        : soundOn
+        ? Symbols.volume_up
+        : Symbols.volume_off;
+    final value = brightnessControl ? brightness : volume;
+    final title = brightnessControl
+        ? context.l10n.deviceBrightness
+        : context.l10n.deviceDashboardSound;
+    // 熄屏只控制显示电源；静音只禁用调节，保留原音量及其显示值。
+    final enabled = brightnessControl || soundOn;
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            if (brightnessControl)
+              _iconTile(icon)
+            else
+              _toggleIcon(
+                icon,
+                soundOn,
+                soundOn ? context.l10n.deviceMute : context.l10n.deviceUnmute,
+                () => onSound(!soundOn),
+              ),
+            const SizedBox(width: 10),
+            Expanded(child: _text(title, size: 16, bold: true)),
+            const SizedBox(width: 12),
+            Opacity(
+              opacity: enabled ? 1 : .4,
+              child: _percentage((value * 100).round()),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _DashboardSlider(
+          theme: theme,
+          value: value,
+          icon: brightnessControl ? Symbols.brightness_6 : Symbols.volume_up,
+          label: title,
+          onChanged: enabled
+              ? brightnessControl
+                    ? onBrightness
+                    : onVolume
+              : null,
+        ),
+      ],
+    );
+  }
+
+  /// 声音与触感采用与屏幕控制一致的内容布局，不嵌套额外卡片。
+  Widget _soundAndHaptics(BuildContext context) => _surface(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _text(context.l10n.deviceSoundAndHaptics, size: 16, bold: true),
+        const SizedBox(height: 20),
+        _control(context, brightnessControl: false),
+        const SizedBox(height: 24),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                _toggleIcon(
+                  Symbols.vibration,
+                  vibrationOn,
+                  vibrationOn
+                      ? context.l10n.deviceDisableVibration
+                      : context.l10n.deviceEnableVibration,
+                  () => onVibrationEnabled(!vibrationOn),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _text(
+                    context.l10n.deviceVibrationIntensity,
+                    size: 16,
+                    bold: true,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Opacity(
+                  opacity: vibrationOn ? 1 : .4,
+                  child: _percentage((vibration * 100).round()),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _DashboardSlider(
+              theme: theme,
+              value: vibration,
+              icon: Symbols.vibration,
+              label: context.l10n.deviceVibrationIntensity,
+              onChanged: vibrationOn ? onVibration : null,
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  /// 左侧图标同时表示开关状态，提示和语义提供明确的操作名称。
+  Widget _toggleIcon(
+    IconData icon,
+    bool enabled,
+    String label,
+    VoidCallback onTap,
+  ) => AppTooltip(
+    message: label,
+    child: Semantics(
+      label: label,
+      toggled: enabled,
+      button: true,
+      child: MenuItemSurface(
+        theme: theme,
+        onPressed: onTap,
+        backgroundColor: theme.secondary.withValues(alpha: .65),
+        borderRadius: BorderRadius.circular(11),
+        child: SizedBox(
+          width: 34,
+          height: 34,
+          child: Icon(icon, fill: 1, size: 21, color: theme.textColorPrimary),
+        ),
+      ),
+    ),
+  );
+
+  Widget _display(BuildContext context) => _surface(
+    child: Builder(
+      builder: (context) {
+        final heading = Row(
+          children: [
+            _toggleIcon(
+              screenOn
+                  ? Symbols.desktop_windows
+                  : Symbols.desktop_access_disabled,
+              screenOn,
+              screenOn
+                  ? context.l10n.deviceScreenTurnOff
+                  : context.l10n.deviceScreenTurnOn,
+              () => onScreen(!screenOn),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _text(context.l10n.deviceScreenDisplay, size: 15, bold: true),
+                  const SizedBox(height: 4),
+                  _text(
+                    screenOn
+                        ? context.l10n.deviceDashboardScreenOn
+                        : context.l10n.deviceDashboardScreenOff,
+                    size: 11,
+                    muted: true,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+        final options = Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: Color.alphaBlend(
+              theme.secondary.withValues(alpha: .6),
+              theme.primary,
+            ),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Row(
+            children: [
+              for (final angle in [0, 90, 180, 270]) ...[
+                if (angle != 0) const SizedBox(width: 4),
+                Expanded(
+                  child: MenuItemSurface(
+                    theme: theme,
+                    isSelected: rotation == angle,
+                    onPressed: () => onRotation(angle),
+                    // 用实际底色参与渐变，避免透明黑色插值时先变暗再变亮。
+                    backgroundColor: Color.alphaBlend(
+                      theme.secondary.withValues(alpha: .6),
+                      theme.primary,
+                    ),
+                    hoverColor: theme.secondaryTextHoverColor,
+                    selectedColor: theme.basePrimary,
+                    borderRadius: BorderRadius.circular(7),
+                    child: Semantics(
+                      selected: rotation == angle,
+                      button: true,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 6,
+                          horizontal: 3,
+                        ),
+                        child: Wrap(
+                          alignment: WrapAlignment.center,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 7,
+                          runSpacing: 5,
+                          children: [
+                            RotatedBox(
+                              quarterTurns: angle ~/ 90,
+                              child: Icon(
+                                Symbols.smartphone,
+                                size: 17,
+                                color: rotation == angle
+                                    ? Colors.white
+                                    : theme.textColorTertiary,
+                              ),
+                            ),
+                            _text(
+                              '$angle°',
+                              size: 12,
+                              bold: rotation == angle,
+                              color: rotation == angle
+                                  ? Colors.white
+                                  : theme.textColorTertiary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+        final rotationControl = ConstrainedBox(
+          // 限制桌面选项区宽度，避免四个角度随卡片拉伸成大块。
+          constraints: const BoxConstraints(maxWidth: 340),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _text(
+                context.l10n.deviceDashboardRotation,
+                size: 12,
+                muted: true,
+              ),
+              const SizedBox(height: 6),
+              options,
+            ],
+          ),
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            heading,
+            const SizedBox(height: 18),
+            Align(alignment: Alignment.centerLeft, child: rotationControl),
+            const SizedBox(height: 24),
+            _control(context, brightnessControl: true),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+/// 自绘电池外框与电量填充，正极左侧平直、右侧圆润并与主体分离。
+class DeviceBatteryGraphic extends StatelessWidget {
+  const DeviceBatteryGraphic({
+    super.key,
+    required this.theme,
+    required this.progress,
+    this.height = 52,
+    this.colors,
+  });
+  final AppTheme theme;
+  final double progress;
+  final double height;
+  final DeviceBatteryColors? colors;
+
+  @override
+  Widget build(BuildContext context) {
+    final empty =
+        colors?.empty ??
+        Color.alphaBlend(
+          theme.basePrimary.withValues(alpha: .13),
+          theme.secondary,
+        );
+    final outline =
+        colors?.muted ?? theme.textColorTertiary.withValues(alpha: .55);
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: height,
+            padding: EdgeInsets.all(height * .065),
+            decoration: BoxDecoration(
+              border: Border.all(color: outline, width: 2),
+              borderRadius: BorderRadius.circular(height * .22),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(height * .155),
+              child: ColoredBox(
+                color: empty,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: progress.clamp(0.0, 1.0),
+                    heightFactor: 1,
+                    child: ColoredBox(color: colors?.fill ?? theme.basePrimary),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Container(
+          width: height * .15,
+          height: height * .42,
+          decoration: BoxDecoration(
+            color: outline,
+            borderRadius: BorderRadius.horizontal(
+              right: Radius.circular(height * .12),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 原生 Slider 保留键盘、拖动及语义，视觉层采用 Android 快捷设置胶囊轨道。
+class _DashboardSlider extends StatelessWidget {
+  const _DashboardSlider({
+    required this.theme,
+    required this.value,
+    required this.icon,
+    required this.label,
+    required this.onChanged,
+  });
+  final AppTheme theme;
+  final double value;
+  final IconData icon;
+  final String label;
+  final ValueChanged<double>? onChanged;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: label,
+    child: SizedBox(
+      height: 36,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _QuickSettingsTrackPainter(
+                  theme,
+                  value,
+                  icon,
+                  onChanged != null,
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 36,
+                trackShape: const RectangularSliderTrackShape(),
+                activeTrackColor: Colors.transparent,
+                inactiveTrackColor: Colors.transparent,
+                thumbShape: SliderComponentShape.noThumb,
+                overlayShape: SliderComponentShape.noOverlay,
+                showValueIndicator: ShowValueIndicator.never,
+              ),
+              child: Slider(
+                value: value,
+                padding: EdgeInsets.zero,
+                onChanged: onChanged,
+                semanticFormatterCallback: (value) =>
+                    '${(value * 100).round()}%',
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// 以胶囊填充和末端内嵌图标呈现快捷设置滑条，交互仍交给原生 Slider。
+class _QuickSettingsTrackPainter extends CustomPainter {
+  const _QuickSettingsTrackPainter(
+    this.theme,
+    this.value,
+    this.icon,
+    this.enabled,
+  );
+
+  final AppTheme theme;
+  final double value;
+  final IconData icon;
+  final bool enabled;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final radius = Radius.circular(size.height / 2);
+    // 禁用仅淡化轨道，内部图标保持正常颜色和形状。
+    Color trackColor(Color color) => enabled
+        ? color
+        : Color.alphaBlend(color.withValues(alpha: .4), theme.primary);
+    // 未填充区域是居中的细线，只有已填充部分使用完整高度的胶囊。
+    final track = Rect.fromLTWH(0, (size.height - 4) / 2, size.width, 4);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(track, const Radius.circular(2)),
+      Paint()
+        ..color = trackColor(
+          Color.alphaBlend(
+            theme.basePrimary.withValues(alpha: .13),
+            theme.secondary,
+          ),
+        ),
+    );
+    // 最低值也保留一枚圆形端点，容纳图标；填充末端随数值连续移动。
+    final minimum = size.height.clamp(0.0, size.width);
+    final width = minimum + (size.width - minimum) * value.clamp(0.0, 1.0);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, width, size.height), radius),
+      Paint()..color = trackColor(theme.basePrimary),
+    );
+    final text = TextPainter(
+      text: TextSpan(
+        text: String.fromCharCode(icon.codePoint),
+        style: TextStyle(
+          fontFamily: icon.fontFamily,
+          package: icon.fontPackage,
+          fontSize: 18,
+          color: Colors.white,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    canvas.save();
+    canvas.translate(width - size.height / 2, size.height / 2);
+    // 图标跟随数值转动一圈，与拖动同步，不额外延迟滑条响应。
+    canvas.rotate(value.clamp(0.0, 1.0) * 6.283185307179586);
+    text.paint(canvas, Offset(-text.width / 2, -text.height / 2));
+    canvas.restore();
+    text.dispose();
+  }
+
+  @override
+  bool shouldRepaint(_QuickSettingsTrackPainter oldDelegate) =>
+      oldDelegate.theme != theme ||
+      oldDelegate.value != value ||
+      oldDelegate.icon != icon ||
+      oldDelegate.enabled != enabled;
+}

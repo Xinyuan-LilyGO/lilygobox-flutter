@@ -570,4 +570,110 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get lanReconnectDescription =>
       'Make sure your device is online and allows LilygoBox connections, then try again. If you still cannot connect, search for the device again.';
+
+  @override
+  String get deviceDashboardSubtitle => 'Screen, sound and device connection';
+
+  @override
+  String get deviceDashboardMyDevice => 'My device';
+
+  @override
+  String get deviceDashboardIdentity =>
+      'Model, firmware and device information';
+
+  @override
+  String get deviceDashboardViewInfo => 'View device information';
+
+  @override
+  String get deviceDashboardBattery => 'Battery';
+
+  @override
+  String get deviceDashboardCharging => 'Charging';
+
+  @override
+  String get deviceDashboardViewBattery => 'View charge and battery status';
+
+  @override
+  String get deviceDashboardSound => 'Sound';
+
+  @override
+  String get deviceDisableVibration => 'Disable vibration';
+
+  @override
+  String get deviceEnableVibration => 'Enable vibration';
+
+  @override
+  String get deviceMute => 'Mute';
+
+  @override
+  String get deviceSoundAndHaptics => 'Sound and haptics';
+
+  @override
+  String get deviceVibrationIntensity => 'Vibration intensity';
+
+  @override
+  String get deviceUnmute => 'Unmute';
+
+  @override
+  String get deviceScreenTurnOff => 'Turn screen off';
+
+  @override
+  String get deviceScreenTurnOn => 'Turn screen on';
+
+  @override
+  String get deviceDashboardScreenOn => 'Screen is on';
+
+  @override
+  String get deviceDashboardScreenOff => 'Screen is off';
+
+  @override
+  String get deviceDashboardRotation => 'Screen rotation';
+
+  @override
+  String get deviceDashboardConnection => 'Device connection';
+
+  @override
+  String get deviceDashboardDemo =>
+      'Battery data and controls are a design preview.';
+
+  @override
+  String get deviceInformationTitle => 'Device information';
+
+  @override
+  String get deviceInformationIdentity => 'LilygoBox device';
+
+  @override
+  String get deviceInformationConnection => 'Connection details';
+
+  @override
+  String get deviceInformationView => 'View';
+
+  @override
+  String get connectionReady => 'Connection ready';
+
+  @override
+  String get connectionThisComputer => 'This computer';
+
+  @override
+  String get connectionInformation => 'Connection information';
+
+  @override
+  String get connectionStatus => 'Connection status';
+
+  @override
+  String get connectionMethod => 'Connection method';
+
+  @override
+  String get connectionManage => 'Manage connection';
+
+  @override
+  String get connectionManualRecovery =>
+      'After disconnecting manually, select Reconnect to restore the connection.';
+
+  @override
+  String get connectionCredentialTitle => 'Connection credentials';
+
+  @override
+  String get connectionCredentialDescription =>
+      'Credentials are saved after initial authorization, so reconnecting does not require approval again. Disconnecting keeps them; deleting the device removes its locally saved credentials.';
 }

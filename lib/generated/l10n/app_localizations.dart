@@ -1121,6 +1121,210 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Make sure your device is online and allows LilygoBox connections, then try again. If you still cannot connect, search for the device again.'**
   String get lanReconnectDescription;
+
+  /// No description provided for @deviceDashboardSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Screen, sound and device connection'**
+  String get deviceDashboardSubtitle;
+
+  /// No description provided for @deviceDashboardMyDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'My device'**
+  String get deviceDashboardMyDevice;
+
+  /// No description provided for @deviceDashboardIdentity.
+  ///
+  /// In en, this message translates to:
+  /// **'Model, firmware and device information'**
+  String get deviceDashboardIdentity;
+
+  /// No description provided for @deviceDashboardViewInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'View device information'**
+  String get deviceDashboardViewInfo;
+
+  /// No description provided for @deviceDashboardBattery.
+  ///
+  /// In en, this message translates to:
+  /// **'Battery'**
+  String get deviceDashboardBattery;
+
+  /// No description provided for @deviceDashboardCharging.
+  ///
+  /// In en, this message translates to:
+  /// **'Charging'**
+  String get deviceDashboardCharging;
+
+  /// No description provided for @deviceDashboardViewBattery.
+  ///
+  /// In en, this message translates to:
+  /// **'View charge and battery status'**
+  String get deviceDashboardViewBattery;
+
+  /// No description provided for @deviceDashboardSound.
+  ///
+  /// In en, this message translates to:
+  /// **'Sound'**
+  String get deviceDashboardSound;
+
+  /// No description provided for @deviceDisableVibration.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable vibration'**
+  String get deviceDisableVibration;
+
+  /// No description provided for @deviceEnableVibration.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable vibration'**
+  String get deviceEnableVibration;
+
+  /// No description provided for @deviceMute.
+  ///
+  /// In en, this message translates to:
+  /// **'Mute'**
+  String get deviceMute;
+
+  /// No description provided for @deviceSoundAndHaptics.
+  ///
+  /// In en, this message translates to:
+  /// **'Sound and haptics'**
+  String get deviceSoundAndHaptics;
+
+  /// No description provided for @deviceVibrationIntensity.
+  ///
+  /// In en, this message translates to:
+  /// **'Vibration intensity'**
+  String get deviceVibrationIntensity;
+
+  /// No description provided for @deviceUnmute.
+  ///
+  /// In en, this message translates to:
+  /// **'Unmute'**
+  String get deviceUnmute;
+
+  /// No description provided for @deviceScreenTurnOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn screen off'**
+  String get deviceScreenTurnOff;
+
+  /// No description provided for @deviceScreenTurnOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn screen on'**
+  String get deviceScreenTurnOn;
+
+  /// No description provided for @deviceDashboardScreenOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Screen is on'**
+  String get deviceDashboardScreenOn;
+
+  /// No description provided for @deviceDashboardScreenOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Screen is off'**
+  String get deviceDashboardScreenOff;
+
+  /// No description provided for @deviceDashboardRotation.
+  ///
+  /// In en, this message translates to:
+  /// **'Screen rotation'**
+  String get deviceDashboardRotation;
+
+  /// No description provided for @deviceDashboardConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Device connection'**
+  String get deviceDashboardConnection;
+
+  /// No description provided for @deviceDashboardDemo.
+  ///
+  /// In en, this message translates to:
+  /// **'Battery data and controls are a design preview.'**
+  String get deviceDashboardDemo;
+
+  /// No description provided for @deviceInformationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Device information'**
+  String get deviceInformationTitle;
+
+  /// No description provided for @deviceInformationIdentity.
+  ///
+  /// In en, this message translates to:
+  /// **'LilygoBox device'**
+  String get deviceInformationIdentity;
+
+  /// No description provided for @deviceInformationConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection details'**
+  String get deviceInformationConnection;
+
+  /// No description provided for @deviceInformationView.
+  ///
+  /// In en, this message translates to:
+  /// **'View'**
+  String get deviceInformationView;
+
+  /// No description provided for @connectionReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection ready'**
+  String get connectionReady;
+
+  /// No description provided for @connectionThisComputer.
+  ///
+  /// In en, this message translates to:
+  /// **'This computer'**
+  String get connectionThisComputer;
+
+  /// No description provided for @connectionInformation.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection information'**
+  String get connectionInformation;
+
+  /// No description provided for @connectionStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection status'**
+  String get connectionStatus;
+
+  /// No description provided for @connectionMethod.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection method'**
+  String get connectionMethod;
+
+  /// No description provided for @connectionManage.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage connection'**
+  String get connectionManage;
+
+  /// No description provided for @connectionManualRecovery.
+  ///
+  /// In en, this message translates to:
+  /// **'After disconnecting manually, select Reconnect to restore the connection.'**
+  String get connectionManualRecovery;
+
+  /// No description provided for @connectionCredentialTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection credentials'**
+  String get connectionCredentialTitle;
+
+  /// No description provided for @connectionCredentialDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Credentials are saved after initial authorization, so reconnecting does not require approval again. Disconnecting keeps them; deleting the device removes its locally saved credentials.'**
+  String get connectionCredentialDescription;
 }
 
 class _AppLocalizationsDelegate

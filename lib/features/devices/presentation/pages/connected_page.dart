@@ -1,8 +1,8 @@
 /*
- * @Description: 展示设备控制、连接和信息详情，通过底部导航切换并保留页面状态。
+ * @Description: 设备详情页，采用可变卡片布局展示设备、连接、电池和控制信息。
  * @Author: LILYGO_L
- * @Date: 2026-10-04 18:37:01
- * @LastEditTime: 2026-10-07 18:00:00
+ * @Date: 2026-10-06 15:14:56
+ * @LastEditTime: 2026-10-09 10:00:00
  * @License: GPL 3.0
  */
 import 'dart:async';
@@ -16,23 +16,94 @@ import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
-import '../../../../core/widgets/retained_page_stack.dart';
+import '../../../../generated/l10n/app_localizations.dart';
+import '../../data/lan_discovery.dart';
 import '../../state/lan_connection.dart';
 import '../../state/manager_provider.dart';
 import '../confirm_repair.dart';
-import '../widgets/device_detail_navigation.dart';
+import '../widgets/device_dashboard.dart';
+
+enum _DeviceDetailView { control, information, battery, connection }
 
 class ConnectedDevicePage extends StatefulWidget {
-  const ConnectedDevicePage({super.key, required this.deviceId});
+  const ConnectedDevicePage({
+    super.key,
+    required this.deviceId,
+    this.nestedView,
+    this.pageTitle,
+  });
 
   final String deviceId;
+  final ValueNotifier<bool>? nestedView;
+  final ValueNotifier<String?>? pageTitle;
 
   @override
   State<ConnectedDevicePage> createState() => _ConnectedDevicePageState();
 }
 
-class _ConnectedDevicePageState extends State<ConnectedDevicePage> {
-  DeviceDetailTab _tab = DeviceDetailTab.control;
+class _ConnectedDevicePageState extends State<ConnectedDevicePage>
+    with SingleTickerProviderStateMixin {
+  _DeviceDetailView _view = _DeviceDetailView.control;
+  late final AnimationController _viewTransition = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 200),
+    value: 1,
+  );
+  double _brightness = .72;
+  double _volume = .40;
+  double _vibration = .50;
+  bool _screenOn = true;
+  bool _soundOn = true;
+  bool _vibrationOn = true;
+  int _rotation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.nestedView?.addListener(_handleOuterBack);
+  }
+
+  @override
+  void didUpdateWidget(covariant ConnectedDevicePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.nestedView != widget.nestedView) {
+      oldWidget.nestedView?.removeListener(_handleOuterBack);
+      widget.nestedView?.addListener(_handleOuterBack);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.nestedView?.removeListener(_handleOuterBack);
+    _viewTransition.dispose();
+    super.dispose();
+  }
+
+  void _animateViewChange() {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _viewTransition.value = 1;
+    } else {
+      _viewTransition.forward(from: 0);
+    }
+  }
+
+  void _handleOuterBack() {
+    if (widget.nestedView?.value == false &&
+        _view != _DeviceDetailView.control &&
+        mounted) {
+      setState(() => _view = _DeviceDetailView.control);
+      widget.pageTitle?.value = null;
+      _animateViewChange();
+    }
+  }
+
+  void _openView(_DeviceDetailView view) {
+    if (_view == view) return;
+    setState(() => _view = view);
+    widget.pageTitle?.value = _viewTitle(context.l10n);
+    _animateViewChange();
+    widget.nestedView?.value = view != _DeviceDetailView.control;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,440 +132,1068 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage> {
               ? l10n.lanConfirmOnDevice
               : l10n.lanConnectingDescription
         : l10n.lanReconnectDescription;
-
-    // 只操作当前设备的会话；其他设备在线时保留原有的重连限制。
-    final connectionAction = AppActionButton(
+    final action = _connectionAction(
       theme: theme,
-      primary: !online && !busy,
-      destructive: online,
-      label: online
-          ? l10n.lanDisconnect
-          : busy
-          ? l10n.cancelConnection
-          : identityChanged
-          ? l10n.lanRepair
-          : l10n.retryConnection,
-      onPressed: online
-          ? () => _confirmDisconnect(session)
-          : busy
-          ? session.disconnect
-          : device == null || session.busy || session.connected
-          ? null
-          : () async {
-              if (identityChanged &&
-                  !await confirmDeviceRepair(
-                    context,
-                    session,
-                    widget.deviceId,
-                  )) {
-                return;
-              }
-              if (mounted) unawaited(session.connect(device));
-            },
-    );
-
-    Widget control() => Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (!online) ...[
-          Text(
-            description,
-            style: TextStyle(height: 1.5, color: theme.textColorTertiary),
-          ),
-          const SizedBox(height: 14),
-          Align(alignment: Alignment.centerLeft, child: connectionAction),
-          const SizedBox(height: 24),
-        ],
-        _sectionTitle(l10n.deviceScreenControls, theme),
-        _group(theme, [
-          _unavailableControl(
-            theme,
-            Symbols.desktop_windows,
-            l10n.deviceScreenDisplay,
-          ),
-          _unavailableControl(
-            theme,
-            Symbols.brightness_6,
-            l10n.deviceBrightness,
-          ),
-        ]),
-        const SizedBox(height: 24),
-        _sectionTitle(l10n.deviceSettings, theme),
-        _group(theme, [
-          _unavailableControl(theme, Symbols.volume_up, l10n.deviceSound),
-          _unavailableControl(
-            theme,
-            Symbols.display_settings,
-            l10n.deviceDisplaySettings,
-          ),
-        ]),
-        const SizedBox(height: 16),
-        Text(
-          l10n.deviceControlsUnavailable,
-          style: TextStyle(
-            fontSize: 13,
-            height: 1.5,
-            color: theme.textColorTertiary,
-          ),
-        ),
-      ],
-    );
-
-    Widget connection() => Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _sectionTitle(l10n.deviceConnectionTab, theme),
-        _group(theme, [
-          _infoRow(theme, l10n.deviceConnectionStatus, status),
-          _infoRow(
-            theme,
-            l10n.deviceConnectionMethod,
-            'Wi-Fi',
-            icon: Symbols.wifi,
-          ),
-          _infoRow(
-            theme,
-            l10n.lanAddress,
-            online ? device?.address ?? '—' : '—',
-          ),
-          _infoRow(theme, l10n.lanMacAddress, device?.macAddress ?? '—'),
-        ]),
-        const SizedBox(height: 18),
-        Text(
-          description,
-          style: TextStyle(height: 1.5, color: theme.textColorTertiary),
-        ),
-        const SizedBox(height: 20),
-        Align(alignment: Alignment.centerLeft, child: connectionAction),
-      ],
-    );
-
-    Widget information() => Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _sectionTitle(l10n.deviceInfoTab, theme),
-        _group(theme, [
-          _infoRow(
-            theme,
-            l10n.deviceNameLabel,
-            device?.name ?? widget.deviceId,
-          ),
-          _infoRow(theme, l10n.lanModel, device?.model ?? '—'),
-          _infoRow(
-            theme,
-            l10n.lanFirmware,
-            online && session.firmware.isNotEmpty ? session.firmware : '—',
-          ),
-          _infoRow(theme, l10n.lanMacAddress, device?.macAddress ?? '—'),
-          _infoRow(
-            theme,
-            l10n.lanUptime,
-            online ? '${session.uptimeMs ~/ 1000} s' : '—',
-          ),
-        ]),
-      ],
+      l10n: l10n,
+      session: session,
+      device: device,
+      online: online,
+      busy: busy,
+      identityChanged: identityChanged,
     );
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 560;
-        // 导航独占底部空间，列表滚动和窄窗口下的长内容不会被悬浮栏遮挡。
-        Widget page(DeviceDetailTab tab, Widget content) =>
-            SingleChildScrollView(
-              key: PageStorageKey('${widget.deviceId}-${tab.name}'),
-              padding: EdgeInsets.fromLTRB(
-                compact ? 20 : 36,
-                20,
-                compact ? 20 : 36,
-                24,
-              ),
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 900),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _DeviceHeader(
+        final compact = constraints.maxWidth < 620;
+        return SingleChildScrollView(
+          key: PageStorageKey('${widget.deviceId}-${_view.name}'),
+          padding: EdgeInsets.fromLTRB(
+            compact ? 18 : 32,
+            18,
+            compact ? 18 : 32,
+            30,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1110),
+              child: FadeTransition(
+                opacity: _viewTransition,
+                child: _view == _DeviceDetailView.control
+                    ? _controlView(
                         theme: theme,
-                        name: device?.name ?? widget.deviceId,
-                        model: device?.model ?? '—',
+                        l10n: l10n,
+                        device: device,
                         status: status,
+                        description: description,
                         online: online,
-                        busy: busy,
                         compact: compact,
+                        action: action,
+                      )
+                    : _subpage(
+                        theme: theme,
+                        title: _viewTitle(l10n),
+                        child: switch (_view) {
+                          _DeviceDetailView.information => _informationView(
+                            theme,
+                            l10n,
+                            device,
+                            online,
+                            session,
+                            () => _openView(_DeviceDetailView.connection),
+                          ),
+                          _DeviceDetailView.battery => _batteryView(
+                            theme,
+                            online,
+                          ),
+                          _DeviceDetailView.connection => _connectionView(
+                            theme,
+                            l10n,
+                            device,
+                            online,
+                            action,
+                            status,
+                            description,
+                          ),
+                          _ => const SizedBox.shrink(),
+                        },
                       ),
-                      const SizedBox(height: 28),
-                      content,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _viewTitle(AppLocalizations l10n) => switch (_view) {
+    _DeviceDetailView.information => l10n.deviceInfoTab,
+    _DeviceDetailView.battery => l10n.deviceDashboardBattery,
+    _DeviceDetailView.connection => l10n.deviceConnectionTab,
+    _ => l10n.deviceDetails,
+  };
+
+  Widget _controlView({
+    required AppTheme theme,
+    required AppLocalizations l10n,
+    required LanDevice? device,
+    required String status,
+    required String description,
+    required bool online,
+    required bool compact,
+    required Widget action,
+  }) => DeviceDashboard(
+    theme: theme,
+    name: device?.name ?? widget.deviceId,
+    status: status,
+    online: online,
+    description: description,
+    connectionAction: action,
+    brightness: _brightness,
+    volume: _volume,
+    vibration: _vibration,
+    screenOn: _screenOn,
+    soundOn: _soundOn,
+    vibrationOn: _vibrationOn,
+    rotation: _rotation,
+    onBrightness: (value) => setState(() => _brightness = value),
+    onVolume: (value) => setState(() => _volume = value),
+    onVibration: (value) => setState(() => _vibration = value),
+    onScreen: (value) => setState(() => _screenOn = value),
+    onSound: (value) => setState(() => _soundOn = value),
+    onVibrationEnabled: (value) => setState(() => _vibrationOn = value),
+    onRotation: (value) => setState(() => _rotation = value),
+    onInformation: () => _openView(_DeviceDetailView.information),
+    onBattery: () => _openView(_DeviceDetailView.battery),
+  );
+  Widget _subpage({
+    required AppTheme theme,
+    required String title,
+    required Widget child,
+  }) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Padding(
+        padding: const EdgeInsets.only(left: 2),
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 21,
+            fontWeight: FontWeight.w700,
+            color: theme.textColorPrimary,
+          ),
+        ),
+      ),
+      const SizedBox(height: 16),
+      child,
+    ],
+  );
+
+  Widget _informationView(
+    AppTheme theme,
+    AppLocalizations l10n,
+    LanDevice? device,
+    bool online,
+    LanConnection session,
+    VoidCallback onConnection,
+  ) => LayoutBuilder(
+    builder: (context, constraints) {
+      final narrow = constraints.maxWidth < 760;
+      final statusColor = online
+          ? theme.adaptiveColor(
+              dark: const Color(0xFF83B69A),
+              light: const Color(0xFF438063),
+            )
+          : theme.textColorTertiary;
+      final identity = _card(
+        theme,
+        color: _secondarySurface(theme),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _detailText(
+                    l10n.deviceDashboardMyDevice,
+                    theme,
+                    size: 12,
+                    muted: true,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: .07),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Symbols.circle,
+                        fill: 1,
+                        size: 6,
+                        color: statusColor,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        online ? l10n.homeDeviceOnline : l10n.homeDeviceOffline,
+                        style: TextStyle(fontSize: 11, color: statusColor),
+                      ),
                     ],
                   ),
                 ),
-              ),
-            );
-        return Column(
-          children: [
-            Expanded(
-              child: RetainedPageStack(
-                activeKey: _tab,
-                pages: {
-                  DeviceDetailTab.control: page(
-                    DeviceDetailTab.control,
-                    control(),
-                  ),
-                  DeviceDetailTab.connection: page(
-                    DeviceDetailTab.connection,
-                    connection(),
-                  ),
-                  DeviceDetailTab.info: page(
-                    DeviceDetailTab.info,
-                    information(),
-                  ),
-                },
-              ),
+              ],
             ),
-            SafeArea(
-              top: false,
-              minimum: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-              child: DeviceDetailNavigation(
-                theme: theme,
-                selected: _tab,
-                onSelected: (tab) => setState(() => _tab = tab),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  /// 用户确认后再断开，避免弹窗期间切换会话误断开其他设备。
-  Future<void> _confirmDisconnect(LanConnection session) async {
-    final deviceId = widget.deviceId;
-    final l10n = context.l10n;
-    final confirmed = await showAppConfirmation(
-      context: context,
-      theme: context.read<ThemeProvider>().themeData,
-      actionKey: 'device-disconnect',
-      title: l10n.lanDisconnectConfirmTitle,
-      description: l10n.lanDisconnectDescription,
-      confirmLabel: l10n.lanDisconnect,
-    );
-    if (!confirmed ||
-        !mounted ||
-        session.device?.id != deviceId ||
-        !session.connected) {
-      return;
-    }
-    session.disconnect();
-  }
-
-  Widget _sectionTitle(String title, AppTheme theme) => Padding(
-    padding: const EdgeInsets.only(left: 4, bottom: 12),
-    child: Text(
-      title,
-      style: TextStyle(
-        fontSize: 15,
-        fontWeight: FontWeight.w600,
-        color: theme.textColorSecondary,
-      ),
-    ),
-  );
-
-  Widget _group(AppTheme theme, List<Widget> rows) => Container(
-    decoration: BoxDecoration(
-      color: theme.primary,
-      borderRadius: BorderRadius.circular(18),
-    ),
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-    child: Column(
-      children: [
-        for (var i = 0; i < rows.length; i++) ...[
-          if (i > 0)
-            Divider(
-              height: 1,
-              color: theme.dividerColor.withValues(alpha: .13),
-            ),
-          rows[i],
-        ],
-      ],
-    ),
-  );
-
-  Widget _unavailableControl(AppTheme theme, IconData icon, String title) =>
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        child: Row(
-          children: [
-            Icon(icon, fill: 1, size: 21, color: theme.textColorTertiary),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(fontSize: 14, color: theme.textColorSecondary),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Flexible(
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  context.l10n.deviceControlUnavailable,
-                  textAlign: TextAlign.end,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.textColorTertiary,
-                  ),
+            // 中央区域预留设备图片；未提供图片时使用统一的灰色占位图标。
+            SizedBox(
+              height: 190,
+              child: Center(
+                child: Icon(
+                  Symbols.blur_on,
+                  size: 100,
+                  color: theme.textColorTertiary,
                 ),
               ),
             ),
-          ],
-        ),
-      );
-
-  Widget _infoRow(
-    AppTheme theme,
-    String label,
-    String value, {
-    IconData? icon,
-  }) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 17),
-    child: LayoutBuilder(
-      builder: (context, constraints) {
-        final narrow =
-            constraints.maxWidth < 340 ||
-            MediaQuery.textScalerOf(context).scale(14) > 21;
-        final title = Text(
-          label,
-          style: TextStyle(fontSize: 14, color: theme.textColorTertiary),
-        );
-        final text = SelectableText(
-          value,
-          contextMenuBuilder: AppTextSelectionMenu.build,
-          textAlign: narrow ? TextAlign.start : TextAlign.end,
-          style: TextStyle(fontSize: 14, color: theme.textColorPrimary),
-        );
-        final detail = icon == null
-            ? text
-            : Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 17, color: theme.textColorSecondary),
-                  const SizedBox(width: 6),
-                  Flexible(child: text),
-                ],
-              );
-        if (narrow) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [title, const SizedBox(height: 8), detail],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(flex: 2, child: title),
-            const SizedBox(width: 24),
-            Expanded(
-              flex: 3,
-              child: Align(alignment: Alignment.centerRight, child: detail),
+            _detailText(
+              device?.name ?? widget.deviceId,
+              theme,
+              size: 24,
+              bold: true,
             ),
-          ],
-        );
-      },
-    ),
-  );
-}
-
-class _DeviceHeader extends StatelessWidget {
-  const _DeviceHeader({
-    required this.theme,
-    required this.name,
-    required this.model,
-    required this.status,
-    required this.online,
-    required this.busy,
-    required this.compact,
-  });
-
-  final AppTheme theme;
-  final String name;
-  final String model;
-  final String status;
-  final bool online;
-  final bool busy;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: compact ? 23 : 28,
-                fontWeight: FontWeight.w700,
-                color: theme.textColorPrimary,
-              ),
+            const SizedBox(height: 8),
+            _detailText(
+              l10n.deviceInformationIdentity,
+              theme,
+              size: 12,
+              muted: true,
             ),
-            const SizedBox(height: 7),
-            Text(
-              model,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13, color: theme.textColorTertiary),
-            ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 18),
             Row(
               children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: online
-                        ? theme.adaptiveColor(
-                            dark: const Color(0xFF7CBD94),
-                            light: const Color(0xFF4B9565),
-                          )
-                        : busy
-                        ? theme.baseTertiary
-                        : theme.textColorTertiary,
-                  ),
-                ),
+                Icon(Symbols.wifi, size: 16, color: theme.basePrimary),
                 const SizedBox(width: 7),
                 Flexible(
                   child: Text(
-                    '$status · Wi-Fi',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: theme.textColorTertiary,
-                    ),
+                    'Wi-Fi',
+                    style: TextStyle(fontSize: 12, color: theme.basePrimary),
                   ),
                 ),
               ],
             ),
           ],
         ),
+      );
+      final details = _card(
+        theme,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _detailText(
+              l10n.deviceInformationTitle,
+              theme,
+              size: 15,
+              bold: true,
+            ),
+            const SizedBox(height: 20),
+            for (final item in [
+              (l10n.deviceNameLabel, device?.name ?? widget.deviceId),
+              (l10n.lanModel, device?.model ?? '—'),
+              (
+                l10n.lanFirmware,
+                online && session.firmware.isNotEmpty ? session.firmware : '—',
+              ),
+              (l10n.lanMacAddress, device?.macAddress ?? '—'),
+              (l10n.lanUptime, online ? '${session.uptimeMs ~/ 1000} s' : '—'),
+            ])
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: theme.dividerColor)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: _informationRow(
+                    theme,
+                    item.$1,
+                    item.$2,
+                    stacked:
+                        (narrow
+                                ? constraints.maxWidth - 48
+                                : (constraints.maxWidth - 18) * .69 - 48) <
+                            320 ||
+                        MediaQuery.textScalerOf(context).scale(13) > 18,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+      final top = narrow
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [identity, const SizedBox(height: 18), details],
+            )
+          : IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(flex: 31, child: identity),
+                  const SizedBox(width: 18),
+                  Expanded(flex: 69, child: details),
+                ],
+              ),
+            );
+      final connection = _card(
+        theme,
+        onTap: onConnection,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Row(
+          children: [
+            Icon(Symbols.link, size: 25, color: theme.basePrimary),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.deviceInformationConnection,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: theme.textColorPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    online
+                        ? '${l10n.homeDeviceOnline} · Wi-Fi'
+                        : l10n.homeDeviceOffline,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.textColorTertiary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              l10n.deviceInformationView,
+              style: TextStyle(fontSize: 12, color: theme.basePrimary),
+            ),
+            const SizedBox(width: 8),
+            Icon(Symbols.chevron_right, size: 19, color: theme.basePrimary),
+          ],
+        ),
+      );
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [top, const SizedBox(height: 18), connection],
+      );
+    },
+  );
+
+  /// 信息卡片使用外层已知宽度选择排版，避免等高布局查询 LayoutBuilder 的固有尺寸。
+  Widget _informationRow(
+    AppTheme theme,
+    String label,
+    String value, {
+    required bool stacked,
+  }) {
+    final caption = _detailText(label, theme, muted: true);
+    final detail = SelectableText(
+      value,
+      contextMenuBuilder: AppTextSelectionMenu.build,
+      textAlign: stacked ? TextAlign.start : TextAlign.end,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: theme.textColorPrimary,
       ),
-      const SizedBox(width: 20),
-      // 正式设备图片尚未接入，使用灰色 Blur On 图标预留位置。
-      ExcludeSemantics(
-        child: SizedBox(
-          width: compact ? 64 : 112,
-          height: compact ? 96 : 120,
-          child: Icon(
-            Symbols.blur_on,
-            fill: 1,
-            size: compact ? 40 : 56,
-            color: theme.textColorTertiary.withValues(alpha: .45),
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      child: stacked
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [caption, const SizedBox(height: 6), detail],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: caption),
+                const SizedBox(width: 18),
+                Flexible(child: detail),
+              ],
+            ),
+    );
+  }
+
+  Widget _batteryView(AppTheme theme, bool online) => LayoutBuilder(
+    builder: (context, constraints) {
+      final narrow = constraints.maxWidth < 760;
+      final summary = _card(
+        theme,
+        padding: const EdgeInsets.all(28),
+        color: Color.alphaBlend(
+          theme.basePrimary.withValues(alpha: .07),
+          theme.primary,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _detailText('当前电量', theme, size: 15, bold: true),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.secondary,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: _detailText(
+                    context.l10n.deviceDashboardDemo,
+                    theme,
+                    size: 11,
+                    muted: true,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 44),
+            Center(
+              child: Text(
+                online ? '82%' : '—',
+                style: TextStyle(
+                  fontSize: 68,
+                  fontWeight: FontWeight.w700,
+                  height: 1,
+                  color: theme.textColorPrimary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 36),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 270),
+                child: Column(
+                  children: [
+                    DeviceBatteryGraphic(
+                      theme: theme,
+                      progress: online ? .82 : 0,
+                      height: 82,
+                    ),
+                    const SizedBox(height: 28),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        for (final label in ['0', '50', '100%'])
+                          _detailText(label, theme, size: 10, muted: true),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 42),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Symbols.battery_horiz_075,
+                  size: 18,
+                  color: theme.basePrimary,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: _detailText(
+                    online ? '电池供电' : '未连接电池',
+                    theme,
+                    size: 15,
+                    bold: true,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: _detailText(
+                online ? '未连接充电器' : '设备未连接',
+                theme,
+                size: 12,
+                muted: true,
+              ),
+            ),
+            const SizedBox(height: 18),
+          ],
+        ),
+      );
+      final details = _card(
+        theme,
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _detailText('电池状态', theme, size: 15, bold: true),
+            const SizedBox(height: 20),
+            Builder(
+              builder: (context) {
+                final voltage = _batteryMetric(
+                  theme,
+                  Symbols.bolt,
+                  '电压',
+                  online ? '4.02' : '—',
+                  'V',
+                );
+                final temperature = _batteryMetric(
+                  theme,
+                  Symbols.thermometer,
+                  '温度',
+                  online ? '31.6' : '—',
+                  '°C',
+                );
+                if ((narrow
+                        ? constraints.maxWidth
+                        : (constraints.maxWidth - 18) * .63) <
+                    356) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      voltage,
+                      const SizedBox(height: 14),
+                      temperature,
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: voltage),
+                    const SizedBox(width: 14),
+                    Expanded(child: temperature),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 18),
+            _batteryStatusRow(theme, '充电状态', online ? '未充电' : '—'),
+            _batteryStatusRow(theme, '电流', online ? '−320 mA' : '—'),
+            _batteryStatusRow(theme, '供电来源', online ? '电池' : '—'),
+            const SizedBox(height: 18),
+            _batteryNote(theme, '以上电池读数为示例数据', size: 11),
+          ],
+        ),
+      );
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (narrow) ...[
+            summary,
+            const SizedBox(height: 18),
+            details,
+          ] else
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(flex: 37, child: summary),
+                  const SizedBox(width: 18),
+                  Expanded(flex: 63, child: details),
+                ],
+              ),
+            ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: theme.secondary,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: _batteryNote(theme, '此页数值均为示例；实际显示项目取决于设备提供的电池数据。'),
+          ),
+        ],
+      );
+    },
+  );
+
+  Widget _batteryMetric(
+    AppTheme theme,
+    IconData icon,
+    String label,
+    String value,
+    String unit,
+  ) => Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: theme.secondary,
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 18, color: theme.basePrimary),
+            const SizedBox(width: 8),
+            Flexible(child: _detailText(label, theme, size: 12, muted: true)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text.rich(
+          TextSpan(
+            text: value,
+            children: [
+              TextSpan(
+                text: '  $unit',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: theme.textColorTertiary,
+                ),
+              ),
+            ],
+          ),
+          style: TextStyle(
+            fontSize: 32,
+            height: 1.1,
+            fontWeight: FontWeight.w600,
+            color: theme.textColorPrimary,
           ),
         ),
-      ),
+      ],
+    ),
+  );
+
+  Widget _batteryStatusRow(AppTheme theme, String label, String value) =>
+      DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: theme.dividerColor)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 22),
+          child: Row(
+            children: [
+              Expanded(child: _detailText(label, theme, muted: true)),
+              const SizedBox(width: 16),
+              Flexible(
+                child: Text(
+                  value,
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: theme.textColorPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  Widget _batteryNote(AppTheme theme, String text, {double size = 12}) => Row(
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: [
+      Icon(Symbols.info, size: 16, color: theme.textColorTertiary),
+      const SizedBox(width: 10),
+      Expanded(child: _detailText(text, theme, size: size, muted: true)),
     ],
   );
+
+  /// 按连接状态展示链路示意、连接信息与管理操作，复用现有连接按钮。
+  Widget _connectionView(
+    AppTheme theme,
+    AppLocalizations l10n,
+    LanDevice? device,
+    bool online,
+    Widget action,
+    String status,
+    String description,
+  ) => LayoutBuilder(
+    // 在外层确定布局，等高卡片内部不使用 LayoutBuilder。
+    builder: (context, constraints) {
+      final narrow = constraints.maxWidth < 760;
+      final heading = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                online ? Symbols.verified_user : Symbols.link_off,
+                size: 17,
+                color: theme.textColorTertiary,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: _detailText(status, theme, size: 12, muted: true),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _detailText(
+            online ? l10n.connectionReady : status,
+            theme,
+            size: 24,
+            bold: true,
+          ),
+          const SizedBox(height: 14),
+          _detailText(description, theme, size: 12, muted: true),
+        ],
+      );
+      final diagram = Row(
+        children: [
+          Expanded(
+            child: _connectionEndpoint(
+              theme,
+              Symbols.laptop,
+              l10n.connectionThisComputer,
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Symbols.wifi, size: 17, color: theme.basePrimary),
+                    const SizedBox(width: 6),
+                    _detailText('Wi-Fi', theme, size: 12, muted: true),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Divider(
+                        color: theme.basePrimary.withValues(alpha: .22),
+                      ),
+                    ),
+                    Icon(
+                      Symbols.chevron_right,
+                      size: 16,
+                      color: theme.basePrimary,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _connectionEndpoint(
+              theme,
+              Symbols.desktop_windows,
+              device?.name ?? widget.deviceId,
+            ),
+          ),
+        ],
+      );
+      final hero = _card(
+        theme,
+        color: _secondarySurface(theme),
+        padding: const EdgeInsets.all(28),
+        child: narrow
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [heading, const SizedBox(height: 28), diagram],
+              )
+            : Padding(
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                child: Row(
+                  children: [
+                    Expanded(flex: 35, child: heading),
+                    const SizedBox(width: 24),
+                    Expanded(flex: 65, child: diagram),
+                  ],
+                ),
+              ),
+      );
+      final information = _card(
+        theme,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _detailText(
+              l10n.connectionInformation,
+              theme,
+              size: 15,
+              bold: true,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _detailText(
+                        l10n.connectionStatus,
+                        theme,
+                        size: 11,
+                        muted: true,
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Icon(
+                            Symbols.circle,
+                            fill: 1,
+                            size: 6,
+                            color: theme.textColorTertiary,
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(child: _detailText(status, theme, size: 12)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _detailText(
+                        l10n.connectionMethod,
+                        theme,
+                        size: 11,
+                        muted: true,
+                      ),
+                      const SizedBox(height: 10),
+                      _detailText('Wi-Fi', theme),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            for (final item in [
+              (l10n.lanAddress, device?.address ?? '—'),
+              (l10n.lanMacAddress, device?.macAddress ?? '—'),
+            ])
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: theme.dividerColor)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: _informationRow(
+                    theme,
+                    item.$1,
+                    item.$2,
+                    stacked:
+                        (narrow
+                                ? constraints.maxWidth
+                                : (constraints.maxWidth - 18) * .65) <
+                            368 ||
+                        MediaQuery.textScalerOf(context).scale(13) > 18,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+      final management = _card(
+        theme,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: theme.secondary,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                Symbols.cable,
+                size: 22,
+                color: theme.textColorTertiary,
+              ),
+            ),
+            const SizedBox(height: 18),
+            _detailText(l10n.connectionManage, theme, size: 15, bold: true),
+            const SizedBox(height: 16),
+            _detailText(
+              l10n.connectionManualRecovery,
+              theme,
+              size: 12,
+              muted: true,
+            ),
+            const SizedBox(height: 26),
+            action,
+          ],
+        ),
+      );
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          hero,
+          const SizedBox(height: 18),
+          if (narrow) ...[
+            information,
+            const SizedBox(height: 18),
+            management,
+          ] else
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(flex: 65, child: information),
+                  const SizedBox(width: 18),
+                  Expanded(flex: 35, child: management),
+                ],
+              ),
+            ),
+          const SizedBox(height: 18),
+          _card(
+            theme,
+            color: Color.alphaBlend(
+              theme.textColorPrimary.withValues(alpha: .05),
+              theme.primary,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Symbols.verified_user,
+                  size: 17,
+                  color: theme.textColorTertiary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _detailText(
+                        l10n.connectionCredentialTitle,
+                        theme,
+                        size: 12,
+                        bold: true,
+                      ),
+                      const SizedBox(height: 6),
+                      _detailText(
+                        l10n.connectionCredentialDescription,
+                        theme,
+                        size: 12,
+                        muted: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  /// 连接示意中的端点图标与名称，名称过长时允许换行。
+  Widget _connectionEndpoint(AppTheme theme, IconData icon, String name) =>
+      Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: theme.primary,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Icon(icon, size: 26, color: theme.basePrimary),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            name,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: theme.textColorPrimary),
+          ),
+        ],
+      );
+
+  Color _secondarySurface(AppTheme theme) =>
+      Color.alphaBlend(theme.basePrimary.withValues(alpha: .09), theme.primary);
+
+  Widget _card(
+    AppTheme theme, {
+    required Widget child,
+    double? width,
+    VoidCallback? onTap,
+    Color? color,
+    EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(20, 18, 20, 20),
+  }) {
+    final content = Container(
+      width: width,
+      decoration: BoxDecoration(
+        color: color ?? theme.primary,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      padding: padding,
+      child: child,
+    );
+    if (onTap == null) return content;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(onTap: onTap, child: content),
+    );
+  }
+
+  Widget _detailText(
+    String value,
+    AppTheme theme, {
+    double size = 13,
+    bool muted = false,
+    bool bold = false,
+  }) => Text(
+    value,
+    style: TextStyle(
+      fontSize: size,
+      fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
+      color: muted ? theme.textColorTertiary : theme.textColorPrimary,
+    ),
+  );
+
+  Widget _connectionAction({
+    required AppTheme theme,
+    required AppLocalizations l10n,
+    required LanConnection session,
+    required LanDevice? device,
+    required bool online,
+    required bool busy,
+    required bool identityChanged,
+  }) => AppActionButton(
+    theme: theme,
+    primary: !online && !busy,
+    destructive: online,
+    label: online
+        ? l10n.lanDisconnect
+        : busy
+        ? l10n.cancelConnection
+        : identityChanged
+        ? l10n.lanRepair
+        : l10n.retryConnection,
+    onPressed: online
+        ? () => _confirmDisconnect(session)
+        : busy
+        ? session.disconnect
+        : device == null || session.busy || session.connected
+        ? null
+        : () async {
+            if (identityChanged &&
+                !await confirmDeviceRepair(context, session, widget.deviceId)) {
+              return;
+            }
+            if (mounted) unawaited(session.connect(device));
+          },
+  );
+
+  Future<void> _confirmDisconnect(LanConnection session) async {
+    final confirmed = await showAppConfirmation(
+      context: context,
+      theme: context.read<ThemeProvider>().themeData,
+      actionKey: 'device-disconnect',
+      title: context.l10n.lanDisconnectConfirmTitle,
+      description: context.l10n.lanDisconnectDescription,
+      confirmLabel: context.l10n.lanDisconnect,
+    );
+    if (!confirmed ||
+        !mounted ||
+        session.device?.id != widget.deviceId ||
+        !session.connected) {
+      return;
+    }
+    session.disconnect();
+  }
 }

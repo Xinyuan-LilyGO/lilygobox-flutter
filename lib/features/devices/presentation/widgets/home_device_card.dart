@@ -2,7 +2,7 @@
  * @Description: 展示主页设备卡片与真实连接状态，预留产品图片并以灰色 Blur On 图标占位。
  * @Author: LILYGO_L
  * @Date: 2026-10-06 14:00:00
- * @LastEditTime: 2026-10-06 14:40:14
+ * @LastEditTime: 2026-10-08 18:25:00
  * @License: GPL 3.0
  */
 
@@ -51,7 +51,6 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
     final connected = widget.connected;
     final connecting = widget.connecting;
     final usesWifi = widget.usesWifi;
-    final macAddress = widget.macAddress;
     final theme = context.watch<ThemeProvider>().themeData;
     final l10n = context.l10n;
     final status = connected
@@ -63,126 +62,85 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
       button: true,
       child: MenuItemSurface(
         theme: theme,
+        backgroundColor: theme.primary,
+        hoverColor: theme.primary,
         onPressed: () {
           // 首页会保留在页面栈中，进入详情前主动移除其菜单浮层。
           _menu.close();
           widget.onPressed();
         },
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 22),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: connected
-                          ? theme.adaptiveColor(
-                              dark: const Color(0xFF7CBD94),
-                              light: const Color(0xFF4B9565),
-                            )
-                          : connecting
-                          ? theme.baseTertiary
-                          : theme.textColorTertiary,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      status,
+                      l10n.deviceDashboardMyDevice,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 14,
                         color: theme.textColorTertiary,
                       ),
                     ),
                   ),
-                  if (usesWifi) ...[
-                    const SizedBox(width: 12),
-                    Icon(
-                      connected || connecting ? Symbols.wifi : Symbols.wifi_off,
-                      size: 14,
-                      color: theme.textColorTertiary,
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      'Wi-Fi',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.textColorTertiary,
-                      ),
-                    ),
-                  ],
+                  _statusBadge(
+                    theme,
+                    label: status,
+                    connected: connected,
+                    connecting: connecting,
+                  ),
                 ],
               ),
-              // 正式产品图片尚未接入，使用灰色 Material Symbols Blur On 图标占位。
-              const SizedBox(height: 6),
+              const SizedBox(height: 18),
               SizedBox(
-                height: 116,
+                height: 132,
                 child: Center(
                   child: Icon(
                     Symbols.blur_on,
-                    size: 64,
+                    size: 86,
                     fill: 1,
                     weight: 400,
                     color: theme.textColorTertiary,
                   ),
                 ),
               ),
+              const SizedBox(height: 14),
               Text(
                 name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
                   color: theme.textColorPrimary,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 5),
               Text(
                 model,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: theme.textColorTertiary),
+                style: TextStyle(fontSize: 13, color: theme.textColorTertiary),
               ),
-              if (macAddress != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  'MAC $macAddress',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.textColorTertiary,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              Divider(
-                height: 1,
-                color: theme.dividerColor.withValues(alpha: .2),
-              ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 26),
               Row(
                 children: [
-                  Expanded(
-                    child: Text(
-                      l10n.openDevice,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.textColorSecondary,
-                      ),
-                    ),
-                  ),
                   Icon(
-                    Symbols.chevron_right,
-                    size: 18,
-                    color: theme.textColorTertiary,
+                    usesWifi && (connected || connecting)
+                        ? Symbols.wifi
+                        : Symbols.wifi_off,
+                    size: 20,
+                    color: theme.basePrimary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    usesWifi ? 'Wi-Fi' : l10n.homeDeviceOffline,
+                    style: TextStyle(fontSize: 13, color: theme.basePrimary),
                   ),
                 ],
               ),
@@ -208,6 +166,47 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
         ),
       ],
       child: card,
+    );
+  }
+
+  Widget _statusBadge(
+    AppTheme theme, {
+    required String label,
+    required bool connected,
+    required bool connecting,
+  }) {
+    final statusColor = connected
+        ? theme.adaptiveColor(
+            dark: const Color(0xFF83B69A),
+            light: const Color(0xFF438063),
+          )
+        : connecting
+        ? theme.baseTertiary
+        : theme.textColorTertiary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.secondary,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: statusColor,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(fontSize: 12, color: theme.textColorTertiary),
+          ),
+        ],
+      ),
     );
   }
 }

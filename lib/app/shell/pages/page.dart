@@ -2,7 +2,7 @@
  * @Description: 构建品牌侧栏、主页设备入口、账号入口和保留状态的内容页。
  * @Author: LILYGO_L
  * @Date: 2025-11-06 14:22:51
- * @LastEditTime: 2026-10-06 14:02:45
+ * @LastEditTime: 2026-10-08 18:14:00
  * @License: GPL 3.0
  */
 
@@ -39,6 +39,26 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
+  final Map<String, ValueNotifier<bool>> _nestedDeviceViews = {};
+  final Map<String, ValueNotifier<String?>> _devicePageTitles = {};
+
+  ValueNotifier<bool> _nestedViewFor(String deviceId) =>
+      _nestedDeviceViews.putIfAbsent(deviceId, () => ValueNotifier(false));
+
+  ValueNotifier<String?> _devicePageTitleFor(String deviceId) =>
+      _devicePageTitles.putIfAbsent(deviceId, () => ValueNotifier(null));
+
+  @override
+  void dispose() {
+    for (final notifier in _nestedDeviceViews.values) {
+      notifier.dispose();
+    }
+    for (final title in _devicePageTitles.values) {
+      title.dispose();
+    }
+    super.dispose();
+  }
+
   void _selectItem(int index) {
     final shellProvider = Provider.of<AppShellProvider>(context, listen: false);
     shellProvider.updateSelectedIndex(index);
@@ -76,20 +96,40 @@ class _AppShellState extends State<AppShell> {
           pages: {
             AppPage.home: const HomePageContent(),
             for (final name in deviceManager.addedDevices)
-              name: DevicePageFrame(
+              name: _buildDevicePage(
+                name,
                 active:
                     !addingDevice &&
                     selectedIndex ==
                         deviceManager.addedDevices.indexOf(name) + 1,
-                onBack: () => _selectItem(0),
-                child: deviceManager.lanDevice(name) != null
-                    ? ConnectedDevicePage(deviceId: name)
-                    : DevicePresentationCatalog.pageFor(name),
               ),
             if (addingDevice) AppPage.addDevice: const AddDevicePage(),
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildDevicePage(String name, {required bool active}) {
+    final nestedView = _nestedViewFor(name);
+    final pageTitle = _devicePageTitleFor(name);
+    return DevicePageFrame(
+      active: active,
+      pageTitle: pageTitle,
+      onBack: () {
+        if (nestedView.value) {
+          nestedView.value = false;
+        } else {
+          _selectItem(0);
+        }
+      },
+      child: context.read<DeviceManagerProvider>().lanDevice(name) != null
+          ? ConnectedDevicePage(
+              deviceId: name,
+              nestedView: nestedView,
+              pageTitle: pageTitle,
+            )
+          : DevicePresentationCatalog.pageFor(name),
     );
   }
 

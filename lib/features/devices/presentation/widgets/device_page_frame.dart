@@ -2,7 +2,7 @@
  * @Description: 为主页进入的设备详情提供统一返回入口，保留后台连接和页面状态。
  * @Author: LILYGO_L
  * @Date: 2026-10-06 14:00:00
- * @LastEditTime: 2026-10-06 14:00:00
+ * @LastEditTime: 2026-10-08 18:14:00
  * @License: GPL 3.0
  */
 
@@ -24,11 +24,38 @@ class DevicePageFrame extends StatelessWidget {
     required this.child,
     required this.onBack,
     required this.active,
+    this.pageTitle,
   });
 
   final Widget child;
   final VoidCallback onBack;
   final bool active;
+  final ValueNotifier<String?>? pageTitle;
+
+  Widget _title(BuildContext context, AppTheme theme) {
+    final title = pageTitle;
+    if (title == null) {
+      return Text(
+        context.l10n.deviceDetails,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: theme.textColorPrimary,
+        ),
+      );
+    }
+    return ValueListenableBuilder<String?>(
+      valueListenable: title,
+      builder: (context, value, _) => Text(
+        value ?? context.l10n.deviceDetails,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: theme.textColorPrimary,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,16 +100,7 @@ class DevicePageFrame extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        context.l10n.deviceDetails,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: theme.textColorPrimary,
-                        ),
-                      ),
-                    ),
+                    Expanded(child: _title(context, theme)),
                     const DeviceHelpMenu(),
                   ],
                 ),
