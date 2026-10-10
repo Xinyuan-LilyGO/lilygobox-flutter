@@ -98,7 +98,7 @@ class DeviceDashboard extends StatelessWidget {
         final heading = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _text(name, size: narrow ? 24 : 28, bold: true),
+            _text(l10n.deviceDetails, size: narrow ? 24 : 28, bold: true),
             const SizedBox(height: 7),
             _text(l10n.deviceDashboardSubtitle, size: 12, muted: true),
           ],
@@ -185,11 +185,6 @@ class DeviceDashboard extends StatelessWidget {
                 child: _soundAndHaptics(context),
               ),
             ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: _text(l10n.deviceDashboardDemo, size: 11, muted: true),
-            ),
           ],
         );
       },
@@ -222,14 +217,17 @@ class DeviceDashboard extends StatelessWidget {
     VoidCallback? onTap,
     Key? key,
     Color? color,
+    Color? feedbackColor,
     bool useDefaultFeedback = false,
     EdgeInsets padding = const EdgeInsets.all(20),
   }) {
     final radius = BorderRadius.circular(20);
     // 特色卡片可能与全局主题明暗相反，点击波纹按实际底色选择对比色。
-    final feedback = (color ?? theme.primary).computeLuminance() < .3
-        ? Colors.white
-        : theme.basePrimary;
+    final feedback =
+        feedbackColor ??
+        ((color ?? theme.primary).computeLuminance() < .3
+            ? Colors.white
+            : theme.basePrimary);
     if (onTap == null) {
       return Container(
         decoration: BoxDecoration(
@@ -269,6 +267,7 @@ class DeviceDashboard extends StatelessWidget {
       key: const ValueKey('device-card-information'),
       onTap: onInformation,
       color: colors.background,
+      feedbackColor: colors.foreground,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -505,7 +504,7 @@ class DeviceDashboard extends StatelessWidget {
             Row(
               children: [
                 _toggleIcon(
-                  Symbols.vibration,
+                  vibrationOn ? Symbols.vibration : Symbols.mobile_off,
                   vibrationOn,
                   vibrationOn
                       ? context.l10n.deviceDisableVibration
@@ -843,7 +842,7 @@ class _QuickSettingsTrackPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final radius = Radius.circular(size.height / 2);
-    // 禁用仅淡化轨道，内部图标保持正常颜色和形状。
+    // 禁用时轨道和内部图标一起淡化，图标形状仍表示原本调节的功能。
     Color trackColor(Color color) => enabled
         ? color
         : Color.alphaBlend(color.withValues(alpha: .4), theme.primary);
@@ -873,7 +872,9 @@ class _QuickSettingsTrackPainter extends CustomPainter {
           fontFamily: icon.fontFamily,
           package: icon.fontPackage,
           fontSize: 18,
-          color: theme.materialColors.onPrimary,
+          color: enabled
+              ? theme.materialColors.onPrimary
+              : theme.inactiveIconColor,
         ),
       ),
       textDirection: TextDirection.ltr,

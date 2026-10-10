@@ -110,16 +110,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceSettings => '设备设置';
 
   @override
-  String get deviceDetails => '设备详情';
+  String get homeDeviceCardLabel => '设备';
 
   @override
-  String get deviceControlTab => '控制';
+  String get deviceBatteryPageTitle => '电池状态';
 
   @override
-  String get deviceConnectionTab => '连接';
+  String get deviceDetails => '设备概览';
 
   @override
-  String get deviceInfoTab => '信息';
+  String get deviceControlTab => '设备控制';
+
+  @override
+  String get deviceConnectionTab => '设备连接';
+
+  @override
+  String get deviceInfoTab => '设备信息';
 
   @override
   String get deviceNameLabel => '设备名称';
@@ -542,10 +548,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceDashboardSubtitle => '屏幕、声音与设备连接';
 
   @override
-  String get deviceDashboardMyDevice => '我的设备';
+  String get deviceDashboardMyDevice => '设备信息';
 
   @override
-  String get deviceDashboardIdentity => '型号、固件与设备信息';
+  String get deviceDashboardIdentity => '型号与固件信息';
 
   @override
   String get deviceDashboardViewInfo => '查看设备信息';
@@ -599,16 +605,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceDashboardConnection => '设备连接';
 
   @override
-  String get deviceDashboardDemo => '电池数据与控制操作仅作设计演示。';
-
-  @override
   String get deviceInformationTitle => '设备信息';
 
   @override
   String get deviceInformationIdentity => 'LilygoBox 设备';
 
   @override
-  String get deviceInformationConnection => '连接详情';
+  String get deviceInformationConnection => '设备连接';
 
   @override
   String get deviceInformationView => '查看';

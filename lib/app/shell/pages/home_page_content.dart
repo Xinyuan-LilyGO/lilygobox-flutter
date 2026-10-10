@@ -365,7 +365,7 @@ class _HomePageContentState extends State<HomePageContent> {
                                     14;
                                 // 固定卡片宽度，侧栏拖动只触发换行；窄屏时才收窄。
                                 final cardWidth = math.min(
-                                  280.0 * math.max(1.0, scale),
+                                  240.0 * math.max(1.0, scale),
                                   grid.maxWidth,
                                 );
                                 return Wrap(

@@ -207,7 +207,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
 
   String _viewTitle(AppLocalizations l10n) => switch (_view) {
     _DeviceDetailView.information => l10n.deviceInfoTab,
-    _DeviceDetailView.battery => l10n.deviceDashboardBattery,
+    _DeviceDetailView.battery => l10n.deviceBatteryPageTitle,
     _DeviceDetailView.connection => l10n.deviceConnectionTab,
     _ => l10n.deviceDetails,
   };
@@ -295,7 +295,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
               children: [
                 Expanded(
                   child: _detailText(
-                    l10n.deviceDashboardMyDevice,
+                    l10n.homeDeviceCardLabel,
                     theme,
                     size: 12,
                     muted: true,
@@ -533,22 +533,6 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                 Expanded(
                   child: _detailText('当前电量', theme, size: 15, bold: true),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 11,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.secondary,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: _detailText(
-                    context.l10n.deviceDashboardDemo,
-                    theme,
-                    size: 11,
-                    muted: true,
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: 44),
@@ -625,7 +609,12 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _detailText('电池状态', theme, size: 15, bold: true),
+            _detailText(
+              context.l10n.deviceBatteryPageTitle,
+              theme,
+              size: 15,
+              bold: true,
+            ),
             const SizedBox(height: 20),
             Builder(
               builder: (context) {
@@ -670,8 +659,6 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
             _batteryStatusRow(theme, '充电状态', online ? '未充电' : '—'),
             _batteryStatusRow(theme, '电流', online ? '−320 mA' : '—'),
             _batteryStatusRow(theme, '供电来源', online ? '电池' : '—'),
-            const SizedBox(height: 18),
-            _batteryNote(theme, '以上电池读数为示例数据', size: 11),
           ],
         ),
       );
@@ -693,15 +680,6 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                 ],
               ),
             ),
-          const SizedBox(height: 18),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            decoration: BoxDecoration(
-              color: theme.secondary,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: _batteryNote(theme, '此页数值均为示例；实际显示项目取决于设备提供的电池数据。'),
-          ),
         ],
       );
     },
@@ -781,15 +759,6 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
           ),
         ),
       );
-
-  Widget _batteryNote(AppTheme theme, String text, {double size = 12}) => Row(
-    crossAxisAlignment: CrossAxisAlignment.center,
-    children: [
-      Icon(Symbols.info, size: 16, color: theme.textColorTertiary),
-      const SizedBox(width: 10),
-      Expanded(child: _detailText(text, theme, size: size, muted: true)),
-    ],
-  );
 
   /// 按连接状态展示链路示意、连接信息与管理操作，复用现有连接按钮。
   Widget _connectionView(

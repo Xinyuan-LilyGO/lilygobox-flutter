@@ -71,7 +71,7 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
         },
         borderRadius: BorderRadius.circular(24),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 22),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -79,7 +79,7 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
                 children: [
                   Expanded(
                     child: Text(
-                      l10n.deviceDashboardMyDevice,
+                      l10n.homeDeviceCardLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -96,38 +96,38 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 12),
               SizedBox(
-                height: 132,
+                height: 112,
                 child: Center(
                   child: Icon(
                     Symbols.blur_on,
-                    size: 86,
+                    size: 80,
                     fill: 1,
                     weight: 400,
                     color: theme.textColorTertiary,
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
               Text(
                 name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 20,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   color: theme.textColorPrimary,
                 ),
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 4),
               Text(
                 model,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 13, color: theme.textColorTertiary),
               ),
-              const SizedBox(height: 26),
+              const SizedBox(height: 18),
               Row(
                 children: [
                   Icon(

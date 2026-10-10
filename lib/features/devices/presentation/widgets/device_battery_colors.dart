@@ -30,7 +30,7 @@ class DeviceIdentityColors {
   final AppTheme theme;
 
   Color get background => theme.adaptiveColor(
-    dark: const Color(0xFFC7D0D9),
+    dark: const Color(0xFFE5ECF3),
     light: const Color(0xFF151E25),
   );
   Color get foreground => theme.adaptiveColor(

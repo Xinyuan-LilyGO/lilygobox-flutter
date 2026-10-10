@@ -288,28 +288,40 @@ abstract class AppLocalizations {
   /// **'Device Settings'**
   String get deviceSettings;
 
+  /// No description provided for @homeDeviceCardLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Device'**
+  String get homeDeviceCardLabel;
+
+  /// No description provided for @deviceBatteryPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Battery status'**
+  String get deviceBatteryPageTitle;
+
   /// No description provided for @deviceDetails.
   ///
   /// In en, this message translates to:
-  /// **'Device details'**
+  /// **'Device overview'**
   String get deviceDetails;
 
   /// No description provided for @deviceControlTab.
   ///
   /// In en, this message translates to:
-  /// **'Control'**
+  /// **'Device controls'**
   String get deviceControlTab;
 
   /// No description provided for @deviceConnectionTab.
   ///
   /// In en, this message translates to:
-  /// **'Connection'**
+  /// **'Device connection'**
   String get deviceConnectionTab;
 
   /// No description provided for @deviceInfoTab.
   ///
   /// In en, this message translates to:
-  /// **'Info'**
+  /// **'Device information'**
   String get deviceInfoTab;
 
   /// No description provided for @deviceNameLabel.
@@ -1131,13 +1143,13 @@ abstract class AppLocalizations {
   /// No description provided for @deviceDashboardMyDevice.
   ///
   /// In en, this message translates to:
-  /// **'My device'**
+  /// **'Device information'**
   String get deviceDashboardMyDevice;
 
   /// No description provided for @deviceDashboardIdentity.
   ///
   /// In en, this message translates to:
-  /// **'Model, firmware and device information'**
+  /// **'Model and firmware'**
   String get deviceDashboardIdentity;
 
   /// No description provided for @deviceDashboardViewInfo.
@@ -1242,12 +1254,6 @@ abstract class AppLocalizations {
   /// **'Device connection'**
   String get deviceDashboardConnection;
 
-  /// No description provided for @deviceDashboardDemo.
-  ///
-  /// In en, this message translates to:
-  /// **'Battery data and controls are a design preview.'**
-  String get deviceDashboardDemo;
-
   /// No description provided for @deviceInformationTitle.
   ///
   /// In en, this message translates to:
@@ -1263,7 +1269,7 @@ abstract class AppLocalizations {
   /// No description provided for @deviceInformationConnection.
   ///
   /// In en, this message translates to:
-  /// **'Connection details'**
+  /// **'Device connection'**
   String get deviceInformationConnection;
 
   /// No description provided for @deviceInformationView.

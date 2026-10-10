@@ -113,16 +113,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceSettings => 'Device Settings';
 
   @override
-  String get deviceDetails => 'Device details';
+  String get homeDeviceCardLabel => 'Device';
 
   @override
-  String get deviceControlTab => 'Control';
+  String get deviceBatteryPageTitle => 'Battery status';
 
   @override
-  String get deviceConnectionTab => 'Connection';
+  String get deviceDetails => 'Device overview';
 
   @override
-  String get deviceInfoTab => 'Info';
+  String get deviceControlTab => 'Device controls';
+
+  @override
+  String get deviceConnectionTab => 'Device connection';
+
+  @override
+  String get deviceInfoTab => 'Device information';
 
   @override
   String get deviceNameLabel => 'Device name';
@@ -575,11 +581,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceDashboardSubtitle => 'Screen, sound and device connection';
 
   @override
-  String get deviceDashboardMyDevice => 'My device';
+  String get deviceDashboardMyDevice => 'Device information';
 
   @override
-  String get deviceDashboardIdentity =>
-      'Model, firmware and device information';
+  String get deviceDashboardIdentity => 'Model and firmware';
 
   @override
   String get deviceDashboardViewInfo => 'View device information';
@@ -633,17 +638,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceDashboardConnection => 'Device connection';
 
   @override
-  String get deviceDashboardDemo =>
-      'Battery data and controls are a design preview.';
-
-  @override
   String get deviceInformationTitle => 'Device information';
 
   @override
   String get deviceInformationIdentity => 'LilygoBox device';
 
   @override
-  String get deviceInformationConnection => 'Connection details';
+  String get deviceInformationConnection => 'Device connection';
 
   @override
   String get deviceInformationView => 'View';
