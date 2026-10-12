@@ -16,8 +16,10 @@ import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/material_palette.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/action_button.dart';
+import '../../../../core/widgets/card_shadow.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
+import '../../../../core/widgets/tilt_card.dart';
 import '../../../../generated/l10n/app_localizations.dart';
 import '../../data/lan_discovery.dart';
 import '../../state/lan_connection.dart';
@@ -35,11 +37,13 @@ class ConnectedDevicePage extends StatefulWidget {
     required this.deviceId,
     this.nestedView,
     this.pageTitle,
+    this.active = true,
   });
 
   final String deviceId;
   final ValueNotifier<bool>? nestedView;
   final ValueNotifier<String?>? pageTitle;
+  final bool active;
 
   @override
   State<ConnectedDevicePage> createState() => _ConnectedDevicePageState();
@@ -71,6 +75,17 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
   @override
   void didUpdateWidget(covariant ConnectedDevicePage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!oldWidget.active && widget.active) {
+      // 从主页重新进入时返回概览，仅清空导航历史，保留控制值。
+      _view = _DeviceDetailView.control;
+      _viewHistory.clear();
+      _viewTransition.value = 1;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !widget.active) return;
+        widget.nestedView?.value = false;
+        widget.pageTitle?.value = null;
+      });
+    }
     if (oldWidget.nestedView != widget.nestedView) {
       oldWidget.nestedView?.removeListener(_handleOuterBack);
       widget.nestedView?.addListener(_handleOuterBack);
@@ -1145,17 +1160,29 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       padding: padding,
       child: child,
     );
-    if (onTap == null) return content;
-    // 可点击卡片复用公共交互表面，保留底色并提供按压波纹。
-    return SizedBox(
-      width: width,
-      child: MenuItemSurface(
+    if (onTap == null) {
+      return CardShadow(
         theme: theme,
-        onPressed: onTap,
-        backgroundColor: color ?? theme.primary,
-        hoverColor: color ?? theme.primary,
         borderRadius: BorderRadius.circular(22),
-        child: Padding(padding: padding, child: child),
+        child: content,
+      );
+    }
+    // 可点击卡片复用公共交互表面，保留底色并提供按压波纹。
+    return TiltCard(
+      child: CardShadow(
+        theme: theme,
+        borderRadius: BorderRadius.circular(22),
+        child: SizedBox(
+          width: width,
+          child: MenuItemSurface(
+            theme: theme,
+            onPressed: onTap,
+            backgroundColor: color ?? theme.primary,
+            hoverColor: color ?? theme.primary,
+            borderRadius: BorderRadius.circular(22),
+            child: Padding(padding: padding, child: child),
+          ),
+        ),
       ),
     );
   }

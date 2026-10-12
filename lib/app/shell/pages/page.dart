@@ -126,6 +126,7 @@ class _AppShellState extends State<AppShell> {
       },
       child: context.read<DeviceManagerProvider>().lanDevice(name) != null
           ? ConnectedDevicePage(
+              active: active,
               deviceId: name,
               nestedView: nestedView,
               pageTitle: pageTitle,

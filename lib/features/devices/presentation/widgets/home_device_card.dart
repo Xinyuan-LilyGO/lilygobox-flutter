@@ -13,7 +13,9 @@ import 'package:provider/provider.dart';
 import '../../../../core/context_menu/right_click_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
+import '../../../../core/widgets/card_shadow.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
+import '../../../../core/widgets/tilt_card.dart';
 import 'device_menu_actions.dart';
 import 'device_status_badge.dart';
 
@@ -170,7 +172,13 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
           },
         ),
       ],
-      child: card,
+      child: TiltCard(
+        child: CardShadow(
+          theme: theme,
+          borderRadius: BorderRadius.circular(24),
+          child: card,
+        ),
+      ),
     );
   }
 }

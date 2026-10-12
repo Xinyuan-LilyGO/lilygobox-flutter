@@ -12,7 +12,9 @@ import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/theme/material_palette.dart';
 import '../../../../core/widgets/app_tooltip.dart';
+import '../../../../core/widgets/card_shadow.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
+import '../../../../core/widgets/tilt_card.dart';
 import 'device_battery_colors.dart';
 
 /// 根据可用空间组织卡片；同行高度由内容决定，不使用固定卡片尺寸。
@@ -253,32 +255,42 @@ class DeviceDashboard extends StatelessWidget {
             ? Colors.white
             : theme.basePrimary);
     if (onTap == null) {
-      return Container(
-        key: key,
-        decoration: BoxDecoration(
-          color: color ?? theme.primary,
-          borderRadius: radius,
+      return CardShadow(
+        theme: theme,
+        borderRadius: radius,
+        child: Container(
+          key: key,
+          decoration: BoxDecoration(
+            color: color ?? theme.primary,
+            borderRadius: radius,
+          ),
+          padding: padding,
+          child: child,
         ),
-        padding: padding,
-        child: child,
       );
     }
-    return Semantics(
-      button: true,
-      child: MenuItemSurface(
-        key: key,
+    return TiltCard(
+      child: CardShadow(
         theme: theme,
-        onPressed: onTap,
-        backgroundColor: color ?? theme.primary,
-        hoverColor: color ?? theme.primary,
-        splashColor: useDefaultFeedback
-            ? null
-            : feedback.withValues(alpha: .22),
-        highlightColor: useDefaultFeedback
-            ? null
-            : feedback.withValues(alpha: .09),
         borderRadius: radius,
-        child: Padding(padding: padding, child: child),
+        child: Semantics(
+          button: true,
+          child: MenuItemSurface(
+            key: key,
+            theme: theme,
+            onPressed: onTap,
+            backgroundColor: color ?? theme.primary,
+            hoverColor: color ?? theme.primary,
+            splashColor: useDefaultFeedback
+                ? null
+                : feedback.withValues(alpha: .22),
+            highlightColor: useDefaultFeedback
+                ? null
+                : feedback.withValues(alpha: .09),
+            borderRadius: radius,
+            child: Padding(padding: padding, child: child),
+          ),
+        ),
       ),
     );
   }
