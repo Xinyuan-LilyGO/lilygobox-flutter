@@ -3,6 +3,7 @@
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "single_instance.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -37,10 +38,14 @@ bool FlutterWindow::OnCreate() {
   // window is shown. It is a no-op if the first frame hasn't completed yet.
   flutter_controller_->ForceRedraw();
 
+  SetPropW(GetHandle(), lilygobox::kWindowMarker,
+           reinterpret_cast<HANDLE>(1));
+
   return true;
 }
 
 void FlutterWindow::OnDestroy() {
+  RemovePropW(GetHandle(), lilygobox::kWindowMarker);
   tray_.reset();
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
@@ -53,6 +58,12 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  // 已有窗口响应重复启动：从托盘显示或恢复最小化，并保留最大化状态。
+  if (message == lilygobox::ActivateWindowMessage()) {
+    ShowWindow(hwnd, IsIconic(hwnd) ? SW_RESTORE : SW_SHOW);
+    SetForegroundWindow(hwnd);
+    return 0;
+  }
   if (tray_ && tray_->HandleMessage(message, wparam, lparam)) return 0;
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {

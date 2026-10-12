@@ -15,6 +15,7 @@ import '../core/app_info/package_info_provider.dart';
 import '../core/l10n/language_provider.dart';
 import '../core/theme/material_palette.dart';
 import '../core/theme/provider.dart';
+import '../core/widgets/app_scroll_behavior.dart';
 import '../core/window/provider.dart';
 import '../generated/l10n/app_localizations.dart';
 import 'navigation/dialog_observer.dart';
@@ -62,6 +63,7 @@ class _LilygoBoxAppState extends State<LilygoBoxApp> {
     return Consumer2<WindowProvider, LanguageProvider>(
       builder: (context, windowProvider, languageProvider, child) {
         return MaterialApp(
+          scrollBehavior: const AppScrollBehavior(),
           theme: _materialThemes[themeType],
           // 内置控件与自定义配色采用相同的时间和曲线。
           themeAnimationDuration: ThemeProvider.transitionDuration,
