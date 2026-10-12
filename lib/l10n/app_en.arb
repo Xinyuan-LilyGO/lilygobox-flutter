@@ -206,5 +206,7 @@
     "connectionManage": "Manage connection",
     "connectionManualRecovery": "After disconnecting manually, select Reconnect to restore the connection.",
     "connectionCredentialTitle": "Connection credentials",
-    "connectionCredentialDescription": "Credentials are saved after initial authorization, so reconnecting does not require approval again. Disconnecting keeps them; deleting the device removes its locally saved credentials."
+    "connectionCredentialDescription": "Credentials are saved after initial authorization, so reconnecting does not require approval again. Disconnecting keeps them; deleting the device removes its locally saved credentials.",
+  "deviceConnectionStatusTitle": "Device status",
+  "deviceBatteryUnknown": "Unknown"
 }

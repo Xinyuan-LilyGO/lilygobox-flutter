@@ -19,6 +19,7 @@ import '../../../core/theme/provider.dart';
 import '../../../core/widgets/action_button.dart';
 import '../../../core/widgets/app_tooltip.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
+import '../../../core/widgets/debug_notice.dart';
 import '../../../features/devices/presentation/widgets/home_device_card.dart';
 import '../../../features/devices/state/lan_connection.dart';
 import '../../../features/devices/state/manager_provider.dart';
@@ -103,12 +104,9 @@ class _HomePageContentState extends State<HomePageContent> {
       if (mounted) {
         setState(() {});
         if (attempted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                deleted ? l10n.deleteDeviceSucceeded : l10n.deleteDeviceFailed,
-              ),
-            ),
+          showDebugNotice(
+            ScaffoldMessenger.of(context),
+            deleted ? l10n.deleteDeviceSucceeded : l10n.deleteDeviceFailed,
           );
         }
       }
@@ -380,6 +378,7 @@ class _HomePageContentState extends State<HomePageContent> {
                                         width: cardWidth,
                                         child: HomeDeviceCard(
                                           key: ValueKey('home-device-$id'),
+                                          deviceId: id,
                                           name: devices.displayName(id),
                                           model:
                                               devices.lanDevice(id)?.model ??

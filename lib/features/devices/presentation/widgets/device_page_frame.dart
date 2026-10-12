@@ -25,12 +25,14 @@ class DevicePageFrame extends StatelessWidget {
     required this.onBack,
     required this.active,
     this.pageTitle,
+    this.deviceId,
   });
 
   final Widget child;
   final VoidCallback onBack;
   final bool active;
   final ValueNotifier<String?>? pageTitle;
+  final String? deviceId;
 
   Widget _title(BuildContext context, AppTheme theme) {
     final title = pageTitle;
@@ -102,7 +104,7 @@ class DevicePageFrame extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     Expanded(child: _title(context, theme)),
-                    const DeviceHelpMenu(),
+                    DeviceHelpMenu(deviceId: deviceId),
                   ],
                 ),
               ),

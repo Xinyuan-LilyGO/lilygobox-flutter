@@ -643,4 +643,10 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get connectionCredentialDescription =>
       '首次授权后会保存连接凭证，再次连接无需重复确认。手动断开不会删除凭证；删除设备会同时清除本机保存的凭证。';
+
+  @override
+  String get deviceConnectionStatusTitle => '设备状态';
+
+  @override
+  String get deviceBatteryUnknown => '未知';
 }

@@ -14,6 +14,8 @@ import '../../../../core/context_menu/right_click_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
+import 'device_menu_actions.dart';
+import 'device_status_badge.dart';
 
 class HomeDeviceCard extends StatefulWidget {
   const HomeDeviceCard({
@@ -26,6 +28,7 @@ class HomeDeviceCard extends StatefulWidget {
     this.usesWifi = false,
     this.macAddress,
     this.onDelete,
+    this.deviceId,
   });
 
   final String name;
@@ -36,6 +39,7 @@ class HomeDeviceCard extends StatefulWidget {
   final bool usesWifi;
   final String? macAddress;
   final VoidCallback? onDelete;
+  final String? deviceId;
 
   @override
   State<HomeDeviceCard> createState() => _HomeDeviceCardState();
@@ -88,8 +92,8 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
                       ),
                     ),
                   ),
-                  _statusBadge(
-                    theme,
+                  DeviceStatusBadge(
+                    theme: theme,
                     label: status,
                     connected: connected,
                     connecting: connecting,
@@ -131,9 +135,8 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
               Row(
                 children: [
                   Icon(
-                    usesWifi && (connected || connecting)
-                        ? Symbols.wifi
-                        : Symbols.wifi_off,
+                    // 这里表示设备连接方式，在线状态由顶部徽标独立展示。
+                    usesWifi ? Symbols.wifi : Symbols.link,
                     size: 20,
                     color: theme.basePrimary,
                   ),
@@ -155,6 +158,8 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
       theme: theme,
       onSecondaryTap: () {},
       menuItems: [
+        if (widget.deviceId case final id?)
+          deviceConnectionMenuItem(context, id, _menu.close, showDivider: true),
         RightClickMenuItem(
           label: l10n.deleteDevice,
           icon: Symbols.delete_rounded,
@@ -166,47 +171,6 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
         ),
       ],
       child: card,
-    );
-  }
-
-  Widget _statusBadge(
-    AppTheme theme, {
-    required String label,
-    required bool connected,
-    required bool connecting,
-  }) {
-    final statusColor = connected
-        ? theme.adaptiveColor(
-            dark: const Color(0xFF83B69A),
-            light: const Color(0xFF438063),
-          )
-        : connecting
-        ? theme.baseTertiary
-        : theme.textColorTertiary;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: theme.secondary,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: statusColor,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(fontSize: 12, color: theme.textColorTertiary),
-          ),
-        ],
-      ),
     );
   }
 }

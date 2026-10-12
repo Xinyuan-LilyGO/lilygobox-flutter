@@ -114,6 +114,7 @@ class _AppShellState extends State<AppShell> {
     final nestedView = _nestedViewFor(name);
     final pageTitle = _devicePageTitleFor(name);
     return DevicePageFrame(
+      deviceId: name,
       active: active,
       pageTitle: pageTitle,
       onBack: () {

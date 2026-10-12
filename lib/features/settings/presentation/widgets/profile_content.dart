@@ -14,6 +14,7 @@ import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/widgets/action_button.dart';
+import '../../../../core/widgets/debug_notice.dart';
 import '../../../../generated/l10n/app_localizations.dart';
 import '../../../account/domain/models.dart';
 import '../../../account/presentation/confirm_sign_out.dart';
@@ -125,9 +126,10 @@ class ProfileContent extends StatelessWidget {
               _action('github-copy-code', l10n.githubCopyCode, () async {
                 await Clipboard.setData(ClipboardData(text: code.userCode));
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text(l10n.githubCodeCopied)));
+                showDebugNotice(
+                  ScaffoldMessenger.of(context),
+                  l10n.githubCodeCopied,
+                );
               }),
               _action(
                 'github-open-browser',

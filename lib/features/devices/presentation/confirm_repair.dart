@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import '../../../core/l10n/language_provider.dart';
 import '../../../core/theme/provider.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
+import '../../../core/widgets/debug_notice.dart';
 import '../state/lan_connection.dart';
 
 Future<bool> confirmDeviceRepair(
@@ -30,9 +31,7 @@ Future<bool> confirmDeviceRepair(
   if (!confirmed || !context.mounted) return false;
   final cleared = await session.resetDeviceTrust(deviceId);
   if (!cleared && context.mounted) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(l10n.deviceConnectionFailed)));
+    showDebugNotice(ScaffoldMessenger.of(context), l10n.deviceConnectionFailed);
   }
   return cleared;
 }

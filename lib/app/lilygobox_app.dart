@@ -34,6 +34,14 @@ class LilygoBoxApp extends StatefulWidget {
 
 class _LilygoBoxAppState extends State<LilygoBoxApp> {
   final _dialogs = AppDialogObserver();
+  // 完整 ThemeData 只创建两次，不在渐变的每一帧重新生成控件默认主题。
+  final _materialThemes = {
+    for (final type in ThemeType.values)
+      type: ThemeData(
+        useMaterial3: true,
+        colorScheme: MaterialPalette.create(type).materialColors,
+      ),
+  };
 
   @override
   void dispose() {
@@ -47,70 +55,71 @@ class _LilygoBoxAppState extends State<LilygoBoxApp> {
       unawaited(context.read<PackageInfoProvider>().initializePackageInfo());
     });
 
-    return Consumer3<ThemeProvider, WindowProvider, LanguageProvider>(
-      builder:
-          (context, themeProvider, windowProvider, languageProvider, child) {
-            return MaterialApp(
-              theme: ThemeData(
-                useMaterial3: true,
-                colorScheme: themeProvider.themeData.materialColors,
-              ),
-              // 配色已由 AppTheme.lerp 插值，避免内置主题再叠加一轮动画。
-              themeAnimationDuration: Duration.zero,
-              debugShowCheckedModeBanner: false,
-              locale: languageProvider.locale,
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              navigatorObservers: [_dialogs],
-              // 标题栏位于 Navigator 上方，弹窗只覆盖下方内容区。
-              builder: (context, navigator) => TraySync(
-                child: Scaffold(
-                  backgroundColor: Colors.transparent,
-                  body: Column(
-                    children: [
-                      Expanded(
-                        child: AppWindowFrame(
-                          theme: themeProvider.themeData,
-                          isMaximized: windowProvider.isMaximized,
-                          child: Overlay.wrap(
-                            // 独立 Overlay 为标题栏悬停提示提供显示空间。
-                            child: Stack(
+    // 根组件只监听目标主题；中间配色帧由实际需要变色的组件监听。
+    final themeType = context.select<ThemeProvider, ThemeType>(
+      (provider) => provider.currentTheme,
+    );
+    return Consumer2<WindowProvider, LanguageProvider>(
+      builder: (context, windowProvider, languageProvider, child) {
+        return MaterialApp(
+          theme: _materialThemes[themeType],
+          // 内置控件与自定义配色采用相同的时间和曲线。
+          themeAnimationDuration: ThemeProvider.transitionDuration,
+          themeAnimationCurve: Curves.easeInOut,
+          debugShowCheckedModeBanner: false,
+          locale: languageProvider.locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          navigatorObservers: [_dialogs],
+          // 标题栏位于 Navigator 上方，弹窗只覆盖下方内容区。
+          builder: (context, navigator) => TraySync(
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              body: Column(
+                children: [
+                  Expanded(
+                    child: Consumer<ThemeProvider>(
+                      // 渐变只更新窗口底色，内部导航树保留为稳定 child。
+                      builder: (context, theme, child) => AppWindowFrame(
+                        theme: theme.themeData,
+                        isMaximized: windowProvider.isMaximized,
+                        child: child!,
+                      ),
+                      child: Overlay.wrap(
+                        // 独立 Overlay 为标题栏悬停提示提供显示空间。
+                        child: Stack(
+                          children: [
+                            Column(
                               children: [
-                                Column(
-                                  children: [
-                                    ValueListenableBuilder<bool>(
-                                      valueListenable: _dialogs.hasDialog,
-                                      builder: (context, blocked, _) =>
-                                          AppTitleBar(
-                                            navigationEnabled: !blocked,
-                                          ),
-                                    ),
-                                    Expanded(
-                                      child: ClipRect(
-                                        child: ScaffoldMessenger(
-                                          child: navigator!,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                ValueListenableBuilder<bool>(
+                                  valueListenable: _dialogs.hasDialog,
+                                  builder: (context, blocked, _) =>
+                                      AppTitleBar(navigationEnabled: !blocked),
                                 ),
-                                const WindowResizeOverlay(),
+                                Expanded(
+                                  child: ClipRect(
+                                    child: ScaffoldMessenger(child: navigator!),
+                                  ),
+                                ),
                               ],
                             ),
-                          ),
+                            const WindowResizeOverlay(),
+                          ],
                         ),
                       ),
-                      const PreferencesNotice(),
-                    ],
+                    ),
                   ),
-                ),
+                  const PreferencesNotice(),
+                ],
               ),
-              home: const Scaffold(
-                backgroundColor: Colors.transparent,
-                body: Column(children: [WindowPageStack()]),
-              ),
-            );
-          },
+            ),
+          ),
+          home: const Scaffold(
+            backgroundColor: Colors.transparent,
+            body: Column(children: [WindowPageStack()]),
+          ),
+        );
+      },
     );
   }
 }

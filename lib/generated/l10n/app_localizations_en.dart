@@ -677,4 +677,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get connectionCredentialDescription =>
       'Credentials are saved after initial authorization, so reconnecting does not require approval again. Disconnecting keeps them; deleting the device removes its locally saved credentials.';
+
+  @override
+  String get deviceConnectionStatusTitle => 'Device status';
+
+  @override
+  String get deviceBatteryUnknown => 'Unknown';
 }

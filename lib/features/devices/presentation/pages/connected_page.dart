@@ -13,15 +13,19 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
+import '../../../../core/theme/material_palette.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
+import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../generated/l10n/app_localizations.dart';
 import '../../data/lan_discovery.dart';
 import '../../state/lan_connection.dart';
 import '../../state/manager_provider.dart';
 import '../confirm_repair.dart';
+import '../widgets/device_battery_colors.dart';
 import '../widgets/device_dashboard.dart';
+import '../widgets/device_status_badge.dart';
 
 enum _DeviceDetailView { control, information, battery, connection }
 
@@ -44,6 +48,7 @@ class ConnectedDevicePage extends StatefulWidget {
 class _ConnectedDevicePageState extends State<ConnectedDevicePage>
     with SingleTickerProviderStateMixin {
   _DeviceDetailView _view = _DeviceDetailView.control;
+  final List<_DeviceDetailView> _viewHistory = [];
   late final AnimationController _viewTransition = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 200),
@@ -91,14 +96,22 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
     if (widget.nestedView?.value == false &&
         _view != _DeviceDetailView.control &&
         mounted) {
-      setState(() => _view = _DeviceDetailView.control);
-      widget.pageTitle?.value = null;
+      // 按实际进入路径逐层返回，连接详情先回到设备信息。
+      final previous = _viewHistory.isEmpty
+          ? _DeviceDetailView.control
+          : _viewHistory.removeLast();
+      setState(() => _view = previous);
+      widget.pageTitle?.value = previous == _DeviceDetailView.control
+          ? null
+          : _viewTitle(context.l10n);
+      widget.nestedView?.value = previous != _DeviceDetailView.control;
       _animateViewChange();
     }
   }
 
   void _openView(_DeviceDetailView view) {
     if (_view == view) return;
+    _viewHistory.add(_view);
     setState(() => _view = view);
     widget.pageTitle?.value = _viewTitle(context.l10n);
     _animateViewChange();
@@ -167,7 +180,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                         description: description,
                         online: online,
                         compact: compact,
-                        action: action,
+                        connecting: busy,
                       )
                     : _subpage(
                         theme: theme,
@@ -190,6 +203,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                             l10n,
                             device,
                             online,
+                            busy,
                             action,
                             status,
                             description,
@@ -220,14 +234,14 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
     required String description,
     required bool online,
     required bool compact,
-    required Widget action,
+    required bool connecting,
   }) => DeviceDashboard(
     theme: theme,
     name: device?.name ?? widget.deviceId,
     status: status,
     online: online,
     description: description,
-    connectionAction: action,
+    connecting: connecting,
     brightness: _brightness,
     volume: _volume,
     vibration: _vibration,
@@ -254,16 +268,38 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
     children: [
       Padding(
         padding: const EdgeInsets.only(left: 2),
-        child: Text(
-          title,
-          style: TextStyle(
-            fontSize: 21,
-            fontWeight: FontWeight.w700,
-            color: theme.textColorPrimary,
+        child: LayoutBuilder(
+          builder: (context, constraints) => Text(
+            title,
+            style: TextStyle(
+              // 与设备概览共享主标题层级，大字体或窄窗口采用紧凑字号。
+              fontSize:
+                  constraints.maxWidth < 620 ||
+                      MediaQuery.textScalerOf(context).scale(14) > 21
+                  ? 24
+                  : 28,
+              height: 1.3,
+              fontWeight: FontWeight.w600,
+              color: theme.textColorPrimary,
+            ),
           ),
         ),
       ),
-      const SizedBox(height: 16),
+      const SizedBox(height: 7),
+      Text(
+        switch (_view) {
+          _DeviceDetailView.information => context.l10n.deviceDashboardIdentity,
+          _DeviceDetailView.battery => context.l10n.deviceDashboardViewBattery,
+          _DeviceDetailView.connection => context.l10n.connectionInformation,
+          _DeviceDetailView.control => context.l10n.deviceDashboardSubtitle,
+        },
+        style: TextStyle(
+          fontSize: 12,
+          height: 1.3,
+          color: theme.textColorTertiary,
+        ),
+      ),
+      const SizedBox(height: 20),
       child,
     ],
   );
@@ -278,17 +314,11 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
   ) => LayoutBuilder(
     builder: (context, constraints) {
       final narrow = constraints.maxWidth < 760;
-      final statusColor = online
-          ? theme.adaptiveColor(
-              dark: const Color(0xFF83B69A),
-              light: const Color(0xFF438063),
-            )
-          : theme.textColorTertiary;
       final identity = _card(
         theme,
-        color: _secondarySurface(theme),
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
@@ -297,73 +327,61 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                   child: _detailText(
                     l10n.homeDeviceCardLabel,
                     theme,
-                    size: 12,
+                    size: 14,
                     muted: true,
                   ),
                 ),
                 const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: .07),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Symbols.circle,
-                        fill: 1,
-                        size: 6,
-                        color: statusColor,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        online ? l10n.homeDeviceOnline : l10n.homeDeviceOffline,
-                        style: TextStyle(fontSize: 11, color: statusColor),
-                      ),
-                    ],
-                  ),
+                DeviceStatusBadge(
+                  theme: theme,
+                  label: online
+                      ? l10n.homeDeviceOnline
+                      : session.busy && session.device?.id == widget.deviceId
+                      ? l10n.homeDeviceConnecting
+                      : l10n.homeDeviceOffline,
+                  connected: online,
+                  connecting:
+                      session.busy && session.device?.id == widget.deviceId,
                 ),
               ],
             ),
             // 中央区域预留设备图片；未提供图片时使用统一的灰色占位图标。
             SizedBox(
-              height: 190,
+              height: 144,
               child: Center(
                 child: Icon(
                   Symbols.blur_on,
-                  size: 100,
+                  size: 80,
                   color: theme.textColorTertiary,
                 ),
               ),
             ),
-            _detailText(
-              device?.name ?? widget.deviceId,
-              theme,
-              size: 24,
-              bold: true,
-            ),
-            const SizedBox(height: 8),
-            _detailText(
-              l10n.deviceInformationIdentity,
-              theme,
-              size: 12,
-              muted: true,
-            ),
-            const SizedBox(height: 18),
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(Symbols.wifi, size: 16, color: theme.basePrimary),
-                const SizedBox(width: 7),
-                Flexible(
-                  child: Text(
-                    'Wi-Fi',
-                    style: TextStyle(fontSize: 12, color: theme.basePrimary),
-                  ),
+                _detailText(
+                  device?.name ?? widget.deviceId,
+                  theme,
+                  size: 20,
+                  bold: true,
+                ),
+                const SizedBox(height: 8),
+                _detailText(device?.model ?? '—', theme, size: 12, muted: true),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Icon(Symbols.wifi, size: 20, color: theme.basePrimary),
+                    const SizedBox(width: 7),
+                    Flexible(
+                      child: Text(
+                        'Wi-Fi',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.basePrimary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -372,7 +390,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       );
       final details = _card(
         theme,
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -382,7 +400,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
               size: 15,
               bold: true,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
             for (final item in [
               (l10n.deviceNameLabel, device?.name ?? widget.deviceId),
               (l10n.lanModel, device?.model ?? '—'),
@@ -395,18 +413,22 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
             ])
               DecoratedBox(
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: theme.dividerColor)),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: theme.materialColors.outlineVariant,
+                    ),
+                  ),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   child: _informationRow(
                     theme,
                     item.$1,
                     item.$2,
                     stacked:
                         (narrow
-                                ? constraints.maxWidth - 48
-                                : (constraints.maxWidth - 18) * .69 - 48) <
+                                ? constraints.maxWidth - 40
+                                : (constraints.maxWidth - 18) * .69 - 40) <
                             320 ||
                         MediaQuery.textScalerOf(context).scale(13) > 18,
                   ),
@@ -420,6 +442,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [identity, const SizedBox(height: 18), details],
             )
+          // 宽窗口保持卡片底部齐平，左侧空余高度分配到内容组之间。
           : IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -433,10 +456,23 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       final connection = _card(
         theme,
         onTap: onConnection,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         child: Row(
           children: [
-            Icon(Symbols.link, size: 25, color: theme.basePrimary),
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: theme.secondary.withValues(alpha: .65),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(
+                Symbols.link,
+                size: 21,
+                fill: 1,
+                color: theme.textColorPrimary,
+              ),
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -465,10 +501,14 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
             ),
             Text(
               l10n.deviceInformationView,
-              style: TextStyle(fontSize: 12, color: theme.basePrimary),
+              style: TextStyle(fontSize: 12, color: theme.textColorTertiary),
             ),
             const SizedBox(width: 8),
-            Icon(Symbols.chevron_right, size: 19, color: theme.basePrimary),
+            Icon(
+              Symbols.chevron_right,
+              size: 19,
+              color: theme.textColorTertiary,
+            ),
           ],
         ),
       );
@@ -509,7 +549,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
               children: [
                 Expanded(child: caption),
                 const SizedBox(width: 18),
-                Flexible(child: detail),
+                Expanded(child: detail),
               ],
             ),
     );
@@ -520,11 +560,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       final narrow = constraints.maxWidth < 760;
       final summary = _card(
         theme,
-        padding: const EdgeInsets.all(28),
-        color: Color.alphaBlend(
-          theme.basePrimary.withValues(alpha: .07),
-          theme.primary,
-        ),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -535,51 +571,38 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                 ),
               ],
             ),
-            const SizedBox(height: 44),
+            const SizedBox(height: 24),
             Center(
               child: Text(
                 online ? '82%' : '—',
                 style: TextStyle(
-                  fontSize: 68,
+                  fontSize: 44,
                   fontWeight: FontWeight.w700,
                   height: 1,
                   color: theme.textColorPrimary,
                 ),
               ),
             ),
-            const SizedBox(height: 36),
+            const SizedBox(height: 16),
             Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 270),
+                constraints: const BoxConstraints(maxWidth: 236),
                 child: Column(
                   children: [
                     DeviceBatteryGraphic(
                       theme: theme,
                       progress: online ? .82 : 0,
-                      height: 82,
-                    ),
-                    const SizedBox(height: 28),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        for (final label in ['0', '50', '100%'])
-                          _detailText(label, theme, size: 10, muted: true),
-                      ],
+                      height: 96,
+                      colors: DeviceBatteryColors(theme),
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 42),
+            const SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Symbols.battery_horiz_075,
-                  size: 18,
-                  color: theme.basePrimary,
-                ),
-                const SizedBox(width: 8),
                 Flexible(
                   child: _detailText(
                     online ? '电池供电' : '未连接电池',
@@ -605,7 +628,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       );
       final details = _card(
         theme,
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -615,7 +638,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
               size: 15,
               bold: true,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             Builder(
               builder: (context) {
                 final voltage = _batteryMetric(
@@ -723,7 +746,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
             ],
           ),
           style: TextStyle(
-            fontSize: 32,
+            fontSize: 28,
             height: 1.1,
             fontWeight: FontWeight.w600,
             color: theme.textColorPrimary,
@@ -736,10 +759,12 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
   Widget _batteryStatusRow(AppTheme theme, String label, String value) =>
       DecoratedBox(
         decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: theme.dividerColor)),
+          border: Border(
+            bottom: BorderSide(color: theme.materialColors.outlineVariant),
+          ),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 22),
+          padding: const EdgeInsets.symmetric(vertical: 14),
           child: Row(
             children: [
               Expanded(child: _detailText(label, theme, muted: true)),
@@ -766,6 +791,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
     AppLocalizations l10n,
     LanDevice? device,
     bool online,
+    bool busy,
     Widget action,
     String status,
     String description,
@@ -776,18 +802,11 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       final heading = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                online ? Symbols.verified_user : Symbols.link_off,
-                size: 17,
-                color: theme.textColorTertiary,
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: _detailText(status, theme, size: 12, muted: true),
-              ),
-            ],
+          _detailText(
+            l10n.deviceConnectionStatusTitle,
+            theme,
+            size: 15,
+            bold: true,
           ),
           const SizedBox(height: 16),
           _detailText(
@@ -797,7 +816,12 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
             bold: true,
           ),
           const SizedBox(height: 14),
-          _detailText(description, theme, size: 12, muted: true),
+          _detailText(
+            description,
+            theme,
+            size: 12,
+            color: theme.textColorTertiary,
+          ),
         ],
       );
       final diagram = Row(
@@ -818,22 +842,44 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                   children: [
                     Icon(Symbols.wifi, size: 17, color: theme.basePrimary),
                     const SizedBox(width: 6),
-                    _detailText('Wi-Fi', theme, size: 12, muted: true),
+                    _detailText(
+                      'Wi-Fi',
+                      theme,
+                      size: 12,
+                      color: theme.textColorTertiary,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
+                // 离线链路在中央断开，连接中用同步符号，避免显示成已连通。
                 Row(
                   children: [
                     Expanded(
                       child: Divider(
-                        color: theme.basePrimary.withValues(alpha: .22),
+                        color: theme.basePrimary.withValues(
+                          alpha: online ? .45 : .22,
+                        ),
                       ),
                     ),
-                    Icon(
-                      Symbols.chevron_right,
-                      size: 16,
-                      color: theme.basePrimary,
-                    ),
+                    if (!online) ...[
+                      const SizedBox(width: 8),
+                      Icon(
+                        busy ? Symbols.sync : Symbols.link_off,
+                        size: 20,
+                        color: theme.textColorTertiary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Divider(
+                          color: theme.basePrimary.withValues(alpha: .22),
+                        ),
+                      ),
+                    ] else
+                      Icon(
+                        Symbols.chevron_right,
+                        size: 16,
+                        color: theme.basePrimary,
+                      ),
                   ],
                 ),
               ],
@@ -850,15 +896,14 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       );
       final hero = _card(
         theme,
-        color: _secondarySurface(theme),
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.all(20),
         child: narrow
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [heading, const SizedBox(height: 28), diagram],
+                children: [heading, const SizedBox(height: 20), diagram],
               )
             : Padding(
-                padding: const EdgeInsets.symmetric(vertical: 18),
+                padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(
                   children: [
                     Expanded(flex: 35, child: heading),
@@ -870,7 +915,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       );
       final information = _card(
         theme,
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -880,7 +925,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
               size: 15,
               bold: true,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -927,14 +972,18 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             for (final item in [
               (l10n.lanAddress, device?.address ?? '—'),
               (l10n.lanMacAddress, device?.macAddress ?? '—'),
             ])
               DecoratedBox(
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: theme.dividerColor)),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: theme.materialColors.outlineVariant,
+                    ),
+                  ),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -956,33 +1005,40 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       );
       final management = _card(
         theme,
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: theme.secondary,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(
-                Symbols.cable,
-                size: 22,
-                color: theme.textColorTertiary,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: theme.secondary.withValues(alpha: .65),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(
+                    Symbols.link,
+                    size: 21,
+                    fill: 1,
+                    color: theme.textColorPrimary,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _detailText(l10n.connectionManage, theme, size: 15, bold: true),
+                const SizedBox(height: 16),
+                _detailText(
+                  l10n.connectionManualRecovery,
+                  theme,
+                  size: 12,
+                  muted: true,
+                ),
+              ],
             ),
-            const SizedBox(height: 18),
-            _detailText(l10n.connectionManage, theme, size: 15, bold: true),
-            const SizedBox(height: 16),
-            _detailText(
-              l10n.connectionManualRecovery,
-              theme,
-              size: 12,
-              muted: true,
-            ),
-            const SizedBox(height: 26),
-            action,
+            Padding(padding: const EdgeInsets.only(top: 20), child: action),
           ],
         ),
       );
@@ -1056,14 +1112,14 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: theme.primary,
               borderRadius: BorderRadius.circular(18),
             ),
             child: Icon(icon, size: 26, color: theme.basePrimary),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
             name,
             textAlign: TextAlign.center,
@@ -1071,9 +1127,6 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
           ),
         ],
       );
-
-  Color _secondarySurface(AppTheme theme) =>
-      Color.alphaBlend(theme.basePrimary.withValues(alpha: .09), theme.primary);
 
   Widget _card(
     AppTheme theme, {
@@ -1093,9 +1146,17 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       child: child,
     );
     if (onTap == null) return content;
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(onTap: onTap, child: content),
+    // 可点击卡片复用公共交互表面，保留底色并提供按压波纹。
+    return SizedBox(
+      width: width,
+      child: MenuItemSurface(
+        theme: theme,
+        onPressed: onTap,
+        backgroundColor: color ?? theme.primary,
+        hoverColor: color ?? theme.primary,
+        borderRadius: BorderRadius.circular(22),
+        child: Padding(padding: padding, child: child),
+      ),
     );
   }
 
@@ -1105,12 +1166,14 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
     double size = 13,
     bool muted = false,
     bool bold = false,
+    Color? color,
   }) => Text(
     value,
     style: TextStyle(
       fontSize: size,
       fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
-      color: muted ? theme.textColorTertiary : theme.textColorPrimary,
+      color:
+          color ?? (muted ? theme.textColorTertiary : theme.textColorPrimary),
     ),
   );
 

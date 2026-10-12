@@ -163,6 +163,18 @@ extension MaterialThemeRoles on AppTheme {
     lightProgress,
   );
 
+  /// 紫色容器上的辅助内容单独配对，避免灰色文字发闷或对比度不足。
+  Color get deviceAccentMutedColor => adaptiveColor(
+    dark: const Color(0xFFBBB2CB),
+    light: const Color(0xFF655D75),
+  );
+
+  /// 紫色容器上的连接方式强调色；不改变常规表面的品牌紫色。
+  Color get deviceAccentForegroundColor => adaptiveColor(
+    dark: const Color(0xFFC5B5EF),
+    light: const Color(0xFF6445AA),
+  );
+
   /// 设置侧栏沿用原来的深灰与浅灰。
   Color get settingsSidebarColor => adaptiveColor(
     dark: const Color(0xFF141414),

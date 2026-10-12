@@ -24,7 +24,7 @@ class DeviceDashboard extends StatelessWidget {
     required this.status,
     required this.online,
     required this.description,
-    required this.connectionAction,
+    required this.connecting,
     required this.brightness,
     required this.volume,
     required this.vibration,
@@ -48,7 +48,7 @@ class DeviceDashboard extends StatelessWidget {
   final String status;
   final bool online;
   final String description;
-  final Widget connectionAction;
+  final bool connecting;
   final double brightness;
   final double volume;
   final double vibration;
@@ -103,7 +103,7 @@ class DeviceDashboard extends StatelessWidget {
             _text(l10n.deviceDashboardSubtitle, size: 12, muted: true),
           ],
         );
-        final badge = Container(
+        final statusBadge = Container(
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
           decoration: BoxDecoration(
             color: theme.primary,
@@ -122,6 +122,8 @@ class DeviceDashboard extends StatelessWidget {
                           dark: const Color(0xFF83B69A),
                           light: const Color(0xFF438063),
                         )
+                      : connecting
+                      ? theme.baseTertiary
                       : theme.textColorTertiary,
                 ),
               ),
@@ -139,6 +141,13 @@ class DeviceDashboard extends StatelessWidget {
             ],
           ),
         );
+        final badge = online
+            ? statusBadge
+            : AppTooltip(
+                message: description,
+                verticalOffset: 16,
+                child: statusBadge,
+              );
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -214,6 +223,8 @@ class DeviceDashboard extends StatelessWidget {
 
   Widget _surface({
     required Widget child,
+    bool enabled = true,
+    bool allowNavigationWhenDisabled = false,
     VoidCallback? onTap,
     Key? key,
     Color? color,
@@ -221,6 +232,19 @@ class DeviceDashboard extends StatelessWidget {
     bool useDefaultFeedback = false,
     EdgeInsets padding = const EdgeInsets.all(20),
   }) {
+    // 离线仅禁用交互并降低内容强调度，保留数值、图形和原有布局。
+    child = Semantics(
+      enabled: enabled,
+      child: ExcludeFocus(
+        excluding: !enabled,
+        child: IgnorePointer(
+          ignoring: !enabled,
+          child: Opacity(opacity: enabled ? 1 : .4, child: child),
+        ),
+      ),
+    );
+    // 电池详情属于只读信息，离线时仍可打开查看。
+    if (!enabled && !allowNavigationWhenDisabled) onTap = null;
     final radius = BorderRadius.circular(20);
     // 特色卡片可能与全局主题明暗相反，点击波纹按实际底色选择对比色。
     final feedback =
@@ -230,6 +254,7 @@ class DeviceDashboard extends StatelessWidget {
             : theme.basePrimary);
     if (onTap == null) {
       return Container(
+        key: key,
         decoration: BoxDecoration(
           color: color ?? theme.primary,
           borderRadius: radius,
@@ -314,12 +339,6 @@ class DeviceDashboard extends StatelessWidget {
             size: 12,
             color: colors.muted,
           ),
-          if (!online) ...[
-            const SizedBox(height: 18),
-            _text(description, size: 12, color: colors.muted),
-            const SizedBox(height: 12),
-            connectionAction,
-          ],
         ],
       ),
     );
@@ -329,8 +348,10 @@ class DeviceDashboard extends StatelessWidget {
   Widget _battery(BuildContext context) {
     final colors = DeviceBatteryColors(theme);
     return _surface(
+      enabled: online,
       key: const ValueKey('device-card-battery'),
       onTap: onBattery,
+      allowNavigationWhenDisabled: true,
       color: colors.background,
       useDefaultFeedback: true,
       child: Column(
@@ -342,18 +363,20 @@ class DeviceDashboard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(
-                    Symbols.bolt,
-                    fill: 1,
-                    size: 22,
-                    color: colors.foreground,
-                  ),
-                  const SizedBox(width: 8),
+                  if (online) ...[
+                    Icon(
+                      Symbols.bolt,
+                      fill: 1,
+                      size: 22,
+                      color: colors.foreground,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   Expanded(
                     child: Text(
                       online
                           ? context.l10n.deviceDashboardCharging
-                          : context.l10n.lanOffline,
+                          : context.l10n.deviceBatteryUnknown,
                       style: TextStyle(
                         color: colors.foreground,
                         fontSize: 16,
@@ -447,7 +470,7 @@ class DeviceDashboard extends StatelessWidget {
         ? context.l10n.deviceBrightness
         : context.l10n.deviceDashboardSound;
     // 熄屏只控制显示电源；静音只禁用调节，保留原音量及其显示值。
-    final enabled = brightnessControl || soundOn;
+    final enabled = online && (brightnessControl || soundOn);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -467,7 +490,8 @@ class DeviceDashboard extends StatelessWidget {
             Expanded(child: _text(title, size: 16, bold: true)),
             const SizedBox(width: 12),
             Opacity(
-              opacity: enabled ? 1 : .4,
+              // 离线由外层卡片统一变灰，局部禁用仅在在线时叠加。
+              opacity: !online || enabled ? 1 : .4,
               child: _percentage((value * 100).round()),
             ),
           ],
@@ -490,6 +514,7 @@ class DeviceDashboard extends StatelessWidget {
 
   /// 声音与触感采用与屏幕控制一致的内容布局，不嵌套额外卡片。
   Widget _soundAndHaptics(BuildContext context) => _surface(
+    enabled: online,
     child: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -521,7 +546,7 @@ class DeviceDashboard extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 Opacity(
-                  opacity: vibrationOn ? 1 : .4,
+                  opacity: !online || vibrationOn ? 1 : .4,
                   child: _percentage((vibration * 100).round()),
                 ),
               ],
@@ -532,7 +557,7 @@ class DeviceDashboard extends StatelessWidget {
               value: vibration,
               icon: Symbols.vibration,
               label: context.l10n.deviceVibrationIntensity,
-              onChanged: vibrationOn ? onVibration : null,
+              onChanged: online && vibrationOn ? onVibration : null,
             ),
           ],
         ),
@@ -554,7 +579,7 @@ class DeviceDashboard extends StatelessWidget {
       button: true,
       child: MenuItemSurface(
         theme: theme,
-        onPressed: onTap,
+        onPressed: online ? onTap : null,
         backgroundColor: theme.secondary.withValues(alpha: .65),
         borderRadius: BorderRadius.circular(11),
         child: SizedBox(
@@ -567,6 +592,7 @@ class DeviceDashboard extends StatelessWidget {
   );
 
   Widget _display(BuildContext context) => _surface(
+    enabled: online,
     child: Builder(
       builder: (context) {
         final heading = Row(
@@ -617,7 +643,7 @@ class DeviceDashboard extends StatelessWidget {
                   child: MenuItemSurface(
                     theme: theme,
                     isSelected: rotation == angle,
-                    onPressed: () => onRotation(angle),
+                    onPressed: online ? () => onRotation(angle) : null,
                     // 用实际底色参与渐变，避免透明黑色插值时先变暗再变亮。
                     backgroundColor: Color.alphaBlend(
                       theme.secondary.withValues(alpha: .6),

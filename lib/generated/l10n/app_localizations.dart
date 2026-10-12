@@ -1331,6 +1331,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Credentials are saved after initial authorization, so reconnecting does not require approval again. Disconnecting keeps them; deleting the device removes its locally saved credentials.'**
   String get connectionCredentialDescription;
+
+  /// No description provided for @deviceConnectionStatusTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Device status'**
+  String get deviceConnectionStatusTitle;
+
+  /// No description provided for @deviceBatteryUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get deviceBatteryUnknown;
 }
 
 class _AppLocalizationsDelegate

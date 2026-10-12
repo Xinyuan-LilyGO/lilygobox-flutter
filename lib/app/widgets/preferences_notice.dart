@@ -1,5 +1,5 @@
 /*
- * @Description: 配置读写失败时显示可重试提示，避免保存失败被误认为成功。
+ * @Description: 仅在 debug 模式显示配置读写失败的可重试调试提示。
  * @Author: LILYGO_L
  * @Date: 2026-10-03 20:29:43
  * @LastEditTime: 2026-10-04 00:20:00
@@ -21,6 +21,8 @@ class PreferencesNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 底部提示只用于 debug 调试，release 和 profile 模式不显示。
+    if (!kDebugMode) return const SizedBox.shrink();
     final preferences = context.watch<AppPreferences>();
     if (preferences.error == null) return const SizedBox.shrink();
     final theme = context.watch<ThemeProvider>().themeData;

@@ -15,9 +15,12 @@ import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
+import 'device_menu_actions.dart';
 
 class DeviceHelpMenu extends StatefulWidget {
-  const DeviceHelpMenu({super.key});
+  const DeviceHelpMenu({super.key, this.deviceId});
+
+  final String? deviceId;
 
   @override
   State<DeviceHelpMenu> createState() => _DeviceHelpMenuState();
@@ -35,15 +38,27 @@ class _DeviceHelpMenuState extends State<DeviceHelpMenu> {
       theme: theme,
       alignmentOffset: const Offset(0, 4),
       menuItems: [
+        if (widget.deviceId case final id?)
+          deviceConnectionMenuItem(context, id, _menu.close),
         RightClickMenuItem(
           key: const ValueKey('open-device-help'),
           label: context.l10n.deviceConnectionHelp,
           icon: Symbols.help,
+          showDivider: widget.deviceId != null,
           onTap: () {
             _menu.close();
             showDeviceConnectionHelp(context);
           },
         ),
+        if (widget.deviceId case final id?)
+          RightClickMenuItem(
+            label: context.l10n.deleteDevice,
+            icon: Symbols.delete_rounded,
+            onTap: () {
+              _menu.close();
+              deleteDeviceFromDetail(context, id);
+            },
+          ),
       ],
       child: AppTooltip(
         message: context.l10n.moreActions,
