@@ -635,6 +635,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceDashboardRotation => 'Screen rotation';
 
   @override
+  String get deviceAutoLock => 'Auto lock';
+
+  @override
+  String get deviceAutoLockNever => 'Never';
+
+  @override
+  String deviceAutoLockSeconds(int seconds) {
+    return '$seconds sec';
+  }
+
+  @override
+  String deviceAutoLockMinutes(int minutes) {
+    return '$minutes min';
+  }
+
+  @override
   String get deviceDashboardConnection => 'Device connection';
 
   @override

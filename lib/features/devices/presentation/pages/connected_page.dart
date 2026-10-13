@@ -266,6 +266,11 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
     vibrationOn:
         _controlState?.enabled(DeviceControlField.hapticEnabled) ?? true,
     rotation: _controlState?.number(DeviceControlField.rotation) ?? 0,
+    lockTimeoutSeconds:
+        _controlState?.values[DeviceControlField.lockTimeoutSeconds] as int? ??
+        300,
+    onLockTimeout: (value) =>
+        _setControl(DeviceControlField.lockTimeoutSeconds, value),
     onBrightness: (value) => _setControl(
       DeviceControlField.brightness,
       (value * 100).round().clamp(10, 100),
@@ -289,22 +294,19 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
   }) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Padding(
-        padding: const EdgeInsets.only(left: 2),
-        child: LayoutBuilder(
-          builder: (context, constraints) => Text(
-            title,
-            style: TextStyle(
-              // 与设备概览共享主标题层级，大字体或窄窗口采用紧凑字号。
-              fontSize:
-                  constraints.maxWidth < 620 ||
-                      MediaQuery.textScalerOf(context).scale(14) > 21
-                  ? 24
-                  : 28,
-              height: 1.3,
-              fontWeight: FontWeight.w600,
-              color: theme.textColorPrimary,
-            ),
+      LayoutBuilder(
+        builder: (context, constraints) => Text(
+          title,
+          style: TextStyle(
+            // 主次标题共用左边界；与设备概览保持相同的主标题层级。
+            fontSize:
+                constraints.maxWidth < 620 ||
+                    MediaQuery.textScalerOf(context).scale(14) > 21
+                ? 24
+                : 28,
+            height: 1.3,
+            fontWeight: FontWeight.w600,
+            color: theme.textColorPrimary,
           ),
         ),
       ),
@@ -834,7 +836,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       children: [
         Row(
           children: [
-            Icon(icon, size: 18, color: theme.basePrimary),
+            Icon(icon, fill: 1, size: 18, color: theme.basePrimary),
             const SizedBox(width: 8),
             Flexible(child: _detailText(label, theme, size: 12, muted: true)),
           ],

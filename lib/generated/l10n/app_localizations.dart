@@ -1248,6 +1248,30 @@ abstract class AppLocalizations {
   /// **'Screen rotation'**
   String get deviceDashboardRotation;
 
+  /// No description provided for @deviceAutoLock.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto lock'**
+  String get deviceAutoLock;
+
+  /// No description provided for @deviceAutoLockNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get deviceAutoLockNever;
+
+  /// No description provided for @deviceAutoLockSeconds.
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds} sec'**
+  String deviceAutoLockSeconds(int seconds);
+
+  /// No description provided for @deviceAutoLockMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min'**
+  String deviceAutoLockMinutes(int minutes);
+
   /// No description provided for @deviceDashboardConnection.
   ///
   /// In en, this message translates to:

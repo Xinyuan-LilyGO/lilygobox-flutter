@@ -285,6 +285,7 @@ void main() {
     'hapticEnabled': true,
     'brightness': 75,
     'rotation': 90,
+    'lockTimeoutSeconds': 300,
     'volume': volume,
     'hapticStrength': 60,
     'battery': {
@@ -297,6 +298,57 @@ void main() {
       'temperatureC': 28.5,
     },
   };
+
+  test(
+    'auto lock sends supported seconds and synchronizes the confirmed state',
+    () async {
+      final commands = <Map<String, dynamic>>[];
+      serve((socket, message) {
+        if (message['type'] == 'hello') {
+          socket.add(
+            jsonEncode({...response('ready'), 'state': controlState()}),
+          );
+        } else if (message['type'] == 'ping') {
+          socket.add(jsonEncode(response('pong')));
+        } else if (message['type'] == 'control.set') {
+          commands.add(message);
+          socket.add(
+            jsonEncode({
+              ...response('control.result'),
+              'requestId': message['requestId'],
+              'ok': true,
+              'error': '',
+              'state': {
+                ...controlState(),
+                'lockTimeoutSeconds': message['value'],
+              },
+            }),
+          );
+        }
+      });
+      expect(await connection.connect(device), isTrue);
+      connection.setControl(DeviceControlField.lockTimeoutSeconds, 90);
+      connection.setControl(DeviceControlField.lockTimeoutSeconds, 0);
+      await waitFor(() => commands.isNotEmpty);
+      expect(commands.single['field'], 'lockTimeoutSeconds');
+      expect(commands.single['value'], 0);
+      await waitFor(
+        () =>
+            connection
+                .controlStateFor(deviceId)!
+                .number(DeviceControlField.lockTimeoutSeconds) ==
+            0,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      connection.disconnect();
+      expect(
+        connection
+            .controlStateFor(deviceId)!
+            .number(DeviceControlField.lockTimeoutSeconds),
+        0,
+      );
+    },
+  );
 
   test(
     'controls coalesce drag targets and accept only matching hardware results',

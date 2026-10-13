@@ -6,10 +6,14 @@
  * @License: GPL 3.0
  */
 
+/// 与设备端锁屏设置共用的秒数选项，0 表示永不自动锁屏。
+const deviceLockTimeoutOptions = [15, 30, 60, 120, 300, 600, 0];
+
 enum DeviceControlField {
   screenEnabled('screenEnabled', 'screen'),
   brightness('brightness', 'screen'),
   rotation('rotation', 'screen'),
+  lockTimeoutSeconds('lockTimeoutSeconds', 'screen'),
   soundEnabled('soundEnabled', 'audio'),
   volume('volume', 'audio'),
   hapticEnabled('hapticEnabled', 'haptic'),
@@ -22,6 +26,8 @@ enum DeviceControlField {
   bool accepts(Object value) => switch (this) {
     screenEnabled || soundEnabled || hapticEnabled => value is bool,
     rotation => value is int && const [0, 90, 180, 270].contains(value),
+    lockTimeoutSeconds =>
+      value is int && deviceLockTimeoutOptions.contains(value),
     brightness => value is int && value >= 10 && value <= 100,
     volume || hapticStrength => value is int && value >= 0 && value <= 100,
   };
@@ -79,6 +85,11 @@ class DeviceControlState {
     };
     final values = <DeviceControlField, Object>{};
     for (final field in DeviceControlField.values) {
+      // 旧固件没有自动锁屏字段，保留其他控制并禁用新增设置。
+      if (field == DeviceControlField.lockTimeoutSeconds &&
+          !data.containsKey(field.wireName)) {
+        continue;
+      }
       final value = data[field.wireName];
       if (value == null || !field.accepts(value)) {
         throw FormatException('Invalid ${field.wireName}');
@@ -98,7 +109,9 @@ class DeviceControlState {
   final Map<DeviceControlField, Object> values;
   final DeviceBatteryState? battery;
   bool supports(DeviceControlField field) =>
-      ready && capabilities.contains(field.capability);
+      ready &&
+      capabilities.contains(field.capability) &&
+      values.containsKey(field);
   int number(DeviceControlField field) => values[field]! as int;
   bool enabled(DeviceControlField field) => values[field]! as bool;
 

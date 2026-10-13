@@ -46,6 +46,8 @@ class DeviceDashboard extends StatelessWidget {
     required this.onBattery,
     this.controlState,
     this.controlsReady = false,
+    this.lockTimeoutSeconds = 300,
+    this.onLockTimeout,
   });
 
   final AppTheme theme;
@@ -61,6 +63,8 @@ class DeviceDashboard extends StatelessWidget {
   final bool soundOn;
   final bool vibrationOn;
   final int rotation;
+  final int lockTimeoutSeconds;
+  final ValueChanged<int>? onLockTimeout;
   final ValueChanged<double> onBrightness;
   final ValueChanged<double> onVolume;
   final ValueChanged<double> onVibration;
@@ -184,24 +188,30 @@ class DeviceDashboard extends StatelessWidget {
                     SizedBox(width: gap),
                     Expanded(flex: 32, child: _battery(context)),
                     SizedBox(width: gap),
-                    Expanded(flex: 40, child: _display(context)),
+                    Expanded(flex: 40, child: _soundAndHaptics(context)),
                   ],
                 ),
               )
             else ...[
               _pair(narrow, gap, _device(context), _battery(context)),
               SizedBox(height: gap),
-              _display(context),
+              _soundAndHaptics(context),
             ],
             SizedBox(height: gap),
             Align(
               alignment: Alignment.centerLeft,
               child: SizedBox(
-                // 桌面屏幕控制卡占半行，旋转选项放在开关行下方。
+                // 屏幕显示移至下方，沿用原下方卡片宽度。
                 width: !narrow && constraints.maxWidth >= 900
                     ? ((constraints.maxWidth - gap) / 2).clamp(0.0, 440.0)
                     : constraints.maxWidth,
-                child: _soundAndHaptics(context),
+                child: _display(
+                  context,
+                  (!narrow && constraints.maxWidth >= 900
+                          ? ((constraints.maxWidth - gap) / 2).clamp(0.0, 440.0)
+                          : constraints.maxWidth) -
+                      40,
+                ),
               ),
             ),
           ],
@@ -635,7 +645,8 @@ class DeviceDashboard extends StatelessWidget {
     ),
   );
 
-  Widget _display(BuildContext context) => _surface(
+  Widget _display(BuildContext context, double contentWidth) => _surface(
+    padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
     enabled: _supports(DeviceControlField.brightness),
     child: Builder(
       builder: (context) {
@@ -706,11 +717,8 @@ class DeviceDashboard extends StatelessWidget {
                           vertical: 6,
                           horizontal: 3,
                         ),
-                        child: Wrap(
-                          alignment: WrapAlignment.center,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 7,
-                          runSpacing: 5,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             RotatedBox(
                               quarterTurns: angle ~/ 90,
@@ -722,13 +730,19 @@ class DeviceDashboard extends StatelessWidget {
                                     : theme.textColorTertiary,
                               ),
                             ),
-                            _text(
-                              '$angle°',
-                              size: 12,
-                              bold: rotation == angle,
-                              color: rotation == angle
-                                  ? theme.materialColors.onPrimary
-                                  : theme.textColorTertiary,
+                            const SizedBox(width: 7),
+                            Flexible(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: _text(
+                                  '$angle°',
+                                  size: 12,
+                                  bold: rotation == angle,
+                                  color: rotation == angle
+                                      ? theme.materialColors.onPrimary
+                                      : theme.textColorTertiary,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -761,6 +775,8 @@ class DeviceDashboard extends StatelessWidget {
           children: [
             heading,
             const SizedBox(height: 18),
+            _lockTimeoutControl(context, contentWidth),
+            const SizedBox(height: 18),
             Align(alignment: Alignment.centerLeft, child: rotationControl),
             const SizedBox(height: 24),
             _control(context, brightnessControl: true),
@@ -769,6 +785,128 @@ class DeviceDashboard extends StatelessWidget {
       },
     ),
   );
+
+  /// 按实际文字宽度切换一行或两行，完整展示锁屏选项并收紧背景。
+  Widget _lockTimeoutControl(BuildContext context, double contentWidth) {
+    final enabled =
+        _supports(DeviceControlField.lockTimeoutSeconds) &&
+        onLockTimeout != null;
+    final background = Color.alphaBlend(
+      theme.secondary.withValues(alpha: .6),
+      theme.primary,
+    );
+    final labels = [
+      for (final seconds in deviceLockTimeoutOptions)
+        seconds == 0
+            ? context.l10n.deviceAutoLockNever
+            : seconds < 60
+            ? context.l10n.deviceAutoLockSeconds(seconds)
+            : context.l10n.deviceAutoLockMinutes(seconds ~/ 60),
+    ];
+    double minimumWidth = 0;
+    for (final label in labels) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: label,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+        textScaler: MediaQuery.textScalerOf(context),
+        textDirection: Directionality.of(context),
+      )..layout();
+      if (painter.width + 16 > minimumWidth) minimumWidth = painter.width + 16;
+      painter.dispose();
+    }
+    final columns = minimumWidth * 7 + 24 <= contentWidth ? 7 : 4;
+    final groupWidth = (minimumWidth * columns + (columns - 1) * 3 + 6).clamp(
+      0.0,
+      contentWidth,
+    );
+    final width = (groupWidth - 6 - (columns - 1) * 3) / columns;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _text(context.l10n.deviceAutoLock, size: 12, muted: true),
+        const SizedBox(height: 6),
+        Container(
+          width: groupWidth,
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (
+                int start = 0;
+                start < deviceLockTimeoutOptions.length;
+                start += columns
+              ) ...[
+                if (start > 0) const SizedBox(height: 3),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final seconds
+                        in deviceLockTimeoutOptions
+                            .skip(start)
+                            .take(columns)) ...[
+                      if (seconds != deviceLockTimeoutOptions[start])
+                        const SizedBox(width: 3),
+                      SizedBox(
+                        width: width,
+                        child: MenuItemSurface(
+                          key: ValueKey('device-auto-lock-$seconds'),
+                          theme: theme,
+                          isSelected: enabled && lockTimeoutSeconds == seconds,
+                          onPressed: enabled
+                              ? () => onLockTimeout!(seconds)
+                              : null,
+                          backgroundColor: background,
+                          hoverColor: theme.secondaryTextHoverColor,
+                          selectedColor: theme.basePrimary,
+                          borderRadius: BorderRadius.circular(7),
+                          child: Semantics(
+                            selected: enabled && lockTimeoutSeconds == seconds,
+                            button: true,
+                            enabled: enabled,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: Center(
+                                heightFactor: 1,
+                                child: _text(
+                                  seconds == 0
+                                      ? context.l10n.deviceAutoLockNever
+                                      : seconds < 60
+                                      ? context.l10n.deviceAutoLockSeconds(
+                                          seconds,
+                                        )
+                                      : context.l10n.deviceAutoLockMinutes(
+                                          seconds ~/ 60,
+                                        ),
+                                  size: 12,
+                                  bold:
+                                      enabled && lockTimeoutSeconds == seconds,
+                                  color:
+                                      enabled && lockTimeoutSeconds == seconds
+                                      ? theme.materialColors.onPrimary
+                                      : theme.textColorTertiary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 /// 自绘电池外框与电量填充，正极左侧平直、右侧圆润并与主体分离。

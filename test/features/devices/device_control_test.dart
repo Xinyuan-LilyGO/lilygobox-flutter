@@ -20,6 +20,7 @@ Map<String, Object> snapshot() => {
   'hapticEnabled': false,
   'brightness': 75,
   'rotation': 90,
+  'lockTimeoutSeconds': 300,
   'volume': 65,
   'hapticStrength': 60,
   'battery': {
@@ -34,6 +35,35 @@ Map<String, Object> snapshot() => {
 };
 
 void main() {
+  test(
+    'auto lock accepts device options and stays unavailable on old firmware',
+    () {
+      for (final seconds in deviceLockTimeoutOptions) {
+        final state = DeviceControlState.parse({
+          ...snapshot(),
+          'lockTimeoutSeconds': seconds,
+        });
+        expect(state.number(DeviceControlField.lockTimeoutSeconds), seconds);
+        expect(state.supports(DeviceControlField.lockTimeoutSeconds), isTrue);
+      }
+      for (final seconds in [-1, 10, 90, 601, true]) {
+        expect(
+          () => DeviceControlState.parse({
+            ...snapshot(),
+            'lockTimeoutSeconds': seconds,
+          }),
+          throwsFormatException,
+        );
+      }
+      final old = snapshot()..remove('lockTimeoutSeconds');
+      expect(
+        DeviceControlState.parse(
+          old,
+        ).supports(DeviceControlField.lockTimeoutSeconds),
+        isFalse,
+      );
+    },
+  );
   test(
     'malformed values fail parsing and unavailable battery is not invented',
     () {
@@ -70,6 +100,7 @@ void main() {
       final theme = ThemeProvider();
       addTearDown(theme.dispose);
       final state = DeviceControlState.parse(snapshot());
+      int? selectedTimeout;
       Widget app({bool online = true}) => MaterialApp(
         locale: const Locale('en'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -99,6 +130,7 @@ void main() {
               onSound: (_) {},
               onVibrationEnabled: (_) {},
               onRotation: (_) {},
+              onLockTimeout: (seconds) => selectedTimeout = seconds,
               onInformation: () {},
               onBattery: () {},
             ),
@@ -108,6 +140,33 @@ void main() {
       await tester.pumpWidget(app());
       expect(find.text('48%'), findsOneWidget);
       expect(find.text('82%'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('device-auto-lock-0')));
+      await tester.pumpAndSettle();
+      expect(selectedTimeout, 0);
+      // 宽卡片一行、窄卡片两行，全部选项可见且不依赖横向滚动。
+      await tester.binding.setSurfaceSize(const Size(850, 900));
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      final first = find.byKey(const ValueKey('device-auto-lock-15'));
+      final last = find.byKey(const ValueKey('device-auto-lock-0'));
+      expect(tester.getTopLeft(first).dy, tester.getTopLeft(last).dy);
+      await tester.binding.setSurfaceSize(const Size(360, 900));
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(last).dy,
+        greaterThan(tester.getTopLeft(first).dy),
+      );
+      for (final seconds in deviceLockTimeoutOptions) {
+        final rect = tester.getRect(
+          find.byKey(ValueKey('device-auto-lock-$seconds')),
+        );
+        expect(rect.left, greaterThanOrEqualTo(0));
+        expect(rect.right, lessThanOrEqualTo(360));
+      }
+      await tester.binding.setSurfaceSize(const Size(1100, 900));
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
       final sliders = tester.widgetList<Slider>(find.byType(Slider)).toList();
       expect(sliders.where((slider) => slider.onChanged != null), hasLength(1));
       expect(
@@ -115,6 +174,12 @@ void main() {
         .75,
       );
       await tester.pumpWidget(app(online: false));
+      selectedTimeout = null;
+      await tester.tap(
+        find.byKey(const ValueKey('device-auto-lock-15')),
+        warnIfMissed: false,
+      );
+      expect(selectedTimeout, isNull);
       expect(
         tester
             .widgetList<Slider>(find.byType(Slider))

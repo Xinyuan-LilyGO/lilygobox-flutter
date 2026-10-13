@@ -602,6 +602,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceDashboardRotation => '旋转角度';
 
   @override
+  String get deviceAutoLock => '锁屏时间';
+
+  @override
+  String get deviceAutoLockNever => '永不';
+
+  @override
+  String deviceAutoLockSeconds(int seconds) {
+    return '$seconds 秒';
+  }
+
+  @override
+  String deviceAutoLockMinutes(int minutes) {
+    return '$minutes 分钟';
+  }
+
+  @override
   String get deviceDashboardConnection => '设备连接';
 
   @override
