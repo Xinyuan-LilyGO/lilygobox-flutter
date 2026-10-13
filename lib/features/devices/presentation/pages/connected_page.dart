@@ -2,7 +2,7 @@
  * @Description: 设备详情页，采用可变卡片布局展示设备、连接、电池和控制信息。
  * @Author: LILYGO_L
  * @Date: 2026-10-06 15:14:56
- * @LastEditTime: 2026-10-09 10:00:00
+ * @LastEditTime: 2026-10-13 12:00:00
  * @License: GPL 3.0
  */
 import 'dart:async';
@@ -22,6 +22,7 @@ import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/tilt_card.dart';
 import '../../../../generated/l10n/app_localizations.dart';
 import '../../data/lan_discovery.dart';
+import '../../domain/device_control.dart';
 import '../../state/lan_connection.dart';
 import '../../state/manager_provider.dart';
 import '../confirm_repair.dart';
@@ -53,18 +54,12 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
     with SingleTickerProviderStateMixin {
   _DeviceDetailView _view = _DeviceDetailView.control;
   final List<_DeviceDetailView> _viewHistory = [];
+  bool _rotationConfirmationOpen = false;
   late final AnimationController _viewTransition = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 200),
     value: 1,
   );
-  double _brightness = .72;
-  double _volume = .40;
-  double _vibration = .50;
-  bool _screenOn = true;
-  bool _soundOn = true;
-  bool _vibrationOn = true;
-  int _rotation = 0;
 
   @override
   void initState() {
@@ -257,20 +252,33 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
     online: online,
     description: description,
     connecting: connecting,
-    brightness: _brightness,
-    volume: _volume,
-    vibration: _vibration,
-    screenOn: _screenOn,
-    soundOn: _soundOn,
-    vibrationOn: _vibrationOn,
-    rotation: _rotation,
-    onBrightness: (value) => setState(() => _brightness = value),
-    onVolume: (value) => setState(() => _volume = value),
-    onVibration: (value) => setState(() => _vibration = value),
-    onScreen: (value) => setState(() => _screenOn = value),
-    onSound: (value) => setState(() => _soundOn = value),
-    onVibrationEnabled: (value) => setState(() => _vibrationOn = value),
-    onRotation: (value) => setState(() => _rotation = value),
+    controlState: _controlState,
+    controlsReady: context.read<LanConnection>().controlsReadyFor(
+      widget.deviceId,
+    ),
+    brightness:
+        (_controlState?.number(DeviceControlField.brightness) ?? 90) / 100,
+    volume: (_controlState?.number(DeviceControlField.volume) ?? 90) / 100,
+    vibration:
+        (_controlState?.number(DeviceControlField.hapticStrength) ?? 90) / 100,
+    screenOn: _controlState?.enabled(DeviceControlField.screenEnabled) ?? true,
+    soundOn: _controlState?.enabled(DeviceControlField.soundEnabled) ?? true,
+    vibrationOn:
+        _controlState?.enabled(DeviceControlField.hapticEnabled) ?? true,
+    rotation: _controlState?.number(DeviceControlField.rotation) ?? 0,
+    onBrightness: (value) => _setControl(
+      DeviceControlField.brightness,
+      (value * 100).round().clamp(10, 100),
+    ),
+    onVolume: (value) =>
+        _setControl(DeviceControlField.volume, (value * 100).round()),
+    onVibration: (value) =>
+        _setControl(DeviceControlField.hapticStrength, (value * 100).round()),
+    onScreen: (value) => _setControl(DeviceControlField.screenEnabled, value),
+    onSound: (value) => _setControl(DeviceControlField.soundEnabled, value),
+    onVibrationEnabled: (value) =>
+        _setControl(DeviceControlField.hapticEnabled, value),
+    onRotation: _confirmRotation,
     onInformation: () => _openView(_DeviceDetailView.information),
     onBattery: () => _openView(_DeviceDetailView.battery),
   );
@@ -570,11 +578,54 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
     );
   }
 
+  DeviceControlState? get _controlState =>
+      context.read<LanConnection>().controlStateFor(widget.deviceId);
+
+  /// 旋转会关闭硬件上的当前页面；确认前不发送控制命令或改变选中角度。
+  Future<void> _confirmRotation(int angle) async {
+    final connection = context.read<LanConnection>();
+    if (_rotationConfirmationOpen ||
+        !connection.connected ||
+        connection.device?.id != widget.deviceId ||
+        _controlState?.number(DeviceControlField.rotation) == angle) {
+      return;
+    }
+    _rotationConfirmationOpen = true;
+    try {
+      final confirmed = await showAppConfirmation(
+        context: context,
+        theme: context.read<ThemeProvider>().themeData,
+        actionKey: 'device-rotation',
+        title: context.l10n.deviceRotationConfirmTitle,
+        description: context.l10n.deviceRotationConfirmDescription,
+        confirmLabel: context.l10n.deviceRotationConfirmAction,
+      );
+      if (!confirmed ||
+          !mounted ||
+          !widget.active ||
+          !connection.connected ||
+          connection.device?.id != widget.deviceId) {
+        return;
+      }
+      _setControl(DeviceControlField.rotation, angle);
+    } finally {
+      _rotationConfirmationOpen = false;
+    }
+  }
+
+  void _setControl(DeviceControlField field, Object value) {
+    final connection = context.read<LanConnection>();
+    if (connection.device?.id == widget.deviceId) {
+      connection.setControl(field, value);
+    }
+  }
+
   Widget _batteryView(AppTheme theme, bool online) => LayoutBuilder(
     builder: (context, constraints) {
       final narrow = constraints.maxWidth < 760;
       final summary = _card(
         theme,
+        enabled: online,
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -589,7 +640,9 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
             const SizedBox(height: 24),
             Center(
               child: Text(
-                online ? '82%' : '—',
+                _controlState?.battery == null
+                    ? '—'
+                    : '${_controlState!.battery!.percent}%',
                 style: TextStyle(
                   fontSize: 44,
                   fontWeight: FontWeight.w700,
@@ -606,7 +659,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                   children: [
                     DeviceBatteryGraphic(
                       theme: theme,
-                      progress: online ? .82 : 0,
+                      progress: (_controlState?.battery?.percent ?? 0) / 100,
                       height: 96,
                       colors: DeviceBatteryColors(theme),
                     ),
@@ -618,9 +671,22 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                if (_controlState?.battery?.charging == true) ...[
+                  Icon(
+                    Symbols.bolt,
+                    fill: 1,
+                    size: 22,
+                    color: theme.textColorPrimary,
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 Flexible(
                   child: _detailText(
-                    online ? '电池供电' : '未连接电池',
+                    _controlState?.battery == null
+                        ? '未知'
+                        : _controlState!.battery!.charging
+                        ? '充电中'
+                        : '电池供电',
                     theme,
                     size: 15,
                     bold: true,
@@ -631,7 +697,15 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
             const SizedBox(height: 8),
             Center(
               child: _detailText(
-                online ? '未连接充电器' : '设备未连接',
+                !online
+                    ? '设备未连接'
+                    : _controlState?.battery == null
+                    ? '暂无电池数据'
+                    : _controlState!.battery!.full
+                    ? '已充满'
+                    : _controlState!.battery!.charging
+                    ? '充电器已连接'
+                    : '未充电',
                 theme,
                 size: 12,
                 muted: true,
@@ -643,6 +717,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       );
       final details = _card(
         theme,
+        enabled: online,
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -660,14 +735,18 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                   theme,
                   Symbols.bolt,
                   '电压',
-                  online ? '4.02' : '—',
+                  _controlState?.battery == null
+                      ? '—'
+                      : (_controlState!.battery!.voltageMv / 1000)
+                            .toStringAsFixed(2),
                   'V',
                 );
                 final temperature = _batteryMetric(
                   theme,
                   Symbols.thermometer,
                   '温度',
-                  online ? '31.6' : '—',
+                  _controlState?.battery?.temperatureC.toStringAsFixed(1) ??
+                      '—',
                   '°C',
                 );
                 if ((narrow
@@ -694,9 +773,24 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
               },
             ),
             const SizedBox(height: 18),
-            _batteryStatusRow(theme, '充电状态', online ? '未充电' : '—'),
-            _batteryStatusRow(theme, '电流', online ? '−320 mA' : '—'),
-            _batteryStatusRow(theme, '供电来源', online ? '电池' : '—'),
+            _batteryStatusRow(
+              theme,
+              '充电状态',
+              _controlState?.battery == null
+                  ? '—'
+                  : _controlState!.battery!.full
+                  ? '已充满'
+                  : _controlState!.battery!.charging
+                  ? '充电中'
+                  : '未充电',
+            ),
+            _batteryStatusRow(
+              theme,
+              '电流',
+              _controlState?.battery == null
+                  ? '—'
+                  : '${_controlState!.battery!.currentMa} mA',
+            ),
           ],
         ),
       );
@@ -1146,11 +1240,23 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
   Widget _card(
     AppTheme theme, {
     required Widget child,
+    bool enabled = true,
     double? width,
     VoidCallback? onTap,
     Color? color,
     EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(20, 18, 20, 20),
   }) {
+    // 未连接时保留最近数据，内容淡化程度与设备概览的禁用卡片一致。
+    child = Semantics(
+      enabled: enabled,
+      child: ExcludeFocus(
+        excluding: !enabled,
+        child: IgnorePointer(
+          ignoring: !enabled,
+          child: Opacity(opacity: enabled ? 1 : .4, child: child),
+        ),
+      ),
+    );
     final content = Container(
       width: width,
       decoration: BoxDecoration(

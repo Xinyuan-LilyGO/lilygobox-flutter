@@ -683,4 +683,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceBatteryUnknown => 'Unknown';
+
+  @override
+  String get deviceRotationConfirmTitle => 'Change display orientation?';
+
+  @override
+  String get deviceRotationConfirmDescription =>
+      'Rotating will close the current page on the device and return to its home screen. Unsaved changes will be discarded. If the device is locked, it will stay locked.';
+
+  @override
+  String get deviceRotationConfirmAction => 'Rotate';
 }

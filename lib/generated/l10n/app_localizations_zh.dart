@@ -649,4 +649,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceBatteryUnknown => '未知';
+
+  @override
+  String get deviceRotationConfirmTitle => '更改显示方向？';
+
+  @override
+  String get deviceRotationConfirmDescription =>
+      '旋转后，设备将关闭当前页面并返回主界面，未保存的内容不会保留。设备处于锁屏时将保持锁屏，不会自动解锁。';
+
+  @override
+  String get deviceRotationConfirmAction => '确认旋转';
 }

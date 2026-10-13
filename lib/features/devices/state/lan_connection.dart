@@ -2,7 +2,7 @@
  * @Description: 应用级局域网会话，管理设备确认、心跳、取消和真实在线状态。
  * @Author: LILYGO_L
  * @Date: 2026-10-04 18:37:01
- * @LastEditTime: 2026-10-06 14:12:27
+ * @LastEditTime: 2026-10-13 12:00:00
  * @License: GPL 3.0
  */
 import 'dart:async';
@@ -14,6 +14,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/lan_discovery.dart';
 import '../data/pairing_store.dart';
+import '../domain/device_control.dart';
 import '../domain/discovery_service.dart';
 
 enum LanConnectionPhase {
@@ -56,6 +57,78 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
   bool _manualDisconnect = false;
   String? _sessionToken;
   bool _serverVerified = false;
+  final Map<String, DeviceControlState> _deviceStates = {};
+  final Map<DeviceControlField, Object> _controlTargets = {};
+  MapEntry<DeviceControlField, Object>? _inFlightControl;
+  Timer? _controlDebounce;
+  Timer? _controlPoll;
+  Timer? _controlTimeout;
+  Timer? _statePoll;
+  int _controlRequestId = 0;
+  bool _controlsReady = false;
+  String? lastControlError;
+
+  DeviceControlState? controlStateFor(String id) {
+    final state = _deviceStates[id];
+    if (device?.id != id || state == null) return state;
+    return state.withTargets({
+      if (_inFlightControl case final target?) target.key: target.value,
+      ..._controlTargets,
+    });
+  }
+
+  bool controlsReadyFor(String id) =>
+      connected && device?.id == id && _controlsReady;
+
+  /// 单字段目标值串行提交；连续滑动只保留末次值，断线后不重放旧请求。
+  void setControl(DeviceControlField field, Object value) {
+    final id = device?.id;
+    if (id == null ||
+        !controlsReadyFor(id) ||
+        !(_deviceStates[id]?.supports(field) ?? false) ||
+        !field.accepts(value)) {
+      return;
+    }
+    _controlTargets[field] = value;
+    lastControlError = null;
+    _controlDebounce?.cancel();
+    _controlDebounce = Timer(const Duration(milliseconds: 180), _flushControls);
+    _notify();
+  }
+
+  void _flushControls() {
+    if (!connected ||
+        !_controlsReady ||
+        (_controlDebounce?.isActive ?? false) ||
+        _inFlightControl != null ||
+        _controlTargets.isEmpty) {
+      return;
+    }
+    final target = _controlTargets.entries.first;
+    _controlTargets.remove(target.key);
+    _inFlightControl = target;
+    final requestId = ++_controlRequestId;
+    _send({
+      'type': 'control.set',
+      'requestId': requestId,
+      'field': target.key.wireName,
+      'value': target.value,
+    });
+    final generation = _generation;
+    _controlTimeout = Timer(const Duration(seconds: 10), () {
+      if (_generation != generation) return;
+      lastControlError = 'timeout';
+      // 执行结果不确定时结束会话，重新认证与同步后才允许继续操作。
+      _fail(generation);
+    });
+  }
+
+  void _readControlState(Map<String, dynamic> data) {
+    if (!data.containsKey('state')) return;
+    final state = DeviceControlState.parse(data['state']);
+    _deviceStates[device!.id] = state;
+    _controlsReady = state.ready;
+  }
 
   String _proof(String role, String challenge) => Hmac(
     sha256,
@@ -177,6 +250,13 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
   }
 
   void _close() {
+    _controlDebounce?.cancel();
+    _controlPoll?.cancel();
+    _controlTimeout?.cancel();
+    _statePoll?.cancel();
+    _controlTargets.clear();
+    _inFlightControl = null;
+    _controlsReady = false;
     ++_generation;
     _poll?.cancel();
     _poll = null;
@@ -338,6 +418,26 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     }
   }
 
+  /// 接收设备的显示名称，保留用于连接、授权和去重的稳定身份。
+  void _readDeviceName(Map<String, dynamic> data) {
+    final current = device;
+    final name = data['name'];
+    // 兼容旧固件未携带名称的状态消息。
+    if (current == null || name == null) return;
+    if (name is! String || name.trim().isEmpty || name.length > 64) {
+      throw const FormatException('Invalid device name');
+    }
+    if (name == current.name) return;
+    device = LanDevice(
+      id: current.id,
+      protocolId: current.protocolId,
+      name: name,
+      address: current.address,
+      port: current.port,
+      model: current.model,
+    );
+  }
+
   Future<void> _receive(Object? message, int generation) async {
     if (_disposed || generation != _generation) return;
     try {
@@ -360,7 +460,41 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
         _manualDisconnect = true;
         throw const FormatException('Device identity not verified');
       }
-      if (type == 'challenge' && busy && _sessionToken != null) {
+      if (type == 'state' && connected) {
+        _readDeviceName(data);
+        _readControlState(data);
+        _notify();
+      } else if ((type == 'control.queued' || type == 'control.result') &&
+          connected) {
+        if (data['requestId'] != _controlRequestId ||
+            _inFlightControl == null) {
+          return;
+        }
+        if (type == 'control.queued') {
+          _controlPoll?.cancel();
+          _controlPoll = Timer(const Duration(milliseconds: 150), () {
+            _send({'type': 'control.poll', 'requestId': _controlRequestId});
+          });
+        } else {
+          if (data['ok'] is! bool ||
+              data['error'] is! String ||
+              !data.containsKey('state')) {
+            throw const FormatException();
+          }
+          _controlPoll?.cancel();
+          _controlTimeout?.cancel();
+          _readControlState(data);
+          _inFlightControl = null;
+          lastControlError = data['ok'] == true
+              ? null
+              : data['error'] as String;
+          if (lastControlError != null) {
+            debugPrint('Device control failed: $lastControlError');
+          }
+          _notify();
+          _flushControls();
+        }
+      } else if (type == 'challenge' && busy && _sessionToken != null) {
         final challenge = data['challenge'];
         if (challenge is! String ||
             !RegExp(r'^[0-9a-f]{64}$').hasMatch(challenge) ||
@@ -460,6 +594,12 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
           _poll?.cancel();
           _deadline?.cancel();
           phase = LanConnectionPhase.connected;
+          _readControlState(data);
+          if (data['controlVersion'] == 1) {
+            _statePoll = Timer.periodic(const Duration(seconds: 1), (_) {
+              _send({'type': 'state.get'});
+            });
+          }
           final result = _result;
           _result = null;
           if (result != null && !result.isCompleted) result.complete(true);
@@ -471,6 +611,8 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
             }
           });
         }
+        if (connected) _readControlState(data);
+        if (connected) _readDeviceName(data);
         _notify();
       } else {
         throw const FormatException();
@@ -511,6 +653,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     _stopAutoScan();
     _tokens.remove(id);
     _fingerprints.remove(id);
+    _deviceStates.remove(id);
     if (device?.id == id) {
       _close();
       device = null;

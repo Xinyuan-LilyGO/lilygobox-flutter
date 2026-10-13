@@ -1,8 +1,8 @@
 /*
- * @Description: 验证设备详情底部导航、真实会话操作及窄窗口和大字体布局。
+ * @Description: 验证设备详情导航、旋转确认、真实会话操作及窄窗口和大字体布局。
  * @Author: LILYGO_L
  * @Date: 2026-10-07 18:00:00
- * @LastEditTime: 2026-10-07 18:00:00
+ * @LastEditTime: 2026-10-13 12:00:00
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -12,6 +12,7 @@ import 'package:lilygobox/app/navigation/provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/features/devices/data/lan_discovery.dart';
 import 'package:lilygobox/features/devices/domain/discovery_service.dart';
+import 'package:lilygobox/features/devices/domain/device_control.dart';
 import 'package:lilygobox/features/devices/presentation/pages/connected_page.dart';
 import 'package:lilygobox/features/devices/presentation/widgets/device_detail_navigation.dart';
 import 'package:lilygobox/features/devices/presentation/widgets/device_page_frame.dart';
@@ -31,6 +32,21 @@ const _device = LanDevice(
 class _Session extends LanConnection {
   int disconnects = 0;
   int connections = 0;
+  DeviceControlState? snapshot;
+  final controls = <(DeviceControlField, Object)>[];
+
+  @override
+  DeviceControlState? controlStateFor(String id) =>
+      device?.id == id ? snapshot : null;
+
+  @override
+  bool controlsReadyFor(String id) =>
+      connected && device?.id == id && snapshot?.ready == true;
+
+  @override
+  void setControl(DeviceControlField field, Object value) {
+    controls.add((field, value));
+  }
 
   void publish(LanConnectionPhase next) {
     phase = next;
@@ -108,6 +124,48 @@ void main() {
     await tester.tap(find.byKey(ValueKey('device-tab-$tab')));
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'rotation requires confirmation and ignores a disconnected session',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      session.snapshot = DeviceControlState.parse({
+        'ready': true,
+        'capabilities': {'screen': true, 'audio': false, 'haptic': false},
+        'screenEnabled': true,
+        'brightness': 75,
+        'rotation': 0,
+        'soundEnabled': true,
+        'volume': 65,
+        'hapticEnabled': false,
+        'hapticStrength': 60,
+        'battery': {'available': false},
+      });
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('90°'));
+      await tester.pumpAndSettle();
+      expect(find.text('Change display orientation?'), findsOneWidget);
+      expect(session.controls, isEmpty);
+      await tester.tap(find.byKey(const ValueKey('cancel-device-rotation')));
+      await tester.pumpAndSettle();
+      expect(session.controls, isEmpty);
+      await tester.tap(find.text('90°'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('confirm-device-rotation')));
+      await tester.pumpAndSettle();
+      expect(session.controls, [(DeviceControlField.rotation, 90)]);
+      await tester.tap(find.text('180°'));
+      await tester.pumpAndSettle();
+      session.publish(LanConnectionPhase.offline);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('confirm-device-rotation')));
+      await tester.pumpAndSettle();
+      expect(session.controls, [(DeviceControlField.rotation, 90)]);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('tabs show live information and preserve the connection', (
     tester,

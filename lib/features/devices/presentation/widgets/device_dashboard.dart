@@ -2,7 +2,7 @@
  * @Description: 设备概览卡片布局，统一信息层级、控制区和自适应间距。
  * @Author: LILYGO_L
  * @Date: 2026-10-08 13:48:30
- * @LastEditTime: 2026-10-09 16:00:00
+ * @LastEditTime: 2026-10-13 12:00:00
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -15,6 +15,7 @@ import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/card_shadow.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/tilt_card.dart';
+import '../../domain/device_control.dart';
 import 'device_battery_colors.dart';
 
 /// 根据可用空间组织卡片；同行高度由内容决定，不使用固定卡片尺寸。
@@ -43,6 +44,8 @@ class DeviceDashboard extends StatelessWidget {
     required this.onRotation,
     required this.onInformation,
     required this.onBattery,
+    this.controlState,
+    this.controlsReady = false,
   });
 
   final AppTheme theme;
@@ -67,6 +70,11 @@ class DeviceDashboard extends StatelessWidget {
   final ValueChanged<int> onRotation;
   final VoidCallback onInformation;
   final VoidCallback onBattery;
+  final DeviceControlState? controlState;
+  final bool controlsReady;
+
+  bool _supports(DeviceControlField field) =>
+      online && controlsReady && (controlState?.supports(field) ?? false);
 
   Color get tint =>
       Color.alphaBlend(theme.basePrimary.withValues(alpha: .12), theme.primary);
@@ -375,7 +383,7 @@ class DeviceDashboard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  if (online) ...[
+                  if (controlState?.battery?.charging == true) ...[
                     Icon(
                       Symbols.bolt,
                       fill: 1,
@@ -386,8 +394,10 @@ class DeviceDashboard extends StatelessWidget {
                   ],
                   Expanded(
                     child: Text(
-                      online
+                      controlState?.battery?.charging == true
                           ? context.l10n.deviceDashboardCharging
+                          : controlState?.battery != null
+                          ? context.l10n.deviceDashboardBattery
                           : context.l10n.deviceBatteryUnknown,
                       style: TextStyle(
                         color: colors.foreground,
@@ -398,9 +408,11 @@ class DeviceDashboard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 8),
               Text(
-                online ? '82%' : '—',
+                controlState?.battery == null
+                    ? '—'
+                    : '${controlState!.battery!.percent}%',
                 style: TextStyle(
                   color: colors.foreground,
                   fontSize: 36,
@@ -419,7 +431,7 @@ class DeviceDashboard extends StatelessWidget {
                   constraints: const BoxConstraints(maxWidth: 236),
                   child: DeviceBatteryGraphic(
                     theme: theme,
-                    progress: online ? .82 : 0,
+                    progress: (controlState?.battery?.percent ?? 0) / 100,
                     height: 96,
                     colors: colors,
                   ),
@@ -482,7 +494,13 @@ class DeviceDashboard extends StatelessWidget {
         ? context.l10n.deviceBrightness
         : context.l10n.deviceDashboardSound;
     // 熄屏只控制显示电源；静音只禁用调节，保留原音量及其显示值。
-    final enabled = online && (brightnessControl || soundOn);
+    final enabled =
+        _supports(
+          brightnessControl
+              ? DeviceControlField.brightness
+              : DeviceControlField.volume,
+        ) &&
+        (brightnessControl || soundOn);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -526,7 +544,9 @@ class DeviceDashboard extends StatelessWidget {
 
   /// 声音与触感采用与屏幕控制一致的内容布局，不嵌套额外卡片。
   Widget _soundAndHaptics(BuildContext context) => _surface(
-    enabled: online,
+    enabled:
+        _supports(DeviceControlField.volume) ||
+        _supports(DeviceControlField.hapticStrength),
     child: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -569,7 +589,10 @@ class DeviceDashboard extends StatelessWidget {
               value: vibration,
               icon: Symbols.vibration,
               label: context.l10n.deviceVibrationIntensity,
-              onChanged: online && vibrationOn ? onVibration : null,
+              onChanged:
+                  _supports(DeviceControlField.hapticStrength) && vibrationOn
+                  ? onVibration
+                  : null,
             ),
           ],
         ),
@@ -591,7 +614,16 @@ class DeviceDashboard extends StatelessWidget {
       button: true,
       child: MenuItemSurface(
         theme: theme,
-        onPressed: online ? onTap : null,
+        onPressed:
+            _supports(
+              icon == Symbols.vibration || icon == Symbols.mobile_off
+                  ? DeviceControlField.hapticEnabled
+                  : icon == Symbols.volume_up || icon == Symbols.volume_off
+                  ? DeviceControlField.soundEnabled
+                  : DeviceControlField.screenEnabled,
+            )
+            ? onTap
+            : null,
         backgroundColor: theme.secondary.withValues(alpha: .65),
         borderRadius: BorderRadius.circular(11),
         child: SizedBox(
@@ -604,7 +636,7 @@ class DeviceDashboard extends StatelessWidget {
   );
 
   Widget _display(BuildContext context) => _surface(
-    enabled: online,
+    enabled: _supports(DeviceControlField.brightness),
     child: Builder(
       builder: (context) {
         final heading = Row(
@@ -655,7 +687,9 @@ class DeviceDashboard extends StatelessWidget {
                   child: MenuItemSurface(
                     theme: theme,
                     isSelected: rotation == angle,
-                    onPressed: online ? () => onRotation(angle) : null,
+                    onPressed: _supports(DeviceControlField.rotation)
+                        ? () => onRotation(angle)
+                        : null,
                     // 用实际底色参与渐变，避免透明黑色插值时先变暗再变亮。
                     backgroundColor: Color.alphaBlend(
                       theme.secondary.withValues(alpha: .6),

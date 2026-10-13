@@ -2,7 +2,7 @@
  * @Description: 通过真实回环 UDP 和 WebSocket 验证发现、设备确认、断线及取消竞态。
  * @Author: LILYGO_L
  * @Date: 2026-10-04 18:37:01
- * @LastEditTime: 2026-10-06 14:12:27
+ * @LastEditTime: 2026-10-13 12:00:00
  * @License: GPL 3.0
  */
 import 'dart:async';
@@ -11,10 +11,16 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lilygobox/app/device_connection_coordinator.dart';
+import 'package:lilygobox/app/navigation/provider.dart';
+import 'package:lilygobox/core/storage/preferences.dart';
 import 'package:lilygobox/features/devices/data/lan_discovery.dart';
 import 'package:lilygobox/features/devices/data/pairing_store.dart';
+import 'package:lilygobox/features/devices/domain/device_control.dart';
 import 'package:lilygobox/features/devices/state/lan_connection.dart';
 import 'package:lilygobox/features/devices/state/manager_provider.dart';
+
+import '../../core/storage/preferences_test.dart' show MemoryPreferencesStorage;
 
 const deviceId = '001122334455';
 
@@ -206,6 +212,253 @@ void main() {
       },
     );
   }
+
+  test(
+    'device rename updates live and saved records without adding a device',
+    () async {
+      final storage = MemoryPreferencesStorage();
+      final preferences = await AppPreferences.load(storage: storage);
+      final devices = DeviceManagerProvider(preferences: preferences)
+        ..addLanDevice(device);
+      final navigation = AppNavigationProvider();
+      final coordinator = DeviceConnectionCoordinator(
+        connection: connection,
+        devices: devices,
+        navigation: navigation,
+      );
+      addTearDown(() {
+        coordinator.dispose();
+        navigation.dispose();
+        devices.dispose();
+        preferences.dispose();
+      });
+      String? name = 'Desk P4';
+      serve((socket, message) {
+        if (message['type'] == 'hello' || message['type'] == 'ping') {
+          socket.add(
+            jsonEncode({
+              ...response(message['type'] == 'hello' ? 'ready' : 'pong'),
+              if (name != null) 'name': name,
+            }),
+          );
+        }
+      });
+      expect(await connection.connect(device), isTrue);
+      expect(connection.device!.name, 'Desk P4');
+      expect(devices.displayName(deviceId), 'Desk P4');
+      name = 'Office display';
+      await waitFor(() => devices.displayName(deviceId) == name);
+      expect(connection.device!.name, name);
+      expect(connection.device!.model, device.model);
+      expect(connection.device!.protocolId, device.protocolId);
+      expect(devices.addedDevices, [deviceId]);
+      // 旧固件消息未携带名称时，不得用型号覆盖已同步的名称。
+      name = null;
+      sockets.single.add(jsonEncode(response('pong')));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(connection.device!.name, 'Office display');
+      sockets.single.add(
+        jsonEncode({...response('state'), 'name': 'Studio display'}),
+      );
+      await waitFor(() => devices.displayName(deviceId) == 'Studio display');
+      await preferences.flush();
+      final restoredPreferences = await AppPreferences.load(storage: storage);
+      final restored = DeviceManagerProvider(preferences: restoredPreferences);
+      addTearDown(restoredPreferences.dispose);
+      addTearDown(restored.dispose);
+      expect(restored.displayName(deviceId), 'Studio display');
+      expect(restored.addedDevices, [deviceId]);
+      expect(connection.connected, isTrue);
+    },
+  );
+
+  Map<String, Object> controlState({
+    int volume = 65,
+    bool soundEnabled = true,
+    bool ready = true,
+    bool audio = true,
+  }) => {
+    'ready': ready,
+    'capabilities': {'screen': true, 'audio': audio, 'haptic': false},
+    'screenEnabled': true,
+    'soundEnabled': soundEnabled,
+    'hapticEnabled': true,
+    'brightness': 75,
+    'rotation': 90,
+    'volume': volume,
+    'hapticStrength': 60,
+    'battery': {
+      'available': true,
+      'charging': true,
+      'full': false,
+      'percent': 48,
+      'voltageMv': 3900,
+      'currentMa': 250,
+      'temperatureC': 28.5,
+    },
+  };
+
+  test(
+    'controls coalesce drag targets and accept only matching hardware results',
+    () async {
+      final commands = <Map<String, dynamic>>[];
+      serve((socket, message) {
+        switch (message['type']) {
+          case 'hello':
+            socket.add(
+              jsonEncode({
+                ...response('ready'),
+                'controlVersion': 1,
+                'state': controlState(),
+              }),
+            );
+          case 'ping':
+            socket.add(jsonEncode(response('pong')));
+          case 'control.set':
+            commands.add(message);
+            socket.add(
+              jsonEncode({
+                ...response('control.queued'),
+                'requestId': message['requestId'],
+              }),
+            );
+          case 'control.poll':
+            socket.add(
+              jsonEncode({
+                ...response('control.result'),
+                'requestId': message['requestId'],
+                'ok': true,
+                'error': '',
+                'state': controlState(volume: commands.last['value'] as int),
+              }),
+            );
+        }
+      });
+      expect(await connection.connect(device), isTrue);
+      expect(connection.controlStateFor(deviceId)!.battery!.percent, 48);
+      connection.setControl(DeviceControlField.volume, 10);
+      connection.setControl(DeviceControlField.volume, 25);
+      connection.setControl(DeviceControlField.volume, 80);
+      expect(
+        connection.controlStateFor(deviceId)!.number(DeviceControlField.volume),
+        80,
+      );
+      await waitFor(() => commands.isNotEmpty);
+      expect(commands, hasLength(1));
+      expect(commands.single['value'], 80);
+      sockets.single.add(
+        jsonEncode({
+          ...response('control.result'),
+          'requestId': 999,
+          'ok': false,
+          'error': 'hardware_failed',
+          'state': controlState(volume: 1),
+        }),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(
+        connection.controlStateFor(deviceId)!.number(DeviceControlField.volume),
+        80,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      expect(connection.lastControlError, isNull);
+      expect(connection.connected, isTrue);
+    },
+  );
+
+  test(
+    'hardware failure rolls back target and mute retains the saved volume',
+    () async {
+      serve((socket, message) {
+        if (message['type'] == 'hello') {
+          socket.add(
+            jsonEncode({...response('ready'), 'state': controlState()}),
+          );
+        } else if (message['type'] == 'ping') {
+          socket.add(jsonEncode(response('pong')));
+        } else if (message['type'] == 'control.set') {
+          final mute = message['field'] == 'soundEnabled';
+          socket.add(
+            jsonEncode({
+              ...response('control.result'),
+              'requestId': message['requestId'],
+              'ok': mute,
+              'error': mute ? '' : 'hardware_failed',
+              'state': controlState(soundEnabled: !mute),
+            }),
+          );
+        }
+      });
+      expect(await connection.connect(device), isTrue);
+      connection.setControl(DeviceControlField.volume, 80);
+      await waitFor(() => connection.lastControlError == 'hardware_failed');
+      expect(
+        connection.controlStateFor(deviceId)!.number(DeviceControlField.volume),
+        65,
+      );
+      connection.setControl(DeviceControlField.soundEnabled, false);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(
+        connection
+            .controlStateFor(deviceId)!
+            .enabled(DeviceControlField.soundEnabled),
+        isFalse,
+      );
+      expect(
+        connection.controlStateFor(deviceId)!.number(DeviceControlField.volume),
+        65,
+      );
+    },
+  );
+
+  test(
+    'unsupported and invalid controls are rejected and disconnect cancels pending targets',
+    () async {
+      final commands = <Map<String, dynamic>>[];
+      serve((socket, message) {
+        if (message['type'] == 'hello') {
+          socket.add(
+            jsonEncode({...response('ready'), 'state': controlState()}),
+          );
+        } else if (message['type'] == 'ping') {
+          socket.add(jsonEncode(response('pong')));
+        } else if (message['type'] == 'control.set') {
+          commands.add(message);
+        }
+      });
+      expect(await connection.connect(device), isTrue);
+      connection.setControl(DeviceControlField.hapticStrength, 80);
+      connection.setControl(DeviceControlField.rotation, 45);
+      connection.setControl(DeviceControlField.brightness, 0);
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      expect(commands, isEmpty);
+      connection.setControl(DeviceControlField.volume, 80);
+      connection.disconnect();
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      expect(commands, isEmpty);
+      expect(connection.controlsReadyFor(deviceId), isFalse);
+      expect(
+        connection.controlStateFor(deviceId)!.number(DeviceControlField.volume),
+        65,
+      );
+    },
+  );
+
+  test(
+    'legacy firmware stays connected without enabling fake controls',
+    () async {
+      serve((socket, message) {
+        if (message['type'] == 'hello' || message['type'] == 'ping') {
+          socket.add(
+            jsonEncode(response(message['type'] == 'hello' ? 'ready' : 'pong')),
+          );
+        }
+      });
+      expect(await connection.connect(device), isTrue);
+      expect(connection.controlsReadyFor(deviceId), isFalse);
+      expect(connection.controlStateFor(deviceId), isNull);
+    },
+  );
 
   test(
     'connection becomes online only after device approval; heartbeats keep it online',

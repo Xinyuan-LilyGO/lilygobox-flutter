@@ -208,5 +208,8 @@
     "connectionCredentialTitle": "Connection credentials",
     "connectionCredentialDescription": "Credentials are saved after initial authorization, so reconnecting does not require approval again. Disconnecting keeps them; deleting the device removes its locally saved credentials.",
   "deviceConnectionStatusTitle": "Device status",
-  "deviceBatteryUnknown": "Unknown"
+  "deviceBatteryUnknown": "Unknown",
+    "deviceRotationConfirmTitle": "Change display orientation?",
+    "deviceRotationConfirmDescription": "Rotating will close the current page on the device and return to its home screen. Unsaved changes will be discarded. If the device is locked, it will stay locked.",
+    "deviceRotationConfirmAction": "Rotate"
 }

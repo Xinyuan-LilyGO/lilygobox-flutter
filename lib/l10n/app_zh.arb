@@ -208,5 +208,8 @@
     "connectionCredentialTitle": "连接凭证",
     "connectionCredentialDescription": "首次授权后会保存连接凭证，再次连接无需重复确认。手动断开不会删除凭证；删除设备会同时清除本机保存的凭证。",
   "deviceConnectionStatusTitle": "设备状态",
-  "deviceBatteryUnknown": "未知"
+  "deviceBatteryUnknown": "未知",
+    "deviceRotationConfirmTitle": "更改显示方向？",
+    "deviceRotationConfirmDescription": "旋转后，设备将关闭当前页面并返回主界面，未保存的内容不会保留。设备处于锁屏时将保持锁屏，不会自动解锁。",
+    "deviceRotationConfirmAction": "确认旋转"
 }

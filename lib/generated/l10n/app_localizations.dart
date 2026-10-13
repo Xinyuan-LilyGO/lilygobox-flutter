@@ -1343,6 +1343,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unknown'**
   String get deviceBatteryUnknown;
+
+  /// No description provided for @deviceRotationConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Change display orientation?'**
+  String get deviceRotationConfirmTitle;
+
+  /// No description provided for @deviceRotationConfirmDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Rotating will close the current page on the device and return to its home screen. Unsaved changes will be discarded. If the device is locked, it will stay locked.'**
+  String get deviceRotationConfirmDescription;
+
+  /// No description provided for @deviceRotationConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Rotate'**
+  String get deviceRotationConfirmAction;
 }
 
 class _AppLocalizationsDelegate
