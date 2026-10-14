@@ -251,6 +251,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
   }) => DeviceDashboard(
     theme: theme,
     name: device?.name ?? widget.deviceId,
+    model: device?.model ?? '—',
     status: status,
     online: online,
     description: description,
@@ -365,14 +366,18 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _detailText(
+                Text(
                   device?.name ?? widget.deviceId,
-                  theme,
-                  size: 20,
-                  bold: true,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: theme.textColorPrimary,
+                  ),
                 ),
                 const SizedBox(height: 8),
-                _detailText(device?.model ?? '—', theme, size: 12, muted: true),
+                _detailText(device?.model ?? '—', theme, size: 13, muted: true),
                 const SizedBox(height: 18),
                 Row(
                   children: [

@@ -25,6 +25,7 @@ class DeviceDashboard extends StatelessWidget {
     super.key,
     required this.theme,
     required this.name,
+    this.model,
     required this.status,
     required this.online,
     required this.description,
@@ -53,6 +54,7 @@ class DeviceDashboard extends StatelessWidget {
 
   final AppTheme theme;
   final String name;
+  final String? model;
   final String status;
   final bool online;
   final String description;
@@ -356,8 +358,8 @@ class DeviceDashboard extends StatelessWidget {
               const SizedBox(height: 6),
               Center(
                 child: _text(
-                  context.l10n.deviceDashboardIdentity,
-                  size: 12,
+                  model ?? context.l10n.deviceDashboardIdentity,
+                  size: 13,
                   muted: true,
                   color: colors.muted,
                 ),
