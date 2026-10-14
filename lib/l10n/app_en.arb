@@ -160,6 +160,7 @@
     "trayExit": "Exit",
     "lanOffline": "Not connected",
     "lanModel": "Model",
+    "lanModelVersion": "Model version",
     "lanMacAddress": "MAC address",
     "lanIdentityChanged": "The device identity has changed. Connection stopped. If you reset this device, pair it again.",
     "lanRepair": "Pair again",
@@ -251,6 +252,12 @@
         }
     },
     "deviceBatteryEstimateMinutes": "{minutes} min",
+    "deviceBatteryEstimateToFull": "{duration} to full",
+    "@deviceBatteryEstimateToFull": {
+        "placeholders": {
+            "duration": { "type": "String" }
+        }
+    },
     "@deviceBatteryEstimateMinutes": {
         "placeholders": {
             "minutes": {

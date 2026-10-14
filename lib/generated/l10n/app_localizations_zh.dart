@@ -501,6 +501,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get lanModel => '设备型号';
 
   @override
+  String get lanModelVersion => '型号版本';
+
+  @override
   String get lanMacAddress => 'MAC 地址';
 
   @override
@@ -720,6 +723,11 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String deviceBatteryEstimateMinutes(int minutes) {
     return '$minutes 分钟';
+  }
+
+  @override
+  String deviceBatteryEstimateToFull(String duration) {
+    return '$duration充满';
   }
 
   @override

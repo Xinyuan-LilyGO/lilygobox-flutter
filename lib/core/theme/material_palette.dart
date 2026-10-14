@@ -23,7 +23,7 @@ class MaterialPalette {
       textColorTertiary: const Color.fromARGB(255, 150, 150, 150),
       // 悬停保持较弱的灰阶反馈，选中使用更明确的实色层级。
       primaryTextHoverColor: const Color.fromARGB(255, 38, 38, 38),
-      primaryTextSelectedColor: const Color.fromARGB(255, 68, 68, 68),
+      primaryTextSelectedColor: const Color.fromARGB(255, 58, 58, 58),
       secondaryTextBackgroundColor: const Color.fromARGB(255, 60, 60, 60),
       secondaryTextHoverColor: const Color.fromARGB(255, 56, 56, 56),
       secondaryTextHoverColorAlt: const Color.fromARGB(255, 80, 80, 80),

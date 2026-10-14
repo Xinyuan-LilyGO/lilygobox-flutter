@@ -160,6 +160,7 @@
     "trayExit": "退出",
     "lanOffline": "未连接",
     "lanModel": "设备型号",
+    "lanModelVersion": "型号版本",
     "lanMacAddress": "MAC 地址",
     "lanIdentityChanged": "设备身份已变化，连接已停止。如果你重置了这台设备，请重新配对。",
     "lanRepair": "重新配对",
@@ -251,6 +252,12 @@
         }
     },
     "deviceBatteryEstimateMinutes": "{minutes} 分钟",
+    "deviceBatteryEstimateToFull": "{duration}充满",
+    "@deviceBatteryEstimateToFull": {
+        "placeholders": {
+            "duration": { "type": "String" }
+        }
+    },
     "@deviceBatteryEstimateMinutes": {
         "placeholders": {
             "minutes": {

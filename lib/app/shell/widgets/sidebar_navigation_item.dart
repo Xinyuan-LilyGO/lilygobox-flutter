@@ -40,22 +40,9 @@ class SidebarNavigationItem extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Stack(
+        clipBehavior: Clip.none,
         alignment: Alignment.centerLeft,
         children: [
-          if (isSelected)
-            Positioned(
-              left: 0,
-              child: Container(
-                width: 4,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: theme.basePrimary,
-                  borderRadius: const BorderRadius.horizontal(
-                    right: Radius.circular(4),
-                  ),
-                ),
-              ),
-            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: MenuItemSurface(
@@ -100,8 +87,60 @@ class SidebarNavigationItem extends StatelessWidget {
               ),
             ),
           ),
+          if (isSelected)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _SidebarSelectionGlowPainter(theme.basePrimary),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
+}
+
+/// 侧栏灯管与选中行左缘的扩散光；不参与布局和点击命中。
+class _SidebarSelectionGlowPainter extends CustomPainter {
+  const _SidebarSelectionGlowPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(0, -16, size.width + 16, size.height + 32));
+    final tube = RRect.fromRectAndRadius(
+      Rect.fromLTWH(-8, (size.height - 30) / 2, 12, 30),
+      const Radius.circular(6),
+    );
+    final lowerShadow = tube.inflate(2);
+    final shadowColor = color;
+    canvas.drawRRect(
+      lowerShadow,
+      Paint()
+        ..color = shadowColor.withValues(alpha: .72)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9),
+    );
+    canvas.drawRRect(
+      tube,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            color,
+            color,
+            color,
+          ],
+        ).createShader(tube.outerRect),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_SidebarSelectionGlowPainter oldDelegate) =>
+      color != oldDelegate.color;
 }

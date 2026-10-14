@@ -430,11 +430,11 @@ class DeviceDashboard extends StatelessWidget {
               const SizedBox(height: deviceBatteryGraphicGap),
               Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 236),
+                  constraints: const BoxConstraints(maxWidth: 276),
                   child: DeviceBatteryGraphic(
                     theme: theme,
                     progress: (controlState?.battery?.percent ?? 0) / 100,
-                    height: 96,
+                    height: 116,
                     colors: colors,
                   ),
                 ),
@@ -920,31 +920,107 @@ class DeviceBatteryGraphic extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = colors ?? DeviceBatteryColors(theme);
-    final empty = palette.empty;
-    final outline = palette.muted;
-    return Container(
+    return SizedBox(
+      width: double.infinity,
       height: height,
-      padding: EdgeInsets.all(height * .045),
-      decoration: BoxDecoration(
-        border: Border.all(color: outline, width: 1.5),
-        borderRadius: BorderRadius.circular(height * .22),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(height * .16),
-        child: ColoredBox(
-          color: empty,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: FractionallySizedBox(
-              widthFactor: progress.clamp(0.0, 1.0),
-              heightFactor: 1,
-              child: ColoredBox(color: palette.fillFor(progress)),
-            ),
-          ),
+      child: CustomPaint(
+        painter: _BatteryGlowPainter(
+          progress: progress.clamp(0.0, 1.0),
+          fill: palette.fillFor(progress),
+          empty: palette.empty,
         ),
       ),
     );
   }
+}
+
+/// 先画底层，再叠加扩散光、近缘光和高亮主体，避免光晕被底色遮挡。
+class _BatteryGlowPainter extends CustomPainter {
+  const _BatteryGlowPainter({
+    required this.progress,
+    required this.fill,
+    required this.empty,
+  });
+
+  final double progress;
+  final Color fill;
+  final Color empty;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    final inset = size.height * .045 + 1.5;
+    final body = RRect.fromRectAndRadius(
+      (Offset.zero & size).deflate(inset),
+      Radius.circular(size.height * .16),
+    );
+    canvas.drawRRect(body, Paint()..color = empty);
+    if (progress > 0) {
+      final fillRect = Rect.fromLTWH(
+        body.left,
+        body.top,
+        body.width * progress,
+        body.height,
+      );
+      final fillPath = Path.combine(
+        PathOperation.intersect,
+        Path()..addRRect(body),
+        Path()..addRect(fillRect),
+      );
+      // 提高明度时保留饱和度，避免混入大量白色后变成粉绿色。
+      final source = HSLColor.fromColor(fill);
+      final luminous = source
+          .withSaturation(.72)
+          .withLightness(.58)
+          .toColor();
+      if (progress >= .1) {
+        canvas.drawPath(
+          fillPath,
+          Paint()
+            ..color = luminous.withValues(alpha: .35)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18),
+        );
+        canvas.drawPath(
+          fillPath,
+          Paint()
+            ..color = luminous.withValues(alpha: .65)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+        );
+      }
+      canvas.drawPath(
+        fillPath,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              progress >= .1 ? luminous : fill,
+              progress >= .1
+                  ? source.withSaturation(.72).withLightness(.53).toColor()
+                  : fill,
+            ],
+          ).createShader(fillRect),
+      );
+      if (progress >= .1) {
+        canvas.save();
+        canvas.clipPath(fillPath);
+        canvas.drawPath(
+          fillPath,
+          Paint()
+            ..color = luminous.withValues(alpha: .5)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1,
+        );
+        canvas.restore();
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BatteryGlowPainter oldDelegate) =>
+      progress != oldDelegate.progress ||
+      fill != oldDelegate.fill ||
+      empty != oldDelegate.empty;
 }
 
 /// 原生 Slider 保留键盘、拖动及语义，视觉层采用 Android 快捷设置胶囊轨道。

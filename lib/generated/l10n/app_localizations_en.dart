@@ -530,6 +530,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get lanModel => 'Model';
 
   @override
+  String get lanModelVersion => 'Model version';
+
+  @override
   String get lanMacAddress => 'MAC address';
 
   @override
@@ -756,6 +759,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String deviceBatteryEstimateMinutes(int minutes) {
     return '$minutes min';
+  }
+
+  @override
+  String deviceBatteryEstimateToFull(String duration) {
+    return '$duration to full';
   }
 
   @override

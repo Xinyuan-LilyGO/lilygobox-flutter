@@ -1050,6 +1050,12 @@ abstract class AppLocalizations {
   /// **'Model'**
   String get lanModel;
 
+  /// No description provided for @lanModelVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Model version'**
+  String get lanModelVersion;
+
   /// No description provided for @lanMacAddress.
   ///
   /// In en, this message translates to:
@@ -1463,6 +1469,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{minutes} min'**
   String deviceBatteryEstimateMinutes(int minutes);
+
+  /// No description provided for @deviceBatteryEstimateToFull.
+  ///
+  /// In en, this message translates to:
+  /// **'{duration} to full'**
+  String deviceBatteryEstimateToFull(String duration);
 
   /// No description provided for @deviceBatteryLevel.
   ///

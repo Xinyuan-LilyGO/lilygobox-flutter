@@ -86,13 +86,17 @@ class _MenuItemSurfaceState extends State<MenuItemSurface> {
     final enabled =
         widget.onPressed != null &&
         !(widget.isSelected && widget.disableWhenSelected);
-    final backgroundColor = widget.isSelected
-        ? widget.selectedColor ?? theme.primaryTextSelectedColor
-        : _isHovered && enabled
+    final selectedBackground =
+        widget.selectedColor ?? theme.primaryTextSelectedColor;
+    final backgroundColor = _isHovered && enabled
         ? widget.hoverColor ??
               theme.hoverColorForBackground(
-                widget.backgroundColor ?? theme.primary,
+                widget.isSelected
+                    ? selectedBackground
+                    : widget.backgroundColor ?? theme.primary,
               )
+        : widget.isSelected
+        ? selectedBackground
         : widget.backgroundColor ?? theme.primary;
     final foregroundColor = _isHovered && enabled && !widget.isSelected
         ? widget.hoverForegroundColor ?? widget.foregroundColor

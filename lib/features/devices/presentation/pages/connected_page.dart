@@ -428,7 +428,13 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
             const SizedBox(height: 12),
             for (final item in [
               (l10n.deviceNameLabel, device?.name ?? widget.deviceId),
-              (l10n.lanModel, device?.modelLabel ?? '—'),
+              (l10n.lanModel, device?.model ?? '—'),
+              (
+                l10n.lanModelVersion,
+                device?.modelVersion.isNotEmpty == true
+                    ? device!.modelVersion
+                    : '—',
+              ),
               (
                 l10n.lanFirmware,
                 online && session.firmware.isNotEmpty ? session.firmware : '—',
@@ -714,11 +720,11 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
             const SizedBox(height: deviceBatteryGraphicGap),
             Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 236),
+                constraints: const BoxConstraints(maxWidth: 276),
                 child: DeviceBatteryGraphic(
                   theme: theme,
                   progress: (_controlState?.battery?.percent ?? 0) / 100,
-                  height: 96,
+                  height: 116,
                   colors: DeviceBatteryColors(theme),
                 ),
               ),
