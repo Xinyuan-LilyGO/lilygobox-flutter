@@ -31,6 +31,7 @@ import '../widgets/device_battery_colors.dart';
 import '../widgets/device_battery_estimate.dart';
 import '../widgets/device_dashboard.dart';
 import '../widgets/device_name_dialog.dart';
+import '../widgets/device_page_frame.dart';
 import '../widgets/device_status_badge.dart';
 
 enum _DeviceDetailView { control, information, battery, connection }
@@ -46,7 +47,7 @@ class ConnectedDevicePage extends StatefulWidget {
 
   final String deviceId;
   final ValueNotifier<bool>? nestedView;
-  final ValueNotifier<String?>? pageTitle;
+  final ValueNotifier<DevicePageTitle?>? pageTitle;
   final bool active;
 
   @override
@@ -116,7 +117,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       setState(() => _view = previous);
       widget.pageTitle?.value = previous == _DeviceDetailView.control
           ? null
-          : _viewTitle(context.l10n);
+          : _pageTitle;
       widget.nestedView?.value = previous != _DeviceDetailView.control;
       _animateViewChange();
     }
@@ -126,7 +127,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
     if (_view == view) return;
     _viewHistory.add(_view);
     setState(() => _view = view);
-    widget.pageTitle?.value = _viewTitle(context.l10n);
+    widget.pageTitle?.value = _pageTitle;
     _animateViewChange();
     widget.nestedView?.value = view != _DeviceDetailView.control;
   }
@@ -232,6 +233,13 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
     );
   }
 
+  DevicePageTitle? get _pageTitle => switch (_view) {
+    _DeviceDetailView.information => DevicePageTitle.information,
+    _DeviceDetailView.battery => DevicePageTitle.battery,
+    _DeviceDetailView.connection => DevicePageTitle.connection,
+    _DeviceDetailView.control => null,
+  };
+
   String _viewTitle(AppLocalizations l10n) => switch (_view) {
     _DeviceDetailView.information => l10n.deviceInfoTab,
     _DeviceDetailView.battery => l10n.deviceBatteryPageTitle,
@@ -251,7 +259,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
   }) => DeviceDashboard(
     theme: theme,
     name: device?.name ?? widget.deviceId,
-    model: device?.model ?? '—',
+    model: device?.modelLabel ?? '—',
     status: status,
     online: online,
     description: description,
@@ -377,7 +385,12 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                   ),
                 ),
                 const SizedBox(height: 8),
-                _detailText(device?.model ?? '—', theme, size: 13, muted: true),
+                _detailText(
+                  device?.modelLabel ?? '—',
+                  theme,
+                  size: 13,
+                  muted: true,
+                ),
                 const SizedBox(height: 18),
                 Row(
                   children: [
@@ -415,7 +428,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
             const SizedBox(height: 12),
             for (final item in [
               (l10n.deviceNameLabel, device?.name ?? widget.deviceId),
-              (l10n.lanModel, device?.model ?? '—'),
+              (l10n.lanModel, device?.modelLabel ?? '—'),
               (
                 l10n.lanFirmware,
                 online && session.firmware.isNotEmpty ? session.firmware : '—',

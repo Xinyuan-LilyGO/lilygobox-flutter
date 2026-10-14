@@ -40,12 +40,12 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   final Map<String, ValueNotifier<bool>> _nestedDeviceViews = {};
-  final Map<String, ValueNotifier<String?>> _devicePageTitles = {};
+  final Map<String, ValueNotifier<DevicePageTitle?>> _devicePageTitles = {};
 
   ValueNotifier<bool> _nestedViewFor(String deviceId) =>
       _nestedDeviceViews.putIfAbsent(deviceId, () => ValueNotifier(false));
 
-  ValueNotifier<String?> _devicePageTitleFor(String deviceId) =>
+  ValueNotifier<DevicePageTitle?> _devicePageTitleFor(String deviceId) =>
       _devicePageTitles.putIfAbsent(deviceId, () => ValueNotifier(null));
 
   @override

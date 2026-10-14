@@ -125,7 +125,7 @@ class _HomePageContentState extends State<HomePageContent> {
     final query = _search.text.trim().toLowerCase();
     final visible = devices.addedDevices.where((id) {
       final matches =
-          '${devices.displayName(id)} ${devices.lanDevice(id)?.model ?? id} $id ${devices.lanDevice(id)?.macAddress ?? ''}'
+          '${devices.displayName(id)} ${devices.lanDevice(id)?.modelLabel ?? id} $id ${devices.lanDevice(id)?.macAddress ?? ''}'
               .toLowerCase()
               .contains(query);
       return matches;
@@ -381,7 +381,9 @@ class _HomePageContentState extends State<HomePageContent> {
                                           deviceId: id,
                                           name: devices.displayName(id),
                                           model:
-                                              devices.lanDevice(id)?.model ??
+                                              devices
+                                                  .lanDevice(id)
+                                                  ?.modelLabel ??
                                               id,
                                           connected: isConnected(id),
                                           macAddress: devices

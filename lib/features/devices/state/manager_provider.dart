@@ -63,6 +63,7 @@ class DeviceManagerProvider extends ChangeNotifier {
         previous?.address == device.address &&
         previous?.port == device.port &&
         previous?.model == device.model &&
+        previous?.modelVersion == device.modelVersion &&
         previous?.protocolId == device.protocolId) {
       return;
     }

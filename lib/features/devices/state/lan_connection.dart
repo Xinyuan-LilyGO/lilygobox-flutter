@@ -445,12 +445,16 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
   void _readDeviceName(Map<String, dynamic> data) {
     final current = device;
     final name = data['name'];
+    final version = data['modelVersion'] ?? current?.modelVersion;
     // 兼容旧固件未携带名称的状态消息。
     if (current == null || name == null) return;
     if (name is! String || name.trim().isEmpty || name.length > 64) {
       throw const FormatException('Invalid device name');
     }
-    if (name == current.name) return;
+    if (version is! String || version.length > 64) {
+      throw const FormatException('Invalid device model version');
+    }
+    if (name == current.name && version == current.modelVersion) return;
     device = LanDevice(
       id: current.id,
       protocolId: current.protocolId,
@@ -458,6 +462,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
       address: current.address,
       port: current.port,
       model: current.model,
+      modelVersion: version,
     );
   }
 

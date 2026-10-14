@@ -18,6 +18,9 @@ import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import 'device_connection_help.dart';
 
+/// 只保存页面身份，避免把某一种语言的标题缓存到导航状态中。
+enum DevicePageTitle { information, battery, connection }
+
 class DevicePageFrame extends StatelessWidget {
   const DevicePageFrame({
     super.key,
@@ -31,7 +34,7 @@ class DevicePageFrame extends StatelessWidget {
   final Widget child;
   final VoidCallback onBack;
   final bool active;
-  final ValueNotifier<String?>? pageTitle;
+  final ValueNotifier<DevicePageTitle?>? pageTitle;
   final String? deviceId;
 
   Widget _title(BuildContext context, AppTheme theme) {
@@ -46,10 +49,15 @@ class DevicePageFrame extends StatelessWidget {
         ),
       );
     }
-    return ValueListenableBuilder<String?>(
+    return ValueListenableBuilder<DevicePageTitle?>(
       valueListenable: title,
       builder: (context, value, _) => Text(
-        value ?? context.l10n.deviceDetails,
+        switch (value) {
+          DevicePageTitle.information => context.l10n.deviceInfoTab,
+          DevicePageTitle.battery => context.l10n.deviceBatteryPageTitle,
+          DevicePageTitle.connection => context.l10n.deviceConnectionTab,
+          null => context.l10n.deviceDetails,
+        },
         style: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,

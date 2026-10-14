@@ -19,12 +19,17 @@ class LanDevice extends DiscoveredDevice {
     required this.address,
     required this.port,
     required this.model,
+    this.modelVersion = '',
     String? protocolId,
   }) : _protocolId = protocolId;
 
   final String address;
   final int port;
   final String model;
+  final String modelVersion;
+
+  String get modelLabel =>
+      modelVersion.isEmpty ? model : '$model $modelVersion';
   final String? _protocolId;
 
   // 旧固件仍使用带前缀的协议标识；存储和界面统一使用无前缀 ID。
@@ -47,6 +52,7 @@ class LanDevice extends DiscoveredDevice {
     'address': address,
     'port': port,
     'model': model,
+    'modelVersion': modelVersion,
     if (protocolId != id) 'protocolId': protocolId,
   };
 
@@ -57,6 +63,7 @@ class LanDevice extends DiscoveredDevice {
     final address = value['address'];
     final port = value['port'];
     final model = value['model'];
+    final modelVersion = value['modelVersion'] ?? '';
     final protocolId = value['protocolId'] ?? id;
     if (id is! String ||
         !RegExp(r'^(lgb-)?[0-9a-f]{12}$').hasMatch(id) ||
@@ -73,7 +80,9 @@ class LanDevice extends DiscoveredDevice {
         port > 65535 ||
         model is! String ||
         model.isEmpty ||
-        model.length > 64) {
+        model.length > 64 ||
+        modelVersion is! String ||
+        modelVersion.length > 64) {
       return null;
     }
     return LanDevice(
@@ -83,6 +92,7 @@ class LanDevice extends DiscoveredDevice {
       address: address,
       port: port,
       model: model,
+      modelVersion: modelVersion,
     );
   }
 }

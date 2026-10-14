@@ -178,6 +178,7 @@ class _ConnectionHelpPanel extends StatelessWidget {
                                   const SizedBox(width: 12),
                                   AppTooltip(
                                     message: l10n.closeHelp,
+                                    verticalOffset: 16,
                                     child: Semantics(
                                       label: l10n.closeHelp,
                                       button: true,

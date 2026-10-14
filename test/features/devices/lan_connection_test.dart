@@ -105,6 +105,23 @@ class TestLanDiscovery extends LanDiscovery {
 }
 
 void main() {
+  test('model versions persist and legacy records remain readable', () {
+    const versioned = LanDevice(
+      id: deviceId,
+      name: 'Desk',
+      address: '192.0.2.1',
+      port: 18464,
+      model: 'T-Display-P4',
+      modelVersion: 'v2.0',
+    );
+    final json = versioned.toJson();
+    expect(LanDevice.fromJson(json)!.modelLabel, 'T-Display-P4 v2.0');
+    json.remove('modelVersion');
+    expect(LanDevice.fromJson(json)!.modelLabel, 'T-Display-P4');
+    json['modelVersion'] = 42;
+    expect(LanDevice.fromJson(json), isNull);
+  });
+
   test(
     'UDP discovery ignores foreign/malformed replies and uses the sender address',
     () async {
@@ -319,7 +336,12 @@ void main() {
       serve((socket, message) {
         if (message['type'] == 'hello') {
           socket.add(
-            jsonEncode({...response('ready'), 'name': name, 'state': state()}),
+            jsonEncode({
+              ...response('ready'),
+              'name': name,
+              'modelVersion': 'v2.0',
+              'state': state(),
+            }),
           );
         } else if (message['type'] == 'ping') {
           socket.add(jsonEncode({...response('pong'), 'name': name}));
@@ -333,6 +355,7 @@ void main() {
               ...response('control.result'),
               'requestId': message['requestId'],
               'name': name,
+              'modelVersion': 'v2.0',
               'ok': !failSave,
               'error': failSave ? 'storage_failed' : '',
               'state': state(),
@@ -351,6 +374,7 @@ void main() {
         isTrue,
       );
       expect(connection.device!.name, '新设备');
+      expect(connection.device!.modelLabel, '${device.model} v2.0');
       expect(connection.device!.id, deviceId);
       failSave = true;
       expect(

@@ -94,39 +94,86 @@ void main() {
     session.dispose();
   });
 
-  Widget app({String language = 'en', double scale = 1, String? nestedView}) =>
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider.value(value: theme),
-          ChangeNotifierProvider.value(value: devices),
-          ChangeNotifierProvider.value(value: navigation),
-          ChangeNotifierProvider<LanConnection>.value(value: session),
-        ],
-        child: MaterialApp(
-          locale: Locale(language),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: TextScaler.linear(scale)),
-            child: child!,
-          ),
-          home: Scaffold(
-            backgroundColor: theme.themeData.secondary,
-            body: DevicePageFrame(
-              active: true,
-              onBack: navigation.goHome,
-              child: ConnectedDevicePage(deviceId: '001122334455'),
-            ),
+  Widget app({
+    String language = 'en',
+    double scale = 1,
+    ValueNotifier<bool>? nestedView,
+    ValueNotifier<DevicePageTitle?>? pageTitle,
+  }) => MultiProvider(
+    providers: [
+      ChangeNotifierProvider.value(value: theme),
+      ChangeNotifierProvider.value(value: devices),
+      ChangeNotifierProvider.value(value: navigation),
+      ChangeNotifierProvider<LanConnection>.value(value: session),
+    ],
+    child: MaterialApp(
+      locale: Locale(language),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(scale)),
+        child: child!,
+      ),
+      home: Scaffold(
+        backgroundColor: theme.themeData.secondary,
+        body: DevicePageFrame(
+          active: true,
+          pageTitle: pageTitle,
+          onBack: navigation.goHome,
+          child: ConnectedDevicePage(
+            deviceId: '001122334455',
+            pageTitle: pageTitle,
+            nestedView: nestedView,
           ),
         ),
-      );
+      ),
+    ),
+  );
 
   Future<void> select(WidgetTester tester, String tab) async {
     await tester.tap(find.byKey(ValueKey('device-tab-$tab')));
     await tester.pumpAndSettle();
   }
+
+  testWidgets('retained device titles update when language changes', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1100, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final title = ValueNotifier<DevicePageTitle?>(null);
+    final nested = ValueNotifier(false);
+    addTearDown(title.dispose);
+    addTearDown(nested.dispose);
+    await tester.pumpWidget(app(pageTitle: title, nestedView: nested));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('device-card-information')));
+    await tester.pumpAndSettle();
+    expect(title.value, DevicePageTitle.information);
+    for (final language in ['zh', 'en', 'zh']) {
+      await tester.pumpWidget(
+        app(language: language, pageTitle: title, nestedView: nested),
+      );
+      await tester.pumpAndSettle();
+      final l10n = AppLocalizations.of(
+        tester.element(find.byType(ConnectedDevicePage)),
+      );
+      expect(
+        find.descendant(
+          of: find.byType(ValueListenableBuilder<DevicePageTitle?>),
+          matching: find.text(l10n.deviceInfoTab),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text(language == 'zh' ? 'Device information' : '设备信息'),
+        findsNothing,
+      );
+    }
+    expect(title.value, DevicePageTitle.information);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'connection endpoints are filled and name editing is capability gated',
