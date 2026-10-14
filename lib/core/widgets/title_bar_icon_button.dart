@@ -88,7 +88,7 @@ class _TitleBarIconButtonState extends State<TitleBarIconButton> {
                 child: Icon(
                   widget.icon,
                   size: widget.iconSize,
-                  color: widget.isFocused
+                  color: widget.isFocused && widget.onPressed != null
                       ? widget.theme.iconColor
                       : widget.theme.inactiveIconColor,
                   fill: 1,

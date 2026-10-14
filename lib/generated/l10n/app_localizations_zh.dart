@@ -675,4 +675,53 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceRotationConfirmAction => '确认旋转';
+
+  @override
+  String get deviceBatteryHealth => '电池健康度';
+
+  @override
+  String get deviceBatteryTimeToFull => '预计充满时间';
+
+  @override
+  String get deviceBatteryTimeToEmpty => '预计剩余使用时间';
+
+  @override
+  String deviceBatteryDuration(int hours, int minutes) {
+    return '$hours 小时 $minutes 分钟';
+  }
+
+  @override
+  String get deviceBatteryCapacity => '额定电池容量';
+
+  @override
+  String get deviceBatteryCapacityEdit => '编辑';
+
+  @override
+  String get deviceBatteryCapacityDescription =>
+      '请输入电池标称容量（mAh）。此设置会保存到设备，并用于电量与剩余时间估算，不代表当前剩余容量。';
+
+  @override
+  String deviceBatteryCapacityRange(int minimum, int maximum) {
+    return '范围：$minimum–$maximum mAh';
+  }
+
+  @override
+  String get deviceBatteryCapacityInvalid => '请输入范围内的整数容量。';
+
+  @override
+  String get deviceBatteryCapacitySaveFailed => '保存失败，请检查设备连接后重试。';
+
+  @override
+  String get deviceBatteryCapacitySaving => '保存中…';
+
+  @override
+  String get deviceBatteryCapacitySave => '保存';
+
+  @override
+  String deviceBatteryEstimateMinutes(int minutes) {
+    return '$minutes 分钟';
+  }
+
+  @override
+  String get deviceBatteryLevel => '电池电量';
 }

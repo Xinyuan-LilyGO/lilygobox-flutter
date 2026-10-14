@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/features/devices/domain/device_control.dart';
 import 'package:lilygobox/features/devices/presentation/widgets/device_dashboard.dart';
+import 'package:lilygobox/features/devices/presentation/widgets/device_battery_estimate.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
 
 Map<String, Object> snapshot() => {
@@ -35,6 +36,125 @@ Map<String, Object> snapshot() => {
 };
 
 void main() {
+  test(
+    'negative current cannot expose a charging estimate from old firmware',
+    () {
+      final battery = snapshot()['battery'] as Map<String, Object>;
+      final state = DeviceControlState.parse({
+        ...snapshot(),
+        'battery': {
+          ...battery,
+          'charging': true,
+          'currentMa': -127,
+          'timeToFullMinutes': 22,
+          'timeToEmptyMinutes': 408,
+        },
+      });
+      expect(state.battery!.charging, isFalse);
+      expect(state.battery!.timeToFullMinutes, isNull);
+      expect(state.battery!.timeToEmptyMinutes, 408);
+    },
+  );
+  testWidgets('battery headline combines percent with the active estimate', (
+    tester,
+  ) async {
+    Widget app(bool charging) => MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: SizedBox(
+          width: 220,
+          child: DeviceBatteryEstimate(
+            color: Colors.black,
+            battery: DeviceBatteryState(
+              percent: 75,
+              charging: charging,
+              full: false,
+              voltageMv: 3900,
+              currentMa: charging ? 100 : -100,
+              temperatureC: 25,
+              timeToFullMinutes: 22,
+              timeToEmptyMinutes: 408,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(app(true));
+    expect(find.text('75% · 22 min'), findsOneWidget);
+    await tester.pumpWidget(app(false));
+    expect(find.text('75% · 6 hr 48 min'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  test(
+    'battery telemetry is optional and unknown values are not fabricated',
+    () {
+      final old = DeviceControlState.parse(snapshot());
+      expect(old.battery!.healthPercent, isNull);
+      expect(old.battery!.timeToFullMinutes, isNull);
+      expect(old.supports(DeviceControlField.batteryCapacityMah), isFalse);
+      final battery = snapshot()['battery'] as Map<String, Object>;
+      final state = DeviceControlState.parse({
+        ...snapshot(),
+        'battery': {
+          ...battery,
+          'healthPercent': 92,
+          'timeToFullMinutes': 75,
+          'timeToEmptyMinutes': null,
+          'temperatureC': null,
+        },
+      });
+      expect(state.battery!.healthPercent, 92);
+      expect(state.battery!.timeToFullMinutes, 75);
+      expect(state.battery!.timeToEmptyMinutes, isNull);
+      expect(state.battery!.temperatureC, isNull);
+      for (final value in [0, 101, '92']) {
+        expect(
+          () => DeviceControlState.parse({
+            ...snapshot(),
+            'battery': {...battery, 'healthPercent': value},
+          }),
+          throwsFormatException,
+        );
+      }
+      for (final value in [0, 65535, -1]) {
+        expect(
+          () => DeviceControlState.parse({
+            ...snapshot(),
+            'battery': {...battery, 'timeToFullMinutes': value},
+          }),
+          throwsFormatException,
+        );
+      }
+    },
+  );
+
+  test('capacity follows device range and remains editable without a pack', () {
+    final state = DeviceControlState.parse({
+      ...snapshot(),
+      'capabilities': {
+        'screen': true,
+        'audio': false,
+        'haptic': false,
+        'battery': true,
+      },
+      'batteryCapacityMah': 1000,
+      'batteryCapacityMinimumMah': 1,
+      'batteryCapacityMaximumMah': 32767,
+      'battery': {'available': false},
+    });
+    expect(state.supports(DeviceControlField.batteryCapacityMah), isTrue);
+    expect(state.accepts(DeviceControlField.batteryCapacityMah, 32767), isTrue);
+    for (final value in [0, 32768, 1.5, true]) {
+      expect(
+        state.accepts(DeviceControlField.batteryCapacityMah, value),
+        isFalse,
+      );
+    }
+    expect(state.battery, isNull);
+  });
+
   test(
     'auto lock accepts device options and stays unavailable on old firmware',
     () {
@@ -138,7 +258,7 @@ void main() {
         ),
       );
       await tester.pumpWidget(app());
-      expect(find.text('48%'), findsOneWidget);
+      expect(find.text('48% · —'), findsOneWidget);
       expect(find.text('82%'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('device-auto-lock-0')));
       await tester.pumpAndSettle();
@@ -186,7 +306,7 @@ void main() {
             .every((slider) => slider.onChanged == null),
         isTrue,
       );
-      expect(find.text('48%'), findsOneWidget);
+      expect(find.text('48% · —'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

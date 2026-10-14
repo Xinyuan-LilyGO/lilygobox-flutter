@@ -21,6 +21,7 @@ class AppActionButton extends StatelessWidget {
     required this.onPressed,
     this.primary = false,
     this.destructive = false,
+    this.settingBackground = false,
     this.icon,
     this.iconSize = 20,
     this.iconSpacing = 8,
@@ -36,6 +37,9 @@ class AppActionButton extends StatelessWidget {
 
   /// 危险操作使用红色底色，继续复用统一的悬停和点击动画。
   final bool destructive;
+
+  /// 在设置弹窗中沿用未选中设置项底色，保留灰色悬停对比。
+  final bool settingBackground;
   final IconData? icon;
   final double iconSize;
   final double iconSpacing;
@@ -51,6 +55,8 @@ class AppActionButton extends StatelessWidget {
         ? theme.materialColors.error
         : primary
         ? theme.basePrimary
+        : settingBackground
+        ? Color.alphaBlend(theme.secondary.withValues(alpha: .9), theme.primary)
         : Color.alphaBlend(
             theme.textColorPrimary.withValues(alpha: 0.06),
             theme.secondary,

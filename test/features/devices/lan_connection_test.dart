@@ -300,6 +300,99 @@ void main() {
   };
 
   test(
+    'capacity save waits for acknowledgement, rolls back on failure and ends on disconnect',
+    () async {
+      int capacity = 1000;
+      bool failSave = false;
+      bool hold = false;
+      int commands = 0;
+      Map<String, Object> state() => {
+        ...controlState(),
+        'capabilities': {
+          'screen': true,
+          'audio': true,
+          'haptic': false,
+          'battery': true,
+        },
+        'batteryCapacityMah': capacity,
+        'batteryCapacityMinimumMah': 1,
+        'batteryCapacityMaximumMah': 32767,
+      };
+      serve((socket, message) {
+        if (message['type'] == 'hello') {
+          socket.add(jsonEncode({...response('ready'), 'state': state()}));
+        } else if (message['type'] == 'ping') {
+          socket.add(jsonEncode(response('pong')));
+        } else if (message['type'] == 'control.set') {
+          commands++;
+          expect(message['field'], 'batteryCapacityMah');
+          if (hold) return;
+          if (!failSave) capacity = message['value'] as int;
+          socket.add(
+            jsonEncode({
+              ...response('control.result'),
+              'requestId': message['requestId'],
+              'ok': !failSave,
+              'error': failSave ? 'storage_failed' : '',
+              'state': state(),
+            }),
+          );
+        }
+      });
+      expect(await connection.connect(device), isTrue);
+      expect(
+        await connection.saveControl(
+          DeviceControlField.batteryCapacityMah,
+          32768,
+        ),
+        isFalse,
+      );
+      expect(commands, 0);
+      expect(
+        await connection.saveControl(
+          DeviceControlField.batteryCapacityMah,
+          2000,
+        ),
+        isTrue,
+      );
+      expect(
+        connection
+            .controlStateFor(deviceId)!
+            .number(DeviceControlField.batteryCapacityMah),
+        2000,
+      );
+      failSave = true;
+      expect(
+        await connection.saveControl(
+          DeviceControlField.batteryCapacityMah,
+          3000,
+        ),
+        isFalse,
+      );
+      expect(
+        connection
+            .controlStateFor(deviceId)!
+            .number(DeviceControlField.batteryCapacityMah),
+        2000,
+      );
+      hold = true;
+      final pending = connection.saveControl(
+        DeviceControlField.batteryCapacityMah,
+        4000,
+      );
+      await waitFor(() => commands == 3);
+      connection.disconnect();
+      expect(await pending, isFalse);
+      expect(
+        connection
+            .controlStateFor(deviceId)!
+            .number(DeviceControlField.batteryCapacityMah),
+        2000,
+      );
+    },
+  );
+
+  test(
     'auto lock sends supported seconds and synchronizes the confirmed state',
     () async {
       final commands = <Map<String, dynamic>>[];

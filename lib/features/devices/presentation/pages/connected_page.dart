@@ -26,7 +26,9 @@ import '../../domain/device_control.dart';
 import '../../state/lan_connection.dart';
 import '../../state/manager_provider.dart';
 import '../confirm_repair.dart';
+import '../widgets/battery_capacity_dialog.dart';
 import '../widgets/device_battery_colors.dart';
+import '../widgets/device_battery_estimate.dart';
 import '../widgets/device_dashboard.dart';
 import '../widgets/device_status_badge.dart';
 
@@ -630,48 +632,10 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
         enabled: online,
         padding: const EdgeInsets.all(20),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
-              children: [
-                Expanded(
-                  child: _detailText('当前电量', theme, size: 15, bold: true),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Center(
-              child: Text(
-                _controlState?.battery == null
-                    ? '—'
-                    : '${_controlState!.battery!.percent}%',
-                style: TextStyle(
-                  fontSize: 44,
-                  fontWeight: FontWeight.w700,
-                  height: 1,
-                  color: theme.textColorPrimary,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 236),
-                child: Column(
-                  children: [
-                    DeviceBatteryGraphic(
-                      theme: theme,
-                      progress: (_controlState?.battery?.percent ?? 0) / 100,
-                      height: 96,
-                      colors: DeviceBatteryColors(theme),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (_controlState?.battery?.charging == true) ...[
                   Icon(
@@ -682,10 +646,13 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                   ),
                   const SizedBox(width: 8),
                 ],
-                Flexible(
+                Expanded(
                   child: _detailText(
                     _controlState?.battery == null
-                        ? '未知'
+                        ? context.l10n.deviceBatteryUnknown
+                        : _controlState!.battery!.full &&
+                              _controlState!.battery!.charging
+                        ? '已充满'
                         : _controlState!.battery!.charging
                         ? '充电中'
                         : '电池供电',
@@ -696,24 +663,39 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: deviceBatteryHeadingGap),
+            DeviceBatteryEstimate(
+              battery: _controlState?.battery,
+              color: theme.textColorPrimary,
+            ),
+            const SizedBox(height: deviceBatteryGraphicGap),
             Center(
-              child: _detailText(
-                !online
-                    ? '设备未连接'
-                    : _controlState?.battery == null
-                    ? '暂无电池数据'
-                    : _controlState!.battery!.full
-                    ? '已充满'
-                    : _controlState!.battery!.charging
-                    ? '充电器已连接'
-                    : '未充电',
-                theme,
-                size: 12,
-                muted: true,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 236),
+                child: DeviceBatteryGraphic(
+                  theme: theme,
+                  progress: (_controlState?.battery?.percent ?? 0) / 100,
+                  height: 96,
+                  colors: DeviceBatteryColors(theme),
+                ),
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: deviceBatteryGraphicGap),
+            _detailText(
+              !online
+                  ? '设备未连接'
+                  : _controlState?.battery == null
+                  ? '暂无电池数据'
+                  : _controlState!.battery!.full &&
+                        _controlState!.battery!.charging
+                  ? '已充满'
+                  : _controlState!.battery!.charging
+                  ? '充电器已连接'
+                  : '未充电',
+              theme,
+              size: 12,
+              muted: true,
+            ),
           ],
         ),
       );
@@ -747,7 +729,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                   theme,
                   Symbols.thermometer,
                   '温度',
-                  _controlState?.battery?.temperatureC.toStringAsFixed(1) ??
+                  _controlState?.battery?.temperatureC?.toStringAsFixed(1) ??
                       '—',
                   '°C',
                 );
@@ -793,6 +775,59 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                   ? '—'
                   : '${_controlState!.battery!.currentMa} mA',
             ),
+            _batteryStatusRow(
+              theme,
+              context.l10n.deviceBatteryLevel,
+              _controlState?.battery == null
+                  ? '—'
+                  : '${_controlState!.battery!.percent}%',
+            ),
+            _batteryStatusRow(
+              theme,
+              context.l10n.deviceBatteryHealth,
+              switch (_controlState?.battery?.healthPercent) {
+                final health? => '$health%',
+                null => '—',
+              },
+            ),
+            _batteryStatusRow(
+              theme,
+              context.l10n.deviceBatteryTimeToFull,
+              _batteryDuration(
+                context,
+                _controlState?.battery?.timeToFullMinutes,
+              ),
+            ),
+            _batteryStatusRow(
+              theme,
+              context.l10n.deviceBatteryTimeToEmpty,
+              _batteryDuration(
+                context,
+                _controlState?.battery?.timeToEmptyMinutes,
+              ),
+            ),
+            const SizedBox(height: 4),
+            _batteryStatusRow(
+              theme,
+              context.l10n.deviceBatteryCapacity,
+              switch (_controlState?.values[DeviceControlField
+                  .batteryCapacityMah]) {
+                final int capacity => '$capacity mAh',
+                _ => '—',
+              },
+              editable: true,
+              onTap:
+                  online &&
+                      context.read<LanConnection>().controlsReadyFor(
+                        widget.deviceId,
+                      ) &&
+                      (_controlState?.supports(
+                            DeviceControlField.batteryCapacityMah,
+                          ) ??
+                          false)
+                  ? () => _editBatteryCapacity(theme)
+                  : null,
+            ),
           ],
         ),
       );
@@ -804,20 +839,47 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
             const SizedBox(height: 18),
             details,
           ] else
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(flex: 37, child: summary),
-                  const SizedBox(width: 18),
-                  Expanded(flex: 63, child: details),
-                ],
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 37, child: summary),
+                const SizedBox(width: 18),
+                Expanded(flex: 63, child: details),
+              ],
             ),
         ],
       );
     },
   );
+
+  String _batteryDuration(BuildContext context, int? minutes) => minutes == null
+      ? '—'
+      : context.l10n.deviceBatteryDuration(minutes ~/ 60, minutes % 60);
+
+  Future<void> _editBatteryCapacity(AppTheme theme) async {
+    final state = _controlState;
+    if (state == null ||
+        !state.supports(DeviceControlField.batteryCapacityMah)) {
+      return;
+    }
+    final connection = context.read<LanConnection>();
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => BatteryCapacityDialog(
+        theme: theme,
+        capacity: state.number(DeviceControlField.batteryCapacityMah),
+        minimum: state.batteryCapacityMinimumMah,
+        maximum: state.batteryCapacityMaximumMah,
+        onSave: (value) => connection.device?.id == widget.deviceId
+            ? connection.saveControl(
+                DeviceControlField.batteryCapacityMah,
+                value,
+              )
+            : Future.value(false),
+      ),
+    );
+  }
 
   Widget _batteryMetric(
     AppTheme theme,
@@ -867,34 +929,71 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
     ),
   );
 
-  Widget _batteryStatusRow(AppTheme theme, String label, String value) =>
-      DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: theme.materialColors.outlineVariant),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          child: Row(
-            children: [
-              Expanded(child: _detailText(label, theme, muted: true)),
-              const SizedBox(width: 16),
-              Flexible(
-                child: Text(
-                  value,
-                  textAlign: TextAlign.end,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: theme.textColorPrimary,
-                  ),
-                ),
+  Widget _batteryStatusRow(
+    AppTheme theme,
+    String label,
+    String value, {
+    bool editable = false,
+    VoidCallback? onTap,
+  }) {
+    final text = Text(
+      value,
+      style: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: theme.textColorPrimary,
+      ),
+    );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: editable
+            ? null
+            : Border(
+                bottom: BorderSide(color: theme.materialColors.outlineVariant),
               ),
-            ],
-          ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: editable ? 8 : 14),
+        child: Row(
+          children: [
+            Expanded(child: _detailText(label, theme, muted: true)),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: editable
+                    // 背景向文字外延伸，数值仍与其他信息行共用列起点。
+                    ? Transform.translate(
+                        offset: const Offset(-18, 0),
+                        child: Semantics(
+                          button: true,
+                          label: context.l10n.deviceBatteryCapacityEdit,
+                          child: MenuItemSurface(
+                            key: const ValueKey('device-battery-capacity-edit'),
+                            theme: theme,
+                            backgroundColor: theme.primary,
+                            hoverColor: theme.hoverColorForBackground(
+                              theme.primary,
+                            ),
+                            onPressed: onTap,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 6,
+                              ),
+                              child: text,
+                            ),
+                          ),
+                        ),
+                      )
+                    : text,
+              ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
+  }
 
   /// 按连接状态展示链路示意、连接信息与管理操作，复用现有连接按钮。
   Widget _connectionView(

@@ -1385,6 +1385,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Rotate'**
   String get deviceRotationConfirmAction;
+
+  /// No description provided for @deviceBatteryHealth.
+  ///
+  /// In en, this message translates to:
+  /// **'Battery health'**
+  String get deviceBatteryHealth;
+
+  /// No description provided for @deviceBatteryTimeToFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Estimated time to full'**
+  String get deviceBatteryTimeToFull;
+
+  /// No description provided for @deviceBatteryTimeToEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Estimated battery runtime'**
+  String get deviceBatteryTimeToEmpty;
+
+  /// No description provided for @deviceBatteryDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours} hr {minutes} min'**
+  String deviceBatteryDuration(int hours, int minutes);
+
+  /// No description provided for @deviceBatteryCapacity.
+  ///
+  /// In en, this message translates to:
+  /// **'Rated battery capacity'**
+  String get deviceBatteryCapacity;
+
+  /// No description provided for @deviceBatteryCapacityEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get deviceBatteryCapacityEdit;
+
+  /// No description provided for @deviceBatteryCapacityDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the rated capacity in mAh. This setting is saved on the device and used for battery and runtime estimates; it is not the remaining capacity.'**
+  String get deviceBatteryCapacityDescription;
+
+  /// No description provided for @deviceBatteryCapacityRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Range: {minimum}–{maximum} mAh'**
+  String deviceBatteryCapacityRange(int minimum, int maximum);
+
+  /// No description provided for @deviceBatteryCapacityInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a whole-number capacity within the range.'**
+  String get deviceBatteryCapacityInvalid;
+
+  /// No description provided for @deviceBatteryCapacitySaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save. Check the device connection and try again.'**
+  String get deviceBatteryCapacitySaveFailed;
+
+  /// No description provided for @deviceBatteryCapacitySaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving…'**
+  String get deviceBatteryCapacitySaving;
+
+  /// No description provided for @deviceBatteryCapacitySave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get deviceBatteryCapacitySave;
+
+  /// No description provided for @deviceBatteryEstimateMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min'**
+  String deviceBatteryEstimateMinutes(int minutes);
+
+  /// No description provided for @deviceBatteryLevel.
+  ///
+  /// In en, this message translates to:
+  /// **'Battery level'**
+  String get deviceBatteryLevel;
 }
 
 class _AppLocalizationsDelegate

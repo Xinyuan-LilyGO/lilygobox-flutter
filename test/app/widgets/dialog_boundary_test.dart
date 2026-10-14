@@ -293,6 +293,13 @@ void main() {
     final sidebarToggle = find.byKey(const ValueKey('toggle-sidebar'));
     expect(tester.widget<TitleBarIconButton>(titleSettings).onPressed, isNull);
     expect(tester.widget<TitleBarIconButton>(sidebarToggle).onPressed, isNull);
+    for (final button in [titleSettings, sidebarToggle]) {
+      final widget = tester.widget<TitleBarIconButton>(button);
+      final icon = tester.widget<Icon>(
+        find.descendant(of: button, matching: find.byType(Icon)),
+      );
+      expect(icon.color, widget.theme.inactiveIconColor);
+    }
     final wasVisible = shell.isSidebarVisible;
     await tester.tap(titleSettings);
     await tester.tap(sidebarToggle);

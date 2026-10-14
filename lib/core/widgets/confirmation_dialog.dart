@@ -47,6 +47,7 @@ Future<bool> showAppConfirmation({
             theme: theme,
             label: confirm ? confirmLabel : cancelLabel,
             primary: confirm,
+            settingBackground: !confirm,
             onPressed: () => Navigator.pop(dialogContext, confirm),
             fontSize: 12,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

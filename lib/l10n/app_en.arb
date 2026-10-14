@@ -217,5 +217,46 @@
   "deviceBatteryUnknown": "Unknown",
     "deviceRotationConfirmTitle": "Change display orientation?",
     "deviceRotationConfirmDescription": "Rotating will close the current page on the device and return to its home screen. Unsaved changes will be discarded. If the device is locked, it will stay locked.",
-    "deviceRotationConfirmAction": "Rotate"
+    "deviceRotationConfirmAction": "Rotate",
+    "deviceBatteryHealth": "Battery health",
+    "deviceBatteryTimeToFull": "Estimated time to full",
+    "deviceBatteryTimeToEmpty": "Estimated battery runtime",
+    "deviceBatteryDuration": "{hours} hr {minutes} min",
+    "deviceBatteryCapacity": "Rated battery capacity",
+    "deviceBatteryCapacityEdit": "Edit",
+    "deviceBatteryCapacityDescription": "Enter the rated capacity in mAh. This setting is saved on the device and used for battery and runtime estimates; it is not the remaining capacity.",
+    "deviceBatteryCapacityRange": "Range: {minimum}–{maximum} mAh",
+    "deviceBatteryCapacityInvalid": "Enter a whole-number capacity within the range.",
+    "deviceBatteryCapacitySaveFailed": "Could not save. Check the device connection and try again.",
+    "deviceBatteryCapacitySaving": "Saving…",
+    "deviceBatteryCapacitySave": "Save",
+    "@deviceBatteryDuration": {
+        "placeholders": {
+            "hours": {
+                "type": "int"
+            },
+            "minutes": {
+                "type": "int"
+            }
+        }
+    },
+    "@deviceBatteryCapacityRange": {
+        "placeholders": {
+            "minimum": {
+                "type": "int"
+            },
+            "maximum": {
+                "type": "int"
+            }
+        }
+    },
+    "deviceBatteryEstimateMinutes": "{minutes} min",
+    "@deviceBatteryEstimateMinutes": {
+        "placeholders": {
+            "minutes": {
+                "type": "int"
+            }
+        }
+    },
+    "deviceBatteryLevel": "Battery level"
 }

@@ -217,5 +217,46 @@
   "deviceBatteryUnknown": "未知",
     "deviceRotationConfirmTitle": "更改显示方向？",
     "deviceRotationConfirmDescription": "旋转后，设备将关闭当前页面并返回主界面，未保存的内容不会保留。设备处于锁屏时将保持锁屏，不会自动解锁。",
-    "deviceRotationConfirmAction": "确认旋转"
+    "deviceRotationConfirmAction": "确认旋转",
+    "deviceBatteryHealth": "电池健康度",
+    "deviceBatteryTimeToFull": "预计充满时间",
+    "deviceBatteryTimeToEmpty": "预计剩余使用时间",
+    "deviceBatteryDuration": "{hours} 小时 {minutes} 分钟",
+    "deviceBatteryCapacity": "额定电池容量",
+    "deviceBatteryCapacityEdit": "编辑",
+    "deviceBatteryCapacityDescription": "请输入电池标称容量（mAh）。此设置会保存到设备，并用于电量与剩余时间估算，不代表当前剩余容量。",
+    "deviceBatteryCapacityRange": "范围：{minimum}–{maximum} mAh",
+    "deviceBatteryCapacityInvalid": "请输入范围内的整数容量。",
+    "deviceBatteryCapacitySaveFailed": "保存失败，请检查设备连接后重试。",
+    "deviceBatteryCapacitySaving": "保存中…",
+    "deviceBatteryCapacitySave": "保存",
+    "@deviceBatteryDuration": {
+        "placeholders": {
+            "hours": {
+                "type": "int"
+            },
+            "minutes": {
+                "type": "int"
+            }
+        }
+    },
+    "@deviceBatteryCapacityRange": {
+        "placeholders": {
+            "minimum": {
+                "type": "int"
+            },
+            "maximum": {
+                "type": "int"
+            }
+        }
+    },
+    "deviceBatteryEstimateMinutes": "{minutes} 分钟",
+    "@deviceBatteryEstimateMinutes": {
+        "placeholders": {
+            "minutes": {
+                "type": "int"
+            }
+        }
+    },
+    "deviceBatteryLevel": "电池电量"
 }

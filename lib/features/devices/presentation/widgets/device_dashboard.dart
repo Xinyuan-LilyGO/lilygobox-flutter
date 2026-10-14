@@ -17,6 +17,7 @@ import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/tilt_card.dart';
 import '../../domain/device_control.dart';
 import 'device_battery_colors.dart';
+import 'device_battery_estimate.dart';
 
 /// 根据可用空间组织卡片；同行高度由内容决定，不使用固定卡片尺寸。
 class DeviceDashboard extends StatelessWidget {
@@ -334,7 +335,7 @@ class DeviceDashboard extends StatelessWidget {
                 context.l10n.deviceDashboardMyDevice,
                 color: colors.foreground,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               // 居中的媒体槽位预留给设备图片，暂时使用 Blur On 图标。
               Center(
                 child: SizedBox(
@@ -343,7 +344,7 @@ class DeviceDashboard extends StatelessWidget {
                   child: Icon(Symbols.blur_on, size: 80, color: colors.muted),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               Center(
                 child: _text(
                   name,
@@ -361,7 +362,7 @@ class DeviceDashboard extends StatelessWidget {
                   color: colors.muted,
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 16),
             ],
           ),
           _text(
@@ -389,6 +390,7 @@ class DeviceDashboard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
@@ -418,24 +420,12 @@ class DeviceDashboard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                controlState?.battery == null
-                    ? '—'
-                    : '${controlState!.battery!.percent}%',
-                style: TextStyle(
-                  color: colors.foreground,
-                  fontSize: 36,
-                  height: 1.1,
-                  fontWeight: FontWeight.w600,
-                ),
+              const SizedBox(height: deviceBatteryHeadingGap),
+              DeviceBatteryEstimate(
+                battery: controlState?.battery,
+                color: colors.foreground,
               ),
-              const SizedBox(height: 6),
-              Text(
-                context.l10n.deviceDashboardBattery,
-                style: TextStyle(color: colors.muted, fontSize: 13),
-              ),
-              const SizedBox(height: 12),
+              const SizedBox(height: deviceBatteryGraphicGap),
               Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 236),
@@ -447,7 +437,7 @@ class DeviceDashboard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: deviceBatteryGraphicGap),
             ],
           ),
           Text(
@@ -554,11 +544,13 @@ class DeviceDashboard extends StatelessWidget {
 
   /// 声音与触感采用与屏幕控制一致的内容布局，不嵌套额外卡片。
   Widget _soundAndHaptics(BuildContext context) => _surface(
+    padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
     enabled:
         _supports(DeviceControlField.volume) ||
         _supports(DeviceControlField.hapticStrength),
     child: Column(
       mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _text(context.l10n.deviceSoundAndHaptics, size: 16, bold: true),
@@ -933,44 +925,27 @@ class DeviceBatteryGraphic extends StatelessWidget {
         );
     final outline =
         colors?.muted ?? theme.textColorTertiary.withValues(alpha: .55);
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            height: height,
-            padding: EdgeInsets.all(height * .065),
-            decoration: BoxDecoration(
-              border: Border.all(color: outline, width: 2),
-              borderRadius: BorderRadius.circular(height * .22),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(height * .155),
-              child: ColoredBox(
-                color: empty,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: FractionallySizedBox(
-                    widthFactor: progress.clamp(0.0, 1.0),
-                    heightFactor: 1,
-                    child: ColoredBox(color: colors?.fill ?? theme.basePrimary),
-                  ),
-                ),
-              ),
+    return Container(
+      height: height,
+      padding: EdgeInsets.all(height * .045),
+      decoration: BoxDecoration(
+        border: Border.all(color: outline, width: 1.5),
+        borderRadius: BorderRadius.circular(height * .22),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(height * .16),
+        child: ColoredBox(
+          color: empty,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: FractionallySizedBox(
+              widthFactor: progress.clamp(0.0, 1.0),
+              heightFactor: 1,
+              child: ColoredBox(color: colors?.fill ?? theme.basePrimary),
             ),
           ),
         ),
-        const SizedBox(width: 6),
-        Container(
-          width: height * .15,
-          height: height * .42,
-          decoration: BoxDecoration(
-            color: outline,
-            borderRadius: BorderRadius.horizontal(
-              right: Radius.circular(height * .12),
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

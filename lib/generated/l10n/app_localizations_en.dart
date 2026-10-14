@@ -709,4 +709,55 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceRotationConfirmAction => 'Rotate';
+
+  @override
+  String get deviceBatteryHealth => 'Battery health';
+
+  @override
+  String get deviceBatteryTimeToFull => 'Estimated time to full';
+
+  @override
+  String get deviceBatteryTimeToEmpty => 'Estimated battery runtime';
+
+  @override
+  String deviceBatteryDuration(int hours, int minutes) {
+    return '$hours hr $minutes min';
+  }
+
+  @override
+  String get deviceBatteryCapacity => 'Rated battery capacity';
+
+  @override
+  String get deviceBatteryCapacityEdit => 'Edit';
+
+  @override
+  String get deviceBatteryCapacityDescription =>
+      'Enter the rated capacity in mAh. This setting is saved on the device and used for battery and runtime estimates; it is not the remaining capacity.';
+
+  @override
+  String deviceBatteryCapacityRange(int minimum, int maximum) {
+    return 'Range: $minimum–$maximum mAh';
+  }
+
+  @override
+  String get deviceBatteryCapacityInvalid =>
+      'Enter a whole-number capacity within the range.';
+
+  @override
+  String get deviceBatteryCapacitySaveFailed =>
+      'Could not save. Check the device connection and try again.';
+
+  @override
+  String get deviceBatteryCapacitySaving => 'Saving…';
+
+  @override
+  String get deviceBatteryCapacitySave => 'Save';
+
+  @override
+  String deviceBatteryEstimateMinutes(int minutes) {
+    return '$minutes min';
+  }
+
+  @override
+  String get deviceBatteryLevel => 'Battery level';
 }

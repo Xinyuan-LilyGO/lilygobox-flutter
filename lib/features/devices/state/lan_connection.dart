@@ -67,6 +67,25 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
   int _controlRequestId = 0;
   bool _controlsReady = false;
   String? lastControlError;
+  final Map<DeviceControlField, Completer<bool>> _controlCompletions = {};
+
+  /// 等待设备确认保存结果；断线或失败时返回 false，不把目标值当成成功值。
+  Future<bool> saveControl(DeviceControlField field, Object value) {
+    final id = device?.id;
+    final state = id == null ? null : _deviceStates[id];
+    if (id == null ||
+        !controlsReadyFor(id) ||
+        state == null ||
+        !state.supports(field) ||
+        !state.accepts(field, value) ||
+        _controlCompletions.containsKey(field)) {
+      return Future.value(false);
+    }
+    final completion = Completer<bool>();
+    _controlCompletions[field] = completion;
+    setControl(field, value);
+    return completion.future;
+  }
 
   DeviceControlState? controlStateFor(String id) {
     final state = _deviceStates[id];
@@ -86,7 +105,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     if (id == null ||
         !controlsReadyFor(id) ||
         !(_deviceStates[id]?.supports(field) ?? false) ||
-        !field.accepts(value)) {
+        !(_deviceStates[id]?.accepts(field, value) ?? false)) {
       return;
     }
     _controlTargets[field] = value;
@@ -255,6 +274,10 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     _controlTimeout?.cancel();
     _statePoll?.cancel();
     _controlTargets.clear();
+    for (final completion in _controlCompletions.values) {
+      completion.complete(false);
+    }
+    _controlCompletions.clear();
     _inFlightControl = null;
     _controlsReady = false;
     ++_generation;
@@ -484,6 +507,9 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
           _controlPoll?.cancel();
           _controlTimeout?.cancel();
           _readControlState(data);
+          _controlCompletions
+              .remove(_inFlightControl!.key)
+              ?.complete(data['ok'] == true);
           _inFlightControl = null;
           lastControlError = data['ok'] == true
               ? null

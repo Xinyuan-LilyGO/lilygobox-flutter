@@ -7,6 +7,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../context_menu/text_selection_menu.dart';
 import '../../theme/definition.dart';
@@ -17,11 +18,17 @@ class SettingTextField extends StatelessWidget {
     required this.theme,
     required this.value,
     this.onChanged,
+    this.enabled = true,
+    this.keyboardType,
+    this.inputFormatters,
   });
 
   final AppTheme theme;
   final String value;
   final ValueChanged<String>? onChanged;
+  final bool enabled;
+  final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +37,9 @@ class SettingTextField extends StatelessWidget {
       child: TextFormField(
         contextMenuBuilder: AppTextSelectionMenu.build,
         initialValue: value,
+        enabled: enabled,
+        keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
         onChanged: onChanged,
         cursorColor: theme.dividerColorNormal,
         style: TextStyle(
