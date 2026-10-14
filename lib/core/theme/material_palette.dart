@@ -193,9 +193,9 @@ extension MaterialThemeRoles on AppTheme {
     light: Colors.white,
   );
 
-  /// 电池保留此前单独确认的紫色填充。
+  /// 正常电量使用绿色，亮暗主题分别保持图形对比度。
   Color get batteryFillColor => adaptiveColor(
-    dark: const Color(0xFFB5A1F2),
-    light: const Color(0xFF7962C3),
+    dark: const Color(0xFF30D158),
+    light: const Color(0xFF34C759),
   );
 }

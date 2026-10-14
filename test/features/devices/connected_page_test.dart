@@ -20,6 +20,8 @@ import 'package:lilygobox/features/devices/state/lan_connection.dart';
 import 'package:lilygobox/features/devices/state/manager_provider.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:material_symbols_icons/symbols.dart';
+import 'package:lilygobox/features/devices/presentation/widgets/device_name_dialog.dart';
 
 const _device = LanDevice(
   id: '001122334455',
@@ -92,38 +94,98 @@ void main() {
     session.dispose();
   });
 
-  Widget app({String language = 'en', double scale = 1}) => MultiProvider(
-    providers: [
-      ChangeNotifierProvider.value(value: theme),
-      ChangeNotifierProvider.value(value: devices),
-      ChangeNotifierProvider.value(value: navigation),
-      ChangeNotifierProvider<LanConnection>.value(value: session),
-    ],
-    child: MaterialApp(
-      locale: Locale(language),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(
-          context,
-        ).copyWith(textScaler: TextScaler.linear(scale)),
-        child: child!,
-      ),
-      home: Scaffold(
-        backgroundColor: theme.themeData.secondary,
-        body: DevicePageFrame(
-          active: true,
-          onBack: navigation.goHome,
-          child: const ConnectedDevicePage(deviceId: '001122334455'),
+  Widget app({String language = 'en', double scale = 1, String? nestedView}) =>
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: theme),
+          ChangeNotifierProvider.value(value: devices),
+          ChangeNotifierProvider.value(value: navigation),
+          ChangeNotifierProvider<LanConnection>.value(value: session),
+        ],
+        child: MaterialApp(
+          locale: Locale(language),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          ),
+          home: Scaffold(
+            backgroundColor: theme.themeData.secondary,
+            body: DevicePageFrame(
+              active: true,
+              onBack: navigation.goHome,
+              child: ConnectedDevicePage(deviceId: '001122334455'),
+            ),
+          ),
         ),
-      ),
-    ),
-  );
+      );
 
   Future<void> select(WidgetTester tester, String tab) async {
     await tester.tap(find.byKey(ValueKey('device-tab-$tab')));
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'connection endpoints are filled and name editing is capability gated',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      session.snapshot = DeviceControlState.parse({
+        'ready': true,
+        'capabilities': {
+          'screen': true,
+          'audio': false,
+          'haptic': false,
+          'identity': true,
+        },
+        'screenEnabled': true,
+        'soundEnabled': true,
+        'hapticEnabled': true,
+        'brightness': 75,
+        'rotation': 90,
+        'volume': 65,
+        'hapticStrength': 60,
+        'deviceName': 'Desk P4',
+        'battery': {'available': false},
+      });
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('device-card-information')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('device-name-edit')));
+      await tester.pumpAndSettle();
+      expect(find.byType(DeviceNameDialog), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      session.publish(LanConnectionPhase.offline);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('device-name-edit')), findsNothing);
+      final disabledCards = find.ancestor(
+        of: find.text('Desk P4'),
+        matching: find.byType(Opacity),
+      );
+      expect(disabledCards, findsNWidgets(2));
+      expect(
+        tester
+            .widgetList<Opacity>(disabledCards)
+            .every((widget) => widget.opacity == .4),
+        isTrue,
+      );
+      final l10n = AppLocalizations.of(
+        tester.element(find.byType(ConnectedDevicePage)),
+      )!;
+      await tester.tap(find.text(l10n.deviceInformationConnection));
+      await tester.pumpAndSettle();
+      for (final symbol in [Symbols.laptop, Symbols.desktop_windows]) {
+        expect(tester.widget<Icon>(find.byIcon(symbol)).fill, 1);
+      }
+
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'rotation requires confirmation and ignores a disconnected session',

@@ -30,6 +30,7 @@ import '../widgets/battery_capacity_dialog.dart';
 import '../widgets/device_battery_colors.dart';
 import '../widgets/device_battery_estimate.dart';
 import '../widgets/device_dashboard.dart';
+import '../widgets/device_name_dialog.dart';
 import '../widgets/device_status_badge.dart';
 
 enum _DeviceDetailView { control, information, battery, connection }
@@ -343,35 +344,13 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       final narrow = constraints.maxWidth < 760;
       final identity = _card(
         theme,
+        enabled: online,
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _detailText(
-                    l10n.homeDeviceCardLabel,
-                    theme,
-                    size: 14,
-                    muted: true,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                DeviceStatusBadge(
-                  theme: theme,
-                  label: online
-                      ? l10n.homeDeviceOnline
-                      : session.busy && session.device?.id == widget.deviceId
-                      ? l10n.homeDeviceConnecting
-                      : l10n.homeDeviceOffline,
-                  connected: online,
-                  connecting:
-                      session.busy && session.device?.id == widget.deviceId,
-                ),
-              ],
-            ),
+            _detailText(l10n.homeDeviceCardLabel, theme, size: 16, bold: true),
             // 中央区域预留设备图片；未提供图片时使用统一的灰色占位图标。
             SizedBox(
               height: 144,
@@ -417,6 +396,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       );
       final details = _card(
         theme,
+        enabled: online,
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -452,6 +432,16 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                     theme,
                     item.$1,
                     item.$2,
+                    onEdit:
+                        item.$1 == l10n.deviceNameLabel &&
+                            online &&
+                            session.controlsReadyFor(widget.deviceId) &&
+                            (_controlState?.supports(
+                                  DeviceControlField.deviceName,
+                                ) ??
+                                false)
+                        ? () => _editDeviceName(theme)
+                        : null,
                     stacked:
                         (narrow
                                 ? constraints.maxWidth - 40
@@ -552,27 +542,62 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
     String label,
     String value, {
     required bool stacked,
+    VoidCallback? onEdit,
   }) {
     final caption = _detailText(label, theme, muted: true);
-    final detail = SelectableText(
-      value,
-      contextMenuBuilder: AppTextSelectionMenu.build,
-      textAlign: stacked ? TextAlign.start : TextAlign.end,
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        color: theme.textColorPrimary,
-      ),
-    );
+    final detail = onEdit == null
+        ? SelectableText(
+            value,
+            contextMenuBuilder: AppTextSelectionMenu.build,
+            textAlign: stacked ? TextAlign.start : TextAlign.end,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: theme.textColorPrimary,
+            ),
+          )
+        : Align(
+            alignment: stacked
+                ? AlignmentDirectional.centerStart
+                : AlignmentDirectional.centerEnd,
+            child: Transform.translate(
+              offset: Offset(stacked ? -10 : 0, 0),
+              child: Semantics(
+                button: true,
+                label: label,
+                child: MenuItemSurface(
+                  key: const ValueKey('device-name-edit'),
+                  theme: theme,
+                  backgroundColor: theme.primary,
+                  hoverColor: theme.hoverColorForBackground(theme.primary),
+                  onPressed: onEdit,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    child: Text(
+                      value,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: theme.textColorPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 9),
+      padding: EdgeInsets.symmetric(vertical: onEdit == null ? 9 : 5),
       child: stacked
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [caption, const SizedBox(height: 6), detail],
             )
           : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(child: caption),
                 const SizedBox(width: 18),
@@ -856,6 +881,26 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       ? '—'
       : context.l10n.deviceBatteryDuration(minutes ~/ 60, minutes % 60);
 
+  Future<void> _editDeviceName(AppTheme theme) async {
+    final connection = context.read<LanConnection>();
+    if (!connection.controlsReadyFor(widget.deviceId) ||
+        !(_controlState?.supports(DeviceControlField.deviceName) ?? false)) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => DeviceNameDialog(
+        theme: theme,
+        name: connection.device?.name ?? widget.deviceId,
+        errorCode: () => connection.lastControlError,
+        onSave: (value) => connection.device?.id == widget.deviceId
+            ? connection.saveControl(DeviceControlField.deviceName, value)
+            : Future.value(false),
+      ),
+    );
+  }
+
   Future<void> _editBatteryCapacity(AppTheme theme) async {
     final state = _controlState;
     if (state == null ||
@@ -946,11 +991,9 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
     );
     return DecoratedBox(
       decoration: BoxDecoration(
-        border: editable
-            ? null
-            : Border(
-                bottom: BorderSide(color: theme.materialColors.outlineVariant),
-              ),
+        border: Border(
+          bottom: BorderSide(color: theme.materialColors.outlineVariant),
+        ),
       ),
       child: Padding(
         padding: EdgeInsets.symmetric(vertical: editable ? 8 : 14),
@@ -964,7 +1007,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                 child: editable
                     // 背景向文字外延伸，数值仍与其他信息行共用列起点。
                     ? Transform.translate(
-                        offset: const Offset(-18, 0),
+                        offset: const Offset(-10, 0),
                         child: Semantics(
                           button: true,
                           label: context.l10n.deviceBatteryCapacityEdit,
@@ -978,7 +1021,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                             onPressed: onTap,
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 18,
+                                horizontal: 10,
                                 vertical: 6,
                               ),
                               child: text,
@@ -1156,7 +1199,11 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                             Symbols.circle,
                             fill: 1,
                             size: 6,
-                            color: theme.textColorTertiary,
+                            color: deviceStatusColor(
+                              theme,
+                              connected: online,
+                              connecting: busy,
+                            ),
                           ),
                           const SizedBox(width: 6),
                           Flexible(child: _detailText(status, theme, size: 12)),
@@ -1327,7 +1374,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
               color: theme.primary,
               borderRadius: BorderRadius.circular(18),
             ),
-            child: Icon(icon, size: 26, color: theme.basePrimary),
+            child: Icon(icon, fill: 1, size: 26, color: theme.basePrimary),
           ),
           const SizedBox(height: 8),
           Text(

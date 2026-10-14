@@ -1469,6 +1469,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Battery level'**
   String get deviceBatteryLevel;
+
+  /// No description provided for @deviceNameEditDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a device name (up to 64 UTF-8 bytes). The name is saved on the device.'**
+  String get deviceNameEditDescription;
+
+  /// No description provided for @deviceNameInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a non-empty name within 64 UTF-8 bytes, without control characters.'**
+  String get deviceNameInvalid;
+
+  /// No description provided for @deviceNameSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save the name. Check the device connection and try again.'**
+  String get deviceNameSaveFailed;
+
+  /// No description provided for @deviceNameStorageFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The device could not save the name to storage. Your input has been kept; please try again.'**
+  String get deviceNameStorageFailed;
 }
 
 class _AppLocalizationsDelegate

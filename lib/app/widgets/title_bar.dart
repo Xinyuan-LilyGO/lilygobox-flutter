@@ -2,7 +2,7 @@
  * @Description: 构建主窗口标题栏，提供标题淡入淡出、侧栏开关及窗口控制。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-04 12:33:13
+ * @LastEditTime: 2026-10-14 00:00:00
  * @License: GPL 3.0
  */
 
@@ -53,10 +53,14 @@ class AppTitleBar extends StatelessWidget {
         ? Duration.zero
         : const Duration(milliseconds: 200);
 
+    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+    // 底边对齐完整物理像素，避免非整数缩放下悬停背景露出浅色细线。
+    final alignedHeight = (height * pixelRatio).ceilToDouble() / pixelRatio;
     return Container(
-      height: height,
+      height: alignedHeight,
       color: theme.primary,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
             child: Stack(
@@ -161,6 +165,8 @@ class AppTitleBarControls extends StatelessWidget {
     final iconColor = isFocused ? theme.iconColor : theme.inactiveIconColor;
 
     return Row(
+      // 窗口按钮随标题栏填满高度，不在底部留下未覆盖的像素。
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AppTooltip(
           message: context.l10n.minimizeWindow,

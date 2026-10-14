@@ -2,7 +2,7 @@
  * @Description: 在主页内容区自动发现设备，展示连接反馈、重试和连接帮助。
  * @Author: LILYGO_L
  * @Date: 2025-11-05 09:52:14
- * @LastEditTime: 2026-10-06 14:21:20
+ * @LastEditTime: 2026-10-14 00:00:00
  * @License: GPL 3.0
  */
 
@@ -61,13 +61,13 @@ class _AddDevicePageState extends State<AddDevicePage> {
       _service.addListener(_sessionChanged);
     }
     unawaited(_discovery.search());
-    // ready 可能早于本页初始化；恢复本轮添加结果，不能再次搜索后显示空列表。
-    if (_service is LanConnection &&
-        _service.connected &&
-        context.read<AppNavigationProvider?>()?.addedDeviceId ==
-            _service.device?.id &&
-        _service.device != null) {
-      _discovery.reportConnectionEstablished(_service.device!);
+    // 本轮添加结果独立于实时在线状态，页面重建时也恢复已完成的设备资料。
+    final addedId = context.read<AppNavigationProvider?>()?.addedDeviceId;
+    final addedDevice = addedId == null
+        ? null
+        : _deviceManager?.lanDevice(addedId);
+    if (addedDevice != null) {
+      _discovery.reportConnectionEstablished(addedDevice);
     }
   }
 
@@ -98,15 +98,14 @@ class _AddDevicePageState extends State<AddDevicePage> {
   );
 
   void _sessionChanged() {
+    // 完成页记录添加结果，后续离线由主页和设备页面展示。
+    if (_discovery.phase == DiscoveryPhase.connected) return;
     final session = _service as LanConnection;
     final connectedDevice = session.connected ? session.device : null;
     final previousId = _lastConnectedDeviceId;
     _lastConnectedDeviceId = connectedDevice?.id;
     if (connectedDevice != null && connectedDevice.id != previousId) {
       _discovery.reportConnectionEstablished(connectedDevice);
-    } else if (_discovery.phase == DiscoveryPhase.connected &&
-        connectedDevice?.id != _discovery.selectedDevice?.id) {
-      _discovery.reportConnectionLost();
     }
   }
 
@@ -121,10 +120,6 @@ class _AddDevicePageState extends State<AddDevicePage> {
       if (device == null) return;
       final manager = context.read<DeviceManagerProvider>();
       if (device is LanDevice) {
-        if (_service is LanConnection &&
-            (!_service.connected || _service.device?.id != device.id)) {
-          return;
-        }
         manager.addLanDevice(device);
       } else {
         manager.addDevice(device.name);

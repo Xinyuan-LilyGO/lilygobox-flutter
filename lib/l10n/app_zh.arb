@@ -258,5 +258,9 @@
             }
         }
     },
-    "deviceBatteryLevel": "电池电量"
+    "deviceBatteryLevel": "电池电量",
+  "deviceNameEditDescription": "请输入设备名称（最多 64 个 UTF-8 字节）。名称将保存到设备。",
+  "deviceNameInvalid": "请输入非空名称，长度不超过 64 个 UTF-8 字节，且不包含控制字符。",
+  "deviceNameSaveFailed": "名称保存失败，请检查设备连接后重试。",
+  "deviceNameStorageFailed": "设备未能将名称保存到存储中。已保留输入，请重试。"
 }

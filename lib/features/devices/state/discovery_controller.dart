@@ -2,7 +2,7 @@
  * @Description: 管理设备发现、去重、连接、超时及离开页面后的取消行为。
  * @Author: LILYGO_L
  * @Date: 2026-10-02 13:35:30
- * @LastEditTime: 2026-10-06 14:21:20
+ * @LastEditTime: 2026-10-14 00:00:00
  * @License: GPL 3.0
  */
 
@@ -147,7 +147,7 @@ class DiscoveryController extends ChangeNotifier {
         phase == DiscoveryPhase.connected) {
       return;
     }
-    // 已确认过的设备断线后允许主动重试，即使它已被已添加列表过滤。
+    // 本轮连接失败时允许重试同一设备。
     final retryingSelected =
         phase == DiscoveryPhase.connectionFailed &&
         selectedDevice?.id == device.id;
@@ -214,13 +214,6 @@ class DiscoveryController extends ChangeNotifier {
     // 会话已成功，清理页面的发现任务时不能再取消这个连接。
     _connecting = false;
     unawaited(_stopOperations());
-    notifyListeners();
-  }
-
-  // 连接服务独立于页面；页面可见期间仍需反映已建立会话的断开。
-  void reportConnectionLost() {
-    if (_disposed || phase != DiscoveryPhase.connected) return;
-    phase = DiscoveryPhase.connectionFailed;
     notifyListeners();
   }
 

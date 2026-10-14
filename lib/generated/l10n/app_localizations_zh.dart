@@ -724,4 +724,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceBatteryLevel => '电池电量';
+
+  @override
+  String get deviceNameEditDescription => '请输入设备名称（最多 64 个 UTF-8 字节）。名称将保存到设备。';
+
+  @override
+  String get deviceNameInvalid => '请输入非空名称，长度不超过 64 个 UTF-8 字节，且不包含控制字符。';
+
+  @override
+  String get deviceNameSaveFailed => '名称保存失败，请检查设备连接后重试。';
+
+  @override
+  String get deviceNameStorageFailed => '设备未能将名称保存到存储中。已保留输入，请重试。';
 }

@@ -21,6 +21,7 @@ class SettingTextField extends StatelessWidget {
     this.enabled = true,
     this.keyboardType,
     this.inputFormatters,
+    this.contentPadding,
   });
 
   final AppTheme theme;
@@ -29,6 +30,7 @@ class SettingTextField extends StatelessWidget {
   final bool enabled;
   final TextInputType? keyboardType;
   final List<TextInputFormatter>? inputFormatters;
+  final EdgeInsetsGeometry? contentPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +49,12 @@ class SettingTextField extends StatelessWidget {
           fontSize: 13.0,
           fontWeight: FontWeight.w600,
         ),
-        decoration: _inputDecoration(theme),
+        decoration: _inputDecoration(
+          theme,
+          contentPadding: contentPadding,
+          // 提示框沿用搜索框的无边框底色，聚焦时显示紫色轮廓。
+          disableHover: context.findAncestorWidgetOfExactType<Dialog>() != null,
+        ),
       ),
     );
   }
@@ -82,19 +89,41 @@ class SettingReadOnlyField extends StatelessWidget {
   }
 }
 
-InputDecoration _inputDecoration(AppTheme theme) {
+InputDecoration _inputDecoration(
+  AppTheme theme, {
+  EdgeInsetsGeometry? contentPadding,
+  bool disableHover = false,
+}) {
   return InputDecoration(
     isDense: true,
     filled: true,
-    fillColor: theme.primary.withValues(alpha: 0.74),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
+    hoverColor: disableHover ? Colors.transparent : null,
+    fillColor: disableHover
+        ? theme.secondary
+        : theme.primary.withValues(alpha: 0.74),
+    contentPadding:
+        contentPadding ??
+        const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
+    // 明确禁用边框，避免保存期间回退为 Material 默认下划线。
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(4.0),
+      borderSide: BorderSide.none,
+    ),
+    disabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(4.0),
+      borderSide: BorderSide.none,
+    ),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(4.0),
-      borderSide: BorderSide(color: theme.dividerColor.withValues(alpha: 0.28)),
+      borderSide: disableHover
+          ? BorderSide.none
+          : BorderSide(color: theme.dividerColor.withValues(alpha: 0.28)),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(4.0),
-      borderSide: BorderSide(color: theme.dividerColorNormal),
+      borderSide: BorderSide(
+        color: disableHover ? theme.basePrimary : theme.dividerColorNormal,
+      ),
     ),
   );
 }

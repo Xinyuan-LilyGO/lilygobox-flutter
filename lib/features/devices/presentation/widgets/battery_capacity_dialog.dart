@@ -106,6 +106,10 @@ class _BatteryCapacityDialogState extends State<BatteryCapacityDialog> {
                   theme: theme,
                   value: '${widget.capacity}',
                   enabled: !_saving,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 8,
+                  ),
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   onChanged: (value) => setState(() {

@@ -760,4 +760,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceBatteryLevel => 'Battery level';
+
+  @override
+  String get deviceNameEditDescription =>
+      'Enter a device name (up to 64 UTF-8 bytes). The name is saved on the device.';
+
+  @override
+  String get deviceNameInvalid =>
+      'Enter a non-empty name within 64 UTF-8 bytes, without control characters.';
+
+  @override
+  String get deviceNameSaveFailed =>
+      'Could not save the name. Check the device connection and try again.';
+
+  @override
+  String get deviceNameStorageFailed =>
+      'The device could not save the name to storage. Your input has been kept; please try again.';
 }

@@ -36,8 +36,29 @@ Map<String, Object> snapshot() => {
 };
 
 void main() {
+  test('device names validate UTF-8 byte limits and legacy support', () {
+    expect(isValidDeviceName('设备' * 10), isTrue);
+    expect(isValidDeviceName('设备' * 11), isFalse);
+    expect(isValidDeviceName('a' * 64), isTrue);
+    expect(isValidDeviceName('a' * 65), isFalse);
+    expect(isValidDeviceName('  '), isFalse);
+    expect(isValidDeviceName('a\nb'), isFalse);
+    final legacy = DeviceControlState.parse(snapshot());
+    expect(legacy.supports(DeviceControlField.deviceName), isFalse);
+    final source = snapshot();
+    final caps = Map<String, dynamic>.from(source['capabilities'] as Map);
+    final state = DeviceControlState.parse({
+      ...source,
+      'capabilities': {...caps, 'identity': true},
+      'deviceName': 'My device',
+    });
+    expect(state.supports(DeviceControlField.deviceName), isTrue);
+    expect(state.accepts(DeviceControlField.deviceName, '新设备'), isTrue);
+    expect(state.accepts(DeviceControlField.deviceName, 12), isFalse);
+  });
+
   test(
-    'negative current cannot expose a charging estimate from old firmware',
+    'negative current hides estimates without overriding the device state',
     () {
       final battery = snapshot()['battery'] as Map<String, Object>;
       final state = DeviceControlState.parse({
@@ -50,11 +71,31 @@ void main() {
           'timeToEmptyMinutes': 408,
         },
       });
-      expect(state.battery!.charging, isFalse);
+      expect(state.battery!.charging, isTrue);
       expect(state.battery!.timeToFullMinutes, isNull);
-      expect(state.battery!.timeToEmptyMinutes, 408);
+      expect(state.battery!.timeToEmptyMinutes, isNull);
     },
   );
+  test('low current preserves reported state and hides time estimates', () {
+    final battery = snapshot()['battery'] as Map<String, Object>;
+    for (final charging in [true, false]) {
+      for (final current in [-30, -22, 0, 22, 30]) {
+        final state = DeviceControlState.parse({
+          ...snapshot(),
+          'battery': {
+            ...battery,
+            'charging': charging,
+            'currentMa': current,
+            'timeToFullMinutes': 22,
+            'timeToEmptyMinutes': 408,
+          },
+        });
+        expect(state.battery!.charging, charging);
+        expect(state.battery!.timeToFullMinutes, isNull);
+        expect(state.battery!.timeToEmptyMinutes, isNull);
+      }
+    }
+  });
   testWidgets('battery headline combines percent with the active estimate', (
     tester,
   ) async {
@@ -189,8 +230,10 @@ void main() {
     () {
       for (final field in DeviceControlField.values) {
         expect(
-          () =>
-              DeviceControlState.parse({...snapshot(), field.wireName: 'bad'}),
+          () => DeviceControlState.parse({
+            ...snapshot(),
+            field.wireName: field == DeviceControlField.deviceName ? '' : 'bad',
+          }),
           throwsFormatException,
         );
       }

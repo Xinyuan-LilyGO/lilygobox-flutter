@@ -506,6 +506,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
           }
           _controlPoll?.cancel();
           _controlTimeout?.cancel();
+          _readDeviceName(data);
           _readControlState(data);
           _controlCompletions
               .remove(_inFlightControl!.key)

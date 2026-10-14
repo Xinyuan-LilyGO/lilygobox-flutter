@@ -51,6 +51,8 @@ class AppActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     // 灰色沿用取消连接的默认底色，紫色沿用主页添加设备按钮。
     final filled = primary || destructive;
+    // 提示框恢复柔和的悬停反馈，颜色按实际按钮底色混合。
+    final inDialog = context.findAncestorWidgetOfExactType<Dialog>() != null;
     final background = destructive
         ? theme.materialColors.error
         : primary
@@ -83,7 +85,14 @@ class AppActionButton extends StatelessWidget {
         theme: theme,
         onPressed: onPressed,
         backgroundColor: background,
-        hoverColor: filled
+        hoverColor: inDialog
+            ? Color.alphaBlend(
+                (filled ? foreground : theme.textColorPrimary).withValues(
+                  alpha: filled ? .1 : .06,
+                ),
+                background,
+              )
+            : filled
             ? Color.alphaBlend(foreground.withValues(alpha: 0.1), background)
             : theme.secondaryTextHoverColor,
         borderRadius: borderRadius,

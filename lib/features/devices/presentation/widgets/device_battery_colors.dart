@@ -20,7 +20,12 @@ class DeviceBatteryColors {
   Color get foreground => theme.textColorPrimary;
   Color get muted => theme.textColorTertiary;
   Color get fill => theme.batteryFillColor;
-  Color get empty => theme.materialColors.primaryContainer;
+
+  /// 低于 10% 才使用警告红色；10% 及以上保持正常绿色。
+  Color fillFor(double progress) =>
+      progress < .1 ? theme.materialColors.error : fill;
+
+  Color get empty => theme.secondary;
 }
 
 /// 我的设备使用独立的特色配色；暗色背景与亮色背景分别维护。

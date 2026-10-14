@@ -142,7 +142,7 @@ void main() {
   });
 
   testWidgets(
-    'background success stops discovery and allows saved-device retry',
+    'background success stops discovery and blocks another connection attempt',
     (tester) async {
       final service = TestDiscoveryService();
       final controller = DiscoveryController(
@@ -162,7 +162,6 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
       expect(controller.phase, DiscoveryPhase.connected);
 
-      controller.reportConnectionLost();
       unawaited(
         controller.connect(
           const DiscoveredDevice(id: 'other', name: 'Other device'),
@@ -172,9 +171,7 @@ void main() {
       expect(service.connections, isEmpty);
       unawaited(controller.connect(device));
       await tester.pump();
-      expect(controller.phase, DiscoveryPhase.connecting);
-      service.connections.single.complete(true);
-      await tester.pump();
+      expect(service.connections, isEmpty);
       expect(controller.phase, DiscoveryPhase.connected);
       controller.dispose();
       await tester.pump();

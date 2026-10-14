@@ -300,6 +300,76 @@ void main() {
   };
 
   test(
+    'name save updates confirmed identity and preserves it on failure',
+    () async {
+      String name = 'Original';
+      bool failSave = false;
+      bool hold = false;
+      int commands = 0;
+      Map<String, Object> state() => {
+        ...controlState(),
+        'capabilities': {
+          'screen': true,
+          'audio': true,
+          'haptic': false,
+          'identity': true,
+        },
+        'deviceName': name,
+      };
+      serve((socket, message) {
+        if (message['type'] == 'hello') {
+          socket.add(
+            jsonEncode({...response('ready'), 'name': name, 'state': state()}),
+          );
+        } else if (message['type'] == 'ping') {
+          socket.add(jsonEncode({...response('pong'), 'name': name}));
+        } else if (message['type'] == 'control.set') {
+          commands++;
+          expect(message['field'], 'deviceName');
+          if (hold) return;
+          if (!failSave) name = message['value'] as String;
+          socket.add(
+            jsonEncode({
+              ...response('control.result'),
+              'requestId': message['requestId'],
+              'name': name,
+              'ok': !failSave,
+              'error': failSave ? 'storage_failed' : '',
+              'state': state(),
+            }),
+          );
+        }
+      });
+      expect(await connection.connect(device), isTrue);
+      expect(
+        await connection.saveControl(DeviceControlField.deviceName, ' '),
+        isFalse,
+      );
+      expect(commands, 0);
+      expect(
+        await connection.saveControl(DeviceControlField.deviceName, '新设备'),
+        isTrue,
+      );
+      expect(connection.device!.name, '新设备');
+      expect(connection.device!.id, deviceId);
+      failSave = true;
+      expect(
+        await connection.saveControl(DeviceControlField.deviceName, 'Rejected'),
+        isFalse,
+      );
+      expect(connection.device!.name, '新设备');
+      hold = true;
+      final pending = connection.saveControl(
+        DeviceControlField.deviceName,
+        'Pending',
+      );
+      await waitFor(() => commands == 3);
+      connection.disconnect();
+      expect(await pending, isFalse);
+    },
+  );
+
+  test(
     'capacity save waits for acknowledgement, rolls back on failure and ends on disconnect',
     () async {
       int capacity = 1000;

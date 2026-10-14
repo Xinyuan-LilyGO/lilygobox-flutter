@@ -917,14 +917,9 @@ class DeviceBatteryGraphic extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final empty =
-        colors?.empty ??
-        Color.alphaBlend(
-          theme.basePrimary.withValues(alpha: .13),
-          theme.secondary,
-        );
-    final outline =
-        colors?.muted ?? theme.textColorTertiary.withValues(alpha: .55);
+    final palette = colors ?? DeviceBatteryColors(theme);
+    final empty = palette.empty;
+    final outline = palette.muted;
     return Container(
       height: height,
       padding: EdgeInsets.all(height * .045),
@@ -941,7 +936,7 @@ class DeviceBatteryGraphic extends StatelessWidget {
             child: FractionallySizedBox(
               widthFactor: progress.clamp(0.0, 1.0),
               heightFactor: 1,
-              child: ColoredBox(color: colors?.fill ?? theme.basePrimary),
+              child: ColoredBox(color: palette.fillFor(progress)),
             ),
           ),
         ),

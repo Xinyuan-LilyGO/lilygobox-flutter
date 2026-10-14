@@ -6,6 +6,8 @@
  * @License: GPL 3.0
  */
 
+import 'dart:convert';
+
 /// 与设备端锁屏设置共用的秒数选项，0 表示永不自动锁屏。
 const deviceLockTimeoutOptions = [15, 30, 60, 120, 300, 600, 0];
 
@@ -18,7 +20,8 @@ enum DeviceControlField {
   volume('volume', 'audio'),
   hapticEnabled('hapticEnabled', 'haptic'),
   hapticStrength('hapticStrength', 'haptic'),
-  batteryCapacityMah('batteryCapacityMah', 'battery');
+  batteryCapacityMah('batteryCapacityMah', 'battery'),
+  deviceName('deviceName', 'identity');
 
   const DeviceControlField(this.wireName, this.capability);
   final String wireName;
@@ -32,6 +35,7 @@ enum DeviceControlField {
     brightness => value is int && value >= 10 && value <= 100,
     volume || hapticStrength => value is int && value >= 0 && value <= 100,
     batteryCapacityMah => value is int && value >= 1 && value <= 65535,
+    deviceName => value is String && isValidDeviceName(value),
   };
 }
 
@@ -66,8 +70,8 @@ class DeviceBatteryState {
       throw const FormatException('Invalid battery temperature');
     }
     final current = _integer(data['currentMa'], -100000, 100000);
-    // 兼容旧固件的矛盾状态：统一净电流正值充电、负值放电。
-    final charging = _boolean(data['charging']) && current >= 0;
+    // 充电状态由设备端稳定处理，不用瞬时电流正负覆盖死区和延迟确认。
+    final charging = _boolean(data['charging']);
     final full = _boolean(data['full']);
     final toFull = _optionalInteger(data['timeToFullMinutes'], 1, 43199);
     final toEmpty = _optionalInteger(data['timeToEmptyMinutes'], 1, 43199);
@@ -79,8 +83,8 @@ class DeviceBatteryState {
       currentMa: current,
       temperatureC: (temperature as num?)?.toDouble(),
       healthPercent: _optionalInteger(data['healthPercent'], 1, 100),
-      timeToFullMinutes: charging && !full && current > 0 ? toFull : null,
-      timeToEmptyMinutes: !charging && current < 0 ? toEmpty : null,
+      timeToFullMinutes: charging && !full && current > 30 ? toFull : null,
+      timeToEmptyMinutes: !charging && current < -30 ? toEmpty : null,
     );
   }
 }
@@ -99,15 +103,17 @@ class DeviceControlState {
     final data = _object(source);
     final capabilities = _object(data['capabilities']);
     final supported = <String>{
-      for (final key in ['screen', 'audio', 'haptic', 'battery'])
-        if (key != 'battery' || capabilities.containsKey(key))
+      for (final key in ['screen', 'audio', 'haptic', 'battery', 'identity'])
+        if ((key != 'battery' && key != 'identity') ||
+            capabilities.containsKey(key))
           if (_boolean(capabilities[key])) key,
     };
     final values = <DeviceControlField, Object>{};
     for (final field in DeviceControlField.values) {
       // 旧固件没有新增设置字段，保留其他控制并禁用未支持的设置。
       if ((field == DeviceControlField.lockTimeoutSeconds ||
-              field == DeviceControlField.batteryCapacityMah) &&
+              field == DeviceControlField.batteryCapacityMah ||
+              field == DeviceControlField.deviceName) &&
           !data.containsKey(field.wireName)) {
         continue;
       }
@@ -167,6 +173,11 @@ class DeviceControlState {
         batteryCapacityMaximumMah,
       );
 }
+
+bool isValidDeviceName(String name) =>
+    name.trim().isNotEmpty &&
+    utf8.encode(name).length <= 64 &&
+    !RegExp(r'[\x00-\x1f\x7f]').hasMatch(name);
 
 int? _optionalInteger(Object? value, int minimum, int maximum) =>
     value == null ? null : _integer(value, minimum, maximum);

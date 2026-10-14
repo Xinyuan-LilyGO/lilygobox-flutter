@@ -9,6 +9,20 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 
+/// 连接状态徽标与详情信息共用的状态颜色。
+Color deviceStatusColor(
+  AppTheme theme, {
+  required bool connected,
+  required bool connecting,
+}) => connected
+    ? theme.adaptiveColor(
+        dark: const Color(0xFF83B69A),
+        light: const Color(0xFF438063),
+      )
+    : connecting
+    ? theme.baseTertiary
+    : theme.textColorTertiary;
+
 /// 用圆点和文字展示连接状态，说明复用公共悬停提示。
 class DeviceStatusBadge extends StatelessWidget {
   const DeviceStatusBadge({
@@ -28,14 +42,11 @@ class DeviceStatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = connected
-        ? theme.adaptiveColor(
-            dark: const Color(0xFF83B69A),
-            light: const Color(0xFF438063),
-          )
-        : connecting
-        ? theme.baseTertiary
-        : theme.textColorTertiary;
+    final statusColor = deviceStatusColor(
+      theme,
+      connected: connected,
+      connecting: connecting,
+    );
     final badge = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(

@@ -243,6 +243,8 @@ void main() {
       // 模拟导航已进入添加流程，但添加页尚未构建就收到 ready。
       navigation.setPage(AppPage.addDevice);
       session.publish(target, LanConnectionPhase.connected);
+      // 完成页构建前已离线，仍需从已保存资料恢复本轮成功结果。
+      session.publish(target, LanConnectionPhase.offline);
       await tester.pumpWidget(
         ChangeNotifierProvider<LanConnection>.value(
           value: session,
@@ -401,15 +403,22 @@ void main() {
     expect(find.text('连接完成'), findsOneWidget);
     session.publish(target, LanConnectionPhase.offline);
     await tester.pumpAndSettle();
-    expect(find.text('重新连接'), findsOneWidget);
+    expect(find.text('连接完成'), findsOneWidget);
+    expect(find.text('未能连接设备'), findsNothing);
+    expect(find.text('重新连接'), findsNothing);
+    expect(find.text('返回主页'), findsOneWidget);
+    expect(devices.addedDevices, [target.id]);
     session.publish(target, LanConnectionPhase.connected);
     await tester.pumpAndSettle();
     expect(find.text('连接完成'), findsOneWidget);
     expect(devices.addedDevices, [target.id]);
+    session.publish(target, LanConnectionPhase.offline);
+    await tester.pumpAndSettle();
+    expect(find.text('连接完成'), findsOneWidget);
     await tester.tap(find.text('返回主页'));
     await tester.pumpAndSettle();
     expect(navigation.currentPage, AppPage.home);
-    expect(find.text('在线'), findsOneWidget);
+    expect(find.text('离线'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
