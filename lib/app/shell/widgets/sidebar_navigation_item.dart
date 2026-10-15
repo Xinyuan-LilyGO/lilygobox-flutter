@@ -116,13 +116,20 @@ class _SidebarSelectionGlowPainter extends CustomPainter {
       Rect.fromLTWH(-8, (size.height - 30) / 2, 12, 30),
       const Radius.circular(6),
     );
+    final source = HSLColor.fromColor(color);
+    final luminous = source.withSaturation(.55).withLightness(.66).toColor();
     final lowerShadow = tube.inflate(2);
-    final shadowColor = color;
     canvas.drawRRect(
       lowerShadow,
       Paint()
-        ..color = shadowColor.withValues(alpha: .72)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9),
+        ..color = luminous.withValues(alpha: .28)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
+    );
+    canvas.drawRRect(
+      tube.inflate(1),
+      Paint()
+        ..color = luminous.withValues(alpha: .5)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
     );
     canvas.drawRRect(
       tube,
@@ -131,9 +138,8 @@ class _SidebarSelectionGlowPainter extends CustomPainter {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            color,
-            color,
-            color,
+            luminous,
+            source.withSaturation(.55).withLightness(.61).toColor(),
           ],
         ).createShader(tube.outerRect),
     );
