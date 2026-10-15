@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/definition.dart';
+import '../theme/material_palette.dart';
 import 'interaction_decoration.dart';
 
 class AnimatedCircleIconButton extends StatefulWidget {
@@ -20,6 +21,8 @@ class AnimatedCircleIconButton extends StatefulWidget {
     this.size = 33,
     this.iconSize = 19,
     this.duration = const Duration(milliseconds: 150),
+    this.backgroundColor,
+    this.hoverColor,
   });
 
   final IconData icon;
@@ -28,6 +31,8 @@ class AnimatedCircleIconButton extends StatefulWidget {
   final double size;
   final double iconSize;
   final Duration duration;
+  final Color? backgroundColor;
+  final Color? hoverColor;
 
   @override
   State<AnimatedCircleIconButton> createState() =>
@@ -48,8 +53,9 @@ class _AnimatedCircleIconButtonState extends State<AnimatedCircleIconButton> {
 
         decoration: BoxDecoration(
           color: _isHovered
-              ? widget.theme.iconHoverColor
-              : widget.theme.iconBackgroundColor,
+              ? widget.hoverColor ?? widget.theme.buttonStateColors.hover
+              : widget.backgroundColor ??
+                    widget.theme.buttonStateColors.background,
           shape: BoxShape.circle,
         ),
         child: SizedBox(
@@ -60,6 +66,10 @@ class _AnimatedCircleIconButtonState extends State<AnimatedCircleIconButton> {
             child: InkWell(
               onTap: widget.onPressed,
               hoverColor: Colors.transparent,
+              highlightColor: widget.theme.textColorPrimary.withValues(
+                alpha: .04,
+              ),
+              splashColor: widget.theme.textColorPrimary.withValues(alpha: .12),
               borderRadius: BorderRadius.circular(widget.size / 2),
               child: Center(
                 child: Icon(

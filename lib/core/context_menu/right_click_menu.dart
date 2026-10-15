@@ -10,6 +10,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/definition.dart';
+import '../theme/material_palette.dart';
 import '../widgets/menu_item_surface.dart';
 import '../widgets/popup_menu_surface.dart';
 import '../widgets/popup_menu_transition.dart';
@@ -155,6 +156,12 @@ class RightClickMenuBuilder {
     required AppTheme theme,
     double width = 150,
     List<BoxShadow>? shadows,
+    Color? surfaceColor,
+    Color? itemColor,
+    Color? selectedColor,
+    Color? selectedForegroundColor,
+    Color? hoverColor,
+    BorderRadius borderRadius = const BorderRadius.all(Radius.circular(8)),
   }) => MouseRegion(
     // 覆盖菜单留白处，避免穿透后沿用底层输入框的文字光标。
     cursor: SystemMouseCursors.basic,
@@ -164,12 +171,18 @@ class RightClickMenuBuilder {
         key: key,
         theme: theme,
         shadows: shadows,
+        backgroundColor: surfaceColor,
+        borderRadius: borderRadius,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: _buildMenuItemsWithDividers(
             menuItems: menuItems,
             theme: theme,
             menuWidth: width - 10,
+            itemColor: itemColor,
+            selectedColor: selectedColor,
+            selectedForegroundColor: selectedForegroundColor,
+            hoverColor: hoverColor,
           ),
         ),
       ),
@@ -181,6 +194,10 @@ class RightClickMenuBuilder {
     required List<RightClickMenuItem> menuItems,
     required AppTheme theme,
     required double menuWidth,
+    Color? itemColor,
+    Color? selectedColor,
+    Color? selectedForegroundColor,
+    Color? hoverColor,
   }) {
     List<Widget> widgets = [];
 
@@ -196,6 +213,10 @@ class RightClickMenuBuilder {
             item: item,
             theme: theme,
             menuWidth: menuWidth,
+            itemColor: itemColor,
+            selectedColor: selectedColor,
+            selectedForegroundColor: selectedForegroundColor,
+            hoverColor: hoverColor,
           ),
         ),
       );
@@ -225,9 +246,7 @@ class RightClickMenuBuilder {
     return Container(
       width: menuWidth,
       height: 1,
-      decoration: BoxDecoration(
-        color: theme.dividerColor.withValues(alpha: 0.3),
-      ),
+      decoration: BoxDecoration(color: theme.materialColors.outlineVariant),
     );
   }
 
@@ -236,24 +255,28 @@ class RightClickMenuBuilder {
     required RightClickMenuItem item,
     required AppTheme theme,
     required double menuWidth,
+    Color? itemColor,
+    Color? selectedColor,
+    Color? selectedForegroundColor,
+    Color? hoverColor,
   }) {
     return MenuItemSurface(
       key: item.key,
       theme: theme,
       isSelected: item.isSelected,
       disableWhenSelected: false,
-      backgroundColor: PopupMenuSurface.backgroundColorFor(theme),
-      hoverColor: theme.basePrimary,
-      foregroundColor: item.isEnabled
+      backgroundColor: itemColor ?? PopupMenuSurface.backgroundColorFor(theme),
+      surfaceColor: itemColor ?? PopupMenuSurface.backgroundColorFor(theme),
+      selectedColor: selectedColor ?? theme.secondaryTextSelectedColor,
+      hoverColor: hoverColor ?? theme.basePrimary,
+      foregroundColor: item.isSelected
+          ? selectedForegroundColor ?? theme.materialColors.onPrimary
+          : item.isEnabled
           ? theme.textColorSecondary
           : theme.textColorTertiary,
-      hoverForegroundColor:
-          ThemeData.estimateBrightnessForColor(theme.basePrimary) ==
-              Brightness.dark
-          ? Colors.white
-          : const Color(0xFF191919),
+      hoverForegroundColor: theme.materialColors.onPrimary,
       onPressed: item.isEnabled ? item.onTap : null,
-      borderRadius: BorderRadius.circular(5),
+      borderRadius: BorderRadius.circular(4),
       child: Container(
         width: menuWidth,
         height: 28,

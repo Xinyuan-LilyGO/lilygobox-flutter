@@ -43,10 +43,7 @@ class SettingsPageLayout extends StatelessWidget {
                 ),
               ),
             ),
-            Divider(
-              color: theme.dividerColor.withValues(alpha: 0.28),
-              height: 1,
-            ),
+            Divider(color: theme.dividerColor, height: 1),
             ...children,
           ],
         ),

@@ -25,6 +25,7 @@ class TitleBarIconButton extends StatefulWidget {
     this.iconSize = 16,
     this.hoverColor,
     this.backgroundColor,
+    this.surfaceColor,
   });
 
   final VoidCallback? onPressed;
@@ -39,6 +40,7 @@ class TitleBarIconButton extends StatefulWidget {
 
   /// 页面内按钮传入所在背景，标题栏默认继续使用主背景。
   final Color? backgroundColor;
+  final Color? surfaceColor;
 
   @override
   State<TitleBarIconButton> createState() => _TitleBarIconButtonState();
@@ -49,6 +51,9 @@ class _TitleBarIconButtonState extends State<TitleBarIconButton> {
 
   @override
   Widget build(BuildContext context) {
+    final stateColors = widget.theme.buttonColorsForSurface(
+      widget.surfaceColor ?? widget.backgroundColor ?? widget.theme.primary,
+    );
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = widget.onPressed != null),
       onExit: (_) => setState(() => _isHovered = false),
@@ -58,11 +63,8 @@ class _TitleBarIconButtonState extends State<TitleBarIconButton> {
         curve: MenuItemSurface.animationCurve,
         decoration: BoxDecoration(
           color: _isHovered && widget.onPressed != null
-              ? widget.hoverColor ??
-                    widget.theme.hoverColorForBackground(
-                      widget.backgroundColor ?? widget.theme.primary,
-                    )
-              : widget.backgroundColor ?? widget.theme.primary,
+              ? widget.hoverColor ?? stateColors.hover
+              : widget.backgroundColor ?? stateColors.background,
           shape: BoxShape.circle,
         ),
         // 墨水层位于背景上方，点击波纹不会被悬停背景遮挡。
@@ -78,12 +80,8 @@ class _TitleBarIconButtonState extends State<TitleBarIconButton> {
               splashFactory: InkRipple.splashFactory,
               customBorder: const CircleBorder(),
               hoverColor: Colors.transparent,
-              highlightColor: widget.theme.textColorPrimary.withValues(
-                alpha: 0.04,
-              ),
-              splashColor: widget.theme.textColorPrimary.withValues(
-                alpha: 0.12,
-              ),
+              highlightColor: stateColors.pressed.withValues(alpha: .38),
+              splashColor: stateColors.pressed.withValues(alpha: .5),
               child: Center(
                 child: Icon(
                   widget.icon,

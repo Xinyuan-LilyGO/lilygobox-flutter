@@ -41,7 +41,7 @@ class AppTitleBarControlsButtonTemplate extends StatelessWidget {
     return MenuItemSurface(
       theme: theme,
       onPressed: onPressed,
-      hoverColor: hoverColor,
+      hoverColor: hoverColor ?? theme.primaryTextHoverColor,
       foregroundColor: iconColor,
       hoverForegroundColor: hoverIconColor,
       borderRadius: BorderRadius.zero,

@@ -150,7 +150,7 @@ class DeviceDashboard extends StatelessWidget {
                 height: 12,
                 width: 1,
                 margin: const EdgeInsets.symmetric(horizontal: 10),
-                color: theme.dividerColor.withValues(alpha: .22),
+                color: theme.materialColors.outlineVariant,
               ),
               Icon(Symbols.wifi, size: 17, color: theme.textColorTertiary),
               const SizedBox(width: 6),
@@ -969,10 +969,7 @@ class _BatteryGlowPainter extends CustomPainter {
       );
       // 提高明度时保留饱和度，避免混入大量白色后变成粉绿色。
       final source = HSLColor.fromColor(fill);
-      final luminous = source
-          .withSaturation(.72)
-          .withLightness(.58)
-          .toColor();
+      final luminous = source.withSaturation(.72).withLightness(.58).toColor();
       if (progress >= .1) {
         canvas.drawPath(
           fillPath,

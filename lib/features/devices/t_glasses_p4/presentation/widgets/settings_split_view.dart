@@ -319,6 +319,7 @@ class _TGlassesP4SettingsSplitViewState
                         theme: theme,
                         size: 40,
                         iconSize: 22,
+                        backgroundColor: theme.primary,
                         onPressed: widget.onClose,
                       ),
                     ),

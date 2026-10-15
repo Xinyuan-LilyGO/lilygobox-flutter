@@ -1374,6 +1374,72 @@ abstract class AppLocalizations {
   /// **'Unknown'**
   String get deviceBatteryUnknown;
 
+  /// No description provided for @deviceBatteryFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Fully charged'**
+  String get deviceBatteryFull;
+
+  /// No description provided for @deviceBatteryChargingState.
+  ///
+  /// In en, this message translates to:
+  /// **'Charging'**
+  String get deviceBatteryChargingState;
+
+  /// No description provided for @deviceBatteryPowerState.
+  ///
+  /// In en, this message translates to:
+  /// **'On battery'**
+  String get deviceBatteryPowerState;
+
+  /// No description provided for @deviceBatteryOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Device not connected'**
+  String get deviceBatteryOffline;
+
+  /// No description provided for @deviceBatteryNoData.
+  ///
+  /// In en, this message translates to:
+  /// **'No battery data'**
+  String get deviceBatteryNoData;
+
+  /// No description provided for @deviceBatteryChargerConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Charger connected'**
+  String get deviceBatteryChargerConnected;
+
+  /// No description provided for @deviceBatteryNotCharging.
+  ///
+  /// In en, this message translates to:
+  /// **'Not charging'**
+  String get deviceBatteryNotCharging;
+
+  /// No description provided for @deviceBatteryVoltage.
+  ///
+  /// In en, this message translates to:
+  /// **'Voltage'**
+  String get deviceBatteryVoltage;
+
+  /// No description provided for @deviceBatteryTemperature.
+  ///
+  /// In en, this message translates to:
+  /// **'Temperature'**
+  String get deviceBatteryTemperature;
+
+  /// No description provided for @deviceBatteryChargingStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Charging status'**
+  String get deviceBatteryChargingStatus;
+
+  /// No description provided for @deviceBatteryCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Current'**
+  String get deviceBatteryCurrent;
+
   /// No description provided for @deviceRotationConfirmTitle.
   ///
   /// In en, this message translates to:
@@ -1475,6 +1541,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{duration} to full'**
   String deviceBatteryEstimateToFull(String duration);
+
+  /// No description provided for @deviceBatteryEstimateRemaining.
+  ///
+  /// In en, this message translates to:
+  /// **'{duration} remaining'**
+  String deviceBatteryEstimateRemaining(Object duration);
 
   /// No description provided for @deviceBatteryLevel.
   ///

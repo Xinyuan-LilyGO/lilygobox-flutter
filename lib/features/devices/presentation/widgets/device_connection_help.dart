@@ -69,7 +69,7 @@ class _DeviceHelpMenuState extends State<DeviceHelpMenu> {
           child: TitleBarIconButton(
             key: const ValueKey('device-help-menu'),
             theme: theme,
-            backgroundColor: theme.secondary,
+            backgroundColor: theme.primary,
             isFocused: true,
             icon: Symbols.more_horiz,
             size: 28,
@@ -187,6 +187,7 @@ class _ConnectionHelpPanel extends StatelessWidget {
                                           'close-device-help',
                                         ),
                                         theme: theme,
+                                        surfaceColor: theme.primary,
                                         isFocused: true,
                                         icon: Symbols.close,
                                         size: 28,

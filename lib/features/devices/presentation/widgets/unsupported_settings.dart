@@ -56,6 +56,7 @@ class UnsupportedDeviceSettings extends StatelessWidget {
                 theme: theme,
                 size: 40,
                 iconSize: 22,
+                backgroundColor: theme.primary,
                 onPressed: onClose,
               ),
             ),

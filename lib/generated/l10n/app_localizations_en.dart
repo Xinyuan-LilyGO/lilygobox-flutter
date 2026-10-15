@@ -704,6 +704,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceBatteryUnknown => 'Unknown';
 
   @override
+  String get deviceBatteryFull => 'Fully charged';
+
+  @override
+  String get deviceBatteryChargingState => 'Charging';
+
+  @override
+  String get deviceBatteryPowerState => 'On battery';
+
+  @override
+  String get deviceBatteryOffline => 'Device not connected';
+
+  @override
+  String get deviceBatteryNoData => 'No battery data';
+
+  @override
+  String get deviceBatteryChargerConnected => 'Charger connected';
+
+  @override
+  String get deviceBatteryNotCharging => 'Not charging';
+
+  @override
+  String get deviceBatteryVoltage => 'Voltage';
+
+  @override
+  String get deviceBatteryTemperature => 'Temperature';
+
+  @override
+  String get deviceBatteryChargingStatus => 'Charging status';
+
+  @override
+  String get deviceBatteryCurrent => 'Current';
+
+  @override
   String get deviceRotationConfirmTitle => 'Change display orientation?';
 
   @override
@@ -764,6 +797,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String deviceBatteryEstimateToFull(String duration) {
     return '$duration to full';
+  }
+
+  @override
+  String deviceBatteryEstimateRemaining(Object duration) {
+    return '$duration remaining';
   }
 
   @override

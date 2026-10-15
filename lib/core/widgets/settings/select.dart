@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 
 import '../../context_menu/right_click_menu.dart';
 import '../../theme/definition.dart';
+import '../../theme/material_palette.dart';
 import '../menu_item_surface.dart';
 import '../popup_menu_transition.dart';
 
@@ -75,6 +76,7 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
     return MenuItemSurface.control(
       theme: widget.theme,
       onPressed: widget.onChanged == null ? null : _toggleDropdown,
+      showBorder: false,
       child: Container(
         height: optionHeight,
         padding: const EdgeInsets.only(left: 10.0, right: 6.0),
@@ -227,6 +229,14 @@ class _SettingSelectDropdown<T> extends StatelessWidget {
   Widget build(BuildContext context) => RightClickMenuBuilder.buildMenuPanel(
     theme: theme,
     width: width,
+    surfaceColor: theme.popupSurfaceColor,
+    itemColor: theme.popupSurfaceColor,
+    selectedColor: theme.primaryTextHoverColor,
+    selectedForegroundColor: theme.type == ThemeType.light
+        ? Colors.black
+        : null,
+    hoverColor: theme.basePrimary,
+    borderRadius: BorderRadius.circular(4),
     menuItems: [
       for (final item in items)
         RightClickMenuItem(

@@ -40,6 +40,8 @@ class DeviceBatteryEstimate extends StatelessWidget {
     final percent = battery == null ? '—' : '${battery!.percent}%';
     final estimate = charging && minutes != null
         ? l10n.deviceBatteryEstimateToFull(duration)
+        : minutes != null
+        ? l10n.deviceBatteryEstimateRemaining(duration)
         : duration;
     final numberStyle = TextStyle(
       fontSize: 36,

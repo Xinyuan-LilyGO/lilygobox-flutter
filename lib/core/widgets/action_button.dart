@@ -22,6 +22,9 @@ class AppActionButton extends StatelessWidget {
     this.primary = false,
     this.destructive = false,
     this.settingBackground = false,
+    this.backgroundColor,
+    this.hoverColor,
+    this.surfaceColor,
     this.icon,
     this.iconSize = 20,
     this.iconSpacing = 8,
@@ -40,6 +43,9 @@ class AppActionButton extends StatelessWidget {
 
   /// 在设置弹窗中沿用未选中设置项底色，保留灰色悬停对比。
   final bool settingBackground;
+  final Color? backgroundColor;
+  final Color? hoverColor;
+  final Color? surfaceColor;
   final IconData? icon;
   final double iconSize;
   final double iconSpacing;
@@ -53,16 +59,21 @@ class AppActionButton extends StatelessWidget {
     final filled = primary || destructive;
     // 提示框恢复柔和的悬停反馈，颜色按实际按钮底色混合。
     final inDialog = context.findAncestorWidgetOfExactType<Dialog>() != null;
-    final background = destructive
-        ? theme.materialColors.error
-        : primary
-        ? theme.basePrimary
-        : settingBackground
-        ? Color.alphaBlend(theme.secondary.withValues(alpha: .9), theme.primary)
-        : Color.alphaBlend(
-            theme.textColorPrimary.withValues(alpha: 0.06),
-            theme.secondary,
-          );
+    final background =
+        backgroundColor ??
+        (destructive
+            ? theme.materialColors.error
+            : primary
+            ? theme.basePrimary
+            : settingBackground
+            ? Color.alphaBlend(
+                theme.secondary.withValues(alpha: .9),
+                theme.primary,
+              )
+            : Color.alphaBlend(
+                theme.textColorPrimary.withValues(alpha: 0.06),
+                theme.secondary,
+              ));
     final foreground = destructive
         ? theme.materialColors.onError
         : primary
@@ -85,16 +96,22 @@ class AppActionButton extends StatelessWidget {
         theme: theme,
         onPressed: onPressed,
         backgroundColor: background,
-        hoverColor: inDialog
-            ? Color.alphaBlend(
-                (filled ? foreground : theme.textColorPrimary).withValues(
-                  alpha: filled ? .1 : .06,
-                ),
-                background,
-              )
-            : filled
-            ? Color.alphaBlend(foreground.withValues(alpha: 0.1), background)
-            : theme.secondaryTextHoverColor,
+        surfaceColor: surfaceColor,
+        hoverColor:
+            hoverColor ??
+            (inDialog
+                ? Color.alphaBlend(
+                    (filled ? foreground : theme.textColorPrimary).withValues(
+                      alpha: filled ? .1 : .06,
+                    ),
+                    background,
+                  )
+                : filled
+                ? Color.alphaBlend(
+                    foreground.withValues(alpha: 0.1),
+                    background,
+                  )
+                : theme.secondaryTextHoverColor),
         borderRadius: borderRadius,
         child: Padding(
           padding: padding,

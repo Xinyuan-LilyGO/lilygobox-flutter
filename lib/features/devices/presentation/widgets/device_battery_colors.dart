@@ -21,9 +21,9 @@ class DeviceBatteryColors {
   Color get muted => theme.textColorTertiary;
   Color get fill => theme.batteryFillColor;
 
-  /// 低于 10% 才使用警告红色；10% 及以上保持正常绿色。
+  /// 低于 20% 使用警告红色；20% 及以上保持正常绿色。
   Color fillFor(double progress) =>
-      progress < .1 ? theme.materialColors.error : fill;
+      progress < .2 ? theme.materialColors.error : fill;
 
   Color get empty => theme.secondary;
 }

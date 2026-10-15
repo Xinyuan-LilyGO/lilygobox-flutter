@@ -39,6 +39,12 @@ class GeneralSettingsContent extends StatelessWidget {
             theme: theme,
             label: context.l10n.restoreDefaults,
             onPressed: () => _confirmReset(context),
+            settingBackground: true,
+            backgroundColor: theme.adaptiveColor(
+              dark: theme.secondaryTextBackgroundColor,
+              light: theme.secondaryTextHoverColor,
+            ),
+            hoverColor: theme.secondaryTextHoverColorAlt,
             fontSize: 12,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             borderRadius: BorderRadius.circular(8),

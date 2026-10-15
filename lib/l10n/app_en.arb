@@ -216,6 +216,17 @@
     "connectionCredentialDescription": "Credentials are saved after initial authorization, so reconnecting does not require approval again. Disconnecting keeps them; deleting the device removes its locally saved credentials.",
   "deviceConnectionStatusTitle": "Device status",
   "deviceBatteryUnknown": "Unknown",
+  "deviceBatteryFull": "Fully charged",
+  "deviceBatteryChargingState": "Charging",
+  "deviceBatteryPowerState": "On battery",
+  "deviceBatteryOffline": "Device not connected",
+  "deviceBatteryNoData": "No battery data",
+  "deviceBatteryChargerConnected": "Charger connected",
+  "deviceBatteryNotCharging": "Not charging",
+  "deviceBatteryVoltage": "Voltage",
+  "deviceBatteryTemperature": "Temperature",
+  "deviceBatteryChargingStatus": "Charging status",
+  "deviceBatteryCurrent": "Current",
     "deviceRotationConfirmTitle": "Change display orientation?",
     "deviceRotationConfirmDescription": "Rotating will close the current page on the device and return to its home screen. Unsaved changes will be discarded. If the device is locked, it will stay locked.",
     "deviceRotationConfirmAction": "Rotate",
@@ -253,6 +264,7 @@
     },
     "deviceBatteryEstimateMinutes": "{minutes} min",
     "deviceBatteryEstimateToFull": "{duration} to full",
+    "deviceBatteryEstimateRemaining": "{duration} remaining",
     "@deviceBatteryEstimateToFull": {
         "placeholders": {
             "duration": { "type": "String" }

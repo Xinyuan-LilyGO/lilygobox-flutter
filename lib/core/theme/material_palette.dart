@@ -23,7 +23,7 @@ class MaterialPalette {
       textColorTertiary: const Color.fromARGB(255, 150, 150, 150),
       // 悬停保持较弱的灰阶反馈，选中使用更明确的实色层级。
       primaryTextHoverColor: const Color.fromARGB(255, 38, 38, 38),
-      primaryTextSelectedColor: const Color.fromARGB(255, 58, 58, 58),
+      primaryTextSelectedColor: const Color.fromARGB(255, 50, 50, 50),
       secondaryTextBackgroundColor: const Color.fromARGB(255, 60, 60, 60),
       secondaryTextHoverColor: const Color.fromARGB(255, 56, 56, 56),
       secondaryTextHoverColorAlt: const Color.fromARGB(255, 80, 80, 80),
@@ -45,7 +45,7 @@ class MaterialPalette {
       sidebarHoverIconColor2: const Color.fromARGB(255, 100, 177, 76),
       sidebarIconBackgroundColor: const Color.fromARGB(255, 55, 55, 55),
       sidebarIndicatorColor: const Color.fromARGB(255, 200, 200, 200),
-      dividerColor: const Color.fromARGB(255, 100, 100, 100),
+      dividerColor: const Color(0xFF282828),
       dividerColorNormal: const Color.fromARGB(255, 126, 109, 202),
       basePrimary: const Color.fromARGB(255, 126, 109, 202),
       baseSecondary: const Color.fromARGB(255, 126, 109, 202),
@@ -62,11 +62,11 @@ class MaterialPalette {
       textColorTertiary: const Color.fromARGB(255, 105, 105, 105),
       primaryTextHoverColor: const Color.fromARGB(255, 223, 223, 223),
       // 浅色主题用较小的灰阶差距，避免选中块显得过重。
-      primaryTextSelectedColor: const Color.fromARGB(255, 210, 210, 210),
+      primaryTextSelectedColor: const Color.fromARGB(255, 204, 204, 204),
       secondaryTextBackgroundColor: const Color.fromARGB(255, 190, 190, 190),
       secondaryTextHoverColor: const Color.fromARGB(255, 206, 206, 206),
       secondaryTextHoverColorAlt: const Color.fromARGB(255, 180, 180, 180),
-      secondaryTextSelectedColor: const Color.fromARGB(255, 190, 190, 190),
+      secondaryTextSelectedColor: const Color.fromARGB(255, 184, 184, 184),
       tertiaryTextBackgroundColor: const Color.fromARGB(255, 160, 160, 160),
       tertiaryTextHoverColor: const Color.fromARGB(255, 180, 180, 180),
       tertiaryTextHighlightColor: const Color.fromARGB(100, 200, 200, 200),
@@ -84,7 +84,7 @@ class MaterialPalette {
       sidebarHoverIconColor2: const Color.fromARGB(255, 125, 191, 105),
       sidebarIconBackgroundColor: const Color.fromARGB(255, 200, 200, 200),
       sidebarIndicatorColor: const Color.fromARGB(255, 40, 40, 40),
-      dividerColor: const Color.fromARGB(255, 80, 80, 80),
+      dividerColor: const Color(0xFFD0D0D0),
       dividerColorNormal: const Color(0xFF7963C6),
       basePrimary: const Color(0xFF7963C6),
       baseSecondary: const Color(0xFF7963C6),
@@ -131,14 +131,14 @@ class MaterialPalette {
       onSurface: theme.textColorPrimary,
       onSurfaceVariant: theme.textColorTertiary,
       outline: theme.dividerColor,
-      outlineVariant: theme.textColorPrimary.withValues(alpha: .07),
+      outlineVariant: theme.dividerColor,
       inverseSurface: isDark ? lightSurface : darkSurface,
       onInverseSurface: isDark ? darkSurface : lightSurface,
       inversePrimary: isDark
           ? const Color(0xFF7963C6)
           : const Color(0xFF7E6DCA),
       surfaceTint: Colors.transparent,
-      error: isDark ? const Color(0xFFB94A48) : const Color(0xFFBC3434),
+      error: isDark ? const Color(0xFFFF5A5F) : const Color(0xFFF04444),
       onError: Colors.white,
     );
   }
@@ -149,12 +149,43 @@ class MaterialPalette {
 
 /// 语义颜色与既有 AppTheme.lerp 使用同一进度，保留平滑主题切换。
 extension MaterialThemeRoles on AppTheme {
+  ButtonStateColors buttonColorsForSurface(Color surface) =>
+      ButtonStateColors.forSurface(surface);
+  ButtonStateColors get buttonStateColors => ButtonStateColors(
+    background: primary,
+    hover: iconBackgroundColor,
+    pressed: iconHighlightColor,
+    selected: primaryTextSelectedColor,
+  );
+
+  /// 页面内小型图标操作按钮使用的高对比底色。
+  /// 深色取最深表面，浅色取现有亮色图标按钮背景，避免控件变暗或融入页面。
+  Color get deepestControlColor =>
+      adaptiveColor(dark: primary, light: iconBackgroundColor);
+
+  /// 为任意控件背景生成不会与背景融为一体的交互层。
+  /// 颜色随背景明暗反向偏移，避免每个组件重复维护一套灰阶。
+  Color interactionHoverColor(Color background) {
+    final isLight = background.computeLuminance() > .5;
+    return Color.lerp(background, isLight ? Colors.black : Colors.white, .1)!;
+  }
+
+  Color interactionPressedColor(Color background) {
+    final isLight = background.computeLuminance() > .5;
+    return Color.lerp(background, isLight ? Colors.black : Colors.white, .18)!;
+  }
+
+  Color interactionSelectedColor(Color background) {
+    final isLight = background.computeLuminance() > .5;
+    return Color.lerp(background, isLight ? Colors.black : Colors.white, .14)!;
+  }
+
   /// 按控件实际底色选择悬停层级，避免主背景的悬停灰色融入二级背景。
   Color hoverColorForBackground(Color background) {
     final surface = Color.alphaBlend(background, primary);
     if (surface == primary) return primaryTextHoverColor;
     if (surface == secondary) return secondaryTextHoverColor;
-    return Color.alphaBlend(textColorPrimary.withValues(alpha: .08), surface);
+    return interactionHoverColor(surface);
   }
 
   ColorScheme get materialColors => ColorScheme.lerp(
@@ -195,7 +226,33 @@ extension MaterialThemeRoles on AppTheme {
 
   /// 正常电量使用绿色，亮暗主题分别保持图形对比度。
   Color get batteryFillColor => adaptiveColor(
-    dark: const Color(0xFF30D158),
-    light: const Color(0xFF34C759),
+    dark: const Color(0xFF43E06A),
+    light: const Color(0xFF43D96A),
   );
+}
+
+/// Semantic states for compact buttons on the app's shared surfaces.
+class ButtonStateColors {
+  const ButtonStateColors({
+    required this.background,
+    required this.hover,
+    required this.pressed,
+    required this.selected,
+  });
+
+  final Color background;
+  final Color hover;
+  final Color pressed;
+  final Color selected;
+
+  factory ButtonStateColors.forSurface(Color surface) {
+    final light = surface.computeLuminance() > .5;
+    final contrast = light ? Colors.black : Colors.white;
+    return ButtonStateColors(
+      background: Color.lerp(surface, contrast, light ? .1 : .2)!,
+      hover: light ? const Color(0xFFE5E5E5) : const Color(0xFF262626),
+      pressed: Color.lerp(surface, contrast, light ? .28 : .42)!,
+      selected: Color.lerp(surface, contrast, light ? .19 : .20)!,
+    );
+  }
 }

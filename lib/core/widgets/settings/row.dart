@@ -37,7 +37,7 @@ class SettingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = theme.dividerColor.withValues(alpha: 0.24);
+    final borderColor = theme.dividerColor;
 
     return Container(
       constraints: const BoxConstraints(minHeight: 68.0),

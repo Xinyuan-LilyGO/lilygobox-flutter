@@ -701,10 +701,10 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                         ? context.l10n.deviceBatteryUnknown
                         : _controlState!.battery!.full &&
                               _controlState!.battery!.charging
-                        ? '已充满'
+                        ? context.l10n.deviceBatteryFull
                         : _controlState!.battery!.charging
-                        ? '充电中'
-                        : '电池供电',
+                        ? context.l10n.deviceBatteryChargingState
+                        : context.l10n.deviceBatteryPowerState,
                     theme,
                     size: 15,
                     bold: true,
@@ -732,15 +732,15 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
             const SizedBox(height: deviceBatteryGraphicGap),
             _detailText(
               !online
-                  ? '设备未连接'
+                  ? context.l10n.deviceBatteryOffline
                   : _controlState?.battery == null
-                  ? '暂无电池数据'
+                  ? context.l10n.deviceBatteryNoData
                   : _controlState!.battery!.full &&
                         _controlState!.battery!.charging
-                  ? '已充满'
+                  ? context.l10n.deviceBatteryFull
                   : _controlState!.battery!.charging
-                  ? '充电器已连接'
-                  : '未充电',
+                  ? context.l10n.deviceBatteryChargerConnected
+                  : context.l10n.deviceBatteryNotCharging,
               theme,
               size: 12,
               muted: true,
@@ -767,7 +767,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                 final voltage = _batteryMetric(
                   theme,
                   Symbols.bolt,
-                  '电压',
+                  context.l10n.deviceBatteryVoltage,
                   _controlState?.battery == null
                       ? '—'
                       : (_controlState!.battery!.voltageMv / 1000)
@@ -777,7 +777,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                 final temperature = _batteryMetric(
                   theme,
                   Symbols.thermometer,
-                  '温度',
+                  context.l10n.deviceBatteryTemperature,
                   _controlState?.battery?.temperatureC?.toStringAsFixed(1) ??
                       '—',
                   '°C',
@@ -808,18 +808,18 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
             const SizedBox(height: 18),
             _batteryStatusRow(
               theme,
-              '充电状态',
+              context.l10n.deviceBatteryChargingStatus,
               _controlState?.battery == null
                   ? '—'
                   : _controlState!.battery!.full
-                  ? '已充满'
+                  ? context.l10n.deviceBatteryFull
                   : _controlState!.battery!.charging
-                  ? '充电中'
-                  : '未充电',
+                  ? context.l10n.deviceBatteryChargingState
+                  : context.l10n.deviceBatteryNotCharging,
             ),
             _batteryStatusRow(
               theme,
-              '电流',
+              context.l10n.deviceBatteryCurrent,
               _controlState?.battery == null
                   ? '—'
                   : '${_controlState!.battery!.currentMa} mA',
@@ -1133,9 +1133,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                   children: [
                     Expanded(
                       child: Divider(
-                        color: theme.basePrimary.withValues(
-                          alpha: online ? .45 : .22,
-                        ),
+                        color: theme.materialColors.outlineVariant,
                       ),
                     ),
                     if (!online) ...[
@@ -1148,7 +1146,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                       const SizedBox(width: 8),
                       Expanded(
                         child: Divider(
-                          color: theme.basePrimary.withValues(alpha: .22),
+                          color: theme.materialColors.outlineVariant,
                         ),
                       ),
                     ] else

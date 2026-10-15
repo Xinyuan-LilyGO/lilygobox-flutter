@@ -117,7 +117,7 @@ InputDecoration _inputDecoration(
       borderRadius: BorderRadius.circular(4.0),
       borderSide: disableHover
           ? BorderSide.none
-          : BorderSide(color: theme.dividerColor.withValues(alpha: 0.28)),
+          : BorderSide(color: theme.dividerColor),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(4.0),

@@ -670,6 +670,39 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceBatteryUnknown => '未知';
 
   @override
+  String get deviceBatteryFull => '已充满';
+
+  @override
+  String get deviceBatteryChargingState => '充电中';
+
+  @override
+  String get deviceBatteryPowerState => '电池供电';
+
+  @override
+  String get deviceBatteryOffline => '设备未连接';
+
+  @override
+  String get deviceBatteryNoData => '暂无电池数据';
+
+  @override
+  String get deviceBatteryChargerConnected => '充电器已连接';
+
+  @override
+  String get deviceBatteryNotCharging => '未充电';
+
+  @override
+  String get deviceBatteryVoltage => '电压';
+
+  @override
+  String get deviceBatteryTemperature => '温度';
+
+  @override
+  String get deviceBatteryChargingStatus => '充电状态';
+
+  @override
+  String get deviceBatteryCurrent => '电流';
+
+  @override
   String get deviceRotationConfirmTitle => '更改显示方向？';
 
   @override
@@ -728,6 +761,11 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String deviceBatteryEstimateToFull(String duration) {
     return '$duration充满';
+  }
+
+  @override
+  String deviceBatteryEstimateRemaining(Object duration) {
+    return '剩余 $duration';
   }
 
   @override

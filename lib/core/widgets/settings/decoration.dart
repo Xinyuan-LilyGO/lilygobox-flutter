@@ -20,6 +20,6 @@ BoxDecoration settingsControlDecoration(
         color ??
         (opaque ? theme.primary : theme.primary.withValues(alpha: 0.74)),
     borderRadius: BorderRadius.circular(4.0),
-    border: Border.all(color: theme.dividerColor.withValues(alpha: 0.28)),
+    border: Border.all(color: theme.dividerColor),
   );
 }

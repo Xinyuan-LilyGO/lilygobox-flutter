@@ -24,6 +24,7 @@ class MenuItemSurface extends StatefulWidget {
     this.isSelected = false,
     this.disableWhenSelected = true,
     this.backgroundColor,
+    this.surfaceColor,
     this.hoverColor,
     this.selectedColor,
     this.splashColor,
@@ -40,13 +41,16 @@ class MenuItemSurface extends StatefulWidget {
     required AppTheme theme,
     required VoidCallback? onPressed,
     required Widget child,
+    bool showBorder = true,
   }) => MenuItemSurface(
     key: key,
     theme: theme,
     onPressed: onPressed,
     backgroundColor: theme.primary.withValues(alpha: 0.74),
     hoverColor: theme.secondaryTextHoverColor,
-    border: Border.all(color: theme.dividerColor.withValues(alpha: 0.28)),
+    border: showBorder
+        ? Border.all(color: theme.dividerColor.withValues(alpha: 0.28))
+        : null,
     borderRadius: BorderRadius.circular(4),
     child: child,
   );
@@ -60,6 +64,7 @@ class MenuItemSurface extends StatefulWidget {
   final bool isSelected;
   final bool disableWhenSelected;
   final Color? backgroundColor;
+  final Color? surfaceColor;
   final Color? hoverColor;
 
   /// 局部控件可加强选中对比度，默认仍沿用设置导航的选中颜色。
@@ -86,19 +91,16 @@ class _MenuItemSurfaceState extends State<MenuItemSurface> {
     final enabled =
         widget.onPressed != null &&
         !(widget.isSelected && widget.disableWhenSelected);
-    final selectedBackground =
-        widget.selectedColor ?? theme.primaryTextSelectedColor;
+    final stateColors = theme.buttonColorsForSurface(
+      widget.surfaceColor ?? widget.backgroundColor ?? theme.primary,
+    );
+    final selectedBackground = widget.selectedColor ?? stateColors.selected;
     final backgroundColor = _isHovered && enabled
-        ? widget.hoverColor ??
-              theme.hoverColorForBackground(
-                widget.isSelected
-                    ? selectedBackground
-                    : widget.backgroundColor ?? theme.primary,
-              )
+        ? widget.hoverColor ?? stateColors.hover
         : widget.isSelected
         ? selectedBackground
         : widget.backgroundColor ?? theme.primary;
-    final foregroundColor = _isHovered && enabled && !widget.isSelected
+    final foregroundColor = _isHovered && enabled
         ? widget.hoverForegroundColor ?? widget.foregroundColor
         : widget.foregroundColor;
 
@@ -137,10 +139,10 @@ class _MenuItemSurfaceState extends State<MenuItemSurface> {
                 hoverColor: Colors.transparent,
                 highlightColor:
                     widget.highlightColor ??
-                    theme.textColorPrimary.withValues(alpha: 0.04),
+                    stateColors.pressed.withValues(alpha: .38),
                 splashColor:
                     widget.splashColor ??
-                    theme.textColorPrimary.withValues(alpha: 0.12),
+                    stateColors.pressed.withValues(alpha: .5),
                 splashFactory: InkRipple.splashFactory,
                 child: foregroundColor == null
                     ? widget.child
