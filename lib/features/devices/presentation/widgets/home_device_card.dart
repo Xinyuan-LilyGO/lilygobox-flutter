@@ -18,6 +18,7 @@ import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/tilt_card.dart';
 import 'device_menu_actions.dart';
 import 'device_status_badge.dart';
+import 'device_wifi_signal.dart';
 
 class HomeDeviceCard extends StatefulWidget {
   const HomeDeviceCard({
@@ -28,6 +29,7 @@ class HomeDeviceCard extends StatefulWidget {
     required this.connecting,
     required this.onPressed,
     this.usesWifi = false,
+    this.wifiRssi,
     this.macAddress,
     this.onDelete,
     this.deviceId,
@@ -39,6 +41,7 @@ class HomeDeviceCard extends StatefulWidget {
   final bool connecting;
   final VoidCallback onPressed;
   final bool usesWifi;
+  final int? wifiRssi;
   final String? macAddress;
   final VoidCallback? onDelete;
   final String? deviceId;
@@ -57,6 +60,7 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
     final connected = widget.connected;
     final connecting = widget.connecting;
     final usesWifi = widget.usesWifi;
+    final wifiRssi = widget.wifiRssi;
     final theme = context.watch<ThemeProvider>().themeData;
     final l10n = context.l10n;
     final status = connected
@@ -138,7 +142,7 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
                 children: [
                   Icon(
                     // 这里表示设备连接方式，在线状态由顶部徽标独立展示。
-                    usesWifi ? Symbols.wifi : Symbols.link,
+                    usesWifi ? deviceWifiIconForRssi(wifiRssi) : Symbols.link,
                     size: 20,
                     color: theme.basePrimary,
                   ),

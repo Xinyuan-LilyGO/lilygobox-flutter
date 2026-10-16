@@ -33,6 +33,7 @@ import '../widgets/device_dashboard.dart';
 import '../widgets/device_name_dialog.dart';
 import '../widgets/device_page_frame.dart';
 import '../widgets/device_status_badge.dart';
+import '../widgets/device_wifi_signal.dart';
 
 enum _DeviceDetailView { control, information, battery, connection }
 
@@ -394,7 +395,11 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                 const SizedBox(height: 18),
                 Row(
                   children: [
-                    Icon(Symbols.wifi, size: 20, color: theme.basePrimary),
+                    Icon(
+                      deviceWifiIconForRssi(_controlState?.wifiRssi),
+                      size: 20,
+                      color: theme.basePrimary,
+                    ),
                     const SizedBox(width: 7),
                     Flexible(
                       child: Text(
@@ -1117,7 +1122,11 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Symbols.wifi, size: 17, color: theme.basePrimary),
+                    Icon(
+                      deviceWifiIconForRssi(_controlState?.wifiRssi),
+                      size: 17,
+                      color: theme.basePrimary,
+                    ),
                     const SizedBox(width: 6),
                     _detailText(
                       'Wi-Fi',
@@ -1153,7 +1162,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                       Icon(
                         Symbols.chevron_right,
                         size: 16,
-                        color: theme.basePrimary,
+                        color: theme.textColorTertiary,
                       ),
                   ],
                 ),
@@ -1253,6 +1262,12 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
             ),
             const SizedBox(height: 16),
             for (final item in [
+              (
+                l10n.deviceWifiSignal,
+                _controlState?.wifiRssi == null
+                    ? '—'
+                    : '${_controlState!.wifiRssi} dBm',
+              ),
               (l10n.lanAddress, device?.address ?? '—'),
               (l10n.lanMacAddress, device?.macAddress ?? '—'),
             ])
@@ -1321,6 +1336,49 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
           ],
         ),
       );
+      final credentials = _card(
+        theme,
+        color: Color.alphaBlend(
+          theme.textColorPrimary.withValues(alpha: .05),
+          theme.primary,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Symbols.verified_user,
+              size: 17,
+              color: theme.textColorTertiary,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _detailText(
+                    l10n.connectionCredentialTitle,
+                    theme,
+                    size: 12,
+                    bold: true,
+                  ),
+                  const SizedBox(height: 6),
+                  _detailText(
+                    l10n.connectionCredentialDescription,
+                    theme,
+                    size: 12,
+                    muted: true,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+      final managementColumn = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [management, const SizedBox(height: 18), credentials],
+      );
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1329,58 +1387,16 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
           if (narrow) ...[
             information,
             const SizedBox(height: 18),
-            management,
+            managementColumn,
           ] else
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(flex: 65, child: information),
-                  const SizedBox(width: 18),
-                  Expanded(flex: 35, child: management),
-                ],
-              ),
-            ),
-          const SizedBox(height: 18),
-          _card(
-            theme,
-            color: Color.alphaBlend(
-              theme.textColorPrimary.withValues(alpha: .05),
-              theme.primary,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Row(
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Symbols.verified_user,
-                  size: 17,
-                  color: theme.textColorTertiary,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _detailText(
-                        l10n.connectionCredentialTitle,
-                        theme,
-                        size: 12,
-                        bold: true,
-                      ),
-                      const SizedBox(height: 6),
-                      _detailText(
-                        l10n.connectionCredentialDescription,
-                        theme,
-                        size: 12,
-                        muted: true,
-                      ),
-                    ],
-                  ),
-                ),
+                Expanded(flex: 65, child: information),
+                const SizedBox(width: 18),
+                Expanded(flex: 35, child: managementColumn),
               ],
             ),
-          ),
         ],
       );
     },

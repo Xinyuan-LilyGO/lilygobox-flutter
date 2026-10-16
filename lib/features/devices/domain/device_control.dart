@@ -97,6 +97,7 @@ class DeviceControlState {
     this.battery,
     this.batteryCapacityMinimumMah,
     this.batteryCapacityMaximumMah,
+    this.wifiRssi,
   );
 
   factory DeviceControlState.parse(Object? source) {
@@ -140,6 +141,7 @@ class DeviceControlState {
       DeviceBatteryState.parse(data['battery']),
       minimum,
       maximum,
+      _optionalInteger(data['wifiRssi'], -127, 0),
     );
   }
 
@@ -149,6 +151,7 @@ class DeviceControlState {
   final DeviceBatteryState? battery;
   final int batteryCapacityMinimumMah;
   final int batteryCapacityMaximumMah;
+  final int? wifiRssi;
   bool accepts(DeviceControlField field, Object value) =>
       field.accepts(value) &&
       (field != DeviceControlField.batteryCapacityMah ||
@@ -171,6 +174,7 @@ class DeviceControlState {
         battery,
         batteryCapacityMinimumMah,
         batteryCapacityMaximumMah,
+        wifiRssi,
       );
 }
 

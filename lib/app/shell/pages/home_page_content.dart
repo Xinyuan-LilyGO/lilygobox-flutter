@@ -391,6 +391,9 @@ class _HomePageContentState extends State<HomePageContent> {
                                               ?.macAddress,
                                           usesWifi:
                                               devices.lanDevice(id) != null,
+                                          wifiRssi: session
+                                              ?.controlStateFor(id)
+                                              ?.wifiRssi,
                                           connecting:
                                               session?.device?.id == id &&
                                               session?.busy == true,

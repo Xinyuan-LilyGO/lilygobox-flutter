@@ -1554,6 +1554,12 @@ abstract class AppLocalizations {
   /// **'Battery level'**
   String get deviceBatteryLevel;
 
+  /// No description provided for @deviceWifiSignal.
+  ///
+  /// In en, this message translates to:
+  /// **'Wi-Fi signal'**
+  String get deviceWifiSignal;
+
   /// No description provided for @deviceNameEditDescription.
   ///
   /// In en, this message translates to:

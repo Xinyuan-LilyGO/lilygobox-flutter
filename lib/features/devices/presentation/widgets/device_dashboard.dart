@@ -18,6 +18,7 @@ import '../../../../core/widgets/tilt_card.dart';
 import '../../domain/device_control.dart';
 import 'device_battery_colors.dart';
 import 'device_battery_estimate.dart';
+import 'device_wifi_signal.dart';
 
 /// 根据可用空间组织卡片；同行高度由内容决定，不使用固定卡片尺寸。
 class DeviceDashboard extends StatelessWidget {
@@ -152,7 +153,11 @@ class DeviceDashboard extends StatelessWidget {
                 margin: const EdgeInsets.symmetric(horizontal: 10),
                 color: theme.materialColors.outlineVariant,
               ),
-              Icon(Symbols.wifi, size: 17, color: theme.textColorTertiary),
+              Icon(
+                deviceWifiIconForRssi(controlState?.wifiRssi),
+                size: 17,
+                color: theme.textColorTertiary,
+              ),
               const SizedBox(width: 6),
               _text('Wi-Fi', size: 12),
             ],

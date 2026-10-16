@@ -772,6 +772,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceBatteryLevel => '电池电量';
 
   @override
+  String get deviceWifiSignal => 'Wi-Fi 信号';
+
+  @override
   String get deviceNameEditDescription => '请输入设备名称（最多 64 个 UTF-8 字节）。名称将保存到设备。';
 
   @override

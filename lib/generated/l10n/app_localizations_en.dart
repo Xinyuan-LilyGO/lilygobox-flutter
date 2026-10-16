@@ -808,6 +808,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceBatteryLevel => 'Battery level';
 
   @override
+  String get deviceWifiSignal => 'Wi-Fi signal';
+
+  @override
   String get deviceNameEditDescription =>
       'Enter a device name (up to 64 UTF-8 bytes). The name is saved on the device.';
 
