@@ -34,6 +34,10 @@ class DeviceIdentityColors {
 
   final AppTheme theme;
 
+  /// 离线底色从卡片自身配色降低对比度，保留独立色调。
+  Color get offlineBackground =>
+      Color.alphaBlend(foreground.withValues(alpha: .12), background);
+
   Color get background => theme.adaptiveColor(
     dark: const Color(0xFFE5ECF3),
     light: const Color(0xFF151E25),

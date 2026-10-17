@@ -14,6 +14,7 @@ import '../../../../../core/l10n/language_provider.dart';
 import '../../../../../core/theme/provider.dart';
 import '../../../../../core/widgets/app_tooltip.dart';
 import '../../../../../core/widgets/interaction_decoration.dart';
+import '../../../presentation/widgets/device_wifi_signal.dart';
 import '../../domain/connection_status.dart';
 
 class TGlassesP4PageControlCenter extends StatefulWidget {
@@ -105,9 +106,21 @@ class _TGlassesP4PageControlCenterState
                       ),
                     ),
                     child: Icon(
-                      Symbols.wifi,
+                      deviceWifiIconForRssi(
+                        null,
+                        online:
+                            widget.connectionStatus ==
+                            ConnectionStatus.connected,
+                      ),
+                      fill:
+                          widget.connectionStatus == ConnectionStatus.connected
+                          ? null
+                          : 1,
                       size: 30,
-                      color: _getStatusColor(theme),
+                      color:
+                          widget.connectionStatus == ConnectionStatus.connected
+                          ? _getStatusColor(theme)
+                          : theme.textColorTertiary,
                     ),
                   ),
                   const SizedBox(width: 16),

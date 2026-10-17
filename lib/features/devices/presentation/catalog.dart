@@ -24,7 +24,7 @@ class DevicePresentationCatalog {
   static IconData iconFor(String deviceName) {
     return deviceName == DeviceCatalog.tGlassesP4Name ||
             deviceName == 'T-Display-P4'
-        ? Symbols.wifi
+        ? Symbols.signal_wifi_4_bar
         : Symbols.link;
   }
 

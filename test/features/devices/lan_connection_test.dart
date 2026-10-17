@@ -141,6 +141,7 @@ void main() {
           'model': 'T-Display-P4',
           'port': 18464,
           'address': '203.0.113.10',
+          'localAddress': '203.0.113.11',
           'nonce': request['nonce'] as String,
         };
         udp.send(utf8.encode('not json'), packet.address, packet.port);
@@ -164,6 +165,8 @@ void main() {
       final found = await discovery.discover().first;
       expect(found.id, deviceId);
       expect(found.address, '127.0.0.1');
+      expect(found.localAddress?.address, '127.0.0.1');
+      expect(found.toJson().containsKey('localAddress'), isFalse);
     },
   );
 
@@ -210,7 +213,10 @@ void main() {
     'uptimeMs': 12345,
   };
 
-  void serve(void Function(WebSocket, Map<String, dynamic>) handler) {
+  void serve(
+    void Function(WebSocket, Map<String, dynamic>) handler, {
+    void Function()? onHandshakeError,
+  }) {
     server.listen(
       (request) async {
         expect(request.uri.path, '/api/v1/ws');
@@ -226,6 +232,242 @@ void main() {
       onError: (Object error) {
         // 客户端拒绝测试证书时，服务端可能收到对应的握手失败事件。
         if (error is! HandshakeException) throw error;
+        onHandshakeError?.call();
+      },
+    );
+  }
+
+  test(
+    'authorized connection reads chip revisions and clears them on disconnect',
+    () async {
+      serve((socket, message) {
+        if (message['type'] == 'hello' || message['type'] == 'ping') {
+          socket.add(
+            jsonEncode({
+              ...response(message['type'] == 'hello' ? 'ready' : 'pong'),
+              'modelVersion': '1.0',
+              'chips': {
+                'main': {
+                  'model': 'esp32p4',
+                  'revision': '1.3',
+                  'revisionSource': 'runtime',
+                },
+                'wireless': {
+                  'model': 'esp32c6',
+                  'revision': '0.0',
+                  'revisionSource': 'boardConfig',
+                },
+              },
+            }),
+          );
+        }
+      });
+      expect(await connection.connect(device), isTrue);
+      expect(connection.firmwareHardware?.main.revision, '1.3');
+      expect(connection.firmwareHardware?.wireless.model, 'esp32c6');
+      connection.disconnect();
+      expect(connection.firmwareHardware, isNull);
+    },
+  );
+
+  for (final accepted in [true, false]) {
+    test(
+      'restart request blocks duplicates until next connection (accepted: $accepted)',
+      () async {
+        var installs = 0;
+        serve((socket, message) {
+          switch (message['type']) {
+            case 'hello':
+            case 'ping':
+              socket.add(
+                jsonEncode(
+                  response(message['type'] == 'hello' ? 'ready' : 'pong'),
+                ),
+              );
+            case 'firmware.local.install':
+              installs++;
+              socket.add(
+                jsonEncode(
+                  response(
+                    accepted
+                        ? 'firmware.local.install.started'
+                        : 'firmware.local.install.rejected',
+                  ),
+                ),
+              );
+          }
+        });
+        expect(await connection.connect(device), isTrue);
+        connection.firmwareUpdateStage = 'readyToInstall';
+        final install = connection.installLocalFirmwareUpdate();
+        expect(connection.firmwareRestartRequested, isTrue);
+        expect(await connection.installLocalFirmwareUpdate(), isFalse);
+        expect(await install, accepted);
+        expect(installs, 1);
+        expect(connection.firmwareRestartRequested, accepted);
+        connection.disconnect();
+        expect(await connection.connect(device), isTrue);
+        expect(connection.firmwareRestartRequested, isFalse);
+      },
+    );
+  }
+
+  for (final (sendMain, sendWireless, rejectCancel) in [
+    (true, true, false),
+    (true, false, false),
+    (false, true, false),
+    (true, true, true),
+  ]) {
+    test(
+      'local OTA serves selected files (main: $sendMain, wireless: $sendWireless, cancel rejected: $rejectCancel) without a bare TLS probe',
+      () async {
+        await server.close(force: true);
+        server = await HttpServer.bindSecure(
+          InternetAddress.anyIPv4,
+          0,
+          deviceTlsContext(),
+        );
+        device = LanDevice(
+          id: deviceId,
+          name: 'P4',
+          address: '127.0.0.2',
+          port: server.port,
+          model: 'T-Display-P4',
+        );
+        final directory = await Directory.systemTemp.createTemp(
+          'lilygobox-ota-test-',
+        );
+        addTearDown(() async {
+          try {
+            await directory.delete(recursive: true);
+          } on PathNotFoundException {
+            // 连接层可能已在异步关闭服务时清理目录。
+          }
+        });
+        final mainBytes = List.generate(4096, (index) => index % 256);
+        final wirelessBytes = List.generate(2048, (index) => (index + 1) % 256);
+        final main = await File(
+          '${directory.path}/main.bin',
+        ).writeAsBytes(mainBytes);
+        final wireless = await File(
+          '${directory.path}/wireless.bin',
+        ).writeAsBytes(wirelessBytes);
+        Map<String, dynamic>? start;
+        WebSocket? deviceSocket;
+        var handshakeErrors = 0;
+        serve((socket, message) {
+          deviceSocket = socket;
+          switch (message['type']) {
+            case 'hello':
+            case 'ping':
+              socket.add(
+                jsonEncode(
+                  response(message['type'] == 'hello' ? 'ready' : 'pong'),
+                ),
+              );
+            case 'firmware.local.start':
+              start = message;
+              // 上一次更新的状态不能提前关闭本次刚建立的 HTTP 服务。
+              socket.add(
+                jsonEncode({
+                  ...response('firmware.local.status'),
+                  'stage': 'failed',
+                  'progress': 0,
+                  'busy': false,
+                  'message': 'previous update failed',
+                }),
+              );
+              socket.add(jsonEncode(response('firmware.local.started')));
+            case 'firmware.local.cancel':
+              socket.add(
+                jsonEncode(response('firmware.local.cancel.rejected')),
+              );
+          }
+        }, onHandshakeError: () => handshakeErrors++);
+        expect(await connection.connect(device), isTrue);
+        expect(
+          await connection.startLocalMainFirmwareUpdate(
+            firmware: null,
+            version: '1.1.2',
+            sha256: sha256.convert(mainBytes).toString(),
+            mainSize: mainBytes.length,
+            wirelessFirmware: null,
+            wirelessVersion: '2.12.3',
+            wirelessSha256: sha256.convert(wirelessBytes).toString(),
+            wirelessSize: wirelessBytes.length,
+          ),
+          isFalse,
+        );
+        expect(start, isNull);
+        expect(
+          await connection.startLocalMainFirmwareUpdate(
+            firmware: sendMain ? main : null,
+            version: '1.1.2',
+            sha256: sha256.convert(mainBytes).toString(),
+            mainSize: mainBytes.length,
+            wirelessFirmware: sendWireless ? wireless : null,
+            wirelessVersion: '2.12.3',
+            wirelessSha256: sha256.convert(wirelessBytes).toString(),
+            wirelessSize: wirelessBytes.length,
+          ),
+          isTrue,
+        );
+        final mainUri = Uri.parse(start!['mainUrl'] as String);
+        final wirelessUri = Uri.parse(start!['wirelessUrl'] as String);
+        final servedUri = sendMain ? mainUri : wirelessUri;
+        expect(servedUri.host, '127.0.0.1');
+        expect(servedUri.host, isNot(device.address));
+        if (!sendMain) expect(start!['mainUrl'], isEmpty);
+        if (!sendWireless) expect(start!['wirelessUrl'], isEmpty);
+        expect(start!['mainSize'], mainBytes.length);
+        expect(start!['wirelessSize'], wirelessBytes.length);
+        expect(start!['mainVersion'], '1.1.2');
+        expect(start!['wirelessVersion'], '2.12.3');
+        final client = HttpClient()..findProxy = (_) => 'DIRECT';
+        addTearDown(() => client.close(force: true));
+        Future<List<int>> read(Uri url, {int status = 200}) async {
+          final request = await client.getUrl(url);
+          final response = await request.close();
+          expect(response.statusCode, status);
+          return response.fold<List<int>>(
+            [],
+            (bytes, chunk) => bytes..addAll(chunk),
+          );
+        }
+
+        if (sendWireless) expect(await read(wirelessUri), wirelessBytes);
+        if (sendMain) expect(await read(mainUri), mainBytes);
+        expect(
+          await read(servedUri.replace(path: '/wrong-token'), status: 404),
+          isEmpty,
+        );
+        expect(handshakeErrors, 0);
+        expect(connection.connected, isTrue);
+        if (rejectCancel) {
+          await expectLater(
+            connection.cancelLocalFirmwareUpdate(),
+            throwsStateError,
+          );
+          await expectLater(read(servedUri), throwsA(isA<SocketException>()));
+          expect(await main.exists(), isFalse);
+          expect(await wireless.exists(), isFalse);
+          return;
+        }
+        deviceSocket!.add(
+          jsonEncode({
+            ...response('firmware.local.status'),
+            'stage': 'readyToInstall',
+            'progress': 100,
+            'busy': false,
+            'message': 'Ready',
+          }),
+        );
+        await waitFor(() => connection.firmwareUpdateStage == 'readyToInstall');
+        await waitFor(
+          () =>
+              (!sendMain || !main.existsSync()) &&
+              (!sendWireless || !wireless.existsSync()),
+        );
       },
     );
   }

@@ -154,12 +154,17 @@ class DeviceDashboard extends StatelessWidget {
                 color: theme.materialColors.outlineVariant,
               ),
               Icon(
-                deviceWifiIconForRssi(controlState?.wifiRssi),
+                deviceWifiIconForRssi(controlState?.wifiRssi, online: online),
+                fill: online ? null : 1,
                 size: 17,
                 color: theme.textColorTertiary,
               ),
               const SizedBox(width: 6),
-              _text('Wi-Fi', size: 12),
+              _text(
+                'Wi-Fi',
+                size: 12,
+                color: online ? null : theme.textColorTertiary,
+              ),
             ],
           ),
         );
@@ -271,7 +276,7 @@ class DeviceDashboard extends StatelessWidget {
         ),
       ),
     );
-    // 电池详情属于只读信息，离线时仍可打开查看。
+    // 设备信息和电池详情属于只读信息，离线时仍可打开查看。
     if (!enabled && !allowNavigationWhenDisabled) onTap = null;
     final radius = BorderRadius.circular(20);
     // 特色卡片可能与全局主题明暗相反，点击波纹按实际底色选择对比色。
@@ -326,11 +331,15 @@ class DeviceDashboard extends StatelessWidget {
 
   Widget _device(BuildContext context) {
     final colors = DeviceIdentityColors(theme);
+    final foreground = colors.foreground;
+    final muted = colors.muted;
     return _surface(
+      enabled: online,
+      allowNavigationWhenDisabled: true,
       key: const ValueKey('device-card-information'),
       onTap: onInformation,
-      color: colors.background,
-      feedbackColor: colors.foreground,
+      color: online ? colors.background : colors.offlineBackground,
+      feedbackColor: foreground,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -338,27 +347,19 @@ class DeviceDashboard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _title(
-                context.l10n.deviceDashboardMyDevice,
-                color: colors.foreground,
-              ),
+              _title(context.l10n.deviceDashboardMyDevice, color: foreground),
               const SizedBox(height: 12),
               // 居中的媒体槽位预留给设备图片，暂时使用 Blur On 图标。
               Center(
                 child: SizedBox(
                   width: 104,
                   height: 104,
-                  child: Icon(Symbols.blur_on, size: 80, color: colors.muted),
+                  child: Icon(Symbols.blur_on, size: 80, color: muted),
                 ),
               ),
               const SizedBox(height: 12),
               Center(
-                child: _text(
-                  name,
-                  size: 20,
-                  bold: true,
-                  color: colors.foreground,
-                ),
+                child: _text(name, size: 20, bold: true, color: foreground),
               ),
               const SizedBox(height: 6),
               Center(
@@ -366,17 +367,13 @@ class DeviceDashboard extends StatelessWidget {
                   model ?? context.l10n.deviceDashboardIdentity,
                   size: 13,
                   muted: true,
-                  color: colors.muted,
+                  color: muted,
                 ),
               ),
               const SizedBox(height: 16),
             ],
           ),
-          _text(
-            context.l10n.deviceDashboardViewInfo,
-            size: 12,
-            color: colors.muted,
-          ),
+          _text(context.l10n.deviceDashboardViewInfo, size: 12, color: muted),
         ],
       ),
     );

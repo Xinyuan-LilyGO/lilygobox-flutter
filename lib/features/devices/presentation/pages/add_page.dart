@@ -448,7 +448,11 @@ class _AddDevicePageState extends State<AddDevicePage> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              Icon(Symbols.wifi, size: 26, color: theme.baseTertiary),
+              Icon(
+                Symbols.signal_wifi_4_bar,
+                size: 26,
+                color: theme.baseTertiary,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(

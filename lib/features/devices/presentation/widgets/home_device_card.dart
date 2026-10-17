@@ -141,15 +141,24 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
               Row(
                 children: [
                   Icon(
-                    // 这里表示设备连接方式，在线状态由顶部徽标独立展示。
-                    usesWifi ? deviceWifiIconForRssi(wifiRssi) : Symbols.link,
+                    usesWifi
+                        ? deviceWifiIconForRssi(wifiRssi, online: connected)
+                        : Symbols.link,
+                    fill: usesWifi && !connected ? 1 : null,
                     size: 20,
-                    color: theme.basePrimary,
+                    color: connected
+                        ? theme.basePrimary
+                        : theme.textColorTertiary,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     usesWifi ? 'Wi-Fi' : l10n.homeDeviceOffline,
-                    style: TextStyle(fontSize: 13, color: theme.basePrimary),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: connected
+                          ? theme.basePrimary
+                          : theme.textColorTertiary,
+                    ),
                   ),
                 ],
               ),

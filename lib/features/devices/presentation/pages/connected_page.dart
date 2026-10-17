@@ -16,6 +16,7 @@ import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/material_palette.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/action_button.dart';
+import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/card_shadow.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
@@ -34,8 +35,12 @@ import '../widgets/device_name_dialog.dart';
 import '../widgets/device_page_frame.dart';
 import '../widgets/device_status_badge.dart';
 import '../widgets/device_wifi_signal.dart';
+import '../widgets/firmware_update_dialog.dart';
 
 enum _DeviceDetailView { control, information, battery, connection }
+
+String _versionForDisplay(String version) =>
+    version.isEmpty || version.startsWith('v') ? version : 'v$version';
 
 class ConnectedDevicePage extends StatefulWidget {
   const ConnectedDevicePage({
@@ -60,6 +65,8 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
   _DeviceDetailView _view = _DeviceDetailView.control;
   final List<_DeviceDetailView> _viewHistory = [];
   bool _rotationConfirmationOpen = false;
+  bool _firmwareDialogOpen = false;
+
   late final AnimationController _viewTransition = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 200),
@@ -352,6 +359,10 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
   ) => LayoutBuilder(
     builder: (context, constraints) {
       final narrow = constraints.maxWidth < 760;
+      final checkBackground = Color.alphaBlend(
+        theme.secondary.withValues(alpha: .6),
+        theme.primary,
+      );
       final identity = _card(
         theme,
         enabled: online,
@@ -360,7 +371,91 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _detailText(l10n.homeDeviceCardLabel, theme, size: 16, bold: true),
+            Row(
+              children: [
+                Expanded(
+                  child: _detailText(
+                    l10n.homeDeviceCardLabel,
+                    theme,
+                    size: 16,
+                    bold: true,
+                  ),
+                ),
+                if (online && !session.firmwareRestartRequested)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: session.firmwareRelease == null
+                              ? checkBackground
+                              : const Color(0xFFE8F1FF),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          session.firmwareRelease == null ? '检查更新' : '有新版本',
+                          style: TextStyle(
+                            color: session.firmwareRelease == null
+                                ? theme.textColorSecondary
+                                : const Color(0xFF2878D4),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      AppTooltip(
+                        message: session.firmwareRelease == null
+                            ? '检查固件更新'
+                            : '更新到 ${_versionForDisplay(session.firmwareRelease!.mainVersion)}',
+                        child: Semantics(
+                          button: true,
+                          enabled: !_firmwareDialogOpen,
+                          label: session.firmwareRelease == null
+                              ? '检查固件更新'
+                              : '更新固件',
+                          child: SizedBox(
+                            width: 30,
+                            height: 30,
+                            child: MenuItemSurface(
+                              theme: theme,
+                              borderRadius: BorderRadius.circular(15),
+                              backgroundColor: session.firmwareRelease == null
+                                  ? checkBackground
+                                  : const Color(0xFF4B9AF5),
+                              foregroundColor: session.firmwareRelease == null
+                                  ? theme.iconColor
+                                  : Colors.white,
+                              hoverColor: session.firmwareRelease == null
+                                  ? theme.secondaryTextHoverColor
+                                  : const Color(0xFF367FCF),
+                              onPressed: _firmwareDialogOpen
+                                  ? null
+                                  : () => _showFirmwareUpdate(
+                                      theme,
+                                      checkForUpdate:
+                                          session.firmwareRelease == null,
+                                    ),
+                              child: Center(
+                                child: Icon(
+                                  session.firmwareRelease == null
+                                      ? Symbols.refresh
+                                      : Symbols.download,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
             // 中央区域预留设备图片；未提供图片时使用统一的灰色占位图标。
             SizedBox(
               height: 144,
@@ -396,9 +491,15 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                 Row(
                   children: [
                     Icon(
-                      deviceWifiIconForRssi(_controlState?.wifiRssi),
+                      deviceWifiIconForRssi(
+                        _controlState?.wifiRssi,
+                        online: online,
+                      ),
+                      fill: online ? null : 1,
                       size: 20,
-                      color: theme.basePrimary,
+                      color: online
+                          ? theme.basePrimary
+                          : theme.textColorTertiary,
                     ),
                     const SizedBox(width: 7),
                     Flexible(
@@ -406,7 +507,9 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                         'Wi-Fi',
                         style: TextStyle(
                           fontSize: 12,
-                          color: theme.basePrimary,
+                          color: online
+                              ? theme.basePrimary
+                              : theme.textColorTertiary,
                         ),
                       ),
                     ),
@@ -437,12 +540,20 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
               (
                 l10n.lanModelVersion,
                 device?.modelVersion.isNotEmpty == true
-                    ? device!.modelVersion
+                    ? _versionForDisplay(device!.modelVersion)
                     : '—',
               ),
               (
                 l10n.lanFirmware,
-                online && session.firmware.isNotEmpty ? session.firmware : '—',
+                online && session.firmware.isNotEmpty
+                    ? _versionForDisplay(session.firmware)
+                    : '—',
+              ),
+              (
+                '无线固件版本',
+                online && session.wirelessFirmware.isNotEmpty
+                    ? _versionForDisplay(session.wirelessFirmware)
+                    : '—',
               ),
               (l10n.lanMacAddress, device?.macAddress ?? '—'),
               (l10n.lanUptime, online ? '${session.uptimeMs ~/ 1000} s' : '—'),
@@ -668,6 +779,28 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       _setControl(DeviceControlField.rotation, angle);
     } finally {
       _rotationConfirmationOpen = false;
+    }
+  }
+
+  Future<void> _showFirmwareUpdate(
+    AppTheme theme, {
+    required bool checkForUpdate,
+  }) async {
+    final connection = context.read<LanConnection>();
+    if (!connection.connected || _firmwareDialogOpen) return;
+    setState(() => _firmwareDialogOpen = true);
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (_) => FirmwareUpdateFlowDialog(
+          connection: connection,
+          theme: theme,
+          checkForUpdate: checkForUpdate,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _firmwareDialogOpen = false);
     }
   }
 
@@ -1123,9 +1256,15 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      deviceWifiIconForRssi(_controlState?.wifiRssi),
+                      deviceWifiIconForRssi(
+                        _controlState?.wifiRssi,
+                        online: online,
+                      ),
+                      fill: online ? null : 1,
                       size: 17,
-                      color: theme.basePrimary,
+                      color: online
+                          ? theme.basePrimary
+                          : theme.textColorTertiary,
                     ),
                     const SizedBox(width: 6),
                     _detailText(

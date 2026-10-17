@@ -20,6 +20,7 @@ class LanDevice extends DiscoveredDevice {
     required this.port,
     required this.model,
     this.modelVersion = '',
+    this.localAddress,
     String? protocolId,
   }) : _protocolId = protocolId;
 
@@ -28,8 +29,11 @@ class LanDevice extends DiscoveredDevice {
   final String model;
   final String modelVersion;
 
+  /// 本次发现响应实际经过的本机地址，不持久化，也不读取设备声明的地址。
+  final InternetAddress? localAddress;
+
   String get modelLabel =>
-      modelVersion.isEmpty ? model : '$model $modelVersion';
+      modelVersion.isEmpty ? model : '$model v$modelVersion';
   final String? _protocolId;
 
   // 旧固件仍使用带前缀的协议标识；存储和界面统一使用无前缀 ID。
@@ -56,7 +60,7 @@ class LanDevice extends DiscoveredDevice {
     if (protocolId != id) 'protocolId': protocolId,
   };
 
-  static LanDevice? fromJson(Object? value) {
+  static LanDevice? fromJson(Object? value, {InternetAddress? localAddress}) {
     if (value is! Map<String, dynamic>) return null;
     final id = value['id'];
     final name = value['name'];
@@ -92,7 +96,8 @@ class LanDevice extends DiscoveredDevice {
       address: address,
       port: port,
       model: model,
-      modelVersion: modelVersion,
+      modelVersion: modelVersion.replaceFirst(RegExp(r'^v'), ''),
+      localAddress: localAddress,
     );
   }
 }
@@ -187,7 +192,7 @@ class LanDiscovery {
                     'id': data['deviceId'],
                     'protocolId': data['deviceId'],
                     'address': packet.address.address,
-                  });
+                  }, localAddress: socket.address);
                   if (device != null) controller.add(device);
                 } on FormatException {
                   // 忽略不属于本协议的广播数据。

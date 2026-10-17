@@ -5,12 +5,16 @@
  * @LastEditTime: 2026-10-13 12:00:00
  * @License: GPL 3.0
  */
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/navigation/provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/core/widgets/menu_item_surface.dart';
 import 'package:lilygobox/features/devices/data/lan_discovery.dart';
+import 'package:lilygobox/features/devices/data/firmware_update_service.dart';
 import 'package:lilygobox/features/devices/domain/discovery_service.dart';
 import 'package:lilygobox/features/devices/domain/device_control.dart';
 import 'package:lilygobox/features/devices/presentation/pages/connected_page.dart';
@@ -36,6 +40,22 @@ class _Session extends LanConnection {
   int connections = 0;
   DeviceControlState? snapshot;
   final controls = <(DeviceControlField, Object)>[];
+  Completer<FirmwareRelease?>? updateCheck;
+  int updateChecks = 0;
+  String? checkError;
+
+  @override
+  Future<FirmwareRelease?> checkFirmwareUpdate() async {
+    updateChecks++;
+    firmwareUpdateChecking = true;
+    firmwareUpdateError = null;
+    notifyListeners();
+    firmwareRelease = await updateCheck!.future;
+    firmwareUpdateError = checkError;
+    firmwareUpdateChecking = false;
+    notifyListeners();
+    return firmwareRelease;
+  }
 
   @override
   DeviceControlState? controlStateFor(String id) =>
@@ -136,6 +156,154 @@ void main() {
     await tester.tap(find.byKey(ValueKey('device-tab-$tab')));
     await tester.pumpAndSettle();
   }
+
+  Future<void> openUpdateCheck(WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(1100, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('device-card-information')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Symbols.refresh));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+  }
+
+  testWidgets(
+    'manual update check uses theme gray and reports latest in dialog',
+    (tester) async {
+      session.updateCheck = Completer<FirmwareRelease?>();
+      await openUpdateCheck(tester);
+      final button = tester.widget<MenuItemSurface>(
+        find.ancestor(
+          of: find.byIcon(Symbols.refresh),
+          matching: find.byType(MenuItemSurface),
+        ),
+      );
+      expect(
+        button.backgroundColor,
+        Color.alphaBlend(
+          theme.themeData.secondary.withValues(alpha: .6),
+          theme.themeData.primary,
+        ),
+      );
+      expect(button.foregroundColor, theme.themeData.iconColor);
+      expect(find.text('正在检查更新…'), findsOneWidget);
+      expect(find.text('取消'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsOneWidget);
+      session.updateCheck!.complete(null);
+      await tester.pumpAndSettle();
+      expect(find.text('当前已是最新版本'), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      await tester.tap(find.text('关闭'));
+      await tester.pumpAndSettle();
+      expect(find.text('检查更新'), findsOneWidget);
+      expect(find.byIcon(Symbols.download), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'manual update check shows release in same dialog and blue download',
+    (tester) async {
+      session.updateCheck = Completer<FirmwareRelease?>();
+      await openUpdateCheck(tester);
+      final route = ModalRoute.of(tester.element(find.byType(AlertDialog)));
+      session.updateCheck!.complete(
+        FirmwareRelease(
+          version: '1.1.3',
+          mainVersion: '1.1.3',
+          mainUrl: Uri.https('example.com', '/main'),
+          mainSize: 3,
+          mainSha256: 'hash',
+          wirelessVersion: '2.12.3',
+          wirelessUrl: Uri.https('example.com', '/wireless'),
+          wirelessSize: 3,
+          wirelessSha256: 'hash',
+          notes: const ['改进设备连接'],
+        ),
+      );
+      session.wirelessFirmware = '2.12.3';
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(
+        ModalRoute.of(tester.element(find.byType(AlertDialog))),
+        same(route),
+      );
+      expect(find.text('发现固件更新'), findsOneWidget);
+      expect(find.textContaining('v1.1.2  →  v1.1.3'), findsOneWidget);
+      expect(find.textContaining('改进设备连接'), findsOneWidget);
+      expect(find.textContaining('无线固件版本\n'), findsNothing);
+      expect(find.text('有新版本'), findsOneWidget);
+      final button = tester.widget<MenuItemSurface>(
+        find.ancestor(
+          of: find.byIcon(Symbols.download),
+          matching: find.byType(MenuItemSurface),
+        ),
+      );
+      expect(button.backgroundColor, const Color(0xFF4B9AF5));
+      expect(button.onPressed, isNull);
+      expect(button.foregroundColor, Colors.white);
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byIcon(Symbols.download), findsOneWidget);
+    },
+  );
+
+  testWidgets('manual update check reports failure and can retry', (
+    tester,
+  ) async {
+    session.updateCheck = Completer<FirmwareRelease?>();
+    await openUpdateCheck(tester);
+    session.checkError = 'network failure';
+    session.updateCheck!.complete(null);
+    await tester.pumpAndSettle();
+    expect(find.text('检查更新失败'), findsOneWidget);
+    expect(find.text('当前已是最新版本'), findsNothing);
+    session.checkError = null;
+    session.updateCheck = Completer<FirmwareRelease?>();
+    await tester.tap(find.text('重试'));
+    await tester.pump();
+    expect(find.text('正在检查更新…'), findsOneWidget);
+    session.updateCheck!.complete(null);
+    await tester.pumpAndSettle();
+    expect(session.updateChecks, 2);
+    expect(find.text('当前已是最新版本'), findsOneWidget);
+    await tester.tap(find.text('关闭'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('manual update check reuses running check and dismisses safely', (
+    tester,
+  ) async {
+    session.updateCheck = Completer<FirmwareRelease?>();
+    final pending = session.checkFirmwareUpdate();
+    await openUpdateCheck(tester);
+    expect(session.updateChecks, 1);
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    session.updateCheck!.complete(null);
+    await pending;
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('manual update check rejects result after device disconnects', (
+    tester,
+  ) async {
+    session.updateCheck = Completer<FirmwareRelease?>();
+    await openUpdateCheck(tester);
+    session.publish(LanConnectionPhase.offline);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('设备已断开或已切换'), findsOneWidget);
+    session.updateCheck!.complete(null);
+    await tester.pumpAndSettle();
+    expect(find.text('当前已是最新版本'), findsNothing);
+    await tester.tap(find.text('关闭'));
+    await tester.pumpAndSettle();
+  });
 
   testWidgets('retained device titles update when language changes', (
     tester,
