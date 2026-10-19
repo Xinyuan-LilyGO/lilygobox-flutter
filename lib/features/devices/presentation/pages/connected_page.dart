@@ -578,22 +578,6 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
           ],
         ),
       );
-      final top = narrow
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [identity, const SizedBox(height: 18), details],
-            )
-          // 宽窗口保持卡片底部齐平，左侧空余高度分配到内容组之间。
-          : IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(flex: 31, child: identity),
-                  const SizedBox(width: 18),
-                  Expanded(flex: 69, child: details),
-                ],
-              ),
-            );
       final connection = _card(
         theme,
         onTap: onConnection,
@@ -655,7 +639,35 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
       );
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [top, const SizedBox(height: 18), connection],
+        children: [
+          if (narrow) ...[
+            identity,
+            const SizedBox(height: 18),
+            connection,
+            const SizedBox(height: 18),
+            details,
+          ] else
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    flex: 31,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: identity),
+                        const SizedBox(height: 18),
+                        connection,
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 18),
+                  Expanded(flex: 69, child: details),
+                ],
+              ),
+            ),
+        ],
       );
     },
   );

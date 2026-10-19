@@ -370,6 +370,16 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('device-card-information')));
       await tester.pumpAndSettle();
+      final connectionEntry = find.text('Device connection');
+      final deviceName = find.text('Desk P4').first;
+      expect(
+        tester.getTopLeft(connectionEntry).dx,
+        lessThan(tester.getSize(find.byType(ConnectedDevicePage)).width / 2),
+      );
+      expect(
+        tester.getTopLeft(connectionEntry).dy,
+        greaterThan(tester.getBottomLeft(deviceName).dy),
+      );
       await tester.tap(find.byKey(const ValueKey('device-name-edit')));
       await tester.pumpAndSettle();
       expect(find.byType(DeviceNameDialog), findsOneWidget);
