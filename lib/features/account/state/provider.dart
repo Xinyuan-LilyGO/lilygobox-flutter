@@ -188,7 +188,11 @@ class AccountProvider extends ChangeNotifier {
       if (!_active(generation)) return;
       try {
         await _storage(() async {
-          if (_active(generation)) await _store.write(result.token!);
+          if (_active(generation)) {
+            await _store.write(result.token!);
+            // 关闭登录框时若凭证正在写入，写入完成后清除，避免下次启动意外登录。
+            if (!_active(generation)) await _store.clear();
+          }
         });
       } catch (_) {
         throw const AccountException(AccountError.storage);
@@ -214,7 +218,9 @@ class AccountProvider extends ChangeNotifier {
   }
 
   void cancel() {
-    if (phase != AccountPhase.requesting && phase != AccountPhase.waiting) {
+    if (phase != AccountPhase.requesting &&
+        phase != AccountPhase.waiting &&
+        phase != AccountPhase.completing) {
       return;
     }
     ++_generation;

@@ -19,6 +19,10 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get githubSignInDialogDescription =>
+      'Authorize this app in your browser, then return here to finish signing in. Closing this dialog cancels this sign-in attempt.';
+
+  @override
   String get theme => 'Theme';
 
   @override

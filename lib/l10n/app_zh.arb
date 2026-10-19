@@ -1,4 +1,5 @@
 {
+    "githubSignInDialogDescription": "请在浏览器中完成授权，然后返回此处等待登录完成。关闭此提示框将取消本次登录。",
     "@@locale": "zh",
     "theme": "主题",
     "themeDescription": "选择你当前的主题",

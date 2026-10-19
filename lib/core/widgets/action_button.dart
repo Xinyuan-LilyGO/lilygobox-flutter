@@ -33,6 +33,28 @@ class AppActionButton extends StatelessWidget {
     this.borderRadius = const BorderRadius.all(Radius.circular(10)),
   });
 
+  /// 设置页普通操作统一沿用恢复默认设置按钮的配色和交互。
+  factory AppActionButton.settings({
+    Key? key,
+    required AppTheme theme,
+    required String label,
+    required VoidCallback? onPressed,
+  }) => AppActionButton(
+    key: key,
+    theme: theme,
+    label: label,
+    onPressed: onPressed,
+    settingBackground: true,
+    backgroundColor: theme.adaptiveColor(
+      dark: theme.secondaryTextBackgroundColor,
+      light: theme.secondaryTextHoverColor,
+    ),
+    hoverColor: theme.secondaryTextHoverColorAlt,
+    fontSize: 12,
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+    borderRadius: BorderRadius.circular(8),
+  );
+
   final AppTheme theme;
   final String label;
   final VoidCallback? onPressed;

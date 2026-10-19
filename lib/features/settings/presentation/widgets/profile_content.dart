@@ -7,32 +7,44 @@
  */
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/widgets/action_button.dart';
-import '../../../../core/widgets/debug_notice.dart';
-import '../../../../generated/l10n/app_localizations.dart';
-import '../../../account/domain/models.dart';
 import '../../../account/presentation/confirm_sign_out.dart';
+import '../../../account/presentation/sign_in_dialog.dart';
 import '../../../account/presentation/widgets/avatar.dart';
 import '../../../account/state/provider.dart';
 import 'content_layout.dart';
 
-class ProfileContent extends StatelessWidget {
+class ProfileContent extends StatefulWidget {
   const ProfileContent({super.key, required this.theme});
   final AppTheme theme;
+
+  @override
+  State<ProfileContent> createState() => _ProfileContentState();
+}
+
+class _ProfileContentState extends State<ProfileContent> {
+  bool _signInOpen = false;
+  AppTheme get theme => widget.theme;
+
+  Future<void> _signIn(AccountProvider account) async {
+    if (_signInOpen) return;
+    setState(() => _signInOpen = true);
+    try {
+      await showAccountSignIn(context, theme: theme, account: account);
+    } finally {
+      if (mounted) setState(() => _signInOpen = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final account = context.watch<AccountProvider>();
     final user = account.user;
-    final code = account.authorization;
-    final colors = SettingsColors(theme);
     final phaseLabel = switch (account.phase) {
       AccountPhase.restoring => l10n.githubRestoring,
       AccountPhase.requesting => l10n.githubRequesting,
@@ -80,7 +92,7 @@ class ProfileContent extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 20),
-        if (phaseLabel != null) ...[
+        if (!_signInOpen && phaseLabel != null) ...[
           Semantics(
             liveRegion: true,
             child: Text(
@@ -90,62 +102,11 @@ class ProfileContent extends StatelessWidget {
           ),
           const SizedBox(height: 12),
         ],
-        if (code != null) ...[
-          Text(
-            l10n.githubCodeInstructions,
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.5,
-              color: theme.textColorSecondary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: colors.control,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: SelectableText(
-              code.userCode,
-              contextMenuBuilder: AppTextSelectionMenu.build,
-              key: const ValueKey('github-user-code'),
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: theme.textColorPrimary,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _action('github-copy-code', l10n.githubCopyCode, () async {
-                await Clipboard.setData(ClipboardData(text: code.userCode));
-                if (!context.mounted) return;
-                showDebugNotice(
-                  ScaffoldMessenger.of(context),
-                  l10n.githubCodeCopied,
-                );
-              }),
-              _action(
-                'github-open-browser',
-                l10n.githubOpenBrowser,
-                account.openAuthorizationPage,
-                primary: true,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-        ],
-        if (account.error != null) ...[
+        if (!_signInOpen && account.error != null) ...[
           Semantics(
             liveRegion: true,
             child: Text(
-              _error(l10n, account.error!),
+              accountErrorText(l10n, account.error!),
               key: const ValueKey('github-error'),
               style: TextStyle(
                 fontSize: 12,
@@ -176,7 +137,7 @@ class ProfileContent extends StatelessWidget {
                   : () => confirmAccountSignOut(context, theme: theme),
             ),
           ),
-        ] else if (!account.busy)
+        ] else
           Wrap(
             spacing: 10,
             runSpacing: 10,
@@ -184,26 +145,16 @@ class ProfileContent extends StatelessWidget {
               _action(
                 'profile-sign-in',
                 l10n.githubSignIn,
-                account.signIn,
+                account.busy || _signInOpen ? null : () => _signIn(account),
                 primary: true,
               ),
               if (account.canRetryRestore)
                 _action(
                   'github-retry-restore',
                   l10n.githubRetryRestore,
-                  account.restore,
+                  account.busy || _signInOpen ? null : account.restore,
                 ),
             ],
-          )
-        else if (account.phase == AccountPhase.requesting ||
-            account.phase == AccountPhase.waiting)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: _action(
-              'github-cancel',
-              l10n.settingsCancel,
-              account.cancel,
-            ),
           ),
       ],
     );
@@ -214,28 +165,21 @@ class ProfileContent extends StatelessWidget {
     String label,
     VoidCallback? onPressed, {
     bool primary = false,
-  }) => AppActionButton(
-    key: ValueKey(key),
-    theme: theme,
-    label: label,
-    onPressed: onPressed,
-    primary: primary,
-    fontSize: 13,
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-    borderRadius: BorderRadius.circular(8),
-  );
-
-  String _error(AppLocalizations l10n, AccountError error) => switch (error) {
-    AccountError.notConfigured => l10n.githubNotConfigured,
-    AccountError.unsupported => l10n.githubUnsupported,
-    AccountError.network => l10n.githubNetworkError,
-    AccountError.denied => l10n.githubDenied,
-    AccountError.expired => l10n.githubExpired,
-    AccountError.invalidClient ||
-    AccountError.flowDisabled => l10n.githubConfigurationError,
-    AccountError.rateLimited => l10n.githubRateLimited,
-    AccountError.invalidResponse => l10n.githubInvalidResponse,
-    AccountError.storage => l10n.githubStorageError,
-    AccountError.browser => l10n.githubBrowserError,
-  };
+  }) => !primary
+      ? AppActionButton.settings(
+          key: ValueKey(key),
+          theme: theme,
+          label: label,
+          onPressed: onPressed,
+        )
+      : AppActionButton(
+          key: ValueKey(key),
+          theme: theme,
+          label: label,
+          onPressed: onPressed,
+          primary: primary,
+          fontSize: 13,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          borderRadius: BorderRadius.circular(8),
+        );
 }

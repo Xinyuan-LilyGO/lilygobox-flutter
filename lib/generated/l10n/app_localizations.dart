@@ -108,6 +108,12 @@ abstract class AppLocalizations {
     Locale('zh'),
   ];
 
+  /// No description provided for @githubSignInDialogDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Authorize this app in your browser, then return here to finish signing in. Closing this dialog cancels this sign-in attempt.'**
+  String get githubSignInDialogDescription;
+
   /// No description provided for @theme.
   ///
   /// In en, this message translates to:

@@ -17,6 +17,7 @@ import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/features/account/data/github_api.dart';
 import 'package:lilygobox/features/account/domain/models.dart';
 import 'package:lilygobox/features/account/state/provider.dart';
+import 'package:lilygobox/features/account/presentation/sign_in_dialog.dart';
 import 'package:lilygobox/features/settings/presentation/widgets/profile_content.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
@@ -34,10 +35,12 @@ class MemoryStore implements AccountTokenStore {
   bool failWrites = false;
   bool failClear = false;
   int writes = 0;
+  Completer<void>? pendingWrite;
   @override
   Future<GithubToken?> read() async => token;
   @override
   Future<void> write(GithubToken value) async {
+    if (pendingWrite != null) await pendingWrite!.future;
     if (failWrites) throw StateError('storage unavailable');
     writes++;
     token = value;
@@ -57,6 +60,7 @@ class FakeApi implements GithubAuthorizationApi {
   Completer<DeviceAuthorization>? request;
   Completer<TokenPoll>? pendingPoll;
   AccountError? userFailure;
+  Completer<GithubUser>? pendingUser;
   List<TokenPoll> results = [
     const TokenPoll.authorized(GithubToken('test-token')),
   ];
@@ -79,7 +83,7 @@ class FakeApi implements GithubAuthorizationApi {
   @override
   Future<GithubUser> getUser(GithubToken token) async {
     if (userFailure != null) throw AccountException(userFailure!);
-    return profile;
+    return pendingUser?.future ?? profile;
   }
 
   @override
@@ -89,6 +93,203 @@ class FakeApi implements GithubAuthorizationApi {
 }
 
 void main() {
+  testWidgets(
+    'sign-in keeps one stable dialog across stages and repeated opens',
+    (tester) async {
+      final api = FakeApi()..request = Completer<DeviceAuthorization>();
+      final account = AccountProvider(
+        clientId: 'test',
+        api: api,
+        store: MemoryStore(),
+      );
+      final theme = ThemeProvider();
+      addTearDown(account.dispose);
+      addTearDown(theme.dispose);
+      late BuildContext pageContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) {
+              pageContext = context;
+              return const Scaffold();
+            },
+          ),
+        ),
+      );
+      final first = showAccountSignIn(
+        pageContext,
+        theme: theme.themeData,
+        account: account,
+      );
+      await tester.pumpAndSettle();
+      final original = tester.element(find.byType(AlertDialog));
+      final content = find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is SizedBox && widget.width == 360,
+        ),
+      );
+      final originalSize = tester.getSize(content);
+      api.request!.complete(code);
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      final fade = tester.widget<FadeTransition>(
+        find
+            .ancestor(
+              of: find.byType(AlertDialog),
+              matching: find.byType(FadeTransition),
+            )
+            .first,
+      );
+      expect(fade.opacity.value, greaterThan(0));
+      expect(fade.opacity.value, lessThan(1));
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(SlideTransition),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(AnimatedSize),
+        ),
+        findsNothing,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.element(find.byType(AlertDialog)), same(original));
+      expect(tester.getSize(content).height, greaterThan(originalSize.height));
+      // 失败或取消使账号不再忙碌时，仍不应在现有登录框上叠加新框。
+      account.cancel();
+      await showAccountSignIn(
+        pageContext,
+        theme: theme.themeData,
+        account: account,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(api.requests, 1);
+      await tester.tap(find.byKey(const ValueKey('github-cancel')));
+      await tester.pump();
+      await showAccountSignIn(
+        pageContext,
+        theme: theme.themeData,
+        account: account,
+      );
+      expect(api.requests, 1);
+      await tester.pumpAndSettle();
+      await first;
+      expect(find.byType(AlertDialog), findsNothing);
+      api.request = null;
+      final reopened = showAccountSignIn(
+        pageContext,
+        theme: theme.themeData,
+        account: account,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(api.requests, 2);
+      await tester.tap(find.byKey(const ValueKey('github-cancel')));
+      await tester.pumpAndSettle();
+      await reopened;
+    },
+  );
+
+  for (final scenario in [
+    'requesting',
+    'waiting-button',
+    'waiting-background',
+    'waiting-back',
+    'polling',
+    'completing',
+    'writing',
+  ]) {
+    testWidgets(
+      'closing sign-in dialog cancels $scenario and ignores late results',
+      (tester) async {
+        final api = FakeApi();
+        final store = MemoryStore();
+        if (scenario == 'requesting')
+          api.request = Completer<DeviceAuthorization>();
+        if (scenario == 'polling') api.pendingPoll = Completer<TokenPoll>();
+        if (scenario == 'completing') api.pendingUser = Completer<GithubUser>();
+        if (scenario == 'writing') store.pendingWrite = Completer<void>();
+        final account = AccountProvider(
+          clientId: 'test',
+          api: api,
+          store: store,
+        );
+        final theme = ThemeProvider();
+        addTearDown(account.dispose);
+        addTearDown(theme.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: const Locale('en'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => showAccountSignIn(
+                    context,
+                    theme: theme.themeData,
+                    account: account,
+                  ),
+                  child: const Text('Login'),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Login'));
+        await tester.pumpAndSettle();
+        expect(find.byType(AlertDialog), findsOneWidget);
+        if (['polling', 'completing', 'writing'].contains(scenario)) {
+          await tester.pump(const Duration(seconds: 5));
+          await tester.pumpAndSettle();
+          expect(account.busy, isTrue);
+        }
+        if (scenario == 'waiting-background') {
+          await tester.tapAt(const Offset(5, 5));
+        } else if (scenario == 'waiting-back') {
+          await tester.binding.handlePopRoute();
+        } else {
+          await tester.tap(find.byKey(const ValueKey('github-cancel')));
+        }
+        if (scenario.startsWith('waiting-')) {
+          await tester.pump(const Duration(milliseconds: 50));
+          expect(account.phase, AccountPhase.signedOut);
+          expect(
+            find.byKey(const ValueKey('github-user-code'), skipOffstage: false),
+            findsOneWidget,
+          );
+          expect(find.text('Close', skipOffstage: false), findsNothing);
+        }
+        await tester.pumpAndSettle();
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(account.phase, AccountPhase.signedOut);
+        final pollsAfterCancel = api.polls;
+        api.request?.complete(code);
+        api.pendingPoll?.complete(
+          const TokenPoll.authorized(GithubToken('late-token')),
+        );
+        api.pendingUser?.complete(profile);
+        store.pendingWrite?.complete();
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 35));
+        expect(api.polls, pollsAfterCancel);
+        expect(account.user, isNull);
+        expect(store.token, isNull);
+        expect(find.byType(AlertDialog), findsNothing);
+      },
+    );
+  }
+
   testWidgets(
     'authorization page fits narrow screens and shows verified identity',
     (tester) async {
@@ -132,6 +333,14 @@ void main() {
         expect(find.byKey(const ValueKey('github-error')), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.pump(const Duration(seconds: 5));
+        await tester.pump(const Duration(milliseconds: 30));
+        expect(account.phase, AccountPhase.signedIn);
+        expect(
+          find.byKey(const ValueKey('github-user-code'), skipOffstage: false),
+          findsOneWidget,
+        );
+        expect(find.text('Close', skipOffstage: false), findsNothing);
+        expect(find.text('关闭', skipOffstage: false), findsNothing);
         await tester.pumpAndSettle();
         expect(find.text('Test User'), findsOneWidget);
         expect(find.text('@tester'), findsOneWidget);

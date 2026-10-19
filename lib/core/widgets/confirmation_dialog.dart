@@ -13,6 +13,38 @@ import '../theme/definition.dart';
 import '../theme/material_palette.dart';
 import 'action_button.dart';
 
+/// 确认和流程提示共用的弹窗外观。
+class AppDialog extends StatelessWidget {
+  const AppDialog({
+    super.key,
+    required this.theme,
+    required this.title,
+    required this.content,
+    required this.actions,
+    this.constraints,
+  });
+
+  final AppTheme theme;
+  final String title;
+  final Widget content;
+  final List<Widget> actions;
+  final BoxConstraints? constraints;
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    constraints: constraints,
+    backgroundColor: theme.materialColors.surfaceContainerHigh,
+    surfaceTintColor: Colors.transparent,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    title: Text(
+      title,
+      style: TextStyle(fontSize: 18, color: theme.textColorPrimary),
+    ),
+    content: content,
+    actions: actions,
+  );
+}
+
 Future<bool> showAppConfirmation({
   required BuildContext context,
   required AppTheme theme,
@@ -24,14 +56,9 @@ Future<bool> showAppConfirmation({
   final cancelLabel = context.l10n.settingsCancel;
   final confirmed = await showDialog<bool>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      backgroundColor: theme.materialColors.surfaceContainerHigh,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      title: Text(
-        title,
-        style: TextStyle(fontSize: 18, color: theme.textColorPrimary),
-      ),
+    builder: (dialogContext) => AppDialog(
+      theme: theme,
+      title: title,
       content: Text(
         description,
         style: TextStyle(

@@ -194,7 +194,6 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.sidebar,
-        border: Border(right: BorderSide(color: colors.divider)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -403,15 +402,25 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
             ),
             _SettingsCategory.general => GeneralSettingsContent(theme: theme),
           };
-    final content = KeyedSubtree(
-      key: ValueKey(
-        _profile
-            ? 'profile'
-            : _about
-            ? 'about'
-            : _category.name,
+    final content = AnimatedSwitcher(
+      layoutBuilder: (currentChild, previousChildren) => Stack(
+        alignment: Alignment.topLeft,
+        fit: StackFit.expand,
+        children: [...previousChildren, ?currentChild],
       ),
-      child: page,
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 200),
+      child: KeyedSubtree(
+        key: ValueKey(
+          _profile
+              ? 'profile'
+              : _about
+              ? 'about'
+              : _category.name,
+        ),
+        child: page,
+      ),
     );
     return ColoredBox(
       color: colors.content,

@@ -98,12 +98,15 @@ class _WindowPageStackState extends State<WindowPageStack>
                         begin: const Offset(0, 1),
                         end: Offset.zero,
                       ).animate(_curve),
-                      child: _overlay == AppPage.settings
-                          ? const SettingsPage()
-                          : DevicePresentationCatalog.settingsPageFor(
-                              _deviceName!,
-                              onClose: navigation.closeSettings,
-                            ),
+                      child: FadeTransition(
+                        opacity: _curve,
+                        child: _overlay == AppPage.settings
+                            ? const SettingsPage()
+                            : DevicePresentationCatalog.settingsPageFor(
+                                _deviceName!,
+                                onClose: navigation.closeSettings,
+                              ),
+                      ),
                     ),
                   ),
                 ),

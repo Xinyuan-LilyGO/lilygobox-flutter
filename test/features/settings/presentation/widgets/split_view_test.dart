@@ -67,6 +67,25 @@ void main() {
   );
 
   testWidgets(
+    'settings content stays at the top throughout category fades',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 850));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text('个人中心').last).dy, lessThan(100));
+      await tester.tap(find.byKey(const ValueKey('settings-category-general')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(tester.getTopLeft(find.text('通用').last).dy, lessThan(100));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('settings-profile')));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text('个人中心').last).dy, lessThan(100));
+    },
+  );
+
+  testWidgets(
     'sidebar stays visible at drag limits and adapts after resizing window',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1000, 650));
@@ -177,6 +196,8 @@ void main() {
       expect(find.text('GitHub 登录尚未配置，请暂时使用本地设备功能。'), findsOneWidget);
       expect(find.text('未登录'), findsWidgets);
       expect(devices.addedDevices, ['T-Display-P4']);
+      await tester.tap(find.byKey(const ValueKey('github-cancel')));
+      await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('settings-category-language')),
       );

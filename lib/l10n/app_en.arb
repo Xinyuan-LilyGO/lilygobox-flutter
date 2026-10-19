@@ -1,4 +1,5 @@
 {
+    "githubSignInDialogDescription": "Authorize this app in your browser, then return here to finish signing in. Closing this dialog cancels this sign-in attempt.",
     "@@locale": "en",
     "theme": "Theme",
     "themeDescription": "Choose your current theme",

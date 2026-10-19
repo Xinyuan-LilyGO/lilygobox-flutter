@@ -19,6 +19,10 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get githubSignInDialogDescription =>
+      '请在浏览器中完成授权，然后返回此处等待登录完成。关闭此提示框将取消本次登录。';
+
+  @override
   String get theme => '主题';
 
   @override
