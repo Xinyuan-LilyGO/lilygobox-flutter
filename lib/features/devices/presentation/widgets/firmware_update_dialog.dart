@@ -42,7 +42,11 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
   void initState() {
     super.initState();
     widget.connection.addListener(_connectionChanged);
-    if (!widget.checkForUpdate && widget.connection.firmwareRelease != null) {
+    if (widget.connection.firmwareTaskActive) {
+      _controller = FirmwareUpdateController.observe(widget.connection);
+      _checking = false;
+    } else if (!widget.checkForUpdate &&
+        widget.connection.firmwareRelease != null) {
       _setRelease(widget.connection.firmwareRelease!);
       _checking = false;
     } else {
@@ -80,7 +84,13 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
 
   void _connectionChanged() {
     if (_controller != null || !_checking) return;
-    if (!_sameDevice) {
+    if (_sameDevice && widget.connection.firmwareTaskActive) {
+      _timeout?.cancel();
+      setState(() {
+        _checking = false;
+        _controller = FirmwareUpdateController.observe(widget.connection);
+      });
+    } else if (!_sameDevice) {
       _finishCheck(error: '设备已断开或已切换，请重新连接后检查更新');
     } else if (_waitingForBackgroundCheck &&
         !widget.connection.firmwareUpdateChecking) {
@@ -137,6 +147,7 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
         '更新内容\n${release.notes.map((note) => '• $note').join('\n')}',
     ].join('\n\n');
     _controller = FirmwareUpdateController(connection, release);
+    unawaited(_controller!.prepareCache());
   }
 
   @override
@@ -154,6 +165,16 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
         controller: controller,
         theme: widget.theme,
         description: _description,
+        onRetry: controller.observer
+            ? null
+            : () {
+                if (!_sameDevice || widget.connection.firmwareTaskActive) {
+                  return;
+                }
+                final release = controller.release;
+                controller.dispose();
+                setState(() => _setRelease(release));
+              },
       );
     }
     return AlertDialog(
@@ -213,11 +234,13 @@ class FirmwareUpdateDialog extends StatefulWidget {
     required this.controller,
     required this.theme,
     required this.description,
+    this.onRetry,
   });
 
   final FirmwareUpdateController controller;
   final AppTheme theme;
   final String description;
+  final VoidCallback? onRetry;
 
   @override
   State<FirmwareUpdateDialog> createState() => _FirmwareUpdateDialogState();
@@ -259,13 +282,21 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
           if (!didPop) return;
           // 退场动画期间不再绘制取消结果，避免看起来又弹出一层提示框。
           setState(() => _dismissed = true);
-          if (controller.canCancel) unawaited(controller.cancel());
+          if (controller.cancelOnDismiss && controller.canCancel) {
+            unawaited(controller.cancel());
+          }
         },
         child: AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          title: Text(awaiting ? '发现固件更新' : '固件更新'),
+          title: Text(
+            awaiting
+                ? '发现固件更新'
+                : controller.observer
+                ? '设备固件更新'
+                : '固件更新',
+          ),
           content: SizedBox(
             width: 390,
             child: SingleChildScrollView(
@@ -273,9 +304,35 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (awaiting)
-                    Text(widget.description, softWrap: true)
-                  else
+                  if (controller.observer &&
+                      !controller.terminal &&
+                      !installing) ...[
+                    Text(
+                      widget.controller.connection.firmwareTaskSource ==
+                              'remote'
+                          ? '设备联网更新 · 关闭窗口不影响设备当前任务'
+                          : '局域网更新 · 由发起更新的应用提供固件',
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (awaiting) ...[
+                    Text(widget.description, softWrap: true),
+                    if (controller.deviceCacheAvailable) ...[
+                      const SizedBox(height: 16),
+                      const Text('设备已有本次更新所需的完整固件，可重新校验后直接准备安装。'),
+                    ],
+                    if (!controller.deviceCacheAvailable &&
+                        controller.cacheChecking) ...[
+                      const SizedBox(height: 16),
+                      const Text('正在校验本机已下载的固件…'),
+                    ] else if (!controller.deviceCacheAvailable &&
+                        controller.hasCache) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        '已下载并校验：${[if (controller.mainCached) '主固件', if (controller.wirelessCached) '无线固件'].join('、')}。可直接使用，缺少的组件会继续下载。',
+                      ),
+                    ],
+                  ] else
                     Semantics(
                       liveRegion: true,
                       child: Row(
@@ -319,16 +376,39 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
             ),
           ),
           actions: [
-            if (!installing && (_cancelling || !controller.terminal))
+            if (step == FirmwareUpdateStep.failed && widget.onRetry != null)
+              _button('重试', widget.onRetry, primary: true),
+            if (controller.observer && !controller.terminal && !installing)
+              _button('关闭', () => Navigator.of(context).pop()),
+            if (!installing &&
+                (_cancelling || !controller.terminal) &&
+                controller.canCancel)
               _button(
                 awaiting ? '取消' : '取消更新',
                 !_cancelling && controller.canCancel
                     ? () => unawaited(_cancelAndClose())
                     : null,
               ),
+            if (awaiting &&
+                (controller.hasCache || controller.deviceCacheAvailable))
+              _button('重新下载', () => controller.download(reuseCache: false)),
             if (awaiting)
-              _button('下载更新', () => controller.download(), primary: true),
-            if (!_cancelling && step == FirmwareUpdateStep.prepared)
+              _button(
+                controller.deviceCacheAvailable
+                    ? '使用设备已有固件'
+                    : controller.hasCache
+                    ? '使用已下载固件'
+                    : '下载更新',
+                controller.cacheChecking
+                    ? null
+                    : controller.deviceCacheAvailable
+                    ? () => controller.useDeviceCache()
+                    : () => controller.download(),
+                primary: true,
+              ),
+            if (!_cancelling &&
+                step == FirmwareUpdateStep.prepared &&
+                controller.canControl)
               _button('重启安装', () => controller.install(), primary: true),
             if (!_cancelling && (installing || controller.terminal))
               _button('关闭', () => Navigator.of(context).pop()),

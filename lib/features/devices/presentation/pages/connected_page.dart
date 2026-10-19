@@ -397,7 +397,11 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          session.firmwareRelease == null ? '检查更新' : '有新版本',
+                          session.firmwareTaskActive
+                              ? '更新中'
+                              : session.firmwareRelease == null
+                              ? '检查更新'
+                              : '有新版本',
                           style: TextStyle(
                             color: session.firmwareRelease == null
                                 ? theme.textColorSecondary
@@ -409,7 +413,9 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                       ),
                       const SizedBox(width: 6),
                       AppTooltip(
-                        message: session.firmwareRelease == null
+                        message: session.firmwareTaskActive
+                            ? '查看设备更新状态'
+                            : session.firmwareRelease == null
                             ? '检查固件更新'
                             : '更新到 ${_versionForDisplay(session.firmwareRelease!.mainVersion)}',
                         child: Semantics(
@@ -442,7 +448,9 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                                     ),
                               child: Center(
                                 child: Icon(
-                                  session.firmwareRelease == null
+                                  session.firmwareTaskActive
+                                      ? Symbols.sync
+                                      : session.firmwareRelease == null
                                       ? Symbols.refresh
                                       : Symbols.download,
                                   size: 20,

@@ -52,6 +52,16 @@ class _Connection extends LanConnection {
   }
   int starts = 0;
   int installs = 0;
+  int taskCommands = 0;
+  @override
+  Future<bool> controlFirmwareTask({
+    required bool install,
+    required String taskId,
+  }) async {
+    taskCommands++;
+    return true;
+  }
+
   Completer<bool>? installReply;
   int cancels = 0;
   bool acceptTransfer = true;
@@ -68,6 +78,8 @@ class _Connection extends LanConnection {
     required String wirelessVersion,
     required String wirelessSha256,
     required int wirelessSize,
+    bool reuseCache = true,
+    bool deviceCacheOnly = false,
   }) async {
     starts++;
     receivedFile = firmware;
@@ -104,7 +116,7 @@ class _DialogController extends FirmwareUpdateController {
   _DialogController(super.connection, super.release);
 
   @override
-  Future<void> download() async {
+  Future<void> download({bool reuseCache = true}) async {
     step = FirmwareUpdateStep.transferring;
     message = '传输主固件';
     notifyListeners();
@@ -112,6 +124,44 @@ class _DialogController extends FirmwareUpdateController {
 }
 
 void main() {
+  test('observing a remote task does not cancel it when the window closes', () {
+    final connection = _Connection();
+    connection.firmwareTaskId = 'a' * 32;
+    connection.firmwareTaskSource = 'remote';
+    connection.firmwareTaskBusy = true;
+    connection.firmwareUpdateStage = 'downloadingMain';
+    connection.firmwareReceivedBytes = 25;
+    connection.firmwareTotalBytes = 100;
+    final observer = FirmwareUpdateController.observe(connection);
+    expect(observer.progress, .25);
+    expect(observer.message, startsWith('设备下载主固件'));
+    observer.dispose();
+    expect(connection.taskCommands, 0);
+    expect(connection.cancels, 0);
+    connection.dispose();
+  });
+
+  test(
+    'remote task progress reaches prepared state before install confirmation',
+    () async {
+      final connection = _Connection();
+      connection.firmwareTaskId = 'a' * 32;
+      connection.firmwareTaskSource = 'remote';
+      connection.firmwareTaskBusy = true;
+      connection.firmwareUpdateStage = 'verifyingMain';
+      final observer = FirmwareUpdateController.observe(connection);
+      expect(observer.progress, isNull);
+      connection.report('readyToInstall');
+      expect(observer.step, FirmwareUpdateStep.prepared);
+      expect(connection.taskCommands, 0);
+      await observer.install();
+      expect(connection.taskCommands, 1);
+      expect(observer.step, FirmwareUpdateStep.restartRequested);
+      observer.dispose();
+      connection.dispose();
+    },
+  );
+
   late _Connection connection;
   late _FirmwareClient client;
   late FirmwareUpdateController controller;
@@ -185,7 +235,7 @@ void main() {
       connection.wirelessFirmware = '2.12.2';
       connection.online(true);
       expect(controller.step, FirmwareUpdateStep.restartRequested);
-      expect(controller.message, contains('等待设备重启安装'));
+      expect(controller.message, contains('重启安装指令已确认'));
       expect(controller.message, isNot(contains('更新成功')));
     },
   );
@@ -231,6 +281,22 @@ void main() {
     await controller.download();
     expect(controller.step, FirmwareUpdateStep.failed);
     expect(connection.starts, 0);
+  });
+
+  test('complete device cache skips app download and file transfer', () async {
+    connection.firmwareTaskSupported = true;
+    connection.firmwareMainCached = true;
+    connection.firmwareTaskMainVersion = '1.1.2';
+    expect(controller.deviceCacheAvailable, isTrue);
+    await controller.useDeviceCache();
+    expect(client.requests, isEmpty);
+    expect(connection.starts, 1);
+    expect(connection.receivedFile, isNull);
+    expect(connection.receivedWirelessFile, isNull);
+    expect(controller.step, FirmwareUpdateStep.transferring);
+    connection.report('readyToInstall');
+    expect(controller.step, FirmwareUpdateStep.prepared);
+    expect(connection.installs, 0);
   });
 
   test('cancel while wireless downloads prevents automatic transfer', () async {
@@ -349,7 +415,7 @@ void main() {
         find.widgetWithText(AppActionButton, '关闭'),
       );
       expect(close.onPressed, isNotNull);
-      expect(find.textContaining('等待设备重启安装'), findsOneWidget);
+      expect(find.textContaining('重启安装指令已确认'), findsOneWidget);
       expect(find.byType(AlertDialog), findsOneWidget);
       expect(tester.element(find.byType(AlertDialog)), same(original));
       expect(controller.step, FirmwareUpdateStep.restartRequested);
@@ -373,6 +439,127 @@ void main() {
     expect(client.requests, isEmpty);
     expect(connection.starts, 0);
   });
+
+  for (final background in [false, true]) {
+    testWidgets(
+      'remote observer closes without cancelling (background: $background)',
+      (tester) async {
+        controller.dispose();
+        connection.firmwareTaskId = 'a' * 32;
+        connection.firmwareTaskSource = 'remote';
+        connection.firmwareTaskBusy = true;
+        connection.firmwareUpdateStage = 'downloadingMain';
+        connection.firmwareReceivedBytes = 1;
+        connection.firmwareTotalBytes = 3;
+        controller = FirmwareUpdateController.observe(connection);
+        await openDialog(tester);
+        expect(find.textContaining('设备联网更新'), findsOneWidget);
+        expect(find.text('取消更新'), findsOneWidget);
+        if (background) {
+          await tester.tapAt(const Offset(10, 10));
+        } else {
+          await tester.tap(find.text('关闭'));
+        }
+        await tester.pumpAndSettle();
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(connection.taskCommands, 0);
+        expect(connection.cancels, 0);
+      },
+    );
+  }
+
+  testWidgets(
+    'checking observer only closes and cancellation returns for downloads',
+    (tester) async {
+      controller.dispose();
+      connection.firmwareTaskId = 'a' * 32;
+      connection.firmwareTaskSource = 'remote';
+      connection.firmwareTaskBusy = true;
+      connection.firmwareUpdateStage = 'downloadingMain';
+      connection.firmwareReceivedBytes = 1;
+      connection.firmwareTotalBytes = 3;
+      controller = FirmwareUpdateController.observe(connection);
+      await openDialog(tester);
+      expect(find.text('取消更新'), findsOneWidget);
+      for (final stage in ['checking', 'waitingForNetwork']) {
+        connection.report(stage);
+        await tester.pump();
+        expect(find.text('关闭'), findsOneWidget);
+        expect(find.text('取消更新'), findsNothing);
+        expect(controller.canCancel, isFalse);
+        await controller.cancel();
+        expect(connection.taskCommands, 0);
+      }
+      connection.report('verifyingMain');
+      await tester.pump();
+      expect(find.text('取消更新'), findsOneWidget);
+      expect(controller.canCancel, isTrue);
+      connection.report('checking');
+      await tester.pump();
+      await tester.tap(find.text('关闭'));
+      await tester.pumpAndSettle();
+      expect(connection.taskCommands, 0);
+      expect(find.byType(AlertDialog), findsNothing);
+    },
+  );
+
+  for (final stage in [
+    'updateAvailable',
+    'upToDate',
+    'failed',
+    'cancelled',
+    'installing',
+  ]) {
+    testWidgets('remote $stage hides stale background update explanation', (
+      tester,
+    ) async {
+      controller.dispose();
+      connection.firmwareTaskId = 'a' * 32;
+      connection.firmwareTaskSource = 'remote';
+      connection.firmwareTaskBusy = true;
+      connection.firmwareUpdateStage = 'downloadingMain';
+      connection.firmwareReceivedBytes = 1;
+      connection.firmwareTotalBytes = 3;
+      controller = FirmwareUpdateController.observe(connection);
+      await openDialog(tester);
+      expect(find.textContaining('关闭窗口不影响设备当前任务'), findsOneWidget);
+      connection.report(stage);
+      await tester.pump();
+      expect(find.textContaining('关闭窗口不影响设备当前任务'), findsNothing);
+      expect(find.text('关闭'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.tap(find.text('关闭'));
+      await tester.pumpAndSettle();
+    });
+  }
+
+  testWidgets('verified cache offers reuse and redownload in the same dialog', (
+    tester,
+  ) async {
+    controller.mainCached = true;
+    await openDialog(tester);
+    expect(find.text('使用已下载固件'), findsOneWidget);
+    expect(find.text('重新下载'), findsOneWidget);
+    expect(find.textContaining('已下载并校验：主固件'), findsOneWidget);
+    expect(find.byType(AlertDialog), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+  });
+
+  test(
+    'disconnect without installation acknowledgement is not success',
+    () async {
+      await controller.download();
+      connection.report('readyToInstall');
+      connection.installReply = Completer<bool>();
+      final installing = controller.install();
+      connection.online(false);
+      connection.installReply!.complete(false);
+      await installing;
+      expect(controller.step, FirmwareUpdateStep.failed);
+      expect(controller.message, '设备未确认重启安装');
+    },
+  );
 
   for (final background in [false, true]) {
     testWidgets(

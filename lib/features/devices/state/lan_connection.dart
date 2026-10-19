@@ -72,6 +72,9 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
   Completer<bool>? _firmwareStartReply;
   Completer<bool>? _firmwareInstallReply;
   Completer<bool>? _firmwareCancelReply;
+  String? _firmwareStartRequestId;
+  String? _firmwareCommandTaskId;
+  String? _ownedFirmwareTaskId;
   bool firmwareRestartRequested = false;
   int _controlRequestId = 0;
   bool _controlsReady = false;
@@ -249,6 +252,97 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
   bool firmwareUpdateChecking = false;
   String? firmwareUpdateError;
   String firmwareUpdateStage = 'idle';
+  bool firmwareTaskSupported = false;
+  String firmwareTaskId = '';
+  String firmwareTaskSource = 'local';
+  bool firmwareTaskBusy = false;
+  bool firmwareMainCached = false;
+  bool firmwareWirelessCached = false;
+  String firmwareTaskMainVersion = '';
+  String firmwareTaskWirelessVersion = '';
+  bool get firmwareTaskActive =>
+      firmwareTaskId.isNotEmpty &&
+      (firmwareTaskBusy ||
+          const [
+            'paused',
+            'readyToInstall',
+            'installing',
+            'restarting',
+          ].contains(firmwareUpdateStage));
+  bool get canControlFirmwareTask =>
+      firmwareTaskSource == 'remote' || _ownedFirmwareTaskId == firmwareTaskId;
+
+  /// 接受设备统一任务快照；新任务可观察，控制命令始终绑定任务 ID。
+  void _readFirmwareTask(Map<String, dynamic> data) {
+    final id = data['taskId'];
+    if (id is! String ||
+        (id.isNotEmpty && !RegExp(r'^[0-9a-f]{32}$').hasMatch(id)) ||
+        !const ['local', 'remote'].contains(data['source']) ||
+        data['stage'] is! String ||
+        data['busy'] is! bool ||
+        data['progress'] is! num ||
+        data['message'] is! String) {
+      throw const FormatException('Invalid firmware task state');
+    }
+    firmwareTaskId = id;
+    firmwareTaskSource = data['source'] as String;
+    firmwareTaskBusy = data['busy'] as bool;
+    firmwareMainCached = data['mainCached'] == true;
+    firmwareWirelessCached = data['wirelessCached'] == true;
+    firmwareUpdateStage = data['stage'] as String;
+    firmwareUpdateProgress = (data['progress'] as num).round().clamp(0, 100);
+    firmwareUpdateMessage = data['message'] as String;
+    firmwareReceivedBytes = (data['receivedBytes'] as num?)?.toInt() ?? 0;
+    firmwareTotalBytes = (data['totalBytes'] as num?)?.toInt() ?? 0;
+    firmwareTaskMainVersion = data['mainVersion'] as String? ?? '';
+    firmwareTaskWirelessVersion = data['wirelessVersion'] as String? ?? '';
+    if (_ownedFirmwareTaskId == id &&
+        const [
+          'readyToInstall',
+          'failed',
+          'cancelled',
+        ].contains(firmwareUpdateStage)) {
+      unawaited(_closeLocalFirmwareServer());
+    }
+  }
+
+  Future<bool> controlFirmwareTask({
+    required bool install,
+    required String taskId,
+  }) async {
+    if (!connected ||
+        !firmwareTaskSupported ||
+        taskId != firmwareTaskId ||
+        taskId.isEmpty ||
+        !canControlFirmwareTask ||
+        _firmwareCommandTaskId != null) {
+      return false;
+    }
+    final reply = Completer<bool>();
+    _firmwareCommandTaskId = taskId;
+    if (install) {
+      _firmwareInstallReply = reply;
+    } else {
+      _firmwareCancelReply = reply;
+    }
+    _send({
+      'type': install ? 'firmware.task.install' : 'firmware.task.cancel',
+      'taskId': taskId,
+    });
+    try {
+      final accepted = await reply.future.timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => false,
+      );
+      if (accepted && install) firmwareRestartRequested = true;
+      return accepted;
+    } finally {
+      if (_firmwareCommandTaskId == taskId) _firmwareCommandTaskId = null;
+      if (identical(_firmwareInstallReply, reply)) _firmwareInstallReply = null;
+      if (identical(_firmwareCancelReply, reply)) _firmwareCancelReply = null;
+    }
+  }
+
   int firmwareUpdateProgress = 0;
   String firmwareUpdateMessage = '';
   int firmwareReceivedBytes = 0;
@@ -281,15 +375,18 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     required String wirelessVersion,
     required String wirelessSha256,
     required int wirelessSize,
+    bool reuseCache = true,
+    bool deviceCacheOnly = false,
   }) async {
-    if (_firmwareCancelReply != null) return false;
+    if (_firmwareCancelReply != null || firmwareTaskActive) return false;
     final target = device;
     final generation = _generation;
     final localGeneration = ++_localFirmwareGeneration;
     if (!connected ||
         firmwareRestartRequested ||
         target == null ||
-        (firmware == null && wirelessFirmware == null) ||
+        (deviceCacheOnly && (firmware != null || wirelessFirmware != null)) ||
+        (firmware == null && wirelessFirmware == null && !deviceCacheOnly) ||
         (firmware != null &&
             (!await firmware.exists() ||
                 await firmware.length() != mainSize)) ||
@@ -306,7 +403,9 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     }
     if (localGeneration != _localFirmwareGeneration) return false;
     await _closeLocalFirmwareServer();
-    final address = await _localFirmwareAddress(target);
+    final address = deviceCacheOnly
+        ? null
+        : await _localFirmwareAddress(target);
     if (!connected ||
         generation != _generation ||
         localGeneration != _localFirmwareGeneration) {
@@ -314,11 +413,11 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     }
     final token = _localFirmwareToken();
     final wirelessToken = _localFirmwareToken();
-    final server = await HttpServer.bind(address, 0);
+    final server = address == null ? null : await HttpServer.bind(address, 0);
     if (!connected ||
         generation != _generation ||
         localGeneration != _localFirmwareGeneration) {
-      await server.close(force: true);
+      await server?.close(force: true);
       return false;
     }
     _localFirmwareFiles = [
@@ -326,7 +425,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
       if (wirelessFirmware != null) wirelessFirmware,
     ];
     _localFirmwareServer = server;
-    server.listen((request) async {
+    server?.listen((request) async {
       final isMain = request.uri.path == '/$token';
       final isWireless = request.uri.path == '/$wirelessToken';
       final file = isMain
@@ -357,14 +456,17 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     firmwareTotalBytes = 0;
     final reply = Completer<bool>();
     _firmwareStartReply = reply;
+    _firmwareStartRequestId = token;
     _send({
       'type': 'firmware.local.start',
+      'requestId': token,
+      'reuseCache': reuseCache,
       'mainUrl': firmware == null
           ? ''
-          : 'http://${address.address}:${server.port}/$token',
+          : 'http://${address!.address}:${server!.port}/$token',
       'wirelessUrl': wirelessFirmware == null
           ? ''
-          : 'http://${address.address}:${server.port}/$wirelessToken',
+          : 'http://${address!.address}:${server!.port}/$wirelessToken',
       'mainVersion': version,
       'wirelessVersion': wirelessVersion,
       'mainSize': mainSize,
@@ -450,6 +552,24 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
   /// 取消当前应用发起的局域网固件传输并清理临时资源。
   Future<void> cancelLocalFirmwareUpdate() async {
     final localGeneration = ++_localFirmwareGeneration;
+    if (firmwareTaskSupported &&
+        firmwareTaskActive &&
+        firmwareTaskId.isNotEmpty &&
+        firmwareTaskSource == 'local' &&
+        _ownedFirmwareTaskId == firmwareTaskId &&
+        (_firmwareStartReply == null || _firmwareStartReply!.isCompleted)) {
+      final accepted = await controlFirmwareTask(
+        install: false,
+        taskId: firmwareTaskId,
+      );
+      if (localGeneration == _localFirmwareGeneration) {
+        await _closeLocalFirmwareServer();
+      }
+      if (!accepted && connected) throw StateError('设备未确认取消，请查看设备状态');
+      return;
+    }
+    // 地址准备或启动确认期间尚无所属任务 ID，按会话取消且忽略迟到的启动回复。
+    _firmwareStartRequestId = null;
     if (!(_firmwareStartReply?.isCompleted ?? true)) {
       _firmwareStartReply!.complete(false);
     }
@@ -474,6 +594,9 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
 
   /// 请求设备安装已经准备好的固件并重启。
   Future<bool> installLocalFirmwareUpdate() async {
+    if (firmwareTaskSupported) {
+      return controlFirmwareTask(install: true, taskId: firmwareTaskId);
+    }
     if (!connected ||
         firmwareRestartRequested ||
         firmwareUpdateStage != 'readyToInstall') {
@@ -568,6 +691,13 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     _controlsReady = false;
     ++_generation;
     firmwareHardware = null;
+    firmwareTaskSupported = false;
+    firmwareTaskId = '';
+    firmwareTaskBusy = false;
+    firmwareMainCached = false;
+    firmwareWirelessCached = false;
+    _ownedFirmwareTaskId = null;
+    _firmwareCommandTaskId = null;
     firmwareUpdateChecking = false;
     _poll?.cancel();
     _poll = null;
@@ -716,6 +846,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
           .trim();
       _send({
         'type': 'hello',
+        'firmwareTaskVersion': 1,
         'pairingVersion': 2,
         if (clientId != null) 'clientId': clientId,
         'deviceId': target.protocolId,
@@ -790,10 +921,27 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
         throw const FormatException('Device identity not verified');
       }
       if (type == 'state' && connected) {
+        if (data['firmwareTask'] case final Map<String, dynamic> task) {
+          if (_firmwareStartReply == null || _firmwareStartReply!.isCompleted) {
+            _readFirmwareTask(task);
+          }
+        }
         _readDeviceName(data);
         _readControlState(data);
         _notify();
       } else if (type == 'firmware.local.started' && connected) {
+        if (firmwareTaskSupported) {
+          if (data['requestId'] != _firmwareStartRequestId) return;
+          final taskId = data['taskId'];
+          if (taskId is! String ||
+              !RegExp(r'^[0-9a-f]{32}$').hasMatch(taskId)) {
+            return;
+          }
+          firmwareTaskId = taskId;
+          firmwareTaskSource = 'local';
+          firmwareTaskBusy = true;
+          _ownedFirmwareTaskId = taskId;
+        }
         // 设备已接受地址；后续校验、写入和重启由设备端 OTA 状态机完成。
         firmwareUpdateError = null;
         if (!(_firmwareStartReply?.isCompleted ?? true)) {
@@ -801,6 +949,10 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
         }
         _notify();
       } else if (type == 'firmware.local.rejected' && connected) {
+        if (firmwareTaskSupported &&
+            data['requestId'] != _firmwareStartRequestId) {
+          return;
+        }
         firmwareUpdateError = '设备拒绝了本地固件更新';
         if (!(_firmwareStartReply?.isCompleted ?? true)) {
           _firmwareStartReply!.complete(false);
@@ -828,6 +980,20 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
           _firmwareCancelReply!.complete(false);
         }
         firmwareUpdateError = '当前阶段无法取消更新';
+        _notify();
+      } else if ((type == 'firmware.task.install.result' ||
+              type == 'firmware.task.cancel.result') &&
+          connected) {
+        if (data['taskId'] != _firmwareCommandTaskId) return;
+        final reply = type == 'firmware.task.install.result'
+            ? _firmwareInstallReply
+            : _firmwareCancelReply;
+        if (reply != null && !reply.isCompleted) {
+          reply.complete(data['ok'] == true);
+        }
+      } else if (type == 'firmware.task.status' && connected) {
+        if (!(_firmwareStartReply?.isCompleted ?? true)) return;
+        _readFirmwareTask(data);
         _notify();
       } else if (type == 'firmware.local.status' && connected) {
         if (!(_firmwareStartReply?.isCompleted ?? true)) return;
@@ -944,6 +1110,12 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
           throw const FormatException();
         }
         firmware = data['firmware'] as String;
+        firmwareTaskSupported = data['firmwareTaskVersion'] == 1;
+        if (data['firmwareTask'] case final Map<String, dynamic> task) {
+          if (_firmwareStartReply == null || _firmwareStartReply!.isCompleted) {
+            _readFirmwareTask(task);
+          }
+        }
         wirelessFirmware = data['wirelessFirmware'] as String? ?? '';
         firmwareHardware = FirmwareHardware.fromJson(data['chips']);
         uptimeMs = (data['uptimeMs'] as num).toInt();

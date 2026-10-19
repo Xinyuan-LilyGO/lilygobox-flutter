@@ -1037,6 +1037,170 @@ void main() {
     expect(connection.connected, isTrue);
   });
 
+  test(
+    'remote task survives app disconnect and commands bind to its task ID',
+    () async {
+      final taskId = 'b' * 32;
+      final commands = <Map<String, dynamic>>[];
+      final task = <String, Object>{
+        'taskId': taskId,
+        'source': 'remote',
+        'stage': 'readyToInstall',
+        'busy': false,
+        'progress': 100,
+        'message': 'Ready to install',
+        'receivedBytes': 4096,
+        'totalBytes': 4096,
+        'mainVersion': '1.1.3',
+        'wirelessVersion': '2.12.3',
+      };
+      serve((socket, message) {
+        switch (message['type']) {
+          case 'hello':
+          case 'ping':
+            socket.add(
+              jsonEncode({
+                ...response(message['type'] == 'hello' ? 'ready' : 'pong'),
+                'firmwareTaskVersion': 1,
+                'firmwareTask': task,
+              }),
+            );
+          case 'firmware.task.install':
+            commands.add(message);
+            socket.add(
+              jsonEncode({
+                ...response('firmware.task.install.result'),
+                'taskId': 'c' * 32,
+                'ok': false,
+              }),
+            );
+            socket.add(
+              jsonEncode({
+                ...response('firmware.task.install.result'),
+                'taskId': taskId,
+                'ok': true,
+              }),
+            );
+          case 'firmware.task.cancel':
+          case 'firmware.local.cancel':
+            commands.add(message);
+        }
+      });
+      expect(await connection.connect(device), isTrue);
+      expect(connection.firmwareTaskActive, isTrue);
+      expect(connection.firmwareTaskSource, 'remote');
+      expect(
+        await connection.controlFirmwareTask(install: true, taskId: 'c' * 32),
+        isFalse,
+      );
+      expect(commands, isEmpty);
+      expect(await connection.installLocalFirmwareUpdate(), isTrue);
+      expect(commands.single['taskId'], taskId);
+      connection.disconnect();
+      expect(commands, hasLength(1));
+      expect(await connection.connect(device), isTrue);
+      expect(connection.firmwareTaskId, taskId);
+      expect(connection.firmwareTaskActive, isTrue);
+    },
+  );
+
+  test(
+    'device cache reuse sends no file URLs and binds the accepted task',
+    () async {
+      final starts = <Map<String, dynamic>>[];
+      final taskId = 'd' * 32;
+      serve((socket, message) {
+        switch (message['type']) {
+          case 'hello':
+          case 'ping':
+            socket.add(
+              jsonEncode({
+                ...response(message['type'] == 'hello' ? 'ready' : 'pong'),
+                'firmwareTaskVersion': 1,
+              }),
+            );
+          case 'firmware.local.start':
+            starts.add(message);
+            socket.add(
+              jsonEncode({
+                ...response('firmware.local.started'),
+                'requestId': message['requestId'],
+                'taskId': taskId,
+              }),
+            );
+        }
+      });
+      expect(await connection.connect(device), isTrue);
+      expect(
+        await connection.startLocalMainFirmwareUpdate(
+          firmware: null,
+          version: '1.1.3',
+          sha256: 'a' * 64,
+          mainSize: 4096,
+          wirelessFirmware: null,
+          wirelessVersion: '2.12.3',
+          wirelessSha256: 'b' * 64,
+          wirelessSize: 2048,
+          deviceCacheOnly: true,
+        ),
+        isTrue,
+      );
+      expect(starts.single['mainUrl'], isEmpty);
+      expect(starts.single['wirelessUrl'], isEmpty);
+      expect(starts.single['reuseCache'], isTrue);
+      expect(connection.firmwareTaskId, taskId);
+      expect(connection.canControlFirmwareTask, isTrue);
+    },
+  );
+
+  test('cancel during start never targets the previous remote task', () async {
+    final startReceived = Completer<void>();
+    final commands = <String>[];
+    serve((socket, message) {
+      switch (message['type']) {
+        case 'hello':
+        case 'ping':
+          socket.add(
+            jsonEncode({
+              ...response(message['type'] == 'hello' ? 'ready' : 'pong'),
+              'firmwareTaskVersion': 1,
+              'firmwareTask': {
+                'taskId': 'a' * 32,
+                'source': 'remote',
+                'stage': 'updateAvailable',
+                'busy': false,
+                'progress': 0,
+                'message': 'Update available',
+              },
+            }),
+          );
+        case 'firmware.local.start':
+          startReceived.complete();
+        case 'firmware.local.cancel':
+        case 'firmware.task.cancel':
+          commands.add(message['type'] as String);
+          socket.add(jsonEncode(response('firmware.local.cancelled')));
+      }
+    });
+    expect(await connection.connect(device), isTrue);
+    final starting = connection.startLocalMainFirmwareUpdate(
+      firmware: null,
+      version: '1.1.3',
+      sha256: 'a' * 64,
+      mainSize: 4096,
+      wirelessFirmware: null,
+      wirelessVersion: '2.12.3',
+      wirelessSha256: 'b' * 64,
+      wirelessSize: 2048,
+      deviceCacheOnly: true,
+    );
+    await startReceived.future;
+    await connection.cancelLocalFirmwareUpdate();
+    expect(await starting, isFalse);
+    expect(commands, ['firmware.local.cancel']);
+    expect(connection.connected, isTrue);
+  });
+
   test('unresponsive peer becomes offline after heartbeat timeout', () async {
     serve((socket, message) {
       if (message['type'] == 'hello') socket.add(jsonEncode(response('ready')));

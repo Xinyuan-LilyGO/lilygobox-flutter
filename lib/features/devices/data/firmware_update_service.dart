@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
+import 'firmware_cache.dart';
+
 class FirmwareChip {
   const FirmwareChip({required this.model, required this.revision});
 
@@ -201,6 +203,9 @@ class FirmwareUpdateService {
     http.Client? client,
     void Function(bool main, int received, int total)? onProgress,
     bool Function()? isCancelled,
+    FirmwareCache? cache,
+    String cacheScope = '',
+    bool reuseCache = true,
   }) async {
     if (!downloadMain && !downloadWireless) {
       throw StateError('当前已是最新版本');
@@ -215,26 +220,76 @@ class FirmwareUpdateService {
           ? File('${directory.path}${Platform.pathSeparator}wireless.bin')
           : null;
       if (main != null) {
-        await _downloadAndVerify(
-          downloadClient,
-          release.mainUrl,
-          release.mainSize,
-          release.mainSha256,
-          main,
-          (received, total) => onProgress?.call(true, received, total),
-          isCancelled,
-        );
+        final reused =
+            reuseCache &&
+            cache != null &&
+            await cache.restore(
+              cacheScope,
+              'main',
+              release.mainVersion,
+              release.mainSize,
+              release.mainSha256,
+              main,
+            );
+        if (!reused) {
+          await _downloadAndVerify(
+            downloadClient,
+            release.mainUrl,
+            release.mainSize,
+            release.mainSha256,
+            main,
+            (received, total) => onProgress?.call(true, received, total),
+            isCancelled,
+          );
+        }
+        if (!reused && !(isCancelled?.call() ?? false)) {
+          await cache?.store(
+            cacheScope,
+            'main',
+            release.mainVersion,
+            release.mainSize,
+            release.mainSha256,
+            main,
+          );
+        }
+        if (reused) onProgress?.call(true, release.mainSize, release.mainSize);
       }
       if (wireless != null) {
-        await _downloadAndVerify(
-          downloadClient,
-          release.wirelessUrl,
-          release.wirelessSize,
-          release.wirelessSha256,
-          wireless,
-          (received, total) => onProgress?.call(false, received, total),
-          isCancelled,
-        );
+        final reused =
+            reuseCache &&
+            cache != null &&
+            await cache.restore(
+              cacheScope,
+              'wireless',
+              release.wirelessVersion,
+              release.wirelessSize,
+              release.wirelessSha256,
+              wireless,
+            );
+        if (!reused) {
+          await _downloadAndVerify(
+            downloadClient,
+            release.wirelessUrl,
+            release.wirelessSize,
+            release.wirelessSha256,
+            wireless,
+            (received, total) => onProgress?.call(false, received, total),
+            isCancelled,
+          );
+        }
+        if (!reused && !(isCancelled?.call() ?? false)) {
+          await cache?.store(
+            cacheScope,
+            'wireless',
+            release.wirelessVersion,
+            release.wirelessSize,
+            release.wirelessSha256,
+            wireless,
+          );
+        }
+        if (reused) {
+          onProgress?.call(false, release.wirelessSize, release.wirelessSize);
+        }
       }
       if (isCancelled?.call() ?? false) throw const HttpException('更新已取消');
       return DownloadedFirmware(
