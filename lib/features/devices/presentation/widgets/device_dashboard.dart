@@ -263,6 +263,7 @@ class DeviceDashboard extends StatelessWidget {
     Color? color,
     Color? feedbackColor,
     bool useDefaultFeedback = false,
+    bool inkAboveChild = false,
     EdgeInsets padding = const EdgeInsets.all(20),
   }) {
     // 离线仅禁用交互并降低内容强调度，保留数值、图形和原有布局。
@@ -310,6 +311,7 @@ class DeviceDashboard extends StatelessWidget {
             key: key,
             theme: theme,
             onPressed: onTap,
+            inkAboveChild: inkAboveChild,
             backgroundColor: color ?? theme.primary,
             hoverColor: color ?? theme.primary,
             splashColor: useDefaultFeedback
@@ -389,6 +391,7 @@ class DeviceDashboard extends StatelessWidget {
       allowNavigationWhenDisabled: true,
       color: colors.background,
       useDefaultFeedback: true,
+      inkAboveChild: true,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.stretch,

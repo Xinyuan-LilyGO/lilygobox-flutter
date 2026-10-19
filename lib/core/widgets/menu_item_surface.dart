@@ -29,6 +29,7 @@ class MenuItemSurface extends StatefulWidget {
     this.selectedColor,
     this.splashColor,
     this.highlightColor,
+    this.inkAboveChild = false,
     this.foregroundColor,
     this.hoverForegroundColor,
     this.border,
@@ -73,6 +74,9 @@ class MenuItemSurface extends StatefulWidget {
   /// 特色卡片可指定与自身底色匹配的点击反馈。
   final Color? splashColor;
   final Color? highlightColor;
+
+  /// 自绘图形等不透明内容需要将点击反馈绘制在内容上方。
+  final bool inkAboveChild;
   final Color? foregroundColor;
   final Color? hoverForegroundColor;
   final BoxBorder? border;
@@ -103,6 +107,33 @@ class _MenuItemSurfaceState extends State<MenuItemSurface> {
     final foregroundColor = _isHovered && enabled
         ? widget.hoverForegroundColor ?? widget.foregroundColor
         : widget.foregroundColor;
+    final content = foregroundColor == null
+        ? widget.child
+        : InteractionDecoration.color(
+            palette: theme,
+            color: foregroundColor,
+            builder: (context, color) => IconTheme.merge(
+              data: IconThemeData(color: color),
+              child: DefaultTextStyle.merge(
+                style: TextStyle(color: color),
+                child: widget.child,
+              ),
+            ),
+          );
+    final feedback = InkWell(
+      onTap: enabled ? widget.onPressed : null,
+      mouseCursor: enabled
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
+      borderRadius: widget.borderRadius,
+      hoverColor: Colors.transparent,
+      highlightColor:
+          widget.highlightColor ?? stateColors.pressed.withValues(alpha: .38),
+      splashColor:
+          widget.splashColor ?? stateColors.pressed.withValues(alpha: .5),
+      splashFactory: InkRipple.splashFactory,
+      child: widget.inkAboveChild ? null : content,
+    );
 
     return Semantics(
       selected: widget.isSelected,
@@ -130,34 +161,19 @@ class _MenuItemSurfaceState extends State<MenuItemSurface> {
               type: MaterialType.transparency,
               borderRadius: widget.borderRadius,
               clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: enabled ? widget.onPressed : null,
-                mouseCursor: enabled
-                    ? SystemMouseCursors.click
-                    : SystemMouseCursors.basic,
-                borderRadius: widget.borderRadius,
-                hoverColor: Colors.transparent,
-                highlightColor:
-                    widget.highlightColor ??
-                    stateColors.pressed.withValues(alpha: .38),
-                splashColor:
-                    widget.splashColor ??
-                    stateColors.pressed.withValues(alpha: .5),
-                splashFactory: InkRipple.splashFactory,
-                child: foregroundColor == null
-                    ? widget.child
-                    : InteractionDecoration.color(
-                        palette: theme,
-                        color: foregroundColor,
-                        builder: (context, color) => IconTheme.merge(
-                          data: IconThemeData(color: color),
-                          child: DefaultTextStyle.merge(
-                            style: TextStyle(color: color),
-                            child: widget.child,
+              child: widget.inkAboveChild
+                  ? Stack(
+                      children: [
+                        content,
+                        Positioned.fill(
+                          child: Material(
+                            type: MaterialType.transparency,
+                            child: feedback,
                           ),
                         ),
-                      ),
-              ),
+                      ],
+                    )
+                  : feedback,
             ),
           ),
         ),
