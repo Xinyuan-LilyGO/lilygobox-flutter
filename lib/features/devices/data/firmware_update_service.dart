@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -89,13 +90,28 @@ class DownloadedFirmware {
   final File? wireless;
 }
 
+class FirmwareManifestException implements Exception {
+  const FirmwareManifestException(this.message, {this.uri, this.statusCode});
+
+  final String message;
+  final Uri? uri;
+  final int? statusCode;
+
+  @override
+  String toString() {
+    final status = statusCode == null ? '' : ' (HTTP $statusCode)';
+    return '$message$status';
+  }
+}
+
 class FirmwareUpdateService {
   const FirmwareUpdateService({http.Client? client}) : _client = client;
 
   final http.Client? _client;
 
   static Uri manifestUriFor(String model, String modelVersion) {
-    if (_chipRevision(_normalizeVersion(modelVersion)) == null) {
+    final normalizedVersion = _normalizeVersion(modelVersion);
+    if (_chipRevision(normalizedVersion) == null) {
       throw const FormatException('Invalid device hardware version');
     }
     final device = switch (model) {
@@ -109,6 +125,8 @@ class FirmwareUpdateService {
     );
   }
 
+  static Uri _proxyUri(Uri uri) => Uri.parse('https://gh-proxy.com/$uri');
+
   Future<FirmwareRelease?> check({
     required String model,
     required String modelVersion,
@@ -118,25 +136,59 @@ class FirmwareUpdateService {
   }) async {
     final uri = manifestUriFor(model, modelVersion);
     final client = _client ?? http.Client();
+    Object? lastError;
     try {
-      final response = await client
-          .get(uri, headers: const {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 30));
-      if (response.statusCode != HttpStatus.ok) {
-        throw HttpException('Firmware manifest request failed', uri: uri);
+      for (final source in [uri, _proxyUri(uri)]) {
+        try {
+          final response = await client
+              .get(source, headers: const {'Accept': 'application/json'})
+              .timeout(const Duration(seconds: 15));
+          if (response.statusCode != HttpStatus.ok) {
+            lastError = FirmwareManifestException(
+              'Firmware manifest request failed',
+              uri: source,
+              statusCode: response.statusCode,
+            );
+            continue;
+          }
+          final release = _parse(
+            jsonDecode(response.body),
+            model,
+            modelVersion,
+            hardware,
+          );
+          if (release == null) {
+            lastError = const FormatException(
+              'Firmware manifest is invalid or incompatible',
+            );
+            continue;
+          }
+          return release.isNewerThan(mainCurrent, wirelessCurrent)
+              ? release
+              : null;
+        } on FormatException catch (error) {
+          lastError = error;
+        } on TimeoutException {
+          lastError = FirmwareManifestException(
+            'Firmware manifest request timed out',
+            uri: source,
+          );
+        } on SocketException catch (error) {
+          lastError = FirmwareManifestException(
+            'Firmware manifest network request failed: ${error.message}',
+            uri: source,
+          );
+        } on http.ClientException catch (error) {
+          lastError = FirmwareManifestException(
+            'Firmware manifest network request failed: ${error.message}',
+            uri: source,
+          );
+        } on HttpException catch (error) {
+          lastError = error;
+        }
       }
-      final release = _parse(
-        jsonDecode(response.body),
-        model,
-        modelVersion,
-        hardware,
-      );
-      if (release == null) {
-        throw const FormatException(
-          'Firmware manifest is invalid or incompatible',
-        );
-      }
-      return release.isNewerThan(mainCurrent, wirelessCurrent) ? release : null;
+      throw lastError ??
+          const FirmwareManifestException('Firmware manifest request failed');
     } finally {
       if (_client == null) client.close();
     }

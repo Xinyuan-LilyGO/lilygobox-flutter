@@ -282,6 +282,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     required String wirelessSha256,
     required int wirelessSize,
   }) async {
+    if (_firmwareCancelReply != null) return false;
     final target = device;
     final generation = _generation;
     final localGeneration = ++_localFirmwareGeneration;
@@ -425,10 +426,10 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
 
   Future<void> _closeLocalFirmwareServer() async {
     final server = _localFirmwareServer;
-    _localFirmwareServer = null;
-    await server?.close(force: true);
     final files = _localFirmwareFiles;
+    _localFirmwareServer = null;
     _localFirmwareFiles = const [];
+    await server?.close(force: true);
     if (files.isNotEmpty) {
       final directory = files.first.parent;
       for (final file in files) {
@@ -448,7 +449,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
 
   /// 取消当前应用发起的局域网固件传输并清理临时资源。
   Future<void> cancelLocalFirmwareUpdate() async {
-    _localFirmwareGeneration++;
+    final localGeneration = ++_localFirmwareGeneration;
     if (!(_firmwareStartReply?.isCompleted ?? true)) {
       _firmwareStartReply!.complete(false);
     }
@@ -465,7 +466,9 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
         if (!accepted && connected) throw StateError('设备未确认取消，请查看设备状态');
       }
     } finally {
-      await _closeLocalFirmwareServer();
+      if (localGeneration == _localFirmwareGeneration) {
+        await _closeLocalFirmwareServer();
+      }
     }
   }
 
@@ -581,8 +584,9 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     if (result != null && !result.isCompleted) result.complete(false);
   }
 
-  void _fail(int generation) {
+  void _fail(int generation, {String? reason}) {
     if (_disposed || generation != _generation) return;
+    if (reason != null) debugPrint('LAN connection ended: $reason');
     final wasConnected = connected;
     _close();
     phase = wasConnected
@@ -699,8 +703,13 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
           .asyncMap((message) => _receive(message, generation))
           .listen(
             (_) {},
-            onError: (Object _) => _fail(generation),
-            onDone: () => _fail(generation),
+            onError: (Object error) =>
+                _fail(generation, reason: 'WebSocket error: $error'),
+            onDone: () => _fail(
+              generation,
+              reason:
+                  'WebSocket closed: ${socket.closeCode} ${socket.closeReason ?? ''}',
+            ),
           );
       final hostname = Platform.localHostname
           .replaceAll(RegExp(r'[^\x20-\x7E]'), '')
@@ -718,8 +727,8 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
             ? 'LilygoBox app'
             : hostname.substring(0, hostname.length.clamp(0, 48)),
       });
-    } catch (_) {
-      _fail(generation);
+    } catch (error) {
+      _fail(generation, reason: 'WebSocket connection failed: $error');
     }
     return result.future;
   }
@@ -991,7 +1000,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
           if (result != null && !result.isCompleted) result.complete(true);
           _heartbeat = Timer.periodic(heartbeatInterval, (_) {
             if (_sinceReply.elapsed >= heartbeatTimeout) {
-              _fail(generation);
+              _fail(generation, reason: 'Heartbeat reply timed out');
             } else {
               _send({'type': 'ping'});
             }
@@ -1004,8 +1013,8 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
       } else {
         throw const FormatException();
       }
-    } catch (_) {
-      _fail(generation);
+    } catch (error) {
+      _fail(generation, reason: 'WebSocket message or state error: $error');
     }
   }
 

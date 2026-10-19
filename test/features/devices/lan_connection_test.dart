@@ -217,17 +217,17 @@ void main() {
     void Function(WebSocket, Map<String, dynamic>) handler, {
     void Function()? onHandshakeError,
   }) {
+    var active = true;
+    addTearDown(() => active = false);
     server.listen(
       (request) async {
         expect(request.uri.path, '/api/v1/ws');
         final socket = await WebSocketTransformer.upgrade(request);
         sockets.add(socket);
-        socket.listen(
-          (data) => handler(
-            socket,
-            jsonDecode(data as String) as Map<String, dynamic>,
-          ),
-        );
+        socket.listen((data) {
+          if (!active || socket.readyState != WebSocket.open) return;
+          handler(socket, jsonDecode(data as String) as Map<String, dynamic>);
+        });
       },
       onError: (Object error) {
         // 客户端拒绝测试证书时，服务端可能收到对应的握手失败事件。
@@ -964,6 +964,78 @@ void main() {
       await waitFor(() => connection.phase == LanConnectionPhase.offline);
     },
   );
+
+  test('OTA cancellation must finish before another transfer starts', () async {
+    final starts = <Map<String, dynamic>>[];
+    final cancelReceived = Completer<WebSocket>();
+    serve((socket, message) {
+      switch (message['type']) {
+        case 'hello':
+        case 'ping':
+          socket.add(
+            jsonEncode(response(message['type'] == 'hello' ? 'ready' : 'pong')),
+          );
+        case 'firmware.local.start':
+          starts.add(message);
+          socket.add(jsonEncode(response('firmware.local.started')));
+        case 'firmware.local.cancel':
+          cancelReceived.complete(socket);
+      }
+    });
+    expect(await connection.connect(device), isTrue);
+    final directories = <Directory>[];
+    Future<bool> transfer(int value) async {
+      final directory = await Directory.systemTemp.createTemp('ota-race-');
+      directories.add(directory);
+      final bytes = List.filled(4096, value);
+      final file = await File('${directory.path}/main.bin').writeAsBytes(bytes);
+      final hash = sha256.convert(bytes).toString();
+      return connection.startLocalMainFirmwareUpdate(
+        firmware: file,
+        version: '1.1.2',
+        sha256: hash,
+        mainSize: bytes.length,
+        wirelessFirmware: null,
+        wirelessVersion: '2.12.3',
+        wirelessSha256: hash,
+        wirelessSize: bytes.length,
+      );
+    }
+
+    addTearDown(() async {
+      connection.disconnect();
+      for (final directory in directories) {
+        if (await directory.exists()) {
+          try {
+            await directory.delete(recursive: true);
+          } on PathNotFoundException {
+            // 连接层也会异步清理各自拥有的临时目录。
+          }
+        }
+      }
+    });
+    expect(await transfer(1), isTrue);
+    final cancelling = connection.cancelLocalFirmwareUpdate();
+    final socket = await cancelReceived.future;
+    expect(await transfer(2), isFalse);
+    expect(starts, hasLength(1));
+    socket.add(jsonEncode(response('firmware.local.cancelled')));
+    await cancelling;
+    expect(await transfer(3), isTrue);
+    final client = HttpClient()..findProxy = (_) => 'DIRECT';
+    addTearDown(() => client.close(force: true));
+    final request = await client.getUrl(
+      Uri.parse(starts.last['mainUrl'] as String),
+    );
+    final reply = await request.close();
+    expect(reply.statusCode, HttpStatus.ok);
+    final bytes = await reply.fold<List<int>>(
+      [],
+      (all, chunk) => all..addAll(chunk),
+    );
+    expect(bytes, List.filled(4096, 3));
+    expect(connection.connected, isTrue);
+  });
 
   test('unresponsive peer becomes offline after heartbeat timeout', () async {
     serve((socket, message) {

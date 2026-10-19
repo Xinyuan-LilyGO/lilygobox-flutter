@@ -183,7 +183,7 @@ class FirmwareUpdateController extends ChangeNotifier {
         _timeout?.cancel();
         step = FirmwareUpdateStep.prepared;
         progress = null;
-        message = '设备已接收并校验固件。点击“重启安装”按钮后，设备会自动重启并安装固件。';
+        message = '设备已接收固件并完成校验。点击“重启安装”后，设备将熄屏安装并自动重启。';
         unawaited(_cleanFiles());
       case 'restarting':
       case 'installingWireless':

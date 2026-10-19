@@ -405,14 +405,16 @@ void main() {
   }
 
   testWidgets(
-    'cancel update waits for device then closes without result dialog',
+    'cancel update closes immediately while device acknowledgement is pending',
     (tester) async {
       controller.step = FirmwareUpdateStep.prepared;
       connection.cancelReply = Completer<void>();
       await openDialog(tester);
       await tester.tap(find.text('取消更新'));
       await tester.pump();
-      expect(find.text('正在取消更新…'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text('正在取消更新…'), findsNothing);
       expect(find.text('更新已取消，保留当前固件。'), findsNothing);
       expect(find.text('关闭'), findsNothing);
       expect(connection.cancels, 1);
@@ -423,7 +425,7 @@ void main() {
     },
   );
 
-  testWidgets('cancel update keeps failure visible if device rejects', (
+  testWidgets('late cancellation failure does not reopen a dismissed dialog', (
     tester,
   ) async {
     controller.step = FirmwareUpdateStep.prepared;
@@ -433,11 +435,10 @@ void main() {
     await tester.pump();
     connection.cancelReply!.completeError(StateError('cancel rejected'));
     await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsOneWidget);
-    expect(find.textContaining('设备未确认取消更新'), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(controller.message, contains('设备未确认取消更新'));
+    expect(find.textContaining('设备未确认取消更新'), findsNothing);
     expect(find.text('正在取消更新…'), findsNothing);
-    await tester.tap(find.text('关闭'));
-    await tester.pumpAndSettle();
   });
 
   testWidgets('background dismiss cancels an active transfer', (tester) async {

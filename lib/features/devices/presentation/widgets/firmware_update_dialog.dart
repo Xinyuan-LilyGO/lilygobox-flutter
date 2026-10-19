@@ -62,7 +62,7 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
       _error = null;
     });
     _timeout?.cancel();
-    _timeout = Timer(const Duration(seconds: 30), () {
+    _timeout = Timer(const Duration(seconds: 45), () {
       _finishCheck(error: '检查更新超时，请检查网络后重试');
     });
     // 自动检测尚未结束时复用其结果，避免重复请求清单。
@@ -71,9 +71,9 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
     try {
       final release = await widget.connection.checkFirmwareUpdate();
       if (mounted && _checking) _finishCheck(release: release);
-    } catch (_) {
+    } catch (error) {
       if (mounted && _checking) {
-        _finishCheck(error: '检查更新失败，请检查网络后重试');
+        _finishCheck(error: _checkErrorText(error));
       }
     }
   }
@@ -98,10 +98,27 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
           (!_sameDevice
               ? '设备已断开或已切换，请重新连接后检查更新'
               : widget.connection.firmwareUpdateError != null
-              ? '检查更新失败，请检查网络后重试'
+              ? _checkErrorText(widget.connection.firmwareUpdateError!)
               : null);
       if (_error == null && release != null) _setRelease(release);
     });
+  }
+
+  String _checkErrorText(Object error) {
+    final text = error.toString();
+    if (text.contains('HTTP 404')) {
+      return '没有找到当前设备对应的 OTA 清单（HTTP 404）';
+    }
+    if (text.contains('timed out') || text.contains('TimeoutException')) {
+      return 'OTA 清单请求超时，请检查网络后重试';
+    }
+    if (text.contains('invalid or incompatible')) {
+      return '当前设备型号、硬件版本或芯片与 OTA 清单不匹配';
+    }
+    if (text.contains('network request failed')) {
+      return 'OTA 清单网络请求失败，请检查网络后重试';
+    }
+    return '检查更新失败：$text';
   }
 
   void _setRelease(FirmwareRelease release) {
@@ -215,13 +232,11 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
   Future<void> _cancelAndClose() async {
     if (_cancelling || !controller.canCancel) return;
     setState(() => _cancelling = true);
-    await controller.cancel();
+    // 取消请求在后台等待设备确认，界面立即退出，避免阻塞用户等待超时。
+    unawaited(controller.cancel());
     if (!mounted) return;
-    if (controller.step == FirmwareUpdateStep.cancelled) {
-      Navigator.of(context).pop();
-    } else {
-      setState(() => _cancelling = false);
-    }
+    setState(() => _dismissed = true);
+    Navigator.of(context).pop();
   }
 
   @override
