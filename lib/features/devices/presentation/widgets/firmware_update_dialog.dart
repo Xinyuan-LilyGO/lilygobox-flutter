@@ -404,9 +404,18 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
           ),
           actions: [
             if (step == FirmwareUpdateStep.failed && widget.onRetry != null)
-              _button(context.l10n.otaRetry, widget.onRetry, primary: true),
+              _button(
+                context.l10n.otaRetry,
+                widget.onRetry,
+                id: 'retry',
+                primary: true,
+              ),
             if (controller.observer && !controller.terminal && !installing)
-              _button(context.l10n.otaClose, () => Navigator.of(context).pop()),
+              _button(
+                context.l10n.otaClose,
+                () => Navigator.of(context).pop(),
+                id: 'close',
+              ),
             if (!installing &&
                 (_cancelling || !controller.terminal) &&
                 controller.canCancel)
@@ -417,12 +426,14 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
                 !_cancelling && controller.canCancel
                     ? () => unawaited(_cancelAndClose())
                     : null,
+                id: 'cancel',
               ),
             if (awaiting &&
                 (controller.hasCache || controller.deviceCacheAvailable))
               _button(
                 context.l10n.otaRedownload,
                 () => controller.download(reuseCache: false),
+                id: 'redownload',
               ),
             if (awaiting)
               _button(
@@ -436,6 +447,7 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
                     : controller.deviceCacheAvailable
                     ? () => controller.useDeviceCache()
                     : () => controller.download(),
+                id: 'download',
                 primary: true,
               ),
             if (!_cancelling &&
@@ -444,28 +456,38 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
               _button(
                 context.l10n.otaInstall,
                 () => controller.install(),
+                id: 'install',
                 primary: true,
               ),
             if (!_cancelling && (installing || controller.terminal))
-              _button(context.l10n.otaClose, () => Navigator.of(context).pop()),
+              _button(
+                context.l10n.otaClose,
+                () => Navigator.of(context).pop(),
+                id: 'close',
+              ),
           ],
         ),
       );
     },
   );
 
-  Widget _button(String label, VoidCallback? action, {bool primary = false}) =>
-      Opacity(
-        opacity: action == null ? .45 : 1,
-        child: AppActionButton(
-          theme: theme,
-          label: label,
-          primary: primary,
-          settingBackground: !primary,
-          onPressed: action,
-          fontSize: 12,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          borderRadius: BorderRadius.circular(8),
-        ),
-      );
+  Widget _button(
+    String label,
+    VoidCallback? action, {
+    required String id,
+    bool primary = false,
+  }) => Opacity(
+    key: ValueKey(id),
+    opacity: action == null ? .45 : 1,
+    child: AppActionButton(
+      theme: theme,
+      label: label,
+      primary: primary,
+      settingBackground: !primary,
+      onPressed: action,
+      fontSize: 12,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      borderRadius: BorderRadius.circular(8),
+    ),
+  );
 }

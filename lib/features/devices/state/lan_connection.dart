@@ -377,6 +377,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     required int wirelessSize,
     bool reuseCache = true,
     bool deviceCacheOnly = false,
+    List<String> releaseNotes = const [],
   }) async {
     if (_firmwareCancelReply != null || firmwareTaskActive) return false;
     final target = device;
@@ -461,6 +462,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
       'type': 'firmware.local.start',
       'requestId': token,
       'reuseCache': reuseCache,
+      if (releaseNotes.isNotEmpty) 'releaseNotes': releaseNotes,
       'mainUrl': firmware == null
           ? ''
           : 'http://${address!.address}:${server!.port}/$token',
@@ -499,8 +501,9 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
                     peer.id == target.id &&
                     peer.address == target.address &&
                     peer.localAddress != null,
-                orElse: () =>
-                    throw const SocketException('No local network interface for the device; reconnect the device'),
+                orElse: () => throw const SocketException(
+                  'No local network interface for the device; reconnect the device',
+                ),
               );
     final address = peer.localAddress!;
     final interfaces = await NetworkInterface.list(
@@ -513,7 +516,9 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
         address.isLoopback ||
         address.address == target.address ||
         address.type != InternetAddressType.IPv4) {
-      throw const SocketException('Device network interface changed; reconnect the device');
+      throw const SocketException(
+        'Device network interface changed; reconnect the device',
+      );
     }
     return address;
   }
@@ -565,7 +570,9 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
       if (localGeneration == _localFirmwareGeneration) {
         await _closeLocalFirmwareServer();
       }
-      if (!accepted && connected) throw StateError('Firmware cancellation not confirmed');
+      if (!accepted && connected) {
+        throw StateError('Firmware cancellation not confirmed');
+      }
       return;
     }
     // 地址准备或启动确认期间尚无所属任务 ID，按会话取消且忽略迟到的启动回复。
@@ -583,7 +590,9 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
           onTimeout: () => false,
         );
         if (identical(_firmwareCancelReply, reply)) _firmwareCancelReply = null;
-        if (!accepted && connected) throw StateError('Firmware cancellation not confirmed');
+        if (!accepted && connected) {
+          throw StateError('Firmware cancellation not confirmed');
+        }
       }
     } finally {
       if (localGeneration == _localFirmwareGeneration) {

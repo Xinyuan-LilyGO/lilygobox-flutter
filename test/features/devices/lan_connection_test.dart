@@ -1142,12 +1142,14 @@ void main() {
           wirelessSha256: 'b' * 64,
           wirelessSize: 2048,
           deviceCacheOnly: true,
+          releaseNotes: const ['Offline release notes'],
         ),
         isTrue,
       );
       expect(starts.single['mainUrl'], isEmpty);
       expect(starts.single['wirelessUrl'], isEmpty);
       expect(starts.single['reuseCache'], isTrue);
+      expect(starts.single['releaseNotes'], ['Offline release notes']);
       expect(connection.firmwareTaskId, taskId);
       expect(connection.canControlFirmwareTask, isTrue);
     },

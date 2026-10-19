@@ -83,6 +83,7 @@ class _Connection extends LanConnection {
     required int wirelessSize,
     bool reuseCache = true,
     bool deviceCacheOnly = false,
+    List<String> releaseNotes = const [],
   }) async {
     starts++;
     receivedFile = firmware;
@@ -625,6 +626,28 @@ void main() {
       await tester.pumpAndSettle();
     });
   }
+
+  testWidgets('cache detection preserves primary button animation identity', (
+    tester,
+  ) async {
+    await openDialog(tester);
+    final primary = tester.element(
+      find.widgetWithText(AppActionButton, '下载更新'),
+    );
+    controller.mainCached = true;
+    controller.notifyListeners();
+    await tester.pump();
+    expect(
+      tester.element(find.widgetWithText(AppActionButton, '使用已下载固件')),
+      same(primary),
+    );
+    expect(
+      tester.element(find.widgetWithText(AppActionButton, '重新下载')),
+      isNot(same(primary)),
+    );
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+  });
 
   testWidgets('verified cache offers reuse and redownload in the same dialog', (
     tester,
