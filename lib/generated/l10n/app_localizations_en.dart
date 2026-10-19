@@ -825,4 +825,331 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get deviceNameStorageFailed =>
       'The device could not save the name to storage. Your input has been kept; please try again.';
+
+  @override
+  String get otaUpdating => 'Updating';
+
+  @override
+  String get otaCheck => 'Check for updates';
+
+  @override
+  String get otaNewVersion => 'Update available';
+
+  @override
+  String get otaViewStatus => 'View device update status';
+
+  @override
+  String get otaCheckTitle => 'Check for firmware updates';
+
+  @override
+  String otaUpdateTo(String version) {
+    return 'Update to $version';
+  }
+
+  @override
+  String get otaUpdateFirmware => 'Update firmware';
+
+  @override
+  String get otaWirelessVersion => 'Wireless firmware version';
+
+  @override
+  String get otaMainVersion => 'Main firmware version';
+
+  @override
+  String get otaNotes => 'Release notes';
+
+  @override
+  String get otaUnknown => 'Unknown';
+
+  @override
+  String get otaCheckDisconnected =>
+      'The device disconnected or changed. Reconnect before checking for updates.';
+
+  @override
+  String get otaCheckTimeout =>
+      'The update check timed out. Check your network and try again.';
+
+  @override
+  String get otaManifestMissing =>
+      'No OTA manifest was found for this device (HTTP 404).';
+
+  @override
+  String get otaManifestTimeout =>
+      'The OTA manifest request timed out. Check your network and try again.';
+
+  @override
+  String get otaManifestIncompatible =>
+      'The OTA manifest does not match this device model, hardware version, or chip.';
+
+  @override
+  String get otaManifestNetwork =>
+      'Could not retrieve the OTA manifest. Check your network and try again.';
+
+  @override
+  String otaCheckError(String detail) {
+    return 'Could not check for updates: $detail';
+  }
+
+  @override
+  String get otaCheckFailed => 'Update check failed';
+
+  @override
+  String get otaChecking => 'Checking for updates…';
+
+  @override
+  String get otaLatest => 'You are up to date';
+
+  @override
+  String get otaCancel => 'Cancel';
+
+  @override
+  String get otaClose => 'Close';
+
+  @override
+  String get otaRetry => 'Retry';
+
+  @override
+  String get otaFound => 'Firmware update available';
+
+  @override
+  String get otaDeviceTitle => 'Device firmware update';
+
+  @override
+  String get otaTitle => 'Firmware update';
+
+  @override
+  String get otaRemoteSource =>
+      'Device online update · Closing this window does not stop the device task';
+
+  @override
+  String get otaLocalSource =>
+      'LAN update · Firmware is provided by the app that started the update';
+
+  @override
+  String get otaDeviceCacheHint =>
+      'The device already has all firmware required for this update. It can verify the files again and prepare installation.';
+
+  @override
+  String get otaCacheChecking =>
+      'Verifying firmware downloaded on this computer…';
+
+  @override
+  String otaAppCacheHint(String components) {
+    return 'Downloaded and verified: $components. Use these files and download any missing components.';
+  }
+
+  @override
+  String get otaMainComponent => 'Main firmware';
+
+  @override
+  String get otaWirelessComponent => 'Wireless firmware';
+
+  @override
+  String get otaComponentsSeparator => ', ';
+
+  @override
+  String get otaCancelling => 'Cancelling update…';
+
+  @override
+  String get otaCancelUpdate => 'Cancel update';
+
+  @override
+  String get otaRedownload => 'Download again';
+
+  @override
+  String get otaUseDeviceCache => 'Use device firmware';
+
+  @override
+  String get otaUseCache => 'Use downloaded firmware';
+
+  @override
+  String get otaDownloadUpdate => 'Download update';
+
+  @override
+  String get otaInstall => 'Restart and install';
+
+  @override
+  String get otaDownloadingMain => 'Downloading main firmware';
+
+  @override
+  String get otaDownloadingWireless => 'Downloading wireless firmware';
+
+  @override
+  String get otaRequestCache =>
+      'Requesting verification of firmware already on the device…';
+
+  @override
+  String get otaCacheTimeout => 'Device firmware cache verification timed out.';
+
+  @override
+  String get otaCacheRejected =>
+      'The device did not accept the cached firmware. Try again or download the files again.';
+
+  @override
+  String otaCacheFailed(String detail) {
+    return 'Could not use the device firmware cache: $detail';
+  }
+
+  @override
+  String get otaDownloadTimeout => 'The download timed out. Please try again.';
+
+  @override
+  String otaDownloadFailed(String detail) {
+    return 'Firmware download or verification failed: $detail';
+  }
+
+  @override
+  String get otaWaitingTransfer =>
+      'Waiting for the device to accept the transfer…';
+
+  @override
+  String get otaTransferTimeout => 'Firmware transfer to the device timed out.';
+
+  @override
+  String get otaTransferRejected =>
+      'The device did not accept the transfer. Make sure its firmware supports staged updates.';
+
+  @override
+  String otaTransferFailed(String detail) {
+    return 'Could not transfer firmware: $detail';
+  }
+
+  @override
+  String get otaRequestInstall =>
+      'Requesting restart and installation…\nYou may close this window. Do not turn off the device.';
+
+  @override
+  String get otaInstallRejected =>
+      'The device did not confirm restart and installation.';
+
+  @override
+  String get otaInstallConfirmed =>
+      'Restart and installation confirmed. The device will install automatically and restart. Do not turn it off.';
+
+  @override
+  String get otaDeviceChanged =>
+      'The selected device changed. This update has stopped.';
+
+  @override
+  String get otaInstallDisconnected =>
+      'The device disconnected. Waiting for confirmation of restart and installation…';
+
+  @override
+  String get otaObserverDisconnected =>
+      'The device disconnected. Reconnect to view its update status.';
+
+  @override
+  String get otaDisconnected =>
+      'The device disconnected. The update has stopped.';
+
+  @override
+  String get otaTaskChanged =>
+      'The device update task changed. Reopen the update window.';
+
+  @override
+  String get otaOtherTask =>
+      'The device is already updating. Close this window to view its current task.';
+
+  @override
+  String get otaLatestComplete => 'You are up to date.';
+
+  @override
+  String get otaCheckAvailable =>
+      'An update is available. Start the download on the device or close this window to choose it in the app.';
+
+  @override
+  String get otaNoTask => 'The device has no update task in progress.';
+
+  @override
+  String otaDeviceFailed(String detail) {
+    return 'The device update failed: $detail';
+  }
+
+  @override
+  String get otaDeviceCancelled =>
+      'The device cancelled the update and kept its current firmware.';
+
+  @override
+  String get otaPrepared =>
+      'Firmware received and verified. Select Restart and install to turn off the device screen, install the update, and restart automatically.';
+
+  @override
+  String get otaPreparedOtherApp =>
+      'Firmware is ready. Confirm restart and installation in the app that started the update.';
+
+  @override
+  String get otaInstalling =>
+      'The device is installing and restarting. Do not turn it off.\nClosing this window does not stop installation.';
+
+  @override
+  String get otaDeviceChecking =>
+      'The device is checking for firmware updates online…';
+
+  @override
+  String get otaPaused =>
+      'The device paused the download. Resume it on the device or cancel this update.';
+
+  @override
+  String get otaVerifyingMain =>
+      'The device is verifying the main firmware image and SHA-256…';
+
+  @override
+  String get otaVerifyingWireless =>
+      'The device is verifying the wireless firmware image and SHA-256…';
+
+  @override
+  String get otaPreparing =>
+      'The device is preparing firmware for installation…';
+
+  @override
+  String get otaCancelled =>
+      'Update cancelled. The current firmware has been kept.';
+
+  @override
+  String get otaCancelRejected =>
+      'The device rejected cancellation of this task.';
+
+  @override
+  String otaCancelUnconfirmed(String detail) {
+    return 'The device did not confirm cancellation: $detail';
+  }
+
+  @override
+  String otaProgress(String action, String received, String total) {
+    return '$action · $received / $total';
+  }
+
+  @override
+  String get otaDownloadMain => 'Download main firmware';
+
+  @override
+  String get otaDownloadWireless => 'Download wireless firmware';
+
+  @override
+  String get otaDeviceDownloadMain => 'Device downloading main firmware';
+
+  @override
+  String get otaDeviceDownloadWireless =>
+      'Device downloading wireless firmware';
+
+  @override
+  String get otaTransferMain => 'Transfer main firmware';
+
+  @override
+  String get otaTransferWireless => 'Transfer wireless firmware';
+
+  @override
+  String otaAwaitingProgress(String action) {
+    return '$action · Waiting for device progress';
+  }
+
+  @override
+  String otaDownloadComplete(String component) {
+    return '$component downloaded. Waiting for device verification…';
+  }
+
+  @override
+  String otaTransferComplete(String component) {
+    return '$component transferred. Waiting for device verification…';
+  }
 }

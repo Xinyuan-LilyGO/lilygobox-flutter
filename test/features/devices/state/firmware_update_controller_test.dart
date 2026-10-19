@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/generated/l10n/app_localizations.dart';
+import 'package:lilygobox/generated/l10n/app_localizations_en.dart';
+import 'package:lilygobox/generated/l10n/app_localizations_zh.dart';
 import 'package:lilygobox/core/widgets/action_button.dart';
 import 'package:lilygobox/features/devices/data/firmware_update_service.dart';
 import 'package:lilygobox/features/devices/data/lan_discovery.dart';
@@ -118,7 +121,7 @@ class _DialogController extends FirmwareUpdateController {
   @override
   Future<void> download({bool reuseCache = true}) async {
     step = FirmwareUpdateStep.transferring;
-    message = '传输主固件';
+    message = (l10n) => l10n.otaTransferMain;
     notifyListeners();
   }
 }
@@ -134,7 +137,7 @@ void main() {
     connection.firmwareTotalBytes = 100;
     final observer = FirmwareUpdateController.observe(connection);
     expect(observer.progress, .25);
-    expect(observer.message, startsWith('设备下载主固件'));
+    expect(observer.message(AppLocalizationsZh()), startsWith('设备下载主固件'));
     observer.dispose();
     expect(connection.taskCommands, 0);
     expect(connection.cancels, 0);
@@ -201,6 +204,87 @@ void main() {
     await Future<void>.delayed(Duration.zero);
   });
 
+  test('update status and failures render in the requested language', () async {
+    final en = AppLocalizationsEn();
+    final zh = AppLocalizationsZh();
+    await controller.download();
+    final cases = <String, String>{
+      'verifyingMain': en.otaVerifyingMain,
+      'verifyingWireless': en.otaVerifyingWireless,
+      'preparingInstall': en.otaPreparing,
+      'paused': en.otaPaused,
+      'readyToInstall': en.otaPrepared,
+    };
+    for (final entry in cases.entries) {
+      connection.report(entry.key);
+      expect(controller.message(en), entry.value);
+      expect(controller.message(zh), isNot(entry.value));
+    }
+    connection.firmwareUpdateMessage = 'SHA-256 mismatch';
+    connection.report('failed');
+    expect(controller.message(en), en.otaDeviceFailed('SHA-256 mismatch'));
+    expect(controller.message(zh), zh.otaDeviceFailed('SHA-256 mismatch'));
+    connection.firmwareUpdateMessage = 'Unrelated later task';
+    expect(controller.message(en), en.otaDeviceFailed('SHA-256 mismatch'));
+  });
+
+  testWidgets('update confirmation and cache actions follow locale changes', (
+    tester,
+  ) async {
+    final release = controller.release;
+    connection.firmwareRelease = FirmwareRelease(
+      version: release.version,
+      mainVersion: release.mainVersion,
+      mainUrl: release.mainUrl,
+      mainSize: release.mainSize,
+      mainSha256: release.mainSha256,
+      wirelessVersion: release.wirelessVersion,
+      wirelessUrl: release.wirelessUrl,
+      wirelessSize: release.wirelessSize,
+      wirelessSha256: release.wirelessSha256,
+      notes: const ['Test firmware.'],
+    );
+    connection.firmwareTaskSupported = true;
+    connection.firmwareMainCached = true;
+    connection.firmwareTaskMainVersion = release.mainVersion;
+    final theme = ThemeProvider();
+    addTearDown(theme.dispose);
+    Widget app(String language) => MaterialApp(
+      locale: Locale(language),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: FirmwareUpdateFlowDialog(
+        connection: connection,
+        theme: theme.themeData,
+        checkForUpdate: false,
+      ),
+    );
+    await tester.pumpWidget(app('en'));
+    await tester.pump();
+    final en = AppLocalizationsEn();
+    expect(find.text(en.otaFound), findsOneWidget);
+    expect(find.text(en.otaUseDeviceCache), findsOneWidget);
+    expect(find.text(en.otaRedownload), findsOneWidget);
+    expect(find.text(en.otaCancel), findsOneWidget);
+    expect(find.text(en.otaDeviceCacheHint), findsOneWidget);
+    final english = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((text) => text.data ?? '')
+        .join('\n');
+    expect(RegExp(r'[\u4e00-\u9fff]').hasMatch(english), isFalse);
+    expect(english, contains('Main firmware version'));
+    expect(english, contains('Release notes'));
+    expect(english, contains('Test firmware.'));
+    await tester.pumpWidget(app('zh'));
+    await tester.pump();
+    final zh = AppLocalizationsZh();
+    expect(find.text(zh.otaFound), findsOneWidget);
+    expect(find.text(zh.otaUseDeviceCache), findsOneWidget);
+    expect(find.text(zh.otaCancel), findsOneWidget);
+    expect(find.textContaining('Test firmware.'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   test(
     'verified download transfers automatically and only install needs confirmation',
     () async {
@@ -235,8 +319,8 @@ void main() {
       connection.wirelessFirmware = '2.12.2';
       connection.online(true);
       expect(controller.step, FirmwareUpdateStep.restartRequested);
-      expect(controller.message, contains('重启安装指令已确认'));
-      expect(controller.message, isNot(contains('更新成功')));
+      expect(controller.message(AppLocalizationsZh()), contains('重启安装指令已确认'));
+      expect(controller.message(AppLocalizationsZh()), isNot(contains('更新成功')));
     },
   );
 
@@ -246,18 +330,24 @@ void main() {
       await controller.download();
       connection.report('downloadingMain', received: 3, total: 3);
       expect(controller.progress, isNull);
-      expect(controller.message, contains('等待设备校验结果'));
+      expect(controller.message(AppLocalizationsZh()), contains('等待设备校验结果'));
       expect(controller.canCancel, isTrue);
       connection.report('verifyingMain');
-      expect(controller.message, contains('校验主固件镜像与 SHA-256'));
+      expect(
+        controller.message(AppLocalizationsZh()),
+        contains('校验主固件镜像与 SHA-256'),
+      );
       expect(controller.progress, isNull);
       connection.report('verifyingWireless');
-      expect(controller.message, contains('校验无线固件镜像与 SHA-256'));
+      expect(
+        controller.message(AppLocalizationsZh()),
+        contains('校验无线固件镜像与 SHA-256'),
+      );
       connection.report('downloadingWireless', received: 1, total: 3);
       expect(controller.progress, closeTo(1 / 3, 0.0001));
-      expect(controller.message, startsWith('传输无线固件'));
+      expect(controller.message(AppLocalizationsZh()), startsWith('传输无线固件'));
       connection.report('preparingInstall');
-      expect(controller.message, contains('整理固件并准备安装'));
+      expect(controller.message(AppLocalizationsZh()), contains('整理固件并准备安装'));
       expect(controller.progress, isNull);
       expect(connection.installs, 0);
       connection.report('readyToInstall');
@@ -345,11 +435,14 @@ void main() {
     expect(connection.cancels, 1);
   });
 
-  Future<void> openDialog(WidgetTester tester) async {
+  Future<void> openDialog(WidgetTester tester, {String language = 'zh'}) async {
     final theme = ThemeProvider();
     addTearDown(theme.dispose);
     await tester.pumpWidget(
       MaterialApp(
+        locale: Locale(language),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Builder(
           builder: (context) {
             return TextButton(
@@ -388,13 +481,13 @@ void main() {
       expect(find.text('传输主固件'), findsOneWidget);
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
       controller.progress = null;
-      controller.message = '设备正在校验主固件镜像与 SHA-256';
+      controller.message = (l10n) => l10n.otaVerifyingMain;
       controller.notifyListeners();
       await tester.pump();
       expect(find.byType(LinearProgressIndicator), findsNothing);
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       controller.step = FirmwareUpdateStep.prepared;
-      controller.message = '设备已接收并校验固件';
+      controller.message = (l10n) => l10n.otaPrepared;
       controller.progress = 1;
       controller.notifyListeners();
       await tester.pump();
@@ -557,7 +650,7 @@ void main() {
       connection.installReply!.complete(false);
       await installing;
       expect(controller.step, FirmwareUpdateStep.failed);
-      expect(controller.message, '设备未确认重启安装');
+      expect(controller.message(AppLocalizationsZh()), '设备未确认重启安装');
     },
   );
 
@@ -623,7 +716,7 @@ void main() {
     connection.cancelReply!.completeError(StateError('cancel rejected'));
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsNothing);
-    expect(controller.message, contains('设备未确认取消更新'));
+    expect(controller.message(AppLocalizationsZh()), contains('设备未确认取消更新'));
     expect(find.textContaining('设备未确认取消更新'), findsNothing);
     expect(find.text('正在取消更新…'), findsNothing);
   });
@@ -693,7 +786,7 @@ void main() {
     await controller.download();
     expect(client.requests, isEmpty);
     expect(connection.starts, 0);
-    expect(controller.message, '当前已是最新版本');
+    expect(controller.message(AppLocalizationsZh()), '当前已是最新版本');
   });
 
   test('next connection owns version checking after restart request', () async {

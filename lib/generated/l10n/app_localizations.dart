@@ -1583,6 +1583,540 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The device could not save the name to storage. Your input has been kept; please try again.'**
   String get deviceNameStorageFailed;
+
+  /// Firmware update interface: otaUpdating
+  ///
+  /// In en, this message translates to:
+  /// **'Updating'**
+  String get otaUpdating;
+
+  /// Firmware update interface: otaCheck
+  ///
+  /// In en, this message translates to:
+  /// **'Check for updates'**
+  String get otaCheck;
+
+  /// Firmware update interface: otaNewVersion
+  ///
+  /// In en, this message translates to:
+  /// **'Update available'**
+  String get otaNewVersion;
+
+  /// Firmware update interface: otaViewStatus
+  ///
+  /// In en, this message translates to:
+  /// **'View device update status'**
+  String get otaViewStatus;
+
+  /// Firmware update interface: otaCheckTitle
+  ///
+  /// In en, this message translates to:
+  /// **'Check for firmware updates'**
+  String get otaCheckTitle;
+
+  /// Firmware update interface: otaUpdateTo
+  ///
+  /// In en, this message translates to:
+  /// **'Update to {version}'**
+  String otaUpdateTo(String version);
+
+  /// Firmware update interface: otaUpdateFirmware
+  ///
+  /// In en, this message translates to:
+  /// **'Update firmware'**
+  String get otaUpdateFirmware;
+
+  /// Firmware update interface: otaWirelessVersion
+  ///
+  /// In en, this message translates to:
+  /// **'Wireless firmware version'**
+  String get otaWirelessVersion;
+
+  /// Firmware update interface: otaMainVersion
+  ///
+  /// In en, this message translates to:
+  /// **'Main firmware version'**
+  String get otaMainVersion;
+
+  /// Firmware update interface: otaNotes
+  ///
+  /// In en, this message translates to:
+  /// **'Release notes'**
+  String get otaNotes;
+
+  /// Firmware update interface: otaUnknown
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get otaUnknown;
+
+  /// Firmware update interface: otaCheckDisconnected
+  ///
+  /// In en, this message translates to:
+  /// **'The device disconnected or changed. Reconnect before checking for updates.'**
+  String get otaCheckDisconnected;
+
+  /// Firmware update interface: otaCheckTimeout
+  ///
+  /// In en, this message translates to:
+  /// **'The update check timed out. Check your network and try again.'**
+  String get otaCheckTimeout;
+
+  /// Firmware update interface: otaManifestMissing
+  ///
+  /// In en, this message translates to:
+  /// **'No OTA manifest was found for this device (HTTP 404).'**
+  String get otaManifestMissing;
+
+  /// Firmware update interface: otaManifestTimeout
+  ///
+  /// In en, this message translates to:
+  /// **'The OTA manifest request timed out. Check your network and try again.'**
+  String get otaManifestTimeout;
+
+  /// Firmware update interface: otaManifestIncompatible
+  ///
+  /// In en, this message translates to:
+  /// **'The OTA manifest does not match this device model, hardware version, or chip.'**
+  String get otaManifestIncompatible;
+
+  /// Firmware update interface: otaManifestNetwork
+  ///
+  /// In en, this message translates to:
+  /// **'Could not retrieve the OTA manifest. Check your network and try again.'**
+  String get otaManifestNetwork;
+
+  /// Firmware update interface: otaCheckError
+  ///
+  /// In en, this message translates to:
+  /// **'Could not check for updates: {detail}'**
+  String otaCheckError(String detail);
+
+  /// Firmware update interface: otaCheckFailed
+  ///
+  /// In en, this message translates to:
+  /// **'Update check failed'**
+  String get otaCheckFailed;
+
+  /// Firmware update interface: otaChecking
+  ///
+  /// In en, this message translates to:
+  /// **'Checking for updates…'**
+  String get otaChecking;
+
+  /// Firmware update interface: otaLatest
+  ///
+  /// In en, this message translates to:
+  /// **'You are up to date'**
+  String get otaLatest;
+
+  /// Firmware update interface: otaCancel
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get otaCancel;
+
+  /// Firmware update interface: otaClose
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get otaClose;
+
+  /// Firmware update interface: otaRetry
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get otaRetry;
+
+  /// Firmware update interface: otaFound
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware update available'**
+  String get otaFound;
+
+  /// Firmware update interface: otaDeviceTitle
+  ///
+  /// In en, this message translates to:
+  /// **'Device firmware update'**
+  String get otaDeviceTitle;
+
+  /// Firmware update interface: otaTitle
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware update'**
+  String get otaTitle;
+
+  /// Firmware update interface: otaRemoteSource
+  ///
+  /// In en, this message translates to:
+  /// **'Device online update · Closing this window does not stop the device task'**
+  String get otaRemoteSource;
+
+  /// Firmware update interface: otaLocalSource
+  ///
+  /// In en, this message translates to:
+  /// **'LAN update · Firmware is provided by the app that started the update'**
+  String get otaLocalSource;
+
+  /// Firmware update interface: otaDeviceCacheHint
+  ///
+  /// In en, this message translates to:
+  /// **'The device already has all firmware required for this update. It can verify the files again and prepare installation.'**
+  String get otaDeviceCacheHint;
+
+  /// Firmware update interface: otaCacheChecking
+  ///
+  /// In en, this message translates to:
+  /// **'Verifying firmware downloaded on this computer…'**
+  String get otaCacheChecking;
+
+  /// Firmware update interface: otaAppCacheHint
+  ///
+  /// In en, this message translates to:
+  /// **'Downloaded and verified: {components}. Use these files and download any missing components.'**
+  String otaAppCacheHint(String components);
+
+  /// Firmware update interface: otaMainComponent
+  ///
+  /// In en, this message translates to:
+  /// **'Main firmware'**
+  String get otaMainComponent;
+
+  /// Firmware update interface: otaWirelessComponent
+  ///
+  /// In en, this message translates to:
+  /// **'Wireless firmware'**
+  String get otaWirelessComponent;
+
+  /// Firmware update interface: otaComponentsSeparator
+  ///
+  /// In en, this message translates to:
+  /// **', '**
+  String get otaComponentsSeparator;
+
+  /// Firmware update interface: otaCancelling
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelling update…'**
+  String get otaCancelling;
+
+  /// Firmware update interface: otaCancelUpdate
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel update'**
+  String get otaCancelUpdate;
+
+  /// Firmware update interface: otaRedownload
+  ///
+  /// In en, this message translates to:
+  /// **'Download again'**
+  String get otaRedownload;
+
+  /// Firmware update interface: otaUseDeviceCache
+  ///
+  /// In en, this message translates to:
+  /// **'Use device firmware'**
+  String get otaUseDeviceCache;
+
+  /// Firmware update interface: otaUseCache
+  ///
+  /// In en, this message translates to:
+  /// **'Use downloaded firmware'**
+  String get otaUseCache;
+
+  /// Firmware update interface: otaDownloadUpdate
+  ///
+  /// In en, this message translates to:
+  /// **'Download update'**
+  String get otaDownloadUpdate;
+
+  /// Firmware update interface: otaInstall
+  ///
+  /// In en, this message translates to:
+  /// **'Restart and install'**
+  String get otaInstall;
+
+  /// Firmware update interface: otaDownloadingMain
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading main firmware'**
+  String get otaDownloadingMain;
+
+  /// Firmware update interface: otaDownloadingWireless
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading wireless firmware'**
+  String get otaDownloadingWireless;
+
+  /// Firmware update interface: otaRequestCache
+  ///
+  /// In en, this message translates to:
+  /// **'Requesting verification of firmware already on the device…'**
+  String get otaRequestCache;
+
+  /// Firmware update interface: otaCacheTimeout
+  ///
+  /// In en, this message translates to:
+  /// **'Device firmware cache verification timed out.'**
+  String get otaCacheTimeout;
+
+  /// Firmware update interface: otaCacheRejected
+  ///
+  /// In en, this message translates to:
+  /// **'The device did not accept the cached firmware. Try again or download the files again.'**
+  String get otaCacheRejected;
+
+  /// Firmware update interface: otaCacheFailed
+  ///
+  /// In en, this message translates to:
+  /// **'Could not use the device firmware cache: {detail}'**
+  String otaCacheFailed(String detail);
+
+  /// Firmware update interface: otaDownloadTimeout
+  ///
+  /// In en, this message translates to:
+  /// **'The download timed out. Please try again.'**
+  String get otaDownloadTimeout;
+
+  /// Firmware update interface: otaDownloadFailed
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware download or verification failed: {detail}'**
+  String otaDownloadFailed(String detail);
+
+  /// Firmware update interface: otaWaitingTransfer
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the device to accept the transfer…'**
+  String get otaWaitingTransfer;
+
+  /// Firmware update interface: otaTransferTimeout
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware transfer to the device timed out.'**
+  String get otaTransferTimeout;
+
+  /// Firmware update interface: otaTransferRejected
+  ///
+  /// In en, this message translates to:
+  /// **'The device did not accept the transfer. Make sure its firmware supports staged updates.'**
+  String get otaTransferRejected;
+
+  /// Firmware update interface: otaTransferFailed
+  ///
+  /// In en, this message translates to:
+  /// **'Could not transfer firmware: {detail}'**
+  String otaTransferFailed(String detail);
+
+  /// Firmware update interface: otaRequestInstall
+  ///
+  /// In en, this message translates to:
+  /// **'Requesting restart and installation…\nYou may close this window. Do not turn off the device.'**
+  String get otaRequestInstall;
+
+  /// Firmware update interface: otaInstallRejected
+  ///
+  /// In en, this message translates to:
+  /// **'The device did not confirm restart and installation.'**
+  String get otaInstallRejected;
+
+  /// Firmware update interface: otaInstallConfirmed
+  ///
+  /// In en, this message translates to:
+  /// **'Restart and installation confirmed. The device will install automatically and restart. Do not turn it off.'**
+  String get otaInstallConfirmed;
+
+  /// Firmware update interface: otaDeviceChanged
+  ///
+  /// In en, this message translates to:
+  /// **'The selected device changed. This update has stopped.'**
+  String get otaDeviceChanged;
+
+  /// Firmware update interface: otaInstallDisconnected
+  ///
+  /// In en, this message translates to:
+  /// **'The device disconnected. Waiting for confirmation of restart and installation…'**
+  String get otaInstallDisconnected;
+
+  /// Firmware update interface: otaObserverDisconnected
+  ///
+  /// In en, this message translates to:
+  /// **'The device disconnected. Reconnect to view its update status.'**
+  String get otaObserverDisconnected;
+
+  /// Firmware update interface: otaDisconnected
+  ///
+  /// In en, this message translates to:
+  /// **'The device disconnected. The update has stopped.'**
+  String get otaDisconnected;
+
+  /// Firmware update interface: otaTaskChanged
+  ///
+  /// In en, this message translates to:
+  /// **'The device update task changed. Reopen the update window.'**
+  String get otaTaskChanged;
+
+  /// Firmware update interface: otaOtherTask
+  ///
+  /// In en, this message translates to:
+  /// **'The device is already updating. Close this window to view its current task.'**
+  String get otaOtherTask;
+
+  /// Firmware update interface: otaLatestComplete
+  ///
+  /// In en, this message translates to:
+  /// **'You are up to date.'**
+  String get otaLatestComplete;
+
+  /// Firmware update interface: otaCheckAvailable
+  ///
+  /// In en, this message translates to:
+  /// **'An update is available. Start the download on the device or close this window to choose it in the app.'**
+  String get otaCheckAvailable;
+
+  /// Firmware update interface: otaNoTask
+  ///
+  /// In en, this message translates to:
+  /// **'The device has no update task in progress.'**
+  String get otaNoTask;
+
+  /// Firmware update interface: otaDeviceFailed
+  ///
+  /// In en, this message translates to:
+  /// **'The device update failed: {detail}'**
+  String otaDeviceFailed(String detail);
+
+  /// Firmware update interface: otaDeviceCancelled
+  ///
+  /// In en, this message translates to:
+  /// **'The device cancelled the update and kept its current firmware.'**
+  String get otaDeviceCancelled;
+
+  /// Firmware update interface: otaPrepared
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware received and verified. Select Restart and install to turn off the device screen, install the update, and restart automatically.'**
+  String get otaPrepared;
+
+  /// Firmware update interface: otaPreparedOtherApp
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware is ready. Confirm restart and installation in the app that started the update.'**
+  String get otaPreparedOtherApp;
+
+  /// Firmware update interface: otaInstalling
+  ///
+  /// In en, this message translates to:
+  /// **'The device is installing and restarting. Do not turn it off.\nClosing this window does not stop installation.'**
+  String get otaInstalling;
+
+  /// Firmware update interface: otaDeviceChecking
+  ///
+  /// In en, this message translates to:
+  /// **'The device is checking for firmware updates online…'**
+  String get otaDeviceChecking;
+
+  /// Firmware update interface: otaPaused
+  ///
+  /// In en, this message translates to:
+  /// **'The device paused the download. Resume it on the device or cancel this update.'**
+  String get otaPaused;
+
+  /// Firmware update interface: otaVerifyingMain
+  ///
+  /// In en, this message translates to:
+  /// **'The device is verifying the main firmware image and SHA-256…'**
+  String get otaVerifyingMain;
+
+  /// Firmware update interface: otaVerifyingWireless
+  ///
+  /// In en, this message translates to:
+  /// **'The device is verifying the wireless firmware image and SHA-256…'**
+  String get otaVerifyingWireless;
+
+  /// Firmware update interface: otaPreparing
+  ///
+  /// In en, this message translates to:
+  /// **'The device is preparing firmware for installation…'**
+  String get otaPreparing;
+
+  /// Firmware update interface: otaCancelled
+  ///
+  /// In en, this message translates to:
+  /// **'Update cancelled. The current firmware has been kept.'**
+  String get otaCancelled;
+
+  /// Firmware update interface: otaCancelRejected
+  ///
+  /// In en, this message translates to:
+  /// **'The device rejected cancellation of this task.'**
+  String get otaCancelRejected;
+
+  /// Firmware update interface: otaCancelUnconfirmed
+  ///
+  /// In en, this message translates to:
+  /// **'The device did not confirm cancellation: {detail}'**
+  String otaCancelUnconfirmed(String detail);
+
+  /// Firmware update interface: otaProgress
+  ///
+  /// In en, this message translates to:
+  /// **'{action} · {received} / {total}'**
+  String otaProgress(String action, String received, String total);
+
+  /// Firmware update interface: otaDownloadMain
+  ///
+  /// In en, this message translates to:
+  /// **'Download main firmware'**
+  String get otaDownloadMain;
+
+  /// Firmware update interface: otaDownloadWireless
+  ///
+  /// In en, this message translates to:
+  /// **'Download wireless firmware'**
+  String get otaDownloadWireless;
+
+  /// Firmware update interface: otaDeviceDownloadMain
+  ///
+  /// In en, this message translates to:
+  /// **'Device downloading main firmware'**
+  String get otaDeviceDownloadMain;
+
+  /// Firmware update interface: otaDeviceDownloadWireless
+  ///
+  /// In en, this message translates to:
+  /// **'Device downloading wireless firmware'**
+  String get otaDeviceDownloadWireless;
+
+  /// Firmware update interface: otaTransferMain
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer main firmware'**
+  String get otaTransferMain;
+
+  /// Firmware update interface: otaTransferWireless
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer wireless firmware'**
+  String get otaTransferWireless;
+
+  /// Firmware update interface: otaAwaitingProgress
+  ///
+  /// In en, this message translates to:
+  /// **'{action} · Waiting for device progress'**
+  String otaAwaitingProgress(String action);
+
+  /// Firmware update interface: otaDownloadComplete
+  ///
+  /// In en, this message translates to:
+  /// **'{component} downloaded. Waiting for device verification…'**
+  String otaDownloadComplete(String component);
+
+  /// Firmware update interface: otaTransferComplete
+  ///
+  /// In en, this message translates to:
+  /// **'{component} transferred. Waiting for device verification…'**
+  String otaTransferComplete(String component);
 }
 
 class _AppLocalizationsDelegate

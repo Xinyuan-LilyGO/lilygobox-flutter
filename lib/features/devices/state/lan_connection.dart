@@ -500,7 +500,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
                     peer.address == target.address &&
                     peer.localAddress != null,
                 orElse: () =>
-                    throw const SocketException('未找到设备所在的本机网卡，请重新连接设备'),
+                    throw const SocketException('No local network interface for the device; reconnect the device'),
               );
     final address = peer.localAddress!;
     final interfaces = await NetworkInterface.list(
@@ -513,7 +513,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
         address.isLoopback ||
         address.address == target.address ||
         address.type != InternetAddressType.IPv4) {
-      throw const SocketException('设备所在的本机网卡已变化，请重新连接设备');
+      throw const SocketException('Device network interface changed; reconnect the device');
     }
     return address;
   }
@@ -565,7 +565,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
       if (localGeneration == _localFirmwareGeneration) {
         await _closeLocalFirmwareServer();
       }
-      if (!accepted && connected) throw StateError('设备未确认取消，请查看设备状态');
+      if (!accepted && connected) throw StateError('Firmware cancellation not confirmed');
       return;
     }
     // 地址准备或启动确认期间尚无所属任务 ID，按会话取消且忽略迟到的启动回复。
@@ -583,7 +583,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
           onTimeout: () => false,
         );
         if (identical(_firmwareCancelReply, reply)) _firmwareCancelReply = null;
-        if (!accepted && connected) throw StateError('设备未确认取消，请查看设备状态');
+        if (!accepted && connected) throw StateError('Firmware cancellation not confirmed');
       }
     } finally {
       if (localGeneration == _localFirmwareGeneration) {
@@ -953,7 +953,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
             data['requestId'] != _firmwareStartRequestId) {
           return;
         }
-        firmwareUpdateError = '设备拒绝了本地固件更新';
+        firmwareUpdateError = 'Local firmware update rejected';
         if (!(_firmwareStartReply?.isCompleted ?? true)) {
           _firmwareStartReply!.complete(false);
         }
@@ -964,7 +964,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
         }
         _notify();
       } else if (type == 'firmware.local.install.rejected' && connected) {
-        firmwareUpdateError = '设备拒绝重启安装';
+        firmwareUpdateError = 'Firmware installation rejected';
         if (!(_firmwareInstallReply?.isCompleted ?? true)) {
           _firmwareInstallReply!.complete(false);
         }
@@ -979,7 +979,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
         if (!(_firmwareCancelReply?.isCompleted ?? true)) {
           _firmwareCancelReply!.complete(false);
         }
-        firmwareUpdateError = '当前阶段无法取消更新';
+        firmwareUpdateError = 'Firmware cancellation unavailable in this stage';
         _notify();
       } else if ((type == 'firmware.task.install.result' ||
               type == 'firmware.task.cancel.result') &&

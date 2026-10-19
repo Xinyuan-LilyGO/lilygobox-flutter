@@ -394,6 +394,9 @@ class _HomePageContentState extends State<HomePageContent> {
                                           wifiRssi: session
                                               ?.controlStateFor(id)
                                               ?.wifiRssi,
+                                          battery: session
+                                              ?.controlStateFor(id)
+                                              ?.battery,
                                           connecting:
                                               session?.device?.id == id &&
                                               session?.busy == true,

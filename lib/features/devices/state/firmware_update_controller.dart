@@ -4,9 +4,12 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../../generated/l10n/app_localizations.dart';
 import '../data/firmware_cache.dart';
 import '../data/firmware_update_service.dart';
 import 'lan_connection.dart';
+
+typedef FirmwareUpdateMessage = String Function(AppLocalizations l10n);
 
 enum FirmwareUpdateStep {
   awaitingConfirmation,
@@ -36,7 +39,7 @@ class FirmwareUpdateController extends ChangeNotifier {
          connection.wirelessFirmware,
        ),
        _client = client ?? http.Client() {
-    if (!mainUpdateRequired) message = '正在下载无线固件';
+    if (!mainUpdateRequired) message = (l10n) => l10n.otaDownloadingWireless;
     connection.addListener(_connectionChanged);
   }
 
@@ -91,10 +94,13 @@ class FirmwareUpdateController extends ChangeNotifier {
     }
     _downloadStarted = true;
     step = FirmwareUpdateStep.transferring;
-    message = '正在请求设备重新校验已下载的固件…';
+    message = (l10n) => l10n.otaRequestCache;
     progress = null;
     _publish();
-    _timeout = Timer(const Duration(minutes: 10), () => _fail('设备缓存校验超时'));
+    _timeout = Timer(
+      const Duration(minutes: 10),
+      () => _fail((l10n) => l10n.otaCacheTimeout),
+    );
     try {
       final accepted = await connection.startLocalMainFirmwareUpdate(
         firmware: null,
@@ -109,14 +115,14 @@ class FirmwareUpdateController extends ChangeNotifier {
       );
       if (_disposed || terminal) return;
       if (!accepted) {
-        _fail('设备未接受缓存复用请求，请重试或重新下载');
+        _fail((l10n) => l10n.otaCacheRejected);
         return;
       }
       _transferAccepted = true;
       _taskId = connection.firmwareTaskId;
       _connectionChanged();
     } catch (error) {
-      _fail('设备缓存复用失败：$error');
+      _fail((l10n) => l10n.otaCacheFailed(error.toString()));
     }
   }
 
@@ -170,7 +176,7 @@ class FirmwareUpdateController extends ChangeNotifier {
   bool _transferAccepted = false;
   bool _downloadStarted = false;
   FirmwareUpdateStep step = FirmwareUpdateStep.awaitingConfirmation;
-  String message = '正在下载主固件';
+  FirmwareUpdateMessage message = (l10n) => l10n.otaDownloadingMain;
   double? progress = 0;
   bool get terminal =>
       step == FirmwareUpdateStep.restartRequested ||
@@ -207,12 +213,15 @@ class FirmwareUpdateController extends ChangeNotifier {
     _reuseCache = reuseCache;
     final scope = _cacheScope;
     if (!mainUpdateRequired && !wirelessUpdateRequired) {
-      _fail('当前已是最新版本');
+      _fail((l10n) => l10n.otaLatest);
       return;
     }
     step = FirmwareUpdateStep.downloading;
     _publish();
-    _timeout = Timer(const Duration(minutes: 10), () => _fail('下载超时，请重试'));
+    _timeout = Timer(
+      const Duration(minutes: 10),
+      () => _fail((l10n) => l10n.otaDownloadTimeout),
+    );
     try {
       final files = await const FirmwareUpdateService().download(
         release,
@@ -225,8 +234,11 @@ class FirmwareUpdateController extends ChangeNotifier {
         isCancelled: () => terminal || _disposed,
         onProgress: (main, received, total) {
           if (terminal || _disposed) return;
-          message =
-              '${main ? '下载主固件' : '下载无线固件'} · ${_bytes(received)} / ${_bytes(total)}';
+          message = (l10n) => l10n.otaProgress(
+            main ? l10n.otaDownloadMain : l10n.otaDownloadWireless,
+            _bytes(received),
+            _bytes(total),
+          );
           progress =
               (received +
                   (main || !mainUpdateRequired ? 0 : release.mainSize)) /
@@ -243,7 +255,9 @@ class FirmwareUpdateController extends ChangeNotifier {
       _timeout?.cancel();
       await _transfer();
     } catch (error) {
-      if (!terminal && !_disposed) _fail('下载或校验失败：$error');
+      if (!terminal && !_disposed) {
+        _fail((l10n) => l10n.otaDownloadFailed(error.toString()));
+      }
     }
   }
 
@@ -252,10 +266,13 @@ class FirmwareUpdateController extends ChangeNotifier {
     final files = _files;
     if (terminal || _disposed || files == null || release == null) return;
     step = FirmwareUpdateStep.transferring;
-    message = '等待设备接受传输请求…';
+    message = (l10n) => l10n.otaWaitingTransfer;
     progress = null;
     _publish();
-    _timeout = Timer(const Duration(minutes: 10), () => _fail('设备传输超时'));
+    _timeout = Timer(
+      const Duration(minutes: 10),
+      () => _fail((l10n) => l10n.otaTransferTimeout),
+    );
     try {
       final accepted = await connection.startLocalMainFirmwareUpdate(
         firmware: files.main,
@@ -270,7 +287,7 @@ class FirmwareUpdateController extends ChangeNotifier {
       );
       if (terminal || _disposed) return;
       if (!accepted) {
-        _fail('设备未接受传输请求，请确认设备已安装支持分步更新的新固件');
+        _fail((l10n) => l10n.otaTransferRejected);
       } else {
         _transferAccepted = true;
         _taskId = connection.firmwareTaskId.isEmpty
@@ -279,14 +296,14 @@ class FirmwareUpdateController extends ChangeNotifier {
         _connectionChanged();
       }
     } catch (error) {
-      _fail('无法传输固件：$error');
+      _fail((l10n) => l10n.otaTransferFailed(error.toString()));
     }
   }
 
   Future<void> install() async {
     if (step != FirmwareUpdateStep.prepared || !canControl) return;
     step = FirmwareUpdateStep.installing;
-    message = '正在请求设备重启安装…\n可关闭此窗口，设备将继续安装，请勿断电。';
+    message = (l10n) => l10n.otaRequestInstall;
     progress = null;
     _publish();
     final accepted = observer
@@ -294,11 +311,11 @@ class FirmwareUpdateController extends ChangeNotifier {
         : await connection.installLocalFirmwareUpdate();
     if (_disposed || terminal) return;
     if (!accepted) {
-      _fail('设备未确认重启安装');
+      _fail((l10n) => l10n.otaInstallRejected);
       return;
     }
     step = FirmwareUpdateStep.restartRequested;
-    message = '重启安装指令已确认，设备将自动安装并重启，请勿断电。';
+    message = (l10n) => l10n.otaInstallConfirmed;
     progress = null;
     _timeout?.cancel();
     _publish();
@@ -307,26 +324,29 @@ class FirmwareUpdateController extends ChangeNotifier {
   void _connectionChanged() {
     if (_disposed || terminal) return;
     if (connection.device?.id != _deviceId && connection.connected) {
-      _fail('设备已切换，本次更新已终止');
+      _fail((l10n) => l10n.otaDeviceChanged);
       return;
     }
     if (!connection.connected) {
       if (step == FirmwareUpdateStep.installing) {
-        message = '设备连接已断开，正在等待重启安装指令的确认结果…';
+        message = (l10n) => l10n.otaInstallDisconnected;
         _publish();
       } else {
-        _fail(observer ? '设备连接已断开，请重新连接后查看设备更新状态。' : '设备连接已断开，更新已停止');
+        _fail(
+          (l10n) =>
+              observer ? l10n.otaObserverDisconnected : l10n.otaDisconnected,
+        );
       }
       return;
     }
     if (_taskId != null && connection.firmwareTaskId != _taskId) {
-      _fail('设备更新任务已切换，请重新打开更新窗口');
+      _fail((l10n) => l10n.otaTaskChanged);
       return;
     }
     if (!_transferAccepted &&
         connection.firmwareTaskActive &&
         step != FirmwareUpdateStep.transferring) {
-      _fail('设备已在进行另一项更新，请关闭窗口查看设备当前任务');
+      _fail((l10n) => l10n.otaOtherTask);
       return;
     }
     if (step == FirmwareUpdateStep.awaitingConfirmation) {
@@ -339,57 +359,58 @@ class FirmwareUpdateController extends ChangeNotifier {
       return;
     }
     if (!_transferAccepted) return;
-    switch (connection.firmwareUpdateStage) {
+    final deviceStage = connection.firmwareUpdateStage;
+    switch (deviceStage) {
       case 'upToDate':
       case 'updateAvailable' when observer:
       case 'idle' when observer:
         step = FirmwareUpdateStep.completed;
         progress = null;
-        message = switch (connection.firmwareUpdateStage) {
-          'upToDate' => '当前已是最新版本。',
-          'updateAvailable' => '发现新版本，请在设备上或关闭窗口后选择下载更新。',
-          _ => '设备当前没有进行中的更新任务。',
+        message = (l10n) => switch (deviceStage) {
+          'upToDate' => l10n.otaLatestComplete,
+          'updateAvailable' => l10n.otaCheckAvailable,
+          _ => l10n.otaNoTask,
         };
       case 'failed':
-        _fail('设备更新失败：${connection.firmwareUpdateMessage}');
+        final detail = connection.firmwareUpdateMessage;
+        _fail((l10n) => l10n.otaDeviceFailed(detail));
         return;
       case 'cancelled':
         step = FirmwareUpdateStep.cancelled;
-        message = '设备已取消更新，保留当前固件。';
+        message = (l10n) => l10n.otaDeviceCancelled;
         _timeout?.cancel();
         unawaited(_cleanFiles());
       case 'readyToInstall' when step == FirmwareUpdateStep.transferring:
         _timeout?.cancel();
         step = FirmwareUpdateStep.prepared;
         progress = null;
-        message = canControl
-            ? '设备已接收固件并完成校验。点击“重启安装”后，设备将熄屏安装并自动重启。'
-            : '设备固件已就绪，请在发起更新的应用中确认重启安装。';
+        message = (l10n) =>
+            canControl ? l10n.otaPrepared : l10n.otaPreparedOtherApp;
         unawaited(_cleanFiles());
       case 'restarting':
       case 'installing':
       case 'installingWireless':
         final alreadyInstalling = step == FirmwareUpdateStep.installing;
         step = FirmwareUpdateStep.installing;
-        message = '设备正在安装并重启，请勿断电。\n关闭窗口不影响安装。';
+        message = (l10n) => l10n.otaInstalling;
         progress = null;
         if (!alreadyInstalling) _timeout?.cancel();
       case 'checking':
       case 'waitingForNetwork':
         progress = null;
-        message = '设备正在联网检查固件更新…';
+        message = (l10n) => l10n.otaDeviceChecking;
       case 'paused':
         progress = null;
-        message = '设备已暂停下载，可在设备上继续，或取消本次更新。';
+        message = (l10n) => l10n.otaPaused;
       case 'verifyingMain':
         progress = null;
-        message = '设备正在校验主固件镜像与 SHA-256，请稍候…';
+        message = (l10n) => l10n.otaVerifyingMain;
       case 'verifyingWireless':
         progress = null;
-        message = '设备正在校验无线固件镜像与 SHA-256，请稍候…';
+        message = (l10n) => l10n.otaVerifyingWireless;
       case 'preparingInstall':
         progress = null;
-        message = '设备正在整理固件并准备安装，请稍候…';
+        message = (l10n) => l10n.otaPreparing;
       case 'downloadingMain':
       case 'downloadingWireless':
         final main = connection.firmwareUpdateStage == 'downloadingMain';
@@ -399,13 +420,26 @@ class FirmwareUpdateController extends ChangeNotifier {
         progress = total > 0 && !receivedAll
             ? (received / total).clamp(0, 1)
             : null;
-        final action = observer && connection.firmwareTaskSource == 'remote'
-            ? '设备下载'
-            : '传输';
-        message = receivedAll
-            ? '${main ? '主固件' : '无线固件'}${action == '设备下载' ? '下载' : '传输'}完成，等待设备校验结果…'
-            : '$action${main ? '主固件' : '无线固件'} · '
-                  '${total > 0 ? '${_bytes(received)} / ${_bytes(total)}' : '等待设备报告接收进度'}';
+        final deviceDownload =
+            observer && connection.firmwareTaskSource == 'remote';
+        message = (l10n) {
+          final component = main
+              ? l10n.otaMainComponent
+              : l10n.otaWirelessComponent;
+          final action = deviceDownload
+              ? (main
+                    ? l10n.otaDeviceDownloadMain
+                    : l10n.otaDeviceDownloadWireless)
+              : (main ? l10n.otaTransferMain : l10n.otaTransferWireless);
+          if (receivedAll) {
+            return deviceDownload
+                ? l10n.otaDownloadComplete(component)
+                : l10n.otaTransferComplete(component);
+          }
+          return total > 0
+              ? l10n.otaProgress(action, _bytes(received), _bytes(total))
+              : l10n.otaAwaitingProgress(action);
+        };
       default:
         break;
     }
@@ -418,7 +452,7 @@ class FirmwareUpdateController extends ChangeNotifier {
         step == FirmwareUpdateStep.transferring ||
         step == FirmwareUpdateStep.prepared;
     step = FirmwareUpdateStep.cancelled;
-    message = '更新已取消，保留当前固件。';
+    message = (l10n) => l10n.otaCancelled;
     _timeout?.cancel();
     _client.close();
     _publish();
@@ -429,20 +463,22 @@ class FirmwareUpdateController extends ChangeNotifier {
             install: false,
             taskId: _taskId!,
           );
-          if (!accepted) throw StateError('设备拒绝取消当前任务');
+          if (!accepted) {
+            throw StateError('Firmware task cancellation rejected');
+          }
         } else {
           await connection.cancelLocalFirmwareUpdate();
         }
       } catch (error) {
         step = FirmwareUpdateStep.failed;
-        message = '设备未确认取消更新：$error';
+        message = (l10n) => l10n.otaCancelUnconfirmed(error.toString());
         _publish();
       }
     }
     await _cleanFiles();
   }
 
-  void _fail(String error) {
+  void _fail(FirmwareUpdateMessage error) {
     if (_disposed || terminal) return;
     final notifyDevice =
         !observer &&

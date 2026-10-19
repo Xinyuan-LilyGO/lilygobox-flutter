@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/widgets/action_button.dart';
+import '../../../../generated/l10n/app_localizations.dart';
 import '../../data/firmware_update_service.dart';
 import '../../state/firmware_update_controller.dart';
 import '../../state/lan_connection.dart';
@@ -31,8 +33,7 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
   late final String? _deviceId = widget.connection.device?.id;
   bool _checking = true;
   bool _waitingForBackgroundCheck = false;
-  String? _error;
-  String _description = '';
+  FirmwareUpdateMessage? _error;
   Timer? _timeout;
 
   bool get _sameDevice =>
@@ -58,7 +59,7 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
 
   Future<void> _check() async {
     if (!_sameDevice) {
-      _finishCheck(error: '设备已断开或已切换，请重新连接后检查更新');
+      _finishCheck(error: (l10n) => l10n.otaCheckDisconnected);
       return;
     }
     setState(() {
@@ -67,7 +68,7 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
     });
     _timeout?.cancel();
     _timeout = Timer(const Duration(seconds: 45), () {
-      _finishCheck(error: '检查更新超时，请检查网络后重试');
+      _finishCheck(error: (l10n) => l10n.otaCheckTimeout);
     });
     // 自动检测尚未结束时复用其结果，避免重复请求清单。
     _waitingForBackgroundCheck = widget.connection.firmwareUpdateChecking;
@@ -91,14 +92,14 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
         _controller = FirmwareUpdateController.observe(widget.connection);
       });
     } else if (!_sameDevice) {
-      _finishCheck(error: '设备已断开或已切换，请重新连接后检查更新');
+      _finishCheck(error: (l10n) => l10n.otaCheckDisconnected);
     } else if (_waitingForBackgroundCheck &&
         !widget.connection.firmwareUpdateChecking) {
       _finishCheck(release: widget.connection.firmwareRelease);
     }
   }
 
-  void _finishCheck({FirmwareRelease? release, String? error}) {
+  void _finishCheck({FirmwareRelease? release, FirmwareUpdateMessage? error}) {
     _timeout?.cancel();
     _waitingForBackgroundCheck = false;
     setState(() {
@@ -106,7 +107,7 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
       _error =
           error ??
           (!_sameDevice
-              ? '设备已断开或已切换，请重新连接后检查更新'
+              ? (l10n) => l10n.otaCheckDisconnected
               : widget.connection.firmwareUpdateError != null
               ? _checkErrorText(widget.connection.firmwareUpdateError!)
               : null);
@@ -114,40 +115,43 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
     });
   }
 
-  String _checkErrorText(Object error) {
+  FirmwareUpdateMessage _checkErrorText(Object error) {
     final text = error.toString();
     if (text.contains('HTTP 404')) {
-      return '没有找到当前设备对应的 OTA 清单（HTTP 404）';
+      return (l10n) => l10n.otaManifestMissing;
     }
     if (text.contains('timed out') || text.contains('TimeoutException')) {
-      return 'OTA 清单请求超时，请检查网络后重试';
+      return (l10n) => l10n.otaManifestTimeout;
     }
     if (text.contains('invalid or incompatible')) {
-      return '当前设备型号、硬件版本或芯片与 OTA 清单不匹配';
+      return (l10n) => l10n.otaManifestIncompatible;
     }
     if (text.contains('network request failed')) {
-      return 'OTA 清单网络请求失败，请检查网络后重试';
+      return (l10n) => l10n.otaManifestNetwork;
     }
-    return '检查更新失败：$text';
+    return (l10n) => l10n.otaCheckError(text);
   }
 
   void _setRelease(FirmwareRelease release) {
+    _controller = FirmwareUpdateController(widget.connection, release);
+    unawaited(_controller!.prepareCache());
+  }
+
+  String _description(FirmwareRelease release, AppLocalizations l10n) {
     final connection = widget.connection;
     String version(String value) => value.isEmpty
-        ? '未知'
+        ? l10n.otaUnknown
         : value.startsWith('v')
         ? value
         : 'v$value';
-    _description = [
+    return [
       if (release.needsMainUpdate(connection.firmware))
-        '主固件版本\n${version(connection.firmware)}  →  ${version(release.mainVersion)}',
+        '${l10n.otaMainVersion}\n${version(connection.firmware)}  →  ${version(release.mainVersion)}',
       if (release.needsWirelessUpdate(connection.wirelessFirmware))
-        '无线固件版本\n${version(connection.wirelessFirmware)}  →  ${version(release.wirelessVersion)}',
+        '${l10n.otaWirelessVersion}\n${version(connection.wirelessFirmware)}  →  ${version(release.wirelessVersion)}',
       if (release.notes.isNotEmpty)
-        '更新内容\n${release.notes.map((note) => '• $note').join('\n')}',
+        '${l10n.otaNotes}\n${release.notes.map((note) => '• $note').join('\n')}',
     ].join('\n\n');
-    _controller = FirmwareUpdateController(connection, release);
-    unawaited(_controller!.prepareCache());
   }
 
   @override
@@ -164,7 +168,9 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
       return FirmwareUpdateDialog(
         controller: controller,
         theme: widget.theme,
-        description: _description,
+        description: controller.observer
+            ? ''
+            : _description(controller.release, context.l10n),
         onRetry: controller.observer
             ? null
             : () {
@@ -179,7 +185,11 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
     }
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      title: Text(_error == null ? '检查固件更新' : '检查更新失败'),
+      title: Text(
+        _error == null
+            ? context.l10n.otaCheckTitle
+            : context.l10n.otaCheckFailed,
+      ),
       content: SizedBox(
         width: 390,
         child: Semantics(
@@ -195,7 +205,11 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
                 const SizedBox(width: 12),
               ],
               Expanded(
-                child: Text(_checking ? '正在检查更新…' : _error ?? '当前已是最新版本'),
+                child: Text(
+                  _checking
+                      ? context.l10n.otaChecking
+                      : _error?.call(context.l10n) ?? context.l10n.otaLatest,
+                ),
               ),
             ],
           ),
@@ -203,11 +217,15 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
       ),
       actions: [
         _checkButton(
-          _checking ? '取消' : '关闭',
+          _checking ? context.l10n.otaCancel : context.l10n.otaClose,
           () => Navigator.of(context).pop(),
         ),
         if (_error != null && _sameDevice)
-          _checkButton('重试', () => unawaited(_check()), primary: true),
+          _checkButton(
+            context.l10n.otaRetry,
+            () => unawaited(_check()),
+            primary: true,
+          ),
       ],
     );
   }
@@ -292,10 +310,10 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
           ),
           title: Text(
             awaiting
-                ? '发现固件更新'
+                ? context.l10n.otaFound
                 : controller.observer
-                ? '设备固件更新'
-                : '固件更新',
+                ? context.l10n.otaDeviceTitle
+                : context.l10n.otaTitle,
           ),
           content: SizedBox(
             width: 390,
@@ -310,8 +328,8 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
                     Text(
                       widget.controller.connection.firmwareTaskSource ==
                               'remote'
-                          ? '设备联网更新 · 关闭窗口不影响设备当前任务'
-                          : '局域网更新 · 由发起更新的应用提供固件',
+                          ? context.l10n.otaRemoteSource
+                          : context.l10n.otaLocalSource,
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -319,17 +337,24 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
                     Text(widget.description, softWrap: true),
                     if (controller.deviceCacheAvailable) ...[
                       const SizedBox(height: 16),
-                      const Text('设备已有本次更新所需的完整固件，可重新校验后直接准备安装。'),
+                      Text(context.l10n.otaDeviceCacheHint),
                     ],
                     if (!controller.deviceCacheAvailable &&
                         controller.cacheChecking) ...[
                       const SizedBox(height: 16),
-                      const Text('正在校验本机已下载的固件…'),
+                      Text(context.l10n.otaCacheChecking),
                     ] else if (!controller.deviceCacheAvailable &&
                         controller.hasCache) ...[
                       const SizedBox(height: 16),
                       Text(
-                        '已下载并校验：${[if (controller.mainCached) '主固件', if (controller.wirelessCached) '无线固件'].join('、')}。可直接使用，缺少的组件会继续下载。',
+                        context.l10n.otaAppCacheHint(
+                          [
+                            if (controller.mainCached)
+                              context.l10n.otaMainComponent,
+                            if (controller.wirelessCached)
+                              context.l10n.otaWirelessComponent,
+                          ].join(context.l10n.otaComponentsSeparator),
+                        ),
                       ),
                     ],
                   ] else
@@ -349,7 +374,9 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
                           ],
                           Expanded(
                             child: Text(
-                              _cancelling ? '正在取消更新…' : controller.message,
+                              _cancelling
+                                  ? context.l10n.otaCancelling
+                                  : controller.message(context.l10n),
                               softWrap: true,
                             ),
                           ),
@@ -377,28 +404,33 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
           ),
           actions: [
             if (step == FirmwareUpdateStep.failed && widget.onRetry != null)
-              _button('重试', widget.onRetry, primary: true),
+              _button(context.l10n.otaRetry, widget.onRetry, primary: true),
             if (controller.observer && !controller.terminal && !installing)
-              _button('关闭', () => Navigator.of(context).pop()),
+              _button(context.l10n.otaClose, () => Navigator.of(context).pop()),
             if (!installing &&
                 (_cancelling || !controller.terminal) &&
                 controller.canCancel)
               _button(
-                awaiting ? '取消' : '取消更新',
+                awaiting
+                    ? context.l10n.otaCancel
+                    : context.l10n.otaCancelUpdate,
                 !_cancelling && controller.canCancel
                     ? () => unawaited(_cancelAndClose())
                     : null,
               ),
             if (awaiting &&
                 (controller.hasCache || controller.deviceCacheAvailable))
-              _button('重新下载', () => controller.download(reuseCache: false)),
+              _button(
+                context.l10n.otaRedownload,
+                () => controller.download(reuseCache: false),
+              ),
             if (awaiting)
               _button(
                 controller.deviceCacheAvailable
-                    ? '使用设备已有固件'
+                    ? context.l10n.otaUseDeviceCache
                     : controller.hasCache
-                    ? '使用已下载固件'
-                    : '下载更新',
+                    ? context.l10n.otaUseCache
+                    : context.l10n.otaDownloadUpdate,
                 controller.cacheChecking
                     ? null
                     : controller.deviceCacheAvailable
@@ -409,9 +441,13 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
             if (!_cancelling &&
                 step == FirmwareUpdateStep.prepared &&
                 controller.canControl)
-              _button('重启安装', () => controller.install(), primary: true),
+              _button(
+                context.l10n.otaInstall,
+                () => controller.install(),
+                primary: true,
+              ),
             if (!_cancelling && (installing || controller.terminal))
-              _button('关闭', () => Navigator.of(context).pop()),
+              _button(context.l10n.otaClose, () => Navigator.of(context).pop()),
           ],
         ),
       );

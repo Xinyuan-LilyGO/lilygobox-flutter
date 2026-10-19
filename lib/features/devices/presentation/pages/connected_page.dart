@@ -398,10 +398,10 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                         ),
                         child: Text(
                           session.firmwareTaskActive
-                              ? '更新中'
+                              ? context.l10n.otaUpdating
                               : session.firmwareRelease == null
-                              ? '检查更新'
-                              : '有新版本',
+                              ? context.l10n.otaCheck
+                              : context.l10n.otaNewVersion,
                           style: TextStyle(
                             color: session.firmwareRelease == null
                                 ? theme.textColorSecondary
@@ -414,16 +414,20 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                       const SizedBox(width: 6),
                       AppTooltip(
                         message: session.firmwareTaskActive
-                            ? '查看设备更新状态'
+                            ? context.l10n.otaViewStatus
                             : session.firmwareRelease == null
-                            ? '检查固件更新'
-                            : '更新到 ${_versionForDisplay(session.firmwareRelease!.mainVersion)}',
+                            ? context.l10n.otaCheckTitle
+                            : context.l10n.otaUpdateTo(
+                                _versionForDisplay(
+                                  session.firmwareRelease!.mainVersion,
+                                ),
+                              ),
                         child: Semantics(
                           button: true,
                           enabled: !_firmwareDialogOpen,
                           label: session.firmwareRelease == null
-                              ? '检查固件更新'
-                              : '更新固件',
+                              ? context.l10n.otaCheckTitle
+                              : context.l10n.otaUpdateFirmware,
                           child: SizedBox(
                             width: 30,
                             height: 30,
@@ -495,34 +499,6 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                   size: 13,
                   muted: true,
                 ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Icon(
-                      deviceWifiIconForRssi(
-                        _controlState?.wifiRssi,
-                        online: online,
-                      ),
-                      fill: online ? null : 1,
-                      size: 20,
-                      color: online
-                          ? theme.basePrimary
-                          : theme.textColorTertiary,
-                    ),
-                    const SizedBox(width: 7),
-                    Flexible(
-                      child: Text(
-                        'Wi-Fi',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: online
-                              ? theme.basePrimary
-                              : theme.textColorTertiary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
           ],
@@ -552,13 +528,13 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                     : '—',
               ),
               (
-                l10n.lanFirmware,
+                l10n.otaMainVersion,
                 online && session.firmware.isNotEmpty
                     ? _versionForDisplay(session.firmware)
                     : '—',
               ),
               (
-                '无线固件版本',
+                context.l10n.otaWirelessVersion,
                 online && session.wirelessFirmware.isNotEmpty
                     ? _versionForDisplay(session.wirelessFirmware)
                     : '—',

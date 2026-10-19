@@ -282,5 +282,427 @@
   "deviceNameEditDescription": "Enter a device name (up to 64 UTF-8 bytes). The name is saved on the device.",
   "deviceNameInvalid": "Enter a non-empty name within 64 UTF-8 bytes, without control characters.",
   "deviceNameSaveFailed": "Could not save the name. Check the device connection and try again.",
-  "deviceNameStorageFailed": "The device could not save the name to storage. Your input has been kept; please try again."
+  "deviceNameStorageFailed": "The device could not save the name to storage. Your input has been kept; please try again.",
+    "otaUpdating": "Updating",
+    "@otaUpdating": {
+        "description": "Firmware update interface: otaUpdating"
+    },
+    "otaCheck": "Check for updates",
+    "@otaCheck": {
+        "description": "Firmware update interface: otaCheck"
+    },
+    "otaNewVersion": "Update available",
+    "@otaNewVersion": {
+        "description": "Firmware update interface: otaNewVersion"
+    },
+    "otaViewStatus": "View device update status",
+    "@otaViewStatus": {
+        "description": "Firmware update interface: otaViewStatus"
+    },
+    "otaCheckTitle": "Check for firmware updates",
+    "@otaCheckTitle": {
+        "description": "Firmware update interface: otaCheckTitle"
+    },
+    "otaUpdateTo": "Update to {version}",
+    "@otaUpdateTo": {
+        "description": "Firmware update interface: otaUpdateTo",
+        "placeholders": {
+            "version": {
+                "type": "String"
+            }
+        }
+    },
+    "otaUpdateFirmware": "Update firmware",
+    "@otaUpdateFirmware": {
+        "description": "Firmware update interface: otaUpdateFirmware"
+    },
+    "otaWirelessVersion": "Wireless firmware version",
+    "@otaWirelessVersion": {
+        "description": "Firmware update interface: otaWirelessVersion"
+    },
+    "otaMainVersion": "Main firmware version",
+    "@otaMainVersion": {
+        "description": "Firmware update interface: otaMainVersion"
+    },
+    "otaNotes": "Release notes",
+    "@otaNotes": {
+        "description": "Firmware update interface: otaNotes"
+    },
+    "otaUnknown": "Unknown",
+    "@otaUnknown": {
+        "description": "Firmware update interface: otaUnknown"
+    },
+    "otaCheckDisconnected": "The device disconnected or changed. Reconnect before checking for updates.",
+    "@otaCheckDisconnected": {
+        "description": "Firmware update interface: otaCheckDisconnected"
+    },
+    "otaCheckTimeout": "The update check timed out. Check your network and try again.",
+    "@otaCheckTimeout": {
+        "description": "Firmware update interface: otaCheckTimeout"
+    },
+    "otaManifestMissing": "No OTA manifest was found for this device (HTTP 404).",
+    "@otaManifestMissing": {
+        "description": "Firmware update interface: otaManifestMissing"
+    },
+    "otaManifestTimeout": "The OTA manifest request timed out. Check your network and try again.",
+    "@otaManifestTimeout": {
+        "description": "Firmware update interface: otaManifestTimeout"
+    },
+    "otaManifestIncompatible": "The OTA manifest does not match this device model, hardware version, or chip.",
+    "@otaManifestIncompatible": {
+        "description": "Firmware update interface: otaManifestIncompatible"
+    },
+    "otaManifestNetwork": "Could not retrieve the OTA manifest. Check your network and try again.",
+    "@otaManifestNetwork": {
+        "description": "Firmware update interface: otaManifestNetwork"
+    },
+    "otaCheckError": "Could not check for updates: {detail}",
+    "@otaCheckError": {
+        "description": "Firmware update interface: otaCheckError",
+        "placeholders": {
+            "detail": {
+                "type": "String"
+            }
+        }
+    },
+    "otaCheckFailed": "Update check failed",
+    "@otaCheckFailed": {
+        "description": "Firmware update interface: otaCheckFailed"
+    },
+    "otaChecking": "Checking for updates…",
+    "@otaChecking": {
+        "description": "Firmware update interface: otaChecking"
+    },
+    "otaLatest": "You are up to date",
+    "@otaLatest": {
+        "description": "Firmware update interface: otaLatest"
+    },
+    "otaCancel": "Cancel",
+    "@otaCancel": {
+        "description": "Firmware update interface: otaCancel"
+    },
+    "otaClose": "Close",
+    "@otaClose": {
+        "description": "Firmware update interface: otaClose"
+    },
+    "otaRetry": "Retry",
+    "@otaRetry": {
+        "description": "Firmware update interface: otaRetry"
+    },
+    "otaFound": "Firmware update available",
+    "@otaFound": {
+        "description": "Firmware update interface: otaFound"
+    },
+    "otaDeviceTitle": "Device firmware update",
+    "@otaDeviceTitle": {
+        "description": "Firmware update interface: otaDeviceTitle"
+    },
+    "otaTitle": "Firmware update",
+    "@otaTitle": {
+        "description": "Firmware update interface: otaTitle"
+    },
+    "otaRemoteSource": "Device online update · Closing this window does not stop the device task",
+    "@otaRemoteSource": {
+        "description": "Firmware update interface: otaRemoteSource"
+    },
+    "otaLocalSource": "LAN update · Firmware is provided by the app that started the update",
+    "@otaLocalSource": {
+        "description": "Firmware update interface: otaLocalSource"
+    },
+    "otaDeviceCacheHint": "The device already has all firmware required for this update. It can verify the files again and prepare installation.",
+    "@otaDeviceCacheHint": {
+        "description": "Firmware update interface: otaDeviceCacheHint"
+    },
+    "otaCacheChecking": "Verifying firmware downloaded on this computer…",
+    "@otaCacheChecking": {
+        "description": "Firmware update interface: otaCacheChecking"
+    },
+    "otaAppCacheHint": "Downloaded and verified: {components}. Use these files and download any missing components.",
+    "@otaAppCacheHint": {
+        "description": "Firmware update interface: otaAppCacheHint",
+        "placeholders": {
+            "components": {
+                "type": "String"
+            }
+        }
+    },
+    "otaMainComponent": "Main firmware",
+    "@otaMainComponent": {
+        "description": "Firmware update interface: otaMainComponent"
+    },
+    "otaWirelessComponent": "Wireless firmware",
+    "@otaWirelessComponent": {
+        "description": "Firmware update interface: otaWirelessComponent"
+    },
+    "otaComponentsSeparator": ", ",
+    "@otaComponentsSeparator": {
+        "description": "Firmware update interface: otaComponentsSeparator"
+    },
+    "otaCancelling": "Cancelling update…",
+    "@otaCancelling": {
+        "description": "Firmware update interface: otaCancelling"
+    },
+    "otaCancelUpdate": "Cancel update",
+    "@otaCancelUpdate": {
+        "description": "Firmware update interface: otaCancelUpdate"
+    },
+    "otaRedownload": "Download again",
+    "@otaRedownload": {
+        "description": "Firmware update interface: otaRedownload"
+    },
+    "otaUseDeviceCache": "Use device firmware",
+    "@otaUseDeviceCache": {
+        "description": "Firmware update interface: otaUseDeviceCache"
+    },
+    "otaUseCache": "Use downloaded firmware",
+    "@otaUseCache": {
+        "description": "Firmware update interface: otaUseCache"
+    },
+    "otaDownloadUpdate": "Download update",
+    "@otaDownloadUpdate": {
+        "description": "Firmware update interface: otaDownloadUpdate"
+    },
+    "otaInstall": "Restart and install",
+    "@otaInstall": {
+        "description": "Firmware update interface: otaInstall"
+    },
+    "otaDownloadingMain": "Downloading main firmware",
+    "@otaDownloadingMain": {
+        "description": "Firmware update interface: otaDownloadingMain"
+    },
+    "otaDownloadingWireless": "Downloading wireless firmware",
+    "@otaDownloadingWireless": {
+        "description": "Firmware update interface: otaDownloadingWireless"
+    },
+    "otaRequestCache": "Requesting verification of firmware already on the device…",
+    "@otaRequestCache": {
+        "description": "Firmware update interface: otaRequestCache"
+    },
+    "otaCacheTimeout": "Device firmware cache verification timed out.",
+    "@otaCacheTimeout": {
+        "description": "Firmware update interface: otaCacheTimeout"
+    },
+    "otaCacheRejected": "The device did not accept the cached firmware. Try again or download the files again.",
+    "@otaCacheRejected": {
+        "description": "Firmware update interface: otaCacheRejected"
+    },
+    "otaCacheFailed": "Could not use the device firmware cache: {detail}",
+    "@otaCacheFailed": {
+        "description": "Firmware update interface: otaCacheFailed",
+        "placeholders": {
+            "detail": {
+                "type": "String"
+            }
+        }
+    },
+    "otaDownloadTimeout": "The download timed out. Please try again.",
+    "@otaDownloadTimeout": {
+        "description": "Firmware update interface: otaDownloadTimeout"
+    },
+    "otaDownloadFailed": "Firmware download or verification failed: {detail}",
+    "@otaDownloadFailed": {
+        "description": "Firmware update interface: otaDownloadFailed",
+        "placeholders": {
+            "detail": {
+                "type": "String"
+            }
+        }
+    },
+    "otaWaitingTransfer": "Waiting for the device to accept the transfer…",
+    "@otaWaitingTransfer": {
+        "description": "Firmware update interface: otaWaitingTransfer"
+    },
+    "otaTransferTimeout": "Firmware transfer to the device timed out.",
+    "@otaTransferTimeout": {
+        "description": "Firmware update interface: otaTransferTimeout"
+    },
+    "otaTransferRejected": "The device did not accept the transfer. Make sure its firmware supports staged updates.",
+    "@otaTransferRejected": {
+        "description": "Firmware update interface: otaTransferRejected"
+    },
+    "otaTransferFailed": "Could not transfer firmware: {detail}",
+    "@otaTransferFailed": {
+        "description": "Firmware update interface: otaTransferFailed",
+        "placeholders": {
+            "detail": {
+                "type": "String"
+            }
+        }
+    },
+    "otaRequestInstall": "Requesting restart and installation…\nYou may close this window. Do not turn off the device.",
+    "@otaRequestInstall": {
+        "description": "Firmware update interface: otaRequestInstall"
+    },
+    "otaInstallRejected": "The device did not confirm restart and installation.",
+    "@otaInstallRejected": {
+        "description": "Firmware update interface: otaInstallRejected"
+    },
+    "otaInstallConfirmed": "Restart and installation confirmed. The device will install automatically and restart. Do not turn it off.",
+    "@otaInstallConfirmed": {
+        "description": "Firmware update interface: otaInstallConfirmed"
+    },
+    "otaDeviceChanged": "The selected device changed. This update has stopped.",
+    "@otaDeviceChanged": {
+        "description": "Firmware update interface: otaDeviceChanged"
+    },
+    "otaInstallDisconnected": "The device disconnected. Waiting for confirmation of restart and installation…",
+    "@otaInstallDisconnected": {
+        "description": "Firmware update interface: otaInstallDisconnected"
+    },
+    "otaObserverDisconnected": "The device disconnected. Reconnect to view its update status.",
+    "@otaObserverDisconnected": {
+        "description": "Firmware update interface: otaObserverDisconnected"
+    },
+    "otaDisconnected": "The device disconnected. The update has stopped.",
+    "@otaDisconnected": {
+        "description": "Firmware update interface: otaDisconnected"
+    },
+    "otaTaskChanged": "The device update task changed. Reopen the update window.",
+    "@otaTaskChanged": {
+        "description": "Firmware update interface: otaTaskChanged"
+    },
+    "otaOtherTask": "The device is already updating. Close this window to view its current task.",
+    "@otaOtherTask": {
+        "description": "Firmware update interface: otaOtherTask"
+    },
+    "otaLatestComplete": "You are up to date.",
+    "@otaLatestComplete": {
+        "description": "Firmware update interface: otaLatestComplete"
+    },
+    "otaCheckAvailable": "An update is available. Start the download on the device or close this window to choose it in the app.",
+    "@otaCheckAvailable": {
+        "description": "Firmware update interface: otaCheckAvailable"
+    },
+    "otaNoTask": "The device has no update task in progress.",
+    "@otaNoTask": {
+        "description": "Firmware update interface: otaNoTask"
+    },
+    "otaDeviceFailed": "The device update failed: {detail}",
+    "@otaDeviceFailed": {
+        "description": "Firmware update interface: otaDeviceFailed",
+        "placeholders": {
+            "detail": {
+                "type": "String"
+            }
+        }
+    },
+    "otaDeviceCancelled": "The device cancelled the update and kept its current firmware.",
+    "@otaDeviceCancelled": {
+        "description": "Firmware update interface: otaDeviceCancelled"
+    },
+    "otaPrepared": "Firmware received and verified. Select Restart and install to turn off the device screen, install the update, and restart automatically.",
+    "@otaPrepared": {
+        "description": "Firmware update interface: otaPrepared"
+    },
+    "otaPreparedOtherApp": "Firmware is ready. Confirm restart and installation in the app that started the update.",
+    "@otaPreparedOtherApp": {
+        "description": "Firmware update interface: otaPreparedOtherApp"
+    },
+    "otaInstalling": "The device is installing and restarting. Do not turn it off.\nClosing this window does not stop installation.",
+    "@otaInstalling": {
+        "description": "Firmware update interface: otaInstalling"
+    },
+    "otaDeviceChecking": "The device is checking for firmware updates online…",
+    "@otaDeviceChecking": {
+        "description": "Firmware update interface: otaDeviceChecking"
+    },
+    "otaPaused": "The device paused the download. Resume it on the device or cancel this update.",
+    "@otaPaused": {
+        "description": "Firmware update interface: otaPaused"
+    },
+    "otaVerifyingMain": "The device is verifying the main firmware image and SHA-256…",
+    "@otaVerifyingMain": {
+        "description": "Firmware update interface: otaVerifyingMain"
+    },
+    "otaVerifyingWireless": "The device is verifying the wireless firmware image and SHA-256…",
+    "@otaVerifyingWireless": {
+        "description": "Firmware update interface: otaVerifyingWireless"
+    },
+    "otaPreparing": "The device is preparing firmware for installation…",
+    "@otaPreparing": {
+        "description": "Firmware update interface: otaPreparing"
+    },
+    "otaCancelled": "Update cancelled. The current firmware has been kept.",
+    "@otaCancelled": {
+        "description": "Firmware update interface: otaCancelled"
+    },
+    "otaCancelRejected": "The device rejected cancellation of this task.",
+    "@otaCancelRejected": {
+        "description": "Firmware update interface: otaCancelRejected"
+    },
+    "otaCancelUnconfirmed": "The device did not confirm cancellation: {detail}",
+    "@otaCancelUnconfirmed": {
+        "description": "Firmware update interface: otaCancelUnconfirmed",
+        "placeholders": {
+            "detail": {
+                "type": "String"
+            }
+        }
+    },
+    "otaProgress": "{action} · {received} / {total}",
+    "@otaProgress": {
+        "description": "Firmware update interface: otaProgress",
+        "placeholders": {
+            "action": {
+                "type": "String"
+            },
+            "received": {
+                "type": "String"
+            },
+            "total": {
+                "type": "String"
+            }
+        }
+    },
+    "otaDownloadMain": "Download main firmware",
+    "@otaDownloadMain": {
+        "description": "Firmware update interface: otaDownloadMain"
+    },
+    "otaDownloadWireless": "Download wireless firmware",
+    "@otaDownloadWireless": {
+        "description": "Firmware update interface: otaDownloadWireless"
+    },
+    "otaDeviceDownloadMain": "Device downloading main firmware",
+    "@otaDeviceDownloadMain": {
+        "description": "Firmware update interface: otaDeviceDownloadMain"
+    },
+    "otaDeviceDownloadWireless": "Device downloading wireless firmware",
+    "@otaDeviceDownloadWireless": {
+        "description": "Firmware update interface: otaDeviceDownloadWireless"
+    },
+    "otaTransferMain": "Transfer main firmware",
+    "@otaTransferMain": {
+        "description": "Firmware update interface: otaTransferMain"
+    },
+    "otaTransferWireless": "Transfer wireless firmware",
+    "@otaTransferWireless": {
+        "description": "Firmware update interface: otaTransferWireless"
+    },
+    "otaAwaitingProgress": "{action} · Waiting for device progress",
+    "@otaAwaitingProgress": {
+        "description": "Firmware update interface: otaAwaitingProgress",
+        "placeholders": {
+            "action": {
+                "type": "String"
+            }
+        }
+    },
+    "otaDownloadComplete": "{component} downloaded. Waiting for device verification…",
+    "@otaDownloadComplete": {
+        "description": "Firmware update interface: otaDownloadComplete",
+        "placeholders": {
+            "component": {
+                "type": "String"
+            }
+        }
+    },
+    "otaTransferComplete": "{component} transferred. Waiting for device verification…",
+    "@otaTransferComplete": {
+        "description": "Firmware update interface: otaTransferComplete",
+        "placeholders": {
+            "component": {
+                "type": "String"
+            }
+        }
+    }
 }

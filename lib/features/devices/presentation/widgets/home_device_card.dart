@@ -16,6 +16,8 @@ import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/card_shadow.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/tilt_card.dart';
+import '../../domain/device_control.dart';
+import 'device_battery_status.dart';
 import 'device_menu_actions.dart';
 import 'device_status_badge.dart';
 import 'device_wifi_signal.dart';
@@ -30,6 +32,7 @@ class HomeDeviceCard extends StatefulWidget {
     required this.onPressed,
     this.usesWifi = false,
     this.wifiRssi,
+    this.battery,
     this.macAddress,
     this.onDelete,
     this.deviceId,
@@ -42,6 +45,7 @@ class HomeDeviceCard extends StatefulWidget {
   final VoidCallback onPressed;
   final bool usesWifi;
   final int? wifiRssi;
+  final DeviceBatteryState? battery;
   final String? macAddress;
   final VoidCallback? onDelete;
   final String? deviceId;
@@ -160,6 +164,11 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
                           : theme.textColorTertiary,
                     ),
                   ),
+                  const Spacer(),
+                  if (usesWifi)
+                    DeviceBatteryStatus(
+                      battery: connected ? widget.battery : null,
+                    ),
                 ],
               ),
             ],

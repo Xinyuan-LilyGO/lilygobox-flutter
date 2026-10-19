@@ -208,7 +208,7 @@ class FirmwareUpdateService {
     bool reuseCache = true,
   }) async {
     if (!downloadMain && !downloadWireless) {
-      throw StateError('当前已是最新版本');
+      throw StateError('Firmware is up to date');
     }
     final downloadClient = client ?? _client ?? http.Client();
     final directory = await Directory.systemTemp.createTemp('lilygobox-ota-');
@@ -291,7 +291,7 @@ class FirmwareUpdateService {
           onProgress?.call(false, release.wirelessSize, release.wirelessSize);
         }
       }
-      if (isCancelled?.call() ?? false) throw const HttpException('更新已取消');
+      if (isCancelled?.call() ?? false) throw const HttpException('Firmware update cancelled');
       return DownloadedFirmware(
         directory: directory,
         main: main,
@@ -314,7 +314,7 @@ class FirmwareUpdateService {
     void Function(int, int) onProgress,
     bool Function()? isCancelled,
   ) async {
-    if (isCancelled?.call() ?? false) throw const HttpException('更新已取消');
+    if (isCancelled?.call() ?? false) throw const HttpException('Firmware update cancelled');
     onProgress(0, expectedSize);
     final response = await client
         .send(http.Request('GET', uri))
@@ -328,7 +328,7 @@ class FirmwareUpdateService {
       await for (final chunk in response.stream.timeout(
         const Duration(seconds: 30),
       )) {
-        if (isCancelled?.call() ?? false) throw const HttpException('更新已取消');
+        if (isCancelled?.call() ?? false) throw const HttpException('Firmware update cancelled');
         size += chunk.length;
         if (size > expectedSize) {
           throw const FormatException('Firmware size mismatch');

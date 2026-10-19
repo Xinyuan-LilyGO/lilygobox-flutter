@@ -785,4 +785,295 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceNameStorageFailed => '设备未能将名称保存到存储中。已保留输入，请重试。';
+
+  @override
+  String get otaUpdating => '更新中';
+
+  @override
+  String get otaCheck => '检查更新';
+
+  @override
+  String get otaNewVersion => '有新版本';
+
+  @override
+  String get otaViewStatus => '查看设备更新状态';
+
+  @override
+  String get otaCheckTitle => '检查固件更新';
+
+  @override
+  String otaUpdateTo(String version) {
+    return '更新到 $version';
+  }
+
+  @override
+  String get otaUpdateFirmware => '更新固件';
+
+  @override
+  String get otaWirelessVersion => '无线固件版本';
+
+  @override
+  String get otaMainVersion => '主固件版本';
+
+  @override
+  String get otaNotes => '更新内容';
+
+  @override
+  String get otaUnknown => '未知';
+
+  @override
+  String get otaCheckDisconnected => '设备已断开或已切换，请重新连接后检查更新';
+
+  @override
+  String get otaCheckTimeout => '检查更新超时，请检查网络后重试';
+
+  @override
+  String get otaManifestMissing => '没有找到当前设备对应的 OTA 清单（HTTP 404）';
+
+  @override
+  String get otaManifestTimeout => 'OTA 清单请求超时，请检查网络后重试';
+
+  @override
+  String get otaManifestIncompatible => '当前设备型号、硬件版本或芯片与 OTA 清单不匹配';
+
+  @override
+  String get otaManifestNetwork => 'OTA 清单网络请求失败，请检查网络后重试';
+
+  @override
+  String otaCheckError(String detail) {
+    return '检查更新失败：$detail';
+  }
+
+  @override
+  String get otaCheckFailed => '检查更新失败';
+
+  @override
+  String get otaChecking => '正在检查更新…';
+
+  @override
+  String get otaLatest => '当前已是最新版本';
+
+  @override
+  String get otaCancel => '取消';
+
+  @override
+  String get otaClose => '关闭';
+
+  @override
+  String get otaRetry => '重试';
+
+  @override
+  String get otaFound => '发现固件更新';
+
+  @override
+  String get otaDeviceTitle => '设备固件更新';
+
+  @override
+  String get otaTitle => '固件更新';
+
+  @override
+  String get otaRemoteSource => '设备联网更新 · 关闭窗口不影响设备当前任务';
+
+  @override
+  String get otaLocalSource => '局域网更新 · 由发起更新的应用提供固件';
+
+  @override
+  String get otaDeviceCacheHint => '设备已有本次更新所需的完整固件，可重新校验后直接准备安装。';
+
+  @override
+  String get otaCacheChecking => '正在校验本机已下载的固件…';
+
+  @override
+  String otaAppCacheHint(String components) {
+    return '已下载并校验：$components。可直接使用，缺少的组件会继续下载。';
+  }
+
+  @override
+  String get otaMainComponent => '主固件';
+
+  @override
+  String get otaWirelessComponent => '无线固件';
+
+  @override
+  String get otaComponentsSeparator => '、';
+
+  @override
+  String get otaCancelling => '正在取消更新…';
+
+  @override
+  String get otaCancelUpdate => '取消更新';
+
+  @override
+  String get otaRedownload => '重新下载';
+
+  @override
+  String get otaUseDeviceCache => '使用设备已有固件';
+
+  @override
+  String get otaUseCache => '使用已下载固件';
+
+  @override
+  String get otaDownloadUpdate => '下载更新';
+
+  @override
+  String get otaInstall => '重启安装';
+
+  @override
+  String get otaDownloadingMain => '正在下载主固件';
+
+  @override
+  String get otaDownloadingWireless => '正在下载无线固件';
+
+  @override
+  String get otaRequestCache => '正在请求设备重新校验已下载的固件…';
+
+  @override
+  String get otaCacheTimeout => '设备缓存校验超时';
+
+  @override
+  String get otaCacheRejected => '设备未接受缓存复用请求，请重试或重新下载';
+
+  @override
+  String otaCacheFailed(String detail) {
+    return '设备缓存复用失败：$detail';
+  }
+
+  @override
+  String get otaDownloadTimeout => '下载超时，请重试';
+
+  @override
+  String otaDownloadFailed(String detail) {
+    return '下载或校验失败：$detail';
+  }
+
+  @override
+  String get otaWaitingTransfer => '等待设备接受传输请求…';
+
+  @override
+  String get otaTransferTimeout => '设备传输超时';
+
+  @override
+  String get otaTransferRejected => '设备未接受传输请求，请确认设备已安装支持分步更新的新固件';
+
+  @override
+  String otaTransferFailed(String detail) {
+    return '无法传输固件：$detail';
+  }
+
+  @override
+  String get otaRequestInstall => '正在请求设备重启安装…\n可关闭此窗口，设备将继续安装，请勿断电。';
+
+  @override
+  String get otaInstallRejected => '设备未确认重启安装';
+
+  @override
+  String get otaInstallConfirmed => '重启安装指令已确认，设备将自动安装并重启，请勿断电。';
+
+  @override
+  String get otaDeviceChanged => '设备已切换，本次更新已终止';
+
+  @override
+  String get otaInstallDisconnected => '设备连接已断开，正在等待重启安装指令的确认结果…';
+
+  @override
+  String get otaObserverDisconnected => '设备连接已断开，请重新连接后查看设备更新状态。';
+
+  @override
+  String get otaDisconnected => '设备连接已断开，更新已停止';
+
+  @override
+  String get otaTaskChanged => '设备更新任务已切换，请重新打开更新窗口';
+
+  @override
+  String get otaOtherTask => '设备已在进行另一项更新，请关闭窗口查看设备当前任务';
+
+  @override
+  String get otaLatestComplete => '当前已是最新版本。';
+
+  @override
+  String get otaCheckAvailable => '发现新版本，请在设备上或关闭窗口后选择下载更新。';
+
+  @override
+  String get otaNoTask => '设备当前没有进行中的更新任务。';
+
+  @override
+  String otaDeviceFailed(String detail) {
+    return '设备更新失败：$detail';
+  }
+
+  @override
+  String get otaDeviceCancelled => '设备已取消更新，保留当前固件。';
+
+  @override
+  String get otaPrepared => '设备已接收固件并完成校验。点击“重启安装”后，设备将熄屏安装并自动重启。';
+
+  @override
+  String get otaPreparedOtherApp => '设备固件已就绪，请在发起更新的应用中确认重启安装。';
+
+  @override
+  String get otaInstalling => '设备正在安装并重启，请勿断电。\n关闭窗口不影响安装。';
+
+  @override
+  String get otaDeviceChecking => '设备正在联网检查固件更新…';
+
+  @override
+  String get otaPaused => '设备已暂停下载，可在设备上继续，或取消本次更新。';
+
+  @override
+  String get otaVerifyingMain => '设备正在校验主固件镜像与 SHA-256，请稍候…';
+
+  @override
+  String get otaVerifyingWireless => '设备正在校验无线固件镜像与 SHA-256，请稍候…';
+
+  @override
+  String get otaPreparing => '设备正在整理固件并准备安装，请稍候…';
+
+  @override
+  String get otaCancelled => '更新已取消，保留当前固件。';
+
+  @override
+  String get otaCancelRejected => '设备拒绝取消当前任务';
+
+  @override
+  String otaCancelUnconfirmed(String detail) {
+    return '设备未确认取消更新：$detail';
+  }
+
+  @override
+  String otaProgress(String action, String received, String total) {
+    return '$action · $received / $total';
+  }
+
+  @override
+  String get otaDownloadMain => '下载主固件';
+
+  @override
+  String get otaDownloadWireless => '下载无线固件';
+
+  @override
+  String get otaDeviceDownloadMain => '设备下载主固件';
+
+  @override
+  String get otaDeviceDownloadWireless => '设备下载无线固件';
+
+  @override
+  String get otaTransferMain => '传输主固件';
+
+  @override
+  String get otaTransferWireless => '传输无线固件';
+
+  @override
+  String otaAwaitingProgress(String action) {
+    return '$action · 等待设备报告接收进度';
+  }
+
+  @override
+  String otaDownloadComplete(String component) {
+    return '$component下载完成，等待设备校验结果…';
+  }
+
+  @override
+  String otaTransferComplete(String component) {
+    return '$component传输完成，等待设备校验结果…';
+  }
 }
