@@ -41,7 +41,8 @@ english.UninstallOptions=LilygoBox Uninstall
 english.UninstallDataDescription=By default, only LilygoBox is uninstalled. Your settings, account sign-in, device pairing records and firmware cache are kept for reinstallation.
 english.RemoveUserData=Also delete LilygoBox user data
 english.RemoveUserDataWarning=This permanently removes settings, locally saved GitHub sign-in information, device pairing records and firmware cache. You will need to sign in and pair devices again after reinstalling. Your devices will not be reset.
-english.ContinueUninstall=Continue
+english.ContinueUninstall=Uninstall
+english.UninstallEntryFailed=Unable to configure the uninstall entry. Please reinstall LilygoBox before uninstalling.
 english.ExitBeforeUninstall=Please fully exit LilygoBox, including its tray process, before uninstalling.
 english.ExitBeforeInstall=Please fully exit LilygoBox, including its tray process, before installing. If a device firmware update is in progress, wait for it to finish first, then exit the application and retry.
 english.UserDataDeleteFailed=Some LilygoBox user data could not be deleted. Close any programs using these folders, then remove them manually:
@@ -49,7 +50,8 @@ chinesesimplified.UninstallOptions=LilygoBox 卸载
 chinesesimplified.UninstallDataDescription=默认仅卸载 LilygoBox，保留设置、账号登录信息、设备配对记录和固件缓存，方便重新安装。
 chinesesimplified.RemoveUserData=同时删除 LilygoBox 用户数据
 chinesesimplified.RemoveUserDataWarning=将永久删除设置、本机保存的 GitHub 登录信息、设备配对记录和固件缓存。重新安装后需要重新登录和配对，设备本身不会被重置。
-chinesesimplified.ContinueUninstall=继续
+chinesesimplified.ContinueUninstall=卸载
+chinesesimplified.UninstallEntryFailed=无法配置卸载入口，请重新安装 LilygoBox 后再卸载。
 chinesesimplified.ExitBeforeUninstall=请先完全退出 LilygoBox（包括托盘进程），再进行卸载。
 chinesesimplified.ExitBeforeInstall=请先完全退出 LilygoBox（包括托盘进程），再进行安装。如果正在更新设备固件，请等待更新结束后再退出应用并重试。
 chinesesimplified.UserDataDeleteFailed=部分 LilygoBox 用户数据未能删除。请关闭占用这些目录的程序后手动清理：
@@ -69,6 +71,20 @@ Filename: "{app}\lilygobox-windows-x64.exe"; Description: "{cm:LaunchProgram,Lil
 var
   RemoveUserData: Boolean;
 
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  UninstallKey: String;
+begin
+  if CurStep = ssDone then
+  begin
+    UninstallKey := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{ADCE099E-0B2F-43CE-B6DD-C2688E9C437D}_is1';
+    // 普通入口保留自定义确认和进度窗口，仅跳过 Inno Setup 的重复确认。
+    if not RegWriteStringValue(HKCU, UninstallKey, 'UninstallString',
+      '"' + ExpandConstant('{uninstallexe}') + '" /SILENT /LILYGOBOXINTERACTIVE') then
+      MsgBox(CustomMessage('UninstallEntryFailed'), mbError, MB_OK);
+  end;
+end;
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   Result := '';
@@ -82,16 +98,22 @@ var
   DescriptionLabel, WarningLabel: TNewStaticText;
   RemoveDataCheck: TNewCheckBox;
   ContinueButton, CancelButton: TNewButton;
+  InteractiveUninstall: Boolean;
+  ParameterIndex: Integer;
 begin
   Result := False;
   RemoveUserData := False;
+  InteractiveUninstall := not UninstallSilent;
+  for ParameterIndex := 1 to ParamCount do
+    if CompareText(ParamStr(ParameterIndex), '/LILYGOBOXINTERACTIVE') = 0 then
+      InteractiveUninstall := True;
   if CheckForMutexes('Local\LilygoBox.Main.5D67190D-7E46-4EA8-A99B-9C2E25668A0D') then
   begin
-    if not UninstallSilent then
+    if InteractiveUninstall then
       MsgBox(CustomMessage('ExitBeforeUninstall'), mbInformation, MB_OK);
     Exit;
   end;
-  if UninstallSilent then
+  if not InteractiveUninstall then
   begin
     Result := True;
     Exit;
