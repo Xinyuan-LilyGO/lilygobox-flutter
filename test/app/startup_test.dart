@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/bootstrap/startup.dart';
 import 'package:lilygobox/app/widgets/window_frame.dart';
+import 'package:lilygobox/app/widgets/title_bar.dart';
+import 'package:lilygobox/app/widgets/window_resize_overlay.dart';
 import 'package:lilygobox/core/storage/preferences.dart';
 import 'package:lilygobox/core/theme/material_palette.dart';
 import 'package:lilygobox/core/theme/provider.dart';
@@ -42,19 +44,25 @@ void main() {
             .first,
       );
       expect(background.color, MaterialPalette.create(type).primary);
-      final frame = find.descendant(
+      final frame = find.ancestor(
         of: find.byType(StartupScreen),
         matching: find.byType(AppWindowFrame),
       );
       expect(frame, findsOneWidget);
       final drag = find.descendant(
-        of: frame,
+        of: find.byType(StartupScreen),
         matching: find.byType(DragToMoveArea),
       );
       expect(drag, findsOneWidget);
-      expect(tester.getTopLeft(drag), const Offset(10, 10));
+      expect(tester.getTopLeft(drag), const Offset(10, 40));
+      expect(
+        tester.widget<AppTitleBar>(find.byType(AppTitleBar)).navigationEnabled,
+        isFalse,
+      );
+      expect(find.byType(AppTitleBarControls), findsOneWidget);
+      expect(find.byType(WindowResizeOverlay), findsOneWidget);
       final clip = tester.widget<ClipRRect>(
-        find.descendant(of: frame, matching: find.byType(ClipRRect)),
+        find.descendant(of: frame, matching: find.byType(ClipRRect)).first,
       );
       expect(clip.borderRadius, BorderRadius.circular(10));
       await tester.pumpWidget(const SizedBox.shrink());

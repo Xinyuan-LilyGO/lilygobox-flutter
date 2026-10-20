@@ -18,6 +18,8 @@ import '../core/theme/provider.dart';
 import '../core/widgets/app_scroll_behavior.dart';
 import '../core/window/provider.dart';
 import '../generated/l10n/app_localizations.dart';
+import 'bootstrap/startup.dart';
+import 'bootstrap/startup_presentation.dart';
 import 'navigation/dialog_observer.dart';
 import 'widgets/preferences_notice.dart';
 import 'widgets/title_bar.dart';
@@ -52,6 +54,7 @@ class _LilygoBoxAppState extends State<LilygoBoxApp> {
 
   @override
   Widget build(BuildContext context) {
+    final startup = StartupPresentation.of(context);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(context.read<PackageInfoProvider>().initializePackageInfo());
     });
@@ -95,12 +98,45 @@ class _LilygoBoxAppState extends State<LilygoBoxApp> {
                               children: [
                                 ValueListenableBuilder<bool>(
                                   valueListenable: _dialogs.hasDialog,
-                                  builder: (context, blocked, _) =>
-                                      AppTitleBar(navigationEnabled: !blocked),
+                                  builder: (context, blocked, _) => AppTitleBar(
+                                    navigationEnabled:
+                                        !blocked &&
+                                        !(startup?.visible ?? false),
+                                  ),
                                 ),
                                 Expanded(
                                   child: ClipRect(
-                                    child: ScaffoldMessenger(child: navigator!),
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        IgnorePointer(
+                                          ignoring: startup?.visible ?? false,
+                                          child: ExcludeFocus(
+                                            excluding:
+                                                startup?.visible ?? false,
+                                            child: ExcludeSemantics(
+                                              excluding:
+                                                  startup?.visible ?? false,
+                                              child: ScaffoldMessenger(
+                                                child: navigator!,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        if (startup?.visible ?? false)
+                                          FadeTransition(
+                                            opacity: startup!.opacity,
+                                            child: Consumer<ThemeProvider>(
+                                              builder: (context, theme, _) =>
+                                                  StartupScreen(
+                                                    themeType:
+                                                        theme.currentTheme,
+                                                    framed: false,
+                                                  ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ],

@@ -11,6 +11,7 @@ import '../../core/theme/provider.dart';
 import '../lilygobox_app.dart';
 import '../providers.dart';
 import '../widgets/window_frame.dart';
+import 'startup_presentation.dart';
 
 /// 先绘制启动画面，再恢复本地配置；联网服务继续由主页在后台启动。
 class AppStartup extends StatefulWidget {
@@ -55,7 +56,10 @@ class _AppStartupState extends State<AppStartup>
   ).animate(CurvedAnimation(parent: _fade, curve: Curves.easeOutCubic));
 
   void _tryFade() {
-    if (!mounted || _fading || !_minimumDisplayElapsed || !_applicationPainted) {
+    if (!mounted ||
+        _fading ||
+        !_minimumDisplayElapsed ||
+        !_applicationPainted) {
       return;
     }
     _fading = true;
@@ -120,17 +124,17 @@ class _AppStartupState extends State<AppStartup>
           fit: StackFit.expand,
           children: [
             if (preferences != null)
-              IgnorePointer(
-                ignoring: _showStartup,
-                child: ExcludeSemantics(
-                  excluding: _showStartup,
-                  child: KeyedSubtree(
-                    key: const ValueKey('application'),
-                    child: widget.applicationBuilder(preferences),
-                  ),
+              StartupPresentation(
+                visible: _showStartup,
+                opacity: _opacity,
+                child: KeyedSubtree(
+                  key: const ValueKey('application'),
+                  child: widget.applicationBuilder(preferences),
                 ),
               ),
-            if (_showStartup)
+            if (_showStartup &&
+                (preferences == null ||
+                    widget.applicationBuilder != AppStartup._buildApplication))
               FadeTransition(
                 opacity: _opacity,
                 child: StartupScreen(
@@ -150,9 +154,14 @@ class _AppStartupState extends State<AppStartup>
 
 /// 简洁的启动标识，使用应用保存的主题，不展示虚构进度。
 class StartupScreen extends StatefulWidget {
-  const StartupScreen({super.key, this.themeType = ThemeType.dark});
+  const StartupScreen({
+    super.key,
+    this.themeType = ThemeType.dark,
+    this.framed = true,
+  });
 
   final ThemeType themeType;
+  final bool framed;
 
   @override
   State<StartupScreen> createState() => _StartupScreenState();
@@ -196,10 +205,8 @@ class _StartupScreenState extends State<StartupScreen> with WindowListener {
   @override
   Widget build(BuildContext context) {
     final theme = MaterialPalette.create(widget.themeType);
-    return AppWindowFrame(
-      theme: theme,
-      isMaximized: _maximized,
-      showShadow: false,
+    final content = ColoredBox(
+      color: theme.primary,
       child: DragToMoveArea(
         child: Center(
           child: Semantics(
@@ -219,5 +226,13 @@ class _StartupScreenState extends State<StartupScreen> with WindowListener {
         ),
       ),
     );
+    return widget.framed
+        ? AppWindowFrame(
+            theme: theme,
+            isMaximized: _maximized,
+            showShadow: false,
+            child: content,
+          )
+        : content;
   }
 }
