@@ -98,7 +98,7 @@ class _TGlassesP4SettingsSplitViewState
           title: 'firmware_version',
           description: '设备固件版本',
           showMoreButton: false,
-          control: SettingReadOnlyField(theme: theme, value: 'v1.2.3'),
+          control: SettingReadOnlyField(theme: theme, value: '1.2.3'),
         ),
         SettingsRow(
           theme: theme,

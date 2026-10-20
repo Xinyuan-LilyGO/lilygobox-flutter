@@ -230,7 +230,7 @@ void main() {
         same(route),
       );
       expect(find.text('发现固件更新'), findsOneWidget);
-      expect(find.textContaining('v1.1.2  →  v1.1.3'), findsOneWidget);
+      expect(find.textContaining('1.1.2  →  1.1.3'), findsOneWidget);
       expect(find.textContaining('改进设备连接'), findsOneWidget);
       expect(find.textContaining('无线固件版本\n'), findsNothing);
       expect(find.text('有新版本'), findsOneWidget);

@@ -453,7 +453,7 @@ void main() {
                 builder: (_) => FirmwareUpdateDialog(
                   controller: controller,
                   theme: theme.themeData,
-                  description: '主固件版本 v1.1.1 → v1.1.2\n更新内容：测试说明',
+                  description: '主固件版本 1.1.1 → 1.1.2\n更新内容：测试说明',
                 ),
               ),
               child: const Text('更新'),

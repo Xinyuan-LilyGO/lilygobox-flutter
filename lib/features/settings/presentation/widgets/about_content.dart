@@ -22,6 +22,10 @@ class AboutContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final packageInfoProvider = context.watch<PackageInfoProvider>();
+    final version = packageInfoProvider.version.replaceFirst(
+      RegExp(r'^[vV]'),
+      '',
+    );
 
     return SettingsContentLayout(
       theme: theme,
@@ -31,7 +35,7 @@ class AboutContent extends StatelessWidget {
         SettingsField(
           theme: theme,
           title: context.l10n.version,
-          description: 'v${packageInfoProvider.version}',
+          description: version,
           child: const SizedBox.shrink(),
         ),
         const SizedBox(height: 16),

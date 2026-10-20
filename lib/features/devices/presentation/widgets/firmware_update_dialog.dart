@@ -141,9 +141,7 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
     final connection = widget.connection;
     String version(String value) => value.isEmpty
         ? l10n.otaUnknown
-        : value.startsWith('v')
-        ? value
-        : 'v$value';
+        : value.replaceFirst(RegExp(r'^[vV]'), '');
     return [
       if (release.needsMainUpdate(connection.firmware))
         '${l10n.otaMainVersion}\n${version(connection.firmware)}  →  ${version(release.mainVersion)}',

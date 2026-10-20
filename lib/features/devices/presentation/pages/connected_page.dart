@@ -39,8 +39,10 @@ import '../widgets/firmware_update_dialog.dart';
 
 enum _DeviceDetailView { control, information, battery, connection }
 
-String _versionForDisplay(String version) =>
-    version.isEmpty || version.startsWith('v') ? version : 'v$version';
+String _versionForDisplay(String version, {bool labelled = true}) {
+  final value = version.replaceFirst(RegExp(r'^[vV]'), '');
+  return labelled || value.isEmpty ? value : 'v$value';
+}
 
 class ConnectedDevicePage extends StatefulWidget {
   const ConnectedDevicePage({
@@ -420,6 +422,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                             : context.l10n.otaUpdateTo(
                                 _versionForDisplay(
                                   session.firmwareRelease!.mainVersion,
+                                  labelled: false,
                                 ),
                               ),
                         child: Semantics(
