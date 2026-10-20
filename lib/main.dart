@@ -9,9 +9,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import 'app/bootstrap/startup.dart';
 import 'app/bootstrap/window_bootstrap.dart';
-import 'app/lilygobox_app.dart';
-import 'app/providers.dart';
 import 'app/tray/menu_app.dart';
 import 'core/storage/preferences.dart';
 
@@ -27,9 +26,9 @@ void main() async {
 
   // 确保 Flutter 绑定已初始化
   WidgetsFlutterBinding.ensureInitialized();
-  final preferences = await AppPreferences.load();
   await configureDesktopWindow();
+  final preferences = await AppPreferences.load();
 
   // 启动Flutter应用
-  runApp(AppProviders(preferences: preferences, child: const LilygoBoxApp()));
+  runApp(AppStartup(preferences: preferences));
 }
