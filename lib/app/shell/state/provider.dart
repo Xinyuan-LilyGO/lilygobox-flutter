@@ -39,7 +39,7 @@ class AppShellProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  static const double defaultSidebarWidth = 240;
+  static const double defaultSidebarWidth = minSidebarWidth;
   static const double minSidebarWidth = 180;
   static const double maxSidebarWidth = 360;
   static const double sidebarCollapseThreshold = 120;

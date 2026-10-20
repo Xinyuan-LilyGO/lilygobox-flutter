@@ -27,13 +27,10 @@ class SettingActionButton extends StatelessWidget {
   Widget build(BuildContext context) => SizedBox(
     height: 32,
     width: double.infinity,
-    child: AppActionButton(
+    child: AppActionButton.settings(
       theme: theme,
       label: label,
       onPressed: onPressed,
-      fontSize: 13,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      borderRadius: BorderRadius.circular(4),
     ),
   );
 }

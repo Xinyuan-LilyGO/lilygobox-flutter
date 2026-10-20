@@ -17,6 +17,7 @@ import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
 import 'content_layout.dart';
+import 'split_view.dart';
 
 class GeneralSettingsContent extends StatelessWidget {
   const GeneralSettingsContent({super.key, required this.theme});
@@ -61,6 +62,9 @@ class GeneralSettingsContent extends StatelessWidget {
     context.read<LanguageProvider>().changeLanguage('en');
     context.read<AppShellProvider?>()?.resetLayout();
     context.read<SplitViewProvider?>()?.resetSplitWidth();
-    context.read<AppPreferences?>()?.setValue('settingsSidebarWidth', 212.0);
+    context.read<AppPreferences?>()?.setValue(
+      'settingsSidebarWidth',
+      SettingsSplitView.minSidebarWidth,
+    );
   }
 }

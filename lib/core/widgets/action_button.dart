@@ -2,7 +2,7 @@
  * @Description: 统一紫色与灰色文字操作按钮，沿用主页配色、悬停渐变及点击波纹。
  * @Author: LILYGO_L
  * @Date: 2026-10-03 18:10:36
- * @LastEditTime: 2026-10-03 18:10:36
+ * @LastEditTime: 2026-10-20 14:48:39
  * @License: GPL 3.0
  */
 
@@ -28,10 +28,20 @@ class AppActionButton extends StatelessWidget {
     this.icon,
     this.iconSize = 20,
     this.iconSpacing = 8,
-    this.fontSize = 14,
-    this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-    this.borderRadius = const BorderRadius.all(Radius.circular(10)),
-  });
+    double? fontSize,
+    EdgeInsetsGeometry? padding,
+    BorderRadius? borderRadius,
+  }) : fontSize = fontSize ?? (primary || destructive ? 14 : 12),
+       padding =
+           padding ??
+           (primary || destructive
+               ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+               : const EdgeInsets.symmetric(horizontal: 14, vertical: 8)),
+       borderRadius =
+           borderRadius ??
+           (primary || destructive
+               ? const BorderRadius.all(Radius.circular(10))
+               : const BorderRadius.all(Radius.circular(8)));
 
   /// 设置页普通操作统一沿用恢复默认设置按钮的配色和交互。
   factory AppActionButton.settings({
@@ -44,15 +54,6 @@ class AppActionButton extends StatelessWidget {
     theme: theme,
     label: label,
     onPressed: onPressed,
-    settingBackground: true,
-    backgroundColor: theme.adaptiveColor(
-      dark: theme.secondaryTextBackgroundColor,
-      light: theme.secondaryTextHoverColor,
-    ),
-    hoverColor: theme.secondaryTextHoverColorAlt,
-    fontSize: 12,
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-    borderRadius: BorderRadius.circular(8),
   );
 
   final AppTheme theme;
@@ -63,8 +64,9 @@ class AppActionButton extends StatelessWidget {
   /// 危险操作使用红色底色，继续复用统一的悬停和点击动画。
   final bool destructive;
 
-  /// 在设置弹窗中沿用未选中设置项底色，保留灰色悬停对比。
+  /// 提示框次要操作沿用适合弹窗背景的原有底色。
   final bool settingBackground;
+
   final Color? backgroundColor;
   final Color? hoverColor;
   final Color? surfaceColor;
@@ -77,9 +79,8 @@ class AppActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 灰色沿用取消连接的默认底色，紫色沿用主页添加设备按钮。
+    // 灰色操作统一沿用恢复默认设置按钮，紫色保留主要操作配色。
     final filled = primary || destructive;
-    // 提示框恢复柔和的悬停反馈，颜色按实际按钮底色混合。
     final inDialog = context.findAncestorWidgetOfExactType<Dialog>() != null;
     final background =
         backgroundColor ??
@@ -92,9 +93,9 @@ class AppActionButton extends StatelessWidget {
                 theme.secondary.withValues(alpha: .9),
                 theme.primary,
               )
-            : Color.alphaBlend(
-                theme.textColorPrimary.withValues(alpha: 0.06),
-                theme.secondary,
+            : theme.adaptiveColor(
+                dark: theme.secondaryTextBackgroundColor,
+                light: theme.secondaryTextHoverColor,
               ));
     final foreground = destructive
         ? theme.materialColors.onError
@@ -128,12 +129,12 @@ class AppActionButton extends StatelessWidget {
                     ),
                     background,
                   )
-                : filled
-                ? Color.alphaBlend(
+                : !filled
+                ? theme.secondaryTextHoverColorAlt
+                : Color.alphaBlend(
                     foreground.withValues(alpha: 0.1),
                     background,
-                  )
-                : theme.secondaryTextHoverColor),
+                  )),
         borderRadius: borderRadius,
         child: Padding(
           padding: padding,

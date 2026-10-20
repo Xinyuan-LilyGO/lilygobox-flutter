@@ -33,6 +33,7 @@ enum _SettingsCategory { appearance, language, general }
 
 class SettingsSplitView extends StatefulWidget {
   const SettingsSplitView({super.key});
+  static const double minSidebarWidth = 176;
   @override
   State<SettingsSplitView> createState() => _SettingsSplitViewState();
 }
@@ -42,9 +43,9 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
   bool _about = false;
   bool _profile = true;
   bool _mobileDetail = false;
-  double _sidebarWidth = 212;
+  double _sidebarWidth = SettingsSplitView.minSidebarWidth;
   double _dragStartX = 0;
-  double _dragStartWidth = 212;
+  double _dragStartWidth = SettingsSplitView.minSidebarWidth;
 
   void _close() => context.read<AppNavigationProvider>().closeSettings();
 
@@ -72,7 +73,12 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
     final colors = SettingsColors(theme);
     final preferences = context.watch<AppPreferences?>();
     final savedWidth =
-        preferences?.doubleValue('settingsSidebarWidth', 212, 176, 300) ??
+        preferences?.doubleValue(
+          'settingsSidebarWidth',
+          SettingsSplitView.minSidebarWidth,
+          SettingsSplitView.minSidebarWidth,
+          300,
+        ) ??
         _sidebarWidth;
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -192,9 +198,7 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
       ),
     };
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.sidebar,
-      ),
+      decoration: BoxDecoration(color: colors.sidebar),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
