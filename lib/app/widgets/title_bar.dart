@@ -13,6 +13,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../core/app_info/app_update_provider.dart';
 import '../../core/app_info/package_info_provider.dart';
 import '../../core/l10n/language_provider.dart';
 import '../../core/theme/provider.dart';
@@ -24,9 +25,14 @@ import '../shell/state/provider.dart';
 import 'title_bar_control_button.dart';
 
 class AppTitleBar extends StatelessWidget {
-  const AppTitleBar({super.key, this.navigationEnabled = true});
+  const AppTitleBar({
+    super.key,
+    this.navigationEnabled = true,
+    this.onUpdatePressed,
+  });
 
   final bool navigationEnabled;
+  final VoidCallback? onUpdatePressed;
 
   static const double height = 30.0;
 
@@ -111,6 +117,7 @@ class AppTitleBar extends StatelessWidget {
                               child: TitleBarIconButton(
                                 key: const ValueKey('toggle-sidebar'),
                                 icon: Symbols.dock_to_right,
+                                size: 22,
                                 onPressed: navigationEnabled
                                     ? context
                                           .read<AppShellProvider>()
@@ -132,20 +139,44 @@ class AppTitleBar extends StatelessWidget {
             ),
           ),
           Center(
-            child: AppTooltip(
-              verticalOffset: 16,
-              message: context.l10n.settings,
-              child: TitleBarIconButton(
-                key: const ValueKey('titlebar-settings'),
-                icon: Symbols.settings,
-                onPressed: navigationEnabled
-                    ? () => navigationProvider.setPage(AppPage.settings)
-                    : null,
-                isFocused: isFocused,
-                theme: theme,
-                backgroundColor: theme.primary,
-                hoverColor: theme.primaryTextHoverColor,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (context.watch<AppUpdateProvider>().update != null)
+                  AppTooltip(
+                    verticalOffset: 16,
+                    message: context.l10n.appUpdateTitle,
+                    child: TitleBarIconButton(
+                      key: const ValueKey('titlebar-update'),
+                      icon: Symbols.download_rounded,
+                      size: 22,
+                      iconSize: 15,
+                      onPressed: navigationEnabled ? onUpdatePressed : null,
+                      isFocused: isFocused,
+                      theme: theme,
+                      backgroundColor: const Color(0xFF4B9AF5),
+                      hoverColor: const Color(0xFF367FCF),
+                      iconColor: Colors.white,
+                    ),
+                  ),
+                const SizedBox(width: 6),
+                AppTooltip(
+                  verticalOffset: 16,
+                  message: context.l10n.settings,
+                  child: TitleBarIconButton(
+                    key: const ValueKey('titlebar-settings'),
+                    icon: Symbols.settings,
+                    size: 22,
+                    onPressed: navigationEnabled
+                        ? () => navigationProvider.setPage(AppPage.settings)
+                        : null,
+                    isFocused: isFocused,
+                    theme: theme,
+                    backgroundColor: theme.primary,
+                    hoverColor: theme.primaryTextHoverColor,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 5.0),

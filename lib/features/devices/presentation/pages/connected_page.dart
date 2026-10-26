@@ -419,24 +419,19 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                             ? context.l10n.otaViewStatus
                             : session.firmwareRelease == null
                             ? context.l10n.otaCheckTitle
-                            : context.l10n.otaUpdateTo(
-                                _versionForDisplay(
-                                  session.firmwareRelease!.mainVersion,
-                                  labelled: false,
-                                ),
-                              ),
+                            : context.l10n.otaDeviceTitle,
                         child: Semantics(
                           button: true,
                           enabled: !_firmwareDialogOpen,
                           label: session.firmwareRelease == null
                               ? context.l10n.otaCheckTitle
-                              : context.l10n.otaUpdateFirmware,
+                              : context.l10n.otaDeviceTitle,
                           child: SizedBox(
-                            width: 30,
-                            height: 30,
+                            width: 28,
+                            height: 28,
                             child: MenuItemSurface(
                               theme: theme,
-                              borderRadius: BorderRadius.circular(15),
+                              borderRadius: BorderRadius.circular(14),
                               backgroundColor: session.firmwareRelease == null
                                   ? checkBackground
                                   : const Color(0xFF4B9AF5),
@@ -460,7 +455,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                                       : session.firmwareRelease == null
                                       ? Symbols.refresh
                                       : Symbols.download,
-                                  size: 20,
+                                  size: 18,
                                 ),
                               ),
                             ),

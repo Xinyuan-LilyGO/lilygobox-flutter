@@ -119,6 +119,36 @@
     "languageSettingsDescription": "Choose the display language for LilygoBox.",
     "generalSettingsDescription": "Manage application preferences and defaults.",
     "aboutSettingsDescription": "Application information and version.",
+    "checkForUpdates": "Check for updates",
+    "appUpdateTitle": "App update",
+    "appVersion": "App version",
+    "downloadAppUpdate": "Download update",
+    "cancelDownload": "Cancel download",
+    "installAppUpdate": "Install update",
+    "preparingAppUpdate": "Preparing installer…",
+    "downloadingAppUpdate": "Downloading update…",
+    "appUpdateDownloadProgress": "{received} MB / {total} MB",
+    "appUpdateDownloaded": "Download complete. The installer passed integrity verification.",
+    "appUpdateDownloadFailure": "Update download failed. Check your network and free disk space, then retry.",
+    "appUpdateIntegrityFailure": "The installer size or SHA-256 does not match. Installation was stopped.",
+    "appUpdateInstallerLaunchFailure": "Could not start the update installer. Try again, or open the downloaded installer manually.",
+    "checkingForUpdates": "Checking for updates…",
+    "upToDate": "You are up to date",
+    "updateAvailable": "Update available: {version}",
+    "updateCheckFailed": "Unable to check for updates",
+    "updateCheckNetworkFailure": "Could not connect to GitHub. Check your network connection or proxy settings.",
+    "updateCheckTimeout": "The connection to GitHub timed out. Try again later.",
+    "updateCheckManifestMissing": "The {channel} update manifest has not been published on GitHub yet.",
+    "updateChannelAlpha": "Alpha",
+    "updateChannelBeta": "Beta",
+    "updateChannelStable": "Stable",
+    "updateCheckServerFailure": "GitHub returned a server error. Try again later.",
+    "updateCheckHttpFailure": "GitHub rejected the update request. Check that the release is public.",
+    "updateCheckInvalidManifest": "GitHub returned an invalid update manifest.",
+    "updateCheckUnknownFailure": "An unexpected error occurred while checking for updates.",
+    "updateReleaseNotes": "Release notes",
+    "close": "Close",
+    "retry": "Retry",
     "restoreDefaults": "Restore defaults",
     "restoreDefaultsDescription": "Reset application preferences while keeping your account and added devices.",
     "restoreDefaultsConfirmTitle": "Restore default settings?",
@@ -300,7 +330,7 @@
     "@otaViewStatus": {
         "description": "Firmware update interface: otaViewStatus"
     },
-    "otaCheckTitle": "Check for firmware updates",
+    "otaCheckTitle": "Check for device updates",
     "@otaCheckTitle": {
         "description": "Firmware update interface: otaCheckTitle"
     },
@@ -313,7 +343,7 @@
             }
         }
     },
-    "otaUpdateFirmware": "Update firmware",
+    "otaUpdateFirmware": "Device update",
     "@otaUpdateFirmware": {
         "description": "Firmware update interface: otaUpdateFirmware"
     },
@@ -394,11 +424,11 @@
     "@otaFound": {
         "description": "Firmware update interface: otaFound"
     },
-    "otaDeviceTitle": "Device firmware update",
+    "otaDeviceTitle": "Device update",
     "@otaDeviceTitle": {
         "description": "Firmware update interface: otaDeviceTitle"
     },
-    "otaTitle": "Firmware update",
+    "otaTitle": "Device update",
     "@otaTitle": {
         "description": "Firmware update interface: otaTitle"
     },
@@ -696,6 +726,11 @@
                 "type": "String"
             }
         }
+    },
+    "redownloadUpdate": "Download again",
+    "otaIntegrityFailed": "{component} failed verification. Download it again to continue. Other verified components will be kept.",
+    "@otaIntegrityFailed": {
+        "placeholders": {"component": {"type": "String"}}
     },
     "otaTransferComplete": "{component} transferred. Waiting for device verification…",
     "@otaTransferComplete": {

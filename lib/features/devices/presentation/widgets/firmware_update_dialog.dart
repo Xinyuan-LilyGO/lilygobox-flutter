@@ -177,7 +177,12 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
                 }
                 final release = controller.release;
                 controller.dispose();
-                setState(() => _setRelease(release));
+                final next = FirmwareUpdateController(
+                  widget.connection,
+                  release,
+                );
+                setState(() => _controller = next);
+                unawaited(_retryUpdate(next));
               },
       );
     }
@@ -185,8 +190,9 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       title: Text(
         _error == null
-            ? context.l10n.otaCheckTitle
+            ? context.l10n.otaDeviceTitle
             : context.l10n.otaCheckFailed,
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
       ),
       content: SizedBox(
         width: 390,
@@ -242,6 +248,21 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
     borderRadius: BorderRadius.circular(8),
   );
+
+  Future<void> _retryUpdate(FirmwareUpdateController controller) async {
+    await controller.prepareCache();
+    if (!mounted ||
+        !identical(_controller, controller) ||
+        !_sameDevice ||
+        controller.terminal) {
+      return;
+    }
+    if (controller.deviceCacheAvailable) {
+      await controller.useDeviceCache();
+    } else {
+      await controller.download();
+    }
+  }
 }
 
 class FirmwareUpdateDialog extends StatefulWidget {
@@ -307,11 +328,8 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
             borderRadius: BorderRadius.circular(12),
           ),
           title: Text(
-            awaiting
-                ? context.l10n.otaFound
-                : controller.observer
-                ? context.l10n.otaDeviceTitle
-                : context.l10n.otaTitle,
+            context.l10n.otaDeviceTitle,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           content: SizedBox(
             width: 390,
@@ -401,13 +419,6 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
             ),
           ),
           actions: [
-            if (step == FirmwareUpdateStep.failed && widget.onRetry != null)
-              _button(
-                context.l10n.otaRetry,
-                widget.onRetry,
-                id: 'retry',
-                primary: true,
-              ),
             if (controller.observer && !controller.terminal && !installing)
               _button(
                 context.l10n.otaClose,
@@ -420,18 +431,13 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
               _button(
                 awaiting
                     ? context.l10n.otaCancel
+                    : step == FirmwareUpdateStep.downloading
+                    ? context.l10n.cancelDownload
                     : context.l10n.otaCancelUpdate,
                 !_cancelling && controller.canCancel
                     ? () => unawaited(_cancelAndClose())
                     : null,
                 id: 'cancel',
-              ),
-            if (awaiting &&
-                (controller.hasCache || controller.deviceCacheAvailable))
-              _button(
-                context.l10n.otaRedownload,
-                () => controller.download(reuseCache: false),
-                id: 'redownload',
               ),
             if (awaiting)
               _button(
@@ -462,6 +468,17 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
                 context.l10n.otaClose,
                 () => Navigator.of(context).pop(),
                 id: 'close',
+              ),
+            if (step == FirmwareUpdateStep.failed &&
+                controller.retryAllowed &&
+                widget.onRetry != null)
+              _button(
+                controller.integrityFailed
+                    ? context.l10n.otaRedownload
+                    : context.l10n.otaRetry,
+                widget.onRetry,
+                id: 'retry',
+                primary: true,
               ),
           ],
         ),

@@ -11,6 +11,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
+import '../core/app_info/app_update_provider.dart';
 import '../core/app_info/package_info_provider.dart';
 import '../core/l10n/language_provider.dart';
 import '../core/layout/split_view_provider.dart';
@@ -97,6 +98,11 @@ class _AppProvidersState extends State<AppProviders>
           create: (_) => LanguageProvider(preferences: widget.preferences),
         ),
         ChangeNotifierProvider(create: (_) => PackageInfoProvider()),
+        ChangeNotifierProvider(
+          lazy: false,
+          create: (context) =>
+              AppUpdateProvider(context.read<PackageInfoProvider>()),
+        ),
         ChangeNotifierProvider(
           create: (_) => AppShellProvider(preferences: widget.preferences),
         ),

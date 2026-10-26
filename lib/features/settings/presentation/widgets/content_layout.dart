@@ -38,37 +38,48 @@ class SettingsContentLayout extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(24, 22, 24, 32),
     child: Align(
       alignment: Alignment.topLeft,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 620),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(right: 40),
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: theme.textColorPrimary,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 40),
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: theme.textColorPrimary,
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.5,
+                    color: theme.textColorTertiary,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              description,
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.5,
-                color: theme.textColorTertiary,
-              ),
+          ),
+          const SizedBox(height: 26),
+          Divider(height: 1, color: SettingsColors(theme).divider),
+          const SizedBox(height: 14),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
             ),
-            const SizedBox(height: 26),
-            Divider(height: 1, color: SettingsColors(theme).divider),
-            const SizedBox(height: 14),
-            ...children,
-          ],
-        ),
+          ),
+        ],
       ),
     ),
   );
@@ -81,11 +92,13 @@ class SettingsField extends StatelessWidget {
     required this.title,
     required this.description,
     required this.child,
+    this.trailing,
   });
   final AppTheme theme;
   final String title;
   final String description;
   final Widget child;
+  final Widget? trailing;
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,13 +112,21 @@ class SettingsField extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 3),
-      Text(
-        description,
-        style: TextStyle(
-          fontSize: 12,
-          height: 1.4,
-          color: theme.textColorTertiary,
-        ),
+      Row(
+        children: [
+          Flexible(
+            fit: trailing == null ? FlexFit.tight : FlexFit.loose,
+            child: Text(
+              description,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.4,
+                color: theme.textColorTertiary,
+              ),
+            ),
+          ),
+          if (trailing != null) ...[const SizedBox(width: 12), trailing!],
+        ],
       ),
       const SizedBox(height: 12),
       child,

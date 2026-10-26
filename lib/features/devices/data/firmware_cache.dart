@@ -3,31 +3,65 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
+import '../../../../core/storage/cache_directories.dart';
+
+enum FirmwareCacheStatus { missing, valid, invalid }
+
 /// 仅缓存校验完整的组件；提供给 HTTP 服务的始终是独立的临时副本。
 class FirmwareCache {
   FirmwareCache({Directory? directory})
-    : directory = directory ?? _defaultDirectory();
+    : directory = directory ?? AppCacheDirectories.firmware;
 
   final Directory directory;
 
-  static Directory _defaultDirectory() {
-    final environment = Platform.environment;
-    final String? base;
-    if (Platform.isWindows) {
-      base = environment['LOCALAPPDATA'];
-      return Directory(
-        '${base ?? Directory.systemTemp.path}/LILYGO/lilygobox/cache/firmware',
-      );
-    } else if (Platform.isMacOS) {
-      final userDirectory = environment['HOME'];
-      base = userDirectory == null ? null : '$userDirectory/Library/Caches';
-    } else {
-      final userDirectory = environment['HOME'];
-      base =
-          environment['XDG_CACHE_HOME'] ??
-          (userDirectory == null ? null : '$userDirectory/.cache');
+  Future<Directory> createTransferDirectory() async {
+    try {
+      final transfers = Directory('${directory.path}/transfers');
+      await transfers.create(recursive: true);
+      return await transfers.createTemp('transfer-');
+    } on FileSystemException {
+      // 缓存不可写时仍允许本次更新，临时副本由任务收尾删除。
+      return Directory.systemTemp.createTemp('lilygobox-ota-');
     }
-    return Directory('${base ?? Directory.systemTemp.path}/lilygobox/firmware');
+  }
+
+  /// 下载任务限时十分钟；只清理超过一天的遗留副本，避开当前传输。
+  Future<void> clean({DateTime? now}) async {
+    final current = now ?? DateTime.now();
+    final temporaryCutoff = current.subtract(const Duration(days: 1));
+    final cacheCutoff = current.subtract(const Duration(days: 30));
+    try {
+      if (!await directory.exists()) return;
+      await for (final entry in directory.list(followLinks: false)) {
+        try {
+          final name = entry.uri.pathSegments.where((s) => s.isNotEmpty).last;
+          if (entry is File && RegExp(r'^[a-f0-9]{64}\.bin$').hasMatch(name)) {
+            if ((await entry.stat()).modified.isBefore(cacheCutoff)) {
+              await entry.delete();
+            }
+          } else if (entry is Directory && name.startsWith('.write-')) {
+            if ((await entry.stat()).modified.isBefore(temporaryCutoff)) {
+              await entry.delete(recursive: true);
+            }
+          } else if (entry is Directory && name == 'transfers') {
+            await for (final transfer in entry.list(followLinks: false)) {
+              if (transfer is Directory &&
+                  transfer.uri.pathSegments
+                      .where((s) => s.isNotEmpty)
+                      .last
+                      .startsWith('transfer-') &&
+                  (await transfer.stat()).modified.isBefore(temporaryCutoff)) {
+                await transfer.delete(recursive: true);
+              }
+            }
+          }
+        } on FileSystemException {
+          // 清理失败不阻止本次下载或其他组件的缓存复用。
+        }
+      }
+    } on FileSystemException {
+      // 缓存目录不可访问时交由正常下载流程处理。
+    }
   }
 
   File _file(
@@ -49,20 +83,30 @@ class FirmwareCache {
     String version,
     int size,
     String hash,
+  ) async =>
+      await inspect(scope, component, version, size, hash) ==
+      FirmwareCacheStatus.valid;
+
+  Future<FirmwareCacheStatus> inspect(
+    String scope,
+    String component,
+    String version,
+    int size,
+    String hash,
   ) async {
     final file = _file(scope, component, version, size, hash);
     try {
-      if (!await file.exists()) return false;
+      if (!await file.exists()) return FirmwareCacheStatus.missing;
       if (await file.length() == size &&
           (await sha256.bind(file.openRead()).first).toString() ==
               hash.toLowerCase()) {
-        return true;
+        return FirmwareCacheStatus.valid;
       }
       await file.delete();
     } on FileSystemException {
-      return false;
+      return FirmwareCacheStatus.invalid;
     }
-    return false;
+    return FirmwareCacheStatus.invalid;
   }
 
   Future<bool> restore(
@@ -108,8 +152,14 @@ class FirmwareCache {
       await temporary.rename(target.path);
       // 固件缓存限制为最近 8 个组件，活动传输使用副本，不受淘汰影响。
       final entries = await directory
-          .list()
-          .where((entry) => entry is File && entry.path.endsWith('.bin'))
+          .list(followLinks: false)
+          .where(
+            (entry) =>
+                entry is File &&
+                RegExp(
+                  r'^[a-f0-9]{64}\.bin$',
+                ).hasMatch(entry.uri.pathSegments.last),
+          )
           .cast<File>()
           .toList();
       final dated = <(File, DateTime)>[];

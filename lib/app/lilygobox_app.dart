@@ -11,12 +11,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/app_info/app_update_provider.dart';
+import '../core/app_info/app_update_service.dart';
 import '../core/app_info/package_info_provider.dart';
 import '../core/l10n/language_provider.dart';
 import '../core/theme/material_palette.dart';
 import '../core/theme/provider.dart';
 import '../core/widgets/app_scroll_behavior.dart';
 import '../core/window/provider.dart';
+import '../features/settings/presentation/widgets/about_content.dart';
 import '../generated/l10n/app_localizations.dart';
 import 'bootstrap/startup.dart';
 import 'bootstrap/startup_presentation.dart';
@@ -37,6 +40,7 @@ class LilygoBoxApp extends StatefulWidget {
 
 class _LilygoBoxAppState extends State<LilygoBoxApp> {
   final _dialogs = AppDialogObserver();
+  final _navigatorKey = GlobalKey<NavigatorState>();
   // 完整 ThemeData 只创建两次，不在渐变的每一帧重新生成控件默认主题。
   final _materialThemes = {
     for (final type in ThemeType.values)
@@ -66,6 +70,7 @@ class _LilygoBoxAppState extends State<LilygoBoxApp> {
     return Consumer2<WindowProvider, LanguageProvider>(
       builder: (context, windowProvider, languageProvider, child) {
         return MaterialApp(
+          navigatorKey: _navigatorKey,
           scrollBehavior: const AppScrollBehavior(),
           theme: _materialThemes[themeType],
           // 内置控件与自定义配色采用相同的时间和曲线。
@@ -102,6 +107,33 @@ class _LilygoBoxAppState extends State<LilygoBoxApp> {
                                     navigationEnabled:
                                         !blocked &&
                                         !(startup?.visible ?? false),
+                                    onUpdatePressed: () {
+                                      final navigatorContext = _navigatorKey
+                                          .currentState
+                                          ?.overlay
+                                          ?.context;
+                                      if (navigatorContext == null) return;
+
+                                      final updates = context
+                                          .read<AppUpdateProvider>();
+                                      final currentVersion = appReleaseVersion(
+                                        context
+                                            .read<PackageInfoProvider>()
+                                            .version,
+                                      );
+                                      showDialog<void>(
+                                        context: navigatorContext,
+                                        builder: (dialogContext) =>
+                                            AppUpdateDialog(
+                                              theme: context
+                                                  .read<ThemeProvider>()
+                                                  .themeData,
+                                              currentVersion: currentVersion,
+                                              initialUpdate: updates.update,
+                                              initialFailure: updates.failure,
+                                            ),
+                                      );
+                                    },
                                   ),
                                 ),
                                 Expanded(

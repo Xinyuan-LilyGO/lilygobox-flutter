@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../../core/network/download_sources.dart';
 import 'firmware_cache.dart';
 
 class FirmwareChip {
@@ -12,6 +13,17 @@ class FirmwareChip {
 
   final String model;
   final String revision;
+}
+
+/// 固件发布频道使用 Alpha、Beta 和 Stable 三种标准发布阶段。
+enum FirmwareReleaseChannel { alpha, beta, stable }
+
+extension FirmwareReleaseChannelValue on FirmwareReleaseChannel {
+  String get value => switch (this) {
+    FirmwareReleaseChannel.alpha => 'alpha',
+    FirmwareReleaseChannel.beta => 'beta',
+    FirmwareReleaseChannel.stable => 'stable',
+  };
 }
 
 class FirmwareHardware {
@@ -106,12 +118,30 @@ class FirmwareManifestException implements Exception {
   }
 }
 
+/// 已接收的组件未通过长度或摘要校验，不将网络故障归为校验失败。
+class FirmwareIntegrityException implements Exception {
+  const FirmwareIntegrityException({required this.main});
+
+  final bool main;
+}
+
+class _FirmwareHttpException extends HttpException {
+  _FirmwareHttpException(this.statusCode, Uri uri)
+    : super('Firmware download failed (HTTP $statusCode)', uri: uri);
+
+  final int statusCode;
+}
+
 class FirmwareUpdateService {
   const FirmwareUpdateService({http.Client? client}) : _client = client;
 
   final http.Client? _client;
 
-  static Uri manifestUriFor(String model, String modelVersion) {
+  static Uri manifestUriFor(
+    String model,
+    String modelVersion, {
+    FirmwareReleaseChannel channel = FirmwareReleaseChannel.stable,
+  }) {
     final normalizedVersion = _normalizeVersion(modelVersion);
     if (_chipRevision(normalizedVersion) == null) {
       throw const FormatException('Invalid device hardware version');
@@ -121,9 +151,10 @@ class FirmwareUpdateService {
       'T-Display-P4' => 't-display-p4',
       _ => throw const FormatException('Unsupported device model'),
     };
-    final file = 'lilygobox_${device}_ota-manifest_stable_v2.json';
+    final channelName = channel.value;
+    final file = 'lilygobox-$device-ota-manifest-$channelName-v2.json';
     return Uri.parse(
-      'https://github.com/Xinyuan-LilyGO/lilygobox-espidf/releases/download/ota-stable/$file',
+      'https://github.com/Xinyuan-LilyGO/lilygobox-espidf/releases/download/ota-$channelName/$file',
     );
   }
 
@@ -135,8 +166,9 @@ class FirmwareUpdateService {
     required String mainCurrent,
     required String wirelessCurrent,
     FirmwareHardware? hardware,
+    FirmwareReleaseChannel channel = FirmwareReleaseChannel.stable,
   }) async {
-    final uri = manifestUriFor(model, modelVersion);
+    final uri = manifestUriFor(model, modelVersion, channel: channel);
     final client = _client ?? http.Client();
     Object? lastError;
     try {
@@ -151,6 +183,10 @@ class FirmwareUpdateService {
               uri: source,
               statusCode: response.statusCode,
             );
+            if (response.statusCode < HttpStatus.internalServerError ||
+                source == _proxyUri(uri)) {
+              break;
+            }
             continue;
           }
           final release = _parse(
@@ -158,6 +194,7 @@ class FirmwareUpdateService {
             model,
             modelVersion,
             hardware,
+            channel,
           );
           if (release == null) {
             lastError = const FormatException(
@@ -211,7 +248,9 @@ class FirmwareUpdateService {
       throw StateError('Firmware is up to date');
     }
     final downloadClient = client ?? _client ?? http.Client();
-    final directory = await Directory.systemTemp.createTemp('lilygobox-ota-');
+    final directory = cache == null
+        ? await Directory.systemTemp.createTemp('lilygobox-ota-')
+        : await cache.createTransferDirectory();
     try {
       final main = downloadMain
           ? File('${directory.path}${Platform.pathSeparator}main.bin')
@@ -240,6 +279,7 @@ class FirmwareUpdateService {
             main,
             (received, total) => onProgress?.call(true, received, total),
             isCancelled,
+            main: true,
           );
         }
         if (!reused && !(isCancelled?.call() ?? false)) {
@@ -275,6 +315,7 @@ class FirmwareUpdateService {
             wireless,
             (received, total) => onProgress?.call(false, received, total),
             isCancelled,
+            main: false,
           );
         }
         if (!reused && !(isCancelled?.call() ?? false)) {
@@ -291,7 +332,9 @@ class FirmwareUpdateService {
           onProgress?.call(false, release.wirelessSize, release.wirelessSize);
         }
       }
-      if (isCancelled?.call() ?? false) throw const HttpException('Firmware update cancelled');
+      if (isCancelled?.call() ?? false) {
+        throw const HttpException('Firmware update cancelled');
+      }
       return DownloadedFirmware(
         directory: directory,
         main: main,
@@ -312,15 +355,67 @@ class FirmwareUpdateService {
     String expectedHash,
     File target,
     void Function(int, int) onProgress,
-    bool Function()? isCancelled,
-  ) async {
-    if (isCancelled?.call() ?? false) throw const HttpException('Firmware update cancelled');
+    bool Function()? isCancelled, {
+    required bool main,
+  }) async {
+    final sources = githubDownloadSources(uri);
+    for (var index = 0; index < sources.length; index++) {
+      if (isCancelled?.call() ?? false) {
+        throw const HttpException('Firmware update cancelled');
+      }
+      try {
+        await _downloadFromSource(
+          client,
+          sources[index],
+          expectedSize,
+          expectedHash,
+          target,
+          onProgress,
+          isCancelled,
+          main: main,
+        );
+        return;
+      } on TimeoutException {
+        if (index == sources.length - 1) rethrow;
+      } on SocketException {
+        if (index == sources.length - 1) rethrow;
+      } on HandshakeException {
+        if (index == sources.length - 1) rethrow;
+      } on http.ClientException {
+        if (index == sources.length - 1) rethrow;
+      } on _FirmwareHttpException catch (error) {
+        if (error.statusCode < HttpStatus.internalServerError ||
+            index == sources.length - 1) {
+          rethrow;
+        }
+      } on HttpException {
+        if (index == sources.length - 1) rethrow;
+      }
+      // 备用源从零写入，不拼接上一下载源的残缺内容。
+      if (await target.exists()) await target.delete();
+    }
+  }
+
+  Future<void> _downloadFromSource(
+    http.Client client,
+    Uri uri,
+    int expectedSize,
+    String expectedHash,
+    File target,
+    void Function(int, int) onProgress,
+    bool Function()? isCancelled, {
+    required bool main,
+  }) async {
+    if (isCancelled?.call() ?? false) {
+      throw const HttpException('Firmware update cancelled');
+    }
     onProgress(0, expectedSize);
     final response = await client
         .send(http.Request('GET', uri))
         .timeout(const Duration(seconds: 30));
     if (response.statusCode != HttpStatus.ok) {
-      throw HttpException('Firmware download failed', uri: uri);
+      await response.stream.listen((_) {}).cancel();
+      throw _FirmwareHttpException(response.statusCode, uri);
     }
     final sink = target.openWrite();
     var size = 0;
@@ -328,10 +423,12 @@ class FirmwareUpdateService {
       await for (final chunk in response.stream.timeout(
         const Duration(seconds: 30),
       )) {
-        if (isCancelled?.call() ?? false) throw const HttpException('Firmware update cancelled');
+        if (isCancelled?.call() ?? false) {
+          throw const HttpException('Firmware update cancelled');
+        }
         size += chunk.length;
         if (size > expectedSize) {
-          throw const FormatException('Firmware size mismatch');
+          throw FirmwareIntegrityException(main: main);
         }
         sink.add(chunk);
         onProgress(size, expectedSize);
@@ -342,7 +439,7 @@ class FirmwareUpdateService {
     final actual = await sha256.bind(target.openRead()).first;
     if (size != expectedSize ||
         actual.toString().toLowerCase() != expectedHash.toLowerCase()) {
-      throw const FormatException('Firmware integrity check failed');
+      throw FirmwareIntegrityException(main: main);
     }
   }
 
@@ -351,11 +448,12 @@ class FirmwareUpdateService {
     String model,
     String modelVersion,
     FirmwareHardware? hardware,
+    FirmwareReleaseChannel expectedChannel,
   ) {
     if (value is! Map<String, dynamic> ||
         value['kind'] != 'lilygobox#otaManifest' ||
         !const ['1.0', '2.0'].contains(value['manifestVersion']) ||
-        value['channel'] != 'stable') {
+        value['channel'] != expectedChannel.value) {
       return null;
     }
     final release = value['release'];
@@ -421,8 +519,8 @@ class FirmwareUpdateService {
     if (components == null) return null;
     final main = files[components['main']];
     final wireless = files[components['wireless']];
-    final mainFile = _file(main);
-    final wirelessFile = _file(wireless);
+    final mainFile = _file(main, value['manifestVersion']);
+    final wirelessFile = _file(wireless, value['manifestVersion']);
     if (mainFile == null ||
         wirelessFile == null ||
         main is! Map<String, dynamic> ||
@@ -485,7 +583,7 @@ class FirmwareUpdateService {
         current <= _chipRevision(chip['maxRevision'])!;
   }
 
-  _FirmwareFile? _file(Object? value) {
+  _FirmwareFile? _file(Object? value, Object? manifestVersion) {
     if (value is! Map<String, dynamic> ||
         value['version'] is! String ||
         value['sizeBytes'] is! int ||
@@ -494,16 +592,19 @@ class FirmwareUpdateService {
         value['hashes'] is! Map<String, dynamic>) {
       return null;
     }
-    final urls = value['downloadUrls'];
+    final urlValue = manifestVersion == '2.0'
+        ? value['downloadUrl']
+        : (value['downloadUrls'] is List<Object?> &&
+                  (value['downloadUrls'] as List<Object?>).isNotEmpty
+              ? (value['downloadUrls'] as List<Object?>).first
+              : null);
     final hash = (value['hashes'] as Map<String, dynamic>)['sha256'];
-    if (urls is! List<Object?> ||
-        urls.isEmpty ||
-        urls.first is! String ||
+    if (urlValue is! String ||
         hash is! String ||
         !RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(hash)) {
       return null;
     }
-    final url = Uri.tryParse(urls.first as String);
+    final url = Uri.tryParse(urlValue);
     if (url == null || url.scheme != 'https' || url.host.isEmpty) {
       return null;
     }

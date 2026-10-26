@@ -22,6 +22,8 @@ class AppDialog extends StatelessWidget {
     required this.content,
     required this.actions,
     this.constraints,
+    this.titleFontSize = 18,
+    this.titleFontWeight = FontWeight.normal,
   });
 
   final AppTheme theme;
@@ -29,6 +31,8 @@ class AppDialog extends StatelessWidget {
   final Widget content;
   final List<Widget> actions;
   final BoxConstraints? constraints;
+  final double titleFontSize;
+  final FontWeight titleFontWeight;
 
   @override
   Widget build(BuildContext context) => AlertDialog(
@@ -38,7 +42,11 @@ class AppDialog extends StatelessWidget {
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     title: Text(
       title,
-      style: TextStyle(fontSize: 18, color: theme.textColorPrimary),
+      style: TextStyle(
+        fontSize: titleFontSize,
+        fontWeight: titleFontWeight,
+        color: theme.textColorPrimary,
+      ),
     ),
     content: content,
     actions: actions,

@@ -391,6 +391,112 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutSettingsDescription => 'Application information and version.';
 
   @override
+  String get checkForUpdates => 'Check for updates';
+
+  @override
+  String get appUpdateTitle => 'App update';
+
+  @override
+  String get appVersion => 'App version';
+
+  @override
+  String get downloadAppUpdate => 'Download update';
+
+  @override
+  String get cancelDownload => 'Cancel download';
+
+  @override
+  String get installAppUpdate => 'Install update';
+
+  @override
+  String get preparingAppUpdate => 'Preparing installer…';
+
+  @override
+  String get downloadingAppUpdate => 'Downloading update…';
+
+  @override
+  String appUpdateDownloadProgress(Object received, Object total) {
+    return '$received MB / $total MB';
+  }
+
+  @override
+  String get appUpdateDownloaded =>
+      'Download complete. The installer passed integrity verification.';
+
+  @override
+  String get appUpdateDownloadFailure =>
+      'Update download failed. Check your network and free disk space, then retry.';
+
+  @override
+  String get appUpdateIntegrityFailure =>
+      'The installer size or SHA-256 does not match. Installation was stopped.';
+
+  @override
+  String get appUpdateInstallerLaunchFailure =>
+      'Could not start the update installer. Try again, or open the downloaded installer manually.';
+
+  @override
+  String get checkingForUpdates => 'Checking for updates…';
+
+  @override
+  String get upToDate => 'You are up to date';
+
+  @override
+  String updateAvailable(Object version) {
+    return 'Update available: $version';
+  }
+
+  @override
+  String get updateCheckFailed => 'Unable to check for updates';
+
+  @override
+  String get updateCheckNetworkFailure =>
+      'Could not connect to GitHub. Check your network connection or proxy settings.';
+
+  @override
+  String get updateCheckTimeout =>
+      'The connection to GitHub timed out. Try again later.';
+
+  @override
+  String updateCheckManifestMissing(Object channel) {
+    return 'The $channel update manifest has not been published on GitHub yet.';
+  }
+
+  @override
+  String get updateChannelAlpha => 'Alpha';
+
+  @override
+  String get updateChannelBeta => 'Beta';
+
+  @override
+  String get updateChannelStable => 'Stable';
+
+  @override
+  String get updateCheckServerFailure =>
+      'GitHub returned a server error. Try again later.';
+
+  @override
+  String get updateCheckHttpFailure =>
+      'GitHub rejected the update request. Check that the release is public.';
+
+  @override
+  String get updateCheckInvalidManifest =>
+      'GitHub returned an invalid update manifest.';
+
+  @override
+  String get updateCheckUnknownFailure =>
+      'An unexpected error occurred while checking for updates.';
+
+  @override
+  String get updateReleaseNotes => 'Release notes';
+
+  @override
+  String get close => 'Close';
+
+  @override
+  String get retry => 'Retry';
+
+  @override
   String get restoreDefaults => 'Restore defaults';
 
   @override
@@ -843,7 +949,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get otaViewStatus => 'View device update status';
 
   @override
-  String get otaCheckTitle => 'Check for firmware updates';
+  String get otaCheckTitle => 'Check for device updates';
 
   @override
   String otaUpdateTo(String version) {
@@ -851,7 +957,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get otaUpdateFirmware => 'Update firmware';
+  String get otaUpdateFirmware => 'Device update';
 
   @override
   String get otaWirelessVersion => 'Wireless firmware version';
@@ -916,10 +1022,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get otaFound => 'Firmware update available';
 
   @override
-  String get otaDeviceTitle => 'Device firmware update';
+  String get otaDeviceTitle => 'Device update';
 
   @override
-  String get otaTitle => 'Firmware update';
+  String get otaTitle => 'Device update';
 
   @override
   String get otaRemoteSource =>
@@ -1150,6 +1256,14 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String otaDownloadComplete(String component) {
     return '$component downloaded. Waiting for device verification…';
+  }
+
+  @override
+  String get redownloadUpdate => 'Download again';
+
+  @override
+  String otaIntegrityFailed(String component) {
+    return '$component failed verification. Download it again to continue. Other verified components will be kept.';
   }
 
   @override

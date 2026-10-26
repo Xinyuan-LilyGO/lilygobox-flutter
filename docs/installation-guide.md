@@ -4,7 +4,7 @@ LilygoBox 当前支持 Windows 桌面端。Linux、macOS、Android、iOS 和 Web
 
 ## Windows
 
-使用 LilygoBox Release 提供的 x64 安装程序。安装器可选择英文或简体中文，会显示项目的 GPL v3 许可协议，并提供创建桌面快捷方式的选项。开始菜单快捷方式始终创建。安装完成页默认勾选“立即打开 LilygoBox”。
+使用 LilygoBox Release 提供的 `LilygoBox-windows-x64-setup.exe` x64 安装程序。安装器可选择英文或简体中文，会显示项目的 GPL v3 许可协议，并提供创建桌面快捷方式的选项。开始菜单快捷方式始终创建。安装完成页默认勾选“立即打开 LilygoBox”。软件版本由发布清单和 GitHub Release 标签标识。
 
 默认安装目录：
 

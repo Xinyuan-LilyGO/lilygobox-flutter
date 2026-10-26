@@ -804,6 +804,186 @@ abstract class AppLocalizations {
   /// **'Application information and version.'**
   String get aboutSettingsDescription;
 
+  /// No description provided for @checkForUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for updates'**
+  String get checkForUpdates;
+
+  /// No description provided for @appUpdateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'App update'**
+  String get appUpdateTitle;
+
+  /// No description provided for @appVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'App version'**
+  String get appVersion;
+
+  /// No description provided for @downloadAppUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Download update'**
+  String get downloadAppUpdate;
+
+  /// No description provided for @cancelDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel download'**
+  String get cancelDownload;
+
+  /// No description provided for @installAppUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Install update'**
+  String get installAppUpdate;
+
+  /// No description provided for @preparingAppUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing installer…'**
+  String get preparingAppUpdate;
+
+  /// No description provided for @downloadingAppUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading update…'**
+  String get downloadingAppUpdate;
+
+  /// No description provided for @appUpdateDownloadProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{received} MB / {total} MB'**
+  String appUpdateDownloadProgress(Object received, Object total);
+
+  /// No description provided for @appUpdateDownloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Download complete. The installer passed integrity verification.'**
+  String get appUpdateDownloaded;
+
+  /// No description provided for @appUpdateDownloadFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Update download failed. Check your network and free disk space, then retry.'**
+  String get appUpdateDownloadFailure;
+
+  /// No description provided for @appUpdateIntegrityFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'The installer size or SHA-256 does not match. Installation was stopped.'**
+  String get appUpdateIntegrityFailure;
+
+  /// No description provided for @appUpdateInstallerLaunchFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not start the update installer. Try again, or open the downloaded installer manually.'**
+  String get appUpdateInstallerLaunchFailure;
+
+  /// No description provided for @checkingForUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking for updates…'**
+  String get checkingForUpdates;
+
+  /// No description provided for @upToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'You are up to date'**
+  String get upToDate;
+
+  /// No description provided for @updateAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Update available: {version}'**
+  String updateAvailable(Object version);
+
+  /// No description provided for @updateCheckFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to check for updates'**
+  String get updateCheckFailed;
+
+  /// No description provided for @updateCheckNetworkFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not connect to GitHub. Check your network connection or proxy settings.'**
+  String get updateCheckNetworkFailure;
+
+  /// No description provided for @updateCheckTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'The connection to GitHub timed out. Try again later.'**
+  String get updateCheckTimeout;
+
+  /// No description provided for @updateCheckManifestMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'The {channel} update manifest has not been published on GitHub yet.'**
+  String updateCheckManifestMissing(Object channel);
+
+  /// No description provided for @updateChannelAlpha.
+  ///
+  /// In en, this message translates to:
+  /// **'Alpha'**
+  String get updateChannelAlpha;
+
+  /// No description provided for @updateChannelBeta.
+  ///
+  /// In en, this message translates to:
+  /// **'Beta'**
+  String get updateChannelBeta;
+
+  /// No description provided for @updateChannelStable.
+  ///
+  /// In en, this message translates to:
+  /// **'Stable'**
+  String get updateChannelStable;
+
+  /// No description provided for @updateCheckServerFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub returned a server error. Try again later.'**
+  String get updateCheckServerFailure;
+
+  /// No description provided for @updateCheckHttpFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub rejected the update request. Check that the release is public.'**
+  String get updateCheckHttpFailure;
+
+  /// No description provided for @updateCheckInvalidManifest.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub returned an invalid update manifest.'**
+  String get updateCheckInvalidManifest;
+
+  /// No description provided for @updateCheckUnknownFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'An unexpected error occurred while checking for updates.'**
+  String get updateCheckUnknownFailure;
+
+  /// No description provided for @updateReleaseNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Release notes'**
+  String get updateReleaseNotes;
+
+  /// No description provided for @close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get close;
+
+  /// No description provided for @retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retry;
+
   /// No description provided for @restoreDefaults.
   ///
   /// In en, this message translates to:
@@ -1617,7 +1797,7 @@ abstract class AppLocalizations {
   /// Firmware update interface: otaCheckTitle
   ///
   /// In en, this message translates to:
-  /// **'Check for firmware updates'**
+  /// **'Check for device updates'**
   String get otaCheckTitle;
 
   /// Firmware update interface: otaUpdateTo
@@ -1629,7 +1809,7 @@ abstract class AppLocalizations {
   /// Firmware update interface: otaUpdateFirmware
   ///
   /// In en, this message translates to:
-  /// **'Update firmware'**
+  /// **'Device update'**
   String get otaUpdateFirmware;
 
   /// Firmware update interface: otaWirelessVersion
@@ -1743,13 +1923,13 @@ abstract class AppLocalizations {
   /// Firmware update interface: otaDeviceTitle
   ///
   /// In en, this message translates to:
-  /// **'Device firmware update'**
+  /// **'Device update'**
   String get otaDeviceTitle;
 
   /// Firmware update interface: otaTitle
   ///
   /// In en, this message translates to:
-  /// **'Firmware update'**
+  /// **'Device update'**
   String get otaTitle;
 
   /// Firmware update interface: otaRemoteSource
@@ -2117,6 +2297,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{component} downloaded. Waiting for device verification…'**
   String otaDownloadComplete(String component);
+
+  /// No description provided for @redownloadUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Download again'**
+  String get redownloadUpdate;
+
+  /// No description provided for @otaIntegrityFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'{component} failed verification. Download it again to continue. Other verified components will be kept.'**
+  String otaIntegrityFailed(String component);
 
   /// Firmware update interface: otaTransferComplete
   ///

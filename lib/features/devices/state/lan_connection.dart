@@ -258,6 +258,9 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
   bool firmwareTaskBusy = false;
   bool firmwareMainCached = false;
   bool firmwareWirelessCached = false;
+  bool firmwareIntegrityFailed = false;
+  bool firmwareManualUpdateRequired = false;
+  String firmwareFailedComponent = '';
   String firmwareTaskMainVersion = '';
   String firmwareTaskWirelessVersion = '';
   bool get firmwareTaskActive =>
@@ -289,6 +292,9 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     firmwareTaskBusy = data['busy'] as bool;
     firmwareMainCached = data['mainCached'] == true;
     firmwareWirelessCached = data['wirelessCached'] == true;
+    firmwareIntegrityFailed = data['integrityFailed'] == true;
+    firmwareManualUpdateRequired = data['manualUpdateRequired'] == true;
+    firmwareFailedComponent = data['failedComponent'] as String? ?? '';
     firmwareUpdateStage = data['stage'] as String;
     firmwareUpdateProgress = (data['progress'] as num).round().clamp(0, 100);
     firmwareUpdateMessage = data['message'] as String;
@@ -452,6 +458,9 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
       }
     });
     firmwareUpdateStage = 'starting';
+    firmwareIntegrityFailed = false;
+    firmwareManualUpdateRequired = false;
+    firmwareFailedComponent = '';
     firmwareUpdateError = null;
     firmwareReceivedBytes = 0;
     firmwareTotalBytes = 0;
@@ -1018,6 +1027,9 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
           100,
         );
         firmwareUpdateMessage = data['message'] as String;
+        firmwareIntegrityFailed = data['integrityFailed'] == true;
+        firmwareManualUpdateRequired = data['manualUpdateRequired'] == true;
+        firmwareFailedComponent = data['failedComponent'] as String? ?? '';
         firmwareReceivedBytes = (data['receivedBytes'] as num?)?.toInt() ?? 0;
         firmwareTotalBytes = (data['totalBytes'] as num?)?.toInt() ?? 0;
         if (firmwareUpdateStage == 'readyToInstall' ||

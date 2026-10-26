@@ -175,4 +175,79 @@ void main() {
       isFalse,
     );
   });
+
+  test(
+    'integrity retry downloads only the broken component and clears transfer copies',
+    () async {
+      var corrupt = true;
+      final requests = <String>[];
+      final client = MockClient((request) async {
+        requests.add(request.url.path);
+        return http.Response.bytes(
+          corrupt && request.url.path == '/wireless' ? [9, 9, 9, 9] : bytes,
+          200,
+        );
+      });
+      addTearDown(client.close);
+      Future<DownloadedFirmware> download() =>
+          FirmwareUpdateService(client: client).download(
+            release,
+            downloadMain: true,
+            downloadWireless: true,
+            cache: cache,
+            cacheScope: 'P4-V2-chip1.3',
+          );
+      await expectLater(
+        download(),
+        throwsA(
+          isA<FirmwareIntegrityException>().having(
+            (error) => error.main,
+            'main',
+            isFalse,
+          ),
+        ),
+      );
+      expect(
+        await Directory('${cache.directory.path}/transfers').list().toList(),
+        isEmpty,
+      );
+      corrupt = false;
+      final files = await download();
+      expect(requests, ['/main', '/wireless', '/wireless']);
+      expect(await files.main!.readAsBytes(), bytes);
+      expect(await files.wireless!.readAsBytes(), bytes);
+      await files.directory.delete(recursive: true);
+    },
+  );
+
+  test(
+    'maintenance expires old firmware while keeping current cache and unknown files',
+    () async {
+      await seed();
+      final old = await File(
+        '${cache.directory.path}/${'a' * 64}.bin',
+      ).writeAsString('old');
+      await old.setLastModified(
+        DateTime.now().subtract(const Duration(days: 31)),
+      );
+      final other = await File(
+        '${cache.directory.path}/unrelated.bin',
+      ).writeAsString('keep');
+      final active = await cache.createTransferDirectory();
+      await cache.clean();
+      expect(await old.exists(), isFalse);
+      expect(await other.exists(), isTrue);
+      expect(await active.exists(), isTrue);
+      expect(
+        await cache.contains(
+          'P4-V2-chip1.3',
+          'main',
+          release.mainVersion,
+          bytes.length,
+          hash,
+        ),
+        isTrue,
+      );
+    },
+  );
 }

@@ -1,6 +1,9 @@
 param(
     [string]$IsccPath,
     [string]$FlutterPath = 'flutter',
+    [ValidateSet('alpha', 'beta', 'stable')]
+    [string]$ReleaseChannel = 'stable',
+    [string]$ReleaseVersion,
     [switch]$SkipFlutterBuild
 )
 
@@ -23,10 +26,20 @@ try {
         throw 'Install Inno Setup 6 or pass -IsccPath with the path to ISCC.exe.'
     }
     $versionLine = Get-Content -LiteralPath 'pubspec.yaml' | Where-Object { $_ -match '^version:\s*' } | Select-Object -First 1
-    $appVersion = ($versionLine -replace '^version:\s*', '').Trim() -replace '\+.*$', ''
-    if ($appVersion -notmatch '^\d+\.\d+\.\d+$') { throw 'Expected a numeric major.minor.patch version in pubspec.yaml.' }
+    $baseVersion = ($versionLine -replace '^version:\s*', '').Trim() -replace '\+.*$', ''
+    if ($baseVersion -notmatch '^\d+\.\d+\.\d+$') { throw 'Expected a numeric major.minor.patch version in pubspec.yaml.' }
+    $appVersion = $ReleaseVersion
+    if (-not $appVersion) {
+        $appVersion = if ($ReleaseChannel -eq 'stable') { $baseVersion } else { "$baseVersion-$ReleaseChannel.1" }
+    }
+    $versionMatch = [regex]::Match($appVersion, '^\d+\.\d+\.\d+(?:-(alpha|beta)\.\d+)?$')
+    if (-not $versionMatch.Success) { throw 'ReleaseVersion must follow major.minor.patch[-alpha.N|-beta.N].' }
+    $versionChannel = if ($versionMatch.Groups[1].Success) { $versionMatch.Groups[1].Value } else { 'stable' }
+    if ($versionChannel -ne $ReleaseChannel) { throw 'ReleaseVersion suffix must match ReleaseChannel.' }
     if (-not $SkipFlutterBuild) {
-        & $FlutterPath build windows --release
+        & $FlutterPath build windows --release `
+            "--dart-define=LILYGOBOX_RELEASE_CHANNEL=$ReleaseChannel" `
+            "--dart-define=LILYGOBOX_RELEASE_VERSION=$appVersion"
         if ($LASTEXITCODE -ne 0) { throw 'Flutter release build failed.' }
     }
     $releaseDir = Join-Path $projectRoot 'build\windows\x64\runner\Release'

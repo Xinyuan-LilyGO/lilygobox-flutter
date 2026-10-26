@@ -11,6 +11,7 @@ import 'package:lilygobox/generated/l10n/app_localizations_en.dart';
 import 'package:lilygobox/generated/l10n/app_localizations_zh.dart';
 import 'package:lilygobox/core/widgets/action_button.dart';
 import 'package:lilygobox/features/devices/data/firmware_update_service.dart';
+import 'package:lilygobox/features/devices/data/firmware_cache.dart';
 import 'package:lilygobox/features/devices/data/lan_discovery.dart';
 import 'package:lilygobox/features/devices/presentation/widgets/firmware_update_dialog.dart';
 import 'package:lilygobox/features/devices/state/firmware_update_controller.dart';
@@ -263,9 +264,9 @@ void main() {
     await tester.pumpWidget(app('en'));
     await tester.pump();
     final en = AppLocalizationsEn();
-    expect(find.text(en.otaFound), findsOneWidget);
+    expect(find.text(en.otaDeviceTitle), findsOneWidget);
     expect(find.text(en.otaUseDeviceCache), findsOneWidget);
-    expect(find.text(en.otaRedownload), findsOneWidget);
+    expect(find.text(en.otaRedownload), findsNothing);
     expect(find.text(en.otaCancel), findsOneWidget);
     expect(find.text(en.otaDeviceCacheHint), findsOneWidget);
     final english = tester
@@ -279,7 +280,7 @@ void main() {
     await tester.pumpWidget(app('zh'));
     await tester.pump();
     final zh = AppLocalizationsZh();
-    expect(find.text(zh.otaFound), findsOneWidget);
+    expect(find.text(zh.otaDeviceTitle), findsOneWidget);
     expect(find.text(zh.otaUseDeviceCache), findsOneWidget);
     expect(find.text(zh.otaCancel), findsOneWidget);
     expect(find.textContaining('Test firmware.'), findsOneWidget);
@@ -372,7 +373,73 @@ void main() {
     await controller.download();
     expect(controller.step, FirmwareUpdateStep.failed);
     expect(connection.starts, 0);
+    expect(controller.integrityFailed, isTrue);
+    expect(controller.message(AppLocalizationsZh()), contains('校验失败'));
   });
+
+  test(
+    'corrupt persisted cache requires confirmation before any download',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'firmware-check-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final cache = FirmwareCache(directory: directory);
+      final release = controller.release;
+      final source = await File(
+        '${directory.path}/source',
+      ).writeAsBytes([1, 2, 3]);
+      await cache.store(
+        'T-Display-P4|2.0|null:null|null:null',
+        'main',
+        release.mainVersion,
+        release.mainSize,
+        release.mainSha256,
+        source,
+      );
+      final file = await cache.directory
+          .list()
+          .where((e) => e is File && e.path.endsWith('.bin'))
+          .first;
+      await File(file.path).writeAsBytes([9, 9, 9]);
+      controller.dispose();
+      controller = FirmwareUpdateController(
+        connection,
+        release,
+        client: client,
+        cache: cache,
+      );
+      await controller.prepareCache();
+      expect(controller.step, FirmwareUpdateStep.failed);
+      expect(controller.integrityFailed, isTrue);
+      expect(client.requests, isEmpty);
+      expect(connection.starts, 0);
+      expect(await file.exists(), isFalse);
+      connection.firmwareTaskSupported = true;
+      connection.firmwareMainCached = true;
+      connection.firmwareTaskMainVersion = release.mainVersion;
+      await controller.useDeviceCache();
+      expect(controller.step, FirmwareUpdateStep.failed);
+      expect(connection.starts, 0);
+    },
+  );
+
+  test(
+    'device integrity failure uses localized recovery without redundant cancellation',
+    () async {
+      await controller.download();
+      connection.firmwareIntegrityFailed = true;
+      connection.firmwareFailedComponent = 'wireless';
+      connection.report('failed');
+      expect(controller.integrityFailed, isTrue);
+      expect(
+        controller.message(AppLocalizationsEn()),
+        contains('Wireless firmware'),
+      );
+      expect(controller.message(AppLocalizationsZh()), contains('无线固件校验失败'));
+      expect(connection.cancels, 0);
+    },
+  );
 
   test('complete device cache skips app download and file transfer', () async {
     connection.firmwareTaskSupported = true;
@@ -436,7 +503,11 @@ void main() {
     expect(connection.cancels, 1);
   });
 
-  Future<void> openDialog(WidgetTester tester, {String language = 'zh'}) async {
+  Future<void> openDialog(
+    WidgetTester tester, {
+    String language = 'zh',
+    VoidCallback? onRetry,
+  }) async {
     final theme = ThemeProvider();
     addTearDown(theme.dispose);
     await tester.pumpWidget(
@@ -454,6 +525,7 @@ void main() {
                   controller: controller,
                   theme: theme.themeData,
                   description: '主固件版本 1.1.1 → 1.1.2\n更新内容：测试说明',
+                  onRetry: onRetry,
                 ),
               ),
               child: const Text('更新'),
@@ -641,26 +713,51 @@ void main() {
       tester.element(find.widgetWithText(AppActionButton, '使用已下载固件')),
       same(primary),
     );
-    expect(
-      tester.element(find.widgetWithText(AppActionButton, '重新下载')),
-      isNot(same(primary)),
-    );
+    expect(find.widgetWithText(AppActionButton, '重新下载'), findsNothing);
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
   });
 
-  testWidgets('verified cache offers reuse and redownload in the same dialog', (
+  testWidgets('verified cache offers reuse without a redownload action', (
     tester,
   ) async {
     controller.mainCached = true;
     await openDialog(tester);
     expect(find.text('使用已下载固件'), findsOneWidget);
-    expect(find.text('重新下载'), findsOneWidget);
+    expect(find.text('重新下载'), findsNothing);
     expect(find.textContaining('已下载并校验：主固件'), findsOneWidget);
     expect(find.byType(AlertDialog), findsOneWidget);
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
   });
+
+  for (final integrity in [false, true]) {
+    testWidgets(
+      'failure provides one contextual recovery action (integrity: $integrity)',
+      (tester) async {
+        controller.step = FirmwareUpdateStep.failed;
+        controller.integrityFailed = integrity;
+        controller.message = (l10n) => l10n.otaTransferRejected;
+        var retries = 0;
+        await openDialog(tester, onRetry: () => retries++);
+        final label = integrity ? '重新下载' : '重试';
+        expect(find.text(label), findsOneWidget);
+        expect(find.byType(AlertDialog), findsOneWidget);
+        expect(
+          tester.getCenter(find.text(label)).dx,
+          greaterThan(tester.getCenter(find.text('关闭')).dx),
+        );
+        await tester.tap(find.text(label));
+        expect(retries, 1);
+        controller.retryAllowed = false;
+        controller.notifyListeners();
+        await tester.pumpAndSettle();
+        expect(find.text(label), findsNothing);
+        await tester.tap(find.text('关闭'));
+        await tester.pumpAndSettle();
+      },
+    );
+  }
 
   test(
     'disconnect without installation acknowledgement is not success',

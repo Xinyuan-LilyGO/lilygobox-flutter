@@ -6,8 +6,6 @@
  * @License: GPL 3.0
  */
 
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -82,11 +80,11 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
         _sidebarWidth;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final mobile = constraints.maxWidth < 600;
-        final maxSidebar = math.max(
-          176.0,
-          math.min(300.0, constraints.maxWidth * 0.4),
-        );
+        // 桌面设置页必须保持左右分栏，窗口缩放只影响右侧内容区域。
+        // Windows 的逻辑宽度会受显示缩放影响，不能用普通窗口宽度触发整页菜单，
+        // 否则拖动窗口时侧栏会占满内容区，看起来像覆盖了右侧页面。
+        final mobile = constraints.maxWidth < 360;
+        const maxSidebar = 300.0;
         final width = savedWidth.clamp(176.0, maxSidebar).toDouble();
         void back() {
           if (mobile && _mobileDetail) {

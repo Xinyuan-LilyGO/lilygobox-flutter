@@ -24,6 +24,7 @@ class TitleBarIconButton extends StatefulWidget {
     this.size = 24,
     this.iconSize = 16,
     this.hoverColor,
+    this.iconColor,
     this.backgroundColor,
     this.surfaceColor,
   });
@@ -37,6 +38,7 @@ class TitleBarIconButton extends StatefulWidget {
 
   /// 位于不同背景层级时，可复用该层级的主题悬停色。
   final Color? hoverColor;
+  final Color? iconColor;
 
   /// 页面内按钮传入所在背景，标题栏默认继续使用主背景。
   final Color? backgroundColor;
@@ -44,6 +46,32 @@ class TitleBarIconButton extends StatefulWidget {
 
   @override
   State<TitleBarIconButton> createState() => _TitleBarIconButtonState();
+}
+
+// 状态颜色在公共组件统一处理，调用方始终传入按钮原本的配色。
+// 有色按钮禁用或窗口失焦时与窗口底色混合，保留原色，不能直接替换成灰色背景。
+({Color background, Color icon}) _resolveButtonColors({
+  required AppTheme theme,
+  required bool active,
+  required Color background,
+  required Color? icon,
+}) {
+  if (active) {
+    return (background: background, icon: icon ?? theme.iconColor);
+  }
+  final mutedBackground = Color.alphaBlend(
+    background.withValues(alpha: background.a * .5),
+    theme.primary,
+  );
+  return (
+    background: mutedBackground,
+    icon: icon == null
+        ? theme.inactiveIconColor
+        : Color.alphaBlend(
+            icon.withValues(alpha: icon.a * .38),
+            mutedBackground,
+          ),
+  );
 }
 
 class _TitleBarIconButtonState extends State<TitleBarIconButton> {
@@ -54,6 +82,13 @@ class _TitleBarIconButtonState extends State<TitleBarIconButton> {
     final stateColors = widget.theme.buttonColorsForSurface(
       widget.surfaceColor ?? widget.backgroundColor ?? widget.theme.primary,
     );
+    final enabled = widget.onPressed != null;
+    final colors = _resolveButtonColors(
+      theme: widget.theme,
+      active: enabled && widget.isFocused,
+      background: widget.backgroundColor ?? stateColors.background,
+      icon: widget.iconColor,
+    );
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = widget.onPressed != null),
       onExit: (_) => setState(() => _isHovered = false),
@@ -62,9 +97,9 @@ class _TitleBarIconButtonState extends State<TitleBarIconButton> {
         duration: MenuItemSurface.animationDuration,
         curve: MenuItemSurface.animationCurve,
         decoration: BoxDecoration(
-          color: _isHovered && widget.onPressed != null
+          color: _isHovered && enabled && widget.isFocused
               ? widget.hoverColor ?? stateColors.hover
-              : widget.backgroundColor ?? stateColors.background,
+              : colors.background,
           shape: BoxShape.circle,
         ),
         // 墨水层位于背景上方，点击波纹不会被悬停背景遮挡。
@@ -86,9 +121,7 @@ class _TitleBarIconButtonState extends State<TitleBarIconButton> {
                 child: Icon(
                   widget.icon,
                   size: widget.iconSize,
-                  color: widget.isFocused && widget.onPressed != null
-                      ? widget.theme.iconColor
-                      : widget.theme.inactiveIconColor,
+                  color: colors.icon,
                   fill: 1,
                   weight: 400,
                 ),

@@ -376,6 +376,103 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aboutSettingsDescription => '应用信息与版本。';
 
   @override
+  String get checkForUpdates => '检查更新';
+
+  @override
+  String get appUpdateTitle => '应用更新';
+
+  @override
+  String get appVersion => '应用版本';
+
+  @override
+  String get downloadAppUpdate => '下载更新';
+
+  @override
+  String get cancelDownload => '取消下载';
+
+  @override
+  String get installAppUpdate => '安装更新';
+
+  @override
+  String get preparingAppUpdate => '正在准备安装…';
+
+  @override
+  String get downloadingAppUpdate => '正在下载更新…';
+
+  @override
+  String appUpdateDownloadProgress(Object received, Object total) {
+    return '$received MB / $total MB';
+  }
+
+  @override
+  String get appUpdateDownloaded => '下载完成，安装程序已通过完整性校验。';
+
+  @override
+  String get appUpdateDownloadFailure => '下载更新失败，请检查网络和磁盘空间后重试。';
+
+  @override
+  String get appUpdateIntegrityFailure => '安装包大小或 SHA-256 校验不匹配，已取消安装。';
+
+  @override
+  String get appUpdateInstallerLaunchFailure =>
+      '无法启动更新安装程序，请重试。也可以手动打开已下载的安装包。';
+
+  @override
+  String get checkingForUpdates => '正在检查更新…';
+
+  @override
+  String get upToDate => '当前已是最新版本';
+
+  @override
+  String updateAvailable(Object version) {
+    return '发现新版本：$version';
+  }
+
+  @override
+  String get updateCheckFailed => '检查更新失败';
+
+  @override
+  String get updateCheckNetworkFailure => '无法连接 GitHub，请检查网络连接或代理设置。';
+
+  @override
+  String get updateCheckTimeout => '连接 GitHub 超时，请稍后重试。';
+
+  @override
+  String updateCheckManifestMissing(Object channel) {
+    return 'GitHub 尚未发布 $channel 通道的更新清单。';
+  }
+
+  @override
+  String get updateChannelAlpha => 'Alpha';
+
+  @override
+  String get updateChannelBeta => 'Beta';
+
+  @override
+  String get updateChannelStable => '稳定版';
+
+  @override
+  String get updateCheckServerFailure => 'GitHub 服务器发生错误，请稍后重试。';
+
+  @override
+  String get updateCheckHttpFailure => 'GitHub 拒绝了更新请求，请确认 Release 已公开。';
+
+  @override
+  String get updateCheckInvalidManifest => 'GitHub 返回的更新清单格式无效。';
+
+  @override
+  String get updateCheckUnknownFailure => '检查更新时发生未知错误。';
+
+  @override
+  String get updateReleaseNotes => '更新内容';
+
+  @override
+  String get close => '关闭';
+
+  @override
+  String get retry => '重试';
+
+  @override
   String get restoreDefaults => '恢复默认设置';
 
   @override
@@ -803,7 +900,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get otaViewStatus => '查看设备更新状态';
 
   @override
-  String get otaCheckTitle => '检查固件更新';
+  String get otaCheckTitle => '检查设备更新';
 
   @override
   String otaUpdateTo(String version) {
@@ -811,7 +908,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get otaUpdateFirmware => '更新固件';
+  String get otaUpdateFirmware => '设备更新';
 
   @override
   String get otaWirelessVersion => '无线固件版本';
@@ -870,10 +967,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get otaFound => '发现固件更新';
 
   @override
-  String get otaDeviceTitle => '设备固件更新';
+  String get otaDeviceTitle => '设备更新';
 
   @override
-  String get otaTitle => '固件更新';
+  String get otaTitle => '设备更新';
 
   @override
   String get otaRemoteSource => '设备联网更新 · 关闭窗口不影响设备当前任务';
@@ -1074,6 +1171,14 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String otaDownloadComplete(String component) {
     return '$component下载完成，等待设备校验结果…';
+  }
+
+  @override
+  String get redownloadUpdate => '重新下载';
+
+  @override
+  String otaIntegrityFailed(String component) {
+    return '$component校验失败，请重新下载后继续。其他已校验通过的组件会保留。';
   }
 
   @override

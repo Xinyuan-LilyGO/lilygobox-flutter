@@ -1,6 +1,6 @@
 # Windows 测试安装包
 
-使用 Inno Setup 6 的默认安装向导，不包含自定义安装界面和应用内更新功能。
+使用 Inno Setup 6 的默认安装向导。应用内更新下载并校验安装程序后，退出应用并打开同一安装向导。
 
 ## 安装语言与许可协议
 
@@ -42,6 +42,7 @@
 如果已有 Release 构建产物，可以添加 `-SkipFlutterBuild` 跳过 Flutter 构建。如果编译器安装在其他目录，请使用 `-IsccPath` 指定路径。
 
 脚本会从 `pubspec.yaml` 读取版本号，检查完整的 Release 输出，并将安装包写入 `build/installer/`。
+构建出来的安装程序文件名会在末尾带上软件版本，例如 `LilygoBox-windows-x64-setup-1.0.0-beta.0.exe`。这样便于区分本地构建产物和归档版本。上传 GitHub Release 时，可以按更新清单约定去掉文件名中的版本后缀；请确保清单中的 `fileName`、下载地址、文件大小和 SHA-256 与实际发布资产一致。
 
 ## 手动测试
 

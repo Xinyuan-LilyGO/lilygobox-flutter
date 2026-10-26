@@ -54,7 +54,10 @@ Map<String, dynamic> manifest({String version = '2.0'}) =>
                   'version': role == 'main' ? '1.1.3' : '2.12.3',
                   'sizeBytes': 123,
                   'hashes': {'sha256': List.filled(64, 'a').join()},
-                  'downloadUrls': ['https://example.com/$role.bin'],
+                  if (version == '1.0')
+                    'downloadUrls': ['https://example.com/$role.bin']
+                  else
+                    'downloadUrl': 'https://example.com/$role.bin',
                 },
             },
             'releaseNotes': ['Update'],
@@ -133,7 +136,7 @@ void main() {
     ]) {
       expect(
         FirmwareUpdateService.manifestUriFor(model, version).path,
-        endsWith('lilygobox_${product}_ota-manifest_stable_v2.json'),
+        endsWith('lilygobox-$product-ota-manifest-stable-v2.json'),
       );
     }
     expect(
@@ -148,6 +151,28 @@ void main() {
       expect(release?.mainVersion, '1.1.3');
       expect(release?.needsWirelessUpdate('2.12.3'), isFalse);
     }
+  });
+
+  test('v2 requires one canonical GitHub download URL per component', () async {
+    final data = manifest();
+    data['files']['main']['version'] = '1.1.4';
+    data['files']['main']['downloadUrl'] =
+        'https://github.com/owner/repo/releases/download/v1.1.3/main.bin';
+    final release = await check(data);
+    expect(release, isNotNull);
+
+    data['files']['main'].remove('downloadUrl');
+    data['files']['main']['downloadUrls'] = [
+      'https://github.com/owner/repo/releases/download/v1.1.3/main.bin',
+    ];
+    await expectLater(check(data), throwsFormatException);
+
+    final v1 = manifest(version: '1.0');
+    v1['files']['main']['downloadUrls'] = [
+      'https://github.com/owner/repo/releases/download/v1.1.3/main.bin',
+      'https://gh-proxy.com/https://github.com/owner/repo/releases/download/v1.1.3/main.bin',
+    ];
+    expect((await check(v1))?.mainUrl.host, 'github.com');
   });
 
   test('unchanged component versions hide update entry', () async {
@@ -237,7 +262,7 @@ void main() {
       for (final series in [1, 2]) {
         data['files']['board-$board-chip-$series'] = {
           ...data['files']['main'] as Map<String, dynamic>,
-          'downloadUrls': ['https://example.com/board-$board-chip-$series.bin'],
+          'downloadUrl': 'https://example.com/board-$board-chip-$series.bin',
         };
       }
     }

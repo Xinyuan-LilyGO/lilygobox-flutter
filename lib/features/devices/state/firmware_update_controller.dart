@@ -69,6 +69,8 @@ class FirmwareUpdateController extends ChangeNotifier {
   bool mainCached = false;
   bool wirelessCached = false;
   bool _reuseCache = true;
+  bool integrityFailed = false;
+  bool retryAllowed = true;
   bool get hasCache => mainCached || wirelessCached;
   bool get deviceCacheAvailable {
     final release = _release;
@@ -89,6 +91,7 @@ class FirmwareUpdateController extends ChangeNotifier {
     if (!deviceCacheAvailable ||
         release == null ||
         _downloadStarted ||
+        terminal ||
         _disposed) {
       return;
     }
@@ -139,28 +142,42 @@ class FirmwareUpdateController extends ChangeNotifier {
 
   Future<void> prepareCache() async {
     final release = _release;
-    if (release == null || cache == null) return;
+    if (release == null || cache == null || deviceCacheAvailable) return;
     cacheChecking = true;
     _publish();
     try {
-      mainCached =
-          mainUpdateRequired &&
-          await cache!.contains(
-            _cacheScope,
-            'main',
-            release.mainVersion,
-            release.mainSize,
-            release.mainSha256,
-          );
-      wirelessCached =
-          wirelessUpdateRequired &&
-          await cache!.contains(
-            _cacheScope,
-            'wireless',
-            release.wirelessVersion,
-            release.wirelessSize,
-            release.wirelessSha256,
-          );
+      await cache!.clean();
+      final mainStatus = mainUpdateRequired
+          ? await cache!.inspect(
+              _cacheScope,
+              'main',
+              release.mainVersion,
+              release.mainSize,
+              release.mainSha256,
+            )
+          : FirmwareCacheStatus.missing;
+      final wirelessStatus = wirelessUpdateRequired
+          ? await cache!.inspect(
+              _cacheScope,
+              'wireless',
+              release.wirelessVersion,
+              release.wirelessSize,
+              release.wirelessSha256,
+            )
+          : FirmwareCacheStatus.missing;
+      mainCached = mainStatus == FirmwareCacheStatus.valid;
+      wirelessCached = wirelessStatus == FirmwareCacheStatus.valid;
+      if (mainStatus == FirmwareCacheStatus.invalid ||
+          wirelessStatus == FirmwareCacheStatus.invalid) {
+        integrityFailed = true;
+        _fail(
+          (l10n) => l10n.otaIntegrityFailed(
+            mainStatus == FirmwareCacheStatus.invalid
+                ? l10n.otaMainComponent
+                : l10n.otaWirelessComponent,
+          ),
+        );
+      }
     } finally {
       cacheChecking = false;
       _publish();
@@ -255,6 +272,13 @@ class FirmwareUpdateController extends ChangeNotifier {
       }
       _timeout?.cancel();
       await _transfer();
+    } on FirmwareIntegrityException catch (error) {
+      integrityFailed = true;
+      _fail(
+        (l10n) => l10n.otaIntegrityFailed(
+          error.main ? l10n.otaMainComponent : l10n.otaWirelessComponent,
+        ),
+      );
     } catch (error) {
       if (!terminal && !_disposed) {
         _fail((l10n) => l10n.otaDownloadFailed(error.toString()));
@@ -375,7 +399,18 @@ class FirmwareUpdateController extends ChangeNotifier {
         };
       case 'failed':
         final detail = connection.firmwareUpdateMessage;
-        _fail((l10n) => l10n.otaDeviceFailed(detail));
+        final failedWireless = connection.firmwareFailedComponent == 'wireless';
+        integrityFailed = connection.firmwareIntegrityFailed;
+        retryAllowed = !connection.firmwareManualUpdateRequired;
+        _fail(
+          (l10n) => integrityFailed
+              ? l10n.otaIntegrityFailed(
+                  failedWireless
+                      ? l10n.otaWirelessComponent
+                      : l10n.otaMainComponent,
+                )
+              : l10n.otaDeviceFailed(detail),
+        );
         return;
       case 'cancelled':
         step = FirmwareUpdateStep.cancelled;
@@ -485,6 +520,7 @@ class FirmwareUpdateController extends ChangeNotifier {
     final notifyDevice =
         !observer &&
         _transferAccepted &&
+        connection.firmwareUpdateStage != 'failed' &&
         (_taskId == null || _taskId == connection.firmwareTaskId) &&
         (step == FirmwareUpdateStep.transferring ||
             step == FirmwareUpdateStep.prepared);
