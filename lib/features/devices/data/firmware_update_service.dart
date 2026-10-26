@@ -183,7 +183,11 @@ class FirmwareUpdateService {
               uri: source,
               statusCode: response.statusCode,
             );
-            if (response.statusCode < HttpStatus.internalServerError ||
+            // GitHub Release assets can briefly return 404 while a tagged
+            // manifest is propagating; try the configured proxy before
+            // reporting that the device has no manifest.
+            if ((response.statusCode < HttpStatus.internalServerError &&
+                    response.statusCode != HttpStatus.notFound) ||
                 source == _proxyUri(uri)) {
               break;
             }

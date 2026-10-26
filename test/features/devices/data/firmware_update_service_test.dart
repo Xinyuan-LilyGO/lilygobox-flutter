@@ -107,6 +107,28 @@ void main() {
     expect(requests.last.toString(), 'https://gh-proxy.com/${requests.first}');
   });
 
+  test('HTTP 404 retries the manifest through the proxy', () async {
+    final requests = <Uri>[];
+    final client = MockClient((request) async {
+      requests.add(request.url);
+      if (requests.length == 1) {
+        return http.Response('Not found', 404);
+      }
+      return http.Response(jsonEncode(manifest()), 200);
+    });
+    addTearDown(client.close);
+    final release = await FirmwareUpdateService(client: client).check(
+      model: 'T-Display-P4',
+      modelVersion: '1.0',
+      mainCurrent: '1.1.2',
+      wirelessCurrent: '2.12.3',
+    );
+    expect(release?.mainVersion, '1.1.3');
+    expect(requests, hasLength(2));
+    expect(requests.first.host, 'github.com');
+    expect(requests.last.toString(), 'https://gh-proxy.com/${requests.first}');
+  });
+
   test('HTTP failures retain status instead of reporting up to date', () async {
     final client = MockClient((_) async => http.Response('Unavailable', 503));
     addTearDown(client.close);
