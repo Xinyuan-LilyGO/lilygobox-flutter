@@ -9,5 +9,5 @@
 // Client ID 是公开应用标识；此处不存放 Client Secret 或用户登录凭证。
 const githubClientId = String.fromEnvironment(
   'GITHUB_CLIENT_ID',
-  defaultValue: 'Ov23limaSLeFyydmGVOf',
+  defaultValue: 'Ov23liBCXlUzfRwXRpph',
 );
