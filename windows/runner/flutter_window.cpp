@@ -58,7 +58,10 @@ bool FlutterWindow::OnCreate() {
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
+    // 首帧到达时窗口才真正显示；显示后再激活，确保启动窗口取得前台焦点。
     this->Show();
+    SetForegroundWindow(GetHandle());
+    SetFocus(flutter_controller_->view()->GetNativeWindow());
   });
 
   // Flutter can complete the first frame before the "show window" callback is

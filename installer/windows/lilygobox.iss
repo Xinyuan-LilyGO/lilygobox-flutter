@@ -46,6 +46,10 @@ english.UninstallEntryFailed=Unable to configure the uninstall entry. Please rei
 english.ExitBeforeUninstall=Please fully exit LilygoBox, including its tray process, before uninstalling.
 english.ExitBeforeInstall=Please fully exit LilygoBox, including its tray process, before installing. If a device firmware update is in progress, wait for it to finish first, then exit the application and retry.
 english.UserDataDeleteFailed=Some LilygoBox user data could not be deleted. Close any programs using these folders, then remove them manually:
+english.UninstallSucceeded=LilygoBox has been uninstalled successfully.
+english.UninstallSucceededDataKept=LilygoBox has been uninstalled successfully. Your user data was kept.
+english.UninstallSucceededDataRemoved=LilygoBox and its user data have been removed successfully.
+english.UninstallDataCleanupFailed=LilygoBox was uninstalled, but some user data could not be removed. You can remove the listed folders manually:
 chinesesimplified.UninstallOptions=LilygoBox 卸载
 chinesesimplified.UninstallDataDescription=默认仅卸载 LilygoBox，保留设置、账号登录信息、设备配对记录和固件缓存，方便重新安装。
 chinesesimplified.RemoveUserData=同时删除 LilygoBox 用户数据
@@ -55,6 +59,10 @@ chinesesimplified.UninstallEntryFailed=无法配置卸载入口，请重新安�
 chinesesimplified.ExitBeforeUninstall=请先完全退出 LilygoBox（包括托盘进程），再进行卸载。
 chinesesimplified.ExitBeforeInstall=请先完全退出 LilygoBox（包括托盘进程），再进行安装。如果正在更新设备固件，请等待更新结束后再退出应用并重试。
 chinesesimplified.UserDataDeleteFailed=部分 LilygoBox 用户数据未能删除。请关闭占用这些目录的程序后手动清理：
+chinesesimplified.UninstallSucceeded=LilygoBox 已成功卸载。
+chinesesimplified.UninstallSucceededDataKept=LilygoBox 已成功卸载，用户数据已保留。
+chinesesimplified.UninstallSucceededDataRemoved=LilygoBox 及其用户数据已成功删除。
+chinesesimplified.UninstallDataCleanupFailed=LilygoBox 已卸载，但部分用户数据未能删除。你可以手动清理以下目录：
 
 [Files]
 Source: "{#ReleaseDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -70,6 +78,7 @@ Filename: "{app}\lilygobox-windows-x64.exe"; Description: "{cm:LaunchProgram,Lil
 [Code]
 var
   RemoveUserData: Boolean;
+  ShowUninstallResult: Boolean;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 var
@@ -98,22 +107,21 @@ var
   DescriptionLabel, WarningLabel: TNewStaticText;
   RemoveDataCheck: TNewCheckBox;
   ContinueButton, CancelButton: TNewButton;
-  InteractiveUninstall: Boolean;
   ParameterIndex: Integer;
 begin
   Result := False;
   RemoveUserData := False;
-  InteractiveUninstall := not UninstallSilent;
+  ShowUninstallResult := not UninstallSilent;
   for ParameterIndex := 1 to ParamCount do
     if CompareText(ParamStr(ParameterIndex), '/LILYGOBOXINTERACTIVE') = 0 then
-      InteractiveUninstall := True;
+      ShowUninstallResult := True;
   if CheckForMutexes('Local\LilygoBox.Main.5D67190D-7E46-4EA8-A99B-9C2E25668A0D') then
   begin
-    if InteractiveUninstall then
+    if ShowUninstallResult then
       MsgBox(CustomMessage('ExitBeforeUninstall'), mbInformation, MB_OK);
     Exit;
   end;
-  if not InteractiveUninstall then
+  if not ShowUninstallResult then
   begin
     Result := True;
     Exit;
@@ -166,18 +174,25 @@ procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   RoamingData, LocalData, FailedPaths: String;
 begin
-  if (CurUninstallStep = usPostUninstall) and RemoveUserData then
+  if (CurUninstallStep = usPostUninstall) and ShowUninstallResult then
   begin
-    RoamingData := ExpandConstant('{userappdata}\LILYGO\LilygoBox');
-    LocalData := ExpandConstant('{localappdata}\LILYGO\lilygobox');
     FailedPaths := '';
-    if DirExists(RoamingData) then
-      if not DelTree(RoamingData, True, True, True) then
-        FailedPaths := RoamingData;
-    if DirExists(LocalData) then
-      if not DelTree(LocalData, True, True, True) then
-        FailedPaths := FailedPaths + #13#10 + LocalData;
+    if RemoveUserData then
+    begin
+      RoamingData := ExpandConstant('{userappdata}\LILYGO\LilygoBox');
+      LocalData := ExpandConstant('{localappdata}\LILYGO\lilygobox');
+      if DirExists(RoamingData) then
+        if not DelTree(RoamingData, True, True, True) then
+          FailedPaths := RoamingData;
+      if DirExists(LocalData) then
+        if not DelTree(LocalData, True, True, True) then
+          FailedPaths := FailedPaths + #13#10 + LocalData;
+    end;
     if FailedPaths <> '' then
-      MsgBox(CustomMessage('UserDataDeleteFailed') + #13#10 + FailedPaths, mbError, MB_OK);
+      MsgBox(CustomMessage('UninstallDataCleanupFailed') + #13#10 + FailedPaths, mbError, MB_OK)
+    else if RemoveUserData then
+      MsgBox(CustomMessage('UninstallSucceededDataRemoved'), mbInformation, MB_OK)
+    else
+      MsgBox(CustomMessage('UninstallSucceededDataKept'), mbInformation, MB_OK);
   end;
 end;

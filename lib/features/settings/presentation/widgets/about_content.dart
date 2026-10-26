@@ -19,6 +19,7 @@ import '../../../../core/app_info/package_info_provider.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/widgets/action_button.dart';
+import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/window/provider.dart';
@@ -69,7 +70,6 @@ class _AboutContentState extends State<AboutContent> {
                   theme: theme,
                   currentVersion: version,
                   initialUpdate: updates.update,
-                  initialFailure: updates.failure,
                 ),
               );
             },
@@ -128,8 +128,8 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
   void initState() {
     super.initState();
     _update = widget.initialUpdate;
-    _failure = widget.initialFailure;
-    _checking = widget.initialUpdate == null && widget.initialFailure == null;
+    _failure = widget.initialUpdate == null ? null : widget.initialFailure;
+    _checking = widget.initialUpdate == null;
     if (_checking) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _check());
     } else if (widget.initialUpdate case final update?) {
@@ -173,7 +173,8 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
         _failure = error.kind;
         _checking = false;
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('App update check failed unexpectedly: $error\n$stackTrace');
       if (!mounted) return;
       setState(() {
         _failure = AppUpdateFailureKind.unknown;
@@ -471,12 +472,13 @@ class _UpdateStatusButton extends StatelessWidget {
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Tooltip(
+        AppTooltip(
+          verticalOffset: 16,
           message: checking
               ? context.l10n.checkingForUpdates
               : available
               ? context.l10n.appUpdateTitle
-              : context.l10n.checkForUpdates,
+              : context.l10n.checkForAppUpdates,
           child: SizedBox(
             width: 28,
             height: 28,
@@ -511,9 +513,7 @@ class _UpdateStatusButton extends StatelessWidget {
                     : Icon(
                         available
                             ? Symbols.download
-                            : failed
-                            ? Symbols.refresh
-                            : Symbols.check,
+                            : Symbols.refresh,
                         size: 18,
                       ),
               ),
@@ -535,8 +535,6 @@ class _UpdateStatusButton extends StatelessWidget {
           child: Text(
             available
                 ? context.l10n.otaNewVersion
-                : failed
-                ? context.l10n.retry
                 : context.l10n.checkForUpdates,
             style: TextStyle(
               fontSize: 11,

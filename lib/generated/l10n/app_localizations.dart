@@ -810,6 +810,12 @@ abstract class AppLocalizations {
   /// **'Check for updates'**
   String get checkForUpdates;
 
+  /// No description provided for @checkForAppUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for app updates'**
+  String get checkForAppUpdates;
+
   /// No description provided for @appUpdateTitle.
   ///
   /// In en, this message translates to:
@@ -1289,6 +1295,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Device uptime'**
   String get lanUptime;
+
+  /// No description provided for @uptimeDaySingular.
+  ///
+  /// In en, this message translates to:
+  /// **'day'**
+  String get uptimeDaySingular;
+
+  /// No description provided for @uptimeDayPlural.
+  ///
+  /// In en, this message translates to:
+  /// **'days'**
+  String uptimeDayPlural(int days);
 
   /// No description provided for @lanDisconnect.
   ///

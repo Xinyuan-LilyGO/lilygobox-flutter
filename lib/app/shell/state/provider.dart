@@ -42,6 +42,7 @@ class AppShellProvider with ChangeNotifier {
   static const double defaultSidebarWidth = minSidebarWidth;
   static const double minSidebarWidth = 180;
   static const double maxSidebarWidth = 360;
+  static const double sidebarCollapseThreshold = 120;
 
   double _sidebarWidth = defaultSidebarWidth;
   bool _isSidebarVisible = true;
@@ -55,8 +56,17 @@ class AppShellProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// 通过拖动只调整侧栏宽度，折叠状态由标题栏的显式按钮控制。
+  /// 拖动值可以小于最小展开宽度，用于判断是否已拖到折叠阈值。
   void resizeSidebar(double width, {required double maxWidth}) {
+    if (width < sidebarCollapseThreshold) {
+      if (_isSidebarVisible) {
+        _isSidebarVisible = false;
+        _saveLayout();
+        notifyListeners();
+      }
+      return;
+    }
+
     final upperBound = maxWidth.clamp(minSidebarWidth, maxSidebarWidth);
     final nextWidth = width.clamp(minSidebarWidth, upperBound).toDouble();
     if (_isSidebarVisible && nextWidth == _sidebarWidth) return;

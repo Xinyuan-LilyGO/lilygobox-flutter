@@ -53,9 +53,10 @@ class _PopupMenuTransitionState extends State<PopupMenuTransition>
     final progress = MediaQuery.disableAnimationsOf(context)
         ? const AlwaysStoppedAnimation<double>(1)
         : widget.animation ?? _controller;
-    final child = ScaleTransition(
-      alignment: widget.alignment,
-      scale: Tween<double>(
+    final child = SizeTransition(
+      axis: Axis.vertical,
+      axisAlignment: widget.alignment.y,
+      sizeFactor: Tween<double>(
         begin: PopupMenuTransition.beginScale,
         end: 1,
       ).animate(progress),

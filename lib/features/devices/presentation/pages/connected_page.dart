@@ -44,6 +44,20 @@ String _versionForDisplay(String version, {bool labelled = true}) {
   return labelled || value.isEmpty ? value : 'v$value';
 }
 
+String _formatUptime(int uptimeMs, AppLocalizations l10n) {
+  final seconds = uptimeMs ~/ 1000;
+  final days = seconds ~/ 86400;
+  final hours = (seconds ~/ 3600) % 24;
+  final minutes = (seconds ~/ 60) % 60;
+  final remainingSeconds = seconds % 60;
+  final dayLabel = days == 1
+      ? l10n.uptimeDaySingular
+      : l10n.uptimeDayPlural(days);
+  return '$days $dayLabel ${hours.toString().padLeft(2, '0')}:'
+      '${minutes.toString().padLeft(2, '0')}:'
+      '${remainingSeconds.toString().padLeft(2, '0')}';
+}
+
 class ConnectedDevicePage extends StatefulWidget {
   const ConnectedDevicePage({
     super.key,
@@ -538,7 +552,10 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
                     : '—',
               ),
               (l10n.lanMacAddress, device?.macAddress ?? '—'),
-              (l10n.lanUptime, online ? '${session.uptimeMs ~/ 1000} s' : '—'),
+              (
+                l10n.lanUptime,
+                online ? _formatUptime(session.uptimeMs, l10n) : '—',
+              ),
             ])
               DecoratedBox(
                 decoration: BoxDecoration(

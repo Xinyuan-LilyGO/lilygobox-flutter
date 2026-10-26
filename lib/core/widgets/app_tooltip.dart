@@ -44,7 +44,7 @@ class _AppTooltipState extends State<AppTooltip> {
       message: active ? widget.message : '',
       waitDuration: AppTooltip.waitDuration,
       ignorePointer: true,
-      verticalOffset: (widget.verticalOffset ?? 24) + 4,
+      verticalOffset: (widget.verticalOffset ?? 16) + 4,
       child: KeyedSubtree(key: _childKey, child: widget.child),
     );
   }

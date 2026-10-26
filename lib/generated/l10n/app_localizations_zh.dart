@@ -379,6 +379,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get checkForUpdates => '检查更新';
 
   @override
+  String get checkForAppUpdates => '检查应用更新';
+
+  @override
   String get appUpdateTitle => '应用更新';
 
   @override
@@ -627,6 +630,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get lanUptime => '设备运行时间';
+
+  @override
+  String get uptimeDaySingular => '天';
+
+  @override
+  String uptimeDayPlural(int days) {
+    return '天';
+  }
 
   @override
   String get lanDisconnect => '断开连接';

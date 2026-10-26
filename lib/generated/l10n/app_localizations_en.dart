@@ -394,6 +394,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get checkForUpdates => 'Check for updates';
 
   @override
+  String get checkForAppUpdates => 'Check for app updates';
+
+  @override
   String get appUpdateTitle => 'App update';
 
   @override
@@ -667,6 +670,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get lanUptime => 'Device uptime';
+
+  @override
+  String get uptimeDaySingular => 'day';
+
+  @override
+  String uptimeDayPlural(int days) {
+    return 'days';
+  }
 
   @override
   String get lanDisconnect => 'Disconnect';
