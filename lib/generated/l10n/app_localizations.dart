@@ -126,6 +126,42 @@ abstract class AppLocalizations {
   /// **'Choose your current theme'**
   String get themeDescription;
 
+  /// No description provided for @font.
+  ///
+  /// In en, this message translates to:
+  /// **'Font'**
+  String get font;
+
+  /// No description provided for @fontDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the application font. System follows the operating system default.'**
+  String get fontDescription;
+
+  /// No description provided for @fontSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System default'**
+  String get fontSystem;
+
+  /// No description provided for @fontInter.
+  ///
+  /// In en, this message translates to:
+  /// **'Inter'**
+  String get fontInter;
+
+  /// No description provided for @fontGoogleSansFlex.
+  ///
+  /// In en, this message translates to:
+  /// **'Google Sans Flex'**
+  String get fontGoogleSansFlex;
+
+  /// No description provided for @fontRoboto.
+  ///
+  /// In en, this message translates to:
+  /// **'Roboto'**
+  String get fontRoboto;
+
   /// No description provided for @themeDark.
   ///
   /// In en, this message translates to:

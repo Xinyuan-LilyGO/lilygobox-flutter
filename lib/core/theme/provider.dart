@@ -20,6 +20,10 @@ class ThemeProvider with ChangeNotifier {
     _currentTheme = preferences?.stringValue('theme', 'dark') == 'light'
         ? ThemeType.light
         : ThemeType.dark;
+    final savedFontChoice = preferences?.stringValue('font', 'system');
+    _fontChoice = _supportedFontChoices.contains(savedFontChoice)
+        ? savedFontChoice!
+        : 'system';
     if (vsync != null) {
       _transition = AnimationController(
         vsync: vsync,
@@ -32,6 +36,12 @@ class ThemeProvider with ChangeNotifier {
   final AppPreferences? _preferences;
 
   static const transitionDuration = Duration(milliseconds: 180);
+  static const _supportedFontChoices = {
+    'system',
+    'googleSansFlex',
+    'inter',
+    'roboto',
+  };
   AnimationController? _transition;
   AppTheme? _displayedTheme;
   AppTheme? _transitionStart;
@@ -54,6 +64,7 @@ class ThemeProvider with ChangeNotifier {
   }
 
   ThemeType _currentTheme = ThemeType.dark;
+  late String _fontChoice;
 
   final Map<ThemeType, AppTheme> _themes = {
     ThemeType.dark: MaterialPalette.create(ThemeType.dark),
@@ -63,6 +74,22 @@ class ThemeProvider with ChangeNotifier {
   ThemeType get currentTheme => _currentTheme;
   AppTheme get themeData => _displayedTheme ?? _themes[_currentTheme]!;
   List<AppTheme> get allThemes => _themes.values.toList();
+  String get fontChoice => _fontChoice;
+  String? get fontFamily => switch (_fontChoice) {
+    'googleSansFlex' => 'LilygoBoxGoogleSansFlex',
+    'inter' => 'LilygoBoxInter',
+    'roboto' => 'LilygoBoxRoboto',
+    _ => null,
+  };
+
+  void setFontChoice(String choice) {
+    if (!_supportedFontChoices.contains(choice) || _fontChoice == choice) {
+      return;
+    }
+    _fontChoice = choice;
+    _preferences?.setValue('font', choice);
+    notifyListeners();
+  }
 
   void cycleTheme() {
     final nextTheme = (_currentTheme.index + 1) % ThemeType.values.length;

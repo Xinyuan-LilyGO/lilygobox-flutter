@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
+import '../../../../core/widgets/settings/select.dart';
 import 'content_layout.dart';
 import 'theme_picker.dart';
 
@@ -44,6 +45,40 @@ class _PersonalizationContentState extends State<PersonalizationContent> {
             value: currentThemeType,
             themes: themeProvider.allThemes,
             onChanged: themeProvider.setTheme,
+          ),
+        ),
+        const SizedBox(height: 24),
+        SettingsField(
+          theme: theme,
+          title: context.l10n.font,
+          description: context.l10n.fontDescription,
+          child: SizedBox(
+            width: 220,
+            child: SettingSelect<String>(
+              theme: theme,
+              value: themeProvider.fontChoice,
+              items: [
+                DropdownMenuItem(
+                  value: 'system',
+                  child: Text(context.l10n.fontSystem),
+                ),
+                DropdownMenuItem(
+                  value: 'googleSansFlex',
+                  child: Text(context.l10n.fontGoogleSansFlex),
+                ),
+                DropdownMenuItem(
+                  value: 'inter',
+                  child: Text(context.l10n.fontInter),
+                ),
+                DropdownMenuItem(
+                  value: 'roboto',
+                  child: Text(context.l10n.fontRoboto),
+                ),
+              ],
+              onChanged: (value) {
+                if (value != null) themeProvider.setFontChoice(value);
+              },
+            ),
           ),
         ),
       ],

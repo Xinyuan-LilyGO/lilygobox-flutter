@@ -29,6 +29,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeDescription => 'Choose your current theme';
 
   @override
+  String get font => 'Font';
+
+  @override
+  String get fontDescription =>
+      'Choose the application font. System follows the operating system default.';
+
+  @override
+  String get fontSystem => 'System default';
+
+  @override
+  String get fontInter => 'Inter';
+
+  @override
+  String get fontGoogleSansFlex => 'Google Sans Flex';
+
+  @override
+  String get fontRoboto => 'Roboto';
+
+  @override
   String get themeDark => 'Dark';
 
   @override

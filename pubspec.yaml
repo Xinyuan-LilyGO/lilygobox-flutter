@@ -38,3 +38,16 @@ flutter:
   generate: true
   assets:
     - assets/images/branding/lilygobox_logo.svg
+    - assets/fonts/Inter/OFL.txt
+    - assets/fonts/Roboto/OFL.txt
+    - assets/fonts/GoogleSansFlex/OFL.txt
+  fonts:
+    - family: LilygoBoxGoogleSansFlex
+      fonts:
+        - asset: assets/fonts/GoogleSansFlex/GoogleSansFlex-Regular.ttf
+    - family: LilygoBoxInter
+      fonts:
+        - asset: assets/fonts/Inter/Inter-Variable.ttf
+    - family: LilygoBoxRoboto
+      fonts:
+        - asset: assets/fonts/Roboto/Roboto-Variable.ttf

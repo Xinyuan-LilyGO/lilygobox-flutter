@@ -29,6 +29,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get themeDescription => '选择你当前的主题';
 
   @override
+  String get font => '字体';
+
+  @override
+  String get fontDescription => '选择应用字体。“跟随系统”使用操作系统的默认字体。';
+
+  @override
+  String get fontSystem => '跟随系统';
+
+  @override
+  String get fontInter => 'Inter';
+
+  @override
+  String get fontGoogleSansFlex => 'Google Sans Flex';
+
+  @override
+  String get fontRoboto => 'Roboto';
+
+  @override
   String get themeDark => '深色';
 
   @override

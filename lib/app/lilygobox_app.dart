@@ -67,12 +67,23 @@ class _LilygoBoxAppState extends State<LilygoBoxApp> {
     final themeType = context.select<ThemeProvider, ThemeType>(
       (provider) => provider.currentTheme,
     );
+    final fontFamily = context.select<ThemeProvider, String?>(
+      (provider) => provider.fontFamily,
+    );
     return Consumer2<WindowProvider, LanguageProvider>(
       builder: (context, windowProvider, languageProvider, child) {
         return MaterialApp(
           navigatorKey: _navigatorKey,
           scrollBehavior: const AppScrollBehavior(),
-          theme: _materialThemes[themeType],
+          theme: fontFamily == null
+              ? _materialThemes[themeType]
+              : _materialThemes[themeType]!.copyWith(
+                  textTheme: _materialThemes[themeType]!.textTheme.apply(
+                    fontFamily: fontFamily,
+                  ),
+                  primaryTextTheme: _materialThemes[themeType]!.primaryTextTheme
+                      .apply(fontFamily: fontFamily),
+                ),
           // 内置控件与自定义配色采用相同的时间和曲线。
           themeAnimationDuration: ThemeProvider.transitionDuration,
           themeAnimationCurve: Curves.easeInOut,
