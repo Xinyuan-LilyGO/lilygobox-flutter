@@ -48,12 +48,21 @@ class _AppStartupState extends State<AppStartup>
       )..addStatusListener((status) {
         if (status == AnimationStatus.completed && mounted) {
           setState(() => _showStartup = false);
+          if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+            unawaited(_focusWindowAfterStartup());
+          }
         }
       });
   late final Animation<double> _opacity = Tween<double>(
     begin: 1,
     end: 0,
   ).animate(CurvedAnimation(parent: _fade, curve: Curves.easeOutCubic));
+
+  Future<void> _focusWindowAfterStartup() async {
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    await windowManager.focus();
+  }
 
   void _tryFade() {
     if (!mounted ||

@@ -67,12 +67,6 @@ class WindowProvider with ChangeNotifier, WindowListener {
     await windowManager.setPreventClose(true);
     _isMaximized = await windowManager.isMaximized();
     _isFocused = await windowManager.isFocused();
-    // 启动窗口由原生首帧和启动页共同显示，初始化查询可能发生在窗口
-    // 尚未完成激活时。主动聚焦并同步状态，避免启动后一直显示失焦样式。
-    if (!_isFocused && !_disposed) {
-      await windowManager.focus();
-      _isFocused = true;
-    }
     if (!_disposed) notifyListeners();
   }
 
