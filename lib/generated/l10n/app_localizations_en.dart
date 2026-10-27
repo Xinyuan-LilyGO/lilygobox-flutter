@@ -123,6 +123,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get language => 'Language';
 
   @override
+  String get languageAutoDetect => 'Automatic';
+
+  @override
   String get languageEnglish => 'English';
 
   @override
@@ -130,7 +133,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get languageDescription =>
-      'Choose your preferred application interface language';
+      'Automatically follow your system language or choose an application interface language.';
 
   @override
   String get deviceSettings => 'Device Settings';

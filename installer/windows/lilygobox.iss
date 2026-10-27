@@ -26,6 +26,7 @@ RestartApplications=no
 UninstallDisplayName=LilygoBox
 UninstallDisplayIcon={app}\lilygobox-windows-x64.exe
 WizardStyle=modern
+LanguageDetectionMethod=uilanguage
 ShowLanguageDialog=yes
 LicenseFile=..\..\build\installer\LICENSE.rtf
 

@@ -306,6 +306,12 @@ abstract class AppLocalizations {
   /// **'Language'**
   String get language;
 
+  /// No description provided for @languageAutoDetect.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic'**
+  String get languageAutoDetect;
+
   /// No description provided for @languageEnglish.
   ///
   /// In en, this message translates to:
@@ -321,7 +327,7 @@ abstract class AppLocalizations {
   /// No description provided for @languageDescription.
   ///
   /// In en, this message translates to:
-  /// **'Choose your preferred application interface language'**
+  /// **'Automatically follow your system language or choose an application interface language.'**
   String get languageDescription;
 
   /// No description provided for @deviceSettings.

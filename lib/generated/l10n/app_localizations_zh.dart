@@ -120,13 +120,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get language => '语言';
 
   @override
+  String get languageAutoDetect => '自动检测';
+
+  @override
   String get languageEnglish => '英语';
 
   @override
   String get languageChinese => '中文';
 
   @override
-  String get languageDescription => '选择您偏好的应用程序界面语言';
+  String get languageDescription => '自动跟随系统语言，或选择应用程序界面语言';
 
   @override
   String get deviceSettings => '设备设置';

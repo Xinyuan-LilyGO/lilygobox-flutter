@@ -28,7 +28,7 @@ class _LanguageAndRegionContentState extends State<LanguageAndRegionContent> {
   @override
   Widget build(BuildContext context) {
     final languageProvider = context.watch<LanguageProvider>();
-    final currentLanguageCode = languageProvider.locale.languageCode;
+    final currentLanguageCode = languageProvider.languageCode;
     final theme = widget.theme;
 
     return SettingsContentLayout(
@@ -47,6 +47,7 @@ class _LanguageAndRegionContentState extends State<LanguageAndRegionContent> {
               value: currentLanguageCode,
               items: LanguageProvider.supportedLanguages.map((language) {
                 final languageName = switch (language['code']) {
+                  'auto' => context.l10n.languageAutoDetect,
                   'en' => context.l10n.languageEnglish,
                   'zh' => context.l10n.languageChinese,
                   _ => language['nativeName']!,
