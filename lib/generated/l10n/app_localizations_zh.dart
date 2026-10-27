@@ -497,6 +497,57 @@ class AppLocalizationsZh extends AppLocalizations {
   String get retry => '重试';
 
   @override
+  String get configurationTitle => '配置文件';
+
+  @override
+  String get configurationDescription => '导入或导出外观与布局偏好。账号信息、设备和固件缓存不会包含在内。';
+
+  @override
+  String get configurationExport => '导出配置';
+
+  @override
+  String get configurationImport => '导入配置';
+
+  @override
+  String get configurationExportSucceeded => '配置已成功导出。';
+
+  @override
+  String get configurationImportSucceeded => '配置已成功导入。';
+
+  @override
+  String get configurationExportFailed => '无法导出配置文件。';
+
+  @override
+  String get configurationImportFailed => '无法导入配置文件。';
+
+  @override
+  String get configurationImportInvalid => '文件无效或使用了不支持的配置版本。';
+
+  @override
+  String get configurationImportConfirmTitle => '导入配置？';
+
+  @override
+  String get configurationImportConfirmDescription => '导入此文件将覆盖当前配置。';
+
+  @override
+  String get configurationMainSidebar => '主页侧边栏';
+
+  @override
+  String get configurationSettingsSidebar => '设置侧边栏';
+
+  @override
+  String get configurationContentPane => '内容区域';
+
+  @override
+  String get configurationVisible => '显示';
+
+  @override
+  String get configurationCollapsed => '收起';
+
+  @override
+  String get configurationFileType => 'LilygoBox 配置文件 (JSON)';
+
+  @override
   String get restoreDefaults => '恢复默认设置';
 
   @override

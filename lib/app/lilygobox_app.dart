@@ -47,6 +47,25 @@ class _LilygoBoxAppState extends State<LilygoBoxApp> {
       type: ThemeData(
         useMaterial3: true,
         colorScheme: MaterialPalette.create(type).materialColors,
+        tooltipTheme: TooltipThemeData(
+          decoration: BoxDecoration(
+            color: MaterialPalette.create(
+              type,
+            ).noticeBackgroundColor.withValues(alpha: .8),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        snackBarTheme: SnackBarThemeData(
+          // 通知栏只复用悬停提示背景和透明度，其他样式保持原设置。
+          backgroundColor: MaterialPalette.create(
+            type,
+          ).noticeBackgroundColor.withValues(alpha: .8),
+          contentTextStyle: TextStyle(
+            color: MaterialPalette.create(
+              type == ThemeType.dark ? ThemeType.light : ThemeType.dark,
+            ).textColorPrimary,
+          ),
+        ),
       ),
   };
 

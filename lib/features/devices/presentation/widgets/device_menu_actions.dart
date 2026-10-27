@@ -13,8 +13,8 @@ import '../../../../app/shell/state/provider.dart';
 import '../../../../core/context_menu/right_click_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
+import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
-import '../../../../core/widgets/debug_notice.dart';
 import '../../state/lan_connection.dart';
 import '../../state/manager_provider.dart';
 import '../confirm_repair.dart';
@@ -104,7 +104,7 @@ Future<void> deleteDeviceFromDetail(BuildContext context, String id) async {
     deleted = false;
   }
   if (messenger.mounted) {
-    showDebugNotice(
+    showAppNotice(
       messenger,
       deleted ? l10n.deleteDeviceSucceeded : l10n.deleteDeviceFailed,
     );

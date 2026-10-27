@@ -1032,6 +1032,108 @@ abstract class AppLocalizations {
   /// **'Retry'**
   String get retry;
 
+  /// No description provided for @configurationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Configuration'**
+  String get configurationTitle;
+
+  /// No description provided for @configurationDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Export or import appearance and layout preferences. Account data, devices, and firmware cache are excluded.'**
+  String get configurationDescription;
+
+  /// No description provided for @configurationExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Export configuration'**
+  String get configurationExport;
+
+  /// No description provided for @configurationImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Import configuration'**
+  String get configurationImport;
+
+  /// No description provided for @configurationExportSucceeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Configuration exported successfully.'**
+  String get configurationExportSucceeded;
+
+  /// No description provided for @configurationImportSucceeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Configuration imported successfully.'**
+  String get configurationImportSucceeded;
+
+  /// No description provided for @configurationExportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not export the configuration file.'**
+  String get configurationExportFailed;
+
+  /// No description provided for @configurationImportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not import the configuration file.'**
+  String get configurationImportFailed;
+
+  /// No description provided for @configurationImportInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'This file is invalid or uses an unsupported configuration version.'**
+  String get configurationImportInvalid;
+
+  /// No description provided for @configurationImportConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Import configuration?'**
+  String get configurationImportConfirmTitle;
+
+  /// No description provided for @configurationImportConfirmDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Importing this file will overwrite the current configuration.'**
+  String get configurationImportConfirmDescription;
+
+  /// No description provided for @configurationMainSidebar.
+  ///
+  /// In en, this message translates to:
+  /// **'Main sidebar'**
+  String get configurationMainSidebar;
+
+  /// No description provided for @configurationSettingsSidebar.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings sidebar'**
+  String get configurationSettingsSidebar;
+
+  /// No description provided for @configurationContentPane.
+  ///
+  /// In en, this message translates to:
+  /// **'Content pane'**
+  String get configurationContentPane;
+
+  /// No description provided for @configurationVisible.
+  ///
+  /// In en, this message translates to:
+  /// **'Visible'**
+  String get configurationVisible;
+
+  /// No description provided for @configurationCollapsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Collapsed'**
+  String get configurationCollapsed;
+
+  /// No description provided for @configurationFileType.
+  ///
+  /// In en, this message translates to:
+  /// **'LilygoBox configuration (JSON)'**
+  String get configurationFileType;
+
   /// No description provided for @restoreDefaults.
   ///
   /// In en, this message translates to:

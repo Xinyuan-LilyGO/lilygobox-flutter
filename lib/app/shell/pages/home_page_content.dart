@@ -8,7 +8,6 @@
 
 import 'dart:async';
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
@@ -17,9 +16,9 @@ import '../../../core/context_menu/text_selection_menu.dart';
 import '../../../core/l10n/language_provider.dart';
 import '../../../core/theme/provider.dart';
 import '../../../core/widgets/action_button.dart';
+import '../../../core/widgets/app_notice.dart';
 import '../../../core/widgets/app_tooltip.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
-import '../../../core/widgets/debug_notice.dart';
 import '../../../features/devices/presentation/widgets/home_device_card.dart';
 import '../../../features/devices/state/lan_connection.dart';
 import '../../../features/devices/state/manager_provider.dart';
@@ -104,7 +103,7 @@ class _HomePageContentState extends State<HomePageContent> {
       if (mounted) {
         setState(() {});
         if (attempted) {
-          showDebugNotice(
+          showAppNotice(
             ScaffoldMessenger.of(context),
             deleted ? l10n.deleteDeviceSucceeded : l10n.deleteDeviceFailed,
           );
@@ -170,52 +169,46 @@ class _HomePageContentState extends State<HomePageContent> {
                       ),
                     ),
                     if (!hasDevices)
-                      SliverToBoxAdapter(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            minHeight: math.max(0, constraints.maxHeight - 90),
-                          ),
-                          child: Padding(
-                            padding: EdgeInsets.fromLTRB(inset, 24, inset, 110),
-                            child: Center(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 380,
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    HomeDeviceIllustration(theme: theme),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      l10n.homeDevicesEmpty,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w600,
-                                        color: theme.textColorPrimary,
-                                      ),
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(inset, 24, inset, 110),
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 380),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  HomeDeviceIllustration(theme: theme),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    l10n.homeDevicesEmpty,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w600,
+                                      color: theme.textColorPrimary,
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      l10n.homeDevicesEmptyDescription,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        height: 1.35,
-                                        color: theme.textColorTertiary,
-                                      ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    l10n.homeDevicesEmptyDescription,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      height: 1.35,
+                                      color: theme.textColorTertiary,
                                     ),
-                                    const SizedBox(height: 26),
-                                    AppActionButton(
-                                      theme: theme,
-                                      label: l10n.addDevice,
-                                      icon: Symbols.add_rounded,
-                                      primary: true,
-                                      onPressed: _addDevice,
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(height: 26),
+                                  AppActionButton(
+                                    theme: theme,
+                                    label: l10n.addDevice,
+                                    icon: Symbols.add_rounded,
+                                    primary: true,
+                                    onPressed: _addDevice,
+                                  ),
+                                ],
                               ),
                             ),
                           ),

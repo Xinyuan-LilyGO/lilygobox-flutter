@@ -522,6 +522,64 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retry => 'Retry';
 
   @override
+  String get configurationTitle => 'Configuration';
+
+  @override
+  String get configurationDescription =>
+      'Export or import appearance and layout preferences. Account data, devices, and firmware cache are excluded.';
+
+  @override
+  String get configurationExport => 'Export configuration';
+
+  @override
+  String get configurationImport => 'Import configuration';
+
+  @override
+  String get configurationExportSucceeded =>
+      'Configuration exported successfully.';
+
+  @override
+  String get configurationImportSucceeded =>
+      'Configuration imported successfully.';
+
+  @override
+  String get configurationExportFailed =>
+      'Could not export the configuration file.';
+
+  @override
+  String get configurationImportFailed =>
+      'Could not import the configuration file.';
+
+  @override
+  String get configurationImportInvalid =>
+      'This file is invalid or uses an unsupported configuration version.';
+
+  @override
+  String get configurationImportConfirmTitle => 'Import configuration?';
+
+  @override
+  String get configurationImportConfirmDescription =>
+      'Importing this file will overwrite the current configuration.';
+
+  @override
+  String get configurationMainSidebar => 'Main sidebar';
+
+  @override
+  String get configurationSettingsSidebar => 'Settings sidebar';
+
+  @override
+  String get configurationContentPane => 'Content pane';
+
+  @override
+  String get configurationVisible => 'Visible';
+
+  @override
+  String get configurationCollapsed => 'Collapsed';
+
+  @override
+  String get configurationFileType => 'LilygoBox configuration (JSON)';
+
+  @override
   String get restoreDefaults => 'Restore defaults';
 
   @override

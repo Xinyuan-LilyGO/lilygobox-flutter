@@ -206,11 +206,11 @@ extension MaterialThemeRoles on AppTheme {
     light: const Color(0xFF6445AA),
   );
 
-  /// 设置侧栏沿用原来的深灰与浅灰。
-  Color get settingsSidebarColor => adaptiveColor(
-    dark: const Color(0xFF141414),
-    light: MaterialPalette.lightSurface,
-  );
+  /// 设置侧栏与主界面导航和窗口顶部栏使用一致的主题背景色。
+  Color get settingsSidebarColor => primary;
+
+  /// 悬停提示和应用通知共用的反色背景颜色。
+  Color get noticeBackgroundColor => materialColors.inverseSurface;
 
   /// 悬停弱于选中：深色用更暗的灰，浅色用更浅的灰，避免两种状态混淆。
   Color get settingsHoverColor => adaptiveColor(
