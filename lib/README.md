@@ -13,14 +13,10 @@ lib/
       pages/                        完整设置页面
       widgets/                      设置分类内容和主题选择等局部组件
     devices/
-      domain/                       共享设备标识及业务定义
+      data/                         LAN 发现、连接和配对数据服务
+      domain/                       设备业务定义
       state/                        设备列表状态和添加设备流程状态
       presentation/                 设备选择、页面分派及通用设备界面
-      t_glasses_p4/
-        domain/                     该设备的业务类型与连接状态定义
-        presentation/
-          pages/                    完整设备页面
-          widgets/                  设备专用界面组件
   l10n/                             手动维护的中英文 ARB 翻译
   generated/l10n/                   flutter gen-l10n 生成的代码
 ```
@@ -56,10 +52,9 @@ lib/
 
 ## 添加设备与设置页
 
-1. 在 `features/devices/domain/catalog.dart` 中登记支持的设备标识。
-2. 在该设备目录下实现页面及专用组件。
-3. 在 `DevicePresentationCatalog` 中登记图标、主页和设置页映射。
-4. 通过 `AppNavigationProvider.openDeviceSettings(deviceName)` 打开指定设备的设置。
+1. 在通用 LAN 设备页面中实现设备能力。
+2. 仅当设备确实需要独立界面时，才在 `DevicePresentationCatalog` 中添加专属页面映射。
+3. 通过 `AppNavigationProvider.openDeviceSettings(deviceName)` 打开指定设备的设置。
 
 主窗口不直接导入具体产品的设置页面。没有设置页映射的设备会显示未适配说明和返回入口，避免打开其他产品的设置。当前设备标识仍沿用现有的型号名称；多个同型号设备实例接入时，再引入实例 ID。
 

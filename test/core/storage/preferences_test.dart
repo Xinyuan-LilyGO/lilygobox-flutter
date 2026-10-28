@@ -59,14 +59,13 @@ void main() {
       addTearDown(devices.dispose);
       preferences.setValue('language', 'zh');
       devices.addLanDevice(device);
-      devices.addDevice('T-Glasses-P4');
       expect(await preferences.flush(), isTrue);
       expect(await devices.removeDeviceAndSave(device.id), isTrue);
       final restored = await AppPreferences.load(storage: storage);
       final restoredDevices = DeviceManagerProvider(preferences: restored);
       addTearDown(restored.dispose);
       addTearDown(restoredDevices.dispose);
-      expect(restoredDevices.addedDevices, ['T-Glasses-P4']);
+      expect(restoredDevices.addedDevices, isEmpty);
       expect(restoredDevices.lanDevice(device.id), isNull);
       expect(jsonDecode(restored.stringValue('devices.lan.v1', '[]')), isEmpty);
       expect(restored.stringValue('language', ''), 'zh');
@@ -82,15 +81,14 @@ void main() {
       addTearDown(preferences.dispose);
       addTearDown(devices.dispose);
       devices.addLanDevice(device);
-      devices.addDevice('T-Glasses-P4');
       expect(await preferences.flush(), isTrue);
       storage.failWrite = true;
       expect(await devices.removeDeviceAndSave(device.id), isFalse);
-      expect(devices.addedDevices, [device.id, 'T-Glasses-P4']);
+      expect(devices.addedDevices, [device.id]);
       expect(devices.lanDevice(device.id), device);
       storage.failWrite = false;
       expect(await devices.removeDeviceAndSave(device.id), isTrue);
-      expect(jsonDecode(storage.value!)['devices'], ['T-Glasses-P4']);
+      expect(jsonDecode(storage.value!)['devices'], isEmpty);
       expect(jsonDecode(jsonDecode(storage.value!)['devices.lan.v1']), isEmpty);
     },
   );

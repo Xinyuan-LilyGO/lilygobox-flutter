@@ -1304,26 +1304,22 @@ void main() {
     expect(connection.phase, LanConnectionPhase.failed);
   });
 
-  test(
-    'same model devices are saved by identity, and legacy entries remain',
-    () {
-      final manager = DeviceManagerProvider();
-      addTearDown(manager.dispose);
-      manager.addDevice('T-Glasses-P4');
-      manager.addLanDevice(device);
-      manager.addLanDevice(
-        LanDevice(
-          id: '112233445566',
-          name: device.name,
-          address: device.address,
-          port: device.port,
-          model: device.model,
-        ),
-      );
-      expect(manager.addedDevices, ['T-Glasses-P4', deviceId, '112233445566']);
-      expect(manager.displayName(deviceId), 'T-Display-P4');
-    },
-  );
+  test('same model devices are saved by distinct identities', () {
+    final manager = DeviceManagerProvider();
+    addTearDown(manager.dispose);
+    manager.addLanDevice(device);
+    manager.addLanDevice(
+      LanDevice(
+        id: '112233445566',
+        name: device.name,
+        address: device.address,
+        port: device.port,
+        model: device.model,
+      ),
+    );
+    expect(manager.addedDevices, [deviceId, '112233445566']);
+    expect(manager.displayName(deviceId), 'T-Display-P4');
+  });
   group('remembered app authorization', () {
     final token = List.filled(64, 'a').join();
     final challenge = List.filled(64, 'b').join();

@@ -13,7 +13,7 @@ The current application focus is the Windows desktop experience. Other platform 
 ## Table of Contents
 
 - [Features](#features)
-- [Supported Platforms](#supported-platforms)
+- [Supported Platforms and Devices](#supported-platforms-and-devices)
 - [Requirements](#requirements)
 - [Quick Start](#quick-start)
 - [Project Structure](#project-structure)
@@ -29,7 +29,7 @@ On Windows, closing the window (including Alt+F4) keeps LilygoBox running in the
 
 ### Device-Oriented Architecture
 
-Device definitions are separated from their presentation mapping. Shared device state lives in the devices feature, while device-specific pages such as **T-Glasses-P4** live under their own feature folder.
+LAN devices use the shared device page by default. A dedicated device page is added only when a model requires distinct UI or behavior.
 
 ### Shared Core Modules
 
@@ -39,7 +39,9 @@ Common services and reusable UI building blocks are placed under `lib/core`, inc
 
 Translation source files are stored as ARB files under `lib/l10n`. Generated localization Dart files are stored under `lib/generated/l10n` and excluded from analyzer rules.
 
-## Supported Platforms
+## Supported Platforms and Devices
+
+### Supported Platforms
 
 | Platform | Status | Notes |
 | --- | --- | --- |
@@ -49,6 +51,14 @@ Translation source files are stored as ARB files under `lib/l10n`. Generated loc
 | Android | Not supported | Retained from the Flutter project scaffold |
 | iOS | Not supported | Retained from the Flutter project scaffold |
 | Web | Not supported | Retained from the Flutter project scaffold |
+
+### Supported Devices
+
+| Device | Hardware Version |
+| --- | --- |
+| T-Display-P4 Air | V1 |
+| T-Display-P4 | V1 |
+| T-Display-P4 | V2 |
 
 ## Requirements
 
@@ -111,7 +121,6 @@ lib/
       domain/                  # Supported device names and domain-level catalogs.
       presentation/            # Device feature pages, widgets, and presentation mapping.
       state/                   # Device feature state.
-      t_glasses_p4/            # T-Glasses-P4 specific pages, widgets, and state.
     settings/                  # Settings pages and settings-specific widgets.
 
   generated/                   # Generated source files.

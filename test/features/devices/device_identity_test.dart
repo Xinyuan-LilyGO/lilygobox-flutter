@@ -83,7 +83,7 @@ void main() {
     () async {
       final storage = MemoryPreferencesStorage()
         ..value = jsonEncode({
-          'devices': [legacyId, id, 'T-Glasses-P4'],
+          'devices': [legacyId, id],
           'devices.lan.v1': jsonEncode([record]),
           'language': 'zh',
         });
@@ -91,17 +91,17 @@ void main() {
       addTearDown(preferences.dispose);
       final manager = DeviceManagerProvider(preferences: preferences);
       addTearDown(manager.dispose);
-      expect(manager.addedDevices, [id, 'T-Glasses-P4']);
+      expect(manager.addedDevices, [id]);
       expect(manager.lanDevice(id)!.protocolId, legacyId);
       await preferences.flush();
       final saved = jsonDecode(storage.value!);
-      expect(saved['devices'], [id, 'T-Glasses-P4']);
+      expect(saved['devices'], [id]);
       expect(saved['language'], 'zh');
       expect(jsonDecode(saved['devices.lan.v1'])[0]['id'], id);
 
       // 同一块板升级固件后，更新协议 ID，不能新增一张重复设备卡片。
       manager.addLanDevice(LanDevice.fromJson({...record, 'id': id})!);
-      expect(manager.addedDevices, [id, 'T-Glasses-P4']);
+      expect(manager.addedDevices, [id]);
       expect(manager.lanDevice(id)!.protocolId, id);
       await preferences.flush();
       final restoredPreferences = await AppPreferences.load(storage: storage);
