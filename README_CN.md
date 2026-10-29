@@ -57,8 +57,7 @@ LAN 设备默认使用通用设备页面。只有型号确实需要独立界面�
 | 设备型号 | 硬件版本 |
 | --- | --- |
 | T-Display-P4 Air | V1 |
-| T-Display-P4 | V1 |
-| T-Display-P4 | V2 |
+| T-Display-P4 | V1、V2 |
 
 ## 环境要求
 

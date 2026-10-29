@@ -57,8 +57,7 @@ Translation source files are stored as ARB files under `lib/l10n`. Generated loc
 | Device | Hardware Version |
 | --- | --- |
 | T-Display-P4 Air | V1 |
-| T-Display-P4 | V1 |
-| T-Display-P4 | V2 |
+| T-Display-P4 | V1, V2 |
 
 ## Requirements
 
