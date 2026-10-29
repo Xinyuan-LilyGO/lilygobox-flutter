@@ -31,7 +31,7 @@ void main() {
 
   AppUpdate application(String version) => AppUpdate(
     version: version,
-    fileName: 'LilygoBox-windows-x64-setup.exe',
+    fileName: 'LilygoBox-windows-x64-setup-$version.exe',
     downloadUrl: original,
     sizeBytes: bytes.length,
     sha256: hash,
@@ -231,7 +231,7 @@ void main() {
       addTearDown(() => directory.delete(recursive: true));
       Future<File> seed(String version) async {
         final target = File(
-          '${directory.path}/$version/LilygoBox-windows-x64-setup.exe',
+          '${directory.path}/$version/LilygoBox-windows-x64-setup-$version.exe',
         );
         await target.parent.create(recursive: true);
         return target.writeAsBytes(bytes);

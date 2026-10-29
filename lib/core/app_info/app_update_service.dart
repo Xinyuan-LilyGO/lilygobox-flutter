@@ -512,7 +512,8 @@ WScript.Quit 0
     );
     final versionPattern = RegExp(r'^(\d+\.\d+\.\d+(?:-(alpha|beta)\.\d+)?)$');
     final retained = <String, (String, FileSystemEntity)>{};
-    final installerName = 'LilygoBox-windows-x64-setup.exe';
+    String installerName(String version) =>
+        'LilygoBox-windows-x64-setup-$version.exe';
 
     Future<void> removeManagedFiles(FileSystemEntity entity) async {
       if (entity is File) {
@@ -520,10 +521,14 @@ WScript.Quit 0
         return;
       }
       if (entity is! Directory) return;
+      final version = entity.uri.pathSegments
+          .where((part) => part.isNotEmpty)
+          .last;
+      final name = installerName(version);
       await for (final child in entity.list(followLinks: false)) {
         if (child is File &&
-            (child.uri.pathSegments.last == installerName ||
-                child.uri.pathSegments.last == '$installerName.part')) {
+            (child.uri.pathSegments.last == name ||
+                child.uri.pathSegments.last == '$name.part')) {
           await child.delete();
         }
       }
@@ -547,9 +552,10 @@ WScript.Quit 0
           if (entity is Directory) {
             await for (final child in entity.list(followLinks: false)) {
               final childName = child.uri.pathSegments.last;
-              if (child is File && childName == '$installerName.part') {
+              final name = installerName(version);
+              if (child is File && childName == '$name.part') {
                 await child.delete();
-              } else if (child is File && childName == installerName) {
+              } else if (child is File && childName == name) {
                 hasInstaller = true;
               }
             }
