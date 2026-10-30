@@ -1217,6 +1217,16 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     _notify();
   }
 
+  /// 设备确认重启后关闭当前连接，并保留授权以便设备启动后自动重连。
+  void disconnectForRestart() {
+    _manualDisconnect = false;
+    _stopAutoScan();
+    _close();
+    phase = LanConnectionPhase.offline;
+    _notify();
+    _scheduleReconnect();
+  }
+
   /// 删除指定设备的本地授权与信任，并阻止旧异步结果恢复其自动连接。
   Future<bool> forgetDevice(String deviceId) {
     if (_disposed) return Future.value(false);

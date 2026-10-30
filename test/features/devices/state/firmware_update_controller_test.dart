@@ -57,6 +57,7 @@ class _Connection extends LanConnection {
   int starts = 0;
   int installs = 0;
   int taskCommands = 0;
+  int restartDisconnects = 0;
   @override
   Future<bool> controlFirmwareTask({
     required bool install,
@@ -101,6 +102,13 @@ class _Connection extends LanConnection {
   Future<void> cancelLocalFirmwareUpdate() async {
     cancels++;
     await cancelReply?.future;
+  }
+
+  @override
+  void disconnectForRestart() {
+    restartDisconnects++;
+    phase = LanConnectionPhase.offline;
+    notifyListeners();
   }
 
   void report(String stage, {int received = 0, int total = 0}) {
@@ -312,6 +320,9 @@ void main() {
       await controller.download();
       connection.report('readyToInstall');
       await controller.install();
+      expect(connection.connected, isFalse);
+      expect(connection.restartDisconnects, 1);
+      expect(controller.step, FirmwareUpdateStep.restartRequested);
       connection.online(false);
       connection.firmware = '1.1.2';
       connection.wirelessFirmware = '2.12.2';
@@ -321,6 +332,18 @@ void main() {
       expect(controller.message(AppLocalizationsZh()), isNot(contains('更新成功')));
     },
   );
+
+  test('rejected restart request keeps the device connection open', () async {
+    await controller.download();
+    connection.report('readyToInstall');
+    connection.installReply = Completer<bool>()..complete(false);
+
+    await controller.install();
+
+    expect(connection.connected, isTrue);
+    expect(connection.restartDisconnects, 0);
+    expect(controller.step, FirmwareUpdateStep.failed);
+  });
 
   test(
     'received bytes switch to verification and readiness hides progress',

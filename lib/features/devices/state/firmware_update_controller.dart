@@ -343,6 +343,7 @@ class FirmwareUpdateController extends ChangeNotifier {
     progress = null;
     _timeout?.cancel();
     _publish();
+    connection.disconnectForRestart();
   }
 
   void _connectionChanged() {
