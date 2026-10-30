@@ -154,7 +154,6 @@
     "updateCheckHttpFailure": "GitHub rejected the update request. Check that the release is public.",
     "updateCheckInvalidManifest": "GitHub returned an invalid update manifest.",
     "updateCheckUnknownFailure": "An unexpected error occurred while checking for updates.",
-    "updateReleaseNotes": "Release notes",
     "close": "Close",
     "retry": "Retry",
     "configurationTitle": "Configuration",
@@ -382,10 +381,6 @@
     "otaMainVersion": "Main firmware version",
     "@otaMainVersion": {
         "description": "Firmware update interface: otaMainVersion"
-    },
-    "otaNotes": "Release notes",
-    "@otaNotes": {
-        "description": "Firmware update interface: otaNotes"
     },
     "otaUnknown": "Unknown",
     "@otaUnknown": {

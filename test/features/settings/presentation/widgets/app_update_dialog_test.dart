@@ -33,7 +33,6 @@ void main() {
               downloadUrl: Uri.https('github.com', '/test.exe'),
               sizeBytes: 3,
               sha256: 'a' * 64,
-              releaseNotes: const [],
             ),
           ),
         ),

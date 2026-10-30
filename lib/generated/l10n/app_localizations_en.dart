@@ -513,9 +513,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'An unexpected error occurred while checking for updates.';
 
   @override
-  String get updateReleaseNotes => 'Release notes';
-
-  @override
   String get close => 'Close';
 
   @override
@@ -1055,9 +1052,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get otaMainVersion => 'Main firmware version';
-
-  @override
-  String get otaNotes => 'Release notes';
 
   @override
   String get otaUnknown => 'Unknown';

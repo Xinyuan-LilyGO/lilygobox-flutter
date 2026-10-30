@@ -488,9 +488,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get updateCheckUnknownFailure => '检查更新时发生未知错误。';
 
   @override
-  String get updateReleaseNotes => '更新内容';
-
-  @override
   String get close => '关闭';
 
   @override
@@ -998,9 +995,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get otaMainVersion => '主固件版本';
-
-  @override
-  String get otaNotes => '更新内容';
 
   @override
   String get otaUnknown => '未知';

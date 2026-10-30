@@ -334,31 +334,6 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                   Text(_update!.version),
                 ],
               ),
-              if (_update!.releaseNotes.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Text(
-                  l10n.updateReleaseNotes,
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.5,
-                    color: widget.theme.textColorSecondary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ..._update!.releaseNotes.map(
-                  (note) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('\u2022'),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text(note)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
               if (_installer != null) ...[
                 const SizedBox(height: 12),
                 Text(l10n.appUpdateDownloaded),

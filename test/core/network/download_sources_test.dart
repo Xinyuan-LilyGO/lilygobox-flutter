@@ -35,7 +35,6 @@ void main() {
     downloadUrl: original,
     sizeBytes: bytes.length,
     sha256: hash,
-    releaseNotes: const [],
   );
 
   test('only original GitHub HTTPS URLs receive a proxy fallback', () {

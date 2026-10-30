@@ -115,7 +115,6 @@ class FirmwareUpdateController extends ChangeNotifier {
         wirelessSha256: release.wirelessSha256,
         wirelessSize: release.wirelessSize,
         deviceCacheOnly: true,
-        releaseNotes: release.notes,
       );
       if (_disposed || terminal) return;
       if (!accepted) {
@@ -309,7 +308,6 @@ class FirmwareUpdateController extends ChangeNotifier {
         wirelessSha256: release.wirelessSha256,
         wirelessSize: release.wirelessSize,
         reuseCache: _reuseCache,
-        releaseNotes: release.notes,
       );
       if (terminal || _disposed) return;
       if (!accepted) {

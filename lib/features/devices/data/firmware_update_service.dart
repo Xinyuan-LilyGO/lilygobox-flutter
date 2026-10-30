@@ -67,7 +67,6 @@ class FirmwareRelease {
     required this.wirelessUrl,
     required this.wirelessSize,
     required this.wirelessSha256,
-    required this.notes,
   });
 
   final String version;
@@ -79,7 +78,6 @@ class FirmwareRelease {
   final Uri wirelessUrl;
   final int wirelessSize;
   final String wirelessSha256;
-  final List<String> notes;
 
   bool isNewerThan(String mainCurrent, String wirelessCurrent) =>
       needsMainUpdate(mainCurrent) || needsWirelessUpdate(wirelessCurrent);
@@ -545,9 +543,6 @@ class FirmwareUpdateService {
       wirelessUrl: wirelessFile.url,
       wirelessSize: wirelessFile.size,
       wirelessSha256: wirelessFile.sha256,
-      notes: (value['releaseNotes'] as List<Object?>? ?? const [])
-          .whereType<String>()
-          .toList(growable: false),
     );
   }
 

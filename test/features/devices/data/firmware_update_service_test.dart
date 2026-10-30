@@ -60,7 +60,6 @@ Map<String, dynamic> manifest({String version = '2.0'}) =>
                     'downloadUrl': 'https://example.com/$role.bin',
                 },
             },
-            'releaseNotes': ['Update'],
           }),
         )
         as Map<String, dynamic>;

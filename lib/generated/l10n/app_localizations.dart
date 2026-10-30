@@ -1014,12 +1014,6 @@ abstract class AppLocalizations {
   /// **'An unexpected error occurred while checking for updates.'**
   String get updateCheckUnknownFailure;
 
-  /// No description provided for @updateReleaseNotes.
-  ///
-  /// In en, this message translates to:
-  /// **'Release notes'**
-  String get updateReleaseNotes;
-
   /// No description provided for @close.
   ///
   /// In en, this message translates to:
@@ -1985,12 +1979,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Main firmware version'**
   String get otaMainVersion;
-
-  /// Firmware update interface: otaNotes
-  ///
-  /// In en, this message translates to:
-  /// **'Release notes'**
-  String get otaNotes;
 
   /// Firmware update interface: otaUnknown
   ///

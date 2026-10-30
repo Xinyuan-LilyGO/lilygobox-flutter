@@ -97,7 +97,6 @@ void main() {
         downloadUrl: Uri.https('github.com', '/test.exe'),
         sizeBytes: good.length,
         sha256: sha256.convert(good).toString(),
-        releaseNotes: const [],
       );
       await expectLater(
         service.downloadInstaller(update),
@@ -147,7 +146,6 @@ void main() {
             'sha256': 'a' * 64,
           },
         },
-        'releaseNotes': ['A release note'],
       }),
       200,
     );
@@ -163,7 +161,6 @@ void main() {
       );
 
       expect(update?.version, '1.2.0');
-      expect(update?.releaseNotes, ['A release note']);
       expect(update?.fileName, 'LilygoBox-1.2.0-windows-x64-setup.exe');
       expect(update?.sizeBytes, 1234);
       expect(update?.sha256, 'a' * 64);
@@ -288,7 +285,6 @@ void main() {
           downloadUrl: Uri.https('github.com', '/example/installer.exe'),
           sizeBytes: bytes.length,
           sha256: sha256.convert(bytes).toString(),
-          releaseNotes: const [],
         );
         final service = AppUpdateService(updateDirectory: directory);
 

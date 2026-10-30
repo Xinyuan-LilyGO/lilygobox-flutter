@@ -84,7 +84,6 @@ class _Connection extends LanConnection {
     required int wirelessSize,
     bool reuseCache = true,
     bool deviceCacheOnly = false,
-    List<String> releaseNotes = const [],
   }) async {
     starts++;
     receivedFile = firmware;
@@ -195,7 +194,6 @@ void main() {
         wirelessUrl: Uri.https('example.com', 'wireless'),
         wirelessSize: 3,
         wirelessSha256: hash,
-        notes: const [],
       ),
       client: client,
     );
@@ -244,7 +242,6 @@ void main() {
       wirelessUrl: release.wirelessUrl,
       wirelessSize: release.wirelessSize,
       wirelessSha256: release.wirelessSha256,
-      notes: const ['Test firmware.'],
     );
     connection.firmwareTaskSupported = true;
     connection.firmwareMainCached = true;
@@ -275,15 +272,14 @@ void main() {
         .join('\n');
     expect(RegExp(r'[\u4e00-\u9fff]').hasMatch(english), isFalse);
     expect(english, contains('Main firmware version'));
-    expect(english, contains('Release notes'));
-    expect(english, contains('Test firmware.'));
+    expect(english, isNot(contains('Release notes')));
     await tester.pumpWidget(app('zh'));
     await tester.pump();
     final zh = AppLocalizationsZh();
     expect(find.text(zh.otaDeviceTitle), findsOneWidget);
     expect(find.text(zh.otaUseDeviceCache), findsOneWidget);
     expect(find.text(zh.otaCancel), findsOneWidget);
-    expect(find.textContaining('Test firmware.'), findsOneWidget);
+    expect(find.textContaining('更新内容'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

@@ -147,8 +147,6 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
         '${l10n.otaMainVersion}\n${version(connection.firmware)}  →  ${version(release.mainVersion)}',
       if (release.needsWirelessUpdate(connection.wirelessFirmware))
         '${l10n.otaWirelessVersion}\n${version(connection.wirelessFirmware)}  →  ${version(release.wirelessVersion)}',
-      if (release.notes.isNotEmpty)
-        '${l10n.otaNotes}\n${release.notes.map((note) => '• $note').join('\n')}',
     ].join('\n\n');
   }
 

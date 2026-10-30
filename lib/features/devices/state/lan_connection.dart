@@ -383,7 +383,6 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
     required int wirelessSize,
     bool reuseCache = true,
     bool deviceCacheOnly = false,
-    List<String> releaseNotes = const [],
   }) async {
     if (_firmwareCancelReply != null || firmwareTaskActive) return false;
     final target = device;
@@ -471,7 +470,6 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
       'type': 'firmware.local.start',
       'requestId': token,
       'reuseCache': reuseCache,
-      if (releaseNotes.isNotEmpty) 'releaseNotes': releaseNotes,
       'mainUrl': firmware == null
           ? ''
           : 'http://${address!.address}:${server!.port}/$token',

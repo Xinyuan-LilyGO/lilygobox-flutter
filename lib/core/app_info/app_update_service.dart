@@ -72,7 +72,6 @@ class AppUpdate {
     required this.downloadUrl,
     required this.sizeBytes,
     required this.sha256,
-    required this.releaseNotes,
   });
 
   final String version;
@@ -80,7 +79,6 @@ class AppUpdate {
   final Uri downloadUrl;
   final int sizeBytes;
   final String sha256;
-  final List<String> releaseNotes;
 }
 
 class AppUpdateService {
@@ -204,16 +202,12 @@ class AppUpdateService {
             downloadUrl.host != 'github.com') {
           throw const FormatException('Invalid update URL');
         }
-        final notes = (data['releaseNotes'] as List<Object?>? ?? const [])
-            .whereType<String>()
-            .toList(growable: false);
         update = AppUpdate(
           version: version,
           fileName: fileName,
           downloadUrl: downloadUrl,
           sizeBytes: sizeBytes,
           sha256: sha256Hash.toLowerCase(),
-          releaseNotes: notes,
         );
       } on FormatException {
         throw const AppUpdateException(AppUpdateFailureKind.invalidManifest);
