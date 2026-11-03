@@ -2,7 +2,7 @@
  * @Description: 主页与设备详情菜单共用连接操作及删除确认。
  * @Author: LILYGO_L
  * @Date: 2026-10-10 16:00:00
- * @LastEditTime: 2026-10-10 16:00:00
+ * @LastEditTime: 2026-11-03 15:30:00
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -31,12 +31,16 @@ RightClickMenuItem deviceConnectionMenuItem(
   final selected = session.device?.id == id;
   final online = selected && session.connected;
   final busy = selected && session.busy;
+  final identityChanged = selected && session.identityChanged;
   return RightClickMenuItem(
     showDivider: showDivider,
+    // 身份变化后点击会先清空本地授权，名称随实际动作显示，避免显示成普通重连。
     label: online
         ? context.l10n.lanDisconnect
         : busy
         ? context.l10n.cancelConnection
+        : identityChanged
+        ? context.l10n.lanRepair
         : context.l10n.retryConnection,
     icon: online ? Symbols.link_off : Symbols.link,
     isEnabled:

@@ -2,7 +2,7 @@
  * @Description: 展示主页设备卡片与真实连接状态，预留产品图片并以灰色 Blur On 图标占位。
  * @Author: LILYGO_L
  * @Date: 2026-10-06 14:00:00
- * @LastEditTime: 2026-10-08 18:25:00
+ * @LastEditTime: 2026-11-03 14:45:00
  * @License: GPL 3.0
  */
 
@@ -78,6 +78,8 @@ class _HomeDeviceCardState extends State<HomeDeviceCard> {
         theme: theme,
         backgroundColor: theme.primary,
         hoverColor: theme.primary,
+        // 离线徽标自带不透明底色，点击反馈需绘制在内容上方才能覆盖整张卡片。
+        inkAboveChild: true,
         onPressed: () {
           // 首页会保留在页面栈中，进入详情前主动移除其菜单浮层。
           _menu.close();
