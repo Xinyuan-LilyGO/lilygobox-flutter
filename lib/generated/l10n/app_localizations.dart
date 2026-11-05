@@ -468,6 +468,276 @@ abstract class AppLocalizations {
   /// **'Home'**
   String get sidebarHome;
 
+  /// No description provided for @deviceManagement.
+  ///
+  /// In en, this message translates to:
+  /// **'Devices'**
+  String get deviceManagement;
+
+  /// No description provided for @assistantTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Assistant'**
+  String get assistantTitle;
+
+  /// No description provided for @assistantGreeting.
+  ///
+  /// In en, this message translates to:
+  /// **'What can I help you with today?'**
+  String get assistantGreeting;
+
+  /// No description provided for @assistantDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Share an idea, or ask the assistant to adjust LilygoBox.'**
+  String get assistantDescription;
+
+  /// No description provided for @aiPromptDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Show my devices'**
+  String get aiPromptDevices;
+
+  /// No description provided for @aiPromptAppearance.
+  ///
+  /// In en, this message translates to:
+  /// **'Change the app theme'**
+  String get aiPromptAppearance;
+
+  /// No description provided for @aiPromptLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Change the app language'**
+  String get aiPromptLanguage;
+
+  /// No description provided for @aiInputHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask a question, or describe a setting to change…'**
+  String get aiInputHint;
+
+  /// No description provided for @aiSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Send message'**
+  String get aiSend;
+
+  /// No description provided for @aiClearConversation.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear conversation'**
+  String get aiClearConversation;
+
+  /// No description provided for @aiConfigureMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure an AI service in Settings to start chatting.'**
+  String get aiConfigureMessage;
+
+  /// No description provided for @aiSetupAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure AI service'**
+  String get aiSetupAction;
+
+  /// No description provided for @aiAssistantThinking.
+  ///
+  /// In en, this message translates to:
+  /// **'Thinking…'**
+  String get aiAssistantThinking;
+
+  /// No description provided for @aiApprovalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm setting change'**
+  String get aiApprovalTitle;
+
+  /// No description provided for @aiApprove.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get aiApprove;
+
+  /// No description provided for @aiReject.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline'**
+  String get aiReject;
+
+  /// No description provided for @aiActionApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'Change applied'**
+  String get aiActionApproved;
+
+  /// No description provided for @aiActionRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Change declined'**
+  String get aiActionRejected;
+
+  /// No description provided for @aiActionTheme.
+  ///
+  /// In en, this message translates to:
+  /// **'Change theme to {value}'**
+  String aiActionTheme(String value);
+
+  /// No description provided for @aiActionLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Change language to {value}'**
+  String aiActionLanguage(String value);
+
+  /// No description provided for @aiActionFont.
+  ///
+  /// In en, this message translates to:
+  /// **'Change font to {value}'**
+  String aiActionFont(String value);
+
+  /// No description provided for @aiActionShowSidebar.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the main sidebar'**
+  String get aiActionShowSidebar;
+
+  /// No description provided for @aiActionHideSidebar.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide the main sidebar'**
+  String get aiActionHideSidebar;
+
+  /// No description provided for @aiActionSidebarWidth.
+  ///
+  /// In en, this message translates to:
+  /// **'Set main sidebar width to {value} px'**
+  String aiActionSidebarWidth(String value);
+
+  /// No description provided for @aiActionSplitWidth.
+  ///
+  /// In en, this message translates to:
+  /// **'Set device split width to {value} px'**
+  String aiActionSplitWidth(String value);
+
+  /// No description provided for @aiActionSettingsWidth.
+  ///
+  /// In en, this message translates to:
+  /// **'Set settings sidebar width to {value} px'**
+  String aiActionSettingsWidth(String value);
+
+  /// No description provided for @aiActionUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Change an application setting'**
+  String get aiActionUnknown;
+
+  /// No description provided for @aiServiceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Model services'**
+  String get aiServiceTitle;
+
+  /// No description provided for @aiServiceDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Add model services and configure endpoints, keys and models. Keys stay in this device’s system secure storage.'**
+  String get aiServiceDescription;
+
+  /// No description provided for @aiProviderLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Provider'**
+  String get aiProviderLabel;
+
+  /// No description provided for @aiProviderDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a preset or configure an OpenAI-compatible API.'**
+  String get aiProviderDescription;
+
+  /// No description provided for @aiProviderDeepseek.
+  ///
+  /// In en, this message translates to:
+  /// **'DeepSeek'**
+  String get aiProviderDeepseek;
+
+  /// No description provided for @aiProviderCompatible.
+  ///
+  /// In en, this message translates to:
+  /// **'OpenAI-compatible API'**
+  String get aiProviderCompatible;
+
+  /// No description provided for @aiBaseUrlLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'API URL'**
+  String get aiBaseUrlLabel;
+
+  /// No description provided for @aiBaseUrlDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the API URL. The client adds the path required by the selected protocol.'**
+  String get aiBaseUrlDescription;
+
+  /// No description provided for @aiDragService.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to reorder services'**
+  String get aiDragService;
+
+  /// No description provided for @aiModelLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Model'**
+  String get aiModelLabel;
+
+  /// No description provided for @aiModelDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Model identifier used by the selected service.'**
+  String get aiModelDescription;
+
+  /// No description provided for @aiApiKeyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'API key'**
+  String get aiApiKeyLabel;
+
+  /// No description provided for @aiApiKeyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The key is saved locally using the operating system secure storage.'**
+  String get aiApiKeyDescription;
+
+  /// No description provided for @aiApiKeyStored.
+  ///
+  /// In en, this message translates to:
+  /// **'A key is saved securely. Enter a new key to replace it.'**
+  String get aiApiKeyStored;
+
+  /// No description provided for @aiRemoveApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove saved API key'**
+  String get aiRemoveApiKey;
+
+  /// No description provided for @aiSaveAndTest.
+  ///
+  /// In en, this message translates to:
+  /// **'Save and test connection'**
+  String get aiSaveAndTest;
+
+  /// No description provided for @aiTesting.
+  ///
+  /// In en, this message translates to:
+  /// **'Testing…'**
+  String get aiTesting;
+
+  /// No description provided for @aiTestSucceeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection successful'**
+  String get aiTestSucceeded;
+
   /// No description provided for @profile.
   ///
   /// In en, this message translates to:
@@ -2465,6 +2735,252 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{component} transferred. Waiting for device verification…'**
   String otaTransferComplete(String component);
+
+  /// No description provided for @aiSettingsGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'AI'**
+  String get aiSettingsGroup;
+
+  /// No description provided for @aiProtocolLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'API protocol'**
+  String get aiProtocolLabel;
+
+  /// No description provided for @aiProtocolDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the API protocol supported by your provider.'**
+  String get aiProtocolDescription;
+
+  /// No description provided for @aiProtocolChatCompletions.
+  ///
+  /// In en, this message translates to:
+  /// **'OpenAI Chat Completions'**
+  String get aiProtocolChatCompletions;
+
+  /// No description provided for @aiProtocolResponses.
+  ///
+  /// In en, this message translates to:
+  /// **'OpenAI Responses'**
+  String get aiProtocolResponses;
+
+  /// No description provided for @aiCurrentService.
+  ///
+  /// In en, this message translates to:
+  /// **'Current service'**
+  String get aiCurrentService;
+
+  /// No description provided for @aiResetEdits.
+  ///
+  /// In en, this message translates to:
+  /// **'Revert'**
+  String get aiResetEdits;
+
+  /// No description provided for @aiAvailableActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Available settings actions'**
+  String get aiAvailableActions;
+
+  /// No description provided for @aiPermissionTheme.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch application theme'**
+  String get aiPermissionTheme;
+
+  /// No description provided for @aiPermissionLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Change interface language'**
+  String get aiPermissionLanguage;
+
+  /// No description provided for @aiPermissionFont.
+  ///
+  /// In en, this message translates to:
+  /// **'Change application font'**
+  String get aiPermissionFont;
+
+  /// No description provided for @aiPermissionSidebar.
+  ///
+  /// In en, this message translates to:
+  /// **'Show, hide or resize the main sidebar'**
+  String get aiPermissionSidebar;
+
+  /// No description provided for @aiPermissionLayout.
+  ///
+  /// In en, this message translates to:
+  /// **'Resize device panes and the settings sidebar'**
+  String get aiPermissionLayout;
+
+  /// No description provided for @aiAddModelService.
+  ///
+  /// In en, this message translates to:
+  /// **'Add model service'**
+  String get aiAddModelService;
+
+  /// No description provided for @aiAddedServices.
+  ///
+  /// In en, this message translates to:
+  /// **'Added services'**
+  String get aiAddedServices;
+
+  /// No description provided for @aiMoveServiceUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Move service up'**
+  String get aiMoveServiceUp;
+
+  /// No description provided for @aiMoveServiceDown.
+  ///
+  /// In en, this message translates to:
+  /// **'Move service down'**
+  String get aiMoveServiceDown;
+
+  /// No description provided for @aiNoServices.
+  ///
+  /// In en, this message translates to:
+  /// **'No model services yet. Add a service to get started.'**
+  String get aiNoServices;
+
+  /// No description provided for @aiServiceName.
+  ///
+  /// In en, this message translates to:
+  /// **'Service name'**
+  String get aiServiceName;
+
+  /// No description provided for @aiServiceNameDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Identifies this service in the home model selector.'**
+  String get aiServiceNameDescription;
+
+  /// No description provided for @aiEditService.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit service'**
+  String get aiEditService;
+
+  /// No description provided for @aiSaveService.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get aiSaveService;
+
+  /// No description provided for @aiDeleteService.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete service'**
+  String get aiDeleteService;
+
+  /// No description provided for @aiDeleteServiceMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete “{name}” and its local key? Existing chat messages will be kept.'**
+  String aiDeleteServiceMessage(String name);
+
+  /// No description provided for @aiTestConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Test connection'**
+  String get aiTestConnection;
+
+  /// No description provided for @aiModelsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter one model ID per line, or separate with commas. You can enter IDs manually if fetching fails.'**
+  String get aiModelsHint;
+
+  /// No description provided for @aiFetchModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetch models'**
+  String get aiFetchModels;
+
+  /// No description provided for @aiSelectModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Select model'**
+  String get aiSelectModel;
+
+  /// No description provided for @aiSearchModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Search models or providers'**
+  String get aiSearchModels;
+
+  /// No description provided for @aiSearchModelsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by model name or service name.'**
+  String get aiSearchModelsDescription;
+
+  /// No description provided for @aiForNextMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'For next messages'**
+  String get aiForNextMessages;
+
+  /// No description provided for @aiNoMatchingModels.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching models'**
+  String get aiNoMatchingModels;
+
+  /// No description provided for @aiInvalidAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid HTTP or HTTPS endpoint without query parameters or credentials.'**
+  String get aiInvalidAddress;
+
+  /// No description provided for @aiNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a service name.'**
+  String get aiNameRequired;
+
+  /// No description provided for @aiModelsRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter at least one model ID, or fetch the model list.'**
+  String get aiModelsRequired;
+
+  /// No description provided for @aiKeyRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an API key. A new key is required when changing the service host.'**
+  String get aiKeyRequired;
+
+  /// No description provided for @aiStorageError.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load or save service settings. Check local storage and try again.'**
+  String get aiStorageError;
+
+  /// No description provided for @aiServiceBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'Wait for the current request or resolve pending approvals before changing services.'**
+  String get aiServiceBusy;
+
+  /// No description provided for @aiInvalidResponse.
+  ///
+  /// In en, this message translates to:
+  /// **'The service returned an invalid response. Check its endpoint.'**
+  String get aiInvalidResponse;
+
+  /// No description provided for @aiRequestFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to connect to the model service. Check the endpoint, network and API key.'**
+  String get aiRequestFailed;
+
+  /// No description provided for @aiRequestTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'The service timed out. Try again later.'**
+  String get aiRequestTimeout;
 }
 
 class _AppLocalizationsDelegate

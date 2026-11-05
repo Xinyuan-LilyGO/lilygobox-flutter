@@ -19,6 +19,9 @@ import '../core/storage/preferences.dart';
 import '../core/theme/provider.dart';
 import '../core/window/provider.dart';
 import '../features/account/state/provider.dart';
+import '../features/assistant/data/credential_store.dart';
+import '../features/assistant/data/settings_tool_handler.dart';
+import '../features/assistant/state/provider.dart';
 import '../features/devices/data/pairing_store.dart';
 import '../features/devices/state/lan_connection.dart';
 import '../features/devices/state/manager_provider.dart';
@@ -105,6 +108,20 @@ class _AppProvidersState extends State<AppProviders>
         ),
         ChangeNotifierProvider(
           create: (_) => AppShellProvider(preferences: widget.preferences),
+        ),
+        ChangeNotifierProvider(
+          lazy: false,
+          create: (context) => AiAssistantProvider(
+            preferences: widget.preferences,
+            credentialStore: const SecureAiCredentialStore(),
+            settings: SettingsToolHandler(
+              preferences: widget.preferences,
+              theme: context.read<ThemeProvider>(),
+              language: context.read<LanguageProvider>(),
+              shell: context.read<AppShellProvider>(),
+              splitView: context.read<SplitViewProvider>(),
+            ),
+          ),
         ),
         ChangeNotifierProvider(
           create: (_) => DeviceManagerProvider(preferences: widget.preferences),

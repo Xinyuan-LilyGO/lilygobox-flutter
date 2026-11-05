@@ -2,7 +2,7 @@
  * @Description: 提供设置项文本输入框、只读字段及输入框装饰。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-11-04 14:52:13
  * @License: GPL 3.0
  */
 
@@ -60,6 +60,61 @@ class SettingTextField extends StatelessWidget {
   }
 }
 
+/// 使用设置页统一的输入框外观编辑控制器管理的文本。
+class SettingControlledTextField extends StatelessWidget {
+  const SettingControlledTextField({
+    super.key,
+    required this.theme,
+    required this.controller,
+    this.onChanged,
+    this.enabled = true,
+    this.obscureText = false,
+    this.autofocus = false,
+    this.keyboardType,
+    this.minLines = 1,
+    this.maxLines = 1,
+    this.contentPadding,
+  });
+
+  final AppTheme theme;
+  final TextEditingController controller;
+  final ValueChanged<String>? onChanged;
+  final bool enabled;
+  final bool obscureText;
+  final bool autofocus;
+  final TextInputType? keyboardType;
+  final int minLines;
+  final int maxLines;
+  final EdgeInsetsGeometry? contentPadding;
+
+  @override
+  Widget build(BuildContext context) => TextField(
+    contextMenuBuilder: AppTextSelectionMenu.build,
+    controller: controller,
+    enabled: enabled,
+    minLines: minLines,
+    maxLines: maxLines,
+    obscureText: obscureText,
+    autofocus: autofocus,
+    keyboardType:
+        keyboardType ?? (maxLines > 1 ? TextInputType.multiline : null),
+    autocorrect: false,
+    enableSuggestions: false,
+    onChanged: onChanged,
+    cursorColor: theme.dividerColorNormal,
+    style: TextStyle(
+      color: theme.textColorPrimary,
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+    ),
+    decoration: _inputDecoration(
+      theme,
+      contentPadding: contentPadding,
+      disableHover: true,
+    ),
+  );
+}
+
 class SettingReadOnlyField extends StatelessWidget {
   const SettingReadOnlyField({
     super.key,
@@ -103,7 +158,7 @@ InputDecoration _inputDecoration(
         : theme.primary.withValues(alpha: 0.74),
     contentPadding:
         contentPadding ??
-        const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
+        const EdgeInsets.symmetric(horizontal: 6.0, vertical: 8.0),
     // 明确禁用边框，避免保存期间回退为 Material 默认下划线。
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(4.0),

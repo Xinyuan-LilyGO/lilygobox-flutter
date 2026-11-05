@@ -15,8 +15,11 @@ import 'package:lilygobox/app/shell/pages/home_page_content.dart';
 import 'package:lilygobox/app/shell/pages/page.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
 import 'package:lilygobox/app/shell/widgets/sidebar_navigation_item.dart';
+import 'package:lilygobox/core/l10n/language_provider.dart';
+import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/widgets/popup_menu_surface.dart';
+import 'package:lilygobox/features/assistant/state/provider.dart';
 import 'package:lilygobox/features/devices/data/lan_discovery.dart';
 import 'package:lilygobox/features/devices/presentation/pages/connected_page.dart';
 import 'package:lilygobox/features/devices/presentation/widgets/home_device_card.dart';
@@ -24,6 +27,8 @@ import 'package:lilygobox/features/devices/state/lan_connection.dart';
 import 'package:lilygobox/features/devices/state/manager_provider.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
+
+import '../../features/assistant/assistant_test_scope.dart';
 
 class _Connection extends LanConnection {
   bool failForget = false;
@@ -53,13 +58,24 @@ void main() {
   late DeviceManagerProvider devices;
   late AppShellProvider shell;
   late _Connection connection;
+  late LanguageProvider language;
+  late SplitViewProvider splitView;
+  late AssistantTestScope assistantScope;
 
-  setUp(() {
+  setUp(() async {
     theme = ThemeProvider();
     navigation = AppNavigationProvider();
     devices = DeviceManagerProvider();
     shell = AppShellProvider();
     connection = _Connection();
+    language = LanguageProvider();
+    splitView = SplitViewProvider();
+    assistantScope = await createAssistantTestScope(
+      theme: theme,
+      language: language,
+      shell: shell,
+      splitView: splitView,
+    );
   });
 
   tearDown(() {
@@ -68,35 +84,46 @@ void main() {
     devices.dispose();
     shell.dispose();
     connection.dispose();
+    language.dispose();
+    splitView.dispose();
+    assistantScope.dispose();
   });
 
   Widget app({
     String locale = 'en',
     double textScale = 1,
     bool withShell = false,
-  }) => MultiProvider(
-    providers: [
-      ChangeNotifierProvider.value(value: theme),
-      ChangeNotifierProvider.value(value: navigation),
-      ChangeNotifierProvider.value(value: devices),
-      ChangeNotifierProvider.value(value: shell),
-      ChangeNotifierProvider<LanConnection>.value(value: connection),
-    ],
-    child: MaterialApp(
-      locale: Locale(locale),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(
-          context,
-        ).copyWith(textScaler: TextScaler.linear(textScale)),
-        child: child!,
+  }) {
+    if (withShell) shell.openDeviceManagement();
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: theme),
+        ChangeNotifierProvider.value(value: navigation),
+        ChangeNotifierProvider.value(value: devices),
+        ChangeNotifierProvider.value(value: shell),
+        ChangeNotifierProvider.value(value: language),
+        ChangeNotifierProvider.value(value: splitView),
+        ChangeNotifierProvider<AiAssistantProvider>.value(
+          value: assistantScope.provider,
+        ),
+        ChangeNotifierProvider<LanConnection>.value(value: connection),
+      ],
+      child: MaterialApp(
+        locale: Locale(locale),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
+        home: Scaffold(
+          body: withShell ? const AppShell() : const HomePageContent(),
+        ),
       ),
-      home: Scaffold(
-        body: withShell ? const AppShell() : const HomePageContent(),
-      ),
-    ),
-  );
+    );
+  }
 
   testWidgets('empty state opens existing add flow and updates after adding', (
     tester,
@@ -321,7 +348,7 @@ void main() {
       connection.showStatus(_device, LanConnectionPhase.connected);
       await tester.pumpWidget(app(withShell: true));
       await tester.pumpAndSettle();
-      expect(find.byType(SidebarNavigationItem), findsOneWidget);
+      expect(find.byType(SidebarNavigationItem), findsNWidgets(2));
       await tester.enterText(find.byType(TextField), 'Desk');
       await tester.pumpAndSettle();
       final homeState = tester.state(find.byType(HomePageContent));
@@ -338,7 +365,9 @@ void main() {
       expect(find.text('Delete device'), findsNothing);
       expect(
         tester
-            .widget<SidebarNavigationItem>(find.byType(SidebarNavigationItem))
+            .widget<SidebarNavigationItem>(
+              find.byKey(const ValueKey('sidebar-devices')),
+            )
             .isSelected,
         isTrue,
       );

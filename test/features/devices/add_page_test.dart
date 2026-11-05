@@ -488,6 +488,22 @@ void main() {
     },
   );
 
+  testWidgets('back from add page restores device management selection', (
+    tester,
+  ) async {
+    shell.openDeviceManagement();
+    await tester.pumpWidget(app(page: const AddDevicePage()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+
+    expect(navigation.currentPage, AppPage.home);
+    expect(shell.deviceManagementSelected, isTrue);
+    expect(shell.selectedIndex, 0);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'unavailable and help fit both themes, languages and large text',
     (tester) async {

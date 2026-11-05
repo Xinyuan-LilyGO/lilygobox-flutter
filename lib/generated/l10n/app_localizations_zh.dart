@@ -201,6 +201,153 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sidebarHome => '首页';
 
   @override
+  String get deviceManagement => '设备管理';
+
+  @override
+  String get assistantTitle => 'AI 助手';
+
+  @override
+  String get assistantGreeting => '今天，有什么可以帮你？';
+
+  @override
+  String get assistantDescription => '聊聊你的想法，或让助手帮你调整 LilygoBox。';
+
+  @override
+  String get aiPromptDevices => '查看我的设备';
+
+  @override
+  String get aiPromptAppearance => '更改应用主题';
+
+  @override
+  String get aiPromptLanguage => '更改应用语言';
+
+  @override
+  String get aiInputHint => '询问任何问题，或描述你想调整的设置…';
+
+  @override
+  String get aiSend => '发送消息';
+
+  @override
+  String get aiClearConversation => '清除对话';
+
+  @override
+  String get aiConfigureMessage => '请先在设置中配置 AI 服务，然后开始对话。';
+
+  @override
+  String get aiSetupAction => '配置 AI 服务';
+
+  @override
+  String get aiAssistantThinking => '正在思考…';
+
+  @override
+  String get aiApprovalTitle => '确认设置变更';
+
+  @override
+  String get aiApprove => '应用';
+
+  @override
+  String get aiReject => '拒绝';
+
+  @override
+  String get aiActionApproved => '已应用变更';
+
+  @override
+  String get aiActionRejected => '已拒绝变更';
+
+  @override
+  String aiActionTheme(String value) {
+    return '将主题更改为$value';
+  }
+
+  @override
+  String aiActionLanguage(String value) {
+    return '将语言更改为$value';
+  }
+
+  @override
+  String aiActionFont(String value) {
+    return '将字体更改为$value';
+  }
+
+  @override
+  String get aiActionShowSidebar => '显示主侧栏';
+
+  @override
+  String get aiActionHideSidebar => '隐藏主侧栏';
+
+  @override
+  String aiActionSidebarWidth(String value) {
+    return '将主侧栏宽度设为 $value px';
+  }
+
+  @override
+  String aiActionSplitWidth(String value) {
+    return '将设备分栏宽度设为 $value px';
+  }
+
+  @override
+  String aiActionSettingsWidth(String value) {
+    return '将设置侧栏宽度设为 $value px';
+  }
+
+  @override
+  String get aiActionUnknown => '更改应用设置';
+
+  @override
+  String get aiServiceTitle => '模型服务';
+
+  @override
+  String get aiServiceDescription => '添加模型服务，配置接口、密钥与模型。密钥仅保存在本机系统安全存储中。';
+
+  @override
+  String get aiProviderLabel => '服务提供商';
+
+  @override
+  String get aiProviderDescription => '选择预设服务，或配置兼容 OpenAI 的 API。';
+
+  @override
+  String get aiProviderDeepseek => 'DeepSeek';
+
+  @override
+  String get aiProviderCompatible => '兼容 OpenAI 的 API';
+
+  @override
+  String get aiBaseUrlLabel => 'API 地址';
+
+  @override
+  String get aiBaseUrlDescription => '填写 API 地址，客户端会根据所选协议补充请求路径。';
+
+  @override
+  String get aiDragService => '拖动调整服务顺序';
+
+  @override
+  String get aiModelLabel => '模型';
+
+  @override
+  String get aiModelDescription => '所选服务使用的模型标识。';
+
+  @override
+  String get aiApiKeyLabel => 'API 密钥';
+
+  @override
+  String get aiApiKeyDescription => '密钥会通过操作系统安全存储保存在本机。';
+
+  @override
+  String get aiApiKeyStored => '已有安全保存的密钥；输入新密钥可替换。';
+
+  @override
+  String get aiRemoveApiKey => '移除已保存的 API 密钥';
+
+  @override
+  String get aiSaveAndTest => '保存并测试连接';
+
+  @override
+  String get aiTesting => '正在测试…';
+
+  @override
+  String get aiTestSucceeded => '连接成功';
+
+  @override
   String get profile => '个人中心';
 
   @override
@@ -1262,4 +1409,129 @@ class AppLocalizationsZh extends AppLocalizations {
   String otaTransferComplete(String component) {
     return '$component传输完成，等待设备校验结果…';
   }
+
+  @override
+  String get aiSettingsGroup => 'AI';
+
+  @override
+  String get aiProtocolLabel => 'API 协议';
+
+  @override
+  String get aiProtocolDescription => '选择服务商提供的 API 协议。';
+
+  @override
+  String get aiProtocolChatCompletions => 'OpenAI Chat Completions';
+
+  @override
+  String get aiProtocolResponses => 'OpenAI Responses';
+
+  @override
+  String get aiCurrentService => '当前服务';
+
+  @override
+  String get aiResetEdits => '还原';
+
+  @override
+  String get aiAvailableActions => '可用的设置操作';
+
+  @override
+  String get aiPermissionTheme => '切换应用主题';
+
+  @override
+  String get aiPermissionLanguage => '更改界面语言';
+
+  @override
+  String get aiPermissionFont => '更改应用字体';
+
+  @override
+  String get aiPermissionSidebar => '显示、隐藏或调整主侧栏宽度';
+
+  @override
+  String get aiPermissionLayout => '调整设备分栏与设置侧栏宽度';
+
+  @override
+  String get aiAddModelService => '添加模型服务';
+
+  @override
+  String get aiAddedServices => '已添加的服务';
+
+  @override
+  String get aiMoveServiceUp => '上移服务';
+
+  @override
+  String get aiMoveServiceDown => '下移服务';
+
+  @override
+  String get aiNoServices => '尚未添加模型服务，请先添加一个服务。';
+
+  @override
+  String get aiServiceName => '服务名称';
+
+  @override
+  String get aiServiceNameDescription => '用于在主页模型选择器中识别此服务。';
+
+  @override
+  String get aiEditService => '编辑服务';
+
+  @override
+  String get aiSaveService => '保存';
+
+  @override
+  String get aiDeleteService => '删除服务';
+
+  @override
+  String aiDeleteServiceMessage(String name) {
+    return '删除“$name”及其本机密钥？已有聊天记录会保留。';
+  }
+
+  @override
+  String get aiTestConnection => '测试连接';
+
+  @override
+  String get aiModelsHint => '每行一个模型 ID，也可用逗号分隔。读取失败时可手动填写。';
+
+  @override
+  String get aiFetchModels => '读取模型列表';
+
+  @override
+  String get aiSelectModel => '选择模型';
+
+  @override
+  String get aiSearchModels => '搜索模型或服务商';
+
+  @override
+  String get aiSearchModelsDescription => '按模型名称或服务名称筛选。';
+
+  @override
+  String get aiForNextMessages => '用于后续消息';
+
+  @override
+  String get aiNoMatchingModels => '没有匹配的模型';
+
+  @override
+  String get aiInvalidAddress => '请输入有效的 HTTP 或 HTTPS 接口地址，不含参数或账号信息。';
+
+  @override
+  String get aiNameRequired => '请输入服务名称。';
+
+  @override
+  String get aiModelsRequired => '请填写至少一个模型 ID，或读取模型列表。';
+
+  @override
+  String get aiKeyRequired => '请输入 API 密钥。更换服务域名时需要重新填写。';
+
+  @override
+  String get aiStorageError => '无法读取或保存服务配置，请检查本机存储后重试。';
+
+  @override
+  String get aiServiceBusy => '请等待当前请求完成或处理待确认操作后再修改服务。';
+
+  @override
+  String get aiInvalidResponse => '服务返回的数据格式不正确，请检查接口地址。';
+
+  @override
+  String get aiRequestFailed => '连接模型服务失败，请检查地址、网络与密钥后重试。';
+
+  @override
+  String get aiRequestTimeout => '服务响应超时，请稍后重试。';
 }

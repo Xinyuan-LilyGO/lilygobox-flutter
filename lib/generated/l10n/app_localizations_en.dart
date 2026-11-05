@@ -207,6 +207,161 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sidebarHome => 'Home';
 
   @override
+  String get deviceManagement => 'Devices';
+
+  @override
+  String get assistantTitle => 'Assistant';
+
+  @override
+  String get assistantGreeting => 'What can I help you with today?';
+
+  @override
+  String get assistantDescription =>
+      'Share an idea, or ask the assistant to adjust LilygoBox.';
+
+  @override
+  String get aiPromptDevices => 'Show my devices';
+
+  @override
+  String get aiPromptAppearance => 'Change the app theme';
+
+  @override
+  String get aiPromptLanguage => 'Change the app language';
+
+  @override
+  String get aiInputHint => 'Ask a question, or describe a setting to change…';
+
+  @override
+  String get aiSend => 'Send message';
+
+  @override
+  String get aiClearConversation => 'Clear conversation';
+
+  @override
+  String get aiConfigureMessage =>
+      'Configure an AI service in Settings to start chatting.';
+
+  @override
+  String get aiSetupAction => 'Configure AI service';
+
+  @override
+  String get aiAssistantThinking => 'Thinking…';
+
+  @override
+  String get aiApprovalTitle => 'Confirm setting change';
+
+  @override
+  String get aiApprove => 'Apply';
+
+  @override
+  String get aiReject => 'Decline';
+
+  @override
+  String get aiActionApproved => 'Change applied';
+
+  @override
+  String get aiActionRejected => 'Change declined';
+
+  @override
+  String aiActionTheme(String value) {
+    return 'Change theme to $value';
+  }
+
+  @override
+  String aiActionLanguage(String value) {
+    return 'Change language to $value';
+  }
+
+  @override
+  String aiActionFont(String value) {
+    return 'Change font to $value';
+  }
+
+  @override
+  String get aiActionShowSidebar => 'Show the main sidebar';
+
+  @override
+  String get aiActionHideSidebar => 'Hide the main sidebar';
+
+  @override
+  String aiActionSidebarWidth(String value) {
+    return 'Set main sidebar width to $value px';
+  }
+
+  @override
+  String aiActionSplitWidth(String value) {
+    return 'Set device split width to $value px';
+  }
+
+  @override
+  String aiActionSettingsWidth(String value) {
+    return 'Set settings sidebar width to $value px';
+  }
+
+  @override
+  String get aiActionUnknown => 'Change an application setting';
+
+  @override
+  String get aiServiceTitle => 'Model services';
+
+  @override
+  String get aiServiceDescription =>
+      'Add model services and configure endpoints, keys and models. Keys stay in this device’s system secure storage.';
+
+  @override
+  String get aiProviderLabel => 'Provider';
+
+  @override
+  String get aiProviderDescription =>
+      'Choose a preset or configure an OpenAI-compatible API.';
+
+  @override
+  String get aiProviderDeepseek => 'DeepSeek';
+
+  @override
+  String get aiProviderCompatible => 'OpenAI-compatible API';
+
+  @override
+  String get aiBaseUrlLabel => 'API URL';
+
+  @override
+  String get aiBaseUrlDescription =>
+      'Enter the API URL. The client adds the path required by the selected protocol.';
+
+  @override
+  String get aiDragService => 'Drag to reorder services';
+
+  @override
+  String get aiModelLabel => 'Model';
+
+  @override
+  String get aiModelDescription =>
+      'Model identifier used by the selected service.';
+
+  @override
+  String get aiApiKeyLabel => 'API key';
+
+  @override
+  String get aiApiKeyDescription =>
+      'The key is saved locally using the operating system secure storage.';
+
+  @override
+  String get aiApiKeyStored =>
+      'A key is saved securely. Enter a new key to replace it.';
+
+  @override
+  String get aiRemoveApiKey => 'Remove saved API key';
+
+  @override
+  String get aiSaveAndTest => 'Save and test connection';
+
+  @override
+  String get aiTesting => 'Testing…';
+
+  @override
+  String get aiTestSucceeded => 'Connection successful';
+
+  @override
   String get profile => 'Profile';
 
   @override
@@ -1355,4 +1510,142 @@ class AppLocalizationsEn extends AppLocalizations {
   String otaTransferComplete(String component) {
     return '$component transferred. Waiting for device verification…';
   }
+
+  @override
+  String get aiSettingsGroup => 'AI';
+
+  @override
+  String get aiProtocolLabel => 'API protocol';
+
+  @override
+  String get aiProtocolDescription =>
+      'Choose the API protocol supported by your provider.';
+
+  @override
+  String get aiProtocolChatCompletions => 'OpenAI Chat Completions';
+
+  @override
+  String get aiProtocolResponses => 'OpenAI Responses';
+
+  @override
+  String get aiCurrentService => 'Current service';
+
+  @override
+  String get aiResetEdits => 'Revert';
+
+  @override
+  String get aiAvailableActions => 'Available settings actions';
+
+  @override
+  String get aiPermissionTheme => 'Switch application theme';
+
+  @override
+  String get aiPermissionLanguage => 'Change interface language';
+
+  @override
+  String get aiPermissionFont => 'Change application font';
+
+  @override
+  String get aiPermissionSidebar => 'Show, hide or resize the main sidebar';
+
+  @override
+  String get aiPermissionLayout =>
+      'Resize device panes and the settings sidebar';
+
+  @override
+  String get aiAddModelService => 'Add model service';
+
+  @override
+  String get aiAddedServices => 'Added services';
+
+  @override
+  String get aiMoveServiceUp => 'Move service up';
+
+  @override
+  String get aiMoveServiceDown => 'Move service down';
+
+  @override
+  String get aiNoServices =>
+      'No model services yet. Add a service to get started.';
+
+  @override
+  String get aiServiceName => 'Service name';
+
+  @override
+  String get aiServiceNameDescription =>
+      'Identifies this service in the home model selector.';
+
+  @override
+  String get aiEditService => 'Edit service';
+
+  @override
+  String get aiSaveService => 'Save';
+
+  @override
+  String get aiDeleteService => 'Delete service';
+
+  @override
+  String aiDeleteServiceMessage(String name) {
+    return 'Delete “$name” and its local key? Existing chat messages will be kept.';
+  }
+
+  @override
+  String get aiTestConnection => 'Test connection';
+
+  @override
+  String get aiModelsHint =>
+      'Enter one model ID per line, or separate with commas. You can enter IDs manually if fetching fails.';
+
+  @override
+  String get aiFetchModels => 'Fetch models';
+
+  @override
+  String get aiSelectModel => 'Select model';
+
+  @override
+  String get aiSearchModels => 'Search models or providers';
+
+  @override
+  String get aiSearchModelsDescription =>
+      'Filter by model name or service name.';
+
+  @override
+  String get aiForNextMessages => 'For next messages';
+
+  @override
+  String get aiNoMatchingModels => 'No matching models';
+
+  @override
+  String get aiInvalidAddress =>
+      'Enter a valid HTTP or HTTPS endpoint without query parameters or credentials.';
+
+  @override
+  String get aiNameRequired => 'Enter a service name.';
+
+  @override
+  String get aiModelsRequired =>
+      'Enter at least one model ID, or fetch the model list.';
+
+  @override
+  String get aiKeyRequired =>
+      'Enter an API key. A new key is required when changing the service host.';
+
+  @override
+  String get aiStorageError =>
+      'Unable to load or save service settings. Check local storage and try again.';
+
+  @override
+  String get aiServiceBusy =>
+      'Wait for the current request or resolve pending approvals before changing services.';
+
+  @override
+  String get aiInvalidResponse =>
+      'The service returned an invalid response. Check its endpoint.';
+
+  @override
+  String get aiRequestFailed =>
+      'Unable to connect to the model service. Check the endpoint, network and API key.';
+
+  @override
+  String get aiRequestTimeout => 'The service timed out. Try again later.';
 }

@@ -2,7 +2,7 @@
  * @Description: 构建可拖动且不折叠的设置导航、移动端分类导航。
  * @Author: LILYGO_L
  * @Date: 2025-10-31 17:01:16
- * @LastEditTime: 2026-10-04 13:01:33
+ * @LastEditTime: 2026-11-04 12:04:44
  * @License: GPL 3.0
  */
 
@@ -20,6 +20,7 @@ import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../../account/presentation/widgets/avatar.dart';
 import '../../../account/state/provider.dart';
+import '../../../assistant/presentation/widgets/service_settings_content.dart';
 import 'about_content.dart';
 import 'content_layout.dart';
 import 'general_content.dart';
@@ -27,7 +28,7 @@ import 'language_and_region_content.dart';
 import 'personalization_content.dart';
 import 'profile_content.dart';
 
-enum _SettingsCategory { appearance, language, general }
+enum _SettingsCategory { appearance, language, general, aiService }
 
 class SettingsSplitView extends StatefulWidget {
   const SettingsSplitView({super.key});
@@ -44,6 +45,21 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
   double _sidebarWidth = SettingsSplitView.minSidebarWidth;
   double _dragStartX = 0;
   double _dragStartWidth = SettingsSplitView.minSidebarWidth;
+
+  bool _initialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
+    final entry = context.read<AppNavigationProvider>().settingsSection;
+    if (entry != AppSettingsSection.profile) {
+      _profile = false;
+      _mobileDetail = true;
+      _category = _SettingsCategory.aiService;
+    }
+  }
 
   void _close() => context.read<AppNavigationProvider>().closeSettings();
 
@@ -84,7 +100,9 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
         // Windows 的逻辑宽度会受显示缩放影响，不能用普通窗口宽度触发整页菜单，
         // 否则拖动窗口时侧栏会占满内容区，看起来像覆盖了右侧页面。
         final mobile = constraints.maxWidth < 360;
-        const maxSidebar = 300.0;
+        final maxSidebar = (constraints.maxWidth * .4)
+            .clamp(SettingsSplitView.minSidebarWidth, 300.0)
+            .toDouble();
         final width = savedWidth.clamp(176.0, maxSidebar).toDouble();
         void back() {
           if (mobile && _mobileDetail) {
@@ -306,6 +324,39 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
                       ValueKey('settings-category-${entry.key.name}'),
                     ),
                   ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 14,
+                  ),
+                  child: Divider(height: 1, color: colors.divider),
+                ),
+                _sectionTitle(theme, l10n.aiSettingsGroup),
+                for (final entry in {
+                  _SettingsCategory.aiService: (
+                    l10n.aiServiceTitle,
+                    Symbols.dns_rounded,
+                  ),
+                }.entries)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: _navigationItem(
+                      theme,
+                      colors,
+                      entry.value.$2,
+                      entry.value.$1,
+                      !_profile && !_about && _category == entry.key && !mobile,
+                      () => _select(false, category: entry.key),
+                      ValueKey('settings-category-${entry.key.name}'),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 14,
+                  ),
+                  child: Divider(height: 1, color: colors.divider),
+                ),
                 _navigationItem(
                   theme,
                   colors,
@@ -390,6 +441,7 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
       _SettingsCategory.appearance: l10n.personalization,
       _SettingsCategory.language: l10n.languageAndRegion,
       _SettingsCategory.general: l10n.general,
+      _SettingsCategory.aiService: l10n.aiServiceTitle,
     };
     final page = _profile
         ? ProfileContent(theme: theme)
@@ -403,6 +455,9 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
               theme: theme,
             ),
             _SettingsCategory.general => GeneralSettingsContent(theme: theme),
+            _SettingsCategory.aiService => AiServiceSettingsContent(
+              theme: theme,
+            ),
           };
     final content = AnimatedSwitcher(
       layoutBuilder: (currentChild, previousChildren) => Stack(

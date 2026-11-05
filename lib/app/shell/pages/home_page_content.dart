@@ -89,11 +89,15 @@ class _HomePageContentState extends State<HomePageContent> {
             : null;
         deleted = await manager.removeDeviceAndSave(id);
         if (mounted && shell.selectedIndex == selectedIndex) {
-          shell.updateSelectedIndex(
-            selectedId == null
-                ? 0
-                : manager.addedDevices.indexOf(selectedId) + 1,
-          );
+          if (selectedId == null && shell.deviceManagementSelected) {
+            shell.openDeviceManagement();
+          } else {
+            shell.updateSelectedIndex(
+              selectedId == null
+                  ? 0
+                  : manager.addedDevices.indexOf(selectedId) + 1,
+            );
+          }
         }
       }
     } catch (_) {
@@ -149,7 +153,7 @@ class _HomePageContentState extends State<HomePageContent> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              l10n.home,
+                              l10n.deviceManagement,
                               style: TextStyle(
                                 fontSize: 23,
                                 fontWeight: FontWeight.w700,
@@ -170,8 +174,8 @@ class _HomePageContentState extends State<HomePageContent> {
                     ),
                     if (!hasDevices)
                       SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Padding(
+                        hasScrollBody: true,
+                        child: SingleChildScrollView(
                           padding: EdgeInsets.fromLTRB(inset, 24, inset, 110),
                           child: Center(
                             child: ConstrainedBox(

@@ -2,7 +2,7 @@
  * @Description: 统一菜单的淡入和轻微展开动画，支持外部进度及系统减少动画设置。
  * @Author: LILYGO_L
  * @Date: 2026-10-07 00:00:00
- * @LastEditTime: 2026-10-07 00:00:00
+ * @LastEditTime: 2026-11-04 16:46:30
  * @License: GPL 3.0
  */
 
@@ -53,13 +53,18 @@ class _PopupMenuTransitionState extends State<PopupMenuTransition>
     final progress = MediaQuery.disableAnimationsOf(context)
         ? const AlwaysStoppedAnimation<double>(1)
         : widget.animation ?? _controller;
-    final child = SizeTransition(
-      axis: Axis.vertical,
-      axisAlignment: widget.alignment.y,
-      sizeFactor: Tween<double>(
-        begin: PopupMenuTransition.beginScale,
-        end: 1,
-      ).animate(progress),
+    // 只调整布局高度，不裁剪卡片外侧的圆角阴影。
+    final child = AnimatedBuilder(
+      animation: progress,
+      builder: (context, child) => Align(
+        alignment: widget.alignment,
+        widthFactor: 1,
+        heightFactor: Tween<double>(
+          begin: PopupMenuTransition.beginScale,
+          end: 1,
+        ).evaluate(progress),
+        child: child,
+      ),
       child: widget.child,
     );
     return widget.fade

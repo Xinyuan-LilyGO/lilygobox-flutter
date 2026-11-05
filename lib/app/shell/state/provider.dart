@@ -76,20 +76,38 @@ class AppShellProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // 主页使用索引零，后续索引对应已添加设备列表。
+  // 首页使用索引零，后续索引对应已打开的设备详情。
   int _selectedIndex = 0;
+  bool _deviceManagementSelected = false;
 
   int get selectedIndex => _selectedIndex;
+  bool get deviceManagementSelected => _deviceManagementSelected;
 
   /// 更新当前选中的导航项。
   void updateSelectedIndex(int index) {
     _selectedIndex = index;
+    _deviceManagementSelected = false;
+    notifyListeners();
+  }
+
+  void openDeviceManagement() {
+    if (_deviceManagementSelected && _selectedIndex == 0) return;
+    _selectedIndex = 0;
+    _deviceManagementSelected = true;
+    notifyListeners();
+  }
+
+  void openAssistant() {
+    if (!_deviceManagementSelected && _selectedIndex == 0) return;
+    _selectedIndex = 0;
+    _deviceManagementSelected = false;
     notifyListeners();
   }
 
   /// 外部流程需要回到主页时使用，例如设备删除或窗口导航重置。
   void resetToHome() {
     _selectedIndex = 0;
+    _deviceManagementSelected = false;
     notifyListeners();
   }
 }

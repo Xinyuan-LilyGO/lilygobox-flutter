@@ -2,7 +2,7 @@
  * @Description: 验证侧栏连续拖动、折叠展开、导航布局与账号入口行为。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 17:29:40
+ * @LastEditTime: 2026-11-04 11:30:47
  * @License: GPL 3.0
  */
 
@@ -17,11 +17,15 @@ import 'package:lilygobox/app/navigation/provider.dart';
 import 'package:lilygobox/app/shell/pages/page.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
 import 'package:lilygobox/app/shell/widgets/resizable_sidebar.dart';
+import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/features/assistant/state/provider.dart';
 import 'package:lilygobox/features/devices/state/manager_provider.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
+
+import '../../features/assistant/assistant_test_scope.dart';
 
 void main() {
   testWidgets('brand logo stays stable across resize and display scaling', (
@@ -32,11 +36,20 @@ void main() {
     final theme = ThemeProvider();
     final split = SplitViewProvider();
     final navigation = AppNavigationProvider();
+    final language = LanguageProvider();
+    final assistantScope = await createAssistantTestScope(
+      theme: theme,
+      language: language,
+      shell: shell,
+      splitView: split,
+    );
     addTearDown(shell.dispose);
     addTearDown(devices.dispose);
     addTearDown(theme.dispose);
     addTearDown(split.dispose);
     addTearDown(navigation.dispose);
+    addTearDown(language.dispose);
+    addTearDown(assistantScope.dispose);
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final boundaryKey = GlobalKey();
@@ -121,6 +134,10 @@ void main() {
               ChangeNotifierProvider.value(value: theme),
               ChangeNotifierProvider.value(value: split),
               ChangeNotifierProvider.value(value: navigation),
+              ChangeNotifierProvider.value(value: language),
+              ChangeNotifierProvider<AiAssistantProvider>.value(
+                value: assistantScope.provider,
+              ),
             ],
             child: MaterialApp(
               localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -380,11 +397,20 @@ void main() {
       final theme = ThemeProvider();
       final split = SplitViewProvider();
       final navigation = AppNavigationProvider();
+      final language = LanguageProvider();
+      final assistantScope = await createAssistantTestScope(
+        theme: theme,
+        language: language,
+        shell: shell,
+        splitView: split,
+      );
       addTearDown(shell.dispose);
       addTearDown(devices.dispose);
       addTearDown(theme.dispose);
       addTearDown(split.dispose);
       addTearDown(navigation.dispose);
+      addTearDown(language.dispose);
+      addTearDown(assistantScope.dispose);
 
       await tester.pumpWidget(
         MultiProvider(
@@ -394,6 +420,10 @@ void main() {
             ChangeNotifierProvider.value(value: theme),
             ChangeNotifierProvider.value(value: split),
             ChangeNotifierProvider.value(value: navigation),
+            ChangeNotifierProvider.value(value: language),
+            ChangeNotifierProvider<AiAssistantProvider>.value(
+              value: assistantScope.provider,
+            ),
           ],
           child: MaterialApp(
             locale: const Locale('zh'),
@@ -406,6 +436,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('LilygoBox'), findsOneWidget);
       expect(find.text('首页'), findsOneWidget);
+      expect(find.text('设备管理'), findsOneWidget);
+      final deviceNavigationIcon = find
+          .descendant(
+            of: find.byKey(const ValueKey('sidebar-devices')),
+            matching: find.byType(Icon),
+          )
+          .first;
+      expect(tester.widget<Icon>(deviceNavigationIcon).fill, 1);
       expect(find.text('个人中心'), findsOneWidget);
       expect(find.text('未登录'), findsOneWidget);
 

@@ -2,7 +2,7 @@
  * @Description: 管理主窗口内的页面导航与弹层切换状态。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-03 20:29:43
+ * @LastEditTime: 2026-11-04 12:04:44
  * @License: GPL 3.0
  */
 
@@ -12,6 +12,8 @@ import 'package:flutter/foundation.dart';
 ///
 /// 这里只描述“当前显示哪个页面/弹层”，不处理系统窗口最大化、最小化等桌面窗口状态。
 enum AppPage { home, settings, addDevice, deviceSettings }
+
+enum AppSettingsSection { profile, aiServices }
 
 /// 管理主窗口内的页面切换状态。
 ///
@@ -27,9 +29,24 @@ class AppNavigationProvider with ChangeNotifier {
   AppPage get currentPage => _currentPage;
   String? get settingsDeviceName => _settingsDeviceName;
   AppPage get contentPage => _contentPage;
+  AppSettingsSection _settingsSection = AppSettingsSection.profile;
+  AppSettingsSection get settingsSection => _settingsSection;
+
+  /// 从对话页直达 AI 设置；普通设置入口仍打开个人中心。
+  void openAiSettings() {
+    _settingsSection = AppSettingsSection.aiServices;
+    setPage(AppPage.settings, preserveSettingsSection: true);
+  }
 
   /// 切换到指定页面；重复设置同一页面时不通知，减少无意义重建。
-  void setPage(AppPage page, {String? deviceName}) {
+  void setPage(
+    AppPage page, {
+    String? deviceName,
+    bool preserveSettingsSection = false,
+  }) {
+    if (!preserveSettingsSection) {
+      _settingsSection = AppSettingsSection.profile;
+    }
     if (page == AppPage.deviceSettings &&
         (deviceName == null || deviceName.trim().isEmpty)) {
       throw ArgumentError.value(deviceName, 'deviceName', '设备设置需要指定设备');

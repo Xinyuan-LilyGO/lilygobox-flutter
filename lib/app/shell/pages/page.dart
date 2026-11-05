@@ -2,7 +2,7 @@
  * @Description: 构建品牌侧栏、主页设备入口、账号入口和保留状态的内容页。
  * @Author: LILYGO_L
  * @Date: 2025-11-06 14:22:51
- * @LastEditTime: 2026-10-08 18:14:00
+ * @LastEditTime: 2026-11-04 11:27:21
  * @License: GPL 3.0
  */
 
@@ -16,6 +16,7 @@ import 'package:vector_graphics/vector_graphics_compat.dart'
 import '../../../core/l10n/language_provider.dart';
 import '../../../core/theme/provider.dart';
 import '../../../core/widgets/retained_page_stack.dart';
+import '../../../features/assistant/presentation/pages/page.dart';
 import '../../../features/devices/presentation/catalog.dart';
 import '../../../features/devices/presentation/pages/add_page.dart';
 import '../../../features/devices/presentation/pages/connected_page.dart';
@@ -59,12 +60,6 @@ class _AppShellState extends State<AppShell> {
     super.dispose();
   }
 
-  void _selectItem(int index) {
-    final shellProvider = Provider.of<AppShellProvider>(context, listen: false);
-    shellProvider.updateSelectedIndex(index);
-    context.read<AppNavigationProvider>().goHome();
-  }
-
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -75,11 +70,17 @@ class _AppShellState extends State<AppShell> {
     final selectedIndex = context.select<AppShellProvider, int>(
       (provider) => provider.selectedIndex,
     );
+    final deviceManagementSelected = context.select<AppShellProvider, bool>(
+      (provider) => provider.deviceManagementSelected,
+    );
 
     return ResizableSidebar(
       sidebar: _buildLeftSidebar(
         context,
-        isOverview: !addingDevice && selectedIndex == 0,
+        isOverview:
+            !addingDevice && selectedIndex == 0 && !deviceManagementSelected,
+        isDeviceManagement: deviceManagementSelected,
+        isAddingDevice: addingDevice,
       ),
       content: Container(
         decoration: BoxDecoration(
@@ -89,12 +90,15 @@ class _AppShellState extends State<AppShell> {
         child: RetainedPageStack(
           activeKey: addingDevice
               ? AppPage.addDevice
+              : deviceManagementSelected
+              ? 'deviceManagement'
               : selectedIndex > 0 &&
                     selectedIndex <= deviceManager.addedDevices.length
               ? deviceManager.addedDevices[selectedIndex - 1]
               : AppPage.home,
           pages: {
-            AppPage.home: const HomePageContent(),
+            AppPage.home: const AssistantPage(),
+            'deviceManagement': const HomePageContent(),
             for (final name in deviceManager.addedDevices)
               name: _buildDevicePage(
                 name,
@@ -121,7 +125,8 @@ class _AppShellState extends State<AppShell> {
         if (nestedView.value) {
           nestedView.value = false;
         } else {
-          _selectItem(0);
+          context.read<AppShellProvider>().openDeviceManagement();
+          context.read<AppNavigationProvider>().goHome();
         }
       },
       child: context.read<DeviceManagerProvider>().lanDevice(name) != null
@@ -135,7 +140,12 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  Widget _buildLeftSidebar(BuildContext context, {required bool isOverview}) {
+  Widget _buildLeftSidebar(
+    BuildContext context, {
+    required bool isOverview,
+    required bool isDeviceManagement,
+    required bool isAddingDevice,
+  }) {
     final theme = context.read<ThemeProvider>().themeData;
 
     return ColoredBox(
@@ -181,13 +191,30 @@ class _AppShellState extends State<AppShell> {
             ),
           ),
           SidebarNavigationItem(
-            icon: Symbols.home,
+            key: const ValueKey('sidebar-home'),
+            icon: Symbols.home_rounded,
             iconFill: 1,
             iconColor: theme.textColorSecondary,
             label: context.l10n.sidebarHome,
-            onPressed: () => _selectItem(0),
-            isSelected: true,
+            onPressed: () {
+              context.read<AppShellProvider>().openAssistant();
+              context.read<AppNavigationProvider>().goHome();
+            },
+            isSelected: isOverview,
             disableWhenSelected: isOverview,
+          ),
+          SidebarNavigationItem(
+            key: const ValueKey('sidebar-devices'),
+            icon: Symbols.devices_other_rounded,
+            iconFill: 1,
+            iconColor: theme.textColorSecondary,
+            label: context.l10n.deviceManagement,
+            onPressed: () {
+              context.read<AppShellProvider>().openDeviceManagement();
+              context.read<AppNavigationProvider>().goHome();
+            },
+            isSelected: isDeviceManagement || isAddingDevice || !isOverview,
+            disableWhenSelected: isDeviceManagement,
           ),
           const Spacer(),
           const SidebarAccountButton(),

@@ -9,7 +9,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/navigation/provider.dart';
-import 'package:lilygobox/core/app_info/package_info_provider.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/features/account/state/provider.dart';
@@ -23,20 +22,17 @@ void main() {
   late LanguageProvider language;
   late AppNavigationProvider navigation;
   late DeviceManagerProvider devices;
-  late PackageInfoProvider info;
   setUp(() {
     theme = ThemeProvider();
     language = LanguageProvider()..changeLanguage('zh');
     navigation = AppNavigationProvider()..setPage(AppPage.settings);
     devices = DeviceManagerProvider()..addDevice('T-Display-P4');
-    info = PackageInfoProvider();
   });
   tearDown(() {
     theme.dispose();
     language.dispose();
     navigation.dispose();
     devices.dispose();
-    info.dispose();
   });
 
   Widget app({double textScale = 1}) => MultiProvider(
@@ -48,7 +44,6 @@ void main() {
       ChangeNotifierProvider.value(value: language),
       ChangeNotifierProvider.value(value: navigation),
       ChangeNotifierProvider.value(value: devices),
-      ChangeNotifierProvider.value(value: info),
     ],
     child: Consumer<LanguageProvider>(
       builder: (context, languages, _) => MaterialApp(
@@ -66,24 +61,23 @@ void main() {
     ),
   );
 
-  testWidgets(
-    'settings content stays at the top throughout category fades',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1000, 850));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      await tester.pumpWidget(app());
-      await tester.pumpAndSettle();
-      expect(tester.getTopLeft(find.text('个人中心').last).dy, lessThan(100));
-      await tester.tap(find.byKey(const ValueKey('settings-category-general')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 80));
-      expect(tester.getTopLeft(find.text('通用').last).dy, lessThan(100));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('settings-profile')));
-      await tester.pumpAndSettle();
-      expect(tester.getTopLeft(find.text('个人中心').last).dy, lessThan(100));
-    },
-  );
+  testWidgets('settings content stays at the top throughout category fades', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('个人中心').last).dy, lessThan(100));
+    await tester.tap(find.byKey(const ValueKey('settings-category-general')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(tester.getTopLeft(find.text('通用').last).dy, lessThan(100));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('settings-profile')));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('个人中心').last).dy, lessThan(100));
+  });
 
   testWidgets(
     'sidebar stays visible at drag limits and adapts after resizing window',
@@ -103,9 +97,11 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(610, 500));
       await tester.pumpAndSettle();
       expect(tester.getSize(sidebar).width, 244);
-      await tester.tap(find.byKey(const ValueKey('settings-about')));
+      await tester.tap(
+        find.byKey(const ValueKey('settings-category-language')),
+      );
       await tester.pumpAndSettle();
-      expect(find.text('版本'), findsOneWidget);
+      expect(find.text('语言与地区'), findsWidgets);
       expect(tester.takeException(), isNull);
     },
   );
@@ -125,13 +121,13 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('cancel-restore-defaults')));
     await tester.pumpAndSettle();
     expect(theme.currentTheme, ThemeType.light);
-    expect(language.locale.languageCode, 'zh');
+    expect(language.locale?.languageCode, 'zh');
     await tester.tap(find.byKey(const ValueKey('restore-defaults')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('confirm-restore-defaults')));
     await tester.pumpAndSettle();
     expect(theme.currentTheme, ThemeType.dark);
-    expect(language.locale.languageCode, 'en');
+    expect(language.locale?.languageCode, 'en');
     expect(devices.addedDevices, ['T-Display-P4']);
     expect(find.text('Restore defaults'), findsWidgets);
     expect(tester.takeException(), isNull);

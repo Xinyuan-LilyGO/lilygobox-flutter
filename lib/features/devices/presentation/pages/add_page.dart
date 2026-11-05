@@ -14,7 +14,6 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../app/navigation/provider.dart';
-import '../../../../app/shell/state/provider.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/action_button.dart';
@@ -83,7 +82,6 @@ class _AddDevicePageState extends State<AddDevicePage> {
   }
 
   void _goBack() {
-    context.read<AppShellProvider>().updateSelectedIndex(0);
     context.read<AppNavigationProvider>().goHome();
   }
 

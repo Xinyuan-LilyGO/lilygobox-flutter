@@ -1,0 +1,388 @@
+/*
+ * @Description: 展示可排序的模型服务列表，并通过弹窗添加或编辑服务。
+ * @Author: LILYGO_L
+ * @Date: 2026-11-04 09:36:57
+ * @LastEditTime: 2026-11-05 14:54:01
+ * @License: GPL 3.0
+ */
+
+import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
+import 'package:provider/provider.dart';
+
+import '../../../../core/l10n/language_provider.dart';
+import '../../../../core/theme/definition.dart';
+import '../../../../core/widgets/action_button.dart';
+import '../../../../core/widgets/app_tooltip.dart';
+import '../../../../core/widgets/confirmation_dialog.dart';
+import '../../domain/models.dart';
+import '../../state/provider.dart';
+import 'error_text.dart';
+import 'service_editor_dialog.dart';
+
+class AiServiceSettingsContent extends StatefulWidget {
+  const AiServiceSettingsContent({super.key, required this.theme});
+  final AppTheme theme;
+
+  @override
+  State<AiServiceSettingsContent> createState() =>
+      _AiServiceSettingsContentState();
+}
+
+class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
+  String? _testedId;
+  Object? _error;
+
+  Future<void> _edit(
+    AiAssistantProvider assistant, [
+    AiModelService? service,
+  ]) async {
+    final id = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => ServiceEditorDialog(
+        theme: widget.theme,
+        assistant: assistant,
+        service: service,
+      ),
+    );
+    if (mounted && id != null) {
+      setState(() {
+        _testedId = null;
+        _error = null;
+      });
+    }
+  }
+
+  Future<void> _delete(
+    AiAssistantProvider assistant,
+    AiModelService service,
+  ) async {
+    final l10n = context.l10n;
+    final confirmed = await showAppConfirmation(
+      context: context,
+      theme: widget.theme,
+      actionKey: 'ai-service',
+      title: l10n.aiDeleteService,
+      description: l10n.aiDeleteServiceMessage(service.name),
+      confirmLabel: l10n.aiDeleteService,
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      await assistant.removeService(service.id);
+      if (mounted) {
+        setState(() {
+          _testedId = null;
+          _error = null;
+        });
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    }
+  }
+
+  Future<void> _reorder(
+    AiAssistantProvider assistant,
+    int oldIndex,
+    int newIndex,
+  ) async {
+    if (!assistant.canChangeService || oldIndex == newIndex) {
+      return;
+    }
+    try {
+      await assistant.reorderServices(oldIndex, newIndex);
+      if (mounted) setState(() => _error = null);
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final assistant = context.watch<AiAssistantProvider>();
+    final theme = widget.theme;
+    final l10n = context.l10n;
+    final busy = !assistant.canChangeService;
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(24, 22, 24, 12),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  l10n.aiServiceTitle,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: theme.textColorPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  l10n.aiServiceDescription,
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.5,
+                    color: theme.textColorTertiary,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Divider(height: 1, color: theme.dividerColor),
+                const SizedBox(height: 20),
+                if (!assistant.credentialLoaded)
+                  const Center(child: CircularProgressIndicator())
+                else ...[
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final title = Text(
+                        l10n.aiAddedServices,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: theme.textColorPrimary,
+                        ),
+                      );
+                      final addButton = AppActionButton(
+                        key: const ValueKey('ai-add-service'),
+                        theme: theme,
+                        label: l10n.aiAddModelService,
+                        icon: Symbols.add_rounded,
+                        iconSize: 18,
+                        iconSpacing: 6,
+                        fontSize: 12,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 7,
+                        ),
+                        onPressed: busy ? null : () => _edit(assistant),
+                      );
+                      if (constraints.maxWidth < 480) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            title,
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: addButton,
+                            ),
+                          ],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          Expanded(child: title),
+                          addButton,
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  if (assistant.services.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: Center(
+                        child: Text(
+                          l10n.aiNoServices,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: theme.textColorTertiary,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+                if (_error ?? assistant.error case final error?) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    aiErrorText(l10n, error),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        if (assistant.credentialLoaded && assistant.services.isNotEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+            sliver: SliverReorderableList(
+              key: const ValueKey('ai-service-list'),
+              itemCount: assistant.services.length,
+              onReorder: (oldIndex, newIndex) => _reorder(
+                assistant,
+                oldIndex,
+                newIndex > oldIndex ? newIndex - 1 : newIndex,
+              ),
+              itemBuilder: (context, index) {
+                final service = assistant.services[index];
+                return Padding(
+                  key: ValueKey(service.id),
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _serviceRow(
+                    assistant: assistant,
+                    service: service,
+                    index: index,
+                    busy: busy,
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _serviceRow({
+    required AiAssistantProvider assistant,
+    required AiModelService service,
+    required int index,
+    required bool busy,
+  }) {
+    final l10n = context.l10n;
+    final theme = widget.theme;
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          service.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: theme.textColorPrimary,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${l10n.aiBaseUrlLabel}: ${service.baseUrl}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 11, color: theme.textColorSecondary),
+        ),
+      ],
+    );
+    final actions = Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        AppActionButton(
+          theme: theme,
+          label: assistant.testing
+              ? l10n.aiTesting
+              : _testedId == service.id
+              ? l10n.aiTestSucceeded
+              : l10n.aiTestConnection,
+          onPressed: busy
+              ? null
+              : () async {
+                  setState(() {
+                    _error = null;
+                    _testedId = null;
+                  });
+                  final passed = await assistant.testConnection(
+                    serviceId: service.id,
+                  );
+                  if (mounted && passed) {
+                    setState(() => _testedId = service.id);
+                  }
+                },
+        ),
+        AppActionButton(
+          theme: theme,
+          label: l10n.aiEditService,
+          onPressed: busy ? null : () => _edit(assistant, service),
+        ),
+        IconButton(
+          tooltip: l10n.aiDeleteService,
+          onPressed: busy ? null : () => _delete(assistant, service),
+          icon: Icon(
+            Symbols.delete_outline_rounded,
+            color: theme.textColorSecondary,
+          ),
+        ),
+      ],
+    );
+    final canDrag = !busy && assistant.services.length > 1;
+    return Material(
+      key: ValueKey('ai-service-card-${service.id}'),
+      color: theme.tertiary,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Semantics(
+              label: l10n.aiDragService,
+              enabled: canDrag,
+              onIncrease: canDrag && index < assistant.services.length - 1
+                  ? () => _reorder(assistant, index, index + 1)
+                  : null,
+              onDecrease: canDrag && index > 0
+                  ? () => _reorder(assistant, index, index - 1)
+                  : null,
+              child: AppTooltip(
+                message: l10n.aiDragService,
+                child: MouseRegion(
+                  cursor: canDrag
+                      ? SystemMouseCursors.grab
+                      : SystemMouseCursors.basic,
+                  child: ReorderableDragStartListener(
+                    key: ValueKey('ai-drag-service-${service.id}'),
+                    index: index,
+                    enabled: canDrag,
+                    child: Container(
+                      color: Colors.transparent,
+                      width: 28,
+                      height: 32,
+                      child: Icon(
+                        Symbols.drag_indicator_rounded,
+                        size: 20,
+                        color: canDrag
+                            ? theme.textColorSecondary
+                            : theme.inactiveIconColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth <
+                      620 * MediaQuery.textScalerOf(context).scale(1)) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        details,
+                        const SizedBox(height: 8),
+                        Align(alignment: Alignment.centerRight, child: actions),
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(child: details),
+                      const SizedBox(width: 12),
+                      actions,
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
