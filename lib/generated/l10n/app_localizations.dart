@@ -726,18 +726,6 @@ abstract class AppLocalizations {
   /// **'Save and test connection'**
   String get aiSaveAndTest;
 
-  /// No description provided for @aiTesting.
-  ///
-  /// In en, this message translates to:
-  /// **'Testing…'**
-  String get aiTesting;
-
-  /// No description provided for @aiTestSucceeded.
-  ///
-  /// In en, this message translates to:
-  /// **'Connection successful'**
-  String get aiTestSucceeded;
-
   /// No description provided for @profile.
   ///
   /// In en, this message translates to:
@@ -2879,12 +2867,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete “{name}” and its local key? Existing chat messages will be kept.'**
   String aiDeleteServiceMessage(String name);
-
-  /// No description provided for @aiTestConnection.
-  ///
-  /// In en, this message translates to:
-  /// **'Test connection'**
-  String get aiTestConnection;
 
   /// No description provided for @aiModelsHint.
   ///

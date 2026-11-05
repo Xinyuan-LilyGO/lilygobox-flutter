@@ -356,12 +356,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiSaveAndTest => 'Save and test connection';
 
   @override
-  String get aiTesting => 'Testing…';
-
-  @override
-  String get aiTestSucceeded => 'Connection successful';
-
-  @override
   String get profile => 'Profile';
 
   @override
@@ -1588,9 +1582,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String aiDeleteServiceMessage(String name) {
     return 'Delete “$name” and its local key? Existing chat messages will be kept.';
   }
-
-  @override
-  String get aiTestConnection => 'Test connection';
 
   @override
   String get aiModelsHint =>

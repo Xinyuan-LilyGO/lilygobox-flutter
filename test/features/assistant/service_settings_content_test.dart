@@ -1,8 +1,8 @@
 /*
- * @Description: 验证模型服务列表排序、确认添加、取消、编辑、删除与连接测试。
+ * @Description: 验证模型服务列表排序、确认添加、取消、编辑与删除。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-05 14:54:01
+ * @LastEditTime: 2026-11-05 17:15:48
  * @License: GPL 3.0
  */
 
@@ -21,6 +21,8 @@ import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/theme/material_palette.dart';
+import 'package:lilygobox/core/widgets/action_button.dart';
+import 'package:lilygobox/core/widgets/menu_item_surface.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/service_settings_content.dart';
 import 'package:lilygobox/features/assistant/state/provider.dart';
@@ -198,24 +200,28 @@ void main() {
       expect(scope.provider.hasApiKey, isTrue);
       expect(requests, 0);
       await capture(tester, 'services-added');
-      await tester.tap(find.text('Test connection'));
+      final card = find.byKey(
+        ValueKey('ai-service-card-${scope.provider.services.single.id}'),
+      );
+      await tester.tap(card);
       await tester.pumpAndSettle();
-      expect(requests, 1);
-      expect(find.text('Connection successful'), findsOneWidget);
+      expect(find.byKey(const ValueKey('ai-confirm-service')), findsNothing);
+      expect(find.text('Test connection'), findsNothing);
       await tester.tap(find.text('Edit service'));
       await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('ai-confirm-service')), findsOneWidget);
       expect(tester.widget<TextField>(input('key')).controller!.text, isEmpty);
       await tester.enterText(field('name'), 'Renamed service');
       await tester.tap(find.byKey(const ValueKey('ai-confirm-service')));
       await tester.pumpAndSettle();
       expect(scope.provider.hasApiKey, isTrue);
       expect(scope.provider.services.single.name, 'Renamed service');
-      await tester.tap(find.byTooltip('Delete service'));
+      await tester.tap(find.widgetWithText(AppActionButton, 'Delete'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('cancel-ai-service')));
       await tester.pumpAndSettle();
       expect(scope.provider.services, hasLength(1));
-      await tester.tap(find.byTooltip('Delete service'));
+      await tester.tap(find.widgetWithText(AppActionButton, 'Delete'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('confirm-ai-service')));
       await tester.pumpAndSettle();
@@ -330,6 +336,74 @@ void main() {
                 .color,
             theme.themeData.tertiary,
           );
+          final serviceButtons = tester.widgetList<AppActionButton>(
+            find.descendant(
+              of: find.byKey(ValueKey('ai-service-card-$serviceId')),
+              matching: find.byType(AppActionButton),
+            ),
+          );
+          expect(serviceButtons, hasLength(2));
+          expect(serviceButtons.first.tertiaryBackground, isTrue);
+          expect(serviceButtons.last.destructive, isTrue);
+          expect(
+            serviceButtons.last.padding,
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          );
+          expect(
+            serviceButtons.last.borderRadius,
+            serviceButtons.first.borderRadius,
+          );
+          expect(serviceButtons.last.fontSize, serviceButtons.first.fontSize);
+          expect(find.text('Edit service'), findsOneWidget);
+          expect(
+            theme.themeData.tertiarySurfaceButtonColors.background,
+            theme.themeData.tertiarySurfaceButtonBackgroundColor,
+          );
+          expect(
+            theme.themeData.tertiarySurfaceButtonColors.hover,
+            theme.themeData.tertiarySurfaceButtonHoverColor,
+          );
+          expect(
+            theme.themeData.tertiarySurfaceButtonColors.pressed,
+            theme.themeData.tertiarySurfaceButtonPressedColor,
+          );
+          final testButtonSurface = find.descendant(
+            of: find.widgetWithText(AppActionButton, 'Edit service'),
+            matching: find.byType(MenuItemSurface),
+          );
+          final mouse = await tester.createGesture(
+            kind: ui.PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer(location: Offset.zero);
+          await mouse.moveTo(tester.getCenter(testButtonSurface));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+          final buttonDecoration = tester.widget<DecoratedBox>(
+            find
+                .descendant(
+                  of: testButtonSurface,
+                  matching: find.byType(DecoratedBox),
+                )
+                .first,
+          );
+          expect(
+            (buttonDecoration.decoration as BoxDecoration).color,
+            theme.themeData.tertiarySurfaceButtonHoverColor,
+          );
+          await mouse.removePointer();
+          if (type == ThemeType.light) {
+            expect(
+              theme.themeData.tertiarySurfaceButtonHoverColor
+                  .computeLuminance(),
+              lessThan(
+                theme.themeData.tertiarySurfaceButtonBackgroundColor
+                    .computeLuminance(),
+              ),
+            );
+            expect(theme.themeData.tertiary, const Color(0xFFD0D0D0));
+          } else {
+            expect(theme.themeData.tertiary, const Color(0xFF414141));
+          }
           expect(tester.takeException(), isNull);
           await capture(
             tester,

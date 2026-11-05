@@ -2,7 +2,7 @@
  * @Description: 统一紫色与灰色文字操作按钮，沿用主页配色、悬停渐变及点击波纹。
  * @Author: LILYGO_L
  * @Date: 2026-10-03 18:10:36
- * @LastEditTime: 2026-10-20 14:48:39
+ * @LastEditTime: 2026-11-05 16:12:23
  * @License: GPL 3.0
  */
 
@@ -22,6 +22,7 @@ class AppActionButton extends StatelessWidget {
     this.primary = false,
     this.destructive = false,
     this.settingBackground = false,
+    this.tertiaryBackground = false,
     this.backgroundColor,
     this.hoverColor,
     this.surfaceColor,
@@ -67,6 +68,9 @@ class AppActionButton extends StatelessWidget {
   /// 提示框次要操作沿用适合弹窗背景的原有底色。
   final bool settingBackground;
 
+  /// 第三层背景卡片上的普通操作使用专用灰阶及交互反馈。
+  final bool tertiaryBackground;
+
   final Color? backgroundColor;
   final Color? hoverColor;
   final Color? surfaceColor;
@@ -82,8 +86,12 @@ class AppActionButton extends StatelessWidget {
     // 灰色操作统一沿用恢复默认设置按钮，紫色保留主要操作配色。
     final filled = primary || destructive;
     final inDialog = context.findAncestorWidgetOfExactType<Dialog>() != null;
+    final cardColors = tertiaryBackground && !filled
+        ? theme.tertiarySurfaceButtonColors
+        : null;
     final background =
         backgroundColor ??
+        cardColors?.background ??
         (destructive
             ? theme.materialColors.error
             : primary
@@ -120,8 +128,15 @@ class AppActionButton extends StatelessWidget {
         onPressed: onPressed,
         backgroundColor: background,
         surfaceColor: surfaceColor,
+        highlightColor: cardColors == null
+            ? null
+            : theme.tertiarySurfaceButtonHighlightColor,
+        splashColor: cardColors == null
+            ? null
+            : theme.tertiarySurfaceButtonSplashColor,
         hoverColor:
             hoverColor ??
+            cardColors?.hover ??
             (inDialog
                 ? Color.alphaBlend(
                     (filled ? foreground : theme.textColorPrimary).withValues(

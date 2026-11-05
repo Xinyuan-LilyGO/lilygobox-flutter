@@ -2,7 +2,7 @@
  * @Description: 集中维护原有灰阶与紫色配色，并提供 Material 3 语义角色映射。
  * @Author: LILYGO_L
  * @Date: 2026-10-09 17:00:00
- * @LastEditTime: 2026-10-09 18:00:00
+ * @LastEditTime: 2026-11-05 17:32:31
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -32,6 +32,21 @@ class MaterialPalette {
       tertiaryTextHoverColor: const Color.fromARGB(255, 50, 50, 50),
       tertiaryTextHighlightColor: const Color.fromARGB(255, 80, 80, 80),
       tertiaryTextSplashColor: const Color.fromARGB(255, 60, 60, 60),
+      tertiarySurfaceButtonBackgroundColor: const Color(0xFF282828),
+      tertiarySurfaceButtonHoverColor: const Color(0xFF323232),
+      tertiarySurfaceButtonPressedColor: const Color(0xFF3C3C3C),
+      tertiarySurfaceButtonHighlightColor: const Color.fromARGB(
+        97,
+        255,
+        255,
+        255,
+      ),
+      tertiarySurfaceButtonSplashColor: const Color.fromARGB(
+        128,
+        255,
+        255,
+        255,
+      ),
       appTitleTextColor: const Color.fromARGB(255, 215, 215, 215),
       inactiveTextColor: Colors.grey,
       iconColor: const Color.fromARGB(255, 215, 215, 215),
@@ -56,7 +71,7 @@ class MaterialPalette {
       nameKey: 'theme_light',
       primary: const Color(0xFFF5F5F5),
       secondary: const Color(0xFFE0E0E0),
-      tertiary: const Color(0xFFBDBDBD),
+      tertiary: const Color(0xFFD0D0D0),
       textColorPrimary: const Color.fromARGB(255, 25, 25, 25),
       textColorSecondary: const Color.fromARGB(255, 35, 35, 35),
       textColorTertiary: const Color.fromARGB(255, 105, 105, 105),
@@ -71,6 +86,11 @@ class MaterialPalette {
       tertiaryTextHoverColor: const Color.fromARGB(255, 180, 180, 180),
       tertiaryTextHighlightColor: const Color.fromARGB(100, 200, 200, 200),
       tertiaryTextSplashColor: const Color.fromARGB(100, 210, 210, 210),
+      tertiarySurfaceButtonBackgroundColor: const Color(0xFFBABABA),
+      tertiarySurfaceButtonHoverColor: const Color(0xFFACACAC),
+      tertiarySurfaceButtonPressedColor: const Color(0xFF9E9E9E),
+      tertiarySurfaceButtonHighlightColor: const Color.fromARGB(48, 0, 0, 0),
+      tertiarySurfaceButtonSplashColor: const Color.fromARGB(72, 0, 0, 0),
       appTitleTextColor: const Color.fromARGB(255, 50, 50, 50),
       inactiveTextColor: Colors.grey,
       iconColor: const Color.fromARGB(255, 40, 40, 40),
@@ -138,7 +158,7 @@ class MaterialPalette {
           ? const Color(0xFF7963C6)
           : const Color(0xFF7E6DCA),
       surfaceTint: Colors.transparent,
-      error: isDark ? const Color(0xFFFF5A5F) : const Color(0xFFF04444),
+      error: isDark ? const Color(0xFFD6555A) : const Color(0xFFDC4242),
       onError: Colors.white,
     );
   }
@@ -156,6 +176,14 @@ extension MaterialThemeRoles on AppTheme {
     hover: iconBackgroundColor,
     pressed: iconHighlightColor,
     selected: primaryTextSelectedColor,
+  );
+
+  /// 第三层背景卡片上的文字操作按钮，复用对应层级的主题状态色。
+  ButtonStateColors get tertiarySurfaceButtonColors => ButtonStateColors(
+    background: tertiarySurfaceButtonBackgroundColor,
+    hover: tertiarySurfaceButtonHoverColor,
+    pressed: tertiarySurfaceButtonPressedColor,
+    selected: tertiarySurfaceButtonPressedColor,
   );
 
   /// 页面内小型图标操作按钮使用的高对比底色。

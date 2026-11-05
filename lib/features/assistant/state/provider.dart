@@ -2,7 +2,7 @@
  * @Description: 管理 AI 服务配置、对话、请求状态和待用户确认的设置变更。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-04 15:56:05
+ * @LastEditTime: 2026-11-05 16:53:41
  * @License: GPL 3.0
  */
 
@@ -40,7 +40,6 @@ class AiAssistantProvider extends ChangeNotifier {
   bool _credentialLoaded = false;
   bool _loadFailed = false;
   bool _busy = false;
-  bool _testing = false;
   bool _saving = false;
   bool _disposed = false;
   Object? _error;
@@ -59,13 +58,11 @@ class AiAssistantProvider extends ChangeNotifier {
   bool get hasApiKey => hasServiceKey(selectedService?.id);
   bool hasServiceKey(String? id) => _repository.keyFor(id)?.isNotEmpty == true;
   bool get busy => _busy;
-  bool get testing => _testing;
   bool get saving => _saving;
   bool get canChangeService =>
       _credentialLoaded &&
       !_loadFailed &&
       !_busy &&
-      !_testing &&
       !_saving &&
       !_messages.any(
         (message) => message.toolName != null && message.toolDecision == null,
@@ -152,50 +149,6 @@ class AiAssistantProvider extends ChangeNotifier {
       throw const AiConfigurationException(AiProblem.keyRequired);
     }
     return _client.listModels(baseUrl: address, apiKey: key);
-  }
-
-  Future<bool> testConnection({String? serviceId}) async {
-    if (!_credentialLoaded) await initialized;
-    if (!canChangeService) return false;
-    final service = _repository.find(serviceId ?? selectedService?.id);
-    if (service == null) {
-      _error = const AiConfigurationException(AiProblem.noService);
-      _notify();
-      return false;
-    }
-    final key = _repository.keyFor(service.id);
-    if (key == null || key.isEmpty) {
-      _error = const AiConfigurationException(AiProblem.keyRequired);
-      _notify();
-      return false;
-    }
-    _testing = true;
-    _error = null;
-    _notify();
-    try {
-      await _client.complete(
-        configuration: AiServiceConfiguration(
-          protocol: service.protocol,
-          baseUrl: service.baseUrl,
-          model: service.id == selectedService?.id
-              ? selectedModel!
-              : service.models.first,
-        ),
-        apiKey: key,
-        messages: const [
-          {'role': 'user', 'content': 'Reply with OK.'},
-        ],
-        tools: const [],
-        maxTokens: 8,
-      );
-      return true;
-    } catch (error) {
-      _error = error;
-      return false;
-    } finally {
-      _testing = false;
-      _notify();
-    }
   }
 
   Future<void> sendMessage(String content) async {

@@ -342,12 +342,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiSaveAndTest => '保存并测试连接';
 
   @override
-  String get aiTesting => '正在测试…';
-
-  @override
-  String get aiTestSucceeded => '连接成功';
-
-  @override
   String get profile => '个人中心';
 
   @override
@@ -1483,9 +1477,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String aiDeleteServiceMessage(String name) {
     return '删除“$name”及其本机密钥？已有聊天记录会保留。';
   }
-
-  @override
-  String get aiTestConnection => '测试连接';
 
   @override
   String get aiModelsHint => '每行一个模型 ID，也可用逗号分隔。读取失败时可手动填写。';

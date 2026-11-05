@@ -2,7 +2,7 @@
  * @Description: 定义应用主题类型、配色字段及主题名称的本地化映射。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-02 22:01:29
+ * @LastEditTime: 2026-11-05 16:12:23
  * @License: GPL 3.0
  */
 
@@ -42,6 +42,11 @@ class AppTheme {
   final Color tertiaryTextHoverColor;
   final Color tertiaryTextHighlightColor;
   final Color tertiaryTextSplashColor;
+  final Color tertiarySurfaceButtonBackgroundColor;
+  final Color tertiarySurfaceButtonHoverColor;
+  final Color tertiarySurfaceButtonPressedColor;
+  final Color tertiarySurfaceButtonHighlightColor;
+  final Color tertiarySurfaceButtonSplashColor;
   final Color appTitleTextColor;
   final Color inactiveTextColor;
   final Color iconColor;
@@ -81,6 +86,11 @@ class AppTheme {
     required this.tertiaryTextHoverColor,
     required this.tertiaryTextHighlightColor,
     required this.tertiaryTextSplashColor,
+    required this.tertiarySurfaceButtonBackgroundColor,
+    required this.tertiarySurfaceButtonHoverColor,
+    required this.tertiarySurfaceButtonPressedColor,
+    required this.tertiarySurfaceButtonHighlightColor,
+    required this.tertiarySurfaceButtonSplashColor,
     required this.appTitleTextColor,
     required this.inactiveTextColor,
     required this.iconColor,
@@ -176,6 +186,31 @@ class AppTheme {
       tertiaryTextSplashColor: Color.lerp(
         begin.tertiaryTextSplashColor,
         end.tertiaryTextSplashColor,
+        progress,
+      )!,
+      tertiarySurfaceButtonBackgroundColor: Color.lerp(
+        begin.tertiarySurfaceButtonBackgroundColor,
+        end.tertiarySurfaceButtonBackgroundColor,
+        progress,
+      )!,
+      tertiarySurfaceButtonHoverColor: Color.lerp(
+        begin.tertiarySurfaceButtonHoverColor,
+        end.tertiarySurfaceButtonHoverColor,
+        progress,
+      )!,
+      tertiarySurfaceButtonPressedColor: Color.lerp(
+        begin.tertiarySurfaceButtonPressedColor,
+        end.tertiarySurfaceButtonPressedColor,
+        progress,
+      )!,
+      tertiarySurfaceButtonHighlightColor: Color.lerp(
+        begin.tertiarySurfaceButtonHighlightColor,
+        end.tertiarySurfaceButtonHighlightColor,
+        progress,
+      )!,
+      tertiarySurfaceButtonSplashColor: Color.lerp(
+        begin.tertiarySurfaceButtonSplashColor,
+        end.tertiarySurfaceButtonSplashColor,
         progress,
       )!,
       appTitleTextColor: Color.lerp(

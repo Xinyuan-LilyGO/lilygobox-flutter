@@ -2,7 +2,7 @@
  * @Description: 展示可排序的模型服务列表，并通过弹窗添加或编辑服务。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-05 14:54:01
+ * @LastEditTime: 2026-11-05 17:15:48
  * @License: GPL 3.0
  */
 
@@ -30,7 +30,6 @@ class AiServiceSettingsContent extends StatefulWidget {
 }
 
 class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
-  String? _testedId;
   Object? _error;
 
   Future<void> _edit(
@@ -48,7 +47,6 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
     );
     if (mounted && id != null) {
       setState(() {
-        _testedId = null;
         _error = null;
       });
     }
@@ -72,7 +70,6 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
       await assistant.removeService(service.id);
       if (mounted) {
         setState(() {
-          _testedId = null;
           _error = null;
         });
       }
@@ -276,38 +273,22 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
       children: [
         AppActionButton(
           theme: theme,
-          label: assistant.testing
-              ? l10n.aiTesting
-              : _testedId == service.id
-              ? l10n.aiTestSucceeded
-              : l10n.aiTestConnection,
-          onPressed: busy
-              ? null
-              : () async {
-                  setState(() {
-                    _error = null;
-                    _testedId = null;
-                  });
-                  final passed = await assistant.testConnection(
-                    serviceId: service.id,
-                  );
-                  if (mounted && passed) {
-                    setState(() => _testedId = service.id);
-                  }
-                },
-        ),
-        AppActionButton(
-          theme: theme,
+          tertiaryBackground: true,
           label: l10n.aiEditService,
           onPressed: busy ? null : () => _edit(assistant, service),
         ),
-        IconButton(
-          tooltip: l10n.aiDeleteService,
+        AppActionButton(
+          key: ValueKey('ai-delete-service-${service.id}'),
+          theme: theme,
+          destructive: true,
+          label: l10n.delete,
+          icon: Symbols.delete_outline_rounded,
+          iconSize: 16,
+          iconSpacing: 6,
+          fontSize: 12,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          borderRadius: BorderRadius.circular(8),
           onPressed: busy ? null : () => _delete(assistant, service),
-          icon: Icon(
-            Symbols.delete_outline_rounded,
-            color: theme.textColorSecondary,
-          ),
         ),
       ],
     );
@@ -316,6 +297,7 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
       key: ValueKey('ai-service-card-${service.id}'),
       color: theme.tertiary,
       borderRadius: BorderRadius.circular(6),
+      clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
@@ -346,9 +328,7 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
                       child: Icon(
                         Symbols.drag_indicator_rounded,
                         size: 20,
-                        color: canDrag
-                            ? theme.textColorSecondary
-                            : theme.inactiveIconColor,
+                        color: theme.iconColor,
                       ),
                     ),
                   ),
