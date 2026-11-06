@@ -2,7 +2,7 @@
  * @Description: 验证模型服务持久化、排序、迁移与写入失败回滚。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-04 15:56:05
+ * @LastEditTime: 2026-11-06 09:26:37
  * @License: GPL 3.0
  */
 
@@ -75,6 +75,7 @@ void main() {
       'models': ['deepseek-chat'],
     });
     expect(legacy.protocol, AiApiProtocol.openAiChatCompletions);
+    expect(legacy.preset, AiServicePreset.custom);
     expect(
       AiModelService.fromJson({...legacy.toJson()}).protocol,
       AiApiProtocol.openAiChatCompletions,
@@ -135,6 +136,55 @@ void main() {
   });
 
   test(
+    'official presets persist their canonical endpoint and protocol',
+    () async {
+      final deepSeekId = await repository.save(
+        name: 'DeepSeek official',
+        preset: AiServicePreset.deepSeek,
+        protocol: AiApiProtocol.openAiResponses,
+        baseUrl: 'https://ignored.example',
+        models: ['deepseek-chat'],
+        apiKey: 'deepseek-key',
+      );
+      final openAiId = await repository.save(
+        name: 'OpenAI official',
+        preset: AiServicePreset.openAi,
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://ignored.example',
+        models: ['gpt-4.1-mini'],
+        apiKey: 'openai-key',
+      );
+
+      final deepSeek = repository.find(deepSeekId)!;
+      expect(deepSeek.baseUrl, 'https://api.deepseek.com');
+      expect(deepSeek.protocol, AiApiProtocol.openAiChatCompletions);
+      final openAi = repository.find(openAiId)!;
+      expect(openAi.baseUrl, 'https://api.openai.com/v1');
+      expect(openAi.protocol, AiApiProtocol.openAiResponses);
+      final restored = ModelServiceRepository(preferences, keys);
+      await restored.load();
+      expect(restored.find(openAiId)?.preset, AiServicePreset.openAi);
+      await expectLater(
+        repository.save(
+          id: deepSeekId,
+          name: 'Custom DeepSeek',
+          preset: AiServicePreset.custom,
+          protocol: AiApiProtocol.openAiChatCompletions,
+          baseUrl: 'https://api.deepseek.com',
+          models: ['deepseek-chat'],
+        ),
+        throwsA(
+          isA<AiConfigurationException>().having(
+            (error) => error.problem,
+            'problem',
+            AiProblem.keyRequired,
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
     'editing keeps key on same origin and rejects reusing it on another origin',
     () async {
       final id = await add('first', 'secret-first');
@@ -151,6 +201,7 @@ void main() {
         repository.save(
           id: id,
           name: 'renamed',
+          preset: AiServicePreset.openAi,
           protocol: AiApiProtocol.openAiChatCompletions,
           baseUrl: 'https://another.test/v1',
           models: ['updated'],

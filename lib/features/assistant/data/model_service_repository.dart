@@ -2,7 +2,7 @@
  * @Description: 持久化已添加的模型服务、独立密钥与模型选择，并迁移已有的显式配置。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-04 15:56:05
+ * @LastEditTime: 2026-11-06 09:26:37
  * @License: GPL 3.0
  */
 
@@ -109,8 +109,9 @@ class ModelServiceRepository {
     required String baseUrl,
     required List<String> models,
     String? apiKey,
+    AiServicePreset preset = AiServicePreset.custom,
   }) async {
-    final address = validateAddress(baseUrl);
+    final address = validateAddress(preset.baseUrl ?? baseUrl);
     final cleanModels = models
         .map((model) => model.trim())
         .where((model) => model.isNotEmpty)
@@ -130,7 +131,8 @@ class ModelServiceRepository {
     final oldKey = _keys[id];
     if (newKey?.isNotEmpty != true &&
         (oldKey?.isNotEmpty != true ||
-            Uri.parse(old!.baseUrl).origin != Uri.parse(address).origin)) {
+            old!.preset != preset ||
+            Uri.parse(old.baseUrl).origin != Uri.parse(address).origin)) {
       throw const AiConfigurationException(AiProblem.keyRequired);
     }
     final serviceId =
@@ -138,9 +140,10 @@ class ModelServiceRepository {
     final service = AiModelService(
       id: serviceId,
       name: name.trim(),
-      protocol: protocol,
+      protocol: preset.protocol ?? protocol,
       baseUrl: address,
       models: cleanModels,
+      preset: preset,
     );
     final next = [
       for (final item in _services)

@@ -1,8 +1,8 @@
 /*
- * @Description: 管理 AI 服务配置、对话、请求状态和待用户确认的设置变更。
+ * @Description: 管理 AI 服务配置、对话、请求状态和 AI 设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-05 16:53:41
+ * @LastEditTime: 2026-11-06 16:30:18
  * @License: GPL 3.0
  */
 
@@ -40,9 +40,15 @@ class AiAssistantProvider extends ChangeNotifier {
   bool _credentialLoaded = false;
   bool _loadFailed = false;
   bool _busy = false;
+  bool _paused = false;
+  bool _stopRequested = false;
   bool _saving = false;
   bool _disposed = false;
+  Completer<void>? _abortRequest;
+  AiServiceConfiguration? _activeConfiguration;
+  String? _activeApiKey;
   Object? _error;
+  Object? _configurationError;
   int _nextMessageId = 0;
 
   List<AiModelService> get services => _repository.services;
@@ -58,16 +64,12 @@ class AiAssistantProvider extends ChangeNotifier {
   bool get hasApiKey => hasServiceKey(selectedService?.id);
   bool hasServiceKey(String? id) => _repository.keyFor(id)?.isNotEmpty == true;
   bool get busy => _busy;
+  bool get paused => _paused;
   bool get saving => _saving;
-  bool get canChangeService =>
-      _credentialLoaded &&
-      !_loadFailed &&
-      !_busy &&
-      !_saving &&
-      !_messages.any(
-        (message) => message.toolName != null && message.toolDecision == null,
-      );
+  bool get canChangeService => _credentialLoaded && !_loadFailed && !_saving;
+  bool get canSendMessage => canChangeService && !_busy;
   Object? get error => _error;
+  Object? get configurationError => _configurationError;
   bool isResolvingTool(String id) => _resolvingToolIds.contains(id);
   Future<void> get initialized => _initializing;
 
@@ -80,7 +82,7 @@ class AiAssistantProvider extends ChangeNotifier {
       await _repository.load();
     } catch (_) {
       _loadFailed = true;
-      _error = const AiConfigurationException(AiProblem.storage);
+      _configurationError = const AiConfigurationException(AiProblem.storage);
     } finally {
       _credentialLoaded = true;
       _notify();
@@ -112,6 +114,7 @@ class AiAssistantProvider extends ChangeNotifier {
     required String baseUrl,
     required List<String> models,
     String? apiKey,
+    AiServicePreset preset = AiServicePreset.custom,
   }) => _change(
     () => _repository.save(
       id: id,
@@ -120,6 +123,7 @@ class AiAssistantProvider extends ChangeNotifier {
       baseUrl: baseUrl,
       models: models,
       apiKey: apiKey,
+      preset: preset,
     ),
   );
 
@@ -153,7 +157,7 @@ class AiAssistantProvider extends ChangeNotifier {
 
   Future<void> sendMessage(String content) async {
     final text = content.trim();
-    if (text.isEmpty || !canChangeService) return;
+    if (text.isEmpty || !canSendMessage) return;
     if (!hasApiKey) {
       _error = const AiConfigurationException(AiProblem.noService);
       _notify();
@@ -162,9 +166,39 @@ class AiAssistantProvider extends ChangeNotifier {
     _error = null;
     _messages.add(_message(role: 'user', content: text));
     _history.add({'role': 'user', 'content': text});
+    _stopRequested = false;
+    _paused = false;
+    _activeConfiguration = configuration;
+    _activeApiKey = _repository.keyFor(selectedService!.id)!;
+    _abortRequest = Completer<void>();
     _busy = true;
     _notify();
     await _requestAssistant();
+  }
+
+  void stopGeneration() {
+    if (!_busy || _stopRequested) return;
+    _stopRequested = true;
+    _client.resumeResponse();
+    _paused = false;
+    final abortRequest = _abortRequest;
+    if (abortRequest != null && !abortRequest.isCompleted) {
+      abortRequest.complete();
+    }
+  }
+
+  void pauseGeneration() {
+    if (!_busy || _paused) return;
+    _paused = true;
+    _client.pauseResponse();
+    _notify();
+  }
+
+  void resumeGeneration() {
+    if (!_busy || !_paused) return;
+    _paused = false;
+    _client.resumeResponse();
+    _notify();
   }
 
   Future<void> resolveTool(String messageId, {required bool approve}) async {
@@ -202,6 +236,11 @@ class AiAssistantProvider extends ChangeNotifier {
       _notify();
       return;
     }
+    _stopRequested = false;
+    _paused = false;
+    _abortRequest = Completer<void>();
+    _activeConfiguration ??= configuration;
+    _activeApiKey ??= _repository.keyFor(selectedService!.id)!;
     _busy = true;
     _notify();
     await _requestAssistant();
@@ -223,26 +262,63 @@ class AiAssistantProvider extends ChangeNotifier {
   }
 
   Future<void> _requestAssistant() async {
+    String? streamingMessageId;
+    var streamedContent = '';
     try {
       final completion = await _client.complete(
-        configuration: configuration,
-        apiKey: _repository.keyFor(selectedService!.id)!,
+        configuration: _activeConfiguration!,
+        apiKey: _activeApiKey!,
         messages: [
           {
             'role': 'system',
             'content':
                 'You are the LilygoBox assistant. Help with the app and its settings. '
                 'Use setting tools when the user asks to change a supported setting. '
-                'Never claim an action succeeded before the user approves it. '
+                'Apply supported, reversible app setting changes immediately. '
+                'Only report success after the setting tool returns successfully. '
                 'Reply in the language used by the user.',
           },
           ..._history,
         ],
         tools: _settingTools,
+        abortTrigger: _abortRequest?.future,
+        onTextDelta: (delta) {
+          if (_stopRequested) return;
+          streamedContent += delta;
+          streamingMessageId ??= _newId();
+          final index = _messages.indexWhere(
+            (message) => message.id == streamingMessageId,
+          );
+          if (index < 0) {
+            _messages.add(
+              AiMessage(
+                id: streamingMessageId!,
+                role: 'assistant',
+                content: streamedContent,
+              ),
+            );
+          } else {
+            _messages[index] = _messages[index].copyWith(
+              content: streamedContent,
+            );
+          }
+          _notify();
+        },
       );
       if (completion.toolCalls.isEmpty) {
         if (completion.text.isNotEmpty) {
-          _messages.add(_message(role: 'assistant', content: completion.text));
+          if (streamingMessageId case final id?) {
+            final index = _messages.indexWhere((message) => message.id == id);
+            if (index >= 0) {
+              _messages[index] = _messages[index].copyWith(
+                content: completion.text,
+              );
+            }
+          } else {
+            _messages.add(
+              _message(role: 'assistant', content: completion.text),
+            );
+          }
           _history.add({
             'role': 'assistant',
             'content': completion.text,
@@ -279,21 +355,34 @@ class AiAssistantProvider extends ChangeNotifier {
         ],
       });
       for (final call in calls) {
-        _messages.add(
-          AiMessage(
-            id: call.id,
-            role: 'assistant',
-            content: '',
-            toolName: call.name,
-            toolArguments: call.arguments,
-          ),
-        );
+        if (_stopRequested) break;
+        String result;
+        try {
+          result = await _settings.execute(call.name, call.arguments);
+        } catch (error) {
+          result = 'The setting change failed: $error';
+        }
+        _history.add({
+          'role': 'tool',
+          'tool_call_id': call.id,
+          'content': result,
+        });
       }
-      _notify();
+      if (!_stopRequested) await _requestAssistant();
     } catch (error) {
-      _error = error;
+      if (_stopRequested) {
+        if (streamedContent.isNotEmpty) {
+          _history.add({'role': 'assistant', 'content': streamedContent});
+        }
+      } else {
+        _error = error;
+      }
     } finally {
       _busy = false;
+      _paused = false;
+      _abortRequest = null;
+      _activeConfiguration = null;
+      _activeApiKey = null;
       _notify();
     }
   }

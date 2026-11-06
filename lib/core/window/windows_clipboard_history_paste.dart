@@ -2,13 +2,14 @@
  * @Description: 修正 Windows 剪贴板历史发送的 Ctrl+V 键盘事件序列。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 18:05:00
- * @LastEditTime: 2026-11-04 18:12:03
+ * @LastEditTime: 2026-11-05 18:15:22
  * @License: GPL 3.0
  */
 
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 
 /// 兼容 Flutter Windows runner 对剪贴板历史合成按键的错误映射。
 class WindowsClipboardHistoryKeyDataFix {
@@ -169,14 +170,16 @@ class WindowsClipboardHistoryKeyDataFix {
   );
 }
 
-/// 在 Windows 主应用中修正剪贴板历史的合成 Ctrl+V 事件。
+/// 首帧后安装，避免被 ServicesBinding 异步初始化的键盘回调覆盖。
 void installWindowsClipboardHistoryPasteFix() {
   if (kIsWeb || defaultTargetPlatform != TargetPlatform.windows) return;
 
-  final dispatcher = ui.PlatformDispatcher.instance;
-  final original = dispatcher.onKeyData;
-  if (original == null) return;
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final dispatcher = ui.PlatformDispatcher.instance;
+    final original = dispatcher.onKeyData;
+    if (original == null) return;
 
-  final fix = WindowsClipboardHistoryKeyDataFix();
-  dispatcher.onKeyData = (data) => fix.handle(data, original);
+    final fix = WindowsClipboardHistoryKeyDataFix();
+    dispatcher.onKeyData = (data) => fix.handle(data, original);
+  });
 }

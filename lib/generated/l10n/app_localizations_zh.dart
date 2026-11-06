@@ -228,6 +228,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiSend => '发送消息';
 
   @override
+  String get aiPause => '暂停接收回复';
+
+  @override
+  String get aiResume => '继续接收回复';
+
+  @override
   String get aiClearConversation => '清除对话';
 
   @override
@@ -303,10 +309,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiProviderLabel => '服务提供商';
 
   @override
-  String get aiProviderDescription => '选择预设服务，或配置兼容 OpenAI 的 API。';
+  String get aiProviderDescription =>
+      '官方服务自动配置 API 地址与协议；自定义服务可自行填写。切换提供商会清空已输入的密钥和模型列表。';
 
   @override
-  String get aiProviderDeepseek => 'DeepSeek';
+  String get aiProviderDeepseek => 'DeepSeek 官方';
+
+  @override
+  String get aiProviderOpenAi => 'OpenAI 官方';
+
+  @override
+  String get aiProviderCustom => '自定义';
 
   @override
   String get aiProviderCompatible => '兼容 OpenAI 的 API';
@@ -1509,7 +1522,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiModelsRequired => '请填写至少一个模型 ID，或读取模型列表。';
 
   @override
-  String get aiKeyRequired => '请输入 API 密钥。更换服务域名时需要重新填写。';
+  String get aiKeyRequired => '请输入 API 密钥。更换服务提供商或域名时需要重新填写。';
 
   @override
   String get aiStorageError => '无法读取或保存服务配置，请检查本机存储后重试。';

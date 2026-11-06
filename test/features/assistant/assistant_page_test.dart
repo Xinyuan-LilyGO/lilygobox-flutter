@@ -2,10 +2,11 @@
  * @Description: 验证 AI 主页居中与底部输入状态、键盘发送、直达设置及缩放布局。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:16:04
- * @LastEditTime: 2026-11-04 17:35:00
+ * @LastEditTime: 2026-11-06 17:07:04
  * @License: GPL 3.0
  */
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -16,12 +17,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:lilygobox/app/navigation/provider.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
+import 'package:lilygobox/core/context_menu/text_selection_menu.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/theme/material_palette.dart';
+import 'package:lilygobox/core/widgets/title_bar_icon_button.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/presentation/pages/page.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_composer.dart';
@@ -40,6 +44,7 @@ void main() {
   late AppNavigationProvider navigation;
   late AssistantTestScope scope;
   var requests = 0;
+  Completer<void>? responseGate;
   final boundaryKey = GlobalKey();
 
   setUp(() async {
@@ -49,6 +54,7 @@ void main() {
     splitView = SplitViewProvider();
     navigation = AppNavigationProvider();
     requests = 0;
+    responseGate = null;
     if (const bool.fromEnvironment('CAPTURE_ASSISTANT_UI')) {
       final inter = FontLoader('LilygoBoxInter')
         ..addFont(rootBundle.load('assets/fonts/Inter/Inter-Variable.ttf'));
@@ -71,6 +77,7 @@ void main() {
       splitView: splitView,
       client: MockClient((request) async {
         requests++;
+        if (responseGate case final gate?) await gate.future;
         return http.Response(
           jsonEncode({
             'choices': [
@@ -93,34 +100,41 @@ void main() {
     navigation.dispose();
   });
 
-  Widget app({bool settings = false, double scale = 1, String locale = 'en'}) =>
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider.value(value: theme),
-          ChangeNotifierProvider.value(value: language),
-          ChangeNotifierProvider.value(value: scope.provider),
-          ChangeNotifierProvider.value(value: navigation),
-        ],
-        child: MaterialApp(
-          locale: Locale(locale),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          theme: ThemeData(
-            useMaterial3: true,
-            colorScheme: theme.themeData.materialColors,
-            fontFamily: 'LilygoBoxInter',
-          ),
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: TextScaler.linear(scale)),
-            child: RepaintBoundary(key: boundaryKey, child: child!),
-          ),
-          home: Scaffold(
-            body: settings ? const SettingsSplitView() : const AssistantPage(),
-          ),
+  Widget app({
+    bool settings = false,
+    bool tickerEnabled = true,
+    double scale = 1,
+    String locale = 'en',
+  }) => MultiProvider(
+    providers: [
+      ChangeNotifierProvider.value(value: theme),
+      ChangeNotifierProvider.value(value: language),
+      ChangeNotifierProvider.value(value: scope.provider),
+      ChangeNotifierProvider.value(value: navigation),
+    ],
+    child: MaterialApp(
+      locale: Locale(locale),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: theme.themeData.materialColors,
+        fontFamily: 'LilygoBoxInter',
+      ),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(scale)),
+        child: RepaintBoundary(key: boundaryKey, child: child!),
+      ),
+      home: Scaffold(
+        body: TickerMode(
+          enabled: tickerEnabled,
+          child: settings ? const SettingsSplitView() : const AssistantPage(),
         ),
-      );
+      ),
+    ),
+  );
 
   Future<void> capture(WidgetTester tester, String name) async {
     if (!const bool.fromEnvironment('CAPTURE_ASSISTANT_UI')) return;
@@ -136,6 +150,36 @@ void main() {
       await file.writeAsBytes(bytes!.buffer.asUint8List());
     });
   }
+
+  testWidgets('composer theme background updates while its ticker is paused', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    final background = find.byKey(
+      const ValueKey('ai-composer-input-background'),
+    );
+    expect(
+      tester.widget<ColoredBox>(background).color,
+      theme.themeData.primary,
+    );
+
+    await tester.pumpWidget(app(tickerEnabled: false));
+    theme.setTheme(ThemeType.light);
+    await tester.pump();
+    expect(
+      tester.widget<ColoredBox>(background).color,
+      theme.themeData.primary,
+    );
+
+    await tester.pumpWidget(app(tickerEnabled: true));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<ColoredBox>(background).color,
+      theme.themeData.primary,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'composer stays at bottom with centered greeting and no assistant title',
@@ -178,11 +222,15 @@ void main() {
       final inner = tester.widget<AnimatedContainer>(
         find.byKey(const ValueKey('ai-composer-input-layer')),
       );
+      final inputBackground = tester.widget<ColoredBox>(
+        find.byKey(const ValueKey('ai-composer-input-background')),
+      );
       expect((outer.decoration as BoxDecoration).border, isNull);
       expect(
         (inner.decoration as BoxDecoration).border!.top.color,
         Colors.transparent,
       );
+      expect(inputBackground.color, theme.themeData.primary);
       expect(find.text('LilygoBox workspace'), findsNothing);
       final field = find.byKey(const ValueKey('ai-message-input'));
       await tester.enterText(field, 'Adjust sidebar layout');
@@ -232,10 +280,26 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pumpAndSettle();
       await tester.pumpAndSettle();
       expect(requests, 1);
       expect(find.text('Ready to help with LilygoBox.'), findsOneWidget);
       expect(find.text('Adjust sidebar layout'), findsOneWidget);
+      expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
+      final assistantMessage = tester.widget<SelectableText>(
+        find.ancestor(
+          of: find.text('Ready to help with LilygoBox.'),
+          matching: find.byType(SelectableText),
+        ),
+      );
+      expect(assistantMessage.contextMenuBuilder, AppTextSelectionMenu.build);
+      expect(assistantMessage.selectionWidthStyle, ui.BoxWidthStyle.tight);
+      final messageList = find.byType(ListView);
+      expect(
+        tester.getSize(messageList).width,
+        tester.getSize(find.byType(AssistantPage)).width,
+      );
       expect(tester.getBottomRight(composer).dy, closeTo(736, 1));
       expect(find.text('What can I help you with today?'), findsNothing);
       await capture(tester, 'home-conversation-dark');
@@ -251,11 +315,66 @@ void main() {
     final field = find.byKey(const ValueKey('ai-message-input'));
     await tester.enterText(field, 'Keep this draft');
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pump();
     expect(navigation.currentPage, AppPage.settings);
     expect(navigation.settingsSection, AppSettingsSection.aiServices);
     expect(tester.widget<TextField>(field).controller!.text, 'Keep this draft');
     expect(requests, 0);
+  });
+
+  testWidgets('keeps input focused and editable while a reply is generating', (
+    tester,
+  ) async {
+    responseGate = Completer<void>();
+    await tester.runAsync(() => scope.provider.initialized);
+    await scope.provider.saveService(
+      name: 'DeepSeek',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://api.deepseek.com',
+      models: ['deepseek-chat'],
+      apiKey: 'test-key',
+    );
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    final field = find.byKey(const ValueKey('ai-message-input'));
+    await tester.enterText(field, 'First message');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    await tester.pump();
+
+    final activeField = tester.widget<TextField>(field);
+    expect(scope.provider.busy, isTrue);
+    expect(activeField.focusNode!.hasFocus, isTrue);
+    expect(activeField.readOnly, isFalse);
+    final pauseResumeButton = find.byKey(
+      const ValueKey('ai-pause-resume-button'),
+    );
+    expect(pauseResumeButton, findsOneWidget);
+    expect(find.byKey(const ValueKey('ai-stop-button')), findsNothing);
+    expect(
+      tester.widget<TitleBarIconButton>(pauseResumeButton).icon,
+      Symbols.stop_rounded,
+    );
+    await tester.tap(pauseResumeButton);
+    await tester.pump();
+    expect(scope.provider.paused, isTrue);
+    expect(
+      tester.widget<TitleBarIconButton>(pauseResumeButton).icon,
+      Symbols.play_arrow_rounded,
+    );
+    await tester.tap(pauseResumeButton);
+    await tester.pump();
+    expect(scope.provider.paused, isFalse);
+    await tester.enterText(field, 'Next message');
+    expect(tester.widget<TextField>(field).controller!.text, 'Next message');
+
+    responseGate!.complete();
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
+    expect(tester.widget<TextField>(field).controller!.text, 'Next message');
   });
 
   testWidgets('shift enter and IME confirmation do not submit messages', (
@@ -281,6 +400,49 @@ void main() {
     await tester.pump();
     expect(navigation.currentPage, AppPage.home);
     expect(requests, 0);
+  });
+
+  testWidgets('clicking send does not focus the input again', (tester) async {
+    responseGate = Completer<void>();
+    await tester.runAsync(() => scope.provider.initialized);
+    await scope.provider.saveService(
+      name: 'DeepSeek',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://api.deepseek.com',
+      models: ['deepseek-chat'],
+      apiKey: 'test-key',
+    );
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    final input = find.byKey(const ValueKey('ai-message-input'));
+    await tester.enterText(input, 'Send with the button');
+    await tester.pump();
+    expect(
+      tester
+          .widget<TitleBarIconButton>(
+            find.byKey(const ValueKey('ai-send-button')),
+          )
+          .size,
+      28,
+    );
+    await tester.tap(find.byKey(const ValueKey('ai-send-button')));
+    await tester.pump();
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pump();
+    expect(scope.provider.busy, isTrue, reason: 'request count: $requests');
+    expect(tester.widget<TextField>(input).focusNode!.hasFocus, isFalse);
+    expect(
+      tester
+          .widget<TitleBarIconButton>(
+            find.byKey(const ValueKey('ai-pause-resume-button')),
+          )
+          .size,
+      28,
+    );
+
+    responseGate!.complete();
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('home and AI settings adapt to narrow windows and large text', (
@@ -338,6 +500,14 @@ void main() {
       await tester.enterText(input, 'Keep this draft');
       await tester.tap(find.byKey(const ValueKey('ai-model-selector')));
       await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<AnimatedRotation>(
+              find.byKey(const ValueKey('ai-model-selector-arrow')),
+            )
+            .turns,
+        0.5,
+      );
       expect(navigation.currentPage, AppPage.home);
       expect(find.text('For next messages'), findsNothing);
       expect(find.text('Add model service'), findsNothing);
@@ -381,6 +551,14 @@ void main() {
       );
       await tester.tap(find.byKey(ValueKey('ai-model-$second-custom-model')));
       await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<AnimatedRotation>(
+              find.byKey(const ValueKey('ai-model-selector-arrow')),
+            )
+            .turns,
+        0,
+      );
       expect(scope.provider.selectedService?.id, second);
       expect(scope.provider.selectedModel, 'custom-model');
       expect(

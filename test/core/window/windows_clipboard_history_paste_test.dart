@@ -2,16 +2,62 @@
  * @Description: 验证 Windows 剪贴板历史的异常按键序列会被正确归一化。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 18:05:00
- * @LastEditTime: 2026-11-04 18:12:03
+ * @LastEditTime: 2026-11-05 18:15:22
  * @License: GPL 3.0
  */
 
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/window/windows_clipboard_history_paste.dart';
 
 void main() {
+  testWidgets('installs after asynchronous keyboard initialization', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    final dispatcher = ui.PlatformDispatcher.instance;
+    final original = dispatcher.onKeyData;
+    addTearDown(() {
+      dispatcher.onKeyData = original;
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    // At startup ServicesBinding has not registered its callback yet.
+    dispatcher.onKeyData = null;
+    installWindowsClipboardHistoryPasteFix();
+    debugDefaultTargetPlatformOverride = null;
+    final forwarded = <ui.KeyData>[];
+    dispatcher.onKeyData = (data) {
+      forwarded.add(data);
+      return false;
+    };
+    tester.binding.scheduleFrame();
+    await tester.pump();
+
+    for (final event in [
+      _event(ui.KeyEventType.down, control, synthesized: false),
+      _event(ui.KeyEventType.up, control, synthesized: true),
+      _event(ui.KeyEventType.down, v, synthesized: false),
+      _event(ui.KeyEventType.up, v, synthesized: false),
+      _event(ui.KeyEventType.down, control, synthesized: true),
+      _event(ui.KeyEventType.up, control, synthesized: true),
+    ]) {
+      dispatcher.onKeyData!(event);
+    }
+
+    expect(
+      forwarded.map((event) => (event.type, event.physical, event.logical)),
+      [
+        (ui.KeyEventType.down, controlPhysical, control),
+        (ui.KeyEventType.down, vPhysical, v),
+        (ui.KeyEventType.up, vPhysical, v),
+        (ui.KeyEventType.up, controlPhysical, control),
+      ],
+    );
+  });
+
   test('forwards the normalized sequence through the key data handler', () {
     final fix = WindowsClipboardHistoryKeyDataFix();
     final forwarded = <ui.KeyData>[];

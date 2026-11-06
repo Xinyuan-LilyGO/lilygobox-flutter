@@ -2,7 +2,7 @@
  * @Description: 展示界面语言选择并使用当前语言显示选项名称。
  * @Author: LILYGO_L
  * @Date: 2025-10-31 17:01:16
- * @LastEditTime: 2026-10-02 20:42:05
+ * @LastEditTime: 2026-11-06 15:23:31
  * @License: GPL 3.0
  */
 
@@ -44,6 +44,7 @@ class _LanguageAndRegionContentState extends State<LanguageAndRegionContent> {
             width: 220,
             child: SettingSelect<String>(
               theme: theme,
+              surfaceColor: theme.secondary,
               value: currentLanguageCode,
               items: LanguageProvider.supportedLanguages.map((language) {
                 final languageName = switch (language['code']) {

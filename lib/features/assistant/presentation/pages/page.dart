@@ -2,15 +2,18 @@
  * @Description: 提供 LilygoBox AI 对话主页与设置操作确认。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-04 12:04:44
+ * @LastEditTime: 2026-11-06 17:01:08
  * @License: GPL 3.0
  */
+
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../app/navigation/provider.dart';
+import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/action_button.dart';
@@ -40,15 +43,25 @@ class _AssistantPageState extends State<AssistantPage> {
     super.dispose();
   }
 
-  Future<void> _send(AiAssistantProvider assistant) async {
+  Future<void> _send(
+    AiAssistantProvider assistant, {
+    required bool fromKeyboard,
+  }) async {
     final text = _input.text;
-    if (text.trim().isEmpty || !assistant.canChangeService) return;
+    if (text.trim().isEmpty || !assistant.canSendMessage) return;
     if (!assistant.hasApiKey) {
       context.read<AppNavigationProvider>().openAiSettings();
       return;
     }
     _input.clear();
     final request = assistant.sendMessage(text);
+    if (fromKeyboard) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _inputFocus.requestFocus();
+      });
+    } else {
+      _inputFocus.unfocus();
+    }
     _scrollToEnd();
     await request;
     _scrollToEnd();
@@ -103,44 +116,45 @@ class _AssistantPageState extends State<AssistantPage> {
             Expanded(
               child: messages.isEmpty
                   ? _Welcome(theme: theme)
-                  : Align(
-                      alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 820),
-                        child: ListView.builder(
-                          controller: _scroll,
-                          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-                          itemCount: messages.length + (assistant.busy ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (index == messages.length) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                child: Text(
-                                  l10n.aiAssistantThinking,
-                                  style: TextStyle(
-                                    color: theme.textColorTertiary,
-                                    fontSize: 13,
+                  : ListView.builder(
+                      controller: _scroll,
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                      itemCount: messages.length + (assistant.busy ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        return Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 772),
+                            child: index == messages.length
+                                ? Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        l10n.aiAssistantThinking,
+                                        style: TextStyle(
+                                          color: theme.textColorTertiary,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : _MessageView(
+                                    message: messages[index],
+                                    theme: theme,
+                                    isResolving: assistant.isResolvingTool(
+                                      messages[index].id,
+                                    ),
+                                    onResolve: (approve) =>
+                                        assistant.resolveTool(
+                                          messages[index].id,
+                                          approve: approve,
+                                        ),
                                   ),
-                                ),
-                              );
-                            }
-                            final message = messages[index];
-                            return _MessageView(
-                              message: message,
-                              theme: theme,
-                              isResolving: assistant.isResolvingTool(
-                                message.id,
-                              ),
-                              onResolve: (approve) => assistant.resolveTool(
-                                message.id,
-                                approve: approve,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
+                          ),
+                        );
+                      },
                     ),
             ),
             if (messages.isNotEmpty && assistant.error != null)
@@ -174,7 +188,8 @@ class _AssistantPageState extends State<AssistantPage> {
                   theme: theme,
                   assistant: assistant,
                   ready: ready,
-                  onSend: () => _send(assistant),
+                  onSend: (fromKeyboard) =>
+                      _send(assistant, fromKeyboard: fromKeyboard),
                 ),
               ),
             ),
@@ -271,9 +286,14 @@ class _MessageView extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              padding: EdgeInsets.symmetric(
+                horizontal: isUser ? 12 : 14,
+                vertical: isUser ? 9 : 11,
+              ),
               child: SelectableText(
                 message.content,
+                selectionWidthStyle: ui.BoxWidthStyle.tight,
+                contextMenuBuilder: AppTextSelectionMenu.build,
                 style: TextStyle(
                   color: theme.textColorPrimary,
                   fontSize: 14,

@@ -2,10 +2,11 @@
  * @Description: 调用 OpenAI 兼容 Chat Completions 并解析设置工具调用。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-04 14:52:13
+ * @LastEditTime: 2026-11-06 15:23:31
  * @License: GPL 3.0
  */
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -25,12 +26,43 @@ class ChatCompletionClient {
     : _client = client ?? http.Client();
 
   final http.Client _client;
+  StreamSubscription<String>? _responseSubscription;
+  bool _pauseRequested = false;
+  Timer? _responseTimeout;
+  void Function(Object, StackTrace)? _failResponse;
+
+  void pauseResponse() {
+    if (_pauseRequested) return;
+    _pauseRequested = true;
+    _responseTimeout?.cancel();
+    _responseSubscription?.pause();
+  }
+
+  void resumeResponse() {
+    if (!_pauseRequested) return;
+    _pauseRequested = false;
+    _responseSubscription?.resume();
+    _armResponseTimeout();
+  }
+
+  void _armResponseTimeout() {
+    _responseTimeout?.cancel();
+    if (_pauseRequested || _failResponse == null) return;
+    _responseTimeout = Timer(const Duration(seconds: 90), () {
+      _failResponse?.call(
+        TimeoutException('No response received for 90 seconds.'),
+        StackTrace.current,
+      );
+    });
+  }
 
   Future<AiCompletion> complete({
     required AiServiceConfiguration configuration,
     required String apiKey,
     required List<Map<String, Object?>> messages,
     required List<Map<String, Object?>> tools,
+    Future<void>? abortTrigger,
+    void Function(String)? onTextDelta,
     int maxTokens = 2048,
   }) async {
     final base = configuration.baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
@@ -38,16 +70,16 @@ class ChatCompletionClient {
     final uri = Uri.parse(
       '$base/${responses ? 'responses' : 'chat/completions'}',
     );
-    final response = await _client
-        .post(
-          uri,
-          headers: {
+    final request =
+        http.AbortableRequest('POST', uri, abortTrigger: abortTrigger)
+          ..headers.addAll({
             'Authorization': 'Bearer $apiKey',
             'Content-Type': 'application/json; charset=utf-8',
-            'Accept': 'application/json',
-          },
-          body: jsonEncode({
+            'Accept': 'text/event-stream, application/json',
+          })
+          ..body = jsonEncode({
             'model': configuration.model,
+            'stream': true,
             if (responses)
               ..._responsesRequest(messages, tools, maxTokens)
             else ...{
@@ -56,12 +88,161 @@ class ChatCompletionClient {
               if (tools.isNotEmpty) 'tool_choice': 'auto',
               'max_tokens': maxTokens,
             },
-          }),
-        )
+          });
+    final response = await _client
+        .send(request)
         .timeout(const Duration(seconds: 90));
+    final raw = StringBuffer();
+    final dataLines = <String>[];
+    final toolDeltas = <int, Map<String, Object?>>{};
+    var eventName = '';
+    final streamedText = StringBuffer();
+    AiCompletion? responseCompletion;
+    void processEvent() {
+      if (dataLines.isEmpty) {
+        eventName = '';
+        return;
+      }
+      final data = dataLines.join('\n');
+      dataLines.clear();
+      final currentEvent = eventName;
+      eventName = '';
+      if (data == '[DONE]') return;
+      final decoded = _decode(data);
+      final error = decoded['error'];
+      if (error != null || decoded['type'] == 'error') {
+        throw AiRequestException(
+          error is Map
+              ? error['message']?.toString() ?? 'Invalid stream response'
+              : decoded['message']?.toString() ?? 'Invalid stream response',
+        );
+      }
+      if (responses) {
+        final type = decoded['type'] ?? currentEvent;
+        if (type == 'response.output_text.delta' &&
+            decoded['delta'] is String) {
+          final delta = decoded['delta'] as String;
+          streamedText.write(delta);
+          onTextDelta?.call(delta);
+        } else if (type == 'response.completed' &&
+            decoded['response'] is Map<String, dynamic>) {
+          responseCompletion = _parseResponses(
+            decoded['response'] as Map<String, dynamic>,
+          );
+        } else if (type == 'response.failed' || type == 'response.incomplete') {
+          throw const AiConfigurationException(AiProblem.invalidResponse);
+        }
+        return;
+      }
+      final choices = decoded['choices'];
+      if (choices is! List || choices.isEmpty || choices.first is! Map) return;
+      final delta = (choices.first as Map)['delta'];
+      if (delta is! Map) return;
+      final text = delta['content'];
+      if (text is String && text.isNotEmpty) {
+        streamedText.write(text);
+        onTextDelta?.call(text);
+      }
+      final calls = delta['tool_calls'];
+      if (calls is! List) return;
+      for (final call in calls.whereType<Map>()) {
+        final index = call['index'];
+        if (index is! int) continue;
+        final collected = toolDeltas.putIfAbsent(index, () => {});
+        if (call['id'] is String) collected['id'] = call['id'];
+        final function = call['function'];
+        if (function is Map) {
+          if (function['name'] is String) {
+            collected['name'] = function['name'];
+          }
+          if (function['arguments'] is String) {
+            collected['arguments'] =
+                '${collected['arguments'] ?? ''}${function['arguments']}';
+          }
+        }
+      }
+    }
 
-    final decoded = _decode(utf8.decode(response.bodyBytes));
+    final completion = Completer<void>();
+    void fail(Object error, StackTrace stackTrace) {
+      if (!completion.isCompleted) {
+        completion.completeError(error, stackTrace);
+      }
+    }
+
+    _failResponse = fail;
+    var reading = true;
+    unawaited(
+      abortTrigger?.then((_) {
+        if (reading) {
+          fail(http.RequestAbortedException(uri), StackTrace.current);
+        }
+      }),
+    );
+    var lineTail = '';
+    _responseSubscription = response.stream
+        .transform(utf8.decoder)
+        .listen(
+          (chunk) {
+            try {
+              _armResponseTimeout();
+              raw.write(chunk);
+              lineTail += chunk;
+              final lines = lineTail.split('\n');
+              lineTail = lines.removeLast();
+              for (final rawLine in lines) {
+                final line = rawLine.endsWith('\r')
+                    ? rawLine.substring(0, rawLine.length - 1)
+                    : rawLine;
+                if (line.isEmpty) {
+                  processEvent();
+                } else if (line.startsWith('data:')) {
+                  dataLines.add(line.substring(5).trimLeft());
+                } else if (line.startsWith('event:')) {
+                  eventName = line.substring(6).trim();
+                }
+              }
+            } catch (error, stackTrace) {
+              fail(error, stackTrace);
+            }
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            if (!completion.isCompleted) {
+              completion.completeError(error, stackTrace);
+            }
+          },
+          onDone: () {
+            if (!completion.isCompleted) completion.complete();
+          },
+          cancelOnError: true,
+        );
+    if (_pauseRequested) _responseSubscription?.pause();
+    _armResponseTimeout();
+    try {
+      await completion.future;
+    } finally {
+      reading = false;
+      _failResponse = null;
+      _responseTimeout?.cancel();
+      await _responseSubscription?.cancel();
+      _responseSubscription = null;
+      _pauseRequested = false;
+    }
+    if (lineTail.isNotEmpty) {
+      final lastLine = lineTail.endsWith('\r')
+          ? lineTail.substring(0, lineTail.length - 1)
+          : lineTail;
+      if (lastLine.startsWith('data:')) {
+        dataLines.add(lastLine.substring(5).trimLeft());
+      } else if (lastLine.startsWith('event:')) {
+        eventName = lastLine.substring(6).trim();
+      }
+    }
+    processEvent();
+
+    final body = raw.toString().trim();
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      final decoded = _decode(body);
       final error = decoded['error'];
       final detail = error is Map ? error['message']?.toString() : null;
       throw AiRequestException(
@@ -69,8 +250,42 @@ class ChatCompletionClient {
       );
     }
 
-    if (responses) return _parseResponses(decoded);
+    if (responseCompletion case final completion?) return completion;
+    if (!body.startsWith('data:') && !body.contains('\ndata:')) {
+      final decoded = _decode(body);
+      if (responses) return _parseResponses(decoded);
+      return _parseChatCompletion(decoded);
+    }
+    if (responses) {
+      throw const AiConfigurationException(AiProblem.invalidResponse);
+    }
+    final calls = <AiToolCall>[];
+    for (final entry
+        in toolDeltas.entries.toList()
+          ..sort((a, b) => a.key.compareTo(b.key))) {
+      final name = entry.value['name'];
+      if (name is! String) continue;
+      try {
+        final arguments = jsonDecode(
+          entry.value['arguments'] as String? ?? '{}',
+        );
+        if (arguments is Map<String, dynamic>) {
+          calls.add(
+            AiToolCall(
+              id: entry.value['id']?.toString() ?? '',
+              name: name,
+              arguments: Map<String, Object?>.from(arguments),
+            ),
+          );
+        }
+      } on FormatException {
+        continue;
+      }
+    }
+    return AiCompletion(text: streamedText.toString(), toolCalls: calls);
+  }
 
+  AiCompletion _parseChatCompletion(Map<String, dynamic> decoded) {
     final choices = decoded['choices'];
     if (choices is! List || choices.isEmpty || choices.first is! Map) {
       throw const AiConfigurationException(AiProblem.invalidResponse);
@@ -150,7 +365,12 @@ class ChatCompletionClient {
       ..sort();
   }
 
-  Future<void> close() async => _client.close();
+  Future<void> close() async {
+    _responseTimeout?.cancel();
+    _failResponse?.call(http.RequestAbortedException(), StackTrace.current);
+    _client.close();
+    await _responseSubscription?.cancel();
+  }
 
   Map<String, dynamic> _decode(String body) {
     try {

@@ -2,7 +2,7 @@
  * @Description: 为主页提供右键菜单风格的服务分组模型菜单与设备风格搜索框。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-04 17:35:00
+ * @LastEditTime: 2026-11-06 10:05:41
  * @License: GPL 3.0
  */
 
@@ -216,31 +216,36 @@ class _ModelSelectorState extends State<ModelSelector> {
                     ),
                   ),
                 for (final (service, models) in groups) ...[
+                  if (service != groups.first.$1) const SizedBox(height: 8),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 12, 8, 6),
+                    // 服务标题对齐模型按钮外沿，上下留白区分标题和选项。
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Text(
                       service.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                         color: theme.textColorTertiary,
                       ),
                     ),
                   ),
-                  for (final model in models)
+                  for (final model in models) ...[
+                    if (model != models.first) const SizedBox(height: 4),
                     MenuItemSurface(
                       key: ValueKey('ai-model-${service.id}-$model'),
                       theme: theme,
                       disableWhenSelected: false,
                       backgroundColor: theme.popupSurfaceColor,
-                      selectedColor: theme.secondaryTextSelectedColor,
+                      selectedColor: theme.primaryTextHoverColor,
                       hoverColor: theme.basePrimary,
                       foregroundColor:
                           assistant.selectedService?.id == service.id &&
                               assistant.selectedModel == model
-                          ? theme.materialColors.onPrimary
+                          ? theme.type == ThemeType.light
+                                ? Colors.black
+                                : theme.materialColors.onPrimary
                           : theme.textColorSecondary,
                       hoverForegroundColor: theme.materialColors.onPrimary,
                       isSelected:
@@ -250,32 +255,39 @@ class _ModelSelectorState extends State<ModelSelector> {
                           ? () => _select(service, model)
                           : null,
                       borderRadius: BorderRadius.circular(4),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 6,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                model,
-                                style: const TextStyle(fontSize: 13),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 28),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 4,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  model,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: 17,
-                              child:
-                                  assistant.selectedService?.id == service.id &&
-                                      assistant.selectedModel == model
-                                  ? Icon(Symbols.check_rounded, size: 17)
-                                  : null,
-                            ),
-                          ],
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 17,
+                                child:
+                                    assistant.selectedService?.id ==
+                                            service.id &&
+                                        assistant.selectedModel == model
+                                    ? Icon(Symbols.check_rounded, size: 17)
+                                    : null,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
+                  ],
                 ],
               ],
             ),
@@ -382,10 +394,16 @@ class _ModelSelectorState extends State<ModelSelector> {
                 ),
               ),
               const SizedBox(width: 3),
-              Icon(
-                Symbols.keyboard_arrow_down_rounded,
-                size: 15,
-                color: theme.textColorTertiary,
+              AnimatedRotation(
+                key: const ValueKey('ai-model-selector-arrow'),
+                turns: controller.isOpen ? 0.5 : 0,
+                duration: const Duration(milliseconds: 150),
+                curve: Curves.easeInOut,
+                child: Icon(
+                  Symbols.keyboard_arrow_down_rounded,
+                  size: 15,
+                  color: theme.textColorTertiary,
+                ),
               ),
             ],
           ),

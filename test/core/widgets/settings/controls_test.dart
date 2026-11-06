@@ -1,8 +1,8 @@
 /*
- * @Description: 验证设置下拉菜单和重置菜单的颜色渐变及交互流程。
+ * @Description: 验证设置下拉菜单按所在背景取色并保持交互流程。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 17:29:40
+ * @LastEditTime: 2026-11-06 15:23:31
  * @License: GPL 3.0
  */
 
@@ -11,6 +11,7 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/core/theme/material_palette.dart';
 import 'package:lilygobox/core/widgets/menu_item_surface.dart';
 import 'package:lilygobox/core/widgets/popup_menu_surface.dart';
 import 'package:lilygobox/core/widgets/settings/widgets.dart';
@@ -34,6 +35,68 @@ Color background(WidgetTester tester, Finder surface) {
 }
 
 void main() {
+  testWidgets('select control uses its hosting surface color', (tester) async {
+    final themes = ThemeProvider();
+    addTearDown(themes.dispose);
+    for (final type in ThemeType.values) {
+      themes.setTheme(type);
+      final theme = themes.themeData;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SettingSelect<String>(
+              theme: theme,
+              value: 'One',
+              items: const [DropdownMenuItem(value: 'One', child: Text('One'))],
+              onChanged: (_) {},
+            ),
+          ),
+        ),
+      );
+      expect(
+        background(tester, find.byType(SettingSelect<String>)),
+        theme.selectControlColorForSurface(theme.secondary),
+      );
+    }
+  });
+
+  testWidgets('select colors derive from the supplied hosting surface', (
+    tester,
+  ) async {
+    final themes = ThemeProvider();
+    addTearDown(themes.dispose);
+    final theme = themes.themeData;
+    const host = Color(0xFFE0E0E0);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ColoredBox(
+            color: host,
+            child: SettingSelect<String>(
+              theme: theme,
+              surfaceColor: host,
+              value: 'One',
+              items: const [DropdownMenuItem(value: 'One', child: Text('One'))],
+              onChanged: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    final select = find.byType(SettingSelect<String>);
+    expect(
+      background(tester, select),
+      theme.selectControlColorForSurface(host),
+    );
+
+    await tester.tap(select);
+    await tester.pumpAndSettle();
+    expect(
+      background(tester, find.byType(PopupMenuSurface)),
+      theme.selectMenuColorForSurface(host),
+    );
+  });
+
   testWidgets('dropdown fades both ways and still selects and dismisses', (
     tester,
   ) async {
@@ -80,7 +143,7 @@ void main() {
     expect(
       background(tester, option),
       Color.lerp(
-        PopupMenuSurface.backgroundColorFor(theme),
+        theme.selectMenuColorForSurface(theme.secondary),
         theme.basePrimary,
         .5,
       ),
@@ -94,14 +157,14 @@ void main() {
       background(tester, option),
       Color.lerp(
         theme.basePrimary,
-        PopupMenuSurface.backgroundColorFor(theme),
+        theme.selectMenuColorForSurface(theme.secondary),
         .5,
       ),
     );
     await tester.pumpAndSettle();
     expect(
       background(tester, option),
-      PopupMenuSurface.backgroundColorFor(theme),
+      theme.selectMenuColorForSurface(theme.secondary),
     );
 
     await tester.tap(option);
@@ -117,7 +180,7 @@ void main() {
     );
     await mouse.moveTo(tester.getCenter(selected));
     await tester.pumpAndSettle();
-    expect(background(tester, selected), theme.primaryTextSelectedColor);
+    expect(background(tester, selected), theme.basePrimary);
     await tester.tap(selected);
     await tester.pumpAndSettle();
     expect(find.text('Two'), findsOneWidget);

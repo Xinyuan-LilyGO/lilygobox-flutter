@@ -2,11 +2,30 @@
  * @Description: 定义 AI 服务配置、会话消息与待确认的设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-04 14:52:13
+ * @LastEditTime: 2026-11-06 09:26:37
  * @License: GPL 3.0
  */
 
 enum AiApiProtocol { openAiChatCompletions, openAiResponses }
+
+/// 显式选择官方预设；已有服务不会因域名相同而自动切换类型。
+enum AiServicePreset {
+  custom,
+  deepSeek,
+  openAi;
+
+  String? get baseUrl => switch (this) {
+    custom => null,
+    deepSeek => 'https://api.deepseek.com',
+    openAi => 'https://api.openai.com/v1',
+  };
+
+  AiApiProtocol? get protocol => switch (this) {
+    custom => null,
+    deepSeek => AiApiProtocol.openAiChatCompletions,
+    openAi => AiApiProtocol.openAiResponses,
+  };
+}
 
 class AiServiceConfiguration {
   const AiServiceConfiguration({
@@ -38,6 +57,7 @@ class AiModelService {
     required this.protocol,
     required this.baseUrl,
     required List<String> models,
+    this.preset = AiServicePreset.custom,
   }) : models = List.unmodifiable(models);
 
   final String id;
@@ -45,6 +65,7 @@ class AiModelService {
   final AiApiProtocol protocol;
   final String baseUrl;
   final List<String> models;
+  final AiServicePreset preset;
 
   String get host => Uri.parse(baseUrl).authority;
 
@@ -54,6 +75,7 @@ class AiModelService {
     'protocol': protocol.name,
     'baseUrl': baseUrl,
     'models': models,
+    'preset': preset.name,
   };
 
   factory AiModelService.fromJson(Map<String, dynamic> json) {
@@ -72,6 +94,10 @@ class AiModelService {
       protocol: protocol,
       baseUrl: json['baseUrl'] as String,
       models: (json['models'] as List).cast<String>(),
+      preset: AiServicePreset.values.firstWhere(
+        (preset) => preset.name == json['preset'],
+        orElse: () => AiServicePreset.custom,
+      ),
     );
   }
 }
@@ -111,10 +137,10 @@ class AiMessage {
   final Map<String, Object?>? toolArguments;
   final bool? toolDecision;
 
-  AiMessage copyWith({bool? toolDecision}) => AiMessage(
+  AiMessage copyWith({String? content, bool? toolDecision}) => AiMessage(
     id: id,
     role: role,
-    content: content,
+    content: content ?? this.content,
     toolName: toolName,
     toolArguments: toolArguments,
     toolDecision: toolDecision ?? this.toolDecision,

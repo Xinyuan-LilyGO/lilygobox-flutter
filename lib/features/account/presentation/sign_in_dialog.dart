@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -151,6 +152,7 @@ class _AccountSignInDialogState extends State<_AccountSignInDialog>
                       const SizedBox(height: 12),
                       SelectableText(
                         code.userCode,
+                        selectionWidthStyle: ui.BoxWidthStyle.tight,
                         key: const ValueKey('github-user-code'),
                         contextMenuBuilder: AppTextSelectionMenu.build,
                         style: TextStyle(

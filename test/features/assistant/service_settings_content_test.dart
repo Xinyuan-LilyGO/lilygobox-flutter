@@ -2,7 +2,7 @@
  * @Description: 验证模型服务列表排序、确认添加、取消、编辑与删除。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-05 17:15:48
+ * @LastEditTime: 2026-11-06 15:23:31
  * @License: GPL 3.0
  */
 
@@ -23,6 +23,7 @@ import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/theme/material_palette.dart';
 import 'package:lilygobox/core/widgets/action_button.dart';
 import 'package:lilygobox/core/widgets/menu_item_surface.dart';
+import 'package:lilygobox/core/widgets/settings/select.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/service_settings_content.dart';
 import 'package:lilygobox/features/assistant/state/provider.dart';
@@ -38,6 +39,7 @@ void main() {
   late SplitViewProvider splitView;
   late AssistantTestScope scope;
   var requests = 0;
+  var invalidChatResponse = false;
   final boundaryKey = GlobalKey();
   setUp(() async {
     theme = ThemeProvider();
@@ -45,6 +47,7 @@ void main() {
     shell = AppShellProvider();
     splitView = SplitViewProvider();
     requests = 0;
+    invalidChatResponse = false;
     if (const bool.fromEnvironment('CAPTURE_ASSISTANT_UI')) {
       await (FontLoader('LilygoBoxInter')
             ..addFont(rootBundle.load('assets/fonts/Inter/Inter-Variable.ttf')))
@@ -77,6 +80,7 @@ void main() {
             200,
           );
         }
+        if (invalidChatResponse) return http.Response('invalid body', 200);
         return http.Response(
           jsonEncode({
             'choices': [
@@ -152,6 +156,31 @@ void main() {
     await tester.enterText(field('key'), 'test-key');
     await tester.enterText(field('models'), 'model-a\nmodel-b');
   }
+
+  testWidgets('chat request errors are not shown in model service settings', (
+    tester,
+  ) async {
+    await scope.provider.saveService(
+      name: 'Gateway',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://example.test/v1',
+      models: ['model-a'],
+      apiKey: 'test-key',
+    );
+    invalidChatResponse = true;
+    await tester.runAsync(() => scope.provider.sendMessage('Hello'));
+    expect(scope.provider.error, isNotNull);
+    expect(scope.provider.configurationError, isNull);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('The service returned an invalid response. Check the API URL.'),
+      findsNothing,
+    );
+    expect(find.text('invalid body'), findsNothing);
+  });
 
   testWidgets(
     'service only appears after explicit confirmation; editing retains key and deletion confirms',
@@ -243,6 +272,78 @@ void main() {
     expect(find.byKey(const ValueKey('ai-confirm-service')), findsNothing);
     expect(scope.provider.services, isEmpty);
   });
+
+  testWidgets(
+    'official provider presets hide endpoint fields and save defaults',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1120, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      await open(tester);
+
+      final presetSelect = find.byKey(const ValueKey('ai-service-preset'));
+      expect(
+        tester.widget<SettingSelect<AiServicePreset>>(presetSelect).value,
+        AiServicePreset.custom,
+      );
+      await tester.tap(presetSelect);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('DeepSeek (official)').last);
+      await tester.pumpAndSettle();
+      expect(field('address'), findsNothing);
+      expect(find.byKey(const ValueKey('ai-service-protocol')), findsNothing);
+      expect(field('key'), findsOneWidget);
+      expect(field('models'), findsOneWidget);
+
+      await tester.enterText(field('name'), 'Official DeepSeek');
+      await tester.enterText(field('key'), 'deepseek-key');
+      await tester.enterText(field('models'), 'deepseek-chat');
+      await tester.tap(find.byKey(const ValueKey('ai-confirm-service')));
+      await tester.pumpAndSettle();
+
+      final service = scope.provider.services.single;
+      expect(service.preset, AiServicePreset.deepSeek);
+      expect(service.baseUrl, 'https://api.deepseek.com');
+      expect(service.protocol, AiApiProtocol.openAiChatCompletions);
+      await tester.tap(find.text('Edit service'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<SettingSelect<AiServicePreset>>(presetSelect).value,
+        AiServicePreset.deepSeek,
+      );
+      await tester.enterText(field('key'), 'do-not-reuse');
+      await tester.tap(presetSelect);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OpenAI (official)').last);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(input('key')).controller!.text, isEmpty);
+      expect(
+        tester.widget<TextField>(input('models')).controller!.text,
+        isEmpty,
+      );
+      expect(field('address'), findsNothing);
+      await tester.enterText(field('key'), 'test-key');
+      await tester.tap(find.byKey(const ValueKey('ai-discover-models')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(input('models')).controller!.text,
+        'model-a\nmodel-b',
+      );
+      await tester.tap(find.byKey(const ValueKey('ai-confirm-service')));
+      await tester.pumpAndSettle();
+      expect(scope.provider.services.single.preset, AiServicePreset.openAi);
+      expect(
+        scope.provider.services.single.baseUrl,
+        'https://api.openai.com/v1',
+      );
+      expect(
+        scope.provider.services.single.protocol,
+        AiApiProtocol.openAiResponses,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('dragging a service updates the shared model selector order', (
     tester,
@@ -429,7 +530,7 @@ void main() {
       expect(scope.provider.services, isEmpty);
       expect(
         find.text(
-          'Enter an API key. A new key is required when changing the service host.',
+          'Enter an API key. A new key is required when changing the service provider or host.',
         ),
         findsOneWidget,
       );

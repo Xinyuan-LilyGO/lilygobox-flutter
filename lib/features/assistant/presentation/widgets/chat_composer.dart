@@ -2,7 +2,7 @@
  * @Description: 构建双层 AI 输入区，预留附件承载层并提供键盘发送和模型选择菜单。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:07:40
- * @LastEditTime: 2026-11-04 16:34:42
+ * @LastEditTime: 2026-11-06 17:07:04
  * @License: GPL 3.0
  */
 
@@ -35,7 +35,34 @@ class ChatComposer extends StatelessWidget {
   final AppTheme theme;
   final AiAssistantProvider assistant;
   final bool ready;
-  final VoidCallback onSend;
+  final ValueChanged<bool> onSend;
+
+  Widget _actionButton({
+    required AppTheme theme,
+    required Key key,
+    required String label,
+    required IconData icon,
+    double size = 32,
+    required VoidCallback? onPressed,
+  }) => AppTooltip(
+    message: label,
+    child: Semantics(
+      label: label,
+      button: true,
+      child: TitleBarIconButton(
+        key: key,
+        theme: theme,
+        isFocused: true,
+        icon: icon,
+        size: size,
+        iconSize: 20,
+        backgroundColor: theme.textColorPrimary,
+        hoverColor: theme.textColorSecondary,
+        iconColor: theme.primary,
+        onPressed: onPressed,
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +91,6 @@ class ChatComposer extends StatelessWidget {
                     : const Duration(milliseconds: 180),
                 curve: Curves.easeOut,
                 decoration: BoxDecoration(
-                  color: theme.primary,
                   borderRadius: BorderRadius.circular(17),
                   border: Border.all(
                     color: focusNode.hasFocus
@@ -72,7 +98,14 @@ class ChatComposer extends StatelessWidget {
                         : Colors.transparent,
                   ),
                 ),
-                child: child,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(17),
+                  child: ColoredBox(
+                    key: const ValueKey('ai-composer-input-background'),
+                    color: theme.primary,
+                    child: child,
+                  ),
+                ),
               ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 15, 10, 10),
@@ -87,9 +120,9 @@ class ChatComposer extends StatelessWidget {
                             event.logicalKey == LogicalKeyboardKey.enter &&
                             !HardwareKeyboard.instance.isShiftPressed &&
                             input.value.composing.isCollapsed) {
-                          if (assistant.canChangeService &&
+                          if (assistant.canSendMessage &&
                               input.text.trim().isNotEmpty) {
-                            onSend();
+                            onSend(true);
                           }
                           return KeyEventResult.handled;
                         }
@@ -102,7 +135,6 @@ class ChatComposer extends StatelessWidget {
                         focusNode: focusNode,
                         minLines: 2,
                         maxLines: 6,
-                        enabled: !assistant.busy,
                         textInputAction: TextInputAction.newline,
                         cursorColor: theme.basePrimary,
                         style: TextStyle(
@@ -140,35 +172,37 @@ class ChatComposer extends StatelessWidget {
                             const SizedBox(width: 6),
                             ValueListenableBuilder<TextEditingValue>(
                               valueListenable: input,
-                              builder: (context, value, _) => AppTooltip(
-                                message: ready
-                                    ? l10n.aiSend
-                                    : l10n.aiSetupAction,
-                                child: Semantics(
-                                  label: ready
-                                      ? l10n.aiSend
-                                      : l10n.aiSetupAction,
-                                  button: true,
-                                  child: TitleBarIconButton(
-                                    key: const ValueKey('ai-send-button'),
-                                    theme: theme,
-                                    isFocused: true,
-                                    icon: assistant.busy
-                                        ? Symbols.more_horiz_rounded
-                                        : Symbols.arrow_upward_rounded,
-                                    size: 32,
-                                    iconSize: 20,
-                                    backgroundColor: theme.textColorPrimary,
-                                    hoverColor: theme.textColorSecondary,
-                                    iconColor: theme.primary,
-                                    onPressed:
-                                        !assistant.canChangeService ||
-                                            value.text.trim().isEmpty
-                                        ? null
-                                        : onSend,
-                                  ),
-                                ),
-                              ),
+                              builder: (context, value, _) => assistant.busy
+                                  ? _actionButton(
+                                      theme: theme,
+                                      key: const ValueKey(
+                                        'ai-pause-resume-button',
+                                      ),
+                                      label: assistant.paused
+                                          ? l10n.aiResume
+                                          : l10n.aiPause,
+                                      icon: assistant.paused
+                                          ? Symbols.play_arrow_rounded
+                                          : Symbols.stop_rounded,
+                                      size: 28,
+                                      onPressed: assistant.paused
+                                          ? assistant.resumeGeneration
+                                          : assistant.pauseGeneration,
+                                    )
+                                  : _actionButton(
+                                      theme: theme,
+                                      key: const ValueKey('ai-send-button'),
+                                      label: ready
+                                          ? l10n.aiSend
+                                          : l10n.aiSetupAction,
+                                      icon: Symbols.arrow_upward_rounded,
+                                      size: 28,
+                                      onPressed:
+                                          !assistant.canSendMessage ||
+                                              value.text.trim().isEmpty
+                                          ? null
+                                          : () => onSend(false),
+                                    ),
                             ),
                           ],
                         );

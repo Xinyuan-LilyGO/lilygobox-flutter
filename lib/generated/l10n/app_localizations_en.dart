@@ -235,6 +235,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiSend => 'Send message';
 
   @override
+  String get aiPause => 'Pause response';
+
+  @override
+  String get aiResume => 'Resume response';
+
+  @override
   String get aiClearConversation => 'Clear conversation';
 
   @override
@@ -313,10 +319,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiProviderDescription =>
-      'Choose a preset or configure an OpenAI-compatible API.';
+      'Official providers set the API URL and protocol automatically. Choose Custom to configure them yourself. Switching providers clears the entered key and model list.';
 
   @override
-  String get aiProviderDeepseek => 'DeepSeek';
+  String get aiProviderDeepseek => 'DeepSeek (official)';
+
+  @override
+  String get aiProviderOpenAi => 'OpenAI (official)';
+
+  @override
+  String get aiProviderCustom => 'Custom';
 
   @override
   String get aiProviderCompatible => 'OpenAI-compatible API';
@@ -1619,7 +1631,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiKeyRequired =>
-      'Enter an API key. A new key is required when changing the service host.';
+      'Enter an API key. A new key is required when changing the service provider or host.';
 
   @override
   String get aiStorageError =>

@@ -2,7 +2,7 @@
  * @Description: 在独立弹窗中编辑模型服务，支持读取模型列表并在确认后提交。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-04 15:26:02
+ * @LastEditTime: 2026-11-06 15:23:31
  * @License: GPL 3.0
  */
 
@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
+import '../../../../core/theme/material_palette.dart';
 import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
 import '../../../../core/widgets/settings/fields.dart';
@@ -39,6 +40,7 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
   late final TextEditingController _models;
   final _key = TextEditingController();
   late AiApiProtocol _protocol;
+  late AiServicePreset _preset;
   bool _working = false;
   Object? _error;
 
@@ -46,10 +48,39 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
   void initState() {
     super.initState();
     final service = widget.service;
+    _preset = service?.preset ?? AiServicePreset.custom;
     _protocol = service?.protocol ?? AiApiProtocol.openAiChatCompletions;
     _name = TextEditingController(text: service?.name ?? '');
     _address = TextEditingController(text: service?.baseUrl ?? '');
     _models = TextEditingController(text: service?.models.join('\n') ?? '');
+  }
+
+  String get _baseUrl => _preset.baseUrl ?? _address.text;
+  AiApiProtocol get _apiProtocol => _preset.protocol ?? _protocol;
+
+  bool get _mustEnterKey => switch (widget.service) {
+    final service? => widget.assistant.hasServiceKey(service.id),
+    null => false,
+  };
+
+  bool get _canReuseKey {
+    final address = Uri.tryParse(_baseUrl);
+    return widget.assistant.hasServiceKey(widget.service?.id) &&
+        address != null &&
+        ['https', 'http'].contains(address.scheme) &&
+        address.host.isNotEmpty &&
+        widget.service?.preset == _preset &&
+        address.origin == Uri.parse(widget.service!.baseUrl).origin;
+  }
+
+  void _changePreset(AiServicePreset? preset) {
+    if (preset == null || preset == _preset) return;
+    setState(() {
+      _preset = preset;
+      _key.clear();
+      _models.clear();
+      _error = null;
+    });
   }
 
   @override
@@ -70,8 +101,9 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
       final id = await widget.assistant.saveService(
         id: widget.service?.id,
         name: _name.text,
-        protocol: _protocol,
-        baseUrl: _address.text,
+        protocol: _apiProtocol,
+        baseUrl: _baseUrl,
+        preset: _preset,
         models: _models.text.split(RegExp(r'[,，\n\r]+')),
         apiKey: _key.text,
       );
@@ -96,9 +128,9 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
     });
     try {
       final models = await widget.assistant.discoverModels(
-        baseUrl: _address.text,
+        baseUrl: _baseUrl,
         apiKey: _key.text,
-        serviceId: widget.service?.id,
+        serviceId: _canReuseKey ? widget.service?.id : null,
       );
       if (models.isEmpty) {
         throw const AiConfigurationException(AiProblem.modelsRequired);
@@ -141,65 +173,94 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  l10n.aiProtocolLabel,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.textColorSecondary,
+                _fieldSection(
+                  l10n.aiProviderLabel,
+                  l10n.aiProviderDescription,
+                  SettingSelect<AiServicePreset>(
+                    key: const ValueKey('ai-service-preset'),
+                    theme: theme,
+                    surfaceColor: theme.materialColors.surfaceContainerHigh,
+                    value: _preset,
+                    items: [
+                      DropdownMenuItem(
+                        value: AiServicePreset.custom,
+                        child: Text(l10n.aiProviderCustom),
+                      ),
+                      DropdownMenuItem(
+                        value: AiServicePreset.deepSeek,
+                        child: Text(l10n.aiProviderDeepseek),
+                      ),
+                      DropdownMenuItem(
+                        value: AiServicePreset.openAi,
+                        child: Text(l10n.aiProviderOpenAi),
+                      ),
+                    ],
+                    onChanged: _working ? null : _changePreset,
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  l10n.aiProtocolDescription,
-                  style: TextStyle(
-                    fontSize: 11,
-                    height: 1.4,
-                    color: theme.textColorTertiary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                SettingSelect<AiApiProtocol>(
-                  key: const ValueKey('ai-service-protocol'),
-                  theme: theme,
-                  value: _protocol,
-                  items: [
-                    DropdownMenuItem(
-                      value: AiApiProtocol.openAiChatCompletions,
-                      child: Text(l10n.aiProtocolChatCompletions),
-                    ),
-                    DropdownMenuItem(
-                      value: AiApiProtocol.openAiResponses,
-                      child: Text(l10n.aiProtocolResponses),
-                    ),
-                  ],
-                  onChanged: _working
-                      ? null
-                      : (protocol) => setState(() {
-                          if (protocol != null) _protocol = protocol;
-                        }),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  l10n.aiBaseUrlLabel,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.textColorSecondary,
+                if (_preset == AiServicePreset.custom) ...[
+                  Text(
+                    l10n.aiProtocolLabel,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.textColorSecondary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  l10n.aiBaseUrlDescription,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: theme.textColorTertiary,
+                  const SizedBox(height: 4),
+                  Text(
+                    l10n.aiProtocolDescription,
+                    style: TextStyle(
+                      fontSize: 11,
+                      height: 1.4,
+                      color: theme.textColorTertiary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Semantics(
-                  label: l10n.aiBaseUrlLabel,
-                  child: _field(_address, 'ai-service-address'),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 6),
+                  SettingSelect<AiApiProtocol>(
+                    key: const ValueKey('ai-service-protocol'),
+                    theme: theme,
+                    surfaceColor: theme.materialColors.surfaceContainerHigh,
+                    value: _protocol,
+                    items: [
+                      DropdownMenuItem(
+                        value: AiApiProtocol.openAiChatCompletions,
+                        child: Text(l10n.aiProtocolChatCompletions),
+                      ),
+                      DropdownMenuItem(
+                        value: AiApiProtocol.openAiResponses,
+                        child: Text(l10n.aiProtocolResponses),
+                      ),
+                    ],
+                    onChanged: _working
+                        ? null
+                        : (protocol) => setState(() {
+                            if (protocol != null) _protocol = protocol;
+                          }),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    l10n.aiBaseUrlLabel,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.textColorSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    l10n.aiBaseUrlDescription,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: theme.textColorTertiary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Semantics(
+                    label: l10n.aiBaseUrlLabel,
+                    child: _field(_address, 'ai-service-address'),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 Text(
                   l10n.aiApiKeyLabel,
                   style: TextStyle(
@@ -209,8 +270,10 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  widget.assistant.hasServiceKey(widget.service?.id)
+                  _canReuseKey
                       ? l10n.aiApiKeyStored
+                      : _mustEnterKey
+                      ? l10n.aiKeyRequired
                       : l10n.aiApiKeyDescription,
                   style: TextStyle(
                     fontSize: 11,

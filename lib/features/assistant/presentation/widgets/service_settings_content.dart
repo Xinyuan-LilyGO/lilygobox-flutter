@@ -2,7 +2,7 @@
  * @Description: 展示可排序的模型服务列表，并通过弹窗添加或编辑服务。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-05 17:15:48
+ * @LastEditTime: 2026-11-06 15:23:31
  * @License: GPL 3.0
  */
 
@@ -192,7 +192,8 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
                       ),
                     ),
                 ],
-                if (_error ?? assistant.error case final error?) ...[
+                if (_error ?? assistant.configurationError
+                    case final error?) ...[
                   const SizedBox(height: 12),
                   Text(
                     aiErrorText(l10n, error),

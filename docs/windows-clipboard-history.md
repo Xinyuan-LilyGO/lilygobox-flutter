@@ -4,6 +4,8 @@ Windows 剪贴板历史通过 Win+V 打开系统面板。Flutter Windows runner 
 
 `lib/core/window/windows_clipboard_history_paste.dart` 在应用启动时修正这一特定序列，再交由 Flutter 原有键盘和文本编辑流程处理。Flutter 不同版本的异常事件序列有差异，当前兼容 Flutter 3.35 的旧序列以及较新版本中包含独立 V 键事件的序列。标准 `TextField`、`TextFormField` 及共享设置输入框都会自动支持，不需要逐个包装。
 
+安装入口仍在 `main()`，实际注册延后到首帧结束。Flutter 3.35 的 `ServicesBinding` 会在异步同步键盘状态后设置 `PlatformDispatcher.onKeyData`；紧接着 `ensureInitialized()` 同步安装会因回调尚未就绪而跳过，或被后续初始化覆盖。不要改回同步注册。回归测试覆盖了回调延迟就绪的启动过程。
+
 兼容处理只改写已知的异常序列。普通按键和 Flutter 使用的全零传输模式探测事件原样转发；应用不会读取、保存或管理 Windows 的剪贴板历史内容。
 
 根因跟踪：[Flutter #143997](https://github.com/flutter/flutter/issues/143997)。升级 Flutter SDK 后应复测 Win+V；若引擎已修复该序列，可移除此应用层兼容代码和对应启动调用。

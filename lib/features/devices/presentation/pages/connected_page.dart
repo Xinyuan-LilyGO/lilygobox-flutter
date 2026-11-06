@@ -2,10 +2,11 @@
  * @Description: 设备详情页，采用可变卡片布局展示设备、连接、电池和控制信息。
  * @Author: LILYGO_L
  * @Date: 2026-10-06 15:14:56
- * @LastEditTime: 2026-10-13 12:00:00
+ * @LastEditTime: 2026-11-06 17:01:08
  * @License: GPL 3.0
  */
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -699,6 +700,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
     final detail = onEdit == null
         ? SelectableText(
             value,
+            selectionWidthStyle: ui.BoxWidthStyle.tight,
             contextMenuBuilder: AppTextSelectionMenu.build,
             textAlign: stacked ? TextAlign.start : TextAlign.end,
             style: TextStyle(

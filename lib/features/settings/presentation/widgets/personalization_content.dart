@@ -2,7 +2,7 @@
  * @Description: 展示外观设置，支持紧凑主题预览卡片切换。
  * @Author: LILYGO_L
  * @Date: 2025-10-31 17:01:16
- * @LastEditTime: 2026-10-02 20:42:05
+ * @LastEditTime: 2026-11-06 15:23:31
  * @License: GPL 3.0
  */
 
@@ -56,6 +56,7 @@ class _PersonalizationContentState extends State<PersonalizationContent> {
             width: 220,
             child: SettingSelect<String>(
               theme: theme,
+              surfaceColor: theme.secondary,
               value: themeProvider.fontChoice,
               items: [
                 DropdownMenuItem(

@@ -6,6 +6,7 @@
  * @License: GPL 3.0
  */
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -15,6 +16,93 @@ import 'package:lilygobox/features/assistant/data/chat_completion_client.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 
 void main() {
+  test('pauses and resumes reading assistant text deltas', () async {
+    final responseStream = StreamController<List<int>>();
+    final firstDelta = Completer<void>();
+    final secondDelta = Completer<void>();
+    final deltas = <String>[];
+    final client = ChatCompletionClient(
+      client: MockClient.streaming((request, body) async {
+        await body.drain<void>();
+        return http.StreamedResponse(responseStream.stream, 200);
+      }),
+    );
+    final completionRequest = client.complete(
+      configuration: const AiServiceConfiguration(),
+      apiKey: 'test-secret',
+      messages: const [
+        {'role': 'user', 'content': 'Continue after pausing'},
+      ],
+      tools: const [],
+      onTextDelta: (delta) {
+        deltas.add(delta);
+        if (delta == 'first') firstDelta.complete();
+        if (delta == 'second') secondDelta.complete();
+      },
+    );
+
+    responseStream.add(
+      utf8.encode('data: {"choices":[{"delta":{"content":"first"}}]}\n\n'),
+    );
+    await firstDelta.future;
+    client.pauseResponse();
+    responseStream.add(
+      utf8.encode('data: {"choices":[{"delta":{"content":"second"}}]}\n\n'),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(deltas, ['first']);
+
+    client.resumeResponse();
+    await secondDelta.future;
+    responseStream.add(utf8.encode('data: [DONE]\n\n'));
+    await responseStream.close();
+    final completion = await completionRequest;
+
+    expect(deltas, ['first', 'second']);
+    expect(completion.text, 'firstsecond');
+    await client.close();
+  });
+
+  test('streams assistant text deltas and requests server streaming', () async {
+    late http.Request request;
+    final deltas = <String>[];
+    final client = ChatCompletionClient(
+      client: MockClient.streaming((incoming, body) async {
+        request = http.Request(incoming.method, incoming.url)
+          ..headers.addAll(incoming.headers)
+          ..bodyBytes = await body.toBytes();
+        return http.StreamedResponse(
+          Stream<List<int>>.fromIterable([
+            utf8.encode(
+              'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n',
+            ),
+            utf8.encode(
+              'data: {"choices":[{"delta":{"content":" world"}}]}\n\n',
+            ),
+            utf8.encode('data: [DONE]\n\n'),
+          ]),
+          200,
+          headers: {'content-type': 'text/event-stream'},
+        );
+      }),
+    );
+
+    final completion = await client.complete(
+      configuration: const AiServiceConfiguration(),
+      apiKey: 'test-secret',
+      messages: const [
+        {'role': 'user', 'content': 'Say hello'},
+      ],
+      tools: const [],
+      onTextDelta: deltas.add,
+    );
+
+    expect(jsonDecode(request.body)['stream'], isTrue);
+    expect(deltas, ['Hello', ' world']);
+    expect(completion.text, 'Hello world');
+    await client.close();
+  });
+
   test('posts compatible chat completions and parses tool calls', () async {
     late http.Request request;
     final client = ChatCompletionClient(

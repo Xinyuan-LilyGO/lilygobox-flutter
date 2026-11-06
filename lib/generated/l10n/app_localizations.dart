@@ -522,6 +522,18 @@ abstract class AppLocalizations {
   /// **'Send message'**
   String get aiSend;
 
+  /// No description provided for @aiPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause response'**
+  String get aiPause;
+
+  /// No description provided for @aiResume.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume response'**
+  String get aiResume;
+
   /// No description provided for @aiClearConversation.
   ///
   /// In en, this message translates to:
@@ -651,14 +663,26 @@ abstract class AppLocalizations {
   /// No description provided for @aiProviderDescription.
   ///
   /// In en, this message translates to:
-  /// **'Choose a preset or configure an OpenAI-compatible API.'**
+  /// **'Official providers set the API URL and protocol automatically. Choose Custom to configure them yourself. Switching providers clears the entered key and model list.'**
   String get aiProviderDescription;
 
   /// No description provided for @aiProviderDeepseek.
   ///
   /// In en, this message translates to:
-  /// **'DeepSeek'**
+  /// **'DeepSeek (official)'**
   String get aiProviderDeepseek;
+
+  /// No description provided for @aiProviderOpenAi.
+  ///
+  /// In en, this message translates to:
+  /// **'OpenAI (official)'**
+  String get aiProviderOpenAi;
+
+  /// No description provided for @aiProviderCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get aiProviderCustom;
 
   /// No description provided for @aiProviderCompatible.
   ///
@@ -2931,7 +2955,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiKeyRequired.
   ///
   /// In en, this message translates to:
-  /// **'Enter an API key. A new key is required when changing the service host.'**
+  /// **'Enter an API key. A new key is required when changing the service provider or host.'**
   String get aiKeyRequired;
 
   /// No description provided for @aiStorageError.

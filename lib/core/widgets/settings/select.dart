@@ -2,7 +2,7 @@
  * @Description: 提供带展开收起动画、选中状态和悬停渐变的设置下拉框。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-01 15:52:48
+ * @LastEditTime: 2026-11-06 15:23:31
  * @License: GPL 3.0
  */
 
@@ -21,12 +21,16 @@ class SettingSelect<T> extends StatefulWidget {
     required this.value,
     required this.items,
     required this.onChanged,
+    this.surfaceColor,
   });
 
   final AppTheme theme;
   final T value;
   final List<DropdownMenuItem<T>> items;
   final ValueChanged<T?>? onChanged;
+
+  /// 所在页面或弹窗的实际背景；默认是设置内容区的第二层背景。
+  final Color? surfaceColor;
 
   @override
   State<SettingSelect<T>> createState() => _SettingSelectState<T>();
@@ -73,10 +77,17 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
     );
     final optionHeight = 32.0;
 
-    return MenuItemSurface.control(
+    final surfaceColor = widget.surfaceColor ?? widget.theme.secondary;
+    final controlBackground = widget.theme.selectControlColorForSurface(
+      surfaceColor,
+    );
+    return MenuItemSurface(
       theme: widget.theme,
       onPressed: widget.onChanged == null ? null : _toggleDropdown,
-      showBorder: false,
+      backgroundColor: controlBackground,
+      surfaceColor: controlBackground,
+      hoverColor: widget.theme.hoverColorForBackground(controlBackground),
+      borderRadius: BorderRadius.circular(4),
       child: Container(
         height: optionHeight,
         padding: const EdgeInsets.only(left: 10.0, right: 6.0),
@@ -179,6 +190,7 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
                 animation: _dropdownController,
                 child: _SettingSelectDropdown<T>(
                   theme: widget.theme,
+                  surfaceColor: widget.surfaceColor ?? widget.theme.secondary,
                   value: widget.value,
                   items: widget.items,
                   width: _targetSize.width,
@@ -213,6 +225,7 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
 class _SettingSelectDropdown<T> extends StatelessWidget {
   const _SettingSelectDropdown({
     required this.theme,
+    required this.surfaceColor,
     required this.value,
     required this.items,
     required this.onSelected,
@@ -220,6 +233,7 @@ class _SettingSelectDropdown<T> extends StatelessWidget {
   });
 
   final AppTheme theme;
+  final Color surfaceColor;
   final T value;
   final List<DropdownMenuItem<T>> items;
   final ValueChanged<T?> onSelected;
@@ -229,8 +243,8 @@ class _SettingSelectDropdown<T> extends StatelessWidget {
   Widget build(BuildContext context) => RightClickMenuBuilder.buildMenuPanel(
     theme: theme,
     width: width,
-    surfaceColor: theme.popupSurfaceColor,
-    itemColor: theme.popupSurfaceColor,
+    surfaceColor: theme.selectMenuColorForSurface(surfaceColor),
+    itemColor: theme.selectMenuColorForSurface(surfaceColor),
     selectedColor: theme.primaryTextHoverColor,
     selectedForegroundColor: theme.type == ThemeType.light
         ? Colors.black
