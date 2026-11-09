@@ -2,8 +2,7 @@
  * @Description: 绘制窗口圆角与阴影，将页面及弹层统一裁剪在窗口内部。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-20 10:05:51
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';

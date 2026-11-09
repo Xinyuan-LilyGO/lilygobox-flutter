@@ -2,8 +2,7 @@
  * @Description: 应用级局域网会话，管理设备确认、心跳、取消和真实在线状态。
  * @Author: LILYGO_L
  * @Date: 2026-10-04 18:37:01
- * @LastEditTime: 2026-10-13 12:00:00
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 import 'dart:async';
 import 'dart:convert';

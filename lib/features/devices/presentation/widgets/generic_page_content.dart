@@ -2,8 +2,7 @@
  * @Description: 为尚未适配专属界面的设备提供通用占位页面。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-06 14:02:45
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

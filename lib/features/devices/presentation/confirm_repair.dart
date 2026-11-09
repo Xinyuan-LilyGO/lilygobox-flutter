@@ -2,8 +2,7 @@
  * @Description: 复用公共确认弹窗处理设备证书变化后的重新配对。
  * @Author: LILYGO_L
  * @Date: 2026-10-06 16:00:00
- * @LastEditTime: 2026-10-06 16:00:00
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';

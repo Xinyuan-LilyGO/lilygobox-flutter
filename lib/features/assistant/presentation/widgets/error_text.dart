@@ -2,8 +2,7 @@
  * @Description: 将 AI 配置与请求错误映射为当前语言的可恢复提示。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-04 12:04:44
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';

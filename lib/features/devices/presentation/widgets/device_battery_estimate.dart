@@ -2,8 +2,7 @@
  * @Description: 在电池卡片中统一展示设备提供的预计充满或剩余使用时间。
  * @Author: LILYGO_L
  * @Date: 2026-10-13 00:00:00
- * @LastEditTime: 2026-10-13 00:00:00
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

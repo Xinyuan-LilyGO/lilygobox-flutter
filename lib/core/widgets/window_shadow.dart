@@ -2,8 +2,7 @@
  * @Description: 主窗口与独立托盘窗口共用的紧凑阴影，避免大范围外扩。
  * @Author: LILYGO_L
  * @Date: 2026-10-07 00:00:00
- * @LastEditTime: 2026-10-07 00:00:00
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

@@ -2,8 +2,7 @@
  * @Description: 展示应用版本、版权等关于信息。
  * @Author: LILYGO_L
  * @Date: 2025-11-17 11:28:26
- * @LastEditTime: 2026-10-02 20:42:05
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:io';

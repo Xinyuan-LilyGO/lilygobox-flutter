@@ -2,8 +2,7 @@
  * @Description: 调用 GitHub 设备授权和公开用户资料接口，不使用客户端密钥。
  * @Author: LILYGO_L
  * @Date: 2026-10-03 14:22:16
- * @LastEditTime: 2026-10-03 14:22:16
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';

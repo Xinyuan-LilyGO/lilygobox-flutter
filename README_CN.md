@@ -4,7 +4,7 @@
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.35.6%2B-02569B?style=flat-square&logo=flutter)](https://flutter.dev/)
 [![Dart](https://img.shields.io/badge/Dart-3.9.2%2B-0175C2?style=flat-square&logo=dart)](https://dart.dev/)
-[![License](https://img.shields.io/badge/License-GPL--3.0-blue?style=flat-square)](./LICENSE)
+[![License](https://img.shields.io/badge/License-AGPL--3.0-blue?style=flat-square)](./LICENSE)
 
 **LilygoBox** 是一款基于 Flutter 开发的 LILYGO 设备控制应用。项目按照应用壳层、公共核心模块和业务功能模块拆分，方便设备页面、设置页面、多语言、主题和桌面窗口行为独立维护。
 

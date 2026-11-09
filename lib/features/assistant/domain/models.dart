@@ -2,8 +2,7 @@
  * @Description: 定义 AI 服务配置、会话消息与待确认的设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-06 17:50:09
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 enum AiApiProtocol { openAiChatCompletions, openAiResponses }

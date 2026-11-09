@@ -2,8 +2,7 @@
  * @Description: 为 assistant 相关界面测试提供隔离的偏好与凭证存储。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-04 12:04:44
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:http/http.dart' as http;

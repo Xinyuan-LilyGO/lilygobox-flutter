@@ -2,8 +2,7 @@
  * @Description: 管理中英文界面语言、语言切换及本地化文本访问。
  * @Author: LILYGO_L
  * @Date: 2025-10-27 10:06:04
- * @LastEditTime: 2026-10-27 14:11:56
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

@@ -2,8 +2,7 @@
  * @Description: 验证遮罩仅覆盖内容区，窗口按钮仍可用，确认期间禁止标题栏页面切换。
  * @Author: LILYGO_L
  * @Date: 2026-10-03 23:41:53
- * @LastEditTime: 2026-10-03 23:56:45
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:ui' as ui;

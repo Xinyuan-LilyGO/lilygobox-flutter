@@ -2,8 +2,7 @@
  * @Description: 维护深浅主题配色，统一驱动主题渐变并支持减少动画。
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2026-10-03 20:29:43
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

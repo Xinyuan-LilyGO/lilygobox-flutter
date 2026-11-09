@@ -2,8 +2,7 @@
  * @Description: 为主页提供右键菜单风格的服务分组模型菜单与设备风格搜索框。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-06 10:05:41
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

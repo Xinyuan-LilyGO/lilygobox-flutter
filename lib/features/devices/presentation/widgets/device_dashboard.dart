@@ -2,8 +2,7 @@
  * @Description: 设备概览卡片布局，统一信息层级、控制区和自适应间距。
  * @Author: LILYGO_L
  * @Date: 2026-10-08 13:48:30
- * @LastEditTime: 2026-10-13 12:00:00
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';

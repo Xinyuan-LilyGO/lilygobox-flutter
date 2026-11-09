@@ -2,8 +2,7 @@
  * @Description: 托盘独立 Flutter 菜单窗口，复用右键菜单组件、实心图标及悬停渐变。
  * @Author: LILYGO_L
  * @Date: 2026-10-04 01:10:00
- * @LastEditTime: 2026-10-04 01:57:39
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';

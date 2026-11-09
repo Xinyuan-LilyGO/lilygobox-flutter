@@ -2,8 +2,7 @@
  * @Description: 验证配置重启恢复、串行写入、异常重试、无效值回退及设备资料保留。
  * @Author: LILYGO_L
  * @Date: 2026-10-03 20:29:43
- * @LastEditTime: 2026-10-03 20:29:43
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';

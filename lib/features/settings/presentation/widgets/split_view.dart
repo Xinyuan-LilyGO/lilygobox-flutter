@@ -2,8 +2,7 @@
  * @Description: 构建可拖动且不折叠的设置导航、移动端分类导航。
  * @Author: LILYGO_L
  * @Date: 2025-10-31 17:01:16
- * @LastEditTime: 2026-11-04 12:04:44
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

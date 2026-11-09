@@ -2,8 +2,7 @@
  * @Description: Windows 托盘图标及独立右键菜单，支持窗口隐藏后显示和退出。
  * @Author: LILYGO_L
  * @Date: 2026-10-04 00:20:00
- * @LastEditTime: 2026-10-04 13:14:48
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 #ifndef RUNNER_TRAY_ICON_H_
 #define RUNNER_TRAY_ICON_H_

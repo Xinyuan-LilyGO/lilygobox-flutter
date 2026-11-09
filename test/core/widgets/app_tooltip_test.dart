@@ -2,8 +2,7 @@
  * @Description: 验证悬停提示在页面隐藏后的清理及再次进入时的正常显示。
  * @Author: LILYGO_L
  * @Date: 2026-10-07 18:00:00
- * @LastEditTime: 2026-10-07 18:00:00
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 import 'dart:ui' show PointerDeviceKind;
 

@@ -2,8 +2,7 @@
  * @Description: 定义共用弹出菜单样式，支持右键定位和锚点上方展开。
  * @Author: LILYGO_L
  * @Date: 2025-11-18 14:00:00
- * @LastEditTime: 2026-10-04 13:01:33
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/gestures.dart';

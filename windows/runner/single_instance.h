@@ -2,8 +2,7 @@
  * @Description: 限制当前 Windows 会话只运行一个主应用，重复启动时唤起已有窗口。
  * @Author: LILYGO_L
  * @Date: 2026-10-12 00:00:00
- * @LastEditTime: 2026-10-12 00:00:00
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 #ifndef RUNNER_SINGLE_INSTANCE_H_
 #define RUNNER_SINGLE_INSTANCE_H_

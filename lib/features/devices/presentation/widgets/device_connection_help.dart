@@ -2,8 +2,7 @@
  * @Description: 统一设备连接帮助入口，桌面显示侧边面板，窄屏显示底部面板。
  * @Author: LILYGO_L
  * @Date: 2026-10-07 18:00:00
- * @LastEditTime: 2026-10-07 18:00:00
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

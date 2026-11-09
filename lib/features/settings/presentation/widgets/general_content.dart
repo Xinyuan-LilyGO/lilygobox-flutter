@@ -2,8 +2,7 @@
  * @Description: 提供通用设置分类的页面布局。
  * @Author: LILYGO_L
  * @Date: 2026-05-24 23:22:38
- * @LastEditTime: 2026-10-03 23:41:53
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

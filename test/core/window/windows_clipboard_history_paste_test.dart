@@ -2,8 +2,7 @@
  * @Description: 验证 Windows 剪贴板历史的异常按键序列会被正确归一化。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 18:05:00
- * @LastEditTime: 2026-11-05 18:15:22
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:ui' as ui;

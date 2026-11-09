@@ -2,8 +2,7 @@
  * @Description: 验证设置下拉控件取色并保持交互流程。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-11-07 10:05:00
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:ui' show PointerDeviceKind;

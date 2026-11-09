@@ -2,8 +2,7 @@
  * @Description: 提供无边框窗口四边及四角的拖动缩放命中区域。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-01 15:52:48
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

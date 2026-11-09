@@ -2,8 +2,7 @@
  * @Description: 提供带展开收起动画、选中状态和悬停渐变的设置下拉框。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-11-06 18:12:06
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

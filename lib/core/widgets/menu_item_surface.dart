@@ -2,8 +2,7 @@
  * @Description: 统一菜单和设置控件的选中配色、悬停渐变与点击波纹。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-04 13:01:33
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

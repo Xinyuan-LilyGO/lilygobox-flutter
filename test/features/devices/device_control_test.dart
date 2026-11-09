@@ -2,8 +2,7 @@
  * @Description: 验证控制状态解析与设备能力对真实数据和滑条交互的约束。
  * @Author: LILYGO_L
  * @Date: 2026-10-12 00:00:00
- * @LastEditTime: 2026-10-12 00:00:00
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

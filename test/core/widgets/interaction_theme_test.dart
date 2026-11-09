@@ -2,8 +2,7 @@
  * @Description: 验证按钮切换主题时立即更新背景，并保留悬停渐变和点击响应。
  * @Author: LILYGO_L
  * @Date: 2026-10-02 22:00:00
- * @LastEditTime: 2026-10-02 21:44:28
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:ui' show PointerDeviceKind;

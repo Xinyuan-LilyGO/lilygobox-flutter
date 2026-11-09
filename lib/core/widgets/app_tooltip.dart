@@ -2,8 +2,7 @@
  * @Description: 统一悬停提示的间距与延迟，隐藏页面时清理提示浮层。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 17:16:37
- * @LastEditTime: 2026-10-01 17:19:32
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

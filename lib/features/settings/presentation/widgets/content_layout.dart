@@ -2,8 +2,7 @@
  * @Description: 统一应用设置的紧凑内容布局、设置字段和局部深浅配色。
  * @Author: LILYGO_L
  * @Date: 2026-10-02 19:41:48
- * @LastEditTime: 2026-10-02 22:01:29
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

@@ -2,8 +2,7 @@
  * @Description: 应用启动入口，初始化 Flutter 绑定、桌面窗口和全局状态。
  * @Author: LILYGO_L
  * @Date: 2025-10-17 22:29:20
- * @LastEditTime: 2026-11-04 18:12:03
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

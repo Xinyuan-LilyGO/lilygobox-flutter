@@ -2,8 +2,7 @@
  * @Description: 为主页进入的设备详情提供统一返回入口，保留后台连接和页面状态。
  * @Author: LILYGO_L
  * @Date: 2026-10-06 14:00:00
- * @LastEditTime: 2026-10-08 18:14:00
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

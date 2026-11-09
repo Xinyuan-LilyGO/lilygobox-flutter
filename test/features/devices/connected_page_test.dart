@@ -2,8 +2,7 @@
  * @Description: 验证设备详情导航、旋转确认、真实会话操作及窄窗口和大字体布局。
  * @Author: LILYGO_L
  * @Date: 2026-10-07 18:00:00
- * @LastEditTime: 2026-10-13 12:00:00
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 import 'dart:async';
 

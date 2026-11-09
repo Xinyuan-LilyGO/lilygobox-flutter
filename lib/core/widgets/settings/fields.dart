@@ -2,8 +2,7 @@
  * @Description: 提供设置项文本输入框、只读字段及输入框装饰。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-11-04 14:52:13
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

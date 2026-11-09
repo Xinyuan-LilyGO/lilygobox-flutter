@@ -2,8 +2,7 @@
  * @Description: 定义应用主题类型、配色字段及主题名称的本地化映射。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-11-06 15:23:31
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

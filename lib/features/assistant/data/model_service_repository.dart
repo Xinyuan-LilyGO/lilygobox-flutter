@@ -2,8 +2,7 @@
  * @Description: 持久化已添加的模型服务、独立密钥与模型选择，并迁移已有的显式配置。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-06 09:26:37
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:convert';

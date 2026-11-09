@@ -2,8 +2,7 @@
  * @Description: 托盘原生桥接只处理图标和窗口，右键菜单由独立 Flutter 视图绘制。
  * @Author: LILYGO_L
  * @Date: 2026-10-04 00:20:00
- * @LastEditTime: 2026-10-04 13:14:48
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 #include "tray_icon.h"
 

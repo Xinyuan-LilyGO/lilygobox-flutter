@@ -2,8 +2,7 @@
  * @Description: 提供沿用设置控件配色和交互动画的文字操作按钮。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-10-03 18:10:36
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

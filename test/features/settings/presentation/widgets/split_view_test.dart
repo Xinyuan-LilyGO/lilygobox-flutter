@@ -2,8 +2,7 @@
  * @Description: 验证设置侧栏拖动、窄屏导航、主题语言切换和确认后仅重置应用偏好。
  * @Author: LILYGO_L
  * @Date: 2026-10-02 19:41:48
- * @LastEditTime: 2026-10-03 16:53:55
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

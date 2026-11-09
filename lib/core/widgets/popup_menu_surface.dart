@@ -2,8 +2,7 @@
  * @Description: 统一弹出菜单的无边框浮层背景和阴影，区分菜单与底层页面。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 16:15:15
- * @LastEditTime: 2026-10-02 22:01:29
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

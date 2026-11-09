@@ -2,8 +2,7 @@
  * @Description: 保存并共享首页与设备页的左右分栏宽度。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-03 20:29:43
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/foundation.dart';

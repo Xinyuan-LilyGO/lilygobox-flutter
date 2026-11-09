@@ -2,8 +2,7 @@
  * @Description: 管理主窗口内的页面导航与弹层切换状态。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-11-04 12:04:44
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/foundation.dart';

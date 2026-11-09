@@ -2,8 +2,7 @@
  * @Description: 按设备 ID 在系统安全存储中保存应用连接授权，避免写入普通配置。
  * @Author: LILYGO_L
  * @Date: 2026-10-06 09:01:38
- * @LastEditTime: 2026-10-06 09:01:38
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 import 'dart:math';
 

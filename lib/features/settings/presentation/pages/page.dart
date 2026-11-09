@@ -2,8 +2,7 @@
  * @Description: 构建应用设置页面的背景与设置分栏内容。
  * @Author: LILYGO_L
  * @Date: 2025-11-05 15:54:19
- * @LastEditTime: 2026-10-02 21:44:28
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

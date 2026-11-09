@@ -2,8 +2,7 @@
  * @Description: 验证设备名称编辑的长度校验、保存等待及失败后输入保留。
  * @Author: LILYGO_L
  * @Date: 2026-10-13 00:00:00
- * @LastEditTime: 2026-10-13 00:00:00
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 import 'dart:async';
 

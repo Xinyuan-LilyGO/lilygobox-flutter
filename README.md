@@ -4,7 +4,7 @@
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.35.6%2B-02569B?style=flat-square&logo=flutter)](https://flutter.dev/)
 [![Dart](https://img.shields.io/badge/Dart-3.9.2%2B-0175C2?style=flat-square&logo=dart)](https://dart.dev/)
-[![License](https://img.shields.io/badge/License-GPL--3.0-blue?style=flat-square)](./LICENSE)
+[![License](https://img.shields.io/badge/License-AGPL--3.0-blue?style=flat-square)](./LICENSE)
 
 **LilygoBox** is a Flutter-based device control application for LILYGO hardware. The project is organized with an app shell, shared core modules, and feature-first business modules, so device pages, settings pages, localization, theme, and desktop window behavior can evolve independently.
 

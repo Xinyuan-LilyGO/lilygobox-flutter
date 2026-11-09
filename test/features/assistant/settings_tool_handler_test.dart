@@ -2,8 +2,7 @@
  * @Description: 验证设置工具只接受受支持的应用设置和值域。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-04 09:36:57
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter_test/flutter_test.dart';

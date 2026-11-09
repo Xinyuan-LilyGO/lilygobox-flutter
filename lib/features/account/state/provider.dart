@@ -2,8 +2,7 @@
  * @Description: 管理 GitHub 登录、限速轮询、取消、会话恢复和退出，隔离过期异步响应。
  * @Author: LILYGO_L
  * @Date: 2026-10-03 14:22:16
- * @LastEditTime: 2026-10-03 16:53:55
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';

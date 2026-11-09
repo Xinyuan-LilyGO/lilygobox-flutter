@@ -2,8 +2,7 @@
  * @Description: 将当前主题与本地化菜单文字同步到系统托盘。
  * @Author: LILYGO_L
  * @Date: 2026-10-04 00:20:00
- * @LastEditTime: 2026-10-04 00:20:00
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';

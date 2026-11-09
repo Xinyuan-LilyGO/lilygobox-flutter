@@ -2,8 +2,7 @@
  * @Description: 在主页内容区自动发现设备，展示连接反馈、重试和连接帮助。
  * @Author: LILYGO_L
  * @Date: 2025-11-05 09:52:14
- * @LastEditTime: 2026-10-14 00:00:00
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';

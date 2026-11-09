@@ -2,8 +2,7 @@
  * @Description: 构建双层 AI 输入区，预留附件承载层并提供键盘发送和模型选择菜单。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:07:40
- * @LastEditTime: 2026-11-06 18:01:05
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

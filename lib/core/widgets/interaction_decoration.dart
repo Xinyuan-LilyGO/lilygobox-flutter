@@ -2,8 +2,7 @@
  * @Description: 统一交互背景渐变，切换主题时同步更新配色并保留子组件状态。
  * @Author: LILYGO_L
  * @Date: 2026-10-02 22:00:00
- * @LastEditTime: 2026-10-02 22:01:29
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

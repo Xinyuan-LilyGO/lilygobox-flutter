@@ -2,8 +2,7 @@
  * @Description: 配置应用根组件、本地化资源和主窗口内容。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-10-26 16:32:59
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';

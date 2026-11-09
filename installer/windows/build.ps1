@@ -53,8 +53,8 @@ try {
     $rtfParagraphs = foreach ($paragraph in $licenseParagraphs) {
         $text = ($paragraph.Trim() -replace '\s+', ' ')
         $escapedText = $text.Replace('\', '\\').Replace('{', '\{').Replace('}', '\}')
-        if ($text -eq 'GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007') {
-            '\pard\qc\sb0\sa180\b GNU GENERAL PUBLIC LICENSE\b0\line Version 3, 29 June 2007\par'
+        if ($text -eq 'GNU AFFERO GENERAL PUBLIC LICENSE Version 3, 19 November 2007') {
+            '\pard\qc\sb0\sa180\b GNU AFFERO GENERAL PUBLIC LICENSE\b0\line Version 3, 19 November 2007\par'
         } elseif ($text -in @('Preamble', 'TERMS AND CONDITIONS', 'END OF TERMS AND CONDITIONS', 'How to Apply These Terms to Your New Programs')) {
             "\pard\qc\sb180\sa180\b $escapedText\b0\par"
         } else {

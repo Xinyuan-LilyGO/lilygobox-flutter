@@ -2,8 +2,7 @@
  * @Description: 集中维护原有灰阶与紫色配色，并提供 Material 3 语义角色映射。
  * @Author: LILYGO_L
  * @Date: 2026-10-09 17:00:00
- * @LastEditTime: 2026-11-06 18:12:06
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 import 'package:flutter/material.dart';
 

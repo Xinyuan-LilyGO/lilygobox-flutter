@@ -2,8 +2,7 @@
  * @Description: 配置读写失败时显示可重试提示，避免保存失败被误认为成功。
  * @Author: LILYGO_L
  * @Date: 2026-10-03 20:29:43
- * @LastEditTime: 2026-10-04 00:20:00
- * @License: GPL 3.0
+ * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/foundation.dart';
