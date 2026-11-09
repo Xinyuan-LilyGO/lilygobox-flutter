@@ -2,7 +2,7 @@
  * @Description: 定义 AI 服务配置、会话消息与待确认的设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-06 09:26:37
+ * @LastEditTime: 2026-11-06 17:50:09
  * @License: GPL 3.0
  */
 
@@ -128,6 +128,10 @@ class AiMessage {
     this.toolName,
     this.toolArguments,
     this.toolDecision,
+    this.elapsed,
+    this.model,
+    this.protocol,
+    this.processingSteps = const [],
   });
 
   final String id;
@@ -136,15 +140,42 @@ class AiMessage {
   final String? toolName;
   final Map<String, Object?>? toolArguments;
   final bool? toolDecision;
+  final Duration? elapsed;
+  final String? model;
+  final AiApiProtocol? protocol;
+  final List<AiProcessingStep> processingSteps;
 
-  AiMessage copyWith({String? content, bool? toolDecision}) => AiMessage(
+  AiMessage copyWith({
+    String? content,
+    bool? toolDecision,
+    Duration? elapsed,
+    String? model,
+    AiApiProtocol? protocol,
+    List<AiProcessingStep>? processingSteps,
+  }) => AiMessage(
     id: id,
     role: role,
     content: content ?? this.content,
     toolName: toolName,
     toolArguments: toolArguments,
     toolDecision: toolDecision ?? this.toolDecision,
+    elapsed: elapsed ?? this.elapsed,
+    model: model ?? this.model,
+    protocol: protocol ?? this.protocol,
+    processingSteps: processingSteps ?? this.processingSteps,
   );
+}
+
+class AiProcessingStep {
+  AiProcessingStep({
+    required this.name,
+    required Map<String, Object?> arguments,
+    required this.succeeded,
+  }) : arguments = Map.unmodifiable(arguments);
+
+  final String name;
+  final Map<String, Object?> arguments;
+  final bool succeeded;
 }
 
 class AiToolCall {

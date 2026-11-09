@@ -1,8 +1,8 @@
 /*
- * @Description: 验证设置下拉菜单按所在背景取色并保持交互流程。
+ * @Description: 验证设置下拉控件取色并保持交互流程。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-11-06 15:23:31
+ * @LastEditTime: 2026-11-07 10:05:00
  * @License: GPL 3.0
  */
 
@@ -60,9 +60,7 @@ void main() {
     }
   });
 
-  testWidgets('select colors derive from the supplied hosting surface', (
-    tester,
-  ) async {
+  testWidgets('dropdown panel keeps its theme popup surface', (tester) async {
     final themes = ThemeProvider();
     addTearDown(themes.dispose);
     final theme = themes.themeData;
@@ -93,7 +91,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       background(tester, find.byType(PopupMenuSurface)),
-      theme.selectMenuColorForSurface(host),
+      theme.popupSurfaceColor,
     );
   });
 
@@ -142,11 +140,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 75));
     expect(
       background(tester, option),
-      Color.lerp(
-        theme.selectMenuColorForSurface(theme.secondary),
-        theme.basePrimary,
-        .5,
-      ),
+      Color.lerp(theme.popupSurfaceColor, theme.basePrimary, .5),
     );
     await tester.pumpAndSettle();
     expect(background(tester, option), theme.basePrimary);
@@ -155,17 +149,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 75));
     expect(
       background(tester, option),
-      Color.lerp(
-        theme.basePrimary,
-        theme.selectMenuColorForSurface(theme.secondary),
-        .5,
-      ),
+      Color.lerp(theme.basePrimary, theme.popupSurfaceColor, .5),
     );
     await tester.pumpAndSettle();
-    expect(
-      background(tester, option),
-      theme.selectMenuColorForSurface(theme.secondary),
-    );
+    expect(background(tester, option), theme.popupSurfaceColor);
 
     await tester.tap(option);
     await tester.pumpAndSettle();

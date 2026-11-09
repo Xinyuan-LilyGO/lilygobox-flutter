@@ -2,7 +2,7 @@
  * @Description: 提供带展开收起动画、选中状态和悬停渐变的设置下拉框。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-11-06 15:23:31
+ * @LastEditTime: 2026-11-06 18:12:06
  * @License: GPL 3.0
  */
 
@@ -190,7 +190,6 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
                 animation: _dropdownController,
                 child: _SettingSelectDropdown<T>(
                   theme: widget.theme,
-                  surfaceColor: widget.surfaceColor ?? widget.theme.secondary,
                   value: widget.value,
                   items: widget.items,
                   width: _targetSize.width,
@@ -225,7 +224,6 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
 class _SettingSelectDropdown<T> extends StatelessWidget {
   const _SettingSelectDropdown({
     required this.theme,
-    required this.surfaceColor,
     required this.value,
     required this.items,
     required this.onSelected,
@@ -233,7 +231,6 @@ class _SettingSelectDropdown<T> extends StatelessWidget {
   });
 
   final AppTheme theme;
-  final Color surfaceColor;
   final T value;
   final List<DropdownMenuItem<T>> items;
   final ValueChanged<T?> onSelected;
@@ -243,8 +240,8 @@ class _SettingSelectDropdown<T> extends StatelessWidget {
   Widget build(BuildContext context) => RightClickMenuBuilder.buildMenuPanel(
     theme: theme,
     width: width,
-    surfaceColor: theme.selectMenuColorForSurface(surfaceColor),
-    itemColor: theme.selectMenuColorForSurface(surfaceColor),
+    surfaceColor: theme.popupSurfaceColor,
+    itemColor: theme.popupSurfaceColor,
     selectedColor: theme.primaryTextHoverColor,
     selectedForegroundColor: theme.type == ThemeType.light
         ? Colors.black

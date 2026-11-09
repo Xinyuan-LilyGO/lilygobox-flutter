@@ -558,6 +558,30 @@ abstract class AppLocalizations {
   /// **'Thinking…'**
   String get aiAssistantThinking;
 
+  /// No description provided for @aiResponseElapsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Worked for {duration}'**
+  String aiResponseElapsed(String duration);
+
+  /// No description provided for @aiResponseModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Model: {model}'**
+  String aiResponseModel(String model);
+
+  /// No description provided for @aiThinkingElapsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Thinking… {duration}'**
+  String aiThinkingElapsed(String duration);
+
+  /// No description provided for @aiResponseNoActions.
+  ///
+  /// In en, this message translates to:
+  /// **'No application settings were changed.'**
+  String get aiResponseNoActions;
+
   /// No description provided for @aiApprovalTitle.
   ///
   /// In en, this message translates to:

@@ -2,7 +2,7 @@
  * @Description: 调用 OpenAI 兼容 Chat Completions 并解析设置工具调用。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-06 15:23:31
+ * @LastEditTime: 2026-11-06 17:50:09
  * @License: GPL 3.0
  */
 
@@ -253,8 +253,11 @@ class ChatCompletionClient {
     if (responseCompletion case final completion?) return completion;
     if (!body.startsWith('data:') && !body.contains('\ndata:')) {
       final decoded = _decode(body);
-      if (responses) return _parseResponses(decoded);
-      return _parseChatCompletion(decoded);
+      final parsed = responses
+          ? _parseResponses(decoded)
+          : _parseChatCompletion(decoded);
+      if (parsed.text.isNotEmpty) onTextDelta?.call(parsed.text);
+      return parsed;
     }
     if (responses) {
       throw const AiConfigurationException(AiProblem.invalidResponse);

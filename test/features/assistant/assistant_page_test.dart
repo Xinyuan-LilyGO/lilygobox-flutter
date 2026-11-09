@@ -2,7 +2,7 @@
  * @Description: 验证 AI 主页居中与底部输入状态、键盘发送、直达设置及缩放布局。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:16:04
- * @LastEditTime: 2026-11-06 17:07:04
+ * @LastEditTime: 2026-11-09 09:17:02
  * @License: GPL 3.0
  */
 
@@ -135,6 +135,13 @@ void main() {
       ),
     ),
   );
+
+  Future<void> pumpAssistantUntilIdle(WidgetTester tester) async {
+    while (scope.provider.busy) {
+      await tester.pump(const Duration(milliseconds: 30));
+    }
+    await tester.pump();
+  }
 
   Future<void> capture(WidgetTester tester, String name) async {
     if (!const bool.fromEnvironment('CAPTURE_ASSISTANT_UI')) return;
@@ -281,8 +288,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-      await tester.pumpAndSettle();
-      await tester.pumpAndSettle();
+      await pumpAssistantUntilIdle(tester);
       expect(requests, 1);
       expect(find.text('Ready to help with LilygoBox.'), findsOneWidget);
       expect(find.text('Adjust sidebar layout'), findsOneWidget);
@@ -295,6 +301,19 @@ void main() {
       );
       expect(assistantMessage.contextMenuBuilder, AppTextSelectionMenu.build);
       expect(assistantMessage.selectionWidthStyle, ui.BoxWidthStyle.tight);
+      final reply = scope.provider.messages.last;
+      final responseDetails = find.byKey(
+        ValueKey('ai-response-details-${reply.id}'),
+      );
+      expect(responseDetails, findsOneWidget);
+      await tester.tap(responseDetails);
+      await tester.pumpAndSettle();
+      expect(find.text('Model: deepseek-chat'), findsOneWidget);
+      expect(find.text('API protocol: OpenAI Chat Completions'), findsNothing);
+      expect(
+        find.text('No application settings were changed.'),
+        findsOneWidget,
+      );
       final messageList = find.byType(ListView);
       expect(
         tester.getSize(messageList).width,
@@ -347,6 +366,10 @@ void main() {
     expect(scope.provider.busy, isTrue);
     expect(activeField.focusNode!.hasFocus, isTrue);
     expect(activeField.readOnly, isFalse);
+    expect(find.text('Thinking… 00:00'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.textContaining('Thinking…'), findsOneWidget);
+
     final pauseResumeButton = find.byKey(
       const ValueKey('ai-pause-resume-button'),
     );
@@ -371,8 +394,14 @@ void main() {
 
     responseGate!.complete();
     await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-    await tester.pumpAndSettle();
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 30));
+    expect(scope.provider.busy, isTrue);
+    expect(find.textContaining('Thinking…'), findsNothing);
+    expect(find.textContaining('Worked for'), findsOneWidget);
+    final replyText = scope.provider.messages.last.content;
+    expect(replyText, isNotEmpty);
+    expect(replyText, isNot('Ready to help with LilygoBox.'));
+    await pumpAssistantUntilIdle(tester);
     expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
     expect(tester.widget<TextField>(field).controller!.text, 'Next message');
   });
@@ -423,7 +452,7 @@ void main() {
             find.byKey(const ValueKey('ai-send-button')),
           )
           .size,
-      28,
+      30,
     );
     await tester.tap(find.byKey(const ValueKey('ai-send-button')));
     await tester.pump();
@@ -437,12 +466,12 @@ void main() {
             find.byKey(const ValueKey('ai-pause-resume-button')),
           )
           .size,
-      28,
+      30,
     );
 
     responseGate!.complete();
     await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-    await tester.pumpAndSettle();
+    await pumpAssistantUntilIdle(tester);
   });
 
   testWidgets('home and AI settings adapt to narrow windows and large text', (

@@ -2,7 +2,7 @@
  * @Description: 构建双层 AI 输入区，预留附件承载层并提供键盘发送和模型选择菜单。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:07:40
- * @LastEditTime: 2026-11-06 17:07:04
+ * @LastEditTime: 2026-11-06 18:01:05
  * @License: GPL 3.0
  */
 
@@ -184,7 +184,7 @@ class ChatComposer extends StatelessWidget {
                                       icon: assistant.paused
                                           ? Symbols.play_arrow_rounded
                                           : Symbols.stop_rounded,
-                                      size: 28,
+                                      size: 30,
                                       onPressed: assistant.paused
                                           ? assistant.resumeGeneration
                                           : assistant.pauseGeneration,
@@ -196,7 +196,7 @@ class ChatComposer extends StatelessWidget {
                                           ? l10n.aiSend
                                           : l10n.aiSetupAction,
                                       icon: Symbols.arrow_upward_rounded,
-                                      size: 28,
+                                      size: 30,
                                       onPressed:
                                           !assistant.canSendMessage ||
                                               value.text.trim().isEmpty

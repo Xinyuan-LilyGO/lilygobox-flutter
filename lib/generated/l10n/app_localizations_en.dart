@@ -254,6 +254,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiAssistantThinking => 'Thinking…';
 
   @override
+  String aiResponseElapsed(String duration) {
+    return 'Worked for $duration';
+  }
+
+  @override
+  String aiResponseModel(String model) {
+    return 'Model: $model';
+  }
+
+  @override
+  String aiThinkingElapsed(String duration) {
+    return 'Thinking… $duration';
+  }
+
+  @override
+  String get aiResponseNoActions => 'No application settings were changed.';
+
+  @override
   String get aiApprovalTitle => 'Confirm setting change';
 
   @override

@@ -2,7 +2,7 @@
  * @Description: 验证 OpenAI 兼容聊天请求与设置工具调用解析。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-04 14:52:13
+ * @LastEditTime: 2026-11-06 17:50:09
  * @License: GPL 3.0
  */
 
@@ -16,6 +16,42 @@ import 'package:lilygobox/features/assistant/data/chat_completion_client.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 
 void main() {
+  test(
+    'reports complete JSON responses through the text delta callback',
+    () async {
+      const responseText = 'A complete response returned without SSE.';
+      final deltas = <String>[];
+      final client = ChatCompletionClient(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'choices': [
+                {
+                  'message': {'content': responseText},
+                },
+              ],
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final completion = await client.complete(
+        configuration: const AiServiceConfiguration(),
+        apiKey: 'test-secret',
+        messages: const [
+          {'role': 'user', 'content': 'Hello'},
+        ],
+        tools: const [],
+        onTextDelta: deltas.add,
+      );
+
+      expect(completion.text, responseText);
+      expect(deltas, [responseText]);
+      await client.close();
+    },
+  );
+
   test('pauses and resumes reading assistant text deltas', () async {
     final responseStream = StreamController<List<int>>();
     final firstDelta = Completer<void>();

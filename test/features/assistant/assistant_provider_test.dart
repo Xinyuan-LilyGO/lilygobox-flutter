@@ -2,7 +2,7 @@
  * @Description: 验证 AI 的低风险设置工具调用会立即执行并返回结果。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-06 16:30:18
+ * @LastEditTime: 2026-11-09 09:17:02
  * @License: GPL 3.0
  */
 
@@ -64,6 +64,66 @@ void main() {
     expect(scope.provider.busy, isFalse);
     expect(scope.provider.error, isNull);
     expect(scope.provider.messages, hasLength(1));
+  });
+
+  test('streams text gradually and pauses output until resumed', () async {
+    final theme = ThemeProvider();
+    final language = LanguageProvider();
+    final shell = AppShellProvider();
+    final splitView = SplitViewProvider();
+    final text = 'A gradual response that can pause while text is appearing.';
+    final scope = await createAssistantTestScope(
+      theme: theme,
+      language: language,
+      shell: shell,
+      splitView: splitView,
+      client: MockClient((_) async {
+        return http.Response(
+          jsonEncode({
+            'choices': [
+              {
+                'message': {'content': text},
+              },
+            ],
+          }),
+          200,
+        );
+      }),
+    );
+    addTearDown(scope.dispose);
+    addTearDown(theme.dispose);
+    addTearDown(language.dispose);
+    addTearDown(shell.dispose);
+    addTearDown(splitView.dispose);
+
+    await scope.provider.initialized;
+    await scope.provider.saveService(
+      name: 'Test',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://api.test/v1',
+      models: ['test-model'],
+      apiKey: 'test-key',
+    );
+    final send = scope.provider.sendMessage('Reply gradually.');
+    while (scope.provider.messages.length < 2 ||
+        scope.provider.messages.last.content.isEmpty) {
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+    }
+    final initialContent = scope.provider.messages.last.content;
+    expect(initialContent.length, lessThan(text.length));
+    expect(scope.provider.messages.last.elapsed, isNotNull);
+    expect(scope.provider.isThinking(scope.provider.messages.last.id), isFalse);
+
+    scope.provider.pauseGeneration();
+    final pausedElapsed = scope.provider.messages.last.elapsed;
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    expect(scope.provider.messages.last.content, initialContent);
+    expect(scope.provider.messages.last.elapsed, pausedElapsed);
+
+    scope.provider.resumeGeneration();
+    await send;
+    expect(scope.provider.messages.last.content, text);
+    expect(scope.provider.messages.last.elapsed, isNotNull);
   });
 
   test(
@@ -135,6 +195,12 @@ void main() {
         scope.provider.messages.last.content,
         'The light theme is now enabled.',
       );
+      final reply = scope.provider.messages.last;
+      expect(reply.elapsed, isNotNull);
+      expect(reply.model, 'deepseek-chat');
+      expect(reply.protocol, AiApiProtocol.openAiChatCompletions);
+      expect(reply.processingSteps.single.name, 'set_theme');
+      expect(reply.processingSteps.single.succeeded, isTrue);
       expect(
         scope.provider.messages.where((message) => message.toolName != null),
         isEmpty,

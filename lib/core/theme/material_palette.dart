@@ -2,7 +2,7 @@
  * @Description: 集中维护原有灰阶与紫色配色，并提供 Material 3 语义角色映射。
  * @Author: LILYGO_L
  * @Date: 2026-10-09 17:00:00
- * @LastEditTime: 2026-11-06 17:01:08
+ * @LastEditTime: 2026-11-06 18:12:06
  * @License: GPL 3.0
  */
 import 'package:flutter/material.dart';
@@ -172,9 +172,6 @@ extension MaterialThemeRoles on AppTheme {
   /// 下拉控件从承载背景派生底色，避免不同层级使用同一块灰色。
   Color selectControlColorForSurface(Color surface) =>
       Color.lerp(surface, textColorPrimary, .12)!;
-
-  Color selectMenuColorForSurface(Color surface) =>
-      Color.lerp(surface, textColorPrimary, .18)!;
 
   ButtonStateColors buttonColorsForSurface(Color surface) =>
       ButtonStateColors.forSurface(surface);

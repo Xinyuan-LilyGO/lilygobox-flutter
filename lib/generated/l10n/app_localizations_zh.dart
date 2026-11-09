@@ -246,6 +246,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiAssistantThinking => '正在思考…';
 
   @override
+  String aiResponseElapsed(String duration) {
+    return '用时 $duration';
+  }
+
+  @override
+  String aiResponseModel(String model) {
+    return '模型：$model';
+  }
+
+  @override
+  String aiThinkingElapsed(String duration) {
+    return '正在思考 $duration';
+  }
+
+  @override
+  String get aiResponseNoActions => '本轮未修改应用设置。';
+
+  @override
   String get aiApprovalTitle => '确认设置变更';
 
   @override
