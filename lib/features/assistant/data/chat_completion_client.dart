@@ -2,7 +2,7 @@
  * @Description: 调用 OpenAI 兼容 Chat Completions 并解析设置工具调用。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-09 11:35:10
  */
 
 import 'dart:async';
@@ -13,18 +13,24 @@ import 'package:http/http.dart' as http;
 import '../domain/models.dart';
 
 class AiRequestException implements Exception {
-  const AiRequestException(this.message);
+  const AiRequestException(this.message, {this.statusCode, this.retryAfter});
   final String message;
+  final int? statusCode;
+  final Duration? retryAfter;
 
   @override
   String toString() => message;
 }
 
 class ChatCompletionClient {
-  ChatCompletionClient({http.Client? client})
-    : _client = client ?? http.Client();
+  ChatCompletionClient({
+    http.Client? client,
+    this.retryDelay = const Duration(seconds: 1),
+  }) : _client = client ?? http.Client();
 
   final http.Client _client;
+  final Duration retryDelay;
+  static const maxRetries = 2;
   StreamSubscription<String>? _responseSubscription;
   bool _pauseRequested = false;
   Timer? _responseTimeout;
@@ -62,6 +68,105 @@ class ChatCompletionClient {
     required List<Map<String, Object?>> tools,
     Future<void>? abortTrigger,
     void Function(String)? onTextDelta,
+    void Function(String)? onReasoningDelta,
+    void Function(AiResponseStatus)? onStatus,
+    void Function(int, Object)? onRetry,
+    int maxTokens = 2048,
+  }) async {
+    var cancelled = false;
+    var finished = false;
+    unawaited(
+      abortTrigger?.then((_) {
+        if (!finished) cancelled = true;
+      }),
+    );
+    final uri = Uri.parse(configuration.baseUrl);
+    try {
+      for (var attempt = 0; ; attempt++) {
+        if (cancelled) throw http.RequestAbortedException(uri);
+        var outputStarted = false;
+        onStatus?.call(
+          attempt == 0
+              ? AiResponseStatus.connecting
+              : AiResponseStatus.retrying,
+        );
+        try {
+          return await _completeOnce(
+            configuration: configuration,
+            apiKey: apiKey,
+            messages: messages,
+            tools: tools,
+            abortTrigger: abortTrigger,
+            maxTokens: maxTokens,
+            onReasoningDelta: (text) {
+              if (text.isEmpty) return;
+              onStatus?.call(AiResponseStatus.thinking);
+              onReasoningDelta?.call(text);
+            },
+            onStatus: (status) {
+              if (status == AiResponseStatus.preparingTools) {
+                outputStarted = true;
+              }
+              onStatus?.call(status);
+            },
+            onTextDelta: (text) {
+              if (text.isNotEmpty) {
+                outputStarted = true;
+                onStatus?.call(AiResponseStatus.streaming);
+              }
+              onTextDelta?.call(text);
+            },
+          );
+        } catch (error) {
+          // 已输出正文或工具调用后不重发，避免重复回复或重复执行设置。
+          final retryable = switch (error) {
+            http.RequestAbortedException() => false,
+            TimeoutException() || http.ClientException() => true,
+            AiRequestException(:final statusCode) =>
+              statusCode == 408 ||
+                  statusCode == 429 ||
+                  (statusCode != null &&
+                      statusCode >= 500 &&
+                      statusCode <= 599),
+            _ => false,
+          };
+          if (cancelled ||
+              outputStarted ||
+              !retryable ||
+              attempt >= maxRetries) {
+            rethrow;
+          }
+          onRetry?.call(attempt + 1, error);
+          onStatus?.call(AiResponseStatus.retrying);
+          final delay = error is AiRequestException && error.retryAfter != null
+              ? error.retryAfter!
+              : retryDelay * (1 << attempt);
+          final waiting = Completer<void>();
+          final timer = Timer(delay, () => waiting.complete());
+          try {
+            await Future.any<void>([
+              waiting.future,
+              if (abortTrigger != null) abortTrigger,
+            ]);
+          } finally {
+            timer.cancel();
+          }
+        }
+      }
+    } finally {
+      finished = true;
+    }
+  }
+
+  Future<AiCompletion> _completeOnce({
+    required AiServiceConfiguration configuration,
+    required String apiKey,
+    required List<Map<String, Object?>> messages,
+    required List<Map<String, Object?>> tools,
+    Future<void>? abortTrigger,
+    void Function(String)? onTextDelta,
+    void Function(String)? onReasoningDelta,
+    void Function(AiResponseStatus)? onStatus,
     int maxTokens = 2048,
   }) async {
     final base = configuration.baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
@@ -91,13 +196,31 @@ class ChatCompletionClient {
     final response = await _client
         .send(request)
         .timeout(const Duration(seconds: 90));
+    final successful = response.statusCode >= 200 && response.statusCode < 300;
+    if (successful) onStatus?.call(AiResponseStatus.thinking);
     final raw = StringBuffer();
     final dataLines = <String>[];
     final toolDeltas = <int, Map<String, Object?>>{};
     var eventName = '';
     final streamedText = StringBuffer();
+    final streamedReasoning = StringBuffer();
     AiCompletion? responseCompletion;
+    void emitReasoning(String text) {
+      if (text.isEmpty) return;
+      streamedReasoning.write(text);
+      onReasoningDelta?.call(text);
+    }
+
+    void completeReasoning(String text) {
+      // Responses 的完成事件可能再次包含已推送的摘要，只补充未收到的尾部。
+      final received = streamedReasoning.toString();
+      if (text.startsWith(received)) {
+        emitReasoning(text.substring(received.length));
+      }
+    }
+
     void processEvent() {
+      if (!successful) return;
       if (dataLines.isEmpty) {
         eventName = '';
         return;
@@ -118,7 +241,11 @@ class ChatCompletionClient {
       }
       if (responses) {
         final type = decoded['type'] ?? currentEvent;
-        if (type == 'response.output_text.delta' &&
+        if ((type == 'response.reasoning_summary_text.delta' ||
+                type == 'response.reasoning_text.delta') &&
+            decoded['delta'] is String) {
+          emitReasoning(decoded['delta'] as String);
+        } else if (type == 'response.output_text.delta' &&
             decoded['delta'] is String) {
           final delta = decoded['delta'] as String;
           streamedText.write(delta);
@@ -128,6 +255,11 @@ class ChatCompletionClient {
           responseCompletion = _parseResponses(
             decoded['response'] as Map<String, dynamic>,
           );
+          completeReasoning(responseCompletion!.reasoning);
+        } else if (type == 'response.output_item.added' &&
+            decoded['item'] is Map &&
+            (decoded['item'] as Map)['type'] == 'function_call') {
+          onStatus?.call(AiResponseStatus.preparingTools);
         } else if (type == 'response.failed' || type == 'response.incomplete') {
           throw const AiConfigurationException(AiProblem.invalidResponse);
         }
@@ -137,6 +269,8 @@ class ChatCompletionClient {
       if (choices is! List || choices.isEmpty || choices.first is! Map) return;
       final delta = (choices.first as Map)['delta'];
       if (delta is! Map) return;
+      final reasoning = delta['reasoning_content'] ?? delta['reasoning'];
+      if (reasoning is String) emitReasoning(reasoning);
       final text = delta['content'];
       if (text is String && text.isNotEmpty) {
         streamedText.write(text);
@@ -144,6 +278,7 @@ class ChatCompletionClient {
       }
       final calls = delta['tool_calls'];
       if (calls is! List) return;
+      if (calls.isNotEmpty) onStatus?.call(AiResponseStatus.preparingTools);
       for (final call in calls.whereType<Map>()) {
         final index = call['index'];
         if (index is! int) continue;
@@ -241,20 +376,37 @@ class ChatCompletionClient {
 
     final body = raw.toString().trim();
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final decoded = _decode(body);
-      final error = decoded['error'];
-      final detail = error is Map ? error['message']?.toString() : null;
+      String? detail;
+      try {
+        final error = _decode(body)['error'];
+        detail = error is Map ? error['message']?.toString() : null;
+      } catch (_) {
+        // 非 JSON 网关错误也保留 HTTP 状态，供重试策略判断。
+      }
+      final retrySeconds = int.tryParse(response.headers['retry-after'] ?? '');
       throw AiRequestException(
         detail?.isNotEmpty == true ? detail! : 'HTTP ${response.statusCode}',
+        statusCode: response.statusCode,
+        retryAfter: retrySeconds == null
+            ? null
+            : Duration(seconds: retrySeconds.clamp(0, 30)),
       );
     }
 
-    if (responseCompletion case final completion?) return completion;
+    if (responseCompletion case final completion?) {
+      return AiCompletion(
+        text: completion.text,
+        toolCalls: completion.toolCalls,
+        responseItems: completion.responseItems,
+        reasoning: streamedReasoning.toString(),
+      );
+    }
     if (!body.startsWith('data:') && !body.contains('\ndata:')) {
       final decoded = _decode(body);
       final parsed = responses
           ? _parseResponses(decoded)
           : _parseChatCompletion(decoded);
+      if (parsed.reasoning.isNotEmpty) onReasoningDelta?.call(parsed.reasoning);
       if (parsed.text.isNotEmpty) onTextDelta?.call(parsed.text);
       return parsed;
     }
@@ -284,7 +436,11 @@ class ChatCompletionClient {
         continue;
       }
     }
-    return AiCompletion(text: streamedText.toString(), toolCalls: calls);
+    return AiCompletion(
+      text: streamedText.toString(),
+      toolCalls: calls,
+      reasoning: streamedReasoning.toString(),
+    );
   }
 
   AiCompletion _parseChatCompletion(Map<String, dynamic> decoded) {
@@ -325,6 +481,11 @@ class ChatCompletionClient {
     return AiCompletion(
       text: content is String ? content.trim() : '',
       toolCalls: calls,
+      reasoning: message['reasoning_content'] is String
+          ? message['reasoning_content'] as String
+          : message['reasoning'] is String
+          ? message['reasoning'] as String
+          : '',
     );
   }
 
@@ -458,12 +619,23 @@ class ChatCompletionClient {
 
   AiCompletion _parseResponses(Map<String, dynamic> decoded) {
     final text = StringBuffer();
+    final reasoning = StringBuffer();
     final calls = <AiToolCall>[];
     final output = decoded['output'];
     if (output is! List) {
       throw const AiConfigurationException(AiProblem.invalidResponse);
     }
     for (final item in output.whereType<Map>()) {
+      if (item['type'] == 'reasoning') {
+        final summary = item['summary'];
+        if (summary is List) {
+          for (final part in summary.whereType<Map>()) {
+            if (part['text'] is String) reasoning.write(part['text']);
+          }
+        }
+        // 仅展示接口公开返回的文本；encrypted_content 仍仅用于协议回放。
+        continue;
+      }
       if (item['type'] == 'function_call') {
         final name = item['name'];
         final rawArguments = item['arguments'];
@@ -495,6 +667,7 @@ class ChatCompletionClient {
     }
     return AiCompletion(
       text: text.toString().trim(),
+      reasoning: reasoning.toString(),
       toolCalls: calls,
       responseItems: [
         for (final item in output.whereType<Map>())

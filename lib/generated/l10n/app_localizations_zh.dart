@@ -245,6 +245,67 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiAssistantThinking => '正在思考…';
 
   @override
+  String get aiConnecting => '正在连接';
+
+  @override
+  String get aiAwaitingReply => '设置操作已结束，正在等待模型回复';
+
+  @override
+  String get aiProcessCompleted => '已完成';
+
+  @override
+  String get aiProcessReasoning => '模型思考';
+
+  @override
+  String get aiProcessAssistant => '助手说明';
+
+  @override
+  String aiProcessActionSucceeded(String action) {
+    return '已执行：$action';
+  }
+
+  @override
+  String aiProcessActionFailed(String action) {
+    return '执行失败：$action';
+  }
+
+  @override
+  String get aiStreaming => '正在输出';
+
+  @override
+  String get aiPreparingTools => '正在准备设置操作';
+
+  @override
+  String aiRequestRetryRecord(int attempt) {
+    return '模型请求重试 $attempt';
+  }
+
+  @override
+  String get aiExecutingTools => '正在修改设置';
+
+  @override
+  String get aiResponsePaused => '已暂停';
+
+  @override
+  String get aiResponseFailed => '处理失败';
+
+  @override
+  String get aiResponseStopped => '已停止';
+
+  @override
+  String get aiTurnFailed => '本轮运行失败';
+
+  @override
+  String aiRetryingRequest(int attempt, int total) {
+    return '正在重试模型请求（$attempt/$total）';
+  }
+
+  @override
+  String aiStatusElapsed(String status, String duration) {
+    return '$status · $duration';
+  }
+
+  @override
   String aiResponseElapsed(String duration) {
     return '用时 $duration';
   }

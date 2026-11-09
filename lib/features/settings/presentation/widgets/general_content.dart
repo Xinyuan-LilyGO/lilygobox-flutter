@@ -2,7 +2,7 @@
  * @Description: 提供通用设置分类的页面布局。
  * @Author: LILYGO_L
  * @Date: 2026-05-24 23:22:38
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-09 10:26:48
  */
 
 import 'package:flutter/material.dart';
@@ -194,7 +194,7 @@ class GeneralSettingsContent extends StatelessWidget {
     );
     if (!confirmed || !context.mounted) return;
     // 仅重置明确的应用偏好，不清空设备列表或其他持久化数据。
-    context.read<ThemeProvider>().setTheme(ThemeType.dark);
+    context.read<ThemeProvider>().setTheme(ThemeProvider.defaultTheme);
     context.read<LanguageProvider>().changeLanguage('en');
     context.read<AppShellProvider?>()?.resetLayout();
     context.read<SplitViewProvider?>()?.resetSplitWidth();

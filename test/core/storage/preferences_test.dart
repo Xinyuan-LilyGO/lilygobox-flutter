@@ -2,7 +2,7 @@
  * @Description: 验证配置重启恢复、串行写入、异常重试、无效值回退及设备资料保留。
  * @Author: LILYGO_L
  * @Date: 2026-10-03 20:29:43
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-09 10:28:36
  */
 
 import 'dart:async';
@@ -40,6 +40,30 @@ class MemoryPreferencesStorage implements PreferencesStorage {
 }
 
 void main() {
+  test('first launch defaults to light without saved preferences', () {
+    final theme = ThemeProvider();
+    addTearDown(theme.dispose);
+    expect(theme.currentTheme, ThemeType.light);
+    expect(theme.themeData.type, ThemeType.light);
+  });
+
+  for (final saved in [null, '{}', '{"theme":"light"}', '{"theme":"dark"}']) {
+    test('theme initialization respects saved preferences: $saved', () async {
+      final storage = MemoryPreferencesStorage()..value = saved;
+      final preferences = await AppPreferences.load(storage: storage);
+      addTearDown(preferences.dispose);
+      final theme = ThemeProvider(preferences: preferences);
+      addTearDown(theme.dispose);
+      final expected = saved == '{"theme":"dark"}'
+          ? ThemeType.dark
+          : ThemeType.light;
+      expect(theme.currentTheme, expected);
+      expect(ThemeProvider.initialTheme(preferences), expected);
+      expect(theme.themeData.type, expected);
+      expect(storage.writes, 0);
+    });
+  }
+
   const device = LanDevice(
     id: '001122334455',
     name: 'Desk P4',
@@ -146,7 +170,7 @@ void main() {
       final restoredDevices = DeviceManagerProvider(preferences: restored);
       expect(restoredTheme.currentTheme, ThemeType.light);
       expect(restoredTheme.themeData.type, ThemeType.light);
-      expect(restoredLanguage.locale.languageCode, 'zh');
+      expect(restoredLanguage.locale?.languageCode, 'zh');
       expect(restoredShell.sidebarWidth, 310);
       expect(restoredShell.isSidebarVisible, isFalse);
       expect(restoredSplit.splitWidth, 345);
@@ -240,8 +264,8 @@ void main() {
     final theme = ThemeProvider(preferences: preferences);
     final language = LanguageProvider(preferences: preferences);
     final shell = AppShellProvider(preferences: preferences);
-    expect(theme.currentTheme, ThemeType.dark);
-    expect(language.locale.languageCode, 'en');
+    expect(theme.currentTheme, ThemeType.light);
+    expect(language.locale, isNull);
     expect(shell.sidebarWidth, AppShellProvider.minSidebarWidth);
     expect(shell.isSidebarVisible, isTrue);
     expect(preferences.doubleValue('splitWidth', 300, 100, 1200), 300);

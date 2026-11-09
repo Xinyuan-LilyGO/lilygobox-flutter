@@ -2,7 +2,7 @@
  * @Description: 验证 OpenAI 兼容聊天请求与设置工具调用解析。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-09 11:35:10
  */
 
 import 'dart:async';
@@ -15,6 +15,240 @@ import 'package:lilygobox/features/assistant/data/chat_completion_client.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 
 void main() {
+  for (final protocol in AiApiProtocol.values) {
+    for (final streaming in [false, true]) {
+      test(
+        'reports reasoning separately for ${protocol.name}, streaming=$streaming',
+        () async {
+          final responses = protocol == AiApiProtocol.openAiResponses;
+          final payload = responses
+              ? <String, Object?>{
+                  'output': [
+                    {
+                      'type': 'reasoning',
+                      'summary': [
+                        {'type': 'summary_text', 'text': 'Think carefully.'},
+                      ],
+                      'encrypted_content': 'opaque-private-data',
+                    },
+                    {
+                      'type': 'message',
+                      'content': [
+                        {'type': 'output_text', 'text': 'Answer'},
+                      ],
+                    },
+                  ],
+                }
+              : <String, Object?>{
+                  'choices': [
+                    {
+                      'message': {
+                        'content': 'Answer',
+                        'reasoning_content': 'Think carefully.',
+                      },
+                    },
+                  ],
+                };
+          final events = responses
+              ? [
+                  {
+                    'type': 'response.reasoning_summary_text.delta',
+                    'delta': 'Think ',
+                  },
+                  {
+                    'type': 'response.reasoning_summary_text.delta',
+                    'delta': 'carefully.',
+                  },
+                  {'type': 'response.output_text.delta', 'delta': 'Answer'},
+                  {'type': 'response.completed', 'response': payload},
+                ]
+              : [
+                  {
+                    'choices': [
+                      {
+                        'delta': {'reasoning_content': 'Think '},
+                      },
+                    ],
+                  },
+                  {
+                    'choices': [
+                      {
+                        'delta': {'reasoning_content': 'carefully.'},
+                      },
+                    ],
+                  },
+                  {
+                    'choices': [
+                      {
+                        'delta': {'content': 'Answer'},
+                      },
+                    ],
+                  },
+                ];
+          final client = ChatCompletionClient(
+            client: MockClient(
+              (_) async => http.Response(
+                streaming
+                    ? '${events.map((event) => 'data: ${jsonEncode(event)}\n\n').join()}data: [DONE]\n\n'
+                    : jsonEncode(payload),
+                200,
+                headers: {
+                  'content-type': streaming
+                      ? 'text/event-stream'
+                      : 'application/json',
+                },
+              ),
+            ),
+          );
+          addTearDown(client.close);
+          final reasoning = <String>[];
+          final text = <String>[];
+          final completion = await client.complete(
+            configuration: AiServiceConfiguration(protocol: protocol),
+            apiKey: 'secret',
+            messages: const [],
+            tools: const [],
+            onTextDelta: text.add,
+            onReasoningDelta: reasoning.add,
+          );
+          expect(reasoning.join(), 'Think carefully.');
+          expect(completion.reasoning, 'Think carefully.');
+          expect(text.join(), 'Answer');
+          expect(reasoning.join(), isNot(contains('opaque-private-data')));
+        },
+      );
+    }
+  }
+
+  for (final code in [400, 401, 403, 429, 503]) {
+    test('retries only transient HTTP failures: $code', () async {
+      var requests = 0;
+      final retries = <int>[];
+      final statuses = <AiResponseStatus>[];
+      final client = ChatCompletionClient(
+        retryDelay: Duration.zero,
+        client: MockClient((_) async {
+          requests++;
+          return http.Response('{"error":{"message":"Service failure"}}', code);
+        }),
+      );
+      addTearDown(client.close);
+      await expectLater(
+        client.complete(
+          configuration: const AiServiceConfiguration(),
+          apiKey: 'secret',
+          messages: const [],
+          tools: const [],
+          onStatus: statuses.add,
+          onRetry: (attempt, _) => retries.add(attempt),
+        ),
+        throwsA(
+          isA<AiRequestException>().having(
+            (error) => error.statusCode,
+            'statusCode',
+            code,
+          ),
+        ),
+      );
+      final transient = code == 429 || code == 503;
+      expect(requests, transient ? 3 : 1);
+      expect(retries, transient ? [1, 2] : isEmpty);
+      expect(statuses.first, AiResponseStatus.connecting);
+      expect(statuses.contains(AiResponseStatus.retrying), transient);
+      expect(statuses.contains(AiResponseStatus.thinking), isFalse);
+    });
+  }
+
+  test('retry recovery reports actual response phases', () async {
+    var requests = 0;
+    final statuses = <AiResponseStatus>[];
+    final client = ChatCompletionClient(
+      retryDelay: Duration.zero,
+      client: MockClient((_) async {
+        requests++;
+        return requests == 1
+            ? http.Response('Gateway unavailable', 503)
+            : http.Response('{"choices":[{"message":{"content":"OK"}}]}', 200);
+      }),
+    );
+    addTearDown(client.close);
+    final result = await client.complete(
+      configuration: const AiServiceConfiguration(),
+      apiKey: 'secret',
+      messages: const [],
+      tools: const [],
+      onStatus: statuses.add,
+    );
+    expect(requests, 2);
+    expect(result.text, 'OK');
+    expect(
+      statuses,
+      containsAllInOrder([
+        AiResponseStatus.connecting,
+        AiResponseStatus.retrying,
+        AiResponseStatus.thinking,
+        AiResponseStatus.streaming,
+      ]),
+    );
+  });
+
+  test('stop cancels retry backoff before another request is sent', () async {
+    var requests = 0;
+    final abort = Completer<void>();
+    final client = ChatCompletionClient(
+      client: MockClient((_) async {
+        requests++;
+        return http.Response('Unavailable', 503);
+      }),
+    );
+    addTearDown(client.close);
+    await expectLater(
+      client.complete(
+        configuration: const AiServiceConfiguration(),
+        apiKey: 'secret',
+        messages: const [],
+        tools: const [],
+        abortTrigger: abort.future,
+        onRetry: (_, _) => abort.complete(),
+      ),
+      throwsA(isA<http.RequestAbortedException>()),
+    );
+    expect(requests, 1);
+  });
+
+  test('stream failures after output never replay the model request', () async {
+    var requests = 0;
+    Stream<List<int>> brokenStream() async* {
+      yield utf8.encode(
+        'data: {"choices":[{"delta":{"content":"Partial"}}]}\n\n',
+      );
+      throw http.ClientException('Connection lost');
+    }
+
+    final client = ChatCompletionClient(
+      retryDelay: Duration.zero,
+      client: MockClient.streaming((_, body) async {
+        await body.drain<void>();
+        requests++;
+        return http.StreamedResponse(brokenStream(), 200);
+      }),
+    );
+    addTearDown(client.close);
+    final deltas = <String>[];
+    await expectLater(
+      client.complete(
+        configuration: const AiServiceConfiguration(),
+        apiKey: 'secret',
+        messages: const [],
+        tools: const [],
+        onTextDelta: deltas.add,
+      ),
+      throwsA(isA<http.ClientException>()),
+    );
+    expect(deltas, ['Partial']);
+    expect(requests, 1);
+  });
+
   test(
     'reports complete JSON responses through the text delta callback',
     () async {

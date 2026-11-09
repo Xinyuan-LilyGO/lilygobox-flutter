@@ -2,7 +2,7 @@
  * @Description: 展示主页设备卡片、名称搜索、默认空状态与悬浮添加入口。
  * @Author: LILYGO_L
  * @Date: 2025-11-07 11:23:45
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-09 10:40:08
  */
 
 import 'dart:async';
@@ -174,44 +174,57 @@ class _HomePageContentState extends State<HomePageContent> {
                     if (!hasDevices)
                       SliverFillRemaining(
                         hasScrollBody: true,
-                        child: SingleChildScrollView(
-                          padding: EdgeInsets.fromLTRB(inset, 24, inset, 110),
-                          child: Center(
+                        child: LayoutBuilder(
+                          builder: (context, viewport) => SingleChildScrollView(
+                            padding: EdgeInsets.fromLTRB(inset, 24, inset, 110),
                             child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 380),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  HomeDeviceIllustration(theme: theme),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    l10n.homeDevicesEmpty,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w600,
-                                      color: theme.textColorPrimary,
-                                    ),
+                              // 保留可视区域高度供居中；小窗口则按内容高度滚动。
+                              constraints: BoxConstraints(
+                                minHeight: math.max(
+                                  0,
+                                  viewport.maxHeight - 134,
+                                ),
+                              ),
+                              child: Center(
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 380,
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    l10n.homeDevicesEmptyDescription,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      height: 1.35,
-                                      color: theme.textColorTertiary,
-                                    ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      HomeDeviceIllustration(theme: theme),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        l10n.homeDevicesEmpty,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w600,
+                                          color: theme.textColorPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        l10n.homeDevicesEmptyDescription,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          height: 1.35,
+                                          color: theme.textColorTertiary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 26),
+                                      AppActionButton(
+                                        theme: theme,
+                                        label: l10n.addDevice,
+                                        icon: Symbols.add_rounded,
+                                        primary: true,
+                                        onPressed: _addDevice,
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 26),
-                                  AppActionButton(
-                                    theme: theme,
-                                    label: l10n.addDevice,
-                                    icon: Symbols.add_rounded,
-                                    primary: true,
-                                    onPressed: _addDevice,
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
                           ),

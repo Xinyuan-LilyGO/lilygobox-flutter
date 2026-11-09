@@ -2,7 +2,7 @@
  * @Description: 定义 AI 服务配置、会话消息与待确认的设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-09 11:35:10
  */
 
 enum AiApiProtocol { openAiChatCompletions, openAiResponses }
@@ -119,6 +119,46 @@ class AiConfigurationException implements Exception {
   final AiProblem problem;
 }
 
+enum AiResponseStatus {
+  connecting,
+  awaitingReply,
+  thinking,
+  streaming,
+  preparingTools,
+  executingTools,
+  retrying,
+  paused,
+  completed,
+  failed,
+  stopped,
+}
+
+class AiRequestRetry {
+  const AiRequestRetry(this.attempt, this.error);
+  final int attempt;
+  final Object error;
+}
+
+enum AiProcessEventType { status, reasoning, assistant, action, retry }
+
+class AiProcessEvent {
+  const AiProcessEvent({
+    required this.type,
+    required this.elapsed,
+    this.status,
+    this.text = '',
+    this.action,
+    this.retry,
+  });
+
+  final AiProcessEventType type;
+  final Duration elapsed;
+  final AiResponseStatus? status;
+  final String text;
+  final AiProcessingStep? action;
+  final AiRequestRetry? retry;
+}
+
 class AiMessage {
   const AiMessage({
     required this.id,
@@ -131,6 +171,10 @@ class AiMessage {
     this.model,
     this.protocol,
     this.processingSteps = const [],
+    this.status,
+    this.requestError,
+    this.retries = const [],
+    this.processEvents = const [],
   });
 
   final String id;
@@ -143,6 +187,10 @@ class AiMessage {
   final String? model;
   final AiApiProtocol? protocol;
   final List<AiProcessingStep> processingSteps;
+  final AiResponseStatus? status;
+  final Object? requestError;
+  final List<AiRequestRetry> retries;
+  final List<AiProcessEvent> processEvents;
 
   AiMessage copyWith({
     String? content,
@@ -151,6 +199,10 @@ class AiMessage {
     String? model,
     AiApiProtocol? protocol,
     List<AiProcessingStep>? processingSteps,
+    AiResponseStatus? status,
+    Object? requestError,
+    List<AiRequestRetry>? retries,
+    List<AiProcessEvent>? processEvents,
   }) => AiMessage(
     id: id,
     role: role,
@@ -162,6 +214,10 @@ class AiMessage {
     model: model ?? this.model,
     protocol: protocol ?? this.protocol,
     processingSteps: processingSteps ?? this.processingSteps,
+    status: status ?? this.status,
+    requestError: requestError ?? this.requestError,
+    retries: retries ?? this.retries,
+    processEvents: processEvents ?? this.processEvents,
   );
 }
 
@@ -194,9 +250,11 @@ class AiCompletion {
     required this.text,
     required this.toolCalls,
     this.responseItems = const [],
+    this.reasoning = '',
   });
 
   final String text;
   final List<AiToolCall> toolCalls;
   final List<Map<String, Object?>> responseItems;
+  final String reasoning;
 }

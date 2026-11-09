@@ -2,7 +2,7 @@
  * @Description: 验证首页添加入口、设备状态及窄窗口和大字体布局。
  * @Author: LILYGO_L
  * @Date: 2026-10-02 01:00:00
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-09 10:40:08
  */
 
 import 'package:flutter/gestures.dart';
@@ -123,6 +123,28 @@ void main() {
       ),
     );
   }
+
+  testWidgets('empty state stays centered as the window grows taller', (
+    tester,
+  ) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1000, 650));
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    final content = find
+        .ancestor(
+          of: find.text('No devices yet'),
+          matching: find.byType(Column),
+        )
+        .first;
+    final initialCenter = tester.getCenter(content);
+    await tester.binding.setSurfaceSize(const Size(1000, 1100));
+    await tester.pumpAndSettle();
+    final resizedCenter = tester.getCenter(content);
+    expect(resizedCenter.dx, closeTo(500, 1));
+    expect(resizedCenter.dy - initialCenter.dy, closeTo(225, 1));
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('empty state opens existing add flow and updates after adding', (
     tester,

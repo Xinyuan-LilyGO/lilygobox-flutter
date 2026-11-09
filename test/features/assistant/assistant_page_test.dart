@@ -2,7 +2,7 @@
  * @Description: 验证 AI 主页居中与底部输入状态、键盘发送、直达设置及缩放布局。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:16:04
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-09 11:35:10
  */
 
 import 'dart:async';
@@ -44,6 +44,10 @@ void main() {
   late AssistantTestScope scope;
   var requests = 0;
   Completer<void>? responseGate;
+  var failRequests = false;
+  var transientFailures = 0;
+  var showProcess = false;
+  final requestBodies = <String>[];
   final boundaryKey = GlobalKey();
 
   setUp(() async {
@@ -54,6 +58,10 @@ void main() {
     navigation = AppNavigationProvider();
     requests = 0;
     responseGate = null;
+    failRequests = false;
+    transientFailures = 0;
+    showProcess = false;
+    requestBodies.clear();
     if (const bool.fromEnvironment('CAPTURE_ASSISTANT_UI')) {
       final inter = FontLoader('LilygoBoxInter')
         ..addFont(rootBundle.load('assets/fonts/Inter/Inter-Variable.ttf'));
@@ -76,12 +84,42 @@ void main() {
       splitView: splitView,
       client: MockClient((request) async {
         requests++;
+        requestBodies.add(request.body);
         if (responseGate case final gate?) await gate.future;
+        if (failRequests) {
+          return http.Response('{"error":{"message":"Invalid token"}}', 401);
+        }
+        if (transientFailures > 0) {
+          transientFailures--;
+          return http.Response('Unavailable', 503);
+        }
         return http.Response(
           jsonEncode({
             'choices': [
               {
-                'message': {'content': 'Ready to help with LilygoBox.'},
+                'message': showProcess && requests == 1
+                    ? {
+                        'content': 'Updating the theme.',
+                        'reasoning_content': 'Inspect the current theme.',
+                        'tool_calls': [
+                          {
+                            'id': 'theme-call',
+                            'type': 'function',
+                            'function': {
+                              'name': 'set_theme',
+                              'arguments': '{"theme":"dark"}',
+                            },
+                          },
+                        ],
+                      }
+                    : {
+                        'content': 'Ready to help with LilygoBox.',
+                        if (showProcess)
+                          'reasoning_content': List.filled(
+                            30,
+                            'Confirm the setting result. ',
+                          ).join(),
+                      },
               },
             ],
           }),
@@ -136,9 +174,11 @@ void main() {
   );
 
   Future<void> pumpAssistantUntilIdle(WidgetTester tester) async {
-    while (scope.provider.busy) {
+    for (var i = 0; i < 1000 && scope.provider.busy; i++) {
       await tester.pump(const Duration(milliseconds: 30));
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     }
+    expect(scope.provider.busy, isFalse);
     await tester.pump();
   }
 
@@ -365,9 +405,9 @@ void main() {
     expect(scope.provider.busy, isTrue);
     expect(activeField.focusNode!.hasFocus, isTrue);
     expect(activeField.readOnly, isFalse);
-    expect(find.text('Thinking… 00:00'), findsOneWidget);
+    expect(find.text('Connecting · 00:00'), findsOneWidget);
     await tester.pump(const Duration(seconds: 1));
-    expect(find.textContaining('Thinking…'), findsOneWidget);
+    expect(find.textContaining('Connecting'), findsOneWidget);
 
     final pauseResumeButton = find.byKey(
       const ValueKey('ai-pause-resume-button'),
@@ -396,13 +436,153 @@ void main() {
     await tester.pump(const Duration(milliseconds: 30));
     expect(scope.provider.busy, isTrue);
     expect(find.textContaining('Thinking…'), findsNothing);
-    expect(find.textContaining('Worked for'), findsOneWidget);
+    expect(find.textContaining('Responding'), findsOneWidget);
     final replyText = scope.provider.messages.last.content;
     expect(replyText, isNotEmpty);
     expect(replyText, isNot('Ready to help with LilygoBox.'));
     await pumpAssistantUntilIdle(tester);
     expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
     expect(tester.widget<TextField>(field).controller!.text, 'Next message');
+  });
+
+  testWidgets(
+    'request failures stay in their chat turns after later messages',
+    (tester) async {
+      await tester.runAsync(() => scope.provider.initialized);
+      await scope.provider.saveService(
+        name: 'Test API',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['test-model'],
+        apiKey: 'test-key',
+      );
+      await tester.pumpWidget(app());
+      failRequests = true;
+      unawaited(scope.provider.sendMessage('First attempt'));
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await pumpAssistantUntilIdle(tester);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Processing failed'), findsOneWidget);
+      expect(find.text('This turn failed  Invalid token'), findsOneWidget);
+      unawaited(scope.provider.sendMessage('Second attempt'));
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await pumpAssistantUntilIdle(tester);
+      await tester.pumpAndSettle();
+      expect(find.text('This turn failed  Invalid token'), findsNWidgets(2));
+      expect(requests, 2);
+      final failedTurns = scope.provider.messages
+          .where((message) => message.requestError != null)
+          .toList();
+      expect(failedTurns, hasLength(2));
+      expect(
+        failedTurns.every(
+          (message) => message.status == AiResponseStatus.failed,
+        ),
+        isTrue,
+      );
+      failRequests = false;
+      unawaited(scope.provider.sendMessage('Try again'));
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await pumpAssistantUntilIdle(tester);
+      await tester.pumpAndSettle();
+      expect(find.text('This turn failed  Invalid token'), findsNWidgets(2));
+      expect(scope.provider.messages.last.status, AiResponseStatus.completed);
+      expect(scope.provider.messages.last.requestError, isNull);
+      expect(requestBodies.last, isNot(contains('Invalid token')));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('retry state and its cause are shown in the matching chat turn', (
+    tester,
+  ) async {
+    await tester.runAsync(() => scope.provider.initialized);
+    await scope.provider.saveService(
+      name: 'Test API',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://example.test/v1',
+      models: ['test-model'],
+      apiKey: 'test-key',
+    );
+    await tester.pumpWidget(app());
+    transientFailures = 1;
+    unawaited(scope.provider.sendMessage('Hello'));
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    for (
+      var i = 0;
+      i < 20 && scope.provider.messages.last.retries.isEmpty;
+      i++
+    ) {
+      await tester.pump(const Duration(milliseconds: 10));
+    }
+    await tester.pump();
+    expect(scope.provider.messages.last.status, AiResponseStatus.retrying);
+    expect(find.textContaining('Retrying model request (1/2)'), findsOneWidget);
+    await pumpAssistantUntilIdle(tester);
+    await tester.pumpAndSettle();
+    final reply = scope.provider.messages.last;
+    expect(reply.status, AiResponseStatus.completed);
+    expect(reply.retries.single.attempt, 1);
+    expect(reply.requestError, isNull);
+    expect(requests, 2);
+    await tester.tap(find.byKey(ValueKey('ai-response-details-${reply.id}')));
+    await tester.pumpAndSettle();
+    expect(find.text('Model request retry 1: HTTP 503'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('process is collapsed by default and scrolls when expanded', (
+    tester,
+  ) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(420, 760));
+    await tester.runAsync(() => scope.provider.initialized);
+    await scope.provider.saveService(
+      name: 'Test',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://example.test/v1',
+      models: ['test'],
+      apiKey: 'key',
+    );
+    showProcess = true;
+    await tester.pumpWidget(app(scale: 1.5));
+    unawaited(scope.provider.sendMessage('Switch the theme.'));
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await pumpAssistantUntilIdle(tester);
+    await tester.pumpAndSettle();
+    final reply = scope.provider.messages.last;
+    expect(reply.content, 'Ready to help with LilygoBox.');
+    expect(find.text('Model reasoning'), findsNothing);
+    expect(find.text('Updating the theme.'), findsNothing);
+    final header = find.byKey(ValueKey('ai-response-details-${reply.id}'));
+    await tester.ensureVisible(header);
+    await tester.tap(header);
+    await tester.pumpAndSettle();
+    expect(find.text('Model reasoning'), findsNWidgets(2));
+    expect(find.text('Inspect the current theme.'), findsOneWidget);
+    expect(find.text('Updating the theme.'), findsOneWidget);
+    expect(find.text('Applied: Change theme to Dark'), findsOneWidget);
+    expect(
+      find.text('Waiting for the model after setting operations'),
+      findsOneWidget,
+    );
+    final scroll = find
+        .ancestor(
+          of: find.text('Inspect the current theme.'),
+          matching: find.byType(SingleChildScrollView),
+        )
+        .first;
+    final controller = tester.widget<SingleChildScrollView>(scroll).controller!;
+    expect(tester.getSize(scroll).height, lessThanOrEqualTo(300));
+    expect(controller.position.maxScrollExtent, greaterThan(0));
+    controller.jumpTo(controller.position.maxScrollExtent);
+    await tester.pump();
+    await capture(tester, 'process-details');
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(header);
+    await tester.tap(header);
+    await tester.pumpAndSettle();
+    expect(find.text('Model reasoning'), findsNothing);
   });
 
   testWidgets('shift enter and IME confirmation do not submit messages', (

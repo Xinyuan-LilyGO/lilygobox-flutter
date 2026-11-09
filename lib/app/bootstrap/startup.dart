@@ -148,10 +148,7 @@ class _AppStartupState extends State<AppStartup>
                 opacity: _opacity,
                 child: StartupScreen(
                   key: const ValueKey('startup'),
-                  themeType:
-                      preferences?.stringValue('theme', 'dark') == 'light'
-                      ? ThemeType.light
-                      : ThemeType.dark,
+                  themeType: ThemeProvider.initialTheme(preferences),
                 ),
               ),
           ],
@@ -165,7 +162,7 @@ class _AppStartupState extends State<AppStartup>
 class StartupScreen extends StatefulWidget {
   const StartupScreen({
     super.key,
-    this.themeType = ThemeType.dark,
+    this.themeType = ThemeProvider.defaultTheme,
     this.framed = true,
   });
 

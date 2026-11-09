@@ -2,7 +2,7 @@
  * @Description: 验证全局主题同步渐变、连续切换及减少动画设置。
  * @Author: LILYGO_L
  * @Date: 2026-10-02 22:01:29
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-09 10:28:36
  */
 
 import 'package:flutter/material.dart';
@@ -16,7 +16,10 @@ void main() {
   testWidgets('background, text and buttons share the same transition frame', (
     tester,
   ) async {
-    final theme = ThemeProvider(vsync: tester);
+    final theme = ThemeProvider(vsync: tester)
+      ..setDisableAnimations(true)
+      ..setTheme(ThemeType.dark)
+      ..setDisableAnimations(false);
     addTearDown(theme.dispose);
     final dark = theme.themeData;
     final light = theme.allThemes.firstWhere((t) => t.type == ThemeType.light);
@@ -107,7 +110,10 @@ void main() {
   testWidgets('rapid reversal starts at the displayed palette without a jump', (
     tester,
   ) async {
-    final theme = ThemeProvider(vsync: tester);
+    final theme = ThemeProvider(vsync: tester)
+      ..setDisableAnimations(true)
+      ..setTheme(ThemeType.dark)
+      ..setDisableAnimations(false);
     addTearDown(theme.dispose);
     final dark = theme.themeData;
     theme.setTheme(ThemeType.light);
@@ -131,7 +137,10 @@ void main() {
   testWidgets('reduced motion snaps both active and subsequent transitions', (
     tester,
   ) async {
-    final theme = ThemeProvider(vsync: tester);
+    final theme = ThemeProvider(vsync: tester)
+      ..setDisableAnimations(true)
+      ..setTheme(ThemeType.dark)
+      ..setDisableAnimations(false);
     addTearDown(theme.dispose);
     final light = theme.allThemes.firstWhere((t) => t.type == ThemeType.light);
     theme.setTheme(ThemeType.light);

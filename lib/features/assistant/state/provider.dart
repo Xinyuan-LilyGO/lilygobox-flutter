@@ -2,7 +2,7 @@
  * @Description: 管理 AI 服务配置、对话、请求状态和 AI 设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-09 11:53:23
  */
 
 import 'dart:async';
@@ -51,6 +51,11 @@ class AiAssistantProvider extends ChangeNotifier {
   Timer? _elapsedTimer;
   String? _activeMessageId;
   final List<AiProcessingStep> _activeProcessingSteps = [];
+  final List<AiRequestRetry> _activeRetries = [];
+  AiResponseStatus _activeStatus = AiResponseStatus.connecting;
+  final List<AiProcessEvent> _activeProcessEvents = [];
+  Timer? _processNotifyTimer;
+  int _activeRequestNumber = 0;
   Object? _error;
   Object? _configurationError;
   int _nextMessageId = 0;
@@ -72,7 +77,7 @@ class AiAssistantProvider extends ChangeNotifier {
   bool isThinking(String id) =>
       _busy &&
       id == _activeMessageId &&
-      _messages.any((message) => message.id == id && message.content.isEmpty);
+      _activeStatus == AiResponseStatus.thinking;
   bool get saving => _saving;
   bool get canChangeService => _credentialLoaded && !_loadFailed && !_saving;
   bool get canSendMessage => canChangeService && !_busy;
@@ -179,9 +184,14 @@ class AiAssistantProvider extends ChangeNotifier {
     _activeConfiguration = configuration;
     _activeApiKey = _repository.keyFor(selectedService!.id)!;
     _activeProcessingSteps.clear();
+    _activeRetries.clear();
+    _activeProcessEvents.clear();
+    _activeRequestNumber = 0;
+    _activeStatus = AiResponseStatus.connecting;
     _turnStopwatch
       ..reset()
       ..start();
+    _appendStatusEvent(AiResponseStatus.connecting);
     _activeMessageId = _newId();
     _messages.add(
       _withTurnDetails(
@@ -214,6 +224,7 @@ class AiAssistantProvider extends ChangeNotifier {
     if (!_busy || _paused) return;
     _paused = true;
     _turnStopwatch.stop();
+    _appendStatusEvent(AiResponseStatus.paused);
     _refreshElapsed();
     _activeOutput?.pause();
     _client.pauseResponse();
@@ -224,8 +235,10 @@ class AiAssistantProvider extends ChangeNotifier {
     if (!_busy || !_paused) return;
     _paused = false;
     _turnStopwatch.start();
+    _appendStatusEvent(_activeStatus);
     _activeOutput?.resume();
     _client.resumeResponse();
+    _refreshElapsed();
     _notify();
   }
 
@@ -284,6 +297,8 @@ class AiAssistantProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    stopGeneration();
+    _processNotifyTimer?.cancel();
     _elapsedTimer?.cancel();
     _activeOutput?.stop();
     _turnStopwatch.stop();
@@ -293,6 +308,7 @@ class AiAssistantProvider extends ChangeNotifier {
   }
 
   Future<void> _requestAssistant() async {
+    final requestNumber = ++_activeRequestNumber;
     String? streamingMessageId = _activeMessageId;
     var streamedContent = '';
     late final _AssistantTextOutput output;
@@ -340,6 +356,29 @@ class AiAssistantProvider extends ChangeNotifier {
         tools: _settingTools,
         abortTrigger: _abortRequest?.future,
         onTextDelta: output.add,
+        onReasoningDelta: _recordReasoning,
+        onStatus: (status) {
+          if (_disposed || _stopRequested || _activeStatus == status) return;
+          _recordStatus(
+            status == AiResponseStatus.connecting && requestNumber > 1
+                ? AiResponseStatus.awaitingReply
+                : status,
+          );
+        },
+        onRetry: (attempt, error) {
+          if (_disposed || _stopRequested) return;
+          final retry = AiRequestRetry(attempt, error);
+          _activeRetries.add(retry);
+          _activeProcessEvents.add(
+            AiProcessEvent(
+              type: AiProcessEventType.retry,
+              elapsed: _turnStopwatch.elapsed,
+              retry: retry,
+            ),
+          );
+          _activeStatus = AiResponseStatus.retrying;
+          _refreshElapsed();
+        },
       );
       await output.finish();
       if (completion.toolCalls.isEmpty) {
@@ -361,6 +400,8 @@ class AiAssistantProvider extends ChangeNotifier {
           _history.add({
             'role': 'assistant',
             'content': completion.text,
+            if (completion.reasoning.isNotEmpty)
+              'reasoning_content': completion.reasoning,
             if (completion.responseItems.isNotEmpty)
               'response_items': completion.responseItems,
           });
@@ -376,9 +417,26 @@ class AiAssistantProvider extends ChangeNotifier {
             arguments: call.arguments,
           ),
       ];
+      if (completion.text.isNotEmpty) {
+        _activeProcessEvents.add(
+          AiProcessEvent(
+            type: AiProcessEventType.assistant,
+            elapsed: _turnStopwatch.elapsed,
+            text: completion.text,
+          ),
+        );
+        final index = _messages.indexWhere(
+          (message) => message.id == _activeMessageId,
+        );
+        if (index >= 0) {
+          _messages[index] = _messages[index].copyWith(content: '');
+        }
+      }
       _history.add({
         'role': 'assistant',
         'content': completion.text.isEmpty ? null : completion.text,
+        if (completion.reasoning.isNotEmpty)
+          'reasoning_content': completion.reasoning,
         if (completion.responseItems.isNotEmpty)
           'response_items': completion.responseItems,
         'tool_calls': [
@@ -395,6 +453,7 @@ class AiAssistantProvider extends ChangeNotifier {
       });
       for (final call in calls) {
         if (_stopRequested) break;
+        _recordStatus(AiResponseStatus.executingTools);
         String result;
         var succeeded = true;
         try {
@@ -403,13 +462,20 @@ class AiAssistantProvider extends ChangeNotifier {
           succeeded = false;
           result = 'The setting change failed: $error';
         }
-        _activeProcessingSteps.add(
-          AiProcessingStep(
-            name: call.name,
-            arguments: call.arguments,
-            succeeded: succeeded,
+        final step = AiProcessingStep(
+          name: call.name,
+          arguments: call.arguments,
+          succeeded: succeeded,
+        );
+        _activeProcessingSteps.add(step);
+        _activeProcessEvents.add(
+          AiProcessEvent(
+            type: AiProcessEventType.action,
+            elapsed: _turnStopwatch.elapsed,
+            action: step,
           ),
         );
+        _refreshElapsed();
         _history.add({
           'role': 'tool',
           'tool_call_id': call.id,
@@ -433,6 +499,12 @@ class AiAssistantProvider extends ChangeNotifier {
       }
       if (!_stopRequested) {
         _error = error;
+        final index = _messages.indexWhere(
+          (message) => message.id == _activeMessageId,
+        );
+        if (index >= 0) {
+          _messages[index] = _messages[index].copyWith(requestError: error);
+        }
       }
     } finally {
       output.stop();
@@ -444,11 +516,23 @@ class AiAssistantProvider extends ChangeNotifier {
       _turnStopwatch.stop();
       _elapsedTimer?.cancel();
       _elapsedTimer = null;
+      _processNotifyTimer?.cancel();
+      _processNotifyTimer = null;
+      _activeStatus = _stopRequested
+          ? AiResponseStatus.stopped
+          : _error != null
+          ? AiResponseStatus.failed
+          : AiResponseStatus.completed;
+      if (_activeMessageId != null) _appendStatusEvent(_activeStatus);
       _refreshElapsed();
-      if (_stopRequested || _error != null) {
+      if (_stopRequested) {
         _messages.removeWhere(
           (message) =>
-              message.id == _activeMessageId && message.content.isEmpty,
+              message.id == _activeMessageId &&
+              message.content.isEmpty &&
+              !message.processEvents.any(
+                (event) => event.type != AiProcessEventType.status,
+              ),
         );
       }
       _activeMessageId = null;
@@ -456,6 +540,60 @@ class AiAssistantProvider extends ChangeNotifier {
       _activeApiKey = null;
       _notify();
     }
+  }
+
+  void _appendStatusEvent(AiResponseStatus status) {
+    _activeProcessEvents.add(
+      AiProcessEvent(
+        type: AiProcessEventType.status,
+        elapsed: _turnStopwatch.elapsed,
+        status: status,
+      ),
+    );
+  }
+
+  void _recordStatus(AiResponseStatus status) {
+    if (_activeStatus == status) return;
+    _activeStatus = status;
+    _appendStatusEvent(status);
+    _refreshElapsed();
+  }
+
+  void _recordReasoning(String text) {
+    if (_disposed || _stopRequested || text.isEmpty) return;
+    if (_activeProcessEvents.isNotEmpty &&
+        _activeProcessEvents.last.type == AiProcessEventType.status &&
+        _activeProcessEvents.last.status == AiResponseStatus.thinking) {
+      final previous = _activeProcessEvents.removeLast();
+      _activeProcessEvents.add(
+        AiProcessEvent(
+          type: AiProcessEventType.reasoning,
+          elapsed: previous.elapsed,
+          text: text,
+        ),
+      );
+    } else if (_activeProcessEvents.isNotEmpty &&
+        _activeProcessEvents.last.type == AiProcessEventType.reasoning) {
+      final previous = _activeProcessEvents.last;
+      _activeProcessEvents[_activeProcessEvents.length - 1] = AiProcessEvent(
+        type: AiProcessEventType.reasoning,
+        elapsed: previous.elapsed,
+        text: previous.text + text,
+      );
+    } else {
+      _activeProcessEvents.add(
+        AiProcessEvent(
+          type: AiProcessEventType.reasoning,
+          elapsed: _turnStopwatch.elapsed,
+          text: text,
+        ),
+      );
+    }
+    // 合并同一帧内的思考增量，避免每个 token 都重建整个聊天页。
+    _processNotifyTimer ??= Timer(const Duration(milliseconds: 16), () {
+      _processNotifyTimer = null;
+      _refreshElapsed();
+    });
   }
 
   void _refreshElapsed() {
@@ -475,6 +613,9 @@ class AiAssistantProvider extends ChangeNotifier {
     model: _activeConfiguration?.model,
     protocol: _activeConfiguration?.protocol,
     processingSteps: List.unmodifiable(_activeProcessingSteps),
+    status: _paused ? AiResponseStatus.paused : _activeStatus,
+    retries: List.unmodifiable(_activeRetries),
+    processEvents: List.unmodifiable(_activeProcessEvents),
   );
 
   String _newId() => 'assistant-${_nextMessageId++}';
@@ -494,12 +635,14 @@ class _AssistantTextOutput {
   void add(String text) {
     if (_stopped || text.isEmpty) return;
     final codePoints = text.runes.toList();
-    final chunkSize = (codePoints.length / 90).ceil().clamp(1, 12);
+    final chunkSize = (codePoints.length / 60).ceil().clamp(3, 24);
     for (var start = 0; start < codePoints.length; start += chunkSize) {
       final end = (start + chunkSize).clamp(0, codePoints.length);
       _pending.add(String.fromCharCodes(codePoints.sublist(start, end)));
     }
-    _drain ??= _run();
+    // 先登记任务再运行。单字增量可同步排空，直接调用会把已清空的
+    // _drain 覆盖回已完成的 Future，导致 finish 不断等待同一个任务。
+    _drain ??= Future<void>.microtask(_run);
   }
 
   Future<void> finish() async {
@@ -533,7 +676,7 @@ class _AssistantTextOutput {
         }
         _onChunk(_pending.removeAt(0));
         if (_pending.isNotEmpty) {
-          await Future<void>.delayed(const Duration(milliseconds: 24));
+          await Future<void>.delayed(const Duration(milliseconds: 16));
         }
       }
     } finally {

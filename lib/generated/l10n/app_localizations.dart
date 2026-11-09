@@ -557,6 +557,108 @@ abstract class AppLocalizations {
   /// **'Thinking…'**
   String get aiAssistantThinking;
 
+  /// No description provided for @aiConnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting'**
+  String get aiConnecting;
+
+  /// No description provided for @aiAwaitingReply.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the model after setting operations'**
+  String get aiAwaitingReply;
+
+  /// No description provided for @aiProcessCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get aiProcessCompleted;
+
+  /// No description provided for @aiProcessReasoning.
+  ///
+  /// In en, this message translates to:
+  /// **'Model reasoning'**
+  String get aiProcessReasoning;
+
+  /// No description provided for @aiProcessAssistant.
+  ///
+  /// In en, this message translates to:
+  /// **'Assistant update'**
+  String get aiProcessAssistant;
+
+  /// No description provided for @aiProcessActionSucceeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Applied: {action}'**
+  String aiProcessActionSucceeded(String action);
+
+  /// No description provided for @aiProcessActionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed: {action}'**
+  String aiProcessActionFailed(String action);
+
+  /// No description provided for @aiStreaming.
+  ///
+  /// In en, this message translates to:
+  /// **'Responding'**
+  String get aiStreaming;
+
+  /// No description provided for @aiPreparingTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing setting changes'**
+  String get aiPreparingTools;
+
+  /// No description provided for @aiRequestRetryRecord.
+  ///
+  /// In en, this message translates to:
+  /// **'Model request retry {attempt}'**
+  String aiRequestRetryRecord(int attempt);
+
+  /// No description provided for @aiExecutingTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Applying settings'**
+  String get aiExecutingTools;
+
+  /// No description provided for @aiResponsePaused.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused'**
+  String get aiResponsePaused;
+
+  /// No description provided for @aiResponseFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing failed'**
+  String get aiResponseFailed;
+
+  /// No description provided for @aiResponseStopped.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped'**
+  String get aiResponseStopped;
+
+  /// No description provided for @aiTurnFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'This turn failed'**
+  String get aiTurnFailed;
+
+  /// No description provided for @aiRetryingRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'Retrying model request ({attempt}/{total})'**
+  String aiRetryingRequest(int attempt, int total);
+
+  /// No description provided for @aiStatusElapsed.
+  ///
+  /// In en, this message translates to:
+  /// **'{status} · {duration}'**
+  String aiStatusElapsed(String status, String duration);
+
   /// No description provided for @aiResponseElapsed.
   ///
   /// In en, this message translates to:

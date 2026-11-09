@@ -2,9 +2,10 @@
  * @Description: 验证模型服务列表排序、确认添加、取消、编辑与删除。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-09 10:36:06
  */
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -39,6 +40,7 @@ void main() {
   late AssistantTestScope scope;
   var requests = 0;
   var invalidChatResponse = false;
+  Completer<void>? modelRequestGate;
   final boundaryKey = GlobalKey();
   setUp(() async {
     theme = ThemeProvider();
@@ -47,6 +49,7 @@ void main() {
     splitView = SplitViewProvider();
     requests = 0;
     invalidChatResponse = false;
+    modelRequestGate = null;
     if (const bool.fromEnvironment('CAPTURE_ASSISTANT_UI')) {
       await (FontLoader('LilygoBoxInter')
             ..addFont(rootBundle.load('assets/fonts/Inter/Inter-Variable.ttf')))
@@ -73,6 +76,7 @@ void main() {
         requests++;
         expect(request.headers['authorization'], 'Bearer test-key');
         if (request.method == 'GET') {
+          await modelRequestGate?.future;
           expect(request.url.path, '/v1/models');
           return http.Response(
             '{"data":[{"id":"model-a"},{"id":"model-b"}]}',
@@ -513,6 +517,49 @@ void main() {
       }
     },
   );
+
+  testWidgets('fetching models reveals progress without manual scrolling', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await open(tester);
+    await tester.enterText(field('address'), 'https://example.test/v1');
+    await tester.enterText(field('key'), 'test-key');
+    final fetch = find.byKey(const ValueKey('ai-discover-models'));
+    await tester.ensureVisible(fetch);
+    modelRequestGate = Completer<void>();
+    await tester.tap(fetch);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    await tester.pump(const Duration(milliseconds: 250));
+    final progress = find.byType(LinearProgressIndicator);
+    expect(progress, findsOneWidget);
+    final viewport = find
+        .ancestor(
+          of: field('models'),
+          matching: find.byType(SingleChildScrollView),
+        )
+        .first;
+    expect(
+      tester.getRect(viewport).contains(tester.getCenter(progress)),
+      isTrue,
+    );
+    modelRequestGate!.complete();
+    await tester.pumpAndSettle();
+    expect(progress, findsNothing);
+    expect(
+      tester.widget<TextField>(input('models')).controller!.text,
+      'model-a\nmodel-b',
+    );
+    expect(
+      tester.getBottomLeft(field('models')).dy,
+      lessThanOrEqualTo(tester.getBottomLeft(viewport).dy + 1),
+    );
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'validation keeps dialog open; fetching models never adds a service',

@@ -2,7 +2,7 @@
  * @Description: 维护深浅主题配色，统一驱动主题渐变并支持减少动画。
  * @Author: LILYGO_L
  * @Date: 2025-10-25 09:15:47
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-09 10:26:48
  */
 
 import 'package:flutter/material.dart';
@@ -16,9 +16,7 @@ export 'definition.dart';
 class ThemeProvider with ChangeNotifier {
   ThemeProvider({TickerProvider? vsync, AppPreferences? preferences})
     : _preferences = preferences {
-    _currentTheme = preferences?.stringValue('theme', 'dark') == 'light'
-        ? ThemeType.light
-        : ThemeType.dark;
+    _currentTheme = initialTheme(preferences);
     final savedFontChoice = preferences?.stringValue('font', 'system');
     _fontChoice = _supportedFontChoices.contains(savedFontChoice)
         ? savedFontChoice!
@@ -31,6 +29,13 @@ class ThemeProvider with ChangeNotifier {
       )..addListener(_onTransition);
     }
   }
+
+  static const defaultTheme = ThemeType.light;
+
+  static ThemeType initialTheme(AppPreferences? preferences) =>
+      preferences?.stringValue('theme', defaultTheme.name) == 'dark'
+      ? ThemeType.dark
+      : defaultTheme;
 
   final AppPreferences? _preferences;
 
@@ -62,7 +67,7 @@ class ThemeProvider with ChangeNotifier {
     }
   }
 
-  ThemeType _currentTheme = ThemeType.dark;
+  ThemeType _currentTheme = defaultTheme;
   late String _fontChoice;
 
   final Map<ThemeType, AppTheme> _themes = {

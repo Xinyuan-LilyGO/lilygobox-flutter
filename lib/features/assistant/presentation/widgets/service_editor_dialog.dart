@@ -2,7 +2,7 @@
  * @Description: 在独立弹窗中编辑模型服务，支持读取模型列表并在确认后提交。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-09 10:36:06
  */
 
 import 'package:flutter/material.dart';
@@ -38,6 +38,7 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
   late final TextEditingController _address;
   late final TextEditingController _models;
   final _key = TextEditingController();
+  final _formScrollController = ScrollController();
   late AiApiProtocol _protocol;
   late AiServicePreset _preset;
   bool _working = false;
@@ -88,6 +89,7 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
     _address.dispose();
     _models.dispose();
     _key.dispose();
+    _formScrollController.dispose();
     super.dispose();
   }
 
@@ -125,6 +127,7 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
       _working = true;
       _error = null;
     });
+    _revealModelStatus();
     try {
       final models = await widget.assistant.discoverModels(
         baseUrl: _baseUrl,
@@ -138,8 +141,28 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
     } catch (error) {
       if (mounted) setState(() => _error = error);
     } finally {
-      if (mounted) setState(() => _working = false);
+      if (mounted) {
+        setState(() => _working = false);
+        _revealModelStatus();
+      }
     }
+  }
+
+  void _revealModelStatus() {
+    // 等待进度条或模型列表完成布局，再露出表单底部，避免内容被视口裁切。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_formScrollController.hasClients) return;
+      final target = _formScrollController.position.maxScrollExtent;
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _formScrollController.jumpTo(target);
+      } else {
+        _formScrollController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   @override
@@ -157,6 +180,7 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
         content: SizedBox(
           width: 450,
           child: SingleChildScrollView(
+            controller: _formScrollController,
             // 桌面滚动条绘制在视口内侧，为滚动条和控件之间预留空隙。
             padding: const EdgeInsetsDirectional.only(end: 20),
             child: Column(

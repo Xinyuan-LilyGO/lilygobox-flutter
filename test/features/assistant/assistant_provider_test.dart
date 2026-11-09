@@ -2,7 +2,7 @@
  * @Description: 验证 AI 的低风险设置工具调用会立即执行并返回结果。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-09 11:53:23
  */
 
 import 'dart:async';
@@ -20,6 +20,258 @@ import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'assistant_test_scope.dart';
 
 void main() {
+  test(
+    'keeps live reasoning, tool results and follow-up phases in order',
+    () async {
+      final theme = ThemeProvider();
+      final language = LanguageProvider();
+      final shell = AppShellProvider();
+      final splitView = SplitViewProvider();
+      final stream = StreamController<List<int>>();
+      final followup = Completer<void>();
+      final requests = <Map<String, dynamic>>[];
+      final scope = await createAssistantTestScope(
+        theme: theme,
+        language: language,
+        shell: shell,
+        splitView: splitView,
+        client: MockClient.streaming((request, body) async {
+          final bytes = await body.toBytes();
+          requests.add(jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>);
+          if (requests.length == 1)
+            return http.StreamedResponse(stream.stream, 200);
+          await followup.future;
+          return http.StreamedResponse(
+            Stream.value(
+              utf8.encode(
+                jsonEncode({
+                  'choices': [
+                    {
+                      'message': {
+                        'content': 'Done.',
+                        'reasoning_content': 'Check the tool result.',
+                      },
+                    },
+                  ],
+                }),
+              ),
+            ),
+            200,
+          );
+        }),
+      );
+      addTearDown(scope.dispose);
+      addTearDown(theme.dispose);
+      addTearDown(language.dispose);
+      addTearDown(shell.dispose);
+      addTearDown(splitView.dispose);
+      await scope.provider.initialized;
+      await scope.provider.saveService(
+        name: 'Test',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['test'],
+        apiKey: 'key',
+      );
+      final send = scope.provider.sendMessage('Switch to dark.');
+      void event(Map<String, Object?> delta) => stream.add(
+        utf8.encode(
+          'data: ${jsonEncode({
+            'choices': [
+              {'delta': delta},
+            ],
+          })}\n\n',
+        ),
+      );
+      event({'reasoning_content': 'Inspect '});
+      event({'reasoning_content': 'the setting.'});
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      final live = scope.provider.messages.last;
+      expect(live.content, isEmpty);
+      expect(
+        live.processEvents.where(
+          (event) =>
+              event.type == AiProcessEventType.status &&
+              event.status == AiResponseStatus.thinking,
+        ),
+        isEmpty,
+      );
+      expect(
+        live.processEvents
+            .where((event) => event.type == AiProcessEventType.reasoning)
+            .single
+            .text,
+        'Inspect the setting.',
+      );
+      event({'content': 'I will update the theme.'});
+      event({
+        'tool_calls': [
+          {
+            'index': 0,
+            'id': 'theme-call',
+            'function': {'name': 'set_theme', 'arguments': '{"theme":"dark"}'},
+          },
+        ],
+      });
+      stream.add(utf8.encode('data: [DONE]\n\n'));
+      await stream.close();
+      for (var i = 0; i < 100 && requests.length < 2; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(requests, hasLength(2));
+      expect(theme.currentTheme, ThemeType.dark);
+      expect(
+        scope.provider.messages.last.status,
+        AiResponseStatus.awaitingReply,
+      );
+      final history = requests.last['messages'] as List;
+      final toolReply = history.whereType<Map>().firstWhere(
+        (message) => message['role'] == 'assistant',
+      );
+      expect(toolReply['reasoning_content'], 'Inspect the setting.');
+      followup.complete();
+      await send;
+      final reply = scope.provider.messages.last;
+      expect(reply.content, 'Done.');
+      expect(
+        reply.processEvents.map((event) => event.type),
+        containsAllInOrder([
+          AiProcessEventType.reasoning,
+          AiProcessEventType.assistant,
+          AiProcessEventType.action,
+          AiProcessEventType.reasoning,
+        ]),
+      );
+      expect(reply.processEvents.last.status, AiResponseStatus.completed);
+      expect(
+        reply.processEvents
+            .where((event) => event.action != null)
+            .single
+            .action!
+            .succeeded,
+        isTrue,
+      );
+      expect(
+        reply.processEvents
+            .where((event) => event.type == AiProcessEventType.reasoning)
+            .last
+            .text,
+        'Check the tool result.',
+      );
+      expect(
+        reply.processEvents
+            .map((event) => event.elapsed.inMicroseconds)
+            .toList(),
+        orderedEquals(
+          reply.processEvents
+              .map((event) => event.elapsed.inMicroseconds)
+              .toList()
+            ..sort(),
+        ),
+      );
+      final previous = reply.processEvents;
+      await scope.provider.sendMessage('Another question');
+      expect(scope.provider.messages[1].processEvents, previous);
+    },
+  );
+
+  for (final mode in [
+    'single JSON character',
+    'sparse SSE',
+    'sparse SSE error',
+  ]) {
+    test('finishes output without starving the event loop: $mode', () async {
+      final theme = ThemeProvider();
+      final language = LanguageProvider();
+      final shell = AppShellProvider();
+      final splitView = SplitViewProvider();
+      var requests = 0;
+      Stream<List<int>> sparseStream() async* {
+        for (final character in ['不', '能', '。']) {
+          yield utf8.encode(
+            'data: ${jsonEncode({
+              'choices': [
+                {
+                  'delta': {'content': character},
+                },
+              ],
+            })}\n\n',
+          );
+          // 让每个单字分别排空，再接收下一次增量。
+          await Future<void>.delayed(const Duration(milliseconds: 30));
+          if (mode == 'sparse SSE error') {
+            throw http.ClientException('Stream interrupted');
+          }
+        }
+        yield utf8.encode('data: [DONE]\n\n');
+      }
+
+      final client = mode == 'single JSON character'
+          ? MockClient((_) async {
+              requests++;
+              return http.Response.bytes(
+                utf8.encode('{"choices":[{"message":{"content":"好"}}]}'),
+                200,
+                headers: {'content-type': 'application/json; charset=utf-8'},
+              );
+            })
+          : MockClient.streaming((_, body) async {
+              await body.drain<void>();
+              requests++;
+              return http.StreamedResponse(
+                sparseStream(),
+                200,
+                headers: {'content-type': 'text/event-stream'},
+              );
+            });
+      final scope = await createAssistantTestScope(
+        theme: theme,
+        language: language,
+        shell: shell,
+        splitView: splitView,
+        client: client,
+      );
+      addTearDown(scope.dispose);
+      addTearDown(theme.dispose);
+      addTearDown(language.dispose);
+      addTearDown(shell.dispose);
+      addTearDown(splitView.dispose);
+      await scope.provider.initialized;
+      await scope.provider.saveService(
+        name: 'Test',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['test-model'],
+        apiKey: 'test-key',
+      );
+      await scope.provider.sendMessage('Can you connect?');
+      final reply = scope.provider.messages.last;
+      expect(scope.provider.busy, isFalse);
+      expect(requests, 1);
+      expect(
+        reply.content,
+        mode == 'single JSON character'
+            ? '好'
+            : mode == 'sparse SSE error'
+            ? '不'
+            : '不能。',
+      );
+      expect(
+        reply.status,
+        mode == 'sparse SSE error'
+            ? AiResponseStatus.failed
+            : AiResponseStatus.completed,
+      );
+      expect(
+        reply.requestError,
+        mode == 'sparse SSE error' ? isA<http.ClientException>() : isNull,
+      );
+      // 本轮完成后事件循环及下一轮输入仍可工作。
+      await Future<void>.delayed(Duration.zero);
+      expect(scope.provider.canSendMessage, isTrue);
+    });
+  }
+
   test('stops an in-flight completion without surfacing an error', () async {
     final theme = ThemeProvider();
     final language = LanguageProvider();

@@ -2,7 +2,7 @@
  * @Description: 提供 LilygoBox AI 对话主页与设置操作确认。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-09 11:53:23
  */
 
 import 'dart:ui' as ui;
@@ -17,6 +17,7 @@ import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/app_tooltip.dart';
+import '../../data/chat_completion_client.dart';
 import '../../domain/models.dart';
 import '../../state/provider.dart';
 import '../widgets/chat_composer.dart';
@@ -86,7 +87,6 @@ class _AssistantPageState extends State<AssistantPage> {
     final assistant = context.watch<AiAssistantProvider>();
     final messages = assistant.messages;
     final l10n = context.l10n;
-    final errorColor = Theme.of(context).colorScheme.error;
     final ready = assistant.credentialLoaded && assistant.hasApiKey;
 
     return ClipRRect(
@@ -124,9 +124,7 @@ class _AssistantPageState extends State<AssistantPage> {
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 772),
                             child: _MessageView(
-                              isThinking: assistant.isThinking(
-                                messages[index].id,
-                              ),
+                              key: ValueKey(messages[index].id),
                               message: messages[index],
                               theme: theme,
                               isResolving: assistant.isResolvingTool(
@@ -142,27 +140,6 @@ class _AssistantPageState extends State<AssistantPage> {
                       },
                     ),
             ),
-            if (messages.isNotEmpty && assistant.error != null)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 820),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                  child: Row(
-                    children: [
-                      Icon(Symbols.error_outline, size: 16, color: errorColor),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          !ready
-                              ? l10n.aiConfigureMessage
-                              : aiErrorText(l10n, assistant.error!),
-                          style: TextStyle(color: errorColor, fontSize: 12),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
               child: ConstrainedBox(
@@ -244,14 +221,13 @@ class _Welcome extends StatelessWidget {
 
 class _MessageView extends StatefulWidget {
   const _MessageView({
-    this.isThinking = false,
+    super.key,
     required this.message,
     required this.theme,
     required this.isResolving,
     required this.onResolve,
   });
 
-  final bool isThinking;
   final AiMessage message;
   final AppTheme theme;
   final bool isResolving;
@@ -263,6 +239,13 @@ class _MessageView extends StatefulWidget {
 
 class _MessageViewState extends State<_MessageView> {
   bool _detailsExpanded = false;
+  final _detailsScroll = ScrollController();
+
+  @override
+  void dispose() {
+    _detailsScroll.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -314,15 +297,13 @@ class _MessageViewState extends State<_MessageView> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  widget.isThinking
-                      ? l10n.aiThinkingElapsed(_formatElapsed(message.elapsed!))
-                      : l10n.aiResponseElapsed(
-                          _formatElapsed(message.elapsed!),
-                        ),
-                  style: TextStyle(
-                    color: widget.theme.textColorTertiary,
-                    fontSize: 12,
+                Flexible(
+                  child: Text(
+                    _responseStatusText(context, message),
+                    style: TextStyle(
+                      color: widget.theme.textColorTertiary,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -357,6 +338,38 @@ class _MessageViewState extends State<_MessageView> {
                         ),
                       ),
                       const SizedBox(height: 8),
+                      if (message.processEvents.isNotEmpty)
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 300),
+                          child: Scrollbar(
+                            controller: _detailsScroll,
+                            thumbVisibility: true,
+                            child: SingleChildScrollView(
+                              controller: _detailsScroll,
+                              primary: false,
+                              padding: const EdgeInsetsDirectional.only(
+                                end: 16,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  for (final event in message.processEvents)
+                                    _ProcessEventView(
+                                      event: event,
+                                      theme: widget.theme,
+                                      isThinking:
+                                          message.status ==
+                                              AiResponseStatus.thinking &&
+                                          identical(
+                                            event,
+                                            message.processEvents.last,
+                                          ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       if (message.processingSteps.isEmpty)
                         Text(
                           l10n.aiResponseNoActions,
@@ -364,47 +377,186 @@ class _MessageViewState extends State<_MessageView> {
                             color: widget.theme.textColorTertiary,
                             fontSize: 12,
                           ),
-                        )
-                      else
-                        for (final step in message.processingSteps)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 5),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  step.succeeded
-                                      ? Symbols.check_rounded
-                                      : Symbols.error_outline_rounded,
-                                  size: 15,
-                                  color: step.succeeded
-                                      ? widget.theme.textColorTertiary
-                                      : Theme.of(context).colorScheme.error,
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    _aiActionSummary(
-                                      context,
-                                      step.name,
-                                      step.arguments,
-                                    ),
-                                    style: TextStyle(
-                                      color: widget.theme.textColorSecondary,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                        ),
                     ],
                   ),
                 )
               : const SizedBox(width: double.infinity),
         ),
-        content,
+        if (message.content.isNotEmpty) content,
+        if (message.requestError case final error?)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Symbols.error_outline_rounded,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SelectableText(
+                    '${l10n.aiTurnFailed}  ${aiErrorText(l10n, error)}',
+                    selectionWidthStyle: ui.BoxWidthStyle.tight,
+                    contextMenuBuilder: AppTextSelectionMenu.build,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 13,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
+    );
+  }
+}
+
+String _responseStatusText(BuildContext context, AiMessage message) {
+  final l10n = context.l10n;
+  final elapsed = _formatElapsed(message.elapsed!);
+  final label = _responseStatusLabel(
+    context,
+    message.status,
+    retryAttempt: message.retries.isEmpty ? 1 : message.retries.last.attempt,
+  );
+  return label == null
+      ? l10n.aiResponseElapsed(elapsed)
+      : l10n.aiStatusElapsed(label, elapsed);
+}
+
+String? _responseStatusLabel(
+  BuildContext context,
+  AiResponseStatus? status, {
+  int retryAttempt = 1,
+}) {
+  final l10n = context.l10n;
+  return switch (status) {
+    AiResponseStatus.connecting => l10n.aiConnecting,
+    AiResponseStatus.awaitingReply => l10n.aiAwaitingReply,
+    AiResponseStatus.thinking => l10n.aiAssistantThinking,
+    AiResponseStatus.streaming => l10n.aiStreaming,
+    AiResponseStatus.preparingTools => l10n.aiPreparingTools,
+    AiResponseStatus.executingTools => l10n.aiExecutingTools,
+    AiResponseStatus.retrying => l10n.aiRetryingRequest(
+      retryAttempt,
+      ChatCompletionClient.maxRetries,
+    ),
+    AiResponseStatus.paused => l10n.aiResponsePaused,
+    AiResponseStatus.failed => l10n.aiResponseFailed,
+    AiResponseStatus.stopped => l10n.aiResponseStopped,
+    AiResponseStatus.completed || null => null,
+  };
+}
+
+class _ProcessEventView extends StatelessWidget {
+  const _ProcessEventView({
+    required this.event,
+    required this.theme,
+    this.isThinking = false,
+  });
+  final AiProcessEvent event;
+  final AppTheme theme;
+  final bool isThinking;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final action = event.action;
+    final retry = event.retry;
+    final failed =
+        action?.succeeded == false || event.status == AiResponseStatus.failed;
+    final label = switch (event.type) {
+      AiProcessEventType.status =>
+        _responseStatusLabel(context, event.status) ?? l10n.aiProcessCompleted,
+      AiProcessEventType.reasoning =>
+        isThinking ? l10n.aiAssistantThinking : l10n.aiProcessReasoning,
+      AiProcessEventType.assistant => l10n.aiProcessAssistant,
+      AiProcessEventType.action =>
+        action!.succeeded
+            ? l10n.aiProcessActionSucceeded(
+                _aiActionSummary(context, action.name, action.arguments),
+              )
+            : l10n.aiProcessActionFailed(
+                _aiActionSummary(context, action.name, action.arguments),
+              ),
+      AiProcessEventType.retry =>
+        '${l10n.aiRequestRetryRecord(retry!.attempt)}: ${aiErrorText(l10n, retry.error)}',
+    };
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(
+              failed
+                  ? Symbols.error_outline_rounded
+                  : action != null || event.status == AiResponseStatus.completed
+                  ? Symbols.check_rounded
+                  : Symbols.circle_rounded,
+              size: 12,
+              color: failed
+                  ? Theme.of(context).colorScheme.error
+                  : theme.textColorTertiary,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: SelectableText(
+                        label,
+                        contextMenuBuilder: AppTextSelectionMenu.build,
+                        selectionWidthStyle: ui.BoxWidthStyle.tight,
+                        style: TextStyle(
+                          color: failed
+                              ? Theme.of(context).colorScheme.error
+                              : theme.textColorSecondary,
+                          fontSize: 12,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      _formatElapsed(event.elapsed),
+                      style: TextStyle(
+                        color: theme.textColorTertiary,
+                        fontSize: 11,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+                if (event.text.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  SelectableText(
+                    event.text,
+                    contextMenuBuilder: AppTextSelectionMenu.build,
+                    selectionWidthStyle: ui.BoxWidthStyle.tight,
+                    style: TextStyle(
+                      color: theme.textColorSecondary,
+                      fontSize: 12,
+                      height: 1.6,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

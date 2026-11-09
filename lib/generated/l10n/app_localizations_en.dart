@@ -253,6 +253,68 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiAssistantThinking => 'Thinking…';
 
   @override
+  String get aiConnecting => 'Connecting';
+
+  @override
+  String get aiAwaitingReply =>
+      'Waiting for the model after setting operations';
+
+  @override
+  String get aiProcessCompleted => 'Completed';
+
+  @override
+  String get aiProcessReasoning => 'Model reasoning';
+
+  @override
+  String get aiProcessAssistant => 'Assistant update';
+
+  @override
+  String aiProcessActionSucceeded(String action) {
+    return 'Applied: $action';
+  }
+
+  @override
+  String aiProcessActionFailed(String action) {
+    return 'Failed: $action';
+  }
+
+  @override
+  String get aiStreaming => 'Responding';
+
+  @override
+  String get aiPreparingTools => 'Preparing setting changes';
+
+  @override
+  String aiRequestRetryRecord(int attempt) {
+    return 'Model request retry $attempt';
+  }
+
+  @override
+  String get aiExecutingTools => 'Applying settings';
+
+  @override
+  String get aiResponsePaused => 'Paused';
+
+  @override
+  String get aiResponseFailed => 'Processing failed';
+
+  @override
+  String get aiResponseStopped => 'Stopped';
+
+  @override
+  String get aiTurnFailed => 'This turn failed';
+
+  @override
+  String aiRetryingRequest(int attempt, int total) {
+    return 'Retrying model request ($attempt/$total)';
+  }
+
+  @override
+  String aiStatusElapsed(String status, String duration) {
+    return '$status · $duration';
+  }
+
+  @override
   String aiResponseElapsed(String duration) {
     return 'Worked for $duration';
   }
