@@ -2,7 +2,7 @@
  * @Description: 提供 LilygoBox AI 对话主页与设置操作确认。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 11:53:23
+ * @LastEditTime: 2026-11-09 15:06:02
  */
 
 import 'dart:ui' as ui;
@@ -113,46 +113,92 @@ class _AssistantPageState extends State<AssistantPage> {
                 ),
               ),
             Expanded(
-              child: messages.isEmpty
-                  ? _Welcome(theme: theme)
-                  : ListView.builder(
-                      controller: _scroll,
-                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-                      itemCount: messages.length,
-                      itemBuilder: (context, index) {
-                        return Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 772),
-                            child: _MessageView(
-                              key: ValueKey(messages[index].id),
-                              message: messages[index],
-                              theme: theme,
-                              isResolving: assistant.isResolvingTool(
-                                messages[index].id,
-                              ),
-                              onResolve: (approve) => assistant.resolveTool(
-                                messages[index].id,
-                                approve: approve,
+              child: CustomMultiChildLayout(
+                delegate: _ConversationLayout(hasMessages: messages.isNotEmpty),
+                children: [
+                  LayoutId(
+                    id: _ConversationSlot.messages,
+                    child: messages.isEmpty
+                        ? _Welcome(theme: theme)
+                        : Scrollbar(
+                            controller: _scroll,
+                            child: ShaderMask(
+                              blendMode: BlendMode.dstIn,
+                              shaderCallback: (bounds) =>
+                                  const LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [Colors.white, Colors.transparent],
+                                    stops: [0, 1],
+                                  ).createShader(
+                                    Rect.fromLTWH(
+                                      0,
+                                      bounds.height - 64,
+                                      bounds.width,
+                                      64,
+                                    ),
+                                  ),
+                              child: ScrollConfiguration(
+                                behavior: ScrollConfiguration.of(
+                                  context,
+                                ).copyWith(scrollbars: false),
+                                child: ListView.builder(
+                                  controller: _scroll,
+                                  padding: const EdgeInsets.fromLTRB(
+                                    24,
+                                    16,
+                                    24,
+                                    56,
+                                  ),
+                                  itemCount: messages.length,
+                                  itemBuilder: (context, index) => Center(
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 772,
+                                      ),
+                                      child: _MessageView(
+                                        key: ValueKey(messages[index].id),
+                                        message: messages[index],
+                                        theme: theme,
+                                        isResolving: assistant.isResolvingTool(
+                                          messages[index].id,
+                                        ),
+                                        onResolve: (approve) =>
+                                            assistant.resolveTool(
+                                              messages[index].id,
+                                              approve: approve,
+                                            ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        );
-                      },
+                  ),
+                  LayoutId(
+                    id: _ConversationSlot.composer,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        heightFactor: 1,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 820),
+                          child: ChatComposer(
+                            input: _input,
+                            focusNode: _inputFocus,
+                            theme: theme,
+                            assistant: assistant,
+                            ready: ready,
+                            onSend: (fromKeyboard) =>
+                                _send(assistant, fromKeyboard: fromKeyboard),
+                          ),
+                        ),
+                      ),
                     ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 820),
-                child: ChatComposer(
-                  input: _input,
-                  focusNode: _inputFocus,
-                  theme: theme,
-                  assistant: assistant,
-                  ready: ready,
-                  onSend: (fromKeyboard) =>
-                      _send(assistant, fromKeyboard: fromKeyboard),
-                ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -160,6 +206,36 @@ class _AssistantPageState extends State<AssistantPage> {
       ),
     );
   }
+}
+
+enum _ConversationSlot { messages, composer }
+
+/// Lay out the composer first so the fade follows its actual, variable height.
+/// Messages extend behind its top edge rather than ending at a separate seam.
+class _ConversationLayout extends MultiChildLayoutDelegate {
+  _ConversationLayout({required this.hasMessages});
+
+  final bool hasMessages;
+
+  @override
+  void performLayout(Size size) {
+    final composerSize = layoutChild(
+      _ConversationSlot.composer,
+      BoxConstraints(maxWidth: size.width, maxHeight: size.height),
+    );
+    final composerTop = size.height - composerSize.height;
+    final overlap = hasMessages ? 16.0 : 0.0;
+    layoutChild(
+      _ConversationSlot.messages,
+      BoxConstraints.tight(Size(size.width, composerTop + overlap)),
+    );
+    positionChild(_ConversationSlot.messages, Offset.zero);
+    positionChild(_ConversationSlot.composer, Offset(0, composerTop));
+  }
+
+  @override
+  bool shouldRelayout(_ConversationLayout oldDelegate) =>
+      hasMessages != oldDelegate.hasMessages;
 }
 
 class _Welcome extends StatelessWidget {
@@ -252,6 +328,12 @@ class _MessageViewState extends State<_MessageView> {
     if (widget.message.toolName != null) return _ToolApprovalCard(widget);
     final message = widget.message;
     final isUser = message.role == 'user';
+    final turnFinished = switch (message.status) {
+      AiResponseStatus.completed ||
+      AiResponseStatus.failed ||
+      AiResponseStatus.stopped => true,
+      _ => false,
+    };
     final content = Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
@@ -321,11 +403,19 @@ class _MessageViewState extends State<_MessageView> {
           ),
         ),
         Divider(height: 1, color: widget.theme.dividerColor),
-        AnimatedSize(
-          duration: const Duration(milliseconds: 160),
-          alignment: Alignment.topCenter,
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          reverseDuration: const Duration(milliseconds: 200),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, animation) => SizeTransition(
+            sizeFactor: animation,
+            axisAlignment: -1,
+            child: FadeTransition(opacity: animation, child: child),
+          ),
           child: _detailsExpanded
               ? Padding(
+                  key: const ValueKey('ai-response-details-expanded'),
                   padding: const EdgeInsets.fromLTRB(0, 10, 0, 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -354,34 +444,34 @@ class _MessageViewState extends State<_MessageView> {
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   for (final event in message.processEvents)
-                                    _ProcessEventView(
-                                      event: event,
-                                      theme: widget.theme,
-                                      isThinking:
-                                          message.status ==
-                                              AiResponseStatus.thinking &&
-                                          identical(
-                                            event,
-                                            message.processEvents.last,
-                                          ),
-                                    ),
+                                    if (!(turnFinished &&
+                                        event.type ==
+                                            AiProcessEventType.status &&
+                                        event.status ==
+                                            AiResponseStatus.thinking))
+                                      _ProcessEventView(
+                                        event: event,
+                                        theme: widget.theme,
+                                        isThinking:
+                                            message.status ==
+                                                AiResponseStatus.thinking &&
+                                            identical(
+                                              event,
+                                              message.processEvents.last,
+                                            ),
+                                      ),
                                 ],
                               ),
                             ),
                           ),
                         ),
-                      if (message.processingSteps.isEmpty)
-                        Text(
-                          l10n.aiResponseNoActions,
-                          style: TextStyle(
-                            color: widget.theme.textColorTertiary,
-                            fontSize: 12,
-                          ),
-                        ),
                     ],
                   ),
                 )
-              : const SizedBox(width: double.infinity),
+              : const SizedBox(
+                  key: ValueKey('ai-response-details-collapsed'),
+                  width: double.infinity,
+                ),
         ),
         if (message.content.isNotEmpty) content,
         if (message.requestError case final error?)
@@ -392,6 +482,7 @@ class _MessageViewState extends State<_MessageView> {
               children: [
                 Icon(
                   Symbols.error_outline_rounded,
+                  fill: 1,
                   size: 16,
                   color: Theme.of(context).colorScheme.error,
                 ),
@@ -497,9 +588,14 @@ class _ProcessEventView extends StatelessWidget {
             child: Icon(
               failed
                   ? Symbols.error_outline_rounded
-                  : action != null || event.status == AiResponseStatus.completed
+                  : action != null
+                  ? Symbols.handyman_rounded
+                  : event.type == AiProcessEventType.reasoning
+                  ? Symbols.blur_on
+                  : event.status == AiResponseStatus.completed
                   ? Symbols.check_rounded
                   : Symbols.circle_rounded,
+              fill: event.type == AiProcessEventType.reasoning ? null : 1,
               size: 12,
               color: failed
                   ? Theme.of(context).colorScheme.error
@@ -562,15 +658,18 @@ class _ProcessEventView extends StatelessWidget {
 }
 
 String _formatElapsed(Duration duration) {
-  final seconds = duration.inSeconds;
-  final minutes = seconds ~/ 60;
-  final hours = minutes ~/ 60;
-  final remainingMinutes = minutes % 60;
-  final remainingSeconds = seconds % 60;
+  final totalMilliseconds = duration.inMilliseconds;
+  final totalSeconds = totalMilliseconds ~/ 1000;
+  final totalMinutes = totalSeconds ~/ 60;
+  final hours = totalMinutes ~/ 60;
+  final minutes = totalMinutes % 60;
+  final seconds = totalSeconds % 60;
+  final milliseconds = totalMilliseconds % 1000;
   String twoDigits(int value) => value.toString().padLeft(2, '0');
-  return hours > 0
-      ? '${twoDigits(hours)}:${twoDigits(remainingMinutes)}:${twoDigits(remainingSeconds)}'
-      : '${twoDigits(minutes)}:${twoDigits(remainingSeconds)}';
+  String threeDigits(int value) => value.toString().padLeft(3, '0');
+  final time =
+      '${twoDigits(minutes)}:${twoDigits(seconds)}:${threeDigits(milliseconds)}';
+  return hours == 0 ? time : '${twoDigits(hours)}:$time';
 }
 
 String _aiActionSummary(

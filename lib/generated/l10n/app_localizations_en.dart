@@ -330,9 +330,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get aiResponseNoActions => 'No application settings were changed.';
-
-  @override
   String get aiApprovalTitle => 'Confirm setting change';
 
   @override

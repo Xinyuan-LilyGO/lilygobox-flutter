@@ -103,7 +103,6 @@
     "@aiResponseModel": {"placeholders": {"model": {"type": "String"}}},
     "aiThinkingElapsed": "Thinking… {duration}",
     "@aiThinkingElapsed": {"placeholders": {"duration": {"type": "String"}}},
-    "aiResponseNoActions": "No application settings were changed.",
     "aiApprovalTitle": "Confirm setting change",
     "aiApprove": "Apply",
     "aiReject": "Decline",

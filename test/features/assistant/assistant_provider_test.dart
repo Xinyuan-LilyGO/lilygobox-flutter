@@ -2,7 +2,7 @@
  * @Description: 验证 AI 的低风险设置工具调用会立即执行并返回结果。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 11:53:23
+ * @LastEditTime: 2026-11-09 15:10:30
  */
 
 import 'dart:async';
@@ -317,65 +317,74 @@ void main() {
     expect(scope.provider.messages, hasLength(1));
   });
 
-  test('streams text gradually and pauses output until resumed', () async {
-    final theme = ThemeProvider();
-    final language = LanguageProvider();
-    final shell = AppShellProvider();
-    final splitView = SplitViewProvider();
-    final text = 'A gradual response that can pause while text is appearing.';
-    final scope = await createAssistantTestScope(
-      theme: theme,
-      language: language,
-      shell: shell,
-      splitView: splitView,
-      client: MockClient((_) async {
-        return http.Response(
-          jsonEncode({
-            'choices': [
-              {
-                'message': {'content': text},
-              },
-            ],
-          }),
-          200,
-        );
-      }),
-    );
-    addTearDown(scope.dispose);
-    addTearDown(theme.dispose);
-    addTearDown(language.dispose);
-    addTearDown(shell.dispose);
-    addTearDown(splitView.dispose);
+  test(
+    'shows complete responses without typing delays and preserves pause',
+    () async {
+      final theme = ThemeProvider();
+      final language = LanguageProvider();
+      final shell = AppShellProvider();
+      final splitView = SplitViewProvider();
+      final text =
+          'A complete response shown without artificial typing delays.';
+      final responseGate = Completer<void>();
+      final scope = await createAssistantTestScope(
+        theme: theme,
+        language: language,
+        shell: shell,
+        splitView: splitView,
+        client: MockClient((_) async {
+          await responseGate.future;
+          return http.Response(
+            jsonEncode({
+              'choices': [
+                {
+                  'message': {'content': text},
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+      addTearDown(scope.dispose);
+      addTearDown(theme.dispose);
+      addTearDown(language.dispose);
+      addTearDown(shell.dispose);
+      addTearDown(splitView.dispose);
 
-    await scope.provider.initialized;
-    await scope.provider.saveService(
-      name: 'Test',
-      protocol: AiApiProtocol.openAiChatCompletions,
-      baseUrl: 'https://api.test/v1',
-      models: ['test-model'],
-      apiKey: 'test-key',
-    );
-    final send = scope.provider.sendMessage('Reply gradually.');
-    while (scope.provider.messages.length < 2 ||
-        scope.provider.messages.last.content.isEmpty) {
-      await Future<void>.delayed(const Duration(milliseconds: 1));
-    }
-    final initialContent = scope.provider.messages.last.content;
-    expect(initialContent.length, lessThan(text.length));
-    expect(scope.provider.messages.last.elapsed, isNotNull);
-    expect(scope.provider.isThinking(scope.provider.messages.last.id), isFalse);
+      await scope.provider.initialized;
+      await scope.provider.saveService(
+        name: 'Test',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://api.test/v1',
+        models: ['test-model'],
+        apiKey: 'test-key',
+      );
+      final displayed = <String>[];
+      scope.provider.addListener(() {
+        if (scope.provider.messages.length > 1) {
+          displayed.add(scope.provider.messages.last.content);
+        }
+      });
+      final send = scope.provider.sendMessage('Reply immediately.');
+      scope.provider.pauseGeneration();
+      final pausedElapsed = scope.provider.messages.last.elapsed;
+      responseGate.complete();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(scope.provider.messages.last.content, isEmpty);
+      expect(scope.provider.messages.last.elapsed, pausedElapsed);
 
-    scope.provider.pauseGeneration();
-    final pausedElapsed = scope.provider.messages.last.elapsed;
-    await Future<void>.delayed(const Duration(milliseconds: 80));
-    expect(scope.provider.messages.last.content, initialContent);
-    expect(scope.provider.messages.last.elapsed, pausedElapsed);
-
-    scope.provider.resumeGeneration();
-    await send;
-    expect(scope.provider.messages.last.content, text);
-    expect(scope.provider.messages.last.elapsed, isNotNull);
-  });
+      scope.provider.resumeGeneration();
+      await send;
+      expect(displayed.where((content) => content.isNotEmpty), isNotEmpty);
+      expect(
+        displayed.where((content) => content.isNotEmpty),
+        everyElement(text),
+      );
+      expect(scope.provider.messages.last.content, text);
+      expect(scope.provider.messages.last.elapsed, isNotNull);
+    },
+  );
 
   test(
     'applies a supported setting immediately without confirmation',

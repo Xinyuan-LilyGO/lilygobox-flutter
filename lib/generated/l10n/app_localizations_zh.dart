@@ -321,9 +321,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get aiResponseNoActions => '本轮未修改应用设置。';
-
-  @override
   String get aiApprovalTitle => '确认设置变更';
 
   @override

@@ -103,7 +103,6 @@
     "@aiResponseModel": {"placeholders": {"model": {"type": "String"}}},
     "aiThinkingElapsed": "正在思考 {duration}",
     "@aiThinkingElapsed": {"placeholders": {"duration": {"type": "String"}}},
-    "aiResponseNoActions": "本轮未修改应用设置。",
     "aiApprovalTitle": "确认设置变更",
     "aiApprove": "应用",
     "aiReject": "拒绝",

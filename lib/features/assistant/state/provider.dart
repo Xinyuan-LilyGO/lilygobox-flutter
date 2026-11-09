@@ -2,7 +2,7 @@
  * @Description: 管理 AI 服务配置、对话、请求状态和 AI 设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 11:53:23
+ * @LastEditTime: 2026-11-09 15:10:30
  */
 
 import 'dart:async';
@@ -634,12 +634,7 @@ class _AssistantTextOutput {
 
   void add(String text) {
     if (_stopped || text.isEmpty) return;
-    final codePoints = text.runes.toList();
-    final chunkSize = (codePoints.length / 60).ceil().clamp(3, 24);
-    for (var start = 0; start < codePoints.length; start += chunkSize) {
-      final end = (start + chunkSize).clamp(0, codePoints.length);
-      _pending.add(String.fromCharCodes(codePoints.sublist(start, end)));
-    }
+    _pending.add(text);
     // 先登记任务再运行。单字增量可同步排空，直接调用会把已清空的
     // _drain 覆盖回已完成的 Future，导致 finish 不断等待同一个任务。
     _drain ??= Future<void>.microtask(_run);
@@ -674,10 +669,9 @@ class _AssistantTextOutput {
           await _resumeSignal!.future;
           continue;
         }
-        _onChunk(_pending.removeAt(0));
-        if (_pending.isNotEmpty) {
-          await Future<void>.delayed(const Duration(milliseconds: 16));
-        }
+        final text = _pending.join();
+        _pending.clear();
+        _onChunk(text);
       }
     } finally {
       _drain = null;

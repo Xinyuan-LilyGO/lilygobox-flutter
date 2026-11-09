@@ -677,12 +677,6 @@ abstract class AppLocalizations {
   /// **'Thinking… {duration}'**
   String aiThinkingElapsed(String duration);
 
-  /// No description provided for @aiResponseNoActions.
-  ///
-  /// In en, this message translates to:
-  /// **'No application settings were changed.'**
-  String get aiResponseNoActions;
-
   /// No description provided for @aiApprovalTitle.
   ///
   /// In en, this message translates to:
