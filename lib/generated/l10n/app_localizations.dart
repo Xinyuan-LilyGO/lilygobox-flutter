@@ -527,6 +527,18 @@ abstract class AppLocalizations {
   /// **'Remove image'**
   String get aiRemoveImage;
 
+  /// No description provided for @aiViewOriginal.
+  ///
+  /// In en, this message translates to:
+  /// **'View original image'**
+  String get aiViewOriginal;
+
+  /// No description provided for @aiImagePreviewFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load the image.'**
+  String get aiImagePreviewFailed;
+
   /// No description provided for @aiCopyImage.
   ///
   /// In en, this message translates to:

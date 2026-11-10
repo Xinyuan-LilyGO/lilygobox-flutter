@@ -1,8 +1,8 @@
 /*
- * @Description: 为图片提供统一的右键复制菜单。
+ * @Description: 为图片提供统一的右键复制菜单和原图预览入口。
  * @Author: LILYGO_L
  * @Date: 2026-11-10 15:53:00
- * @LastEditTime: 2026-11-10 16:42:36
+ * @LastEditTime: 2026-11-10 19:48:38
  */
 
 import 'dart:developer' as developer;
@@ -16,6 +16,7 @@ import '../context_menu/right_click_menu.dart';
 import '../l10n/language_provider.dart';
 import '../theme/definition.dart';
 import 'app_notice.dart';
+import 'image_viewer.dart';
 
 class ImageClipboardMenu extends StatefulWidget {
   const ImageClipboardMenu({
@@ -36,14 +37,32 @@ class ImageClipboardMenu extends StatefulWidget {
 class _ImageClipboardMenuState extends State<ImageClipboardMenu> {
   final _menu = RightClickMenuController();
 
+  void _viewOriginal() {
+    _menu.close();
+    showAppImageViewer(
+      context: context,
+      bytes: widget.bytes,
+      theme: widget.theme,
+    );
+  }
+
   @override
   Widget build(BuildContext context) => RightClickMenuBuilder.buildMenuAnchor(
     context: context,
     controller: _menu,
     theme: widget.theme,
-    child: widget.child,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onDoubleTap: _viewOriginal,
+      child: widget.child,
+    ),
     onSecondaryTap: () {},
     menuItems: [
+      RightClickMenuItem(
+        label: context.l10n.aiViewOriginal,
+        icon: Symbols.open_in_full_rounded,
+        onTap: _viewOriginal,
+      ),
       RightClickMenuItem(
         label: context.l10n.aiCopyImage,
         icon: Symbols.content_copy,

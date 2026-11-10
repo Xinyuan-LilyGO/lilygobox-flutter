@@ -70,6 +70,8 @@
     "aiInputHint": "Ask a question, or describe a setting to change…",
     "aiAttachImage": "Attach images",
     "aiRemoveImage": "Remove image",
+    "aiViewOriginal": "View original image",
+    "aiImagePreviewFailed": "Could not load the image.",
     "aiCopyImage": "Copy image",
     "aiImageUnsupported": "This model is declared text-only. Switch models to send images or continue a conversation containing images. Your draft has been kept.",
     "aiCopyImageFailed": "Could not copy the image. Please try again.",

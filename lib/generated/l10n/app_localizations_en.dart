@@ -237,6 +237,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiRemoveImage => 'Remove image';
 
   @override
+  String get aiViewOriginal => 'View original image';
+
+  @override
+  String get aiImagePreviewFailed => 'Could not load the image.';
+
+  @override
   String get aiCopyImage => 'Copy image';
 
   @override

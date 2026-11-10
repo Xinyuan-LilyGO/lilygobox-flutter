@@ -70,6 +70,8 @@
     "aiInputHint": "询问任何问题，或描述你想调整的设置…",
     "aiAttachImage": "添加图片",
     "aiRemoveImage": "移除图片",
+    "aiViewOriginal": "查看原图",
+    "aiImagePreviewFailed": "无法加载图片。",
     "aiCopyImage": "复制图片",
     "aiImageUnsupported": "当前模型已声明仅支持文本，请切换模型后发送图片或继续含图片的对话。输入内容和附件已保留。",
     "aiCopyImageFailed": "复制图片失败，请重试。",

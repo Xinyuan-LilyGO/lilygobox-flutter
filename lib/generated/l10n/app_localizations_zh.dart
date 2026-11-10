@@ -230,6 +230,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiRemoveImage => '移除图片';
 
   @override
+  String get aiViewOriginal => '查看原图';
+
+  @override
+  String get aiImagePreviewFailed => '无法加载图片。';
+
+  @override
   String get aiCopyImage => '复制图片';
 
   @override
