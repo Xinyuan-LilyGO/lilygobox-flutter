@@ -2,7 +2,7 @@
  * @Description: 为主页提供右键菜单风格的服务分组模型菜单与设备风格搜索框。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-09 16:25:40
+ * @LastEditTime: 2026-11-10 10:45:12
  */
 
 import 'package:flutter/material.dart';
@@ -11,6 +11,7 @@ import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/theme/material_palette.dart';
+import '../../../../core/widgets/app_scroll_behavior.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/popup_menu_surface.dart';
 import '../../../../core/widgets/popup_menu_transition.dart';
@@ -158,7 +159,7 @@ class _ModelSelectorState extends State<ModelSelector> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
+          padding: const EdgeInsets.fromLTRB(6, 0, 12, 8),
           child: Text(
             l10n.aiSelectModel,
             key: const ValueKey('ai-model-menu-title'),
@@ -169,7 +170,10 @@ class _ModelSelectorState extends State<ModelSelector> {
             ),
           ),
         ),
-        _searchField(),
+        Padding(
+          padding: const EdgeInsetsDirectional.only(end: 6),
+          child: _searchField(),
+        ),
         const SizedBox(height: 8),
         ConstrainedBox(
           constraints: BoxConstraints(
@@ -178,117 +182,132 @@ class _ModelSelectorState extends State<ModelSelector> {
               280.0,
             ),
           ),
-          child: SingleChildScrollView(
+          child: Scrollbar(
+            key: const ValueKey('ai-model-list-scrollbar'),
             controller: _scroll,
-            primary: false,
-            padding: const EdgeInsetsDirectional.only(end: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (groups.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Symbols.dns_rounded,
-                          size: 24,
-                          color: theme.textColorTertiary,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          assistant.services.isEmpty
-                              ? l10n.aiNoServices
-                              : l10n.aiNoMatchingModels,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 1.5,
-                            color: theme.textColorTertiary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                for (final (service, models) in groups) ...[
-                  if (service != groups.first.$1) const SizedBox(height: 8),
-                  Padding(
-                    // 服务标题对齐模型按钮外沿，上下留白区分标题和选项。
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      service.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: theme.textColorTertiary,
-                      ),
-                    ),
-                  ),
-                  for (final model in models) ...[
-                    if (model != models.first) const SizedBox(height: 4),
-                    MenuItemSurface(
-                      key: ValueKey('ai-model-${service.id}-$model'),
-                      theme: theme,
-                      disableWhenSelected: false,
-                      backgroundColor: theme.popupSurfaceColor,
-                      selectedColor: theme.primaryTextHoverColor,
-                      hoverColor: theme.basePrimary,
-                      foregroundColor:
-                          assistant.selectedService?.id == service.id &&
-                              assistant.selectedModel == model
-                          ? theme.type == ThemeType.light
-                                ? Colors.black
-                                : theme.materialColors.onPrimary
-                          : theme.textColorSecondary,
-                      hoverForegroundColor: theme.materialColors.onPrimary,
-                      isSelected:
-                          assistant.selectedService?.id == service.id &&
-                          assistant.selectedModel == model,
-                      onPressed: assistant.canChangeService
-                          ? () => _select(service, model)
-                          : null,
-                      borderRadius: BorderRadius.circular(4),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 28),
-                        child: Padding(
+            child: Padding(
+              padding: const EdgeInsetsDirectional.only(end: 20),
+              child: ScrollConfiguration(
+                behavior: const AppScrollBehavior(scrollbars: false),
+                child: SingleChildScrollView(
+                  key: const ValueKey('ai-model-list-scroll'),
+                  controller: _scroll,
+                  primary: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (groups.isEmpty)
+                        Padding(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 4,
+                            horizontal: 12,
+                            vertical: 12,
                           ),
-                          child: Row(
+                          child: Column(
                             children: [
-                              Expanded(
-                                child: Text(
-                                  model,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 13),
-                                ),
+                              Icon(
+                                Symbols.dns_rounded,
+                                size: 24,
+                                color: theme.textColorTertiary,
                               ),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                width: 17,
-                                child:
-                                    assistant.selectedService?.id ==
-                                            service.id &&
-                                        assistant.selectedModel == model
-                                    ? Icon(Symbols.check_rounded, size: 17)
-                                    : null,
+                              const SizedBox(height: 8),
+                              Text(
+                                assistant.services.isEmpty
+                                    ? l10n.aiNoServices
+                                    : l10n.aiNoMatchingModels,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  height: 1.5,
+                                  color: theme.textColorTertiary,
+                                ),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                    ),
-                  ],
-                ],
-              ],
+                      for (final (service, models) in groups) ...[
+                        if (service != groups.first.$1)
+                          const SizedBox(height: 8),
+                        Padding(
+                          // 服务标题对齐模型按钮外沿，上下留白区分标题和选项。
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Text(
+                            service.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: theme.textColorTertiary,
+                            ),
+                          ),
+                        ),
+                        for (final model in models) ...[
+                          if (model != models.first) const SizedBox(height: 4),
+                          MenuItemSurface(
+                            key: ValueKey('ai-model-${service.id}-$model'),
+                            theme: theme,
+                            disableWhenSelected: false,
+                            backgroundColor: theme.popupSurfaceColor,
+                            selectedColor: theme.primaryTextHoverColor,
+                            hoverColor: theme.basePrimary,
+                            foregroundColor:
+                                assistant.selectedService?.id == service.id &&
+                                    assistant.selectedModel == model
+                                ? theme.type == ThemeType.light
+                                      ? Colors.black
+                                      : theme.materialColors.onPrimary
+                                : theme.textColorSecondary,
+                            hoverForegroundColor:
+                                theme.materialColors.onPrimary,
+                            isSelected:
+                                assistant.selectedService?.id == service.id &&
+                                assistant.selectedModel == model,
+                            onPressed: assistant.canChangeService
+                                ? () => _select(service, model)
+                                : null,
+                            borderRadius: BorderRadius.circular(4),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(minHeight: 28),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 4,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        model,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    SizedBox(
+                                      width: 17,
+                                      child:
+                                          assistant.selectedService?.id ==
+                                                  service.id &&
+                                              assistant.selectedModel == model
+                                          ? Icon(
+                                              Symbols.check_rounded,
+                                              size: 17,
+                                            )
+                                          : null,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -351,7 +370,7 @@ class _ModelSelectorState extends State<ModelSelector> {
               width: menuWidth,
               child: PopupMenuSurface(
                 theme: theme,
-                padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+                padding: const EdgeInsets.fromLTRB(10, 10, 4, 8),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
                     maxHeight: (available.height - 80).clamp(0.0, 440.0),

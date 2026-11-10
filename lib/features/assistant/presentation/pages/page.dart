@@ -2,7 +2,7 @@
  * @Description: 提供 LilygoBox AI 对话主页与设置操作确认。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 16:34:43
+ * @LastEditTime: 2026-11-10 11:38:29
  */
 
 import 'dart:ui' as ui;
@@ -240,9 +240,8 @@ class _AssistantPageState extends State<AssistantPage> {
                               switchOutCurve:
                                   InteractionDecoration.animationCurve,
                               transitionBuilder: (child, animation) =>
-                                  PopupMenuTransition(
-                                    animation: animation,
-                                    alignment: Alignment.bottomRight,
+                                  FadeTransition(
+                                    opacity: animation,
                                     child: child,
                                   ),
                               child: _showLatest

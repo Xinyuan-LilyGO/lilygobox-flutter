@@ -2,7 +2,7 @@
  * @Description: 验证 AI 主页居中与底部输入状态、键盘发送、直达设置及缩放布局。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:16:04
- * @LastEditTime: 2026-11-09 16:34:43
+ * @LastEditTime: 2026-11-10 10:45:12
  */
 
 import 'dart:async';
@@ -996,6 +996,14 @@ void main() {
         find.byKey(const ValueKey('ai-model-menu-surface')),
       );
       expect(menuRect.width, lessThanOrEqualTo(280));
+      final scrollbar = find.byKey(const ValueKey('ai-model-list-scrollbar'));
+      final list = find.byKey(const ValueKey('ai-model-list-scroll'));
+      expect(tester.widget<Scrollbar>(scrollbar).thumbVisibility, isNull);
+      expect(
+        tester.getRect(scrollbar).right - tester.getRect(list).right,
+        closeTo(20, .1),
+      );
+      expect(menuRect.right - tester.getRect(scrollbar).right, closeTo(4, .1));
       final selectorRect = tester.getRect(
         find.byKey(const ValueKey('ai-model-selector')),
       );
