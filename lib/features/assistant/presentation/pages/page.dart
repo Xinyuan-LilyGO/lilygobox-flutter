@@ -2,7 +2,7 @@
  * @Description: 提供 LilygoBox AI 对话主页与设置操作确认。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 15:06:02
+ * @LastEditTime: 2026-11-09 16:34:43
  */
 
 import 'dart:ui' as ui;
@@ -14,14 +14,20 @@ import 'package:provider/provider.dart';
 import '../../../../app/navigation/provider.dart';
 import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
+import '../../../../core/theme/material_palette.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/action_button.dart';
+import '../../../../core/widgets/app_scroll_behavior.dart';
 import '../../../../core/widgets/app_tooltip.dart';
+import '../../../../core/widgets/interaction_decoration.dart';
+import '../../../../core/widgets/popup_menu_transition.dart';
+import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../data/chat_completion_client.dart';
 import '../../domain/models.dart';
 import '../../state/provider.dart';
 import '../widgets/chat_composer.dart';
 import '../widgets/error_text.dart';
+import '../widgets/message_content.dart';
 
 class AssistantPage extends StatefulWidget {
   const AssistantPage({super.key});
@@ -34,12 +40,27 @@ class _AssistantPageState extends State<AssistantPage> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
   final _inputFocus = FocusNode();
+  final _inputScroll = ScrollController();
+  bool _showLatest = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_updateLatestButton);
+  }
+
+  void _updateLatestButton() {
+    if (!mounted || !_scroll.hasClients) return;
+    final show = _scroll.position.extentAfter > 120;
+    if (show != _showLatest) setState(() => _showLatest = show);
+  }
 
   @override
   void dispose() {
     _input.dispose();
     _scroll.dispose();
     _inputFocus.dispose();
+    _inputScroll.dispose();
     super.dispose();
   }
 
@@ -70,11 +91,13 @@ class _AssistantPageState extends State<AssistantPage> {
   void _scrollToEnd() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _scroll.hasClients) {
+        if (MediaQuery.disableAnimationsOf(context)) {
+          _scroll.jumpTo(_scroll.position.maxScrollExtent);
+          return;
+        }
         _scroll.animateTo(
           _scroll.position.maxScrollExtent,
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 180),
+          duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
         );
       }
@@ -139,9 +162,9 @@ class _AssistantPageState extends State<AssistantPage> {
                                     ),
                                   ),
                               child: ScrollConfiguration(
-                                behavior: ScrollConfiguration.of(
-                                  context,
-                                ).copyWith(scrollbars: false),
+                                behavior: const AppScrollBehavior(
+                                  scrollbars: false,
+                                ),
                                 child: ListView.builder(
                                   controller: _scroll,
                                   padding: const EdgeInsets.fromLTRB(
@@ -188,6 +211,7 @@ class _AssistantPageState extends State<AssistantPage> {
                           child: ChatComposer(
                             input: _input,
                             focusNode: _inputFocus,
+                            scrollController: _inputScroll,
                             theme: theme,
                             assistant: assistant,
                             ready: ready,
@@ -198,6 +222,62 @@ class _AssistantPageState extends State<AssistantPage> {
                       ),
                     ),
                   ),
+                  if (messages.isNotEmpty)
+                    LayoutId(
+                      id: _ConversationSlot.latest,
+                      child: IgnorePointer(
+                        ignoring: !_showLatest,
+                        child: ExcludeFocus(
+                          excluding: !_showLatest,
+                          child: ExcludeSemantics(
+                            excluding: !_showLatest,
+                            child: AnimatedSwitcher(
+                              duration: MediaQuery.disableAnimationsOf(context)
+                                  ? Duration.zero
+                                  : PopupMenuTransition.duration,
+                              switchInCurve:
+                                  InteractionDecoration.animationCurve,
+                              switchOutCurve:
+                                  InteractionDecoration.animationCurve,
+                              transitionBuilder: (child, animation) =>
+                                  PopupMenuTransition(
+                                    animation: animation,
+                                    alignment: Alignment.bottomRight,
+                                    child: child,
+                                  ),
+                              child: _showLatest
+                                  ? AppTooltip(
+                                      key: const ValueKey('ai-latest-visible'),
+                                      message: l10n.aiScrollToLatest,
+                                      child: Semantics(
+                                        label: l10n.aiScrollToLatest,
+                                        button: true,
+                                        child: TitleBarIconButton(
+                                          key: const ValueKey(
+                                            'ai-scroll-to-latest',
+                                          ),
+                                          theme: theme,
+                                          isFocused: true,
+                                          icon: Symbols.arrow_downward_rounded,
+                                          size: 32,
+                                          iconSize: 18,
+                                          backgroundColor:
+                                              theme.iconBackgroundColor,
+                                          surfaceColor: theme.secondary,
+                                          hoverColor: theme
+                                              .interactionHoverColor(
+                                                theme.iconBackgroundColor,
+                                              ),
+                                          onPressed: _scrollToEnd,
+                                        ),
+                                      ),
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -208,7 +288,7 @@ class _AssistantPageState extends State<AssistantPage> {
   }
 }
 
-enum _ConversationSlot { messages, composer }
+enum _ConversationSlot { messages, composer, latest }
 
 /// Lay out the composer first so the fade follows its actual, variable height.
 /// Messages extend behind its top edge rather than ending at a separate seam.
@@ -231,6 +311,20 @@ class _ConversationLayout extends MultiChildLayoutDelegate {
     );
     positionChild(_ConversationSlot.messages, Offset.zero);
     positionChild(_ConversationSlot.composer, Offset(0, composerTop));
+    if (hasChild(_ConversationSlot.latest)) {
+      final buttonSize = layoutChild(
+        _ConversationSlot.latest,
+        BoxConstraints.tight(const Size(32, 32)),
+      );
+      final rightInset = ((size.width - 820) / 2).clamp(24.0, size.width);
+      positionChild(
+        _ConversationSlot.latest,
+        Offset(
+          (size.width - rightInset - buttonSize.width).clamp(0, size.width),
+          (composerTop - buttonSize.height - 4).clamp(0, size.height),
+        ),
+      );
+    }
   }
 
   @override
@@ -339,7 +433,7 @@ class _MessageViewState extends State<_MessageView> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 650),
         child: Padding(
-          padding: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.only(bottom: 4),
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: isUser ? widget.theme.primary : Colors.transparent,
@@ -350,22 +444,21 @@ class _MessageViewState extends State<_MessageView> {
                 horizontal: isUser ? 12 : 14,
                 vertical: isUser ? 9 : 11,
               ),
-              child: SelectableText(
-                message.content,
-                selectionWidthStyle: ui.BoxWidthStyle.tight,
-                contextMenuBuilder: AppTextSelectionMenu.build,
-                style: TextStyle(
-                  color: widget.theme.textColorPrimary,
-                  fontSize: 14,
-                  height: 1.5,
-                ),
-              ),
+              child: ChatMessageBody(message: message, theme: widget.theme),
             ),
           ),
         ),
       ),
     );
-    if (isUser || message.elapsed == null) return content;
+    if (isUser || message.elapsed == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          content,
+          ChatMessageActions(message: message, theme: widget.theme),
+        ],
+      );
+    }
     final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -502,6 +595,8 @@ class _MessageViewState extends State<_MessageView> {
               ],
             ),
           ),
+        if (message.content.isNotEmpty || turnFinished)
+          ChatMessageActions(message: message, theme: widget.theme),
       ],
     );
   }

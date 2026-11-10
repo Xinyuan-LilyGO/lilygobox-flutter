@@ -2,7 +2,7 @@
  * @Description: 管理 AI 服务配置、对话、请求状态和 AI 设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 15:10:30
+ * @LastEditTime: 2026-11-09 15:25:35
  */
 
 import 'dart:async';
@@ -50,6 +50,7 @@ class AiAssistantProvider extends ChangeNotifier {
   final Stopwatch _turnStopwatch = Stopwatch();
   Timer? _elapsedTimer;
   String? _activeMessageId;
+  DateTime? _activeMessageCreatedAt;
   final List<AiProcessingStep> _activeProcessingSteps = [];
   final List<AiRequestRetry> _activeRetries = [];
   AiResponseStatus _activeStatus = AiResponseStatus.connecting;
@@ -193,6 +194,7 @@ class AiAssistantProvider extends ChangeNotifier {
       ..start();
     _appendStatusEvent(AiResponseStatus.connecting);
     _activeMessageId = _newId();
+    _activeMessageCreatedAt = DateTime.now();
     _messages.add(
       _withTurnDetails(
         AiMessage(id: _activeMessageId!, role: 'assistant', content: ''),
@@ -606,9 +608,15 @@ class AiAssistantProvider extends ChangeNotifier {
   }
 
   AiMessage _message({required String role, required String content}) =>
-      AiMessage(id: _newId(), role: role, content: content);
+      AiMessage(
+        id: _newId(),
+        role: role,
+        content: content,
+        createdAt: DateTime.now(),
+      );
 
   AiMessage _withTurnDetails(AiMessage message) => message.copyWith(
+    createdAt: message.createdAt ?? _activeMessageCreatedAt,
     elapsed: _turnStopwatch.elapsed,
     model: _activeConfiguration?.model,
     protocol: _activeConfiguration?.protocol,

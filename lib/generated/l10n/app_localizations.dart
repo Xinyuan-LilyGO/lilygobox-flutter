@@ -3106,6 +3106,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The service timed out. Try again later.'**
   String get aiRequestTimeout;
+
+  /// No description provided for @aiCopyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy message'**
+  String get aiCopyMessage;
+
+  /// No description provided for @aiMessageCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get aiMessageCopied;
+
+  /// No description provided for @aiOpenLinkFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to open this link.'**
+  String get aiOpenLinkFailed;
+
+  /// No description provided for @aiCopyCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy code'**
+  String get aiCopyCode;
+
+  /// No description provided for @aiPlainText.
+  ///
+  /// In en, this message translates to:
+  /// **'Plain text'**
+  String get aiPlainText;
+
+  /// No description provided for @aiScrollToLatest.
+  ///
+  /// In en, this message translates to:
+  /// **'Scroll to latest message'**
+  String get aiScrollToLatest;
 }
 
 class _AppLocalizationsDelegate

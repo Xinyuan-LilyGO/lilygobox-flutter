@@ -39,3 +39,5 @@ SelectableText(
 
 更新共享菜单样式时，检查普通右键菜单、文本选择菜单、设置下拉菜单和托盘菜单的颜色、
 阴影、窗口边界定位以及悬停状态。
+
+Markdown 等跨段落富文本使用 `SelectionArea(contextMenuBuilder: AppTextSelectionMenu.buildRegion, child: ...)`，与 `SelectableText` 共用菜单面板、动画和系统操作，禁止另建默认样式的选择菜单。

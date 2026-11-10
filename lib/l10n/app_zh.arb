@@ -552,5 +552,11 @@
     "aiInvalidResponse": "服务返回的数据格式不正确，请检查接口地址。",
     "aiRequestFailed": "连接模型服务失败，请检查地址、网络与密钥后重试。",
     "aiRequestTimeout": "服务响应超时，请稍后重试。",
-    "@aiDeleteServiceMessage": {"placeholders": {"name": {"type": "String"}}}
+    "@aiDeleteServiceMessage": {"placeholders": {"name": {"type": "String"}}},
+    "aiCopyMessage": "复制消息",
+    "aiMessageCopied": "已复制",
+    "aiOpenLinkFailed": "无法打开此链接。",
+    "aiCopyCode": "复制代码",
+    "aiPlainText": "纯文本",
+    "aiScrollToLatest": "回到最新消息"
 }

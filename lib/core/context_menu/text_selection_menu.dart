@@ -2,7 +2,7 @@
  * @Description: 让文本编辑和选中文字复用应用右键菜单，保留系统剪贴板及选择行为。
  * @Author: LILYGO_L
  * @Date: 2026-10-07 00:00:00
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-09 15:25:35
  */
 
 import 'package:flutter/material.dart';
@@ -44,15 +44,40 @@ class AppTextSelectionMenu {
     EditableTextState editableText,
     AppTheme theme,
   ) {
-    final buttons = editableText.contextMenuButtonItems;
+    return _buildMenu(
+      context,
+      editableText.contextMenuAnchors,
+      editableText.contextMenuButtonItems,
+      theme,
+    );
+  }
+
+  /// Markdown 等跨段落只读内容使用相同的菜单外观和系统选择操作。
+  static Widget buildRegion(
+    BuildContext context,
+    SelectableRegionState region,
+  ) => Consumer<ThemeProvider>(
+    builder: (context, provider, _) => _buildMenu(
+      context,
+      region.contextMenuAnchors,
+      region.contextMenuButtonItems,
+      provider.themeData,
+    ),
+  );
+
+  static Widget _buildMenu(
+    BuildContext context,
+    TextSelectionToolbarAnchors anchors,
+    List<ContextMenuButtonItem> buttons,
+    AppTheme theme,
+  ) {
     if (buttons.isEmpty) return const SizedBox.shrink();
     final top = MediaQuery.paddingOf(context).top + 8;
     return Padding(
       padding: EdgeInsets.fromLTRB(8, top, 8, 8),
       child: CustomSingleChildLayout(
         delegate: DesktopTextSelectionToolbarLayoutDelegate(
-          anchor:
-              editableText.contextMenuAnchors.primaryAnchor - Offset(8, top),
+          anchor: anchors.primaryAnchor - Offset(8, top),
         ),
         child: PopupMenuTransition(
           // 使用文本选择层的同一份 150ms 进度，避免两层淡入相乘。

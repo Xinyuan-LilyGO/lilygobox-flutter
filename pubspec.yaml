@@ -26,6 +26,8 @@ dependencies:
   url_launcher: ^6.3.2
   shared_preferences: ^2.5.5
   file_selector: ^1.1.0
+  flutter_markdown_plus: ^1.0.12
+  markdown: ^7.3.1
 
 # debug 版本所需的包
 dev_dependencies:

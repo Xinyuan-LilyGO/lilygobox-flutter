@@ -1727,4 +1727,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiRequestTimeout => 'The service timed out. Try again later.';
+
+  @override
+  String get aiCopyMessage => 'Copy message';
+
+  @override
+  String get aiMessageCopied => 'Copied';
+
+  @override
+  String get aiOpenLinkFailed => 'Unable to open this link.';
+
+  @override
+  String get aiCopyCode => 'Copy code';
+
+  @override
+  String get aiPlainText => 'Plain text';
+
+  @override
+  String get aiScrollToLatest => 'Scroll to latest message';
 }

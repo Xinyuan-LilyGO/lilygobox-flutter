@@ -2,7 +2,7 @@
  * @Description: 全局鼠标滚轮平滑滚动，保留嵌套滚动、触控板和减少动画偏好。
  * @Author: LILYGO_L
  * @Date: 2026-10-12 00:00:00
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-09 16:34:43
  */
 import 'dart:async';
 
@@ -12,7 +12,11 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 class AppScrollBehavior extends MaterialScrollBehavior {
-  const AppScrollBehavior();
+  const AppScrollBehavior({this.scrollbars = true});
+
+  /// 自绘滚动条时只关闭装饰，保留平滑滚轮与嵌套事件仲裁。
+  /// 不使用 copyWith(scrollbars: false)，它会跳过整个 buildScrollbar。
+  final bool scrollbars;
 
   @override
   Widget buildScrollbar(
@@ -21,18 +25,17 @@ class AppScrollBehavior extends MaterialScrollBehavior {
     ScrollableDetails details,
   ) {
     final controller = details.controller;
-    if (controller == null || MediaQuery.disableAnimationsOf(context)) {
-      return super.buildScrollbar(context, child, details);
-    }
-    return super.buildScrollbar(
-      context,
-      _WheelRegion(
-        controller: controller,
-        direction: details.direction,
-        child: child,
-      ),
-      details,
-    );
+    final content =
+        controller != null && !MediaQuery.disableAnimationsOf(context)
+        ? _WheelRegion(
+            controller: controller,
+            direction: details.direction,
+            child: child,
+          )
+        : child;
+    return scrollbars
+        ? super.buildScrollbar(context, content, details)
+        : content;
   }
 }
 

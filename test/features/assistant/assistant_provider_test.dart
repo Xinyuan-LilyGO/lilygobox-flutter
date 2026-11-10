@@ -2,7 +2,7 @@
  * @Description: 验证 AI 的低风险设置工具调用会立即执行并返回结果。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 15:10:30
+ * @LastEditTime: 2026-11-09 15:27:53
  */
 
 import 'dart:async';
@@ -87,6 +87,8 @@ void main() {
       event({'reasoning_content': 'the setting.'});
       await Future<void>.delayed(const Duration(milliseconds: 40));
       final live = scope.provider.messages.last;
+      expect(live.createdAt, isNotNull);
+      expect(scope.provider.messages.first.createdAt, isNotNull);
       expect(live.content, isEmpty);
       expect(
         live.processEvents.where(
@@ -133,6 +135,8 @@ void main() {
       await send;
       final reply = scope.provider.messages.last;
       expect(reply.content, 'Done.');
+      expect(reply.createdAt, live.createdAt);
+      expect(reply.copyWith(content: 'Updated').createdAt, live.createdAt);
       expect(
         reply.processEvents.map((event) => event.type),
         containsAllInOrder([

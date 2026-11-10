@@ -885,5 +885,11 @@
     "aiInvalidResponse": "The service returned an invalid response. Check its endpoint.",
     "aiRequestFailed": "Unable to connect to the model service. Check the endpoint, network and API key.",
     "aiRequestTimeout": "The service timed out. Try again later.",
-    "@aiDeleteServiceMessage": {"placeholders": {"name": {"type": "String"}}}
+    "@aiDeleteServiceMessage": {"placeholders": {"name": {"type": "String"}}},
+    "aiCopyMessage": "Copy message",
+    "aiMessageCopied": "Copied",
+    "aiOpenLinkFailed": "Unable to open this link.",
+    "aiCopyCode": "Copy code",
+    "aiPlainText": "Plain text",
+    "aiScrollToLatest": "Scroll to latest message"
 }

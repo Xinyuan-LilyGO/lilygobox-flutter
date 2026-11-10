@@ -2,7 +2,7 @@
  * @Description: 验证 AI 主页居中与底部输入状态、键盘发送、直达设置及缩放布局。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:16:04
- * @LastEditTime: 2026-11-09 11:35:10
+ * @LastEditTime: 2026-11-09 16:34:43
  */
 
 import 'dart:async';
@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -24,6 +25,7 @@ import 'package:lilygobox/core/context_menu/text_selection_menu.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/theme/material_palette.dart';
+import 'package:lilygobox/core/widgets/app_scroll_behavior.dart';
 import 'package:lilygobox/core/widgets/title_bar_icon_button.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/presentation/pages/page.dart';
@@ -49,6 +51,7 @@ void main() {
   var showProcess = false;
   final requestBodies = <String>[];
   final boundaryKey = GlobalKey();
+  final latestMotionVariant = ValueVariant<bool>({false, true});
 
   setUp(() async {
     theme = ThemeProvider();
@@ -140,6 +143,7 @@ void main() {
   Widget app({
     bool settings = false,
     bool tickerEnabled = true,
+    bool disableAnimations = false,
     double scale = 1,
     String locale = 'en',
   }) => MultiProvider(
@@ -150,6 +154,7 @@ void main() {
       ChangeNotifierProvider.value(value: navigation),
     ],
     child: MaterialApp(
+      scrollBehavior: const AppScrollBehavior(),
       locale: Locale(locale),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -159,9 +164,10 @@ void main() {
         fontFamily: 'LilygoBoxInter',
       ),
       builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(
-          context,
-        ).copyWith(textScaler: TextScaler.linear(scale)),
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(scale),
+          disableAnimations: disableAnimations,
+        ),
         child: RepaintBoundary(key: boundaryKey, child: child!),
       ),
       home: Scaffold(
@@ -332,14 +338,16 @@ void main() {
       expect(find.text('Ready to help with LilygoBox.'), findsOneWidget);
       expect(find.text('Adjust sidebar layout'), findsOneWidget);
       expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
-      final assistantMessage = tester.widget<SelectableText>(
+      final assistantSelection = tester.widget<SelectionArea>(
         find.ancestor(
           of: find.text('Ready to help with LilygoBox.'),
-          matching: find.byType(SelectableText),
+          matching: find.byType(SelectionArea),
         ),
       );
-      expect(assistantMessage.contextMenuBuilder, AppTextSelectionMenu.build);
-      expect(assistantMessage.selectionWidthStyle, ui.BoxWidthStyle.tight);
+      expect(
+        assistantSelection.contextMenuBuilder,
+        AppTextSelectionMenu.buildRegion,
+      );
       final reply = scope.provider.messages.last;
       final responseDetails = find.byKey(
         ValueKey('ai-response-details-${reply.id}'),
@@ -349,10 +357,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Model: deepseek-chat'), findsOneWidget);
       expect(find.text('API protocol: OpenAI Chat Completions'), findsNothing);
-      expect(
-        find.text('No application settings were changed.'),
-        findsOneWidget,
-      );
+      expect(find.text('No application settings were changed.'), findsNothing);
       final messageList = find.byType(ListView);
       expect(
         tester.getSize(messageList).width,
@@ -363,6 +368,164 @@ void main() {
       await capture(tester, 'home-conversation-dark');
       expect(tester.takeException(), isNull);
     },
+  );
+
+  testWidgets(
+    'composer keeps selection tight and reserves a scrollbar gutter',
+    (tester) async {
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(ChatComposer),
+          matching: find.byType(Scrollbar),
+        ),
+        findsOneWidget,
+      );
+      final field = find.byKey(const ValueKey('ai-message-input'));
+      final text =
+          'A long first line for selection.\nShort\n${List.filled(20, 'More log content to scroll.').join('\n')}';
+      await tester.enterText(field, text);
+      final input = tester.widget<TextField>(field);
+      input.controller!.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: text.length,
+      );
+      await tester.pumpAndSettle();
+      final editable = tester.state<EditableTextState>(
+        find.descendant(of: field, matching: find.byType(EditableText)),
+      );
+      final shortStart = text.indexOf('Short');
+      final boxes = editable.renderEditable.getBoxesForSelection(
+        TextSelection(baseOffset: shortStart, extentOffset: shortStart + 5),
+      );
+      expect(boxes.single.right - boxes.single.left, lessThan(100));
+      final scrollbar = find.byKey(const ValueKey('ai-input-scrollbar'));
+      expect(
+        tester.getRect(scrollbar).right - tester.getRect(field).right,
+        closeTo(14, .1),
+      );
+      expect(input.scrollController!.position.maxScrollExtent, greaterThan(0));
+      final original = input.controller!.text;
+      input.scrollController!.jumpTo(0);
+      await tester.pumpAndSettle();
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(field),
+          scrollDelta: const Offset(0, 60),
+          kind: PointerDeviceKind.mouse,
+        ),
+      );
+      expect(input.scrollController!.offset, 0);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(input.scrollController!.offset, inExclusiveRange(0, 60));
+      await tester.pumpAndSettle();
+      expect(input.scrollController!.offset, closeTo(60, .1));
+      expect(input.controller!.text, original);
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets(
+    'animates wheel scrolling and latest button with theme contrast',
+    (tester) async {
+      final reducedMotion = latestMotionVariant.currentValue!;
+      await tester.runAsync(() => scope.provider.initialized);
+      await scope.provider.saveService(
+        name: 'Test',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['test'],
+        apiKey: 'key',
+      );
+      await tester.runAsync(
+        () => scope.provider.sendMessage(
+          List.filled(60, 'Long conversation line').join('\n'),
+        ),
+      );
+      await tester.pumpWidget(app(disableAnimations: reducedMotion));
+      await tester.pumpAndSettle();
+      final controller = tester
+          .widget<ListView>(find.byType(ListView))
+          .controller!;
+      controller.jumpTo(controller.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      final button = find.byKey(const ValueKey('ai-scroll-to-latest'));
+      expect(button, findsNothing);
+      final original = controller.offset;
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(find.byType(ListView)),
+          scrollDelta: const Offset(0, -240),
+          kind: PointerDeviceKind.mouse,
+        ),
+      );
+      if (reducedMotion) {
+        expect(controller.offset, closeTo(original - 240, .1));
+      } else {
+        expect(controller.offset, original);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 60));
+        expect(controller.offset, inExclusiveRange(original - 240, original));
+      }
+      await tester.pumpAndSettle();
+      expect(button, findsOneWidget);
+      expect(
+        tester.getBottomRight(button).dy,
+        lessThan(tester.getTopLeft(find.byType(ChatComposer)).dy),
+      );
+
+      // Both themes keep a distinct neutral fill and hover state.
+      for (final type in ThemeType.values) {
+        theme.setTheme(type);
+        await tester.pumpAndSettle();
+        final control = tester.widget<TitleBarIconButton>(button);
+        expect(
+          (control.backgroundColor!.computeLuminance() -
+                  theme.themeData.secondary.computeLuminance())
+              .abs(),
+          greaterThan(.04),
+        );
+        expect(control.hoverColor, isNot(control.backgroundColor));
+      }
+
+      // The outgoing button fades without accepting mouse or keyboard input.
+      controller.jumpTo(controller.position.maxScrollExtent);
+      await tester.pump();
+      if (!reducedMotion) {
+        await tester.pump(const Duration(milliseconds: 75));
+        final fade = tester.widget<FadeTransition>(
+          find
+              .ancestor(of: button, matching: find.byType(FadeTransition))
+              .first,
+        );
+        expect(fade.opacity.value, inExclusiveRange(0, 1));
+        expect(button.hitTestable(), findsNothing);
+      }
+      await tester.pumpAndSettle();
+      expect(button, findsNothing);
+
+      controller.jumpTo(controller.position.maxScrollExtent - 240);
+      await tester.pump();
+      if (!reducedMotion) {
+        await tester.pump(const Duration(milliseconds: 75));
+        final fade = tester.widget<FadeTransition>(
+          find
+              .ancestor(of: button, matching: find.byType(FadeTransition))
+              .first,
+        );
+        expect(fade.opacity.value, inExclusiveRange(0, 1));
+      }
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(controller.position.extentAfter, closeTo(0, 1));
+      expect(button, findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+    variant: latestMotionVariant,
   );
 
   testWidgets('missing key opens model services without losing the draft', (
@@ -405,7 +568,7 @@ void main() {
     expect(scope.provider.busy, isTrue);
     expect(activeField.focusNode!.hasFocus, isTrue);
     expect(activeField.readOnly, isFalse);
-    expect(find.text('Connecting · 00:00'), findsOneWidget);
+    expect(find.text('Connecting · 00:00:000'), findsOneWidget);
     await tester.pump(const Duration(seconds: 1));
     expect(find.textContaining('Connecting'), findsOneWidget);
 
@@ -434,12 +597,13 @@ void main() {
     responseGate!.complete();
     await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pump(const Duration(milliseconds: 30));
-    expect(scope.provider.busy, isTrue);
+    expect(scope.provider.busy, isFalse);
     expect(find.textContaining('Thinking…'), findsNothing);
-    expect(find.textContaining('Responding'), findsOneWidget);
-    final replyText = scope.provider.messages.last.content;
-    expect(replyText, isNotEmpty);
-    expect(replyText, isNot('Ready to help with LilygoBox.'));
+    expect(find.textContaining('Responding'), findsNothing);
+    expect(
+      scope.provider.messages.last.content,
+      'Ready to help with LilygoBox.',
+    );
     await pumpAssistantUntilIdle(tester);
     expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
     expect(tester.widget<TextField>(field).controller!.text, 'Next message');
@@ -664,6 +828,11 @@ void main() {
         await tester.pumpWidget(app(scale: 1.6, locale: locale));
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
+        final inputScrollbars = find.descendant(
+          of: find.byType(ChatComposer),
+          matching: find.byType(Scrollbar),
+        );
+        expect(inputScrollbars, findsOneWidget);
         final field = find.byKey(const ValueKey('ai-message-input'));
         await tester.enterText(field, 'Line 1\nLine 2\nLine 3\nLine 4');
         await tester.pumpAndSettle();

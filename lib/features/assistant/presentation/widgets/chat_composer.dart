@@ -2,8 +2,10 @@
  * @Description: 构建双层 AI 输入区，预留附件承载层并提供键盘发送和模型选择菜单。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:07:40
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-09 16:34:43
  */
+
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +14,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
+import '../../../../core/widgets/app_scroll_behavior.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../state/provider.dart';
@@ -23,6 +26,7 @@ class ChatComposer extends StatelessWidget {
     super.key,
     required this.input,
     required this.focusNode,
+    required this.scrollController,
     required this.theme,
     required this.assistant,
     required this.ready,
@@ -31,6 +35,7 @@ class ChatComposer extends StatelessWidget {
 
   final TextEditingController input;
   final FocusNode focusNode;
+  final ScrollController scrollController;
   final AppTheme theme;
   final AiAssistantProvider assistant;
   final bool ready;
@@ -127,29 +132,45 @@ class ChatComposer extends StatelessWidget {
                         }
                         return KeyEventResult.ignored;
                       },
-                      child: TextField(
-                        key: const ValueKey('ai-message-input'),
-                        contextMenuBuilder: AppTextSelectionMenu.build,
-                        controller: input,
-                        focusNode: focusNode,
-                        minLines: 2,
-                        maxLines: 6,
-                        textInputAction: TextInputAction.newline,
-                        cursorColor: theme.basePrimary,
-                        style: TextStyle(
-                          color: theme.textColorPrimary,
-                          fontSize: 14,
-                          height: 1.5,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: l10n.aiInputHint,
-                          hintStyle: TextStyle(color: theme.textColorTertiary),
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          disabledBorder: InputBorder.none,
-                          filled: false,
-                          isCollapsed: true,
+                      child: Scrollbar(
+                        key: const ValueKey('ai-input-scrollbar'),
+                        controller: scrollController,
+                        child: Padding(
+                          padding: const EdgeInsetsDirectional.only(end: 14),
+                          child: ScrollConfiguration(
+                            behavior: const AppScrollBehavior(
+                              scrollbars: false,
+                            ),
+                            child: TextField(
+                              key: const ValueKey('ai-message-input'),
+                              contextMenuBuilder: AppTextSelectionMenu.build,
+                              controller: input,
+                              scrollController: scrollController,
+                              selectionWidthStyle: ui.BoxWidthStyle.tight,
+                              focusNode: focusNode,
+                              minLines: 2,
+                              maxLines: 8,
+                              textInputAction: TextInputAction.newline,
+                              cursorColor: theme.basePrimary,
+                              style: TextStyle(
+                                color: theme.textColorPrimary,
+                                fontSize: 14,
+                                height: 1.5,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: l10n.aiInputHint,
+                                hintStyle: TextStyle(
+                                  color: theme.textColorTertiary,
+                                ),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                disabledBorder: InputBorder.none,
+                                filled: false,
+                                isCollapsed: true,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),

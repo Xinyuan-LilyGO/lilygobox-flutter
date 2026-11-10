@@ -1613,4 +1613,22 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiRequestTimeout => '服务响应超时，请稍后重试。';
+
+  @override
+  String get aiCopyMessage => '复制消息';
+
+  @override
+  String get aiMessageCopied => '已复制';
+
+  @override
+  String get aiOpenLinkFailed => '无法打开此链接。';
+
+  @override
+  String get aiCopyCode => '复制代码';
+
+  @override
+  String get aiPlainText => '纯文本';
+
+  @override
+  String get aiScrollToLatest => '回到最新消息';
 }

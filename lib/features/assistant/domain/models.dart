@@ -2,7 +2,7 @@
  * @Description: 定义 AI 服务配置、会话消息与待确认的设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 11:35:10
+ * @LastEditTime: 2026-11-09 15:25:35
  */
 
 enum AiApiProtocol { openAiChatCompletions, openAiResponses }
@@ -164,6 +164,7 @@ class AiMessage {
     required this.id,
     required this.role,
     required this.content,
+    this.createdAt,
     this.toolName,
     this.toolArguments,
     this.toolDecision,
@@ -180,6 +181,7 @@ class AiMessage {
   final String id;
   final String role;
   final String content;
+  final DateTime? createdAt;
   final String? toolName;
   final Map<String, Object?>? toolArguments;
   final bool? toolDecision;
@@ -193,6 +195,7 @@ class AiMessage {
   final List<AiProcessEvent> processEvents;
 
   AiMessage copyWith({
+    DateTime? createdAt,
     String? content,
     bool? toolDecision,
     Duration? elapsed,
@@ -206,6 +209,7 @@ class AiMessage {
   }) => AiMessage(
     id: id,
     role: role,
+    createdAt: createdAt ?? this.createdAt,
     content: content ?? this.content,
     toolName: toolName,
     toolArguments: toolArguments,
