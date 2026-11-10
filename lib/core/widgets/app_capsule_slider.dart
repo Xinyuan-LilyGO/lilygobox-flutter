@@ -2,7 +2,7 @@
  * @Description: 共享设备风格的胶囊滑条，支持连续调节及固定等级点。
  * @Author: LILYGO_L
  * @Date: 2026-11-10 11:58:09
- * @LastEditTime: 2026-11-10 14:42:34
+ * @LastEditTime: 2026-11-10 19:04:16
  */
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -105,6 +105,8 @@ class _SnappingCapsuleSliderState extends State<_SnappingCapsuleSlider>
   );
   final _focus = FocusNode();
   bool _pressed = false;
+  Offset? _pointerStart;
+  bool _dragging = false;
 
   @override
   void initState() {
@@ -231,26 +233,44 @@ class _SnappingCapsuleSliderState extends State<_SnappingCapsuleSlider>
                   overlayShape: SliderComponentShape.noOverlay,
                   showValueIndicator: ShowValueIndicator.never,
                 ),
-                child: AnimatedBuilder(
-                  animation: _position,
-                  builder: (context, _) => Slider(
-                    value: _position.value,
-                    padding: EdgeInsets.zero,
-                    focusNode: _focus,
-                    onChangeStart: config.onChanged == null
-                        ? null
-                        : (_) {
-                            _focus.requestFocus();
-                            _position.stop();
-                            setState(() => _pressed = true);
-                          },
-                    onChanged: config.onChanged == null
-                        ? null
-                        : (value) {
-                            _position.value = value;
-                            config.onChanged!(value);
-                          },
-                    onChangeEnd: config.onChanged == null ? null : _commit,
+                child: Listener(
+                  onPointerDown: (event) {
+                    _pointerStart = event.localPosition;
+                    _dragging = false;
+                  },
+                  onPointerMove: (event) {
+                    if (_pointerStart case final start?) {
+                      if ((event.localPosition - start).distance > 3) {
+                        _dragging = true;
+                      }
+                    }
+                  },
+                  child: AnimatedBuilder(
+                    animation: _position,
+                    builder: (context, _) => Slider(
+                      value: _position.value,
+                      padding: EdgeInsets.zero,
+                      focusNode: _focus,
+                      onChangeStart: config.onChanged == null
+                          ? null
+                          : (_) {
+                              _focus.requestFocus();
+                              _position.stop();
+                              setState(() => _pressed = true);
+                            },
+                      onChanged: config.onChanged == null
+                          ? null
+                          : (value) {
+                              if (_dragging) {
+                                _position.value = value;
+                              } else {
+                                // 点击轨道时从当前位置移动，拖动时则直接跟随鼠标。
+                                _moveTo(value);
+                              }
+                              config.onChanged!(value);
+                            },
+                      onChangeEnd: config.onChanged == null ? null : _commit,
+                    ),
                   ),
                 ),
               ),

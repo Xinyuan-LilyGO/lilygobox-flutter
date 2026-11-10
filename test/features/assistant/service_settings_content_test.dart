@@ -2,7 +2,7 @@
  * @Description: 验证模型服务列表排序、确认添加、取消、编辑与删除。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-10 14:20:16
+ * @LastEditTime: 2026-11-10 17:32:47
  */
 
 import 'dart:async';
@@ -40,6 +40,7 @@ void main() {
   late AssistantTestScope scope;
   var requests = 0;
   var invalidChatResponse = false;
+  var declareImageInput = true;
   Completer<void>? modelRequestGate;
   final boundaryKey = GlobalKey();
   setUp(() async {
@@ -49,6 +50,7 @@ void main() {
     splitView = SplitViewProvider();
     requests = 0;
     invalidChatResponse = false;
+    declareImageInput = true;
     modelRequestGate = null;
     if (const bool.fromEnvironment('CAPTURE_ASSISTANT_UI')) {
       await (FontLoader('LilygoBoxInter')
@@ -79,7 +81,15 @@ void main() {
           await modelRequestGate?.future;
           expect(request.url.path, '/v1/models');
           return http.Response(
-            '{"data":[{"id":"model-a"},{"id":"model-b"}]}',
+            jsonEncode({
+              'data': [
+                {
+                  'id': 'model-a',
+                  if (declareImageInput) 'input_modalities': ['text'],
+                },
+                {'id': 'model-b'},
+              ],
+            }),
             200,
           );
         }
@@ -159,6 +169,39 @@ void main() {
     await tester.enterText(field('key'), 'test-key');
     await tester.enterText(field('models'), 'model-a\nmodel-b');
   }
+
+  testWidgets('image capabilities come only from fetched model metadata', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1120, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await open(tester);
+    await fill(tester);
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingSelect<AiImageInput>), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('ai-discover-models')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('ai-confirm-service')));
+    await tester.pumpAndSettle();
+    final service = scope.provider.services.single;
+    expect(service.imageInputFor('model-a'), AiImageInput.unsupported);
+    expect(service.imageInputFor('model-b'), AiImageInput.unknown);
+    expect(requests, 1);
+    // 新一次列表没有声明时，不能沿用旧的“不支持图片”。
+    declareImageInput = false;
+    await tester.tap(find.text('Edit service'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('ai-discover-models')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('ai-confirm-service')));
+    await tester.pumpAndSettle();
+    expect(
+      scope.provider.services.single.imageInputFor('model-a'),
+      AiImageInput.unknown,
+    );
+  });
 
   testWidgets('chat request errors are not shown in model service settings', (
     tester,

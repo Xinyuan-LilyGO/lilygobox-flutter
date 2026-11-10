@@ -2,7 +2,7 @@
  * @Description: 统一标题栏圆形图标按钮的尺寸、悬停动画和点击反馈。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-10 17:19:17
  */
 
 import 'package:flutter/material.dart';
@@ -63,7 +63,8 @@ class TitleBarIconButton extends StatefulWidget {
     theme.primary,
   );
   return (
-    background: mutedBackground,
+    // 透明图标按钮在禁用或窗口失焦时也不能凭空出现背景圆圈。
+    background: background.a == 0 ? background : mutedBackground,
     icon: icon == null
         ? theme.inactiveIconColor
         : Color.alphaBlend(
@@ -88,6 +89,11 @@ class _TitleBarIconButtonState extends State<TitleBarIconButton> {
       background: widget.backgroundColor ?? stateColors.background,
       icon: widget.iconColor,
     );
+    final hover = widget.hoverColor ?? stateColors.hover;
+    // 保留目标 RGB，只渐变 alpha，避免从透明黑插值产生偏暗的一帧。
+    final background = colors.background.a == 0
+        ? hover.withValues(alpha: 0)
+        : colors.background;
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = widget.onPressed != null),
       onExit: (_) => setState(() => _isHovered = false),
@@ -96,9 +102,7 @@ class _TitleBarIconButtonState extends State<TitleBarIconButton> {
         duration: MenuItemSurface.animationDuration,
         curve: MenuItemSurface.animationCurve,
         decoration: BoxDecoration(
-          color: _isHovered && enabled && widget.isFocused
-              ? widget.hoverColor ?? stateColors.hover
-              : colors.background,
+          color: _isHovered && enabled && widget.isFocused ? hover : background,
           shape: BoxShape.circle,
         ),
         // 墨水层位于背景上方，点击波纹不会被悬停背景遮挡。

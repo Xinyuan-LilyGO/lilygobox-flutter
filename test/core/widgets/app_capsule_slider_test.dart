@@ -2,7 +2,7 @@
  * @Description: 验证共享胶囊滑条的连续调节、离散等级和禁用行为。
  * @Author: LILYGO_L
  * @Date: 2026-11-10 12:00:08
- * @LastEditTime: 2026-11-10 13:53:32
+ * @LastEditTime: 2026-11-10 19:04:16
  */
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -74,6 +74,56 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+  }
+
+  for (final reduced in [false, true]) {
+    testWidgets('track click animates to the chosen node, reduced: $reduced', (
+      tester,
+    ) async {
+      var value = .25;
+      double? committed;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(disableAnimations: reduced),
+            child: Scaffold(
+              body: Center(
+                child: StatefulBuilder(
+                  builder: (context, setState) => SizedBox(
+                    width: 280,
+                    child: AppCapsuleSlider(
+                      theme: MaterialPalette.create(ThemeType.light),
+                      value: value,
+                      icon: Icons.psychology,
+                      label: 'Effort',
+                      divisions: 4,
+                      snapToDivisions: true,
+                      onChanged: (next) =>
+                          setState(() => value = (next * 4).round() / 4),
+                      onChangeEnd: (next) => committed = next,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final slider = find.byType(Slider);
+      final rect = tester.getRect(slider);
+      await tester.tapAt(
+        Offset(rect.left + 18 + (rect.width - 36) * .75, rect.center.dy),
+      );
+      await tester.pump();
+      expect(committed, .75);
+      if (!reduced) {
+        expect(tester.widget<Slider>(slider).value, .25);
+        await tester.pump(const Duration(milliseconds: 75));
+        expect(tester.widget<Slider>(slider).value, inExclusiveRange(.25, .75));
+      }
+      await tester.pumpAndSettle();
+      expect(tester.widget<Slider>(slider).value, .75);
+    });
   }
 
   testWidgets('continuous device slider preserves drag and disabled behavior', (

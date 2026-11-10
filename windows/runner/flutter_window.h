@@ -33,6 +33,7 @@ class FlutterWindow : public Win32Window {
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
   std::unique_ptr<TrayIcon> tray_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> layout_channel_;
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> image_clipboard_channel_;
   bool interactive_move_ = false;
   bool interactive_resize_ = false;
   bool snapped_before_interaction_ = false;

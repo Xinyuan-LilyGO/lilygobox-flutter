@@ -2,7 +2,7 @@
  * @Description: 让文本编辑和选中文字复用应用右键菜单，保留系统剪贴板及选择行为。
  * @Author: LILYGO_L
  * @Date: 2026-10-07 00:00:00
- * @LastEditTime: 2026-11-10 14:30:57
+ * @LastEditTime: 2026-11-10 16:42:36
  */
 
 import 'package:flutter/material.dart';
@@ -14,6 +14,26 @@ import '../widgets/popup_menu_transition.dart';
 import 'right_click_menu.dart';
 
 class AppTextSelectionMenu {
+  /// 附件编辑器同时接受图片与文本，不依赖纯文本剪贴板状态。
+  static Widget buildWithPaste(
+    BuildContext context,
+    EditableTextState editableText,
+    VoidCallback onPaste,
+  ) => Consumer<ThemeProvider>(
+    builder: (context, provider, _) =>
+        _buildMenu(context, editableText.contextMenuAnchors, [
+          for (final item in editableText.contextMenuButtonItems)
+            if (item.type != ContextMenuButtonType.paste) item,
+          ContextMenuButtonItem(
+            type: ContextMenuButtonType.paste,
+            onPressed: () {
+              editableText.hideToolbar();
+              onPaste();
+            },
+          ),
+        ], provider.themeData),
+  );
+
   /// 直接作为 contextMenuBuilder 传入，避免页面刷新时新建闭包使 Flutter 关闭并重开菜单。
   static Widget build(BuildContext context, EditableTextState editableText) =>
       Consumer<ThemeProvider>(

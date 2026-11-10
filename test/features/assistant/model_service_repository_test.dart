@@ -2,7 +2,7 @@
  * @Description: 验证模型服务持久化、排序、迁移与写入失败回滚。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-10 13:53:32
+ * @LastEditTime: 2026-11-10 17:32:47
  */
 
 import 'dart:convert';
@@ -37,6 +37,61 @@ void main() {
     apiKey: key,
   );
 
+  test('legacy manual declarations are ignored', () {
+    final service = AiModelService.fromJson({
+      'id': 'legacy',
+      'name': 'Legacy',
+      'protocol': 'openAiChatCompletions',
+      'baseUrl': 'https://example.test/v1',
+      'models': ['chat'],
+      'imageInputs': {'chat': 'unsupported'},
+    });
+    expect(service.imageInputFor('chat'), AiImageInput.unknown);
+  });
+
+  test(
+    'image declarations persist per service and expire on endpoint change',
+    () async {
+      final first = await repository.save(
+        name: 'First',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['chat', 'vision'],
+        apiKey: 'key',
+        imageInputs: {
+          'chat': AiImageInput.unsupported,
+          'vision': AiImageInput.supported,
+        },
+      );
+      final second = await add('Second', 'key');
+      final restored = ModelServiceRepository(preferences, keys);
+      await restored.load();
+      expect(
+        restored.find(first)!.imageInputFor('chat'),
+        AiImageInput.unsupported,
+      );
+      expect(
+        restored.find(second)!.imageInputFor('chat'),
+        AiImageInput.unknown,
+      );
+      await restored.save(
+        id: first,
+        name: 'First',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['chat'],
+      );
+      expect(restored.find(first)!.imageInputs.keys, ['chat']);
+      await restored.save(
+        id: first,
+        name: 'First',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v2',
+        models: ['chat'],
+      );
+      expect(restored.find(first)!.imageInputFor('chat'), AiImageInput.unknown);
+    },
+  );
   test(
     'reasoning is isolated by service and model and persists concrete levels',
     () async {

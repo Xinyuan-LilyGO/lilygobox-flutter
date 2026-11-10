@@ -2,7 +2,7 @@
  * @Description: 持久化已添加的模型服务、独立密钥与模型选择，并迁移已有的显式配置。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-10 13:53:32
+ * @LastEditTime: 2026-11-10 17:19:17
  */
 
 import 'dart:convert';
@@ -156,6 +156,7 @@ class ModelServiceRepository {
     required List<String> models,
     String? apiKey,
     AiServicePreset preset = AiServicePreset.custom,
+    Map<String, AiImageInput>? imageInputs,
   }) async {
     final address = validateAddress(preset.baseUrl ?? baseUrl);
     final cleanModels = models
@@ -190,6 +191,13 @@ class ModelServiceRepository {
       baseUrl: address,
       models: cleanModels,
       preset: preset,
+      imageInputs:
+          imageInputs ??
+          (old != null &&
+                  old.baseUrl == address &&
+                  old.protocol == (preset.protocol ?? protocol)
+              ? old.imageInputs
+              : const {}),
     );
     final next = [
       for (final item in _services)

@@ -5,6 +5,7 @@
 
 #include "flutter/generated_plugin_registrant.h"
 #include "single_instance.h"
+#include "image_clipboard.h"
 
 namespace {
 
@@ -38,6 +39,20 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  image_clipboard_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(), "lilygobox/image_clipboard",
+          &flutter::StandardMethodCodec::GetInstance());
+  image_clipboard_channel_->SetMethodCallHandler(
+      [this](const auto& call, auto result) {
+        if (call.method_name() == "readImage") {
+          ReadClipboardImage(GetHandle(), std::move(result));
+        } else if (call.method_name() == "writeImage") {
+          WriteClipboardImage(GetHandle(), call.arguments(), std::move(result));
+        } else {
+          result->NotImplemented();
+        }
+      });
   layout_channel_ =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
           flutter_controller_->engine()->messenger(), "lilygobox/window_layout",
@@ -79,6 +94,7 @@ void FlutterWindow::OnDestroy() {
   RemovePropW(GetHandle(), lilygobox::kWindowMarker);
   tray_.reset();
   layout_channel_.reset();
+  image_clipboard_channel_.reset();
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }

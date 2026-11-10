@@ -2,7 +2,7 @@
  * @Description: 调用 OpenAI 兼容 Chat Completions 并解析设置工具调用。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-10 11:58:09
+ * @LastEditTime: 2026-11-10 17:19:17
  */
 
 import 'dart:async';
@@ -500,6 +500,12 @@ class ChatCompletionClient {
   Future<List<String>> listModels({
     required String baseUrl,
     required String apiKey,
+  }) async =>
+      (await discoverModelCatalog(baseUrl: baseUrl, apiKey: apiKey)).models;
+
+  Future<AiModelCatalog> discoverModelCatalog({
+    required String baseUrl,
+    required String apiKey,
   }) async {
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final response = await _client
@@ -524,15 +530,43 @@ class ChatCompletionClient {
     if (data is! List) {
       throw const AiConfigurationException(AiProblem.invalidResponse);
     }
-    return data
-        .whereType<Map>()
-        .map((item) => item['id'])
-        .whereType<String>()
-        .map((model) => model.trim())
-        .where((model) => model.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+    final models =
+        data
+            .whereType<Map>()
+            .map((item) => item['id'])
+            .whereType<String>()
+            .map((model) => model.trim())
+            .where((model) => model.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+    return AiModelCatalog(
+      models: models,
+      imageInputs: {
+        for (final item in data.whereType<Map>())
+          if (item['id'] case final String id)
+            if (id.trim().isNotEmpty)
+              if (_imageInputDeclaration(item) case final capability?)
+                id.trim(): capability,
+      },
+    );
+  }
+
+  AiImageInput? _imageInputDeclaration(Map model) {
+    final architecture = model['architecture'];
+    final input =
+        model['input_modalities'] ??
+        model['inputModalities'] ??
+        model['input'] ??
+        (architecture is Map ? architecture['input_modalities'] : null);
+    if (input is! List ||
+        input.isEmpty ||
+        input.any((value) => value is! String)) {
+      return null;
+    }
+    if (input.contains('image')) return AiImageInput.supported;
+    if (input.contains('text')) return AiImageInput.unsupported;
+    return null;
   }
 
   Future<void> close() async {
@@ -599,7 +633,20 @@ class ChatCompletionClient {
         continue;
       }
       if (role is String && content != null) {
-        input.add({'role': role, 'content': content});
+        final responseContent = content is List
+            ? [
+                for (final part in content.whereType<Map>())
+                  if (part['type'] == 'text')
+                    {'type': 'input_text', 'text': part['text']}
+                  else if (part['type'] == 'image_url' &&
+                      part['image_url'] is Map)
+                    {
+                      'type': 'input_image',
+                      'image_url': (part['image_url'] as Map)['url'],
+                    },
+              ]
+            : content;
+        input.add({'role': role, 'content': responseContent});
       }
     }
     return {

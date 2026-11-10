@@ -2,7 +2,7 @@
  * @Description: 验证 AI 主页居中与底部输入状态、键盘发送、直达设置及缩放布局。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:16:04
- * @LastEditTime: 2026-11-10 13:53:32
+ * @LastEditTime: 2026-11-10 18:08:43
  */
 
 import 'dart:async';
@@ -148,6 +148,7 @@ void main() {
     bool disableAnimations = false,
     double scale = 1,
     String locale = 'en',
+    Widget? content,
   }) => MultiProvider(
     providers: [
       ChangeNotifierProvider.value(value: theme),
@@ -175,7 +176,9 @@ void main() {
       home: Scaffold(
         body: TickerMode(
           enabled: tickerEnabled,
-          child: settings ? const SettingsSplitView() : const AssistantPage(),
+          child:
+              content ??
+              (settings ? const SettingsSplitView() : const AssistantPage()),
         ),
       ),
     ),
@@ -204,6 +207,112 @@ void main() {
       await file.writeAsBytes(bytes!.buffer.asUint8List());
     });
   }
+
+  testWidgets('Ctrl+V reaches the image paste action inside the text field', (
+    tester,
+  ) async {
+    final input = TextEditingController();
+    final focus = FocusNode();
+    final scroll = ScrollController();
+    addTearDown(input.dispose);
+    addTearDown(focus.dispose);
+    addTearDown(scroll.dispose);
+    final bytes = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
+    );
+    var reads = 0;
+    List<AiImageAttachment> attachments = [];
+    await tester.pumpWidget(
+      app(
+        content: Align(
+          alignment: Alignment.bottomCenter,
+          child: ChatComposer(
+            input: input,
+            focusNode: focus,
+            scrollController: scroll,
+            theme: theme.themeData,
+            assistant: scope.provider,
+            ready: true,
+            onSend: (_) {},
+            attachments: const [],
+            onAttachmentsChanged: (value) => attachments = value,
+            readClipboardImage: () async {
+              reads++;
+              return bytes;
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('ai-message-input')));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(reads, 1);
+    expect(attachments.single.bytes, bytes);
+    expect(input.text, isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('text-only capability blocks image sends and history replay', (
+    tester,
+  ) async {
+    await tester.runAsync(() => scope.provider.initialized);
+    final id = await scope.provider.saveService(
+      name: 'Gateway',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://example.test/v1',
+      models: ['chat'],
+      apiKey: 'key',
+      imageInputs: {'chat': AiImageInput.unsupported},
+    );
+    final image = AiImageAttachment(
+      name: 'image.png',
+      bytes: base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
+      ),
+      mimeType: 'image/png',
+    );
+    await scope.provider.sendMessage('Describe', attachments: [image]);
+    expect(requests, 0);
+    expect(scope.provider.messages, isEmpty);
+    await scope.provider.saveService(
+      id: id,
+      name: 'Gateway',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://example.test/v1',
+      models: ['chat'],
+      imageInputs: {},
+    );
+    await tester.runAsync(
+      () => scope.provider.sendMessage('Describe', attachments: [image]),
+    );
+    expect(requests, 1);
+    final messageCount = scope.provider.messages.length;
+    await scope.provider.saveService(
+      id: id,
+      name: 'Gateway',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://example.test/v1',
+      models: ['chat'],
+      imageInputs: {'chat': AiImageInput.unsupported},
+    );
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    final field = find.byKey(const ValueKey('ai-message-input'));
+    await tester.enterText(field, 'Keep this draft');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('ai-send-button')));
+    await tester.pump();
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(tester.widget<TextField>(field).controller!.text, 'Keep this draft');
+    expect(scope.provider.messages.length, messageCount);
+    expect(requests, 1);
+    await scope.provider.sendMessage('Blocked history');
+    expect(scope.provider.messages.length, messageCount);
+    expect(requests, 1);
+  });
 
   testWidgets('composer theme background updates while its ticker is paused', (
     tester,
@@ -530,6 +639,143 @@ void main() {
     variant: latestMotionVariant,
   );
 
+  testWidgets(
+    'one latest click reaches the end of mixed image messages',
+    (tester) async {
+      await tester.runAsync(() => scope.provider.initialized);
+      await scope.provider.saveService(
+        name: 'Test',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['test'],
+        apiKey: 'key',
+      );
+      final image = AiImageAttachment(
+        name: 'image.png',
+        mimeType: 'image/png',
+        bytes: base64Decode(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
+        ),
+      );
+      for (var i = 0; i < 16; i++) {
+        await tester.runAsync(
+          () => scope.provider.sendMessage(
+            i < 4
+                ? 'Short message'
+                : List.filled(8, 'An image description line').join('\n'),
+            attachments: [image],
+          ),
+        );
+      }
+      await tester.pumpWidget(
+        app(disableAnimations: latestMotionVariant.currentValue!),
+      );
+      await tester.pumpAndSettle();
+      tester
+          .widget<ChatComposer>(find.byType(ChatComposer))
+          .onAttachmentsChanged([image]);
+      await tester.pumpAndSettle();
+      final controller = tester
+          .widget<ListView>(find.byType(ListView).first)
+          .controller!;
+      controller.jumpTo(1);
+      await tester.pumpAndSettle();
+      final button = find.byKey(const ValueKey('ai-scroll-to-latest'));
+      expect(button, findsOneWidget);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(controller.position.extentAfter, closeTo(0, 1));
+      expect(button, findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+    variant: latestMotionVariant,
+  );
+
+  testWidgets('many draft images wrap and scroll without covering the editor', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    final bytes = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
+    );
+    final images = List.generate(
+      40,
+      (index) => AiImageAttachment(
+        name: 'image-$index.png',
+        bytes: bytes,
+        mimeType: 'image/png',
+      ),
+    );
+    tester
+        .widget<ChatComposer>(find.byType(ChatComposer))
+        .onAttachmentsChanged(images);
+    await tester.pumpAndSettle();
+    final list = find.byKey(const ValueKey('ai-attachments-scroll'));
+    final bar = find.byKey(const ValueKey('ai-attachments-scrollbar'));
+    final controller = tester.widget<SingleChildScrollView>(list).controller!;
+    expect(tester.getSize(list).height, lessThanOrEqualTo(166));
+    expect(controller.position.maxScrollExtent, greaterThan(0));
+    expect(tester.widget<Scrollbar>(bar).thumbVisibility, isNull);
+    final thumbnails = find.descendant(of: list, matching: find.byType(Image));
+    final firstRect = tester.getRect(thumbnails.first);
+    expect(firstRect.width, lessThanOrEqualTo(64));
+    final row = thumbnails
+        .evaluate()
+        .map((element) => tester.getRect(find.byWidget(element.widget)))
+        .where((rect) => (rect.top - firstRect.top).abs() < .1)
+        .toList();
+    expect(row.last.right, closeTo(tester.getRect(list).right - 12, .1));
+    expect(
+      firstRect.left - tester.getRect(list).left,
+      closeTo(tester.getRect(list).right - row.last.right, .1),
+    );
+    final original = controller.offset;
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: tester.getCenter(list),
+        scrollDelta: const Offset(0, 100),
+        kind: PointerDeviceKind.mouse,
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(controller.offset, greaterThan(original));
+    await tester.pumpAndSettle();
+    controller.jumpTo(controller.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    final last = find.descendant(of: list, matching: find.byType(Image)).last;
+    expect(
+      tester.getRect(last).bottom,
+      lessThanOrEqualTo(tester.getRect(list).bottom - 7),
+    );
+    expect(
+      tester.getRect(last).right,
+      lessThanOrEqualTo(tester.getRect(bar).right - 12),
+    );
+    expect(
+      tester.getRect(list).bottom,
+      lessThanOrEqualTo(
+        tester
+            .getRect(find.byKey(const ValueKey('ai-composer-input-layer')))
+            .top,
+      ),
+    );
+    // 滚到最后一张后仍可删除，回调保留其他附件。
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(last));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('ai-remove-image-button')).last);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<ChatComposer>(find.byType(ChatComposer)).attachments.length,
+      39,
+    );
+    await mouse.removePointer();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('missing key opens model services without losing the draft', (
     tester,
   ) async {
@@ -537,6 +783,7 @@ void main() {
     await tester.pumpAndSettle();
     final field = find.byKey(const ValueKey('ai-message-input'));
     await tester.enterText(field, 'Keep this draft');
+    await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pump();

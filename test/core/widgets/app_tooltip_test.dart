@@ -2,7 +2,7 @@
  * @Description: 验证悬停提示在页面隐藏后的清理及再次进入时的正常显示。
  * @Author: LILYGO_L
  * @Date: 2026-10-07 18:00:00
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-10 16:42:36
  */
 import 'dart:ui' show PointerDeviceKind;
 
@@ -12,6 +12,45 @@ import 'package:lilygobox/core/widgets/app_tooltip.dart';
 import 'package:lilygobox/core/widgets/retained_page_stack.dart';
 
 void main() {
+  for (final size in [18.0, 30.0, 48.0]) {
+    testWidgets('tooltip keeps an 8px edge gap for a ${size}px control', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: AppTooltip(
+                message: 'Hint',
+                child: SizedBox(
+                  key: const ValueKey('target'),
+                  width: size,
+                  height: size,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(
+        tester.getCenter(find.byKey(const ValueKey('target'))),
+      );
+      await tester.pump(AppTooltip.waitDuration);
+      await tester.pumpAndSettle();
+      final bubble = find
+          .ancestor(of: find.text('Hint'), matching: find.byType(Container))
+          .first;
+      final bottom = tester
+          .getBottomLeft(find.byKey(const ValueKey('target')))
+          .dy;
+      expect(tester.getTopLeft(bubble).dy - bottom, closeTo(8, .01));
+      await mouse.moveTo(Offset.zero);
+      await tester.pumpAndSettle();
+    });
+  }
   testWidgets('hidden retained page removes tooltip and can show it again', (
     tester,
   ) async {

@@ -2,7 +2,7 @@
  * @Description: 管理 AI 服务配置、对话、请求状态和 AI 设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-10 13:53:32
+ * @LastEditTime: 2026-11-10 17:19:17
  */
 
 import 'dart:async';
@@ -135,6 +135,7 @@ class AiAssistantProvider extends ChangeNotifier {
     required List<String> models,
     String? apiKey,
     AiServicePreset preset = AiServicePreset.custom,
+    Map<String, AiImageInput>? imageInputs,
   }) => _change(
     () => _repository.save(
       id: id,
@@ -144,6 +145,7 @@ class AiAssistantProvider extends ChangeNotifier {
       models: models,
       apiKey: apiKey,
       preset: preset,
+      imageInputs: imageInputs,
     ),
   );
 
@@ -170,6 +172,16 @@ class AiAssistantProvider extends ChangeNotifier {
     required String baseUrl,
     required String apiKey,
     String? serviceId,
+  }) async => (await discoverModelCatalog(
+    baseUrl: baseUrl,
+    apiKey: apiKey,
+    serviceId: serviceId,
+  )).models;
+
+  Future<AiModelCatalog> discoverModelCatalog({
+    required String baseUrl,
+    required String apiKey,
+    String? serviceId,
   }) async {
     final address = ModelServiceRepository.validateAddress(baseUrl);
     final service = _repository.find(serviceId);
@@ -182,20 +194,48 @@ class AiAssistantProvider extends ChangeNotifier {
     if (key == null || key.isEmpty) {
       throw const AiConfigurationException(AiProblem.keyRequired);
     }
-    return _client.listModels(baseUrl: address, apiKey: key);
+    return _client.discoverModelCatalog(baseUrl: address, apiKey: key);
   }
 
-  Future<void> sendMessage(String content) async {
+  bool get hasImageHistory => _history.any(
+    (message) =>
+        message['content'] is List &&
+        (message['content'] as List).any(
+          (part) => part is Map && part['type'] == 'image_url',
+        ),
+  );
+
+  bool canAcceptImages() =>
+      selectedService?.imageInputFor(selectedModel ?? '') !=
+      AiImageInput.unsupported;
+
+  bool get canSendImageHistory => !hasImageHistory || canAcceptImages();
+
+  Future<void> sendMessage(
+    String content, {
+    List<AiImageAttachment> attachments = const [],
+  }) async {
     final text = content.trim();
-    if (text.isEmpty || !canSendMessage) return;
+    if ((text.isEmpty && attachments.isEmpty) || !canSendMessage) return;
     if (!hasApiKey) {
       _error = const AiConfigurationException(AiProblem.noService);
       _notify();
       return;
     }
+    if ((!canAcceptImages() && attachments.isNotEmpty) ||
+        !canSendImageHistory) {
+      _error = const AiConfigurationException(AiProblem.imageUnsupported);
+      _notify();
+      return;
+    }
     _error = null;
-    _messages.add(_message(role: 'user', content: text));
-    _history.add({'role': 'user', 'content': text});
+    _messages.add(
+      _message(role: 'user', content: text, attachments: attachments),
+    );
+    _history.add({
+      'role': 'user',
+      'content': _messageContent(text, attachments),
+    });
     _stopRequested = false;
     _paused = false;
     _activeConfiguration = configuration;
@@ -623,13 +663,32 @@ class AiAssistantProvider extends ChangeNotifier {
     _notify();
   }
 
-  AiMessage _message({required String role, required String content}) =>
-      AiMessage(
-        id: _newId(),
-        role: role,
-        content: content,
-        createdAt: DateTime.now(),
-      );
+  AiMessage _message({
+    required String role,
+    required String content,
+    List<AiImageAttachment> attachments = const [],
+  }) => AiMessage(
+    id: _newId(),
+    role: role,
+    content: content,
+    createdAt: DateTime.now(),
+    attachments: attachments,
+  );
+
+  Object _messageContent(String text, List<AiImageAttachment> attachments) {
+    if (attachments.isEmpty) return text;
+    return [
+      if (text.isNotEmpty) {'type': 'text', 'text': text},
+      for (final attachment in attachments)
+        {
+          'type': 'image_url',
+          'image_url': {
+            'url':
+                'data:${attachment.mimeType};base64,${base64Encode(attachment.bytes)}',
+          },
+        },
+    ];
+  }
 
   AiMessage _withTurnDetails(AiMessage message) => message.copyWith(
     createdAt: message.createdAt ?? _activeMessageCreatedAt,

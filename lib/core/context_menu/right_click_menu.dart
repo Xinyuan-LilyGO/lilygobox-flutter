@@ -2,7 +2,7 @@
  * @Description: 定义共用弹出菜单样式，支持右键定位和锚点上方展开。
  * @Author: LILYGO_L
  * @Date: 2025-11-18 14:00:00
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-10 16:54:59
  */
 
 import 'package:flutter/gestures.dart';
@@ -121,11 +121,15 @@ class RightClickMenuBuilder {
         ),
       ],
       child: Listener(
-        // 按下时立即移除旧菜单，不等待点击手势确认；松手仍由下方手势打开。
+        behavior: HitTestBehavior.opaque,
+        // 锚点属于 MenuAnchor 的内部区域，系统不会把点击图片当作外部点击。
+        // 左键按下也应立即关闭菜单；右键松手仍由下方手势重新打开。
         onPointerDown: onSecondaryTap == null
             ? null
             : (event) {
-                if (event.buttons & kSecondaryMouseButton != 0) {
+                if (event.buttons &
+                        (kPrimaryMouseButton | kSecondaryMouseButton) !=
+                    0) {
                   controller.close();
                 }
               },

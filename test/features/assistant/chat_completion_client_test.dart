@@ -2,7 +2,7 @@
  * @Description: 验证 OpenAI 兼容聊天请求与设置工具调用解析。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-10 11:58:09
+ * @LastEditTime: 2026-11-10 17:19:17
  */
 
 import 'dart:async';
@@ -16,6 +16,54 @@ import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 
 void main() {
+  test(
+    'model catalog uses explicit metadata and never guesses names',
+    () async {
+      final client = ChatCompletionClient(
+        client: MockClient(
+          (request) async => http.Response(
+            jsonEncode({
+              'data': [
+                {
+                  'id': 'vision',
+                  'input_modalities': ['text', 'image'],
+                },
+                {
+                  'id': 'plain',
+                  'architecture': {
+                    'input_modalities': ['text'],
+                  },
+                },
+                {'id': 'gpt-4o'},
+                {
+                  'id': 'malformed',
+                  'input_modalities': ['text', 42],
+                },
+                {'id': 'empty', 'input_modalities': []},
+              ],
+            }),
+            200,
+          ),
+        ),
+      );
+      addTearDown(client.close);
+      final catalog = await client.discoverModelCatalog(
+        baseUrl: 'https://example.test/v1',
+        apiKey: 'key',
+      );
+      expect(catalog.models, [
+        'empty',
+        'gpt-4o',
+        'malformed',
+        'plain',
+        'vision',
+      ]);
+      expect(catalog.imageInputs, {
+        'vision': AiImageInput.supported,
+        'plain': AiImageInput.unsupported,
+      });
+    },
+  );
   for (final protocol in AiApiProtocol.values) {
     for (final effort in [null, AiReasoningEffort.high]) {
       test(
@@ -694,4 +742,79 @@ void main() {
     );
     await client.close();
   });
+
+  for (final protocol in AiApiProtocol.values) {
+    test('sends image content with ${protocol.name}', () async {
+      late http.Request request;
+      final client = ChatCompletionClient(
+        client: MockClient((incoming) async {
+          request = incoming;
+          return http.Response(
+            jsonEncode(
+              protocol == AiApiProtocol.openAiResponses
+                  ? {
+                      'output': [
+                        {
+                          'type': 'message',
+                          'content': [
+                            {'type': 'output_text', 'text': 'Image received'},
+                          ],
+                        },
+                      ],
+                    }
+                  : {
+                      'choices': [
+                        {
+                          'message': {'content': 'Image received'},
+                        },
+                      ],
+                    },
+            ),
+            200,
+          );
+        }),
+      );
+      await client.complete(
+        configuration: AiServiceConfiguration(
+          protocol: protocol,
+          baseUrl: 'https://api.example.com/v1',
+          model: 'vision-model',
+        ),
+        apiKey: 'test-secret',
+        messages: const [
+          {
+            'role': 'user',
+            'content': [
+              {'type': 'text', 'text': 'Describe this image.'},
+              {
+                'type': 'image_url',
+                'image_url': {'url': 'data:image/png;base64,AQID'},
+              },
+            ],
+          },
+        ],
+        tools: const [],
+      );
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final userContent = protocol == AiApiProtocol.openAiResponses
+          ? (body['input'] as List).single['content'] as List
+          : (body['messages'] as List).single['content'] as List;
+      expect(userContent, [
+        {
+          'type': protocol == AiApiProtocol.openAiResponses
+              ? 'input_text'
+              : 'text',
+          'text': 'Describe this image.',
+        },
+        if (protocol == AiApiProtocol.openAiResponses)
+          {'type': 'input_image', 'image_url': 'data:image/png;base64,AQID'}
+        else
+          {
+            'type': 'image_url',
+            'image_url': {'url': 'data:image/png;base64,AQID'},
+          },
+      ]);
+      await client.close();
+    });
+  }
 }

@@ -1,6 +1,7 @@
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
+#include <ole2.h>
 
 #include "flutter_window.h"
 #include "single_instance.h"
@@ -18,9 +19,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     CreateAndAttachConsole();
   }
 
-  // Initialize COM, so that it is available for use in the library and/or
-  // plugins.
-  ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+  // 图片剪贴板使用 OleGetClipboard/OleSetClipboard，需初始化完整 OLE。
+  // OleInitialize 同时初始化 STA COM，不能只调用 CoInitializeEx。
+  const HRESULT ole_result = ::OleInitialize(nullptr);
+  if (FAILED(ole_result)) return EXIT_FAILURE;
 
   flutter::DartProject project(L"data");
 
@@ -33,6 +35,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
   if (!window.Create(L"LilygoBox", origin, size)) {
+    ::OleUninitialize();
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);
@@ -43,6 +46,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     ::DispatchMessage(&msg);
   }
 
-  ::CoUninitialize();
+  ::OleUninitialize();
   return EXIT_SUCCESS;
 }

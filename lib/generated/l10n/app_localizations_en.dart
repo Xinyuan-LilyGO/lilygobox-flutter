@@ -231,6 +231,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiInputHint => 'Ask a question, or describe a setting to change…';
 
   @override
+  String get aiAttachImage => 'Attach images';
+
+  @override
+  String get aiRemoveImage => 'Remove image';
+
+  @override
+  String get aiCopyImage => 'Copy image';
+
+  @override
+  String get aiImageUnsupported =>
+      'This model is declared text-only. Switch models to send images or continue a conversation containing images. Your draft has been kept.';
+
+  @override
+  String get aiCopyImageFailed => 'Could not copy the image. Please try again.';
+
+  @override
+  String get aiPasteImageFailed =>
+      'Could not read clipboard images. Please try again.';
+
+  @override
   String get aiSend => 'Send message';
 
   @override

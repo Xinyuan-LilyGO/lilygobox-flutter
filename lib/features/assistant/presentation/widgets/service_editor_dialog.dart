@@ -2,7 +2,7 @@
  * @Description: 在独立弹窗中编辑模型服务，支持读取模型列表并在确认后提交。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-09 10:36:06
+ * @LastEditTime: 2026-11-10 17:32:47
  */
 
 import 'package:flutter/material.dart';
@@ -39,6 +39,8 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
   late final TextEditingController _models;
   final _key = TextEditingController();
   final _formScrollController = ScrollController();
+  final Map<String, AiImageInput> _imageInputs = {};
+  late String _capabilityAddress;
   late AiApiProtocol _protocol;
   late AiServicePreset _preset;
   bool _working = false;
@@ -53,6 +55,17 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
     _name = TextEditingController(text: service?.name ?? '');
     _address = TextEditingController(text: service?.baseUrl ?? '');
     _models = TextEditingController(text: service?.models.join('\n') ?? '');
+    _imageInputs.addAll(service?.imageInputs ?? {});
+    _capabilityAddress = _baseUrl;
+    _address.addListener(_addressChanged);
+  }
+
+  void _addressChanged() {
+    if (_baseUrl == _capabilityAddress) return;
+    setState(() {
+      _imageInputs.clear();
+      _capabilityAddress = _baseUrl;
+    });
   }
 
   String get _baseUrl => _preset.baseUrl ?? _address.text;
@@ -79,6 +92,8 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
       _preset = preset;
       _key.clear();
       _models.clear();
+      _imageInputs.clear();
+      _capabilityAddress = _baseUrl;
       _error = null;
     });
   }
@@ -107,6 +122,7 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
         preset: _preset,
         models: _models.text.split(RegExp(r'[,，\n\r]+')),
         apiKey: _key.text,
+        imageInputs: _imageInputs,
       );
       if (mounted) {
         setState(() => _working = false);
@@ -129,15 +145,22 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
     });
     _revealModelStatus();
     try {
-      final models = await widget.assistant.discoverModels(
+      final catalog = await widget.assistant.discoverModelCatalog(
         baseUrl: _baseUrl,
         apiKey: _key.text,
         serviceId: _canReuseKey ? widget.service?.id : null,
       );
+      final models = catalog.models;
       if (models.isEmpty) {
         throw const AiConfigurationException(AiProblem.modelsRequired);
       }
-      if (mounted) _models.text = models.join('\n');
+      if (mounted) {
+        // 每次成功获取均以本次服务声明为准，缺失能力恢复为未知。
+        _imageInputs
+          ..clear()
+          ..addAll(catalog.imageInputs);
+        _models.text = models.join('\n');
+      }
     } catch (error) {
       if (mounted) setState(() => _error = error);
     } finally {
@@ -258,7 +281,10 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
                     onChanged: _working
                         ? null
                         : (protocol) => setState(() {
-                            if (protocol != null) _protocol = protocol;
+                            if (protocol != null && protocol != _protocol) {
+                              _protocol = protocol;
+                              _imageInputs.clear();
+                            }
                           }),
                   ),
                   const SizedBox(height: 16),

@@ -2,12 +2,39 @@
  * @Description: 定义 AI 服务配置、会话消息与待确认的设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-10 13:53:32
+ * @LastEditTime: 2026-11-10 17:32:47
  */
+
+import 'dart:typed_data';
 
 import 'reasoning.dart';
 
+class AiImageAttachment {
+  const AiImageAttachment({
+    required this.name,
+    required this.bytes,
+    required this.mimeType,
+  });
+
+  final String name;
+  final Uint8List bytes;
+  final String mimeType;
+}
+
 enum AiApiProtocol { openAiChatCompletions, openAiResponses }
+
+/// 未声明不等于不支持；第三方模型不根据名称猜测图片能力。
+enum AiImageInput { unknown, supported, unsupported }
+
+class AiModelCatalog {
+  AiModelCatalog({
+    required List<String> models,
+    required Map<String, AiImageInput> imageInputs,
+  }) : models = List.unmodifiable(models),
+       imageInputs = Map.unmodifiable(imageInputs);
+  final List<String> models;
+  final Map<String, AiImageInput> imageInputs;
+}
 
 /// 显式选择官方预设；已有服务不会因域名相同而自动切换类型。
 enum AiServicePreset {
@@ -63,7 +90,12 @@ class AiModelService {
     required this.baseUrl,
     required List<String> models,
     this.preset = AiServicePreset.custom,
-  }) : models = List.unmodifiable(models);
+    Map<String, AiImageInput> imageInputs = const {},
+  }) : models = List.unmodifiable(models),
+       imageInputs = Map.unmodifiable({
+         for (final model in models)
+           if (imageInputs.containsKey(model)) model: imageInputs[model]!,
+       });
 
   final String id;
   final String name;
@@ -71,6 +103,9 @@ class AiModelService {
   final String baseUrl;
   final List<String> models;
   final AiServicePreset preset;
+  final Map<String, AiImageInput> imageInputs;
+  AiImageInput imageInputFor(String model) =>
+      imageInputs[model] ?? AiImageInput.unknown;
 
   String get host => Uri.parse(baseUrl).authority;
 
@@ -81,6 +116,9 @@ class AiModelService {
     'baseUrl': baseUrl,
     'models': models,
     'preset': preset.name,
+    'discoveredImageInputs': {
+      for (final entry in imageInputs.entries) entry.key: entry.value.name,
+    },
   };
 
   factory AiModelService.fromJson(Map<String, dynamic> json) {
@@ -99,6 +137,16 @@ class AiModelService {
       protocol: protocol,
       baseUrl: json['baseUrl'] as String,
       models: (json['models'] as List).cast<String>(),
+      imageInputs: {
+        // 旧 imageInputs 可能来自手动设置，不用作自动能力判断。
+        if (json['discoveredImageInputs'] case final Map entries)
+          for (final entry in entries.entries)
+            if (entry.key is String)
+              entry.key as String: AiImageInput.values.firstWhere(
+                (value) => value.name == entry.value,
+                orElse: () => AiImageInput.unknown,
+              ),
+      },
       preset: AiServicePreset.values.firstWhere(
         (preset) => preset.name == json['preset'],
         orElse: () => AiServicePreset.custom,
@@ -118,6 +166,7 @@ enum AiProblem {
   invalidResponse,
   request,
   timeout,
+  imageUnsupported,
 }
 
 class AiConfigurationException implements Exception {
@@ -183,6 +232,7 @@ class AiMessage {
     this.requestError,
     this.retries = const [],
     this.processEvents = const [],
+    this.attachments = const [],
   });
 
   final String id;
@@ -201,6 +251,7 @@ class AiMessage {
   final Object? requestError;
   final List<AiRequestRetry> retries;
   final List<AiProcessEvent> processEvents;
+  final List<AiImageAttachment> attachments;
 
   AiMessage copyWith({
     DateTime? createdAt,
@@ -215,6 +266,7 @@ class AiMessage {
     Object? requestError,
     List<AiRequestRetry>? retries,
     List<AiProcessEvent>? processEvents,
+    List<AiImageAttachment>? attachments,
   }) => AiMessage(
     id: id,
     role: role,
@@ -232,6 +284,7 @@ class AiMessage {
     requestError: requestError ?? this.requestError,
     retries: retries ?? this.retries,
     processEvents: processEvents ?? this.processEvents,
+    attachments: attachments ?? this.attachments,
   );
 }
 

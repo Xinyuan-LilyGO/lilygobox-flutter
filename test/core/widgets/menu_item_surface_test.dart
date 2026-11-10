@@ -2,7 +2,7 @@
  * @Description: 验证共用菜单表面的悬停渐变、选中禁用和点击波纹。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-10 16:54:59
  */
 
 import 'package:flutter/gestures.dart';
@@ -15,6 +15,75 @@ import 'package:lilygobox/core/widgets/menu_item_surface.dart';
 import 'package:lilygobox/core/widgets/popup_menu_transition.dart';
 
 void main() {
+  testWidgets(
+    'left click on the context menu anchor closes it and preserves the target action',
+    (tester) async {
+      final theme = ThemeProvider();
+      addTearDown(theme.dispose);
+      final controller = RightClickMenuController();
+      var clicks = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: Builder(
+                builder: (context) => RightClickMenuBuilder.buildMenuAnchor(
+                  context: context,
+                  controller: controller,
+                  theme: theme.themeData,
+                  onSecondaryTap: () {},
+                  menuItems: [
+                    RightClickMenuItem(
+                      label: 'Copy image',
+                      onTap: controller.close,
+                    ),
+                  ],
+                  child: GestureDetector(
+                    onTap: () => clicks++,
+                    child: const SizedBox(
+                      key: ValueKey('image-target'),
+                      width: 120,
+                      height: 90,
+                      child: ColoredBox(color: Colors.blue),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final rect = tester.getRect(find.byKey(const ValueKey('image-target')));
+      for (var i = 0; i < 2; i++) {
+        await tester.tapAt(
+          rect.topRight + const Offset(-10, 10),
+          buttons: kSecondaryMouseButton,
+        );
+        await tester.pumpAndSettle();
+        expect(controller.isOpen, isTrue);
+        final press = await tester.startGesture(
+          rect.topLeft + const Offset(10, 10),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pump();
+        expect(controller.isOpen, isFalse);
+        await press.up();
+        await tester.pumpAndSettle();
+        expect(find.text('Copy image'), findsNothing);
+        expect(clicks, i + 1);
+      }
+      await tester.tapAt(
+        rect.topRight + const Offset(-10, 10),
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Copy image'));
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isFalse);
+      expect(clicks, 2);
+    },
+  );
+
   testWidgets(
     'right-click menu opens once in 150ms and respects reduced motion',
     (tester) async {

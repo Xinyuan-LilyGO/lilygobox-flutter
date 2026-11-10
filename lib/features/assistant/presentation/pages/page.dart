@@ -2,7 +2,7 @@
  * @Description: 提供 LilygoBox AI 对话主页与设置操作确认。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-10 13:53:32
+ * @LastEditTime: 2026-11-10 18:15:07
  */
 
 import 'dart:ui' as ui;
@@ -17,8 +17,10 @@ import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/material_palette.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/action_button.dart';
+import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_scroll_behavior.dart';
 import '../../../../core/widgets/app_tooltip.dart';
+import '../../../../core/widgets/image_clipboard_menu.dart';
 import '../../../../core/widgets/interaction_decoration.dart';
 import '../../../../core/widgets/popup_menu_transition.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
@@ -43,6 +45,8 @@ class _AssistantPageState extends State<AssistantPage> {
   final _inputFocus = FocusNode();
   final _inputScroll = ScrollController();
   bool _showLatest = false;
+  int _scrollToEndVersion = 0;
+  List<AiImageAttachment> _attachments = const [];
 
   @override
   void initState() {
@@ -70,13 +74,26 @@ class _AssistantPageState extends State<AssistantPage> {
     required bool fromKeyboard,
   }) async {
     final text = _input.text;
-    if (text.trim().isEmpty || !assistant.canSendMessage) return;
+    if ((text.trim().isEmpty && _attachments.isEmpty) ||
+        !assistant.canSendMessage) {
+      return;
+    }
     if (!assistant.hasApiKey) {
       context.read<AppNavigationProvider>().openAiSettings();
       return;
     }
+    if ((_attachments.isNotEmpty && !assistant.canAcceptImages()) ||
+        !assistant.canSendImageHistory) {
+      showAppNotice(
+        ScaffoldMessenger.of(context),
+        context.l10n.aiImageUnsupported,
+      );
+      return;
+    }
     _input.clear();
-    final request = assistant.sendMessage(text);
+    final attachments = _attachments;
+    setState(() => _attachments = const []);
+    final request = assistant.sendMessage(text, attachments: attachments);
     if (fromKeyboard) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _inputFocus.requestFocus();
@@ -90,17 +107,38 @@ class _AssistantPageState extends State<AssistantPage> {
   }
 
   void _scrollToEnd() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _scroll.hasClients) {
-        if (MediaQuery.disableAnimationsOf(context)) {
-          _scroll.jumpTo(_scroll.position.maxScrollExtent);
+    final version = ++_scrollToEndVersion;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // 懒加载列表的总高度会随图片消息进入视口重新估算。
+      // 每次到达估算底部后等待布局，再校正到最新底部，无需再次点击。
+      for (var attempt = 0; attempt < 8; attempt++) {
+        if (!mounted || !_scroll.hasClients || version != _scrollToEndVersion) {
           return;
         }
-        _scroll.animateTo(
-          _scroll.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-        );
+        final target = _scroll.position.maxScrollExtent;
+        if (MediaQuery.disableAnimationsOf(context)) {
+          _scroll.jumpTo(target);
+        } else {
+          await _scroll.animateTo(
+            target,
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+          );
+        }
+        if (!mounted || !_scroll.hasClients || version != _scrollToEndVersion) {
+          return;
+        }
+        // 用户中途滚动取消动画时，不继续把他拉回底部。
+        if (_scroll.offset < target - 1 &&
+            _scroll.position.maxScrollExtent >= target) {
+          return;
+        }
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted || !_scroll.hasClients || version != _scrollToEndVersion) {
+          return;
+        }
+        _updateLatestButton();
+        if (_scroll.position.extentAfter <= 1) return;
       }
     });
   }
@@ -218,6 +256,9 @@ class _AssistantPageState extends State<AssistantPage> {
                             ready: ready,
                             onSend: (fromKeyboard) =>
                                 _send(assistant, fromKeyboard: fromKeyboard),
+                            attachments: _attachments,
+                            onAttachmentsChanged: (attachments) =>
+                                setState(() => _attachments = attachments),
                           ),
                         ),
                       ),
@@ -409,6 +450,8 @@ class _MessageView extends StatefulWidget {
 
 class _MessageViewState extends State<_MessageView> {
   bool _detailsExpanded = false;
+  bool _detailsHovered = false;
+  bool _detailsFocused = false;
   final _detailsScroll = ScrollController();
 
   @override
@@ -440,11 +483,47 @@ class _MessageViewState extends State<_MessageView> {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: isUser ? 12 : 14,
-                vertical: isUser ? 9 : 11,
+              padding: message.attachments.isNotEmpty
+                  ? const EdgeInsets.all(12)
+                  : EdgeInsets.symmetric(
+                      horizontal: isUser ? 12 : 14,
+                      vertical: isUser ? 9 : 11,
+                    ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (message.attachments.isNotEmpty)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final attachment in message.attachments)
+                          ImageClipboardMenu(
+                            bytes: attachment.bytes,
+                            theme: widget.theme,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: ColoredBox(
+                                color: widget.theme.secondary,
+                                child: Image.memory(
+                                  attachment.bytes,
+                                  width: 120,
+                                  height: 120,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  if (message.attachments.isNotEmpty &&
+                      message.content.isNotEmpty)
+                    const SizedBox(height: 8),
+                  // 纯图片消息不构建空正文，避免 SelectableText 占用一行高度。
+                  if (message.content.isNotEmpty || message.attachments.isEmpty)
+                    ChatMessageBody(message: message, theme: widget.theme),
+                ],
               ),
-              child: ChatMessageBody(message: message, theme: widget.theme),
             ),
           ),
         ),
@@ -466,32 +545,39 @@ class _MessageViewState extends State<_MessageView> {
         InkWell(
           key: ValueKey('ai-response-details-${message.id}'),
           onTap: () => setState(() => _detailsExpanded = !_detailsExpanded),
+          onHover: (hovered) => setState(() => _detailsHovered = hovered),
+          onFocusChange: (focused) => setState(() => _detailsFocused = focused),
+          mouseCursor: SystemMouseCursors.click,
+          hoverColor: Colors.transparent,
           borderRadius: BorderRadius.circular(4),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 7),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(
-                  child: Text(
-                    _responseStatusText(context, message),
-                    style: TextStyle(
-                      color: widget.theme.textColorTertiary,
-                      fontSize: 12,
+          child: InteractionDecoration.color(
+            palette: widget.theme,
+            color: _detailsHovered || _detailsFocused
+                ? widget.theme.textColorPrimary
+                : widget.theme.textColorTertiary,
+            builder: (context, color) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      _responseStatusText(context, message),
+                      style: TextStyle(color: color, fontSize: 12),
                     ),
                   ),
-                ),
-                const SizedBox(width: 4),
-                AnimatedRotation(
-                  turns: _detailsExpanded ? .25 : 0,
-                  duration: const Duration(milliseconds: 150),
-                  child: Icon(
-                    Symbols.chevron_right_rounded,
-                    size: 16,
-                    color: widget.theme.textColorTertiary,
+                  const SizedBox(width: 4),
+                  AnimatedRotation(
+                    turns: _detailsExpanded ? .25 : 0,
+                    duration: const Duration(milliseconds: 150),
+                    child: Icon(
+                      Symbols.chevron_right_rounded,
+                      size: 16,
+                      color: color,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

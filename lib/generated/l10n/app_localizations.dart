@@ -515,6 +515,42 @@ abstract class AppLocalizations {
   /// **'Ask a question, or describe a setting to change…'**
   String get aiInputHint;
 
+  /// No description provided for @aiAttachImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Attach images'**
+  String get aiAttachImage;
+
+  /// No description provided for @aiRemoveImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove image'**
+  String get aiRemoveImage;
+
+  /// No description provided for @aiCopyImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy image'**
+  String get aiCopyImage;
+
+  /// No description provided for @aiImageUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'This model is declared text-only. Switch models to send images or continue a conversation containing images. Your draft has been kept.'**
+  String get aiImageUnsupported;
+
+  /// No description provided for @aiCopyImageFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not copy the image. Please try again.'**
+  String get aiCopyImageFailed;
+
+  /// No description provided for @aiPasteImageFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not read clipboard images. Please try again.'**
+  String get aiPasteImageFailed;
+
   /// No description provided for @aiSend.
   ///
   /// In en, this message translates to:

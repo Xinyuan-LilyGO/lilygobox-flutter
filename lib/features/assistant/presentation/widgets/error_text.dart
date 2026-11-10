@@ -2,7 +2,7 @@
  * @Description: 将 AI 配置与请求错误映射为当前语言的可恢复提示。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-10 17:19:17
  */
 
 import 'dart:async';
@@ -23,6 +23,7 @@ String aiErrorText(AppLocalizations l10n, Object error) => switch (error) {
     AiProblem.invalidResponse => l10n.aiInvalidResponse,
     AiProblem.request => l10n.aiRequestFailed,
     AiProblem.timeout => l10n.aiRequestTimeout,
+    AiProblem.imageUnsupported => l10n.aiImageUnsupported,
   },
   TimeoutException() => l10n.aiRequestTimeout,
   // 服务端错误保留原文；本地错误始终使用本地化消息。

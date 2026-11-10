@@ -2,7 +2,7 @@
  * @Description: 渲染聊天 Markdown 正文、消息复制操作与固定发送时间。
  * @Author: LILYGO_L
  * @Date: 2026-11-09 15:26:28
- * @LastEditTime: 2026-11-10 14:30:57
+ * @LastEditTime: 2026-11-10 16:45:39
  */
 
 import 'dart:async';
@@ -211,7 +211,7 @@ class _ChatMessageActionsState extends State<ChatMessageActions> {
           icon: _copied ? Symbols.check_rounded : Symbols.content_copy_rounded,
           size: 25,
           iconSize: 15,
-          backgroundColor: theme.secondary,
+          backgroundColor: Colors.transparent,
           surfaceColor: theme.secondary,
           hoverColor: theme.interactionHoverColor(theme.secondary),
           iconColor: theme.textColorSecondary,

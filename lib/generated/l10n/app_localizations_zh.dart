@@ -224,6 +224,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiInputHint => '询问任何问题，或描述你想调整的设置…';
 
   @override
+  String get aiAttachImage => '添加图片';
+
+  @override
+  String get aiRemoveImage => '移除图片';
+
+  @override
+  String get aiCopyImage => '复制图片';
+
+  @override
+  String get aiImageUnsupported =>
+      '当前模型已声明仅支持文本，请切换模型后发送图片或继续含图片的对话。输入内容和附件已保留。';
+
+  @override
+  String get aiCopyImageFailed => '复制图片失败，请重试。';
+
+  @override
+  String get aiPasteImageFailed => '读取剪贴板图片失败，请重试。';
+
+  @override
   String get aiSend => '发送消息';
 
   @override
