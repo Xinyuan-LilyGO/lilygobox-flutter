@@ -1745,4 +1745,36 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiScrollToLatest => 'Scroll to latest message';
+
+  @override
+  String aiResponseReasoningEffort(String effort) {
+    return 'Reasoning effort: $effort';
+  }
+
+  @override
+  String get aiReasoningEffort => 'Reasoning effort';
+
+  @override
+  String get aiReasoningNone => 'Off';
+
+  @override
+  String get aiReasoningMinimal => 'Minimal';
+
+  @override
+  String get aiReasoningLow => 'Low';
+
+  @override
+  String get aiReasoningMedium => 'Medium';
+
+  @override
+  String get aiReasoningHigh => 'High';
+
+  @override
+  String get aiReasoningXhigh => 'Extra high';
+
+  @override
+  String get aiReasoningMax => 'Maximum';
+
+  @override
+  String get aiReasoningUltra => 'Ultra';
 }

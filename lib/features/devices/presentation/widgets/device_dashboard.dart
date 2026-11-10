@@ -2,7 +2,7 @@
  * @Description: 设备概览卡片布局，统一信息层级、控制区和自适应间距。
  * @Author: LILYGO_L
  * @Date: 2026-10-08 13:48:30
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-10 11:58:09
  */
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -10,6 +10,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/theme/material_palette.dart';
+import '../../../../core/widgets/app_capsule_slider.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/card_shadow.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
@@ -533,7 +534,7 @@ class DeviceDashboard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        _DashboardSlider(
+        AppCapsuleSlider(
           theme: theme,
           value: value,
           icon: brightnessControl ? Symbols.brightness_6 : Symbols.volume_up,
@@ -592,7 +593,7 @@ class DeviceDashboard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            _DashboardSlider(
+            AppCapsuleSlider(
               theme: theme,
               value: vibration,
               icon: Symbols.vibration,
@@ -1022,135 +1023,4 @@ class _BatteryGlowPainter extends CustomPainter {
       progress != oldDelegate.progress ||
       fill != oldDelegate.fill ||
       empty != oldDelegate.empty;
-}
-
-/// 原生 Slider 保留键盘、拖动及语义，视觉层采用 Android 快捷设置胶囊轨道。
-class _DashboardSlider extends StatelessWidget {
-  const _DashboardSlider({
-    required this.theme,
-    required this.value,
-    required this.icon,
-    required this.label,
-    required this.onChanged,
-  });
-  final AppTheme theme;
-  final double value;
-  final IconData icon;
-  final String label;
-  final ValueChanged<double>? onChanged;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    label: label,
-    child: SizedBox(
-      height: 36,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(
-                painter: _QuickSettingsTrackPainter(
-                  theme,
-                  value,
-                  icon,
-                  onChanged != null,
-                ),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                trackHeight: 36,
-                trackShape: const RectangularSliderTrackShape(),
-                activeTrackColor: Colors.transparent,
-                inactiveTrackColor: Colors.transparent,
-                thumbShape: SliderComponentShape.noThumb,
-                overlayShape: SliderComponentShape.noOverlay,
-                showValueIndicator: ShowValueIndicator.never,
-              ),
-              child: Slider(
-                value: value,
-                padding: EdgeInsets.zero,
-                onChanged: onChanged,
-                semanticFormatterCallback: (value) =>
-                    '${(value * 100).round()}%',
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-/// 以胶囊填充和末端内嵌图标呈现快捷设置滑条，交互仍交给原生 Slider。
-class _QuickSettingsTrackPainter extends CustomPainter {
-  const _QuickSettingsTrackPainter(
-    this.theme,
-    this.value,
-    this.icon,
-    this.enabled,
-  );
-
-  final AppTheme theme;
-  final double value;
-  final IconData icon;
-  final bool enabled;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final radius = Radius.circular(size.height / 2);
-    // 禁用时轨道和内部图标一起淡化，图标形状仍表示原本调节的功能。
-    Color trackColor(Color color) => enabled
-        ? color
-        : Color.alphaBlend(color.withValues(alpha: .4), theme.primary);
-    // 未填充区域是居中的细线，只有已填充部分使用完整高度的胶囊。
-    final track = Rect.fromLTWH(0, (size.height - 4) / 2, size.width, 4);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(track, const Radius.circular(2)),
-      Paint()
-        ..color = trackColor(
-          Color.alphaBlend(
-            theme.basePrimary.withValues(alpha: .13),
-            theme.secondary,
-          ),
-        ),
-    );
-    // 最低值也保留一枚圆形端点，容纳图标；填充末端随数值连续移动。
-    final minimum = size.height.clamp(0.0, size.width);
-    final width = minimum + (size.width - minimum) * value.clamp(0.0, 1.0);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, width, size.height), radius),
-      Paint()..color = trackColor(theme.basePrimary),
-    );
-    final text = TextPainter(
-      text: TextSpan(
-        text: String.fromCharCode(icon.codePoint),
-        style: TextStyle(
-          fontFamily: icon.fontFamily,
-          package: icon.fontPackage,
-          fontSize: 18,
-          color: enabled
-              ? theme.materialColors.onPrimary
-              : theme.inactiveIconColor,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    canvas.save();
-    canvas.translate(width - size.height / 2, size.height / 2);
-    // 图标跟随数值转动一圈，与拖动同步，不额外延迟滑条响应。
-    canvas.rotate(value.clamp(0.0, 1.0) * 6.283185307179586);
-    text.paint(canvas, Offset(-text.width / 2, -text.height / 2));
-    canvas.restore();
-    text.dispose();
-  }
-
-  @override
-  bool shouldRepaint(_QuickSettingsTrackPainter oldDelegate) =>
-      oldDelegate.theme != theme ||
-      oldDelegate.value != value ||
-      oldDelegate.icon != icon ||
-      oldDelegate.enabled != enabled;
 }

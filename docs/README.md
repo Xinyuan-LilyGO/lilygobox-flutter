@@ -14,6 +14,7 @@
 
 ## 功能说明
 
+- [AI 思考强度](ai-reasoning-effort.md)
 - [Windows 剪贴板历史粘贴](windows-clipboard-history.md)
 - [应用图标](app-icon.md)
 - [配置文件](configuration-file.md)

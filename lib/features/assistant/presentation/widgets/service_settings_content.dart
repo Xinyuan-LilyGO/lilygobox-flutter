@@ -2,10 +2,11 @@
  * @Description: 展示可排序的模型服务列表，并通过弹窗添加或编辑服务。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-10 14:20:16
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
@@ -211,6 +212,8 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
             sliver: SliverReorderableList(
               key: const ValueKey('ai-service-list'),
+              dragBoundaryProvider: _ServiceDragBoundary.new,
+              autoScrollerVelocityScalar: 500,
               itemCount: assistant.services.length,
               onReorder: (oldIndex, newIndex) => _reorder(
                 assistant,
@@ -363,6 +366,73 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 排序浮层限制在列表的可见区域；滚动时重新计算边界，避开上方标题和操作区。
+class _ServiceDragBoundary extends DragBoundaryDelegate<Rect> {
+  _ServiceDragBoundary(this.context);
+
+  final BuildContext context;
+
+  Rect? get _bounds {
+    final sliver = context.findRenderObject();
+    if (sliver is! RenderSliver || !sliver.attached) return null;
+    final viewport = RenderAbstractViewport.of(sliver);
+    final paintedBounds = MatrixUtils.transformRect(
+      sliver.getTransformTo(null),
+      sliver.paintBounds,
+    );
+    final geometry = sliver.geometry!;
+    final listBounds = Rect.fromLTRB(
+      paintedBounds.left,
+      paintedBounds.top - (sliver.constraints.scrollOffset > 0 ? 2 : 0),
+      paintedBounds.right,
+      paintedBounds.bottom +
+          (geometry.scrollExtent >
+                  sliver.constraints.scrollOffset + geometry.paintExtent
+              ? 2
+              : 0),
+    );
+    final viewportBounds = MatrixUtils.transformRect(
+      viewport.getTransformTo(null),
+      viewport.paintBounds,
+    );
+    // Flutter 自动滚动要求浮层越过视口至少 1px；保留 2px 边缘触发带，
+    // 同时仍受列表本身的边界约束，不会越过标题区或列表末尾。
+    return listBounds.intersect(
+      Rect.fromLTRB(
+        viewportBounds.left,
+        viewportBounds.top - 2,
+        viewportBounds.right,
+        viewportBounds.bottom + 2,
+      ),
+    );
+  }
+
+  @override
+  bool isWithinBoundary(Rect draggedObject) =>
+      nearestPositionWithinBoundary(draggedObject) == draggedObject;
+
+  @override
+  Rect nearestPositionWithinBoundary(Rect draggedObject) {
+    final bounds = _bounds;
+    if (bounds == null || bounds.isEmpty) return draggedObject;
+    // 极小窗口中可见区域可能比卡片小，固定起点，避免无效 clamp 范围。
+    final maxLeft = (bounds.right - draggedObject.width).clamp(
+      bounds.left,
+      double.infinity,
+    );
+    final maxTop = (bounds.bottom - draggedObject.height).clamp(
+      bounds.top,
+      double.infinity,
+    );
+    return Rect.fromLTWH(
+      draggedObject.left.clamp(bounds.left, maxLeft),
+      draggedObject.top.clamp(bounds.top, maxTop),
+      draggedObject.width,
+      draggedObject.height,
     );
   }
 }

@@ -2,7 +2,7 @@
  * @Description: 验证 AI 的低风险设置工具调用会立即执行并返回结果。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 15:27:53
+ * @LastEditTime: 2026-11-10 13:53:32
  */
 
 import 'dart:async';
@@ -16,6 +16,7 @@ import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
+import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 
 import 'assistant_test_scope.dart';
 
@@ -70,9 +71,10 @@ void main() {
         name: 'Test',
         protocol: AiApiProtocol.openAiChatCompletions,
         baseUrl: 'https://example.test/v1',
-        models: ['test'],
+        models: ['o3'],
         apiKey: 'key',
       );
+      await scope.provider.setReasoningEffort(AiReasoningEffort.high);
       final send = scope.provider.sendMessage('Switch to dark.');
       void event(Map<String, Object?> delta) => stream.add(
         utf8.encode(
@@ -86,7 +88,13 @@ void main() {
       event({'reasoning_content': 'Inspect '});
       event({'reasoning_content': 'the setting.'});
       await Future<void>.delayed(const Duration(milliseconds: 40));
+      await scope.provider.setReasoningEffort(AiReasoningEffort.low);
+      expect(
+        scope.provider.configuration.reasoningEffort,
+        AiReasoningEffort.low,
+      );
       final live = scope.provider.messages.last;
+      expect(live.reasoningEffort, AiReasoningEffort.high);
       expect(live.createdAt, isNotNull);
       expect(scope.provider.messages.first.createdAt, isNotNull);
       expect(live.content, isEmpty);
@@ -121,6 +129,10 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
       expect(requests, hasLength(2));
+      expect(
+        requests.map((request) => request['reasoning_effort']),
+        everyElement('high'),
+      );
       expect(theme.currentTheme, ThemeType.dark);
       expect(
         scope.provider.messages.last.status,
@@ -135,6 +147,11 @@ void main() {
       await send;
       final reply = scope.provider.messages.last;
       expect(reply.content, 'Done.');
+      expect(reply.reasoningEffort, AiReasoningEffort.high);
+      expect(
+        reply.copyWith(content: 'Updated').reasoningEffort,
+        AiReasoningEffort.high,
+      );
       expect(reply.createdAt, live.createdAt);
       expect(reply.copyWith(content: 'Updated').createdAt, live.createdAt);
       expect(
@@ -175,6 +192,7 @@ void main() {
       );
       final previous = reply.processEvents;
       await scope.provider.sendMessage('Another question');
+      expect(requests.last['reasoning_effort'], 'low');
       expect(scope.provider.messages[1].processEvents, previous);
     },
   );

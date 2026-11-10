@@ -3142,6 +3142,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Scroll to latest message'**
   String get aiScrollToLatest;
+
+  /// No description provided for @aiResponseReasoningEffort.
+  ///
+  /// In en, this message translates to:
+  /// **'Reasoning effort: {effort}'**
+  String aiResponseReasoningEffort(String effort);
+
+  /// No description provided for @aiReasoningEffort.
+  ///
+  /// In en, this message translates to:
+  /// **'Reasoning effort'**
+  String get aiReasoningEffort;
+
+  /// No description provided for @aiReasoningNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get aiReasoningNone;
+
+  /// No description provided for @aiReasoningMinimal.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimal'**
+  String get aiReasoningMinimal;
+
+  /// No description provided for @aiReasoningLow.
+  ///
+  /// In en, this message translates to:
+  /// **'Low'**
+  String get aiReasoningLow;
+
+  /// No description provided for @aiReasoningMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium'**
+  String get aiReasoningMedium;
+
+  /// No description provided for @aiReasoningHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'High'**
+  String get aiReasoningHigh;
+
+  /// No description provided for @aiReasoningXhigh.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra high'**
+  String get aiReasoningXhigh;
+
+  /// No description provided for @aiReasoningMax.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum'**
+  String get aiReasoningMax;
+
+  /// No description provided for @aiReasoningUltra.
+  ///
+  /// In en, this message translates to:
+  /// **'Ultra'**
+  String get aiReasoningUltra;
 }
 
 class _AppLocalizationsDelegate

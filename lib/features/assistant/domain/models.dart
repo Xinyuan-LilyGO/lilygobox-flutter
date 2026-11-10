@@ -2,8 +2,10 @@
  * @Description: 定义 AI 服务配置、会话消息与待确认的设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 15:25:35
+ * @LastEditTime: 2026-11-10 13:53:32
  */
+
+import 'reasoning.dart';
 
 enum AiApiProtocol { openAiChatCompletions, openAiResponses }
 
@@ -31,20 +33,24 @@ class AiServiceConfiguration {
     this.protocol = AiApiProtocol.openAiChatCompletions,
     this.baseUrl = '',
     this.model = '',
+    this.reasoningEffort,
   });
 
   final AiApiProtocol protocol;
   final String baseUrl;
   final String model;
+  final AiReasoningEffort? reasoningEffort;
 
   AiServiceConfiguration copyWith({
     AiApiProtocol? protocol,
     String? baseUrl,
     String? model,
+    AiReasoningEffort? reasoningEffort,
   }) => AiServiceConfiguration(
     protocol: protocol ?? this.protocol,
     baseUrl: baseUrl ?? this.baseUrl,
     model: model ?? this.model,
+    reasoningEffort: reasoningEffort ?? this.reasoningEffort,
   );
 }
 
@@ -170,6 +176,7 @@ class AiMessage {
     this.toolDecision,
     this.elapsed,
     this.model,
+    this.reasoningEffort,
     this.protocol,
     this.processingSteps = const [],
     this.status,
@@ -187,6 +194,7 @@ class AiMessage {
   final bool? toolDecision;
   final Duration? elapsed;
   final String? model;
+  final AiReasoningEffort? reasoningEffort;
   final AiApiProtocol? protocol;
   final List<AiProcessingStep> processingSteps;
   final AiResponseStatus? status;
@@ -200,6 +208,7 @@ class AiMessage {
     bool? toolDecision,
     Duration? elapsed,
     String? model,
+    AiReasoningEffort? reasoningEffort,
     AiApiProtocol? protocol,
     List<AiProcessingStep>? processingSteps,
     AiResponseStatus? status,
@@ -216,6 +225,7 @@ class AiMessage {
     toolDecision: toolDecision ?? this.toolDecision,
     elapsed: elapsed ?? this.elapsed,
     model: model ?? this.model,
+    reasoningEffort: reasoningEffort ?? this.reasoningEffort,
     protocol: protocol ?? this.protocol,
     processingSteps: processingSteps ?? this.processingSteps,
     status: status ?? this.status,

@@ -2,7 +2,7 @@
  * @Description: 验证模型服务列表排序、确认添加、取消、编辑与删除。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 10:36:06
+ * @LastEditTime: 2026-11-10 14:20:16
  */
 
 import 'dart:async';
@@ -347,6 +347,97 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('service dragging stays inside the list on every edge', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1120, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final name in ['First', 'Second', 'Third']) {
+      await scope.provider.saveService(
+        name: name,
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['model-a'],
+        apiKey: 'test-key',
+      );
+    }
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    final id = scope.provider.services.first.id;
+    final card = find.byKey(ValueKey('ai-service-card-$id'));
+    final firstRect = tester.getRect(card);
+    final lastRect = tester.getRect(
+      find.byKey(
+        ValueKey('ai-service-card-${scope.provider.services.last.id}'),
+      ),
+    );
+    final drag = await tester.startGesture(
+      tester.getCenter(find.byKey(ValueKey('ai-drag-service-$id'))),
+      kind: ui.PointerDeviceKind.mouse,
+    );
+    await tester.pump();
+    await drag.moveTo(const Offset(-300, -300));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.getRect(card).top, closeTo(firstRect.top, .1));
+    expect(tester.getRect(card).left, closeTo(firstRect.left, .1));
+    final addRect = tester.getRect(
+      find.byKey(const ValueKey('ai-add-service')),
+    );
+    expect(tester.getRect(card).top, greaterThan(addRect.bottom));
+    await drag.moveTo(const Offset(1500, 1200));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.getRect(card).right, closeTo(firstRect.right, .1));
+    expect(tester.getRect(card).bottom, closeTo(lastRect.bottom, .1));
+    await drag.up();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('bounded service dragging still scrolls long lists', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1120, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (var index = 0; index < 16; index++) {
+      await scope.provider.saveService(
+        name: 'Service $index',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['model-a'],
+        apiKey: 'test-key',
+      );
+    }
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    final id = scope.provider.services.first.id;
+    final card = find.byKey(ValueKey('ai-service-card-$id'));
+    final drag = await tester.startGesture(
+      tester.getCenter(find.byKey(ValueKey('ai-drag-service-$id'))),
+      kind: ui.PointerDeviceKind.mouse,
+    );
+    await tester.pump();
+    await drag.moveTo(const Offset(80, 900));
+    for (var frame = 0; frame < 30; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    final scrollable = tester.state<ScrollableState>(
+      find.byType(Scrollable).first,
+    );
+    expect(scrollable.position.pixels, greaterThan(0));
+    expect(tester.getRect(card).bottom, lessThanOrEqualTo(602));
+    await drag.moveTo(const Offset(80, -300));
+    for (var frame = 0; frame < 60; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    final addRect = tester.getRect(
+      find.byKey(const ValueKey('ai-add-service')),
+    );
+    expect(tester.getRect(card).top, greaterThanOrEqualTo(addRect.bottom));
+    await drag.up();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('dragging a service updates the shared model selector order', (
     tester,

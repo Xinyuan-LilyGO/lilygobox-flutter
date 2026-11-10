@@ -2,7 +2,7 @@
  * @Description: 管理 AI 服务配置、对话、请求状态和 AI 设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 15:25:35
+ * @LastEditTime: 2026-11-10 13:53:32
  */
 
 import 'dart:async';
@@ -16,6 +16,7 @@ import '../data/credential_store.dart';
 import '../data/model_service_repository.dart';
 import '../data/settings_tool_handler.dart';
 import '../domain/models.dart';
+import '../domain/reasoning.dart';
 
 class AiAssistantProvider extends ChangeNotifier {
   AiAssistantProvider({
@@ -64,10 +65,15 @@ class AiAssistantProvider extends ChangeNotifier {
   List<AiModelService> get services => _repository.services;
   AiModelService? get selectedService => _repository.selectedService;
   String? get selectedModel => _repository.selectedModel;
+  AiReasoningEffort? get reasoningEffort =>
+      selectedService == null || selectedModel == null
+      ? null
+      : _repository.effortFor(selectedService!.id, selectedModel!);
   AiServiceConfiguration get configuration => AiServiceConfiguration(
     protocol: selectedService?.protocol ?? AiApiProtocol.openAiChatCompletions,
     baseUrl: selectedService?.baseUrl ?? '',
     model: selectedModel ?? '',
+    reasoningEffort: reasoningEffort,
   );
   List<AiMessage> get messages => List.unmodifiable(_messages);
   bool get credentialLoaded => _credentialLoaded;
@@ -143,6 +149,16 @@ class AiAssistantProvider extends ChangeNotifier {
 
   Future<void> selectModel(String serviceId, String model) =>
       _change(() => _repository.select(serviceId, model));
+
+  Future<void> setReasoningEffort(AiReasoningEffort? effort) =>
+      _change(() async {
+        final service = selectedService;
+        final model = selectedModel;
+        if (service == null || model == null) {
+          throw const AiConfigurationException(AiProblem.noService);
+        }
+        await _repository.setReasoningEffort(service.id, model, effort);
+      });
 
   Future<void> reorderServices(int oldIndex, int newIndex) =>
       _change(() => _repository.reorder(oldIndex, newIndex));
@@ -619,6 +635,7 @@ class AiAssistantProvider extends ChangeNotifier {
     createdAt: message.createdAt ?? _activeMessageCreatedAt,
     elapsed: _turnStopwatch.elapsed,
     model: _activeConfiguration?.model,
+    reasoningEffort: _activeConfiguration?.reasoningEffort,
     protocol: _activeConfiguration?.protocol,
     processingSteps: List.unmodifiable(_activeProcessingSteps),
     status: _paused ? AiResponseStatus.paused : _activeStatus,

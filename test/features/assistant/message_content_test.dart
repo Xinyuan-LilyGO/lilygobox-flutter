@@ -2,7 +2,7 @@
  * @Description: 验证聊天 Markdown、跨段落选择、原文复制及消息时间布局。
  * @Author: LILYGO_L
  * @Date: 2026-11-09 15:27:53
- * @LastEditTime: 2026-11-09 16:19:35
+ * @LastEditTime: 2026-11-10 14:30:57
  */
 
 import 'dart:io';
@@ -20,8 +20,162 @@ import 'package:lilygobox/core/theme/material_palette.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/message_content.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
+import 'package:provider/provider.dart';
 
 void main() {
+  for (final kind in ['user', 'markdown', 'wide-code']) {
+    testWidgets(
+      'clicking outside clears $kind selection and keeps menu copying',
+      (tester) async {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        final theme = ThemeProvider();
+        addTearDown(theme.dispose);
+        final selectedText = kind == 'wide-code'
+            ? '${List.filled(30, 'alpha beta ').join()}\n'
+            : 'Alpha beta gamma';
+        final message = AiMessage(
+          id: 'selected',
+          role: kind == 'user' ? 'user' : 'assistant',
+          content: kind == 'wide-code'
+              ? '```text\n$selectedText```'
+              : selectedText,
+        );
+        String? copied;
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          (call) async {
+            if (call.method == 'Clipboard.setData')
+              copied = (call.arguments as Map)['text'] as String;
+            if (call.method == 'Clipboard.hasStrings') return {'value': true};
+            return null;
+          },
+        );
+        addTearDown(() {
+          ContextMenuController.removeAny();
+          tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            null,
+          );
+        });
+        await tester.pumpWidget(
+          ChangeNotifierProvider.value(
+            value: theme,
+            child: MaterialApp(
+              locale: const Locale('en'),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: Scaffold(
+                body: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(
+                      width: 80,
+                      child: ColoredBox(color: Colors.transparent),
+                    ),
+                    Expanded(
+                      child: Center(
+                        child: SizedBox(
+                          width: 300,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ChatMessageBody(
+                                message: message,
+                                theme: theme.themeData,
+                              ),
+                              const SizedBox(height: 30),
+                              const TextField(key: ValueKey('draft')),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final body = find.byType(ChatMessageBody);
+        bool hasSelection() {
+          final paragraphs = find.descendant(
+            of: body,
+            matching: find.byType(RichText),
+          );
+          for (final element in paragraphs.evaluate()) {
+            if ((element.renderObject! as RenderParagraph).selections.any(
+              (selection) => !selection.isCollapsed,
+            ))
+              return true;
+          }
+          final editors = find.descendant(
+            of: body,
+            matching: find.byType(EditableText),
+          );
+          return editors.evaluate().any(
+            (element) => !(element.widget as EditableText)
+                .controller
+                .selection
+                .isCollapsed,
+          );
+        }
+
+        final text = find.text(selectedText).first;
+        Future<void> select() async {
+          final rect = tester.getRect(text);
+          final start = rect.topLeft + const Offset(2, 8);
+          await tester.dragFrom(
+            start,
+            const Offset(80, 0),
+            kind: PointerDeviceKind.mouse,
+          );
+          await tester.pumpAndSettle();
+          expect(hasSelection(), isTrue);
+        }
+
+        await select();
+        await tester.tapAt(
+          tester.getTopLeft(text) + const Offset(30, 8),
+          buttons: kSecondaryMouseButton,
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        expect(hasSelection(), isTrue);
+        await tester.tap(find.text('Copy'));
+        await tester.pumpAndSettle();
+        expect(copied, isNotEmpty);
+        await select();
+        await tester.tapAt(
+          const Offset(20, 300),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        expect(hasSelection(), isFalse);
+        await select();
+        await tester.tap(find.byKey(const ValueKey('draft')));
+        await tester.pumpAndSettle();
+        expect(hasSelection(), isFalse);
+        expect(
+          tester
+              .widget<EditableText>(
+                find.descendant(
+                  of: find.byKey(const ValueKey('draft')),
+                  matching: find.byType(EditableText),
+                ),
+              )
+              .focusNode
+              .hasFocus,
+          isTrue,
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
+  }
+
   const markdown =
       '## Heading\n\n**Bold** and `inline` and [link](https://example.com)\n\n- First\n- Second\n\n'
       '> Quote\n\n```dart\nprint("hello");\n```\n\n```text\n  Keep indentation  \nNext line\n```\n\n'

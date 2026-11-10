@@ -558,5 +558,16 @@
     "aiOpenLinkFailed": "无法打开此链接。",
     "aiCopyCode": "复制代码",
     "aiPlainText": "纯文本",
-    "aiScrollToLatest": "回到最新消息"
+    "aiScrollToLatest": "回到最新消息",
+    "aiResponseReasoningEffort": "思考强度：{effort}",
+    "@aiResponseReasoningEffort": {"placeholders": {"effort": {"type": "String"}}},
+    "aiReasoningEffort": "思考强度",
+    "aiReasoningNone": "关闭",
+    "aiReasoningMinimal": "极低",
+    "aiReasoningLow": "低",
+    "aiReasoningMedium": "中",
+    "aiReasoningHigh": "高",
+    "aiReasoningXhigh": "超高",
+    "aiReasoningMax": "最大",
+    "aiReasoningUltra": "极高"
 }

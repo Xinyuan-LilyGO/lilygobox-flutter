@@ -2,13 +2,14 @@
  * @Description: 持久化已添加的模型服务、独立密钥与模型选择，并迁移已有的显式配置。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-10 13:53:32
  */
 
 import 'dart:convert';
 
 import '../../../core/storage/preferences.dart';
 import '../domain/models.dart';
+import '../domain/reasoning.dart';
 import 'credential_store.dart';
 
 class ModelServiceRepository {
@@ -20,11 +21,44 @@ class ModelServiceRepository {
   final Map<String, String> _keys = {};
   String? _selectedId;
   String? _model;
+  Map<String, String> _reasoningEfforts = {};
   int _sequence = 0;
 
   List<AiModelService> get services => List.unmodifiable(_services);
   String? get selectedId => _selectedId;
   String? get selectedModel => _model;
+  AiReasoningEffort? effortFor(String id, String model) {
+    if (find(id)?.models.contains(model) != true) return null;
+    final saved = _reasoningEfforts[jsonEncode([id, model])];
+    final capabilities = AiReasoningCapabilities.forModel(model);
+    return capabilities.levels
+            .where((effort) => effort.name == saved)
+            .firstOrNull ??
+        capabilities.initialEffort;
+  }
+
+  Future<void> setReasoningEffort(
+    String id,
+    String model,
+    AiReasoningEffort? effort,
+  ) async {
+    final service = find(id);
+    if (service == null ||
+        !service.models.contains(model) ||
+        (effort != null &&
+            !AiReasoningCapabilities.forModel(model).levels.contains(effort))) {
+      throw const AiConfigurationException(AiProblem.noService);
+    }
+    final next = {..._reasoningEfforts};
+    final key = jsonEncode([id, model]);
+    if (effort == null) {
+      next.remove(key);
+    } else {
+      next[key] = effort.name;
+    }
+    await _persist(_services, _selectedId, _model, reasoningEfforts: next);
+  }
+
   AiModelService? get selectedService => find(_selectedId);
   String? keyFor(String? id) => _keys[id];
   AiModelService? find(String? id) {
@@ -75,6 +109,19 @@ class ModelServiceRepository {
         _model = models.contains(json['model'])
             ? json['model'] as String
             : models.firstOrNull;
+        final efforts = json['reasoningEfforts'];
+        _reasoningEfforts = {
+          if (efforts is Map)
+            for (final entry in efforts.entries)
+              if (entry.key is String && entry.value is String)
+                entry.key as String: entry.value as String,
+        };
+        if (_selectedId != null &&
+            _model != null &&
+            AiReasoningCapabilities.forModel(_model!).levels.isNotEmpty &&
+            !_reasoningEfforts.containsKey(jsonEncode([_selectedId, _model]))) {
+          await _persist(_services, _selectedId, _model);
+        }
       } catch (_) {
         _services = [];
         _keys.clear();
@@ -213,8 +260,25 @@ class ModelServiceRepository {
   Future<void> _persist(
     List<AiModelService> services,
     String? id,
-    String? model,
-  ) async {
+    String? model, {
+    Map<String, String>? reasoningEfforts,
+  }) async {
+    final sourceEfforts = reasoningEfforts ?? _reasoningEfforts;
+    final nextEfforts = <String, String>{
+      for (final service in services)
+        for (final model in service.models)
+          if (AiReasoningCapabilities.forModel(model).levels.isNotEmpty)
+            jsonEncode([service.id, model]):
+                AiReasoningCapabilities.forModel(model).levels
+                    .where(
+                      (effort) =>
+                          effort.name ==
+                          sourceEfforts[jsonEncode([service.id, model])],
+                    )
+                    .firstOrNull
+                    ?.name ??
+                AiReasoningCapabilities.forModel(model).initialEffort!.name,
+    };
     final previous = _preferences.stringValue(catalogKey, '');
     _preferences.setValue(
       catalogKey,
@@ -222,6 +286,7 @@ class ModelServiceRepository {
         'services': services.map((item) => item.toJson()).toList(),
         'selectedId': id,
         'model': model,
+        'reasoningEfforts': nextEfforts,
       }),
     );
     if (!await _preferences.flush()) {
@@ -231,5 +296,6 @@ class ModelServiceRepository {
     _services = services;
     _selectedId = id;
     _model = model;
+    _reasoningEfforts = nextEfforts;
   }
 }

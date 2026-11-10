@@ -2,7 +2,7 @@
  * @Description: 调用 OpenAI 兼容 Chat Completions 并解析设置工具调用。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 11:35:10
+ * @LastEditTime: 2026-11-10 11:58:09
  */
 
 import 'dart:async';
@@ -11,6 +11,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../domain/models.dart';
+import '../domain/reasoning.dart';
 
 class AiRequestException implements Exception {
   const AiRequestException(this.message, {this.statusCode, this.retryAfter});
@@ -184,6 +185,12 @@ class ChatCompletionClient {
           ..body = jsonEncode({
             'model': configuration.model,
             'stream': true,
+            ...AiReasoningCapabilities.forModel(
+              configuration.model,
+            ).requestParameters(
+              configuration.reasoningEffort,
+              responses: responses,
+            ),
             if (responses)
               ..._responsesRequest(messages, tools, maxTokens)
             else ...{

@@ -2,7 +2,7 @@
  * @Description: 验证 AI 主页居中与底部输入状态、键盘发送、直达设置及缩放布局。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:16:04
- * @LastEditTime: 2026-11-10 10:45:12
+ * @LastEditTime: 2026-11-10 13:53:32
  */
 
 import 'dart:async';
@@ -26,8 +26,10 @@ import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/theme/material_palette.dart';
 import 'package:lilygobox/core/widgets/app_scroll_behavior.dart';
+import 'package:lilygobox/core/widgets/app_capsule_slider.dart';
 import 'package:lilygobox/core/widgets/title_bar_icon_button.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
+import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 import 'package:lilygobox/features/assistant/presentation/pages/page.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_composer.dart';
 import 'package:lilygobox/features/assistant/state/provider.dart';
@@ -972,6 +974,153 @@ void main() {
       }
     },
   );
+
+  testWidgets(
+    'reasoning opens first, fades to models and preserves concrete effort choices',
+    (tester) async {
+      await tester.runAsync(() => scope.provider.initialized);
+      final service = await scope.provider.saveService(
+        name: 'Reasoning service',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['o3', 'plain'],
+        apiKey: 'key',
+      );
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      final trigger = find.byKey(const ValueKey('ai-model-selector'));
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('ai-model-list-panel')), findsNothing);
+      expect(find.byKey(const ValueKey('ai-reasoning-panel')), findsOneWidget);
+      final slider = find.byType(Slider);
+      expect(
+        tester
+            .widget<AppCapsuleSlider>(
+              find.byKey(const ValueKey('ai-reasoning-slider')),
+            )
+            .divisions,
+        2,
+      );
+      expect(find.text('Default'), findsNothing);
+      expect(find.byKey(const ValueKey('ai-reasoning-reset')), findsNothing);
+      final rect = tester.getRect(slider);
+      await tester.tapAt(Offset(rect.right - 2, rect.center.dy));
+      await tester.pumpAndSettle();
+      expect(scope.provider.reasoningEffort, AiReasoningEffort.high);
+      expect(find.text('o3 · High'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('ai-reasoning-models')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 75));
+      final listFade = tester.widget<FadeTransition>(
+        find
+            .ancestor(
+              of: find.byKey(const ValueKey('ai-model-list-panel')),
+              matching: find.byType(FadeTransition),
+            )
+            .first,
+      );
+      expect(listFade.opacity.value, greaterThan(0));
+      expect(listFade.opacity.value, lessThan(1));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey('ai-model-$service-plain')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('ai-reasoning-panel')), findsNothing);
+      expect(scope.provider.reasoningEffort, isNull);
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey('ai-model-$service-o3')));
+      await tester.pumpAndSettle();
+      expect(scope.provider.reasoningEffort, AiReasoningEffort.high);
+      expect(find.byKey(const ValueKey('ai-reasoning-reset')), findsNothing);
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('ai-reasoning-panel')), findsOneWidget);
+      expect(tester.widget<Slider>(slider).value, 1);
+      expect(scope.provider.selectedModel, 'o3');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'turn details retain the model and effort used for that request',
+    (tester) async {
+      await tester.runAsync(() => scope.provider.initialized);
+      await scope.provider.saveService(
+        name: 'Reasoning service',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['o3', 'plain'],
+        apiKey: 'key',
+      );
+      await scope.provider.setReasoningEffort(AiReasoningEffort.high);
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => scope.provider.sendMessage('Hello'));
+      await pumpAssistantUntilIdle(tester);
+      final reply = scope.provider.messages.last;
+      await scope.provider.setReasoningEffort(AiReasoningEffort.low);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(ValueKey('ai-response-effort-${reply.id}')),
+        findsNothing,
+      );
+      await tester.tap(find.byKey(ValueKey('ai-response-details-${reply.id}')));
+      await tester.pumpAndSettle();
+      expect(find.text('Model: o3'), findsOneWidget);
+      expect(find.text('Reasoning effort: High'), findsOneWidget);
+      expect(find.text('Reasoning effort: Low'), findsNothing);
+      final modelRect = tester.getRect(find.text('Model: o3'));
+      final effortRect = tester.getRect(find.text('Reasoning effort: High'));
+      expect(effortRect.left, modelRect.left);
+      expect(effortRect.top, greaterThan(modelRect.bottom));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('reasoning popup fits narrow windows in both languages', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(() => scope.provider.initialized);
+    await scope.provider.saveService(
+      name: 'DeepSeek',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://example.test/v1',
+      models: ['deepseek-flash'],
+      apiKey: 'key',
+    );
+    for (final type in ThemeType.values) {
+      theme.setTheme(type);
+      for (final locale in ['en', 'zh']) {
+        await tester.pumpWidget(app(scale: 1.6, locale: locale));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('ai-model-selector')));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('ai-reasoning-panel')),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<AppCapsuleSlider>(
+                find.byKey(const ValueKey('ai-reasoning-slider')),
+              )
+              .divisions,
+          3,
+        );
+        expect(tester.takeException(), isNull);
+        await capture(tester, 'reasoning-${type.name}-$locale');
+        await tester.tapAt(const Offset(10, 10));
+        await tester.pumpAndSettle();
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+  });
 
   testWidgets(
     'empty model menu shows its empty state without a duplicate service shortcut',

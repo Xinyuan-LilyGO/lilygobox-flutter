@@ -2,22 +2,26 @@
  * @Description: 为主页提供右键菜单风格的服务分组模型菜单与设备风格搜索框。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-10 10:45:12
+ * @LastEditTime: 2026-11-10 13:53:32
  */
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/theme/material_palette.dart';
+import '../../../../core/widgets/app_capsule_slider.dart';
 import '../../../../core/widgets/app_scroll_behavior.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/popup_menu_surface.dart';
 import '../../../../core/widgets/popup_menu_transition.dart';
 import '../../domain/models.dart';
+import '../../domain/reasoning.dart';
 import '../../state/provider.dart';
 import 'error_text.dart';
+import 'reasoning_effort_label.dart';
 
 class ModelSelector extends StatefulWidget {
   const ModelSelector({
@@ -39,6 +43,8 @@ class _ModelSelectorState extends State<ModelSelector> {
   final _scroll = ScrollController();
   Object? _error;
   int _openRevision = 0;
+  String? _reasoningModel;
+  int _effortIndex = 0;
 
   @override
   void dispose() {
@@ -52,11 +58,143 @@ class _ModelSelectorState extends State<ModelSelector> {
     try {
       await widget.assistant.selectModel(service.id, model);
       if (!mounted) return;
-      _menu.close();
-      setState(() => _error = null);
+      if (AiReasoningCapabilities.forModel(model).levels.isEmpty) {
+        _menu.close();
+      }
+      setState(() {
+        _error = null;
+        _reasoningModel = AiReasoningCapabilities.forModel(model).levels.isEmpty
+            ? null
+            : model;
+        _effortIndex = _effortOptions.indexWhere(
+          (effort) => effort == widget.assistant.reasoningEffort,
+        );
+      });
     } catch (error) {
       if (mounted) setState(() => _error = error);
     }
+  }
+
+  List<AiReasoningEffort> get _effortOptions =>
+      AiReasoningCapabilities.forModel(_reasoningModel ?? '').levels;
+
+  Future<void> _saveEffort() async {
+    try {
+      await widget.assistant.setReasoningEffort(_effortOptions[_effortIndex]);
+      if (mounted) setState(() => _error = null);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+          _effortIndex = _effortOptions.indexWhere(
+            (effort) => effort == widget.assistant.reasoningEffort,
+          );
+        });
+      }
+    }
+  }
+
+  Widget _reasoningContent() {
+    final theme = widget.theme;
+    final l10n = context.l10n;
+    final options = _effortOptions;
+    final index = _effortIndex.clamp(0, options.length - 1);
+    return Padding(
+      key: const ValueKey('ai-reasoning-panel'),
+      padding: const EdgeInsetsDirectional.only(end: 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          MenuItemSurface(
+            key: const ValueKey('ai-reasoning-models'),
+            theme: theme,
+            backgroundColor: theme.popupSurfaceColor,
+            onPressed: () => setState(() => _reasoningModel = null),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _reasoningModel!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: theme.textColorPrimary,
+                      ),
+                    ),
+                  ),
+                  const Icon(Symbols.chevron_right_rounded, size: 16),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            l10n.aiReasoningEffort,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: theme.textColorTertiary),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            reasoningEffortLabel(l10n, options[index]),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: theme.basePrimary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          AppCapsuleSlider(
+            key: const ValueKey('ai-reasoning-slider'),
+            theme: theme,
+            value: index / (options.length - 1),
+            divisions: options.length - 1,
+            icon: Symbols.psychology_rounded,
+            snapToDivisions: true,
+            label: l10n.aiReasoningEffort,
+            semanticFormatter: (value) => reasoningEffortLabel(
+              l10n,
+              options[(value * (options.length - 1)).round()],
+            ),
+            onChanged: widget.assistant.canChangeService
+                ? (value) => setState(() {
+                    _effortIndex = (value * (options.length - 1)).round();
+                  })
+                : null,
+            onChangeEnd: (_) => _saveEffort(),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                reasoningEffortLabel(l10n, options.first),
+                style: TextStyle(fontSize: 11, color: theme.textColorTertiary),
+              ),
+              Text(
+                reasoningEffortLabel(l10n, options.last),
+                style: TextStyle(fontSize: 11, color: theme.textColorTertiary),
+              ),
+            ],
+          ),
+          if (_error case final error?)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                aiErrorText(l10n, error),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.materialColors.error,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _searchField() {
@@ -297,6 +435,13 @@ class _ModelSelectorState extends State<ModelSelector> {
                                             )
                                           : null,
                                     ),
+                                    if (AiReasoningCapabilities.forModel(
+                                      model,
+                                    ).levels.isNotEmpty)
+                                      const Icon(
+                                        Symbols.chevron_right_rounded,
+                                        size: 16,
+                                      ),
                                   ],
                                 ),
                               ),
@@ -356,6 +501,15 @@ class _ModelSelectorState extends State<ModelSelector> {
         _search.clear();
         _searchFocus.unfocus();
         _error = null;
+        final model = assistant.selectedModel;
+        _reasoningModel =
+            model != null &&
+                AiReasoningCapabilities.forModel(model).levels.isNotEmpty
+            ? model
+            : null;
+        _effortIndex = _effortOptions.indexWhere(
+          (effort) => effort == assistant.reasoningEffort,
+        );
       }),
       menuChildren: [
         // 留白参与菜单碰撞布局，贴近窗口边缘时也为卡片和阴影保留空间。
@@ -379,7 +533,38 @@ class _ModelSelectorState extends State<ModelSelector> {
                     listenable: assistant,
                     builder: (context, _) => SingleChildScrollView(
                       primary: false,
-                      child: _menuContent(),
+                      child: AnimatedSwitcher(
+                        duration: MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : PopupMenuTransition.duration,
+                        transitionBuilder: (child, animation) =>
+                            FadeTransition(opacity: animation, child: child),
+                        layoutBuilder: (current, previous) => Stack(
+                          alignment: Alignment.bottomCenter,
+                          children: [
+                            for (final child in previous)
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                child: IgnorePointer(
+                                  child: ExcludeFocus(
+                                    child: ExcludeSemantics(child: child),
+                                  ),
+                                ),
+                              ),
+                            if (current != null) current,
+                          ],
+                        ),
+                        child:
+                            _reasoningModel != null &&
+                                _reasoningModel == assistant.selectedModel
+                            ? _reasoningContent()
+                            : KeyedSubtree(
+                                key: const ValueKey('ai-model-list-panel'),
+                                child: _menuContent(),
+                              ),
+                      ),
                     ),
                   ),
                 ),
@@ -403,7 +588,9 @@ class _ModelSelectorState extends State<ModelSelector> {
             children: [
               Flexible(
                 child: Text(
-                  assistant.selectedModel ?? l10n.aiSelectModel,
+                  assistant.selectedModel == null
+                      ? l10n.aiSelectModel
+                      : '${assistant.selectedModel}${assistant.reasoningEffort == null ? '' : ' · ${reasoningEffortLabel(l10n, assistant.reasoningEffort!)}'}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

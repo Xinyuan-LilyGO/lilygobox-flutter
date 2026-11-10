@@ -1631,4 +1631,36 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiScrollToLatest => '回到最新消息';
+
+  @override
+  String aiResponseReasoningEffort(String effort) {
+    return '思考强度：$effort';
+  }
+
+  @override
+  String get aiReasoningEffort => '思考强度';
+
+  @override
+  String get aiReasoningNone => '关闭';
+
+  @override
+  String get aiReasoningMinimal => '极低';
+
+  @override
+  String get aiReasoningLow => '低';
+
+  @override
+  String get aiReasoningMedium => '中';
+
+  @override
+  String get aiReasoningHigh => '高';
+
+  @override
+  String get aiReasoningXhigh => '超高';
+
+  @override
+  String get aiReasoningMax => '最大';
+
+  @override
+  String get aiReasoningUltra => '极高';
 }

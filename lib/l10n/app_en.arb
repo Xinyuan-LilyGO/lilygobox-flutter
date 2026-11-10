@@ -891,5 +891,16 @@
     "aiOpenLinkFailed": "Unable to open this link.",
     "aiCopyCode": "Copy code",
     "aiPlainText": "Plain text",
-    "aiScrollToLatest": "Scroll to latest message"
+    "aiScrollToLatest": "Scroll to latest message",
+    "aiResponseReasoningEffort": "Reasoning effort: {effort}",
+    "@aiResponseReasoningEffort": {"placeholders": {"effort": {"type": "String"}}},
+    "aiReasoningEffort": "Reasoning effort",
+    "aiReasoningNone": "Off",
+    "aiReasoningMinimal": "Minimal",
+    "aiReasoningLow": "Low",
+    "aiReasoningMedium": "Medium",
+    "aiReasoningHigh": "High",
+    "aiReasoningXhigh": "Extra high",
+    "aiReasoningMax": "Maximum",
+    "aiReasoningUltra": "Ultra"
 }

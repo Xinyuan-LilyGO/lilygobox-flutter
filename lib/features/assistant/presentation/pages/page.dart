@@ -2,7 +2,7 @@
  * @Description: 提供 LilygoBox AI 对话主页与设置操作确认。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-10 11:38:29
+ * @LastEditTime: 2026-11-10 13:53:32
  */
 
 import 'dart:ui' as ui;
@@ -28,6 +28,7 @@ import '../../state/provider.dart';
 import '../widgets/chat_composer.dart';
 import '../widgets/error_text.dart';
 import '../widgets/message_content.dart';
+import '../widgets/reasoning_effort_label.dart';
 
 class AssistantPage extends StatefulWidget {
   const AssistantPage({super.key});
@@ -519,6 +520,20 @@ class _MessageViewState extends State<_MessageView> {
                           fontSize: 12,
                         ),
                       ),
+                      if (message.reasoningEffort case final effort?)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            l10n.aiResponseReasoningEffort(
+                              reasoningEffortLabel(l10n, effort),
+                            ),
+                            key: ValueKey('ai-response-effort-${message.id}'),
+                            style: TextStyle(
+                              color: widget.theme.textColorSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
                       const SizedBox(height: 8),
                       if (message.processEvents.isNotEmpty)
                         ConstrainedBox(

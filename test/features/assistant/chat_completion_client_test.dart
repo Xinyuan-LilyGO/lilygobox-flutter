@@ -2,7 +2,7 @@
  * @Description: 验证 OpenAI 兼容聊天请求与设置工具调用解析。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-09 11:35:10
+ * @LastEditTime: 2026-11-10 11:58:09
  */
 
 import 'dart:async';
@@ -13,8 +13,119 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lilygobox/features/assistant/data/chat_completion_client.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
+import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 
 void main() {
+  for (final protocol in AiApiProtocol.values) {
+    for (final effort in [null, AiReasoningEffort.high]) {
+      test(
+        'serializes reasoning effort for ${protocol.name}: $effort',
+        () async {
+          Map<String, dynamic>? body;
+          final client = ChatCompletionClient(
+            client: MockClient((request) async {
+              body = jsonDecode(request.body) as Map<String, dynamic>;
+              return http.Response(
+                jsonEncode(
+                  protocol == AiApiProtocol.openAiResponses
+                      ? {
+                          'output': [
+                            {
+                              'type': 'message',
+                              'content': [
+                                {'type': 'output_text', 'text': 'Done'},
+                              ],
+                            },
+                          ],
+                        }
+                      : {
+                          'choices': [
+                            {
+                              'message': {'content': 'Done'},
+                            },
+                          ],
+                        },
+                ),
+                200,
+              );
+            }),
+          );
+          addTearDown(client.close);
+          await client.complete(
+            configuration: AiServiceConfiguration(
+              protocol: protocol,
+              baseUrl: 'https://example.test/v1',
+              model: 'o3',
+              reasoningEffort: effort,
+            ),
+            apiKey: 'key',
+            messages: const [
+              {'role': 'user', 'content': 'Hello'},
+            ],
+            tools: const [],
+          );
+          if (effort == null) {
+            expect(body!.containsKey('reasoning'), isFalse);
+            expect(body!.containsKey('reasoning_effort'), isFalse);
+          } else if (protocol == AiApiProtocol.openAiResponses) {
+            expect(body!['reasoning'], {'effort': 'high'});
+            expect(body!.containsKey('reasoning_effort'), isFalse);
+          } else {
+            expect(body!['reasoning_effort'], 'high');
+            expect(body!.containsKey('reasoning'), isFalse);
+          }
+        },
+      );
+    }
+  }
+
+  test(
+    'DeepSeek thinking toggle and unsupported models use safe parameters',
+    () {
+      final deepSeek = AiReasoningCapabilities.forModel('deepseek-flash');
+      expect(
+        deepSeek.requestParameters(AiReasoningEffort.none, responses: false),
+        {
+          'thinking': {'type': 'disabled'},
+        },
+      );
+      expect(
+        deepSeek.requestParameters(AiReasoningEffort.max, responses: false),
+        {
+          'thinking': {'type': 'enabled'},
+          'reasoning_effort': 'max',
+        },
+      );
+      expect(
+        deepSeek.requestParameters(AiReasoningEffort.max, responses: true),
+        {
+          'reasoning': {'effort': 'max'},
+        },
+      );
+      expect(
+        deepSeek.requestParameters(AiReasoningEffort.medium, responses: false),
+        isEmpty,
+      );
+      for (final model in [
+        'gpt-4o',
+        'deepseek-chat',
+        'deepseek-reasoner',
+        'unknown-model',
+        'o1-pro',
+      ]) {
+        final capabilities = AiReasoningCapabilities.forModel(model);
+        expect(capabilities.levels, isEmpty);
+        expect(
+          capabilities.requestParameters(
+            AiReasoningEffort.high,
+            responses: false,
+          ),
+          isEmpty,
+        );
+      }
+    },
+  );
+
   for (final protocol in AiApiProtocol.values) {
     for (final streaming in [false, true]) {
       test(

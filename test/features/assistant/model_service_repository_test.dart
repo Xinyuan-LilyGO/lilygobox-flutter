@@ -2,7 +2,7 @@
  * @Description: 验证模型服务持久化、排序、迁移与写入失败回滚。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-10 13:53:32
  */
 
 import 'dart:convert';
@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/storage/preferences.dart';
 import 'package:lilygobox/features/assistant/data/model_service_repository.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
+import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 
 import 'assistant_test_scope.dart';
 
@@ -35,6 +36,105 @@ void main() {
     models: ['chat', 'reason'],
     apiKey: key,
   );
+
+  test(
+    'reasoning is isolated by service and model and persists concrete levels',
+    () async {
+      Future<String> addReasoning(String name) => repository.save(
+        name: name,
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['o3', 'deepseek-flash', 'plain'],
+        apiKey: 'key',
+      );
+      final first = await addReasoning('First');
+      final second = await addReasoning('Second');
+      await repository.setReasoningEffort(first, 'o3', AiReasoningEffort.high);
+      await repository.setReasoningEffort(
+        first,
+        'deepseek-flash',
+        AiReasoningEffort.max,
+      );
+      expect(repository.effortFor(second, 'o3'), AiReasoningEffort.medium);
+      await repository.select(first, 'deepseek-flash');
+      final restored = ModelServiceRepository(preferences, keys);
+      await restored.load();
+      expect(restored.effortFor(first, 'o3'), AiReasoningEffort.high);
+      expect(
+        restored.effortFor(first, 'deepseek-flash'),
+        AiReasoningEffort.max,
+      );
+      expect(restored.selectedModel, 'deepseek-flash');
+      await restored.setReasoningEffort(first, 'o3', null);
+      await restored.load();
+      expect(restored.effortFor(first, 'o3'), AiReasoningEffort.medium);
+      await expectLater(
+        restored.setReasoningEffort(first, 'plain', AiReasoningEffort.high),
+        throwsA(isA<AiConfigurationException>()),
+      );
+      await restored.remove(first);
+      expect(restored.effortFor(first, 'deepseek-flash'), isNull);
+    },
+  );
+
+  test(
+    'old selected reasoning model receives a persisted concrete level',
+    () async {
+      final id = await repository.save(
+        name: 'Existing',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['o3', 'deepseek-flash', 'plain'],
+        apiKey: 'key',
+      );
+      final catalog =
+          jsonDecode(
+                preferences.stringValue(ModelServiceRepository.catalogKey, ''),
+              )
+              as Map<String, dynamic>;
+      catalog.remove('reasoningEfforts');
+      preferences.setValue(
+        ModelServiceRepository.catalogKey,
+        jsonEncode(catalog),
+      );
+      await preferences.flush();
+      final restored = ModelServiceRepository(preferences, keys);
+      await restored.load();
+      expect(restored.selectedModel, 'o3');
+      expect(restored.effortFor(id, 'o3'), AiReasoningEffort.medium);
+      expect(restored.effortFor(id, 'deepseek-flash'), AiReasoningEffort.high);
+      expect(restored.effortFor(id, 'plain'), isNull);
+      final saved =
+          jsonDecode(
+                preferences.stringValue(ModelServiceRepository.catalogKey, ''),
+              )
+              as Map;
+      expect(
+        (saved['reasoningEfforts'] as Map)[jsonEncode([id, 'o3'])],
+        'medium',
+      );
+    },
+  );
+
+  test('failed reasoning save preserves the previous selection', () async {
+    final id = await repository.save(
+      name: 'Test',
+      protocol: AiApiProtocol.openAiResponses,
+      baseUrl: 'https://example.test/v1',
+      models: ['o3'],
+      apiKey: 'key',
+    );
+    await repository.setReasoningEffort(id, 'o3', AiReasoningEffort.low);
+    storage.fail = true;
+    await expectLater(
+      repository.setReasoningEffort(id, 'o3', AiReasoningEffort.high),
+      throwsA(isA<AiConfigurationException>()),
+    );
+    expect(repository.effortFor(id, 'o3'), AiReasoningEffort.low);
+    storage.fail = false;
+    await repository.load();
+    expect(repository.effortFor(id, 'o3'), AiReasoningEffort.low);
+  });
 
   test(
     'fresh install has no services or model, including after reload',

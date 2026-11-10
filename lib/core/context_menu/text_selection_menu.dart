@@ -2,7 +2,7 @@
  * @Description: 让文本编辑和选中文字复用应用右键菜单，保留系统剪贴板及选择行为。
  * @Author: LILYGO_L
  * @Date: 2026-10-07 00:00:00
- * @LastEditTime: 2026-11-09 15:25:35
+ * @LastEditTime: 2026-11-10 14:30:57
  */
 
 import 'package:flutter/material.dart';
@@ -85,27 +85,29 @@ class AppTextSelectionMenu {
               .findAncestorWidgetOfExactType<FadeTransition>()
               ?.opacity,
           fade: false,
-          child: RightClickMenuBuilder.buildMenuPanel(
-            theme: theme,
-            menuItems: [
-              for (final button in buttons)
-                RightClickMenuItem(
-                  label: AdaptiveTextSelectionToolbar.getButtonLabel(
-                    context,
-                    button,
+          child: TextFieldTapRegion(
+            child: RightClickMenuBuilder.buildMenuPanel(
+              theme: theme,
+              menuItems: [
+                for (final button in buttons)
+                  RightClickMenuItem(
+                    label: AdaptiveTextSelectionToolbar.getButtonLabel(
+                      context,
+                      button,
+                    ),
+                    icon: switch (button.type) {
+                      ContextMenuButtonType.cut => Symbols.content_cut,
+                      ContextMenuButtonType.copy => Symbols.content_copy,
+                      ContextMenuButtonType.paste => Symbols.content_paste,
+                      ContextMenuButtonType.selectAll => Symbols.select_all,
+                      ContextMenuButtonType.delete => Symbols.delete_rounded,
+                      _ => null,
+                    },
+                    isEnabled: button.onPressed != null,
+                    onTap: button.onPressed,
                   ),
-                  icon: switch (button.type) {
-                    ContextMenuButtonType.cut => Symbols.content_cut,
-                    ContextMenuButtonType.copy => Symbols.content_copy,
-                    ContextMenuButtonType.paste => Symbols.content_paste,
-                    ContextMenuButtonType.selectAll => Symbols.select_all,
-                    ContextMenuButtonType.delete => Symbols.delete_rounded,
-                    _ => null,
-                  },
-                  isEnabled: button.onPressed != null,
-                  onTap: button.onPressed,
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
