@@ -2,7 +2,7 @@
  * @Description: 构建品牌侧栏、主页设备入口、账号入口和保留状态的内容页。
  * @Author: LILYGO_L
  * @Date: 2025-11-06 14:22:51
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-10 14:46:40
  */
 
 import 'package:flutter/material.dart';
@@ -189,31 +189,38 @@ class _AppShellState extends State<AppShell> {
               ],
             ),
           ),
-          SidebarNavigationItem(
-            key: const ValueKey('sidebar-home'),
-            icon: Symbols.home_rounded,
-            iconFill: 1,
-            iconColor: theme.textColorSecondary,
-            label: context.l10n.sidebarHome,
-            onPressed: () {
-              context.read<AppShellProvider>().openAssistant();
-              context.read<AppNavigationProvider>().goHome();
-            },
-            isSelected: isOverview,
-            disableWhenSelected: isOverview,
-          ),
-          SidebarNavigationItem(
-            key: const ValueKey('sidebar-devices'),
-            icon: Symbols.devices_other_rounded,
-            iconFill: 1,
-            iconColor: theme.textColorSecondary,
-            label: context.l10n.deviceManagement,
-            onPressed: () {
-              context.read<AppShellProvider>().openDeviceManagement();
-              context.read<AppNavigationProvider>().goHome();
-            },
-            isSelected: isDeviceManagement || isAddingDevice || !isOverview,
-            disableWhenSelected: isDeviceManagement,
+          SidebarNavigationGroup(
+            selectedIndex: isOverview ? 0 : 1,
+            children: [
+              SidebarNavigationItem(
+                key: const ValueKey('sidebar-home'),
+                showIndicator: false,
+                icon: Symbols.home_rounded,
+                iconFill: 1,
+                iconColor: theme.textColorSecondary,
+                label: context.l10n.sidebarHome,
+                onPressed: () {
+                  context.read<AppShellProvider>().openAssistant();
+                  context.read<AppNavigationProvider>().goHome();
+                },
+                isSelected: isOverview,
+                disableWhenSelected: isOverview,
+              ),
+              SidebarNavigationItem(
+                key: const ValueKey('sidebar-devices'),
+                showIndicator: false,
+                icon: Symbols.devices_other_rounded,
+                iconFill: 1,
+                iconColor: theme.textColorSecondary,
+                label: context.l10n.deviceManagement,
+                onPressed: () {
+                  context.read<AppShellProvider>().openDeviceManagement();
+                  context.read<AppNavigationProvider>().goHome();
+                },
+                isSelected: isDeviceManagement || isAddingDevice || !isOverview,
+                disableWhenSelected: isDeviceManagement,
+              ),
+            ],
           ),
           const Spacer(),
           const SidebarAccountButton(),

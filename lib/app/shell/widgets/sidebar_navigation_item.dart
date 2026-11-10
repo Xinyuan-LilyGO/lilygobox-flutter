@@ -2,7 +2,7 @@
  * @Description: 构建图标与文字组合的侧栏导航项及选中指示条。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-10 14:46:40
  */
 
 import 'package:flutter/material.dart';
@@ -22,6 +22,7 @@ class SidebarNavigationItem extends StatelessWidget {
     this.disableWhenSelected = true,
     this.iconColor,
     this.iconFill,
+    this.showIndicator = true,
   });
 
   final IconData icon;
@@ -31,6 +32,7 @@ class SidebarNavigationItem extends StatelessWidget {
   final bool disableWhenSelected;
   final Color? iconColor;
   final double? iconFill;
+  final bool showIndicator;
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +88,7 @@ class SidebarNavigationItem extends StatelessWidget {
               ),
             ),
           ),
-          if (isSelected)
+          if (isSelected && showIndicator)
             Positioned.fill(
               child: IgnorePointer(
                 child: CustomPaint(
@@ -96,6 +98,56 @@ class SidebarNavigationItem extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// 同组导航共用一条灯管，选中项改变时连同光晕一起上下移动。
+class SidebarNavigationGroup extends StatelessWidget {
+  const SidebarNavigationGroup({
+    super.key,
+    required this.selectedIndex,
+    required this.children,
+  });
+
+  final int selectedIndex;
+  final List<SidebarNavigationItem> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.watch<ThemeProvider>().themeData;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Column(mainAxisSize: MainAxisSize.min, children: children),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: AnimatedAlign(
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 200),
+              curve: Curves.easeInOutCubic,
+              alignment: Alignment(
+                0,
+                children.length == 1
+                    ? 0
+                    : -1 + 2 * selectedIndex / (children.length - 1),
+              ),
+              child: FractionallySizedBox(
+                heightFactor: 1 / children.length,
+                widthFactor: 1,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: CustomPaint(
+                    key: const ValueKey('sidebar-selection-indicator'),
+                    painter: _SidebarSelectionGlowPainter(theme.basePrimary),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

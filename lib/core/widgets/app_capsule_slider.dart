@@ -2,7 +2,7 @@
  * @Description: 共享设备风格的胶囊滑条，支持连续调节及固定等级点。
  * @Author: LILYGO_L
  * @Date: 2026-11-10 11:58:09
- * @LastEditTime: 2026-11-10 13:53:32
+ * @LastEditTime: 2026-11-10 14:42:34
  */
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -308,8 +308,14 @@ class _CapsuleTrackPainter extends CustomPainter {
     Color trackColor(Color color) => enabled
         ? color
         : Color.alphaBlend(color.withValues(alpha: .4), theme.primary);
-    // 未填充区域是居中的细线，只有已填充部分使用完整高度的胶囊。
-    final track = Rect.fromLTWH(0, (size.height - 4) / 2, size.width, 4);
+    // 细轨道止于两端滑块中心，避免最后一个节点后还露出无效尾段。
+    final inset = size.height.clamp(0.0, size.width) / 2;
+    final track = Rect.fromLTWH(
+      inset,
+      (size.height - 4) / 2,
+      size.width - 2 * inset,
+      4,
+    );
     canvas.drawRRect(
       RRect.fromRectAndRadius(track, const Radius.circular(2)),
       Paint()
