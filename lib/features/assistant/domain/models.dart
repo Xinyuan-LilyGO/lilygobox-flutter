@@ -2,7 +2,7 @@
  * @Description: 定义 AI 服务配置、会话消息与待确认的设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-10 17:32:47
+ * @LastEditTime: 2026-11-10 21:09:59
  */
 
 import 'dart:typed_data';
@@ -182,7 +182,6 @@ enum AiResponseStatus {
   preparingTools,
   executingTools,
   retrying,
-  paused,
   completed,
   failed,
   stopped,
@@ -194,7 +193,14 @@ class AiRequestRetry {
   final Object error;
 }
 
-enum AiProcessEventType { status, reasoning, assistant, action, retry }
+enum AiProcessEventType {
+  status,
+  reasoning,
+  assistant,
+  action,
+  retry,
+  guidance,
+}
 
 class AiProcessEvent {
   const AiProcessEvent({
@@ -204,6 +210,7 @@ class AiProcessEvent {
     this.text = '',
     this.action,
     this.retry,
+    this.guidance,
   });
 
   final AiProcessEventType type;
@@ -212,6 +219,7 @@ class AiProcessEvent {
   final String text;
   final AiProcessingStep? action;
   final AiRequestRetry? retry;
+  final AiMessage? guidance;
 }
 
 class AiMessage {

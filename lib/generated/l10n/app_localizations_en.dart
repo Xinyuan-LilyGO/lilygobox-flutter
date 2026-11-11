@@ -231,7 +231,34 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiInputHint => 'Ask a question, or describe a setting to change…';
 
   @override
-  String get aiAttachImage => 'Attach images';
+  String get aiAttachFile => 'Attach files';
+
+  @override
+  String get aiStop => 'Stop generating';
+
+  @override
+  String get aiContinue => 'Continue generating';
+
+  @override
+  String get aiGuideTurn => 'Add to queue';
+
+  @override
+  String get aiGuidanceHint => 'Add a follow-up message…';
+
+  @override
+  String get aiGuidancePending => 'Queued messages';
+
+  @override
+  String get aiRemoveGuidance => 'Remove queued message';
+
+  @override
+  String get aiSendPendingGuidance => 'Send now';
+
+  @override
+  String get aiEditQueuedMessage => 'Edit queued message';
+
+  @override
+  String get aiSaveQueuedMessage => 'Save changes';
 
   @override
   String get aiRemoveImage => 'Remove image';
@@ -260,12 +287,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiSend => 'Send message';
 
   @override
-  String get aiPause => 'Pause response';
-
-  @override
-  String get aiResume => 'Resume response';
-
-  @override
   String get aiClearConversation => 'Clear conversation';
 
   @override
@@ -292,9 +313,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiProcessReasoning => 'Model reasoning';
 
   @override
-  String get aiProcessAssistant => 'Assistant update';
-
-  @override
   String aiProcessActionSucceeded(String action) {
     return 'Applied: $action';
   }
@@ -317,9 +335,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiExecutingTools => 'Applying settings';
-
-  @override
-  String get aiResponsePaused => 'Paused';
 
   @override
   String get aiResponseFailed => 'Processing failed';

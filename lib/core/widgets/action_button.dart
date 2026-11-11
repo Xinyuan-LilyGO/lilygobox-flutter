@@ -2,7 +2,7 @@
  * @Description: 统一紫色与灰色文字操作按钮，沿用主页配色、悬停渐变及点击波纹。
  * @Author: LILYGO_L
  * @Date: 2026-10-03 18:10:36
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-11 14:37:42
  */
 
 import 'package:flutter/material.dart';
@@ -100,10 +100,9 @@ class AppActionButton extends StatelessWidget {
                 theme.secondary.withValues(alpha: .9),
                 theme.primary,
               )
-            : theme.adaptiveColor(
-                dark: theme.secondaryTextBackgroundColor,
-                light: theme.secondaryTextHoverColor,
-              ));
+            : surfaceColor == null
+            ? theme.settingsControlBackgroundColor
+            : theme.selectControlColorForSurface(surfaceColor!));
     final foreground = destructive
         ? theme.materialColors.onError
         : primary
@@ -144,7 +143,7 @@ class AppActionButton extends StatelessWidget {
                     background,
                   )
                 : !filled
-                ? theme.secondaryTextHoverColorAlt
+                ? theme.hoverColorForBackground(background)
                 : Color.alphaBlend(
                     foreground.withValues(alpha: 0.1),
                     background,

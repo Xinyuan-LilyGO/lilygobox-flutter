@@ -2,7 +2,7 @@
  * @Description: 统一应用操作的二次确认弹窗、取消按钮及确认按钮样式。
  * @Author: LILYGO_L
  * @Date: 2026-10-03 23:41:53
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-11 14:43:03
  */
 
 import 'package:flutter/material.dart';
@@ -21,6 +21,7 @@ class AppDialog extends StatelessWidget {
     required this.content,
     required this.actions,
     this.constraints,
+    this.contentPadding,
     this.titleFontSize = 18,
     this.titleFontWeight = FontWeight.normal,
   });
@@ -30,6 +31,7 @@ class AppDialog extends StatelessWidget {
   final Widget content;
   final List<Widget> actions;
   final BoxConstraints? constraints;
+  final EdgeInsetsGeometry? contentPadding;
   final double titleFontSize;
   final FontWeight titleFontWeight;
 
@@ -47,6 +49,7 @@ class AppDialog extends StatelessWidget {
         color: theme.textColorPrimary,
       ),
     ),
+    contentPadding: contentPadding,
     content: content,
     actions: actions,
   );

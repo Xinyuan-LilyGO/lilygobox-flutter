@@ -2,7 +2,7 @@
  * @Description: 统一设备连接帮助入口，桌面显示侧边面板，窄屏显示底部面板。
  * @Author: LILYGO_L
  * @Date: 2026-10-07 18:00:00
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-11 15:01:02
  */
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -186,6 +186,7 @@ class _ConnectionHelpPanel extends StatelessWidget {
                                           'close-device-help',
                                         ),
                                         theme: theme,
+                                        backgroundColor: theme.primary,
                                         surfaceColor: theme.primary,
                                         isFocused: true,
                                         icon: Symbols.close,

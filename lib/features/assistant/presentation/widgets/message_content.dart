@@ -2,7 +2,7 @@
  * @Description: 渲染聊天 Markdown 正文、消息复制操作与固定发送时间。
  * @Author: LILYGO_L
  * @Date: 2026-11-09 15:26:28
- * @LastEditTime: 2026-11-10 16:45:39
+ * @LastEditTime: 2026-11-11 14:58:26
  */
 
 import 'dart:async';
@@ -31,10 +31,12 @@ class ChatMessageBody extends StatefulWidget {
     super.key,
     required this.message,
     required this.theme,
+    this.useParentSelectionArea = false,
   });
 
   final AiMessage message;
   final AppTheme theme;
+  final bool useParentSelectionArea;
 
   @override
   State<ChatMessageBody> createState() => _ChatMessageBodyState();
@@ -96,59 +98,62 @@ class _ChatMessageBodyState extends State<ChatMessageBody> {
         style: text,
       );
     }
-    final codeBuilder = _CodeElementBuilder(theme);
+    final codeBuilder = _CodeElementBuilder(
+      theme,
+      useParentSelectionArea: widget.useParentSelectionArea,
+    );
+    final markdown = MarkdownBody(
+      data: message.content,
+      builders: {
+        'code': codeBuilder,
+        'pre': _CodeBlockBuilder(theme, codeBuilder),
+      },
+      onTapLink: (_, href, _) => unawaited(_openLink(context, href)),
+      styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+        p: text,
+        a: text.copyWith(
+          color: theme.basePrimary,
+          decoration: TextDecoration.underline,
+          decorationColor: theme.basePrimary,
+        ),
+        h1: text.copyWith(fontSize: 24, fontWeight: FontWeight.w600),
+        h2: text.copyWith(fontSize: 21, fontWeight: FontWeight.w600),
+        h3: text.copyWith(fontSize: 18, fontWeight: FontWeight.w600),
+        h4: text.copyWith(fontSize: 16, fontWeight: FontWeight.w600),
+        h5: text.copyWith(fontWeight: FontWeight.w600),
+        h6: text.copyWith(fontWeight: FontWeight.w600),
+        listBullet: text,
+        em: const TextStyle(fontStyle: FontStyle.italic),
+        strong: const TextStyle(fontWeight: FontWeight.w600),
+        code: text.copyWith(
+          fontFamily: 'monospace',
+          fontSize: 13,
+          backgroundColor: theme.primary,
+        ),
+        blockquote: text.copyWith(color: theme.textColorSecondary),
+        blockquoteDecoration: BoxDecoration(
+          border: Border(left: BorderSide(color: theme.dividerColor, width: 3)),
+        ),
+        codeblockDecoration: const BoxDecoration(),
+        codeblockPadding: const EdgeInsets.all(12),
+        tableHead: text.copyWith(fontWeight: FontWeight.w600),
+        tableBody: text,
+        tableColumnWidth: const FlexColumnWidth(),
+        tableBorder: TableBorder.all(color: theme.dividerColor),
+        tableCellsPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 8,
+        ),
+        horizontalRuleDecoration: BoxDecoration(
+          border: Border(top: BorderSide(color: theme.dividerColor)),
+        ),
+      ),
+    );
+    if (widget.useParentSelectionArea) return markdown;
     return SelectionArea(
       focusNode: _selectionFocus,
       contextMenuBuilder: AppTextSelectionMenu.buildRegion,
-      child: MarkdownBody(
-        data: message.content,
-        builders: {
-          'code': codeBuilder,
-          'pre': _CodeBlockBuilder(theme, codeBuilder),
-        },
-        onTapLink: (_, href, _) => unawaited(_openLink(context, href)),
-        styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-          p: text,
-          a: text.copyWith(
-            color: theme.basePrimary,
-            decoration: TextDecoration.underline,
-            decorationColor: theme.basePrimary,
-          ),
-          h1: text.copyWith(fontSize: 24, fontWeight: FontWeight.w600),
-          h2: text.copyWith(fontSize: 21, fontWeight: FontWeight.w600),
-          h3: text.copyWith(fontSize: 18, fontWeight: FontWeight.w600),
-          h4: text.copyWith(fontSize: 16, fontWeight: FontWeight.w600),
-          h5: text.copyWith(fontWeight: FontWeight.w600),
-          h6: text.copyWith(fontWeight: FontWeight.w600),
-          listBullet: text,
-          em: const TextStyle(fontStyle: FontStyle.italic),
-          strong: const TextStyle(fontWeight: FontWeight.w600),
-          code: text.copyWith(
-            fontFamily: 'monospace',
-            fontSize: 13,
-            backgroundColor: theme.primary,
-          ),
-          blockquote: text.copyWith(color: theme.textColorSecondary),
-          blockquoteDecoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(color: theme.dividerColor, width: 3),
-            ),
-          ),
-          codeblockDecoration: const BoxDecoration(),
-          codeblockPadding: const EdgeInsets.all(12),
-          tableHead: text.copyWith(fontWeight: FontWeight.w600),
-          tableBody: text,
-          tableColumnWidth: const FlexColumnWidth(),
-          tableBorder: TableBorder.all(color: theme.dividerColor),
-          tableCellsPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 8,
-          ),
-          horizontalRuleDecoration: BoxDecoration(
-            border: Border(top: BorderSide(color: theme.dividerColor)),
-          ),
-        ),
-      ),
+      child: markdown,
     );
   }
 }
@@ -251,8 +256,9 @@ class _ChatMessageActionsState extends State<ChatMessageActions> {
 
 /// 区分行内代码与代码块，避免把代码块拆成行内标签。
 class _CodeElementBuilder extends MarkdownElementBuilder {
-  _CodeElementBuilder(this.theme);
+  _CodeElementBuilder(this.theme, {required this.useParentSelectionArea});
   final AppTheme theme;
+  final bool useParentSelectionArea;
   bool insideBlock = false;
 
   @override
@@ -309,6 +315,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
       text: code?.textContent ?? element.textContent,
       language: language,
       theme: theme,
+      useParentSelectionArea: inlineBuilder.useParentSelectionArea,
     );
   }
 }
@@ -318,10 +325,12 @@ class _CodeBlock extends StatefulWidget {
     required this.text,
     required this.language,
     required this.theme,
+    required this.useParentSelectionArea,
   });
   final String text;
   final String language;
   final AppTheme theme;
+  final bool useParentSelectionArea;
 
   @override
   State<_CodeBlock> createState() => _CodeBlockState();
@@ -432,21 +441,34 @@ class _CodeBlockState extends State<_CodeBlock> {
                   )..layout();
                   final needsScroll = painter.width > constraints.maxWidth;
                   painter.dispose();
+                  if (!needsScroll && widget.useParentSelectionArea) {
+                    return SelectableText(
+                      widget.text,
+                      style: style,
+                      // 高亮贴合实际字符；不修改原文中的缩进、空格和换行。
+                      selectionWidthStyle: ui.BoxWidthStyle.tight,
+                      contextMenuBuilder: AppTextSelectionMenu.build,
+                    );
+                  }
                   if (!needsScroll) return Text(widget.text, style: style);
-                  return SelectionContainer.disabled(
-                    child: Scrollbar(
+                  return Scrollbar(
+                    key: const ValueKey('ai-code-horizontal-scrollbar'),
+                    controller: _scroll,
+                    interactive: true,
+                    child: SingleChildScrollView(
                       controller: _scroll,
-                      child: SingleChildScrollView(
-                        controller: _scroll,
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: SelectableText(
-                          widget.text,
-                          style: style,
-                          selectionWidthStyle: ui.BoxWidthStyle.tight,
-                          contextMenuBuilder: AppTextSelectionMenu.build,
-                        ),
-                      ),
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.only(bottom: 8),
+                      // 聊天页中的宽代码也注册到外层选区，确保右键“全选”
+                      // 覆盖完整代码；独立组件仍使用普通文本避免嵌套选区。
+                      child: widget.useParentSelectionArea
+                          ? SelectableText(
+                              widget.text,
+                              style: style,
+                              selectionWidthStyle: ui.BoxWidthStyle.tight,
+                              contextMenuBuilder: AppTextSelectionMenu.build,
+                            )
+                          : Text(widget.text, style: style),
                     ),
                   );
                 },

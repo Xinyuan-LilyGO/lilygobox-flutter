@@ -2,7 +2,7 @@
  * @Description: 展示可排序的模型服务列表，并通过弹窗添加或编辑服务。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-10 14:20:16
+ * @LastEditTime: 2026-11-11 14:37:42
  */
 
 import 'package:flutter/material.dart';
@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
+import '../../../../core/theme/material_palette.dart';
 import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
@@ -298,7 +299,7 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
     final canDrag = !busy && assistant.services.length > 1;
     return Material(
       key: ValueKey('ai-service-card-${service.id}'),
-      color: theme.tertiary,
+      color: theme.settingsControlBackgroundColor,
       borderRadius: BorderRadius.circular(6),
       clipBehavior: Clip.antiAlias,
       child: Padding(

@@ -2,7 +2,7 @@
  * @Description: 验证聊天 Markdown、跨段落选择、原文复制及消息时间布局。
  * @Author: LILYGO_L
  * @Date: 2026-11-09 15:27:53
- * @LastEditTime: 2026-11-10 14:30:57
+ * @LastEditTime: 2026-11-11 14:58:26
  */
 
 import 'dart:io';
@@ -23,6 +23,86 @@ import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 void main() {
+  for (final wide in [false, true]) {
+    testWidgets(
+      'chat code selection stays tight and copies whitespace: wide=$wide',
+      (tester) async {
+        final theme = ThemeProvider();
+        addTearDown(theme.dispose);
+        final code =
+            '  short  \n\n${wide ? 'long content ' * 80 : 'longer content'}\n';
+        String? copied;
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          (call) async {
+            if (call.method == 'Clipboard.setData')
+              copied = (call.arguments as Map)['text'] as String;
+            return null;
+          },
+        );
+        addTearDown(
+          () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            null,
+          ),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: SizedBox(
+                width: 400,
+                child: SelectionArea(
+                  child: ChatMessageBody(
+                    message: AiMessage(
+                      id: 'code',
+                      role: 'assistant',
+                      content: '```text\n$code```',
+                    ),
+                    theme: theme.themeData,
+                    useParentSelectionArea: true,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final selectable = tester.widget<SelectableText>(
+          find.byType(SelectableText),
+        );
+        expect(selectable.selectionWidthStyle, ui.BoxWidthStyle.tight);
+        expect(selectable.data, code);
+        final editable = tester.state<EditableTextState>(
+          find.byType(EditableText),
+        );
+        editable.userUpdateTextEditingValue(
+          editable.textEditingValue.copyWith(
+            selection: TextSelection(baseOffset: 0, extentOffset: code.length),
+          ),
+          SelectionChangedCause.keyboard,
+        );
+        await tester.pump();
+        editable.copySelection(SelectionChangedCause.keyboard);
+        await tester.pump();
+        expect(copied, code);
+        final render = editable.renderEditable;
+        final boxes = render.getBoxesForSelection(
+          TextSelection(baseOffset: 0, extentOffset: code.length),
+        );
+        expect(boxes.first.right, lessThan(200));
+        expect(
+          boxes.first.right,
+          lessThan(
+            boxes.map((box) => box.right).reduce((a, b) => a > b ? a : b),
+          ),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final kind in ['user', 'markdown', 'wide-code']) {
     testWidgets(
       'clicking outside clears $kind selection and keeps menu copying',
@@ -100,6 +180,16 @@ void main() {
         );
         await tester.pumpAndSettle();
         final body = find.byType(ChatMessageBody);
+        if (kind == 'wide-code') {
+          final codeScrollbars = find.descendant(
+            of: find.byKey(const ValueKey('ai-code-block')),
+            matching: find.byKey(
+              const ValueKey('ai-code-horizontal-scrollbar'),
+            ),
+          );
+          expect(codeScrollbars, findsOneWidget);
+          expect(tester.widget<Scrollbar>(codeScrollbars).interactive, isTrue);
+        }
         bool hasSelection() {
           final paragraphs = find.descendant(
             of: body,

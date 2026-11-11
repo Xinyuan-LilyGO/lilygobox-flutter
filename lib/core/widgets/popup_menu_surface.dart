@@ -2,7 +2,7 @@
  * @Description: 统一弹出菜单的无边框浮层背景和阴影，区分菜单与底层页面。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 16:15:15
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-11 13:48:35
  */
 
 import 'package:flutter/material.dart';
@@ -32,6 +32,20 @@ class PopupMenuSurface extends StatelessWidget {
   /// 菜单项使用相同的实色起点，让悬停颜色直接插值，避免透明叠加。
   static Color backgroundColorFor(AppTheme theme) => theme.popupSurfaceColor;
 
+  /// 菜单与需要同等浮层效果的控件共用，随主题进度平滑过渡。
+  static List<BoxShadow> shadowsFor(AppTheme theme) => [
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.32 - 0.2 * theme.lightProgress),
+      blurRadius: 24,
+      offset: const Offset(0, 8),
+    ),
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.08),
+      blurRadius: 4,
+      offset: const Offset(0, 1),
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -39,22 +53,7 @@ class PopupMenuSurface extends StatelessWidget {
       decoration: BoxDecoration(
         color: backgroundColor ?? backgroundColorFor(theme),
         borderRadius: borderRadius,
-        boxShadow:
-            shadows ??
-            [
-              BoxShadow(
-                color: Colors.black.withValues(
-                  alpha: 0.32 - 0.2 * theme.lightProgress,
-                ),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 4,
-                offset: const Offset(0, 1),
-              ),
-            ],
+        boxShadow: shadows ?? shadowsFor(theme),
       ),
       child: child,
     );

@@ -2,12 +2,14 @@
  * @Description: 提供 LilygoBox AI 对话主页与设置操作确认。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-10 18:15:07
+ * @LastEditTime: 2026-11-11 13:50:24
  */
 
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
@@ -43,8 +45,12 @@ class _AssistantPageState extends State<AssistantPage> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
   final _inputFocus = FocusNode();
+  final _conversationSelectionFocus = FocusNode(skipTraversal: true);
   final _inputScroll = ScrollController();
   bool _showLatest = false;
+  // 仅在用户仍停留在底部时跟随流式内容；手动向上滚动后暂停跟随。
+  bool _followLatest = true;
+  bool _scrollToEndPending = false;
   int _scrollToEndVersion = 0;
   List<AiImageAttachment> _attachments = const [];
 
@@ -60,11 +66,64 @@ class _AssistantPageState extends State<AssistantPage> {
     if (show != _showLatest) setState(() => _showLatest = show);
   }
 
+  bool _handleScrollNotification(Notification notification) {
+    if (notification is AppUserScrollNotification) {
+      if (_scroll.hasClients &&
+          identical(notification.position, _scroll.position) &&
+          notification.delta < 0) {
+        final cancelFollowAnimation = _scrollToEndPending;
+        _followLatest = false;
+        _scrollToEndVersion++;
+        _scrollToEndPending = false;
+        // 只取消仍在运行的底部跟随；反复 jumpTo 会打断用户滚轮动画，
+        // 导致向上滚动的连续目标无法累计，表现为向上比向下吃力。
+        if (cancelFollowAnimation) _scroll.jumpTo(_scroll.offset);
+      }
+      return false;
+    }
+    if (notification is! ScrollNotification &&
+        notification is! ScrollMetricsNotification) {
+      return false;
+    }
+    final metrics = notification is ScrollNotification
+        ? notification.metrics
+        : (notification as ScrollMetricsNotification).metrics;
+    // 只处理聊天主滚动区域，详情和横向代码块不影响底部跟随。
+    final depth = notification is ScrollNotification
+        ? notification.depth
+        : (notification as ScrollMetricsNotification).depth;
+    if (metrics.axis != Axis.vertical || depth != 0) return false;
+    if ((notification is UserScrollNotification &&
+            notification.direction == ScrollDirection.forward) ||
+        (notification is ScrollUpdateNotification &&
+            (notification.scrollDelta ?? 0) < 0)) {
+      // 公共滚轮和中键滚动使用程序位移，不一定发送 UserScrollNotification。
+      // 向上位移同样表示退出跟随，同时作废旧动画后等待布局的回底部任务。
+      _followLatest = false;
+      _scrollToEndVersion++;
+      _scrollToEndPending = false;
+    } else if (notification is ScrollUpdateNotification &&
+        (notification.scrollDelta ?? 0) > 0 &&
+        metrics.extentAfter <= 1) {
+      _followLatest = true;
+    }
+    if (notification is ScrollMetricsNotification && notification.depth == 0) {
+      _updateLatestButton();
+      if (_followLatest &&
+          notification.metrics.extentAfter > 1 &&
+          context.read<AiAssistantProvider>().busy) {
+        _scrollToEnd();
+      }
+    }
+    return false;
+  }
+
   @override
   void dispose() {
     _input.dispose();
     _scroll.dispose();
     _inputFocus.dispose();
+    _conversationSelectionFocus.dispose();
     _inputScroll.dispose();
     super.dispose();
   }
@@ -74,11 +133,13 @@ class _AssistantPageState extends State<AssistantPage> {
     required bool fromKeyboard,
   }) async {
     final text = _input.text;
-    if ((text.trim().isEmpty && _attachments.isEmpty) ||
+    final continuing =
+        text.trim().isEmpty && _attachments.isEmpty && assistant.canContinue;
+    if ((text.trim().isEmpty && _attachments.isEmpty && !continuing) ||
         !assistant.canSendMessage) {
       return;
     }
-    if (!assistant.hasApiKey) {
+    if (!assistant.busy && !assistant.hasApiKey) {
       context.read<AppNavigationProvider>().openAiSettings();
       return;
     }
@@ -93,7 +154,9 @@ class _AssistantPageState extends State<AssistantPage> {
     _input.clear();
     final attachments = _attachments;
     setState(() => _attachments = const []);
-    final request = assistant.sendMessage(text, attachments: attachments);
+    final request = continuing
+        ? assistant.continueGeneration()
+        : assistant.sendMessage(text, attachments: attachments);
     if (fromKeyboard) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _inputFocus.requestFocus();
@@ -101,44 +164,56 @@ class _AssistantPageState extends State<AssistantPage> {
     } else {
       _inputFocus.unfocus();
     }
-    _scrollToEnd();
+    _scrollToEnd(force: true);
     await request;
-    _scrollToEnd();
+    if (_followLatest) _scrollToEnd();
   }
 
-  void _scrollToEnd() {
+  void _scrollToEnd({bool force = false}) {
+    if (force) _followLatest = true;
+    if (!_followLatest || _scrollToEndPending) return;
+    _scrollToEndPending = true;
     final version = ++_scrollToEndVersion;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // 懒加载列表的总高度会随图片消息进入视口重新估算。
-      // 每次到达估算底部后等待布局，再校正到最新底部，无需再次点击。
-      for (var attempt = 0; attempt < 8; attempt++) {
-        if (!mounted || !_scroll.hasClients || version != _scrollToEndVersion) {
-          return;
+      try {
+        // 图片解码或响应输出可能继续改变内容高度。
+        // 同一次跟随等待布局后校正，不因每次高度通知重复启动动画。
+        for (var attempt = 0; attempt < 8; attempt++) {
+          if (!mounted ||
+              !_scroll.hasClients ||
+              !_followLatest ||
+              version != _scrollToEndVersion) {
+            return;
+          }
+          final target = _scroll.position.maxScrollExtent;
+          if (_scroll.position.extentAfter <= 1) return;
+          if (MediaQuery.disableAnimationsOf(context)) {
+            _scroll.jumpTo(target);
+          } else {
+            await _scroll.animateTo(
+              target,
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+            );
+          }
+          if (!mounted ||
+              !_scroll.hasClients ||
+              !_followLatest ||
+              version != _scrollToEndVersion) {
+            return;
+          }
+          await WidgetsBinding.instance.endOfFrame;
+          if (!mounted ||
+              !_scroll.hasClients ||
+              !_followLatest ||
+              version != _scrollToEndVersion) {
+            return;
+          }
+          _updateLatestButton();
+          if (_scroll.position.extentAfter <= 1) return;
         }
-        final target = _scroll.position.maxScrollExtent;
-        if (MediaQuery.disableAnimationsOf(context)) {
-          _scroll.jumpTo(target);
-        } else {
-          await _scroll.animateTo(
-            target,
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-          );
-        }
-        if (!mounted || !_scroll.hasClients || version != _scrollToEndVersion) {
-          return;
-        }
-        // 用户中途滚动取消动画时，不继续把他拉回底部。
-        if (_scroll.offset < target - 1 &&
-            _scroll.position.maxScrollExtent >= target) {
-          return;
-        }
-        await WidgetsBinding.instance.endOfFrame;
-        if (!mounted || !_scroll.hasClients || version != _scrollToEndVersion) {
-          return;
-        }
-        _updateLatestButton();
-        if (_scroll.position.extentAfter <= 1) return;
+      } finally {
+        if (version == _scrollToEndVersion) _scrollToEndPending = false;
       }
     });
   }
@@ -182,54 +257,83 @@ class _AssistantPageState extends State<AssistantPage> {
                     id: _ConversationSlot.messages,
                     child: messages.isEmpty
                         ? _Welcome(theme: theme)
-                        : Scrollbar(
-                            controller: _scroll,
-                            child: ShaderMask(
-                              blendMode: BlendMode.dstIn,
-                              shaderCallback: (bounds) =>
-                                  const LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [Colors.white, Colors.transparent],
-                                    stops: [0, 1],
-                                  ).createShader(
-                                    Rect.fromLTWH(
-                                      0,
-                                      bounds.height - 64,
-                                      bounds.width,
-                                      64,
-                                    ),
-                                  ),
-                              child: ScrollConfiguration(
-                                behavior: const AppScrollBehavior(
-                                  scrollbars: false,
-                                ),
-                                child: ListView.builder(
+                        : TextFieldTapRegion(
+                            onTapOutside: (event) {
+                              if (event.buttons == kPrimaryMouseButton &&
+                                  _conversationSelectionFocus.hasFocus) {
+                                _conversationSelectionFocus.unfocus();
+                              }
+                            },
+                            child: SelectionArea(
+                              focusNode: _conversationSelectionFocus,
+                              contextMenuBuilder:
+                                  AppTextSelectionMenu.buildRegion,
+                              child: NotificationListener<Notification>(
+                                onNotification: _handleScrollNotification,
+                                child: Scrollbar(
                                   controller: _scroll,
-                                  padding: const EdgeInsets.fromLTRB(
-                                    24,
-                                    16,
-                                    24,
-                                    56,
-                                  ),
-                                  itemCount: messages.length,
-                                  itemBuilder: (context, index) => Center(
-                                    child: ConstrainedBox(
-                                      constraints: const BoxConstraints(
-                                        maxWidth: 772,
-                                      ),
-                                      child: _MessageView(
-                                        key: ValueKey(messages[index].id),
-                                        message: messages[index],
-                                        theme: theme,
-                                        isResolving: assistant.isResolvingTool(
-                                          messages[index].id,
+                                  child: ShaderMask(
+                                    blendMode: BlendMode.dstIn,
+                                    shaderCallback: (bounds) =>
+                                        const LinearGradient(
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
+                                          colors: [
+                                            Colors.white,
+                                            Colors.transparent,
+                                          ],
+                                          stops: [0, 1],
+                                        ).createShader(
+                                          Rect.fromLTWH(
+                                            0,
+                                            bounds.height - 64,
+                                            bounds.width,
+                                            64,
+                                          ),
                                         ),
-                                        onResolve: (approve) =>
-                                            assistant.resolveTool(
-                                              messages[index].id,
-                                              approve: approve,
-                                            ),
+                                    child: ScrollConfiguration(
+                                      behavior: const AppScrollBehavior(
+                                        scrollbars: false,
+                                      ),
+                                      child: SingleChildScrollView(
+                                        key: const ValueKey(
+                                          'ai-message-scroll',
+                                        ),
+                                        controller: _scroll,
+                                        padding: const EdgeInsets.fromLTRB(
+                                          24,
+                                          16,
+                                          24,
+                                          56,
+                                        ),
+                                        // 使用实际总高度，避免变高消息的懒加载估算导致拖动滑块跳位。
+                                        child: Column(
+                                          children: [
+                                            for (final message in messages)
+                                              Center(
+                                                child: ConstrainedBox(
+                                                  constraints:
+                                                      const BoxConstraints(
+                                                        maxWidth: 772,
+                                                      ),
+                                                  child: _MessageView(
+                                                    key: ValueKey(message.id),
+                                                    message: message,
+                                                    theme: theme,
+                                                    isResolving: assistant
+                                                        .isResolvingTool(
+                                                          message.id,
+                                                        ),
+                                                    onResolve: (approve) =>
+                                                        assistant.resolveTool(
+                                                          message.id,
+                                                          approve: approve,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -300,7 +404,7 @@ class _AssistantPageState extends State<AssistantPage> {
                                           theme: theme,
                                           isFocused: true,
                                           icon: Symbols.arrow_downward_rounded,
-                                          size: 32,
+                                          size: 28,
                                           iconSize: 18,
                                           backgroundColor:
                                               theme.iconBackgroundColor,
@@ -309,7 +413,8 @@ class _AssistantPageState extends State<AssistantPage> {
                                               .interactionHoverColor(
                                                 theme.iconBackgroundColor,
                                               ),
-                                          onPressed: _scrollToEnd,
+                                          onPressed: () =>
+                                              _scrollToEnd(force: true),
                                         ),
                                       ),
                                     )
@@ -507,8 +612,8 @@ class _MessageViewState extends State<_MessageView> {
                                 color: widget.theme.secondary,
                                 child: Image.memory(
                                   attachment.bytes,
-                                  width: 120,
-                                  height: 120,
+                                  width: 100,
+                                  height: 100,
                                   fit: BoxFit.contain,
                                 ),
                               ),
@@ -521,7 +626,11 @@ class _MessageViewState extends State<_MessageView> {
                     const SizedBox(height: 8),
                   // 纯图片消息不构建空正文，避免 SelectableText 占用一行高度。
                   if (message.content.isNotEmpty || message.attachments.isEmpty)
-                    ChatMessageBody(message: message, theme: widget.theme),
+                    ChatMessageBody(
+                      message: message,
+                      theme: widget.theme,
+                      useParentSelectionArea: true,
+                    ),
                 ],
               ),
             ),
@@ -534,7 +643,8 @@ class _MessageViewState extends State<_MessageView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           content,
-          ChatMessageActions(message: message, theme: widget.theme),
+          if (isUser || turnFinished)
+            ChatMessageActions(message: message, theme: widget.theme),
         ],
       );
     }
@@ -626,7 +736,6 @@ class _MessageViewState extends State<_MessageView> {
                           constraints: const BoxConstraints(maxHeight: 300),
                           child: Scrollbar(
                             controller: _detailsScroll,
-                            thumbVisibility: true,
                             child: SingleChildScrollView(
                               controller: _detailsScroll,
                               primary: false,
@@ -637,11 +746,15 @@ class _MessageViewState extends State<_MessageView> {
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   for (final event in message.processEvents)
-                                    if (!(turnFinished &&
-                                        event.type ==
-                                            AiProcessEventType.status &&
-                                        event.status ==
-                                            AiResponseStatus.thinking))
+                                    if (event.type !=
+                                            AiProcessEventType.assistant &&
+                                        event.type !=
+                                            AiProcessEventType.guidance &&
+                                        !(turnFinished &&
+                                            event.type ==
+                                                AiProcessEventType.status &&
+                                            event.status ==
+                                                AiResponseStatus.thinking))
                                       _ProcessEventView(
                                         event: event,
                                         theme: widget.theme,
@@ -695,7 +808,7 @@ class _MessageViewState extends State<_MessageView> {
               ],
             ),
           ),
-        if (message.content.isNotEmpty || turnFinished)
+        if (turnFinished)
           ChatMessageActions(message: message, theme: widget.theme),
       ],
     );
@@ -732,7 +845,6 @@ String? _responseStatusLabel(
       retryAttempt,
       ChatCompletionClient.maxRetries,
     ),
-    AiResponseStatus.paused => l10n.aiResponsePaused,
     AiResponseStatus.failed => l10n.aiResponseFailed,
     AiResponseStatus.stopped => l10n.aiResponseStopped,
     AiResponseStatus.completed || null => null,
@@ -761,7 +873,6 @@ class _ProcessEventView extends StatelessWidget {
         _responseStatusLabel(context, event.status) ?? l10n.aiProcessCompleted,
       AiProcessEventType.reasoning =>
         isThinking ? l10n.aiAssistantThinking : l10n.aiProcessReasoning,
-      AiProcessEventType.assistant => l10n.aiProcessAssistant,
       AiProcessEventType.action =>
         action!.succeeded
             ? l10n.aiProcessActionSucceeded(
@@ -772,6 +883,22 @@ class _ProcessEventView extends StatelessWidget {
               ),
       AiProcessEventType.retry =>
         '${l10n.aiRequestRetryRecord(retry!.attempt)}: ${aiErrorText(l10n, retry.error)}',
+      // 兼容旧数据；新回合不会再生成这两类过程事件。
+      AiProcessEventType.assistant || AiProcessEventType.guidance => '',
+    };
+    final modelNote = event.type == AiProcessEventType.reasoning;
+    final statusIcon = switch (event.status) {
+      AiResponseStatus.connecting => Symbols.cloud_sync_rounded,
+      AiResponseStatus.awaitingReply => Symbols.hourglass_top_rounded,
+      AiResponseStatus.thinking => Symbols.neurology_rounded,
+      AiResponseStatus.streaming => Symbols.edit_note_rounded,
+      AiResponseStatus.preparingTools => Symbols.settings_suggest_rounded,
+      AiResponseStatus.executingTools => Symbols.handyman_rounded,
+      AiResponseStatus.retrying => Symbols.refresh_rounded,
+      AiResponseStatus.completed => Symbols.check_rounded,
+      AiResponseStatus.failed => Symbols.error_outline_rounded,
+      AiResponseStatus.stopped => Symbols.stop_circle_rounded,
+      null => Symbols.circle_rounded,
     };
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -780,21 +907,30 @@ class _ProcessEventView extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Icon(
-              failed
-                  ? Symbols.error_outline_rounded
-                  : action != null
-                  ? Symbols.handyman_rounded
-                  : event.type == AiProcessEventType.reasoning
-                  ? Symbols.blur_on
-                  : event.status == AiResponseStatus.completed
-                  ? Symbols.check_rounded
-                  : Symbols.circle_rounded,
-              fill: event.type == AiProcessEventType.reasoning ? null : 1,
-              size: 12,
-              color: failed
-                  ? Theme.of(context).colorScheme.error
-                  : theme.textColorTertiary,
+            child: Transform.flip(
+              flipY: false,
+              child: Icon(
+                failed
+                    ? Symbols.error_outline_rounded
+                    : action != null
+                    ? Symbols.handyman_rounded
+                    : modelNote
+                    ? isThinking
+                          ? statusIcon
+                          : Symbols.blur_on
+                    : event.type == AiProcessEventType.retry
+                    ? Symbols.refresh_rounded
+                    : statusIcon,
+                fill: modelNote
+                    ? null
+                    : event.status == AiResponseStatus.thinking
+                    ? 0
+                    : 1,
+                size: 12,
+                color: failed
+                    ? Theme.of(context).colorScheme.error
+                    : theme.textColorTertiary,
+              ),
             ),
           ),
           const SizedBox(width: 8),

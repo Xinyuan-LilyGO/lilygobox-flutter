@@ -2,7 +2,7 @@
  * @Description: 验证 OpenAI 兼容聊天请求与设置工具调用解析。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-10 17:19:17
+ * @LastEditTime: 2026-11-10 21:09:59
  */
 
 import 'dart:async';
@@ -443,53 +443,6 @@ void main() {
       await client.close();
     },
   );
-
-  test('pauses and resumes reading assistant text deltas', () async {
-    final responseStream = StreamController<List<int>>();
-    final firstDelta = Completer<void>();
-    final secondDelta = Completer<void>();
-    final deltas = <String>[];
-    final client = ChatCompletionClient(
-      client: MockClient.streaming((request, body) async {
-        await body.drain<void>();
-        return http.StreamedResponse(responseStream.stream, 200);
-      }),
-    );
-    final completionRequest = client.complete(
-      configuration: const AiServiceConfiguration(),
-      apiKey: 'test-secret',
-      messages: const [
-        {'role': 'user', 'content': 'Continue after pausing'},
-      ],
-      tools: const [],
-      onTextDelta: (delta) {
-        deltas.add(delta);
-        if (delta == 'first') firstDelta.complete();
-        if (delta == 'second') secondDelta.complete();
-      },
-    );
-
-    responseStream.add(
-      utf8.encode('data: {"choices":[{"delta":{"content":"first"}}]}\n\n'),
-    );
-    await firstDelta.future;
-    client.pauseResponse();
-    responseStream.add(
-      utf8.encode('data: {"choices":[{"delta":{"content":"second"}}]}\n\n'),
-    );
-    await Future<void>.delayed(Duration.zero);
-    expect(deltas, ['first']);
-
-    client.resumeResponse();
-    await secondDelta.future;
-    responseStream.add(utf8.encode('data: [DONE]\n\n'));
-    await responseStream.close();
-    final completion = await completionRequest;
-
-    expect(deltas, ['first', 'second']);
-    expect(completion.text, 'firstsecond');
-    await client.close();
-  });
 
   test('streams assistant text deltas and requests server streaming', () async {
     late http.Request request;

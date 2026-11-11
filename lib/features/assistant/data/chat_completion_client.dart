@@ -2,7 +2,7 @@
  * @Description: 调用 OpenAI 兼容 Chat Completions 并解析设置工具调用。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-10 17:19:17
+ * @LastEditTime: 2026-11-10 21:09:59
  */
 
 import 'dart:async';
@@ -33,27 +33,12 @@ class ChatCompletionClient {
   final Duration retryDelay;
   static const maxRetries = 2;
   StreamSubscription<String>? _responseSubscription;
-  bool _pauseRequested = false;
   Timer? _responseTimeout;
   void Function(Object, StackTrace)? _failResponse;
 
-  void pauseResponse() {
-    if (_pauseRequested) return;
-    _pauseRequested = true;
-    _responseTimeout?.cancel();
-    _responseSubscription?.pause();
-  }
-
-  void resumeResponse() {
-    if (!_pauseRequested) return;
-    _pauseRequested = false;
-    _responseSubscription?.resume();
-    _armResponseTimeout();
-  }
-
   void _armResponseTimeout() {
     _responseTimeout?.cancel();
-    if (_pauseRequested || _failResponse == null) return;
+    if (_failResponse == null) return;
     _responseTimeout = Timer(const Duration(seconds: 90), () {
       _failResponse?.call(
         TimeoutException('No response received for 90 seconds.'),
@@ -357,7 +342,6 @@ class ChatCompletionClient {
           },
           cancelOnError: true,
         );
-    if (_pauseRequested) _responseSubscription?.pause();
     _armResponseTimeout();
     try {
       await completion.future;
@@ -367,7 +351,6 @@ class ChatCompletionClient {
       _responseTimeout?.cancel();
       await _responseSubscription?.cancel();
       _responseSubscription = null;
-      _pauseRequested = false;
     }
     if (lineTail.isNotEmpty) {
       final lastLine = lineTail.endsWith('\r')

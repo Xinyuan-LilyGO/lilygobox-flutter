@@ -89,7 +89,7 @@ class _AppStartupState extends State<AppStartup>
     _preferences = widget.preferences;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _minimumDisplayTimer = Timer(const Duration(seconds: 3), () {
+      _minimumDisplayTimer = Timer(const Duration(seconds: 1), () {
         if (!mounted) return;
         _minimumDisplayElapsed = true;
         _tryFade();

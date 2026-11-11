@@ -2,7 +2,7 @@
  * @Description: 验证模型服务列表排序、确认添加、取消、编辑与删除。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-10 17:32:47
+ * @LastEditTime: 2026-11-11 14:44:19
  */
 
 import 'dart:async';
@@ -572,7 +572,7 @@ void main() {
                   find.byKey(ValueKey('ai-service-card-$serviceId')),
                 )
                 .color,
-            theme.themeData.tertiary,
+            theme.themeData.settingsControlBackgroundColor,
           );
           final serviceButtons = tester.widgetList<AppActionButton>(
             find.descendant(
@@ -738,6 +738,21 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
     await open(tester);
+    final dialogRect = tester.getRect(
+      find
+          .descendant(
+            of: find.byType(AlertDialog),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+    final nameRect = tester.getRect(field('name'));
+    expect(nameRect.left - dialogRect.left, closeTo(24, .1));
+    expect(dialogRect.right - nameRect.right, closeTo(24, .1));
+    final formScroll = find.byKey(const ValueKey('ai-service-form-scroll'));
+    expect(ScrollbarTheme.of(tester.element(formScroll)).crossAxisMargin, 6);
+    expect(tester.getRect(formScroll).right, closeTo(dialogRect.right, .1));
+
     for (final (title, description, key) in [
       (
         'Service name',

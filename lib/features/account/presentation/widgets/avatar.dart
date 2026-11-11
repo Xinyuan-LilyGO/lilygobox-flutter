@@ -2,7 +2,7 @@
  * @Description: 统一账号头像展示，加载失败时回退到本地人物图标。
  * @Author: LILYGO_L
  * @Date: 2026-10-03 14:22:16
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-11 14:33:00
  */
 
 import 'package:flutter/material.dart';
@@ -17,10 +17,12 @@ class AccountAvatar extends StatelessWidget {
     required this.theme,
     this.user,
     this.radius = 24,
+    this.backgroundColor,
   });
   final AppTheme theme;
   final GithubUser? user;
   final double radius;
+  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +36,7 @@ class AccountAvatar extends StatelessWidget {
       child: SizedBox.square(
         dimension: radius * 2,
         child: ColoredBox(
-          color: theme.sidebarIconBackgroundColor,
+          color: backgroundColor ?? theme.sidebarIconBackgroundColor,
           child: user?.avatarUrl == null
               ? fallback
               : Image.network(

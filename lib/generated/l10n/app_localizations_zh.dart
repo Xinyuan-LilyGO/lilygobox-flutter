@@ -224,7 +224,34 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiInputHint => '询问任何问题，或描述你想调整的设置…';
 
   @override
-  String get aiAttachImage => '添加图片';
+  String get aiAttachFile => '添加附件';
+
+  @override
+  String get aiStop => '停止生成';
+
+  @override
+  String get aiContinue => '继续生成';
+
+  @override
+  String get aiGuideTurn => '加入队列';
+
+  @override
+  String get aiGuidanceHint => '添加后续消息…';
+
+  @override
+  String get aiGuidancePending => '待发送队列';
+
+  @override
+  String get aiRemoveGuidance => '移除排队消息';
+
+  @override
+  String get aiSendPendingGuidance => '立即引导';
+
+  @override
+  String get aiEditQueuedMessage => '编辑排队消息';
+
+  @override
+  String get aiSaveQueuedMessage => '保存修改';
 
   @override
   String get aiRemoveImage => '移除图片';
@@ -252,12 +279,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiSend => '发送消息';
 
   @override
-  String get aiPause => '暂停接收回复';
-
-  @override
-  String get aiResume => '继续接收回复';
-
-  @override
   String get aiClearConversation => '清除对话';
 
   @override
@@ -282,9 +303,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiProcessReasoning => '模型思考';
 
   @override
-  String get aiProcessAssistant => '助手说明';
-
-  @override
   String aiProcessActionSucceeded(String action) {
     return '已执行：$action';
   }
@@ -307,9 +325,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiExecutingTools => '正在修改设置';
-
-  @override
-  String get aiResponsePaused => '已暂停';
 
   @override
   String get aiResponseFailed => '处理失败';

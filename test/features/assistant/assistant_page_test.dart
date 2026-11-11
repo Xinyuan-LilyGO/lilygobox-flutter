@@ -2,7 +2,7 @@
  * @Description: 验证 AI 主页居中与底部输入状态、键盘发送、直达设置及缩放布局。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:16:04
- * @LastEditTime: 2026-11-10 18:08:43
+ * @LastEditTime: 2026-11-11 14:49:48
  */
 
 import 'dart:async';
@@ -163,6 +163,9 @@ void main() {
       supportedLocales: AppLocalizations.supportedLocales,
       theme: ThemeData(
         useMaterial3: true,
+        scrollbarTheme: const ScrollbarThemeData(
+          crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
+        ),
         colorScheme: theme.themeData.materialColors,
         fontFamily: 'LilygoBoxInter',
       ),
@@ -207,6 +210,370 @@ void main() {
       await file.writeAsBytes(bytes!.buffer.asUint8List());
     });
   }
+
+  for (final stop in [false, true]) {
+    testWidgets(
+      'stream follows bottom until upward wheel interrupts and hides actions until terminal: stop=$stop',
+      (tester) async {
+        scope.dispose();
+        final output = StreamController<List<int>>();
+        addTearDown(output.close);
+        scope = await createAssistantTestScope(
+          theme: theme,
+          language: language,
+          shell: shell,
+          splitView: splitView,
+          client: MockClient.streaming((request, body) async {
+            await body.drain<void>();
+            return http.StreamedResponse(output.stream, 200);
+          }),
+        );
+        await tester.runAsync(() => scope.provider.initialized);
+        await scope.provider.saveService(
+          name: 'Test',
+          protocol: AiApiProtocol.openAiChatCompletions,
+          baseUrl: 'https://example.test/v1',
+          models: ['test'],
+          apiKey: 'key',
+        );
+        await tester.pumpWidget(app(disableAnimations: stop));
+        unawaited(scope.provider.sendMessage('Start'));
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await tester.pumpAndSettle();
+        final replyId = scope.provider.messages.last.id;
+        final userId = scope.provider.messages.first.id;
+        final copy = find.byKey(ValueKey('ai-copy-message-$replyId'));
+        final time = find.byKey(ValueKey('ai-message-time-$replyId'));
+        final latest = find.byKey(const ValueKey('ai-scroll-to-latest'));
+        expect(copy, findsNothing);
+        expect(time, findsNothing);
+        expect(find.byKey(ValueKey('ai-copy-message-$userId')), findsOneWidget);
+        expect(latest, findsNothing);
+        final list = find.byKey(const ValueKey('ai-message-scroll'));
+        final scroll = tester.widget<SingleChildScrollView>(list).controller!;
+        output.add(
+          utf8.encode(
+            'data: ' +
+                jsonEncode({
+                  'choices': [
+                    {
+                      'delta': {
+                        'content': List.generate(
+                          80,
+                          (i) => 'Line $i: Streaming response.',
+                        ).join('\n\n'),
+                      },
+                    },
+                  ],
+                }) +
+                '\n\n',
+          ),
+        );
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await tester.pumpAndSettle();
+        expect(scope.provider.busy, isTrue);
+        expect(scroll.position.extentAfter, lessThanOrEqualTo(1));
+        expect(latest, findsNothing);
+        expect(copy, findsNothing);
+        expect(time, findsNothing);
+        // 新一批输出触发跟随动画后，立即用真实滚轮向上打断。
+        output.add(
+          utf8.encode(
+            'data: ' +
+                jsonEncode({
+                  'choices': [
+                    {
+                      'delta': {
+                        'content': List.filled(
+                          15,
+                          '\n\nMore streaming text.',
+                        ).join(),
+                      },
+                    },
+                  ],
+                }) +
+                '\n\n',
+          ),
+        );
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 40));
+        final wheelStart = scroll.offset;
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: tester.getTopLeft(list) + const Offset(100, 100),
+            scrollDelta: const Offset(0, -300),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 40));
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: tester.getTopLeft(list) + const Offset(100, 100),
+            scrollDelta: const Offset(0, -300),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final readingOffset = scroll.offset;
+        // 连续向上滚轮必须累计目标，不能因解除跟随而反复重置动画。
+        expect(readingOffset, closeTo(wheelStart - 600, 1));
+        expect(scroll.position.extentAfter, greaterThan(120));
+        expect(latest, findsOneWidget);
+        // 后续输出继续增长也不能拉走用户的阅读位置。
+        output.add(
+          utf8.encode(
+            'data: ${jsonEncode({
+              'choices': [
+                {
+                  'delta': {'content': '\n\nLater output. ' * 100},
+                },
+              ],
+            })}\n\n',
+          ),
+        );
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await tester.pumpAndSettle();
+        expect(scroll.offset, closeTo(readingOffset, 1));
+        expect(copy, findsNothing);
+        // 点击回到最新消息恢复跟随。
+        await tester.tap(latest);
+        await tester.pumpAndSettle();
+        expect(scroll.position.extentAfter, lessThanOrEqualTo(1));
+        output.add(
+          utf8.encode(
+            'data: ${jsonEncode({
+              'choices': [
+                {
+                  'delta': {'content': '\n\nFollowing again. ' * 40},
+                },
+              ],
+            })}\n\n',
+          ),
+        );
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await tester.pumpAndSettle();
+        expect(scroll.position.extentAfter, lessThanOrEqualTo(1));
+        expect(latest, findsNothing);
+        if (stop) {
+          scope.provider.stopGeneration();
+        } else {
+          output.add(utf8.encode('data: [DONE]\n\n'));
+          await tester.runAsync(output.close);
+        }
+        await pumpAssistantUntilIdle(tester);
+        await tester.pumpAndSettle();
+        expect(copy, findsOneWidget);
+        expect(time, findsOneWidget);
+        expect(
+          scope.provider.messages.last.status,
+          stop ? AiResponseStatus.stopped : AiResponseStatus.completed,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('queued message heading stays fixed while items scroll', (
+    tester,
+  ) async {
+    await tester.runAsync(() => scope.provider.initialized);
+    await scope.provider.saveService(
+      name: 'Test',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://example.test/v1',
+      models: ['test'],
+      apiKey: 'key',
+    );
+    responseGate = Completer<void>();
+    unawaited(scope.provider.sendMessage('Start'));
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    for (var i = 0; i < 9; i++) {
+      await scope.provider.sendMessage('Queued item $i');
+    }
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    final heading = find.byKey(const ValueKey('ai-pending-guidance-heading'));
+    final list = find.byKey(const ValueKey('ai-pending-guidance-scroll'));
+    final controller = tester.widget<SingleChildScrollView>(list).controller!;
+    expect(
+      ScrollbarTheme.of(tester.element(list)).crossAxisMargin,
+      AppScrollBehavior.scrollbarEdgeInset - 5,
+    );
+    final conversation = find.byKey(const ValueKey('ai-message-scroll'));
+    expect(
+      ScrollbarTheme.of(tester.element(conversation)).crossAxisMargin,
+      AppScrollBehavior.scrollbarEdgeInset,
+    );
+    final headingRect = tester.getRect(heading);
+    final firstItem = find.byKey(
+      ValueKey(scope.provider.pendingGuidance.first.id),
+    );
+    final initialItemTop = tester.getTopLeft(firstItem).dy;
+    expect(controller.position.maxScrollExtent, greaterThan(0));
+    expect(headingRect.bottom, lessThanOrEqualTo(tester.getRect(list).top));
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: tester.getCenter(list),
+        scrollDelta: const Offset(0, 120),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.offset, greaterThan(0));
+    expect(tester.getTopLeft(firstItem).dy, lessThan(initialItemTop));
+    expect(tester.getRect(heading), headingRect);
+    expect(find.text('Queued messages (9)'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('ai-queue-attachments-divider')),
+      findsNothing,
+    );
+    tester.widget<ChatComposer>(find.byType(ChatComposer)).onAttachmentsChanged([
+      AiImageAttachment(
+        name: 'draft.png',
+        bytes: base64Decode(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
+        ),
+        mimeType: 'image/png',
+      ),
+    ]);
+    await tester.pumpAndSettle();
+    final divider = find.byKey(const ValueKey('ai-queue-attachments-divider'));
+    expect(divider, findsOneWidget);
+    expect(tester.widget<Divider>(divider).color, theme.themeData.dividerColor);
+    final attachmentsList = find.byKey(const ValueKey('ai-attachments-scroll'));
+    expect(
+      tester.getRect(divider).top - tester.getRect(list).bottom,
+      closeTo(8, .1),
+    );
+    expect(
+      tester.getRect(attachmentsList).top - tester.getRect(divider).bottom,
+      closeTo(8, .1),
+    );
+    // 滚到底后按最后一张卡片的真实边缘核对，不只测滚动容器。
+    controller.jumpTo(controller.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    final lastQueue = find.byKey(
+      ValueKey(scope.provider.pendingGuidance.last.id),
+    );
+    expect(
+      tester.getRect(divider).top - tester.getRect(lastQueue).bottom,
+      closeTo(8, .1),
+    );
+    final firstImage = find
+        .descendant(of: attachmentsList, matching: find.byType(Image))
+        .first;
+    expect(
+      tester.getRect(firstImage).top - tester.getRect(divider).bottom,
+      closeTo(8, .1),
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('ai-pending-guidance'))).height,
+      lessThanOrEqualTo(174),
+    );
+    expect(tester.takeException(), isNull);
+    scope.provider.stopGeneration();
+    responseGate!.complete();
+    await pumpAssistantUntilIdle(tester);
+  });
+
+  testWidgets(
+    'running turns queue messages and automatically send them as separate turns',
+    (tester) async {
+      await tester.runAsync(() => scope.provider.initialized);
+      await scope.provider.saveService(
+        name: 'Test',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['test'],
+        apiKey: 'key',
+      );
+      responseGate = Completer<void>();
+      await tester.pumpWidget(app());
+      final field = find.byKey(const ValueKey('ai-message-input'));
+      await tester.enterText(field, 'Start');
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      expect(scope.provider.busy, isTrue);
+      await tester.enterText(field, 'Please use Chinese');
+      await tester.pump();
+      final send = find.byKey(const ValueKey('ai-send-button'));
+      expect(send, findsOneWidget);
+      await tester.tap(send);
+      await tester.pumpAndSettle();
+      final pending = find.byKey(const ValueKey('ai-pending-guidance'));
+      expect(pending, findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('ai-composer-context-layer')),
+          matching: pending,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('ai-composer-input-layer')),
+          matching: pending,
+        ),
+        findsNothing,
+      );
+      expect(find.text('Queued messages (1)'), findsOneWidget);
+      expect(scope.provider.messages, hasLength(2));
+      expect(requests, 1);
+      expect(tester.widget<TextField>(field).controller!.text, isEmpty);
+      expect(tester.widget<TextField>(field).focusNode!.hasFocus, isFalse);
+      expect(find.byKey(const ValueKey('ai-stop-button')), findsOneWidget);
+      await tester.enterText(field, 'Discard this one');
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      final discarded = scope.provider.pendingGuidance.last;
+      await tester.tap(
+        find.byKey(ValueKey('ai-remove-guidance-${discarded.id}')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        scope.provider.pendingGuidance.single.content,
+        'Please use Chinese',
+      );
+      final queued = scope.provider.pendingGuidance.single;
+      await tester.tap(find.byKey(ValueKey('ai-edit-guidance-${queued.id}')));
+      await tester.pumpAndSettle();
+      expect(scope.provider.pendingGuidance, isEmpty);
+      expect(
+        tester.widget<TextField>(field).controller!.text,
+        'Please use Chinese',
+      );
+      expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
+      expect(
+        find.byKey(ValueKey('ai-edit-queue-input-${queued.id}')),
+        findsNothing,
+      );
+      await tester.enterText(field, 'Use Chinese briefly');
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(
+        scope.provider.pendingGuidance.single.content,
+        'Use Chinese briefly',
+      );
+      await capture(tester, 'pending-guidance');
+      responseGate!.complete();
+      await pumpAssistantUntilIdle(tester);
+      await tester.pumpAndSettle();
+      expect(requests, 2);
+      expect(pending, findsNothing);
+      expect(find.text('Use Chinese briefly'), findsOneWidget);
+      expect(scope.provider.messages, hasLength(4));
+      expect(scope.provider.messages[2].role, 'user');
+      expect(scope.provider.messages[2].content, 'Use Chinese briefly');
+      final reply = scope.provider.messages.last;
+      await tester.tap(find.byKey(ValueKey('ai-response-details-${reply.id}')));
+      await tester.pumpAndSettle();
+      expect(find.text('User guidance'), findsNothing);
+      expect(
+        (jsonDecode(requestBodies.last)['messages'] as List).last['content'],
+        'Use Chinese briefly',
+      );
+    },
+  );
 
   testWidgets('Ctrl+V reaches the image paste action inside the text field', (
     tester,
@@ -469,7 +836,7 @@ void main() {
       expect(find.text('Model: deepseek-chat'), findsOneWidget);
       expect(find.text('API protocol: OpenAI Chat Completions'), findsNothing);
       expect(find.text('No application settings were changed.'), findsNothing);
-      final messageList = find.byType(ListView);
+      final messageList = find.byKey(const ValueKey('ai-message-scroll'));
       expect(
         tester.getSize(messageList).width,
         tester.getSize(find.byType(AssistantPage)).width,
@@ -559,7 +926,9 @@ void main() {
       await tester.pumpWidget(app(disableAnimations: reducedMotion));
       await tester.pumpAndSettle();
       final controller = tester
-          .widget<ListView>(find.byType(ListView))
+          .widget<SingleChildScrollView>(
+            find.byKey(const ValueKey('ai-message-scroll')),
+          )
           .controller!;
       controller.jumpTo(controller.position.maxScrollExtent);
       await tester.pumpAndSettle();
@@ -568,7 +937,9 @@ void main() {
       final original = controller.offset;
       await tester.sendEventToBinding(
         PointerScrollEvent(
-          position: tester.getCenter(find.byType(ListView)),
+          position: tester.getCenter(
+            find.byKey(const ValueKey('ai-message-scroll')),
+          ),
           scrollDelta: const Offset(0, -240),
           kind: PointerDeviceKind.mouse,
         ),
@@ -583,6 +954,7 @@ void main() {
       }
       await tester.pumpAndSettle();
       expect(button, findsOneWidget);
+      expect(tester.getSize(button).width, 28);
       expect(
         tester.getBottomRight(button).dy,
         lessThan(tester.getTopLeft(find.byType(ChatComposer)).dy),
@@ -671,13 +1043,28 @@ void main() {
         app(disableAnimations: latestMotionVariant.currentValue!),
       );
       await tester.pumpAndSettle();
+      final sentImages = find.descendant(
+        of: find.byKey(const ValueKey('ai-message-scroll')),
+        matching: find.byType(Image),
+      );
+      expect(tester.getSize(sentImages.first), const Size(100, 100));
       tester
           .widget<ChatComposer>(find.byType(ChatComposer))
           .onAttachmentsChanged([image]);
       await tester.pumpAndSettle();
       final controller = tester
-          .widget<ListView>(find.byType(ListView).first)
+          .widget<SingleChildScrollView>(
+            find.byKey(const ValueKey('ai-message-scroll')),
+          )
           .controller!;
+      final extent = controller.position.maxScrollExtent;
+      // Mixed-height messages must not change the scrollbar mapping as we scroll.
+      for (final fraction in [.2, .5, .8, .35, 1.0, 0.0]) {
+        controller.jumpTo(extent * fraction);
+        await tester.pumpAndSettle();
+        expect(controller.position.maxScrollExtent, closeTo(extent, .1));
+        expect(controller.offset, closeTo(extent * fraction, .1));
+      }
       controller.jumpTo(1);
       await tester.pumpAndSettle();
       final button = find.byKey(const ValueKey('ai-scroll-to-latest'));
@@ -711,6 +1098,14 @@ void main() {
         .widget<ChatComposer>(find.byType(ChatComposer))
         .onAttachmentsChanged(images);
     await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('ai-composer-attachment-layer')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('ai-queue-attachments-divider')),
+      findsNothing,
+    );
     final list = find.byKey(const ValueKey('ai-attachments-scroll'));
     final bar = find.byKey(const ValueKey('ai-attachments-scrollbar'));
     final controller = tester.widget<SingleChildScrollView>(list).controller!;
@@ -719,12 +1114,13 @@ void main() {
     expect(tester.widget<Scrollbar>(bar).thumbVisibility, isNull);
     final thumbnails = find.descendant(of: list, matching: find.byType(Image));
     final firstRect = tester.getRect(thumbnails.first);
-    expect(firstRect.width, lessThanOrEqualTo(64));
+    expect(firstRect.width, lessThan(100));
     final row = thumbnails
         .evaluate()
         .map((element) => tester.getRect(find.byWidget(element.widget)))
         .where((rect) => (rect.top - firstRect.top).abs() < .1)
         .toList();
+    expect(row, hasLength(10));
     expect(row.last.right, closeTo(tester.getRect(list).right - 12, .1));
     expect(
       firstRect.left - tester.getRect(list).left,
@@ -747,18 +1143,19 @@ void main() {
     final last = find.descendant(of: list, matching: find.byType(Image)).last;
     expect(
       tester.getRect(last).bottom,
-      lessThanOrEqualTo(tester.getRect(list).bottom - 7),
+      lessThanOrEqualTo(tester.getRect(list).bottom + .1),
     );
     expect(
       tester.getRect(last).right,
-      lessThanOrEqualTo(tester.getRect(bar).right - 12),
+      lessThanOrEqualTo(tester.getRect(bar).right - 11.9),
     );
     expect(
       tester.getRect(list).bottom,
       lessThanOrEqualTo(
         tester
-            .getRect(find.byKey(const ValueKey('ai-composer-input-layer')))
-            .top,
+                .getRect(find.byKey(const ValueKey('ai-composer-input-layer')))
+                .top +
+            .1,
       ),
     );
     // 滚到最后一张后仍可删除，回调保留其他附件。
@@ -821,25 +1218,12 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(find.textContaining('Connecting'), findsOneWidget);
 
-    final pauseResumeButton = find.byKey(
-      const ValueKey('ai-pause-resume-button'),
-    );
-    expect(pauseResumeButton, findsOneWidget);
-    expect(find.byKey(const ValueKey('ai-stop-button')), findsNothing);
+    final stopButton = find.byKey(const ValueKey('ai-stop-button'));
+    expect(stopButton, findsOneWidget);
     expect(
-      tester.widget<TitleBarIconButton>(pauseResumeButton).icon,
+      tester.widget<TitleBarIconButton>(stopButton).icon,
       Symbols.stop_rounded,
     );
-    await tester.tap(pauseResumeButton);
-    await tester.pump();
-    expect(scope.provider.paused, isTrue);
-    expect(
-      tester.widget<TitleBarIconButton>(pauseResumeButton).icon,
-      Symbols.play_arrow_rounded,
-    );
-    await tester.tap(pauseResumeButton);
-    await tester.pump();
-    expect(scope.provider.paused, isFalse);
     await tester.enterText(field, 'Next message');
     expect(tester.widget<TextField>(field).controller!.text, 'Next message');
 
@@ -857,6 +1241,63 @@ void main() {
     expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
     expect(tester.widget<TextField>(field).controller!.text, 'Next message');
   });
+
+  testWidgets(
+    'square stop button ends the turn and preserves the unsent draft',
+    (tester) async {
+      await tester.runAsync(() => scope.provider.initialized);
+      await scope.provider.saveService(
+        name: 'Test',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['test'],
+        apiKey: 'key',
+      );
+      responseGate = Completer<void>();
+      await tester.pumpWidget(app());
+      final field = find.byKey(const ValueKey('ai-message-input'));
+      await tester.enterText(field, 'Start');
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      final button = find.byKey(const ValueKey('ai-stop-button'));
+      expect(
+        tester.widget<TitleBarIconButton>(button).icon,
+        Symbols.stop_rounded,
+      );
+      await tester.tap(button);
+      await tester.pump();
+      await tester.enterText(field, 'Unsent draft');
+      responseGate!.complete();
+      await pumpAssistantUntilIdle(tester);
+      expect(scope.provider.error, isNull);
+      expect(
+        scope.provider.messages
+            .where((item) => item.role == 'assistant')
+            .every((item) => item.content.isEmpty),
+        isTrue,
+      );
+      expect(tester.widget<TextField>(field).controller!.text, 'Unsent draft');
+      expect(button, findsNothing);
+      expect(find.byKey(const ValueKey('ai-send-button')), findsOneWidget);
+      expect(find.text('Resume response'), findsNothing);
+      await tester.enterText(field, '');
+      await tester.pump();
+      final continueButton = find.byKey(const ValueKey('ai-continue-button'));
+      expect(
+        tester.widget<TitleBarIconButton>(continueButton).icon,
+        Symbols.play_arrow_rounded,
+      );
+      await tester.tap(continueButton);
+      await pumpAssistantUntilIdle(tester);
+      expect(requests, 2);
+      expect(continueButton, findsNothing);
+      expect(
+        scope.provider.messages.last.content,
+        'Ready to help with LilygoBox.',
+      );
+    },
+  );
 
   testWidgets(
     'request failures stay in their chat turns after later messages',
@@ -1023,6 +1464,49 @@ void main() {
     expect(requests, 0);
   });
 
+  testWidgets('clicking editor padding and toolbar whitespace focuses text', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    final field = find.byKey(const ValueKey('ai-message-input'));
+    final focus = tester.widget<TextField>(field).focusNode!;
+    final rect = tester.getRect(
+      find.byKey(const ValueKey('ai-composer-input-layer')),
+    );
+    for (final point in [
+      rect.topCenter + const Offset(0, 4),
+      rect.centerLeft + const Offset(4, 0),
+      rect.bottomCenter - const Offset(0, 15),
+    ]) {
+      focus.unfocus();
+      await tester.pump();
+      expect(focus.hasFocus, isFalse);
+      final gesture = await tester.startGesture(
+        point,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(focus.hasFocus, isTrue);
+      await tester.pump(const Duration(seconds: 1));
+      expect(focus.hasFocus, isTrue);
+      await gesture.up();
+      await tester.pump();
+      expect(focus.hasFocus, isTrue);
+      // 已聚焦时再次按下，不能先失焦再等松开恢复。
+      final held = await tester.startGesture(
+        point,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pump();
+      expect(focus.hasFocus, isTrue);
+      await tester.pump(const Duration(seconds: 1));
+      expect(focus.hasFocus, isTrue);
+      await held.up();
+      await tester.pump();
+    }
+  });
+
   testWidgets('clicking send does not focus the input again', (tester) async {
     responseGate = Completer<void>();
     await tester.runAsync(() => scope.provider.initialized);
@@ -1055,7 +1539,7 @@ void main() {
     expect(
       tester
           .widget<TitleBarIconButton>(
-            find.byKey(const ValueKey('ai-pause-resume-button')),
+            find.byKey(const ValueKey('ai-stop-button')),
           )
           .size,
       30,
@@ -1221,6 +1705,98 @@ void main() {
       }
     },
   );
+
+  for (final reasoning in [false, true]) {
+    testWidgets(
+      'model list reveals selection and pins the visible service: reasoning=$reasoning',
+      (tester) async {
+        await tester.runAsync(() => scope.provider.initialized);
+        await scope.provider.saveService(
+          name: 'First service',
+          protocol: AiApiProtocol.openAiChatCompletions,
+          baseUrl: 'https://first.test/v1',
+          models: List.generate(20, (i) => 'first-$i'),
+          apiKey: 'key',
+        );
+        final selectedModel = reasoning ? 'o3' : 'chosen-model';
+        final service = await scope.provider.saveService(
+          name: 'Second service',
+          protocol: AiApiProtocol.openAiChatCompletions,
+          baseUrl: 'https://second.test/v1',
+          models: [
+            ...List.generate(15, (i) => 'second-$i'),
+            selectedModel,
+            ...List.generate(15, (i) => 'last-$i'),
+          ],
+          apiKey: 'key',
+        );
+        await scope.provider.selectModel(service, selectedModel);
+        await tester.pumpWidget(app());
+        await tester.pumpAndSettle();
+        final trigger = find.byKey(const ValueKey('ai-model-selector'));
+        await tester.tap(trigger);
+        await tester.pumpAndSettle();
+        if (reasoning) {
+          await tester.tap(find.byKey(const ValueKey('ai-reasoning-models')));
+          await tester.pumpAndSettle();
+        }
+        final list = find.byKey(const ValueKey('ai-model-list-scroll'));
+        final controller = tester
+            .widget<SingleChildScrollView>(list)
+            .controller!;
+        final selected = find.byKey(
+          ValueKey('ai-model-$service-$selectedModel'),
+        );
+        final viewport = tester.getRect(list);
+        final row = tester.getRect(selected);
+        final pinned = find.byKey(const ValueKey('ai-model-pinned-service'));
+        expect(row.top, closeTo(tester.getRect(pinned).bottom, 1));
+        expect(row.bottom, lessThanOrEqualTo(viewport.bottom));
+        expect(controller.offset, greaterThan(0));
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('ai-model-pinned-service')),
+            matching: find.text('Second service'),
+          ),
+          findsOneWidget,
+        );
+        final search = find.byKey(const ValueKey('ai-model-search'));
+        expect(tester.widget<TextField>(search).focusNode!.hasFocus, isFalse);
+        controller.jumpTo(100);
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('ai-model-pinned-service')),
+            matching: find.text('First service'),
+          ),
+          findsOneWidget,
+        );
+        await tester.enterText(search, 'no match');
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('ai-model-pinned-service')),
+          findsNothing,
+        );
+        await tester.tapAt(const Offset(10, 10));
+        await tester.pumpAndSettle();
+        await tester.tap(trigger);
+        await tester.pumpAndSettle();
+        if (reasoning) {
+          await tester.tap(find.byKey(const ValueKey('ai-reasoning-models')));
+          await tester.pumpAndSettle();
+        }
+        expect(
+          tester.getRect(selected).top,
+          closeTo(tester.getRect(pinned).bottom, 1),
+        );
+        expect(
+          tester.getRect(selected).bottom,
+          lessThanOrEqualTo(tester.getRect(list).bottom),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets(
     'reasoning opens first, fades to models and preserves concrete effort choices',

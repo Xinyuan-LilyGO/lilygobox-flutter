@@ -2,7 +2,7 @@
  * @Description: 为主页提供右键菜单风格的服务分组模型菜单与设备风格搜索框。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-10 13:53:32
+ * @LastEditTime: 2026-11-11 14:43:03
  */
 
 import 'package:flutter/material.dart';
@@ -41,10 +41,103 @@ class _ModelSelectorState extends State<ModelSelector> {
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
   final _scroll = ScrollController();
+  final _selectedModelKey = GlobalKey();
+  final _viewportKey = GlobalKey();
+  final _serviceHeaderKeys = <String, GlobalKey>{};
+  bool _revealSelected = false;
+  String? _pinnedService;
   Object? _error;
   int _openRevision = 0;
   String? _reasoningModel;
   int _effortIndex = 0;
+
+  // 吸顶标题保留半透明底色，让下方经过的模型项仍能被看见。
+  Color get _serviceHeadingColor =>
+      widget.theme.popupSurfaceColor.withValues(alpha: 0.86);
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_updatePinnedService);
+  }
+
+  void _updatePinnedService() {
+    if (!mounted || !_scroll.hasClients) return;
+    final viewport = _viewportKey.currentContext?.findRenderObject();
+    if (viewport is! RenderBox || !viewport.hasSize) return;
+    final top = viewport.localToGlobal(Offset.zero).dy;
+    String? name;
+    for (final service in widget.assistant.services) {
+      final header = _serviceHeaderKeys[service.id]?.currentContext
+          ?.findRenderObject();
+      if (header is RenderBox &&
+          header.hasSize &&
+          header.localToGlobal(Offset.zero).dy < top - 1) {
+        name = service.name;
+      }
+    }
+    if (name != _pinnedService) setState(() => _pinnedService = name);
+  }
+
+  void _positionModelList() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_menu.isOpen || !_scroll.hasClients) return;
+      if (_revealSelected && _search.text.isEmpty) {
+        final selected = _selectedModelKey.currentContext?.findRenderObject();
+        final viewport = _viewportKey.currentContext?.findRenderObject();
+        final header = _serviceHeaderKeys[widget.assistant.selectedService?.id]
+            ?.currentContext
+            ?.findRenderObject();
+        if (selected is RenderBox &&
+            selected.hasSize &&
+            viewport is RenderBox &&
+            viewport.hasSize &&
+            header is RenderBox &&
+            header.hasSize) {
+          _revealSelected = false;
+          // Leave room for the pinned service heading above the selected row.
+          final offset =
+              _scroll.offset +
+              selected.localToGlobal(Offset.zero).dy -
+              viewport.localToGlobal(Offset.zero).dy -
+              header.size.height;
+          _scroll.jumpTo(
+            offset.clamp(
+              _scroll.position.minScrollExtent,
+              _scroll.position.maxScrollExtent,
+            ),
+          );
+        }
+      }
+      _updatePinnedService();
+    });
+  }
+
+  void _showModels() {
+    setState(() {
+      _reasoningModel = null;
+      _revealSelected = true;
+      _pinnedService = null;
+    });
+  }
+
+  Widget _serviceHeading(String name, {Key? key}) => ColoredBox(
+    key: key,
+    color: _serviceHeadingColor,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Text(
+        name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: widget.theme.textColorTertiary,
+        ),
+      ),
+    ),
+  );
 
   @override
   void dispose() {
@@ -110,7 +203,7 @@ class _ModelSelectorState extends State<ModelSelector> {
             key: const ValueKey('ai-reasoning-models'),
             theme: theme,
             backgroundColor: theme.popupSurfaceColor,
-            onPressed: () => setState(() => _reasoningModel = null),
+            onPressed: _showModels,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
               child: Row(
@@ -153,7 +246,7 @@ class _ModelSelectorState extends State<ModelSelector> {
             theme: theme,
             value: index / (options.length - 1),
             divisions: options.length - 1,
-            icon: Symbols.psychology_rounded,
+            icon: Symbols.neurology_rounded,
             snapToDivisions: true,
             label: l10n.aiReasoningEffort,
             semanticFormatter: (value) => reasoningEffortLabel(
@@ -292,6 +385,7 @@ class _ModelSelectorState extends State<ModelSelector> {
               .toList(),
         ),
     ].where((group) => group.$2.isNotEmpty).toList();
+    _positionModelList();
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -320,135 +414,180 @@ class _ModelSelectorState extends State<ModelSelector> {
               280.0,
             ),
           ),
-          child: Scrollbar(
-            key: const ValueKey('ai-model-list-scrollbar'),
-            controller: _scroll,
-            child: Padding(
-              padding: const EdgeInsetsDirectional.only(end: 20),
-              child: ScrollConfiguration(
-                behavior: const AppScrollBehavior(scrollbars: false),
-                child: SingleChildScrollView(
-                  key: const ValueKey('ai-model-list-scroll'),
-                  controller: _scroll,
-                  primary: false,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: ScrollbarTheme(
+            data: ScrollbarTheme.of(context).copyWith(
+              // 菜单右侧已有 4 px 留白，总距离保持全局 6 px。
+              crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset - 4,
+            ),
+            child: Scrollbar(
+              key: const ValueKey('ai-model-list-scrollbar'),
+              controller: _scroll,
+              child: Padding(
+                padding: const EdgeInsetsDirectional.only(end: 20),
+                child: ScrollConfiguration(
+                  behavior: const AppScrollBehavior(scrollbars: false),
+                  child: Stack(
                     children: [
-                      if (groups.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Symbols.dns_rounded,
-                                size: 24,
-                                color: theme.textColorTertiary,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                assistant.services.isEmpty
-                                    ? l10n.aiNoServices
-                                    : l10n.aiNoMatchingModels,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  height: 1.5,
-                                  color: theme.textColorTertiary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      for (final (service, models) in groups) ...[
-                        if (service != groups.first.$1)
-                          const SizedBox(height: 8),
-                        Padding(
-                          // 服务标题对齐模型按钮外沿，上下留白区分标题和选项。
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Text(
-                            service.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: theme.textColorTertiary,
-                            ),
-                          ),
-                        ),
-                        for (final model in models) ...[
-                          if (model != models.first) const SizedBox(height: 4),
-                          MenuItemSurface(
-                            key: ValueKey('ai-model-${service.id}-$model'),
-                            theme: theme,
-                            disableWhenSelected: false,
-                            backgroundColor: theme.popupSurfaceColor,
-                            selectedColor: theme.primaryTextHoverColor,
-                            hoverColor: theme.basePrimary,
-                            foregroundColor:
-                                assistant.selectedService?.id == service.id &&
-                                    assistant.selectedModel == model
-                                ? theme.type == ThemeType.light
-                                      ? Colors.black
-                                      : theme.materialColors.onPrimary
-                                : theme.textColorSecondary,
-                            hoverForegroundColor:
-                                theme.materialColors.onPrimary,
-                            isSelected:
-                                assistant.selectedService?.id == service.id &&
-                                assistant.selectedModel == model,
-                            onPressed: assistant.canChangeService
-                                ? () => _select(service, model)
-                                : null,
-                            borderRadius: BorderRadius.circular(4),
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(minHeight: 28),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 4,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        model,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
+                      NotificationListener<ScrollMetricsNotification>(
+                        onNotification: (_) {
+                          _positionModelList();
+                          return false;
+                        },
+                        child: SizedBox(
+                          key: _viewportKey,
+                          child: SingleChildScrollView(
+                            key: const ValueKey('ai-model-list-scroll'),
+                            controller: _scroll,
+                            primary: false,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (groups.isEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 12,
                                     ),
-                                    const SizedBox(width: 8),
-                                    SizedBox(
-                                      width: 17,
-                                      child:
+                                    child: Column(
+                                      children: [
+                                        Icon(
+                                          Symbols.dns_rounded,
+                                          size: 24,
+                                          color: theme.textColorTertiary,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          assistant.services.isEmpty
+                                              ? l10n.aiNoServices
+                                              : l10n.aiNoMatchingModels,
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            height: 1.5,
+                                            color: theme.textColorTertiary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                for (final (service, models) in groups) ...[
+                                  if (service != groups.first.$1)
+                                    const SizedBox(height: 8),
+                                  _serviceHeading(
+                                    service.name,
+                                    key: _serviceHeaderKeys.putIfAbsent(
+                                      service.id,
+                                      GlobalKey.new,
+                                    ),
+                                  ),
+                                  for (final model in models) ...[
+                                    if (model != models.first)
+                                      const SizedBox(height: 4),
+                                    MenuItemSurface(
+                                      key: ValueKey(
+                                        'ai-model-${service.id}-$model',
+                                      ),
+                                      theme: theme,
+                                      disableWhenSelected: false,
+                                      backgroundColor: theme.popupSurfaceColor,
+                                      selectedColor:
+                                          theme.primaryTextHoverColor,
+                                      hoverColor: theme.basePrimary,
+                                      foregroundColor:
                                           assistant.selectedService?.id ==
                                                   service.id &&
                                               assistant.selectedModel == model
-                                          ? Icon(
-                                              Symbols.check_rounded,
-                                              size: 17,
-                                            )
+                                          ? theme.type == ThemeType.light
+                                                ? Colors.black
+                                                : theme.materialColors.onPrimary
+                                          : theme.textColorSecondary,
+                                      hoverForegroundColor:
+                                          theme.materialColors.onPrimary,
+                                      isSelected:
+                                          assistant.selectedService?.id ==
+                                              service.id &&
+                                          assistant.selectedModel == model,
+                                      onPressed: assistant.canChangeService
+                                          ? () => _select(service, model)
                                           : null,
-                                    ),
-                                    if (AiReasoningCapabilities.forModel(
-                                      model,
-                                    ).levels.isNotEmpty)
-                                      const Icon(
-                                        Symbols.chevron_right_rounded,
-                                        size: 16,
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: ConstrainedBox(
+                                        key:
+                                            assistant.selectedService?.id ==
+                                                    service.id &&
+                                                assistant.selectedModel == model
+                                            ? _selectedModelKey
+                                            : null,
+                                        constraints: const BoxConstraints(
+                                          minHeight: 28,
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 4,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  model,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              SizedBox(
+                                                width: 17,
+                                                child:
+                                                    assistant
+                                                                .selectedService
+                                                                ?.id ==
+                                                            service.id &&
+                                                        assistant
+                                                                .selectedModel ==
+                                                            model
+                                                    ? Icon(
+                                                        Symbols.check_rounded,
+                                                        size: 17,
+                                                      )
+                                                    : null,
+                                              ),
+                                              if (AiReasoningCapabilities.forModel(
+                                                model,
+                                              ).levels.isNotEmpty)
+                                                const Icon(
+                                                  Symbols.chevron_right_rounded,
+                                                  size: 16,
+                                                ),
+                                            ],
+                                          ),
+                                        ),
                                       ),
+                                    ),
                                   ],
-                                ),
-                              ),
+                                ],
+                              ],
                             ),
                           ),
-                        ],
-                      ],
+                        ),
+                      ),
+                      if (_pinnedService case final name?)
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: IgnorePointer(
+                            child: _serviceHeading(
+                              name,
+                              key: const ValueKey('ai-model-pinned-service'),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -498,6 +637,8 @@ class _ModelSelectorState extends State<ModelSelector> {
       ),
       onOpen: () => setState(() {
         _openRevision++;
+        _revealSelected = true;
+        _pinnedService = null;
         _search.clear();
         _searchFocus.unfocus();
         _error = null;
@@ -575,7 +716,7 @@ class _ModelSelectorState extends State<ModelSelector> {
       ],
       builder: (context, controller, _) => MenuItemSurface(
         key: const ValueKey('ai-model-selector'),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(8),
         theme: theme,
         backgroundColor: theme.primary,
         onPressed: assistant.credentialLoaded

@@ -69,7 +69,7 @@ void main() {
     });
   }
 
-  testWidgets('startup waits at least three seconds before entering the app', (
+  testWidgets('startup waits at least one second before entering the app', (
     tester,
   ) async {
     final loaded = Completer<AppPreferences>();
@@ -94,7 +94,7 @@ void main() {
     await tester.pump();
     expect(find.byKey(const ValueKey('ready')), findsOneWidget);
     expect(find.byType(StartupScreen), findsOneWidget);
-    await tester.pump(const Duration(milliseconds: 2999));
+    await tester.pump(const Duration(milliseconds: 999));
     expect(find.byType(StartupScreen), findsOneWidget);
     await tester.pump(const Duration(milliseconds: 1));
     expect(find.byKey(const ValueKey('ready')), findsOneWidget);

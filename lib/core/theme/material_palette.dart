@@ -2,7 +2,7 @@
  * @Description: 集中维护原有灰阶与紫色配色，并提供 Material 3 语义角色映射。
  * @Author: LILYGO_L
  * @Date: 2026-10-09 17:00:00
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-11 14:37:42
  */
 import 'package:flutter/material.dart';
 
@@ -15,7 +15,7 @@ class MaterialPalette {
       type: ThemeType.dark,
       nameKey: 'theme_dark',
       primary: const Color.fromARGB(255, 25, 25, 25),
-      secondary: const Color.fromARGB(255, 45, 45, 45),
+      secondary: const Color.fromARGB(255, 55, 55, 55),
       tertiary: const Color.fromARGB(255, 65, 65, 65),
       textColorPrimary: const Color.fromARGB(255, 230, 230, 230),
       textColorSecondary: const Color.fromARGB(255, 220, 220, 220),
@@ -59,7 +59,8 @@ class MaterialPalette {
       sidebarHoverIconColor2: const Color.fromARGB(255, 100, 177, 76),
       sidebarIconBackgroundColor: const Color.fromARGB(255, 55, 55, 55),
       sidebarIndicatorColor: const Color.fromARGB(255, 200, 200, 200),
-      dividerColor: const Color(0xFF282828),
+      // 全局分割线在深色承载背景上保留清晰、克制的灰阶对比。
+      dividerColor: const Color(0xFF505050),
       dividerColorNormal: const Color.fromARGB(255, 126, 109, 202),
       basePrimary: const Color.fromARGB(255, 126, 109, 202),
       baseSecondary: const Color.fromARGB(255, 126, 109, 202),
@@ -172,6 +173,10 @@ extension MaterialThemeRoles on AppTheme {
   Color selectControlColorForSurface(Color surface) =>
       Color.lerp(surface, textColorPrimary, .12)!;
 
+  /// 设置页普通按钮、下拉控件和服务卡片共用的表面底色。
+  Color get settingsControlBackgroundColor =>
+      selectControlColorForSurface(secondary);
+
   ButtonStateColors buttonColorsForSurface(Color surface) =>
       ButtonStateColors.forSurface(surface);
   ButtonStateColors get buttonStateColors => ButtonStateColors(
@@ -193,6 +198,9 @@ extension MaterialThemeRoles on AppTheme {
   /// 深色取最深表面，浅色取现有亮色图标按钮背景，避免控件变暗或融入页面。
   Color get deepestControlColor =>
       adaptiveColor(dark: primary, light: iconBackgroundColor);
+
+  /// 队列与内层文字输入区共用底色，交互色由这个实际背景派生。
+  Color get assistantQueueSurfaceColor => primary;
 
   /// 为任意控件背景生成不会与背景融为一体的交互层。
   /// 颜色随背景明暗反向偏移，避免每个组件重复维护一套灰阶。

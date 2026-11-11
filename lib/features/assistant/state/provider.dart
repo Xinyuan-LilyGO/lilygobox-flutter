@@ -2,7 +2,7 @@
  * @Description: 管理 AI 服务配置、对话、请求状态和 AI 设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-10 17:19:17
+ * @LastEditTime: 2026-11-11 10:52:59
  */
 
 import 'dart:async';
@@ -34,14 +34,16 @@ class AiAssistantProvider extends ChangeNotifier {
   final SettingsToolHandler _settings;
   final ChatCompletionClient _client;
   final List<AiMessage> _messages = [];
+  final List<AiMessage> _pendingGuidance = [];
+  bool _activeAcceptsImages = true;
   final List<Map<String, Object?>> _history = [];
   final Set<String> _resolvingToolIds = {};
   late final Future<void> _initializing;
   bool _credentialLoaded = false;
   bool _loadFailed = false;
   bool _busy = false;
-  bool _paused = false;
   bool _stopRequested = false;
+  String? _steeringGuidanceId;
   bool _saving = false;
   bool _disposed = false;
   Completer<void>? _abortRequest;
@@ -51,6 +53,7 @@ class AiAssistantProvider extends ChangeNotifier {
   final Stopwatch _turnStopwatch = Stopwatch();
   Timer? _elapsedTimer;
   String? _activeMessageId;
+  String? _stoppedMessageId;
   DateTime? _activeMessageCreatedAt;
   final List<AiProcessingStep> _activeProcessingSteps = [];
   final List<AiRequestRetry> _activeRetries = [];
@@ -76,18 +79,21 @@ class AiAssistantProvider extends ChangeNotifier {
     reasoningEffort: reasoningEffort,
   );
   List<AiMessage> get messages => List.unmodifiable(_messages);
+  List<AiMessage> get pendingGuidance => List.unmodifiable(_pendingGuidance);
+  bool get canGuideNow => canSendMessage && _steeringGuidanceId == null;
+  bool get _requestInterrupted => _stopRequested || _steeringGuidanceId != null;
   bool get credentialLoaded => _credentialLoaded;
   bool get hasApiKey => hasServiceKey(selectedService?.id);
   bool hasServiceKey(String? id) => _repository.keyFor(id)?.isNotEmpty == true;
   bool get busy => _busy;
-  bool get paused => _paused;
+  bool get canContinue => !_busy && canSendMessage && _stoppedMessageId != null;
   bool isThinking(String id) =>
       _busy &&
       id == _activeMessageId &&
       _activeStatus == AiResponseStatus.thinking;
   bool get saving => _saving;
   bool get canChangeService => _credentialLoaded && !_loadFailed && !_saving;
-  bool get canSendMessage => canChangeService && !_busy;
+  bool get canSendMessage => canChangeService && !_stopRequested;
   Object? get error => _error;
   Object? get configurationError => _configurationError;
   bool isResolvingTool(String id) => _resolvingToolIds.contains(id);
@@ -205,40 +211,70 @@ class AiAssistantProvider extends ChangeNotifier {
         ),
   );
 
-  bool canAcceptImages() =>
-      selectedService?.imageInputFor(selectedModel ?? '') !=
-      AiImageInput.unsupported;
+  bool canAcceptImages() => _busy
+      ? _activeAcceptsImages
+      : selectedService?.imageInputFor(selectedModel ?? '') !=
+            AiImageInput.unsupported;
 
   bool get canSendImageHistory => !hasImageHistory || canAcceptImages();
 
   Future<void> sendMessage(
     String content, {
     List<AiImageAttachment> attachments = const [],
+    String? queuedMessageId,
   }) async {
     final text = content.trim();
-    if ((text.isEmpty && attachments.isEmpty) || !canSendMessage) return;
-    if (!hasApiKey) {
+    if ((text.isEmpty &&
+            attachments.isEmpty &&
+            (_busy || _pendingGuidance.isEmpty)) ||
+        !canSendMessage) {
+      return;
+    }
+    if (!_busy && !hasApiKey) {
       _error = const AiConfigurationException(AiProblem.noService);
       _notify();
       return;
     }
-    if ((!canAcceptImages() && attachments.isNotEmpty) ||
+    if ((!canAcceptImages() &&
+            (attachments.isNotEmpty ||
+                _pendingGuidance.any((item) => item.attachments.isNotEmpty))) ||
         !canSendImageHistory) {
       _error = const AiConfigurationException(AiProblem.imageUnsupported);
       _notify();
       return;
     }
     _error = null;
-    _messages.add(
-      _message(role: 'user', content: text, attachments: attachments),
-    );
-    _history.add({
-      'role': 'user',
-      'content': _messageContent(text, attachments),
-    });
+    if (_busy) {
+      _pendingGuidance.add(
+        _message(
+          role: 'user',
+          content: text,
+          attachments: List.unmodifiable(attachments),
+        ),
+      );
+      _notify();
+      return;
+    }
+    final hasInput = text.isNotEmpty || attachments.isNotEmpty;
+    final queuedIndex = queuedMessageId == null
+        ? (_pendingGuidance.isEmpty ? -1 : 0)
+        : _pendingGuidance.indexWhere(
+            (message) => message.id == queuedMessageId,
+          );
+    final queued = !hasInput && queuedIndex >= 0
+        ? _pendingGuidance.removeAt(queuedIndex)
+        : null;
+    _stoppedMessageId = null;
+    if (queued != null) {
+      _messages.add(queued);
+    } else if (hasInput) {
+      _messages.add(
+        _message(role: 'user', content: text, attachments: attachments),
+      );
+    }
     _stopRequested = false;
-    _paused = false;
     _activeConfiguration = configuration;
+    _activeAcceptsImages = canAcceptImages();
     _activeApiKey = _repository.keyFor(selectedService!.id)!;
     _activeProcessingSteps.clear();
     _activeRetries.clear();
@@ -262,6 +298,17 @@ class AiAssistantProvider extends ChangeNotifier {
     });
     _abortRequest = Completer<void>();
     _busy = true;
+    if (queued != null) {
+      _history.add({
+        'role': 'user',
+        'content': _messageContent(queued.content, queued.attachments),
+      });
+    } else if (hasInput) {
+      _history.add({
+        'role': 'user',
+        'content': _messageContent(text, attachments),
+      });
+    }
     _notify();
     await _requestAssistant();
   }
@@ -270,34 +317,70 @@ class AiAssistantProvider extends ChangeNotifier {
     if (!_busy || _stopRequested) return;
     _stopRequested = true;
     _activeOutput?.stop();
-    _client.resumeResponse();
-    _paused = false;
+    _notify();
     final abortRequest = _abortRequest;
     if (abortRequest != null && !abortRequest.isCompleted) {
       abortRequest.complete();
     }
   }
 
-  void pauseGeneration() {
-    if (!_busy || _paused) return;
-    _paused = true;
-    _turnStopwatch.stop();
-    _appendStatusEvent(AiResponseStatus.paused);
-    _refreshElapsed();
-    _activeOutput?.pause();
-    _client.pauseResponse();
-    _notify();
-  }
-
-  void resumeGeneration() {
-    if (!_busy || !_paused) return;
-    _paused = false;
+  /// 继续通过新请求接续上下文，不恢复已取消的 HTTP 连接。
+  Future<void> continueGeneration({String? queuedMessageId}) async {
+    if (!canContinue) return;
+    if (!hasApiKey) {
+      _error = const AiConfigurationException(AiProblem.noService);
+      _notify();
+      return;
+    }
+    if (!canSendImageHistory ||
+        (!canAcceptImages() &&
+            _pendingGuidance.any((item) => item.attachments.isNotEmpty))) {
+      _error = const AiConfigurationException(AiProblem.imageUnsupported);
+      _notify();
+      return;
+    }
+    _activeMessageId = _stoppedMessageId;
+    _stoppedMessageId = null;
+    final index = _messages.indexWhere(
+      (message) => message.id == _activeMessageId,
+    );
+    var prefix = '';
+    if (index < 0) {
+      _messages.add(
+        AiMessage(
+          id: _activeMessageId!,
+          role: 'assistant',
+          content: '',
+          createdAt: _activeMessageCreatedAt,
+        ),
+      );
+    } else if (_pendingGuidance.isEmpty) {
+      // 纯续写保留正文原始前缀，代码围栏和半行文本不能被拆入过程记录。
+      prefix = _messages[index].content;
+    }
+    if (_pendingGuidance.isEmpty) {
+      _history.add({
+        'role': 'user',
+        'content':
+            'Continue the previous response exactly from the next character where it stopped. Do not repeat any previous text or add a new introduction. If interrupted inside a code block, continue inside that block without reopening its fence. Preserve the original formatting.',
+      });
+    }
+    _activeConfiguration = configuration;
+    _activeAcceptsImages = canAcceptImages();
+    _activeApiKey = _repository.keyFor(selectedService!.id)!;
+    _error = null;
+    _stopRequested = false;
+    _abortRequest = Completer<void>();
+    _busy = true;
     _turnStopwatch.start();
+    _activeStatus = AiResponseStatus.connecting;
     _appendStatusEvent(_activeStatus);
-    _activeOutput?.resume();
-    _client.resumeResponse();
+    _elapsedTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _refreshElapsed(),
+    );
     _refreshElapsed();
-    _notify();
+    await _requestAssistant(prefix: prefix);
   }
 
   Future<void> resolveTool(String messageId, {required bool approve}) async {
@@ -336,7 +419,6 @@ class AiAssistantProvider extends ChangeNotifier {
       return;
     }
     _stopRequested = false;
-    _paused = false;
     _abortRequest = Completer<void>();
     _activeConfiguration ??= configuration;
     _activeApiKey ??= _repository.keyFor(selectedService!.id)!;
@@ -349,6 +431,8 @@ class AiAssistantProvider extends ChangeNotifier {
     if (_busy) return;
     _messages.clear();
     _history.clear();
+    _pendingGuidance.clear();
+    _stoppedMessageId = null;
     _error = null;
     _notify();
   }
@@ -365,7 +449,65 @@ class AiAssistantProvider extends ChangeNotifier {
     super.dispose();
   }
 
-  Future<void> _requestAssistant() async {
+  void removePendingGuidance(String id) {
+    if (_steeringGuidanceId == id) return;
+    _pendingGuidance.removeWhere((item) => item.id == id);
+    _notify();
+  }
+
+  /// 取回待发送消息，由主输入框编辑并重新提交。
+  AiMessage? takePendingGuidance(String id) {
+    if (_steeringGuidanceId != null) return null;
+    final index = _pendingGuidance.indexWhere((item) => item.id == id);
+    if (index < 0) return null;
+    final message = _pendingGuidance.removeAt(index);
+    _notify();
+    return message;
+  }
+
+  /// 普通兼容 API 无法向正在进行的请求追加输入，先取消再串行接续。
+  Future<void> guidePendingMessage(String id) async {
+    if (!canGuideNow || !_pendingGuidance.any((item) => item.id == id)) return;
+    if (!_busy) {
+      await sendMessage('', queuedMessageId: id);
+      return;
+    }
+    _steeringGuidanceId = id;
+    _activeOutput?.stop();
+    final abort = _abortRequest;
+    if (abort != null && !abort.isCompleted) abort.complete();
+    _notify();
+  }
+
+  Future<void> _requestAssistant({String prefix = ''}) async {
+    String? guidedMessageId;
+    try {
+      while (!_disposed && !_stopRequested) {
+        await _requestAssistantStep(prefix: prefix);
+        prefix = '';
+        if (_disposed || _stopRequested) break;
+        guidedMessageId = _steeringGuidanceId;
+        break;
+      }
+    } finally {
+      _finishTurn();
+    }
+    // 明确点击引导后开启新的普通回合。被打断的助手回复保留在聊天记录中，
+    // 已输出的部分文本也继续保留在模型上下文里。
+    if (!_disposed && guidedMessageId != null) {
+      await sendMessage('', queuedMessageId: guidedMessageId);
+      return;
+    }
+    // 普通排队消息在上一轮成功结束后，独立创建用户消息和新回复。
+    if (!_disposed &&
+        _activeStatus == AiResponseStatus.completed &&
+        _pendingGuidance.isNotEmpty) {
+      await sendMessage('');
+    }
+  }
+
+  Future<void> _requestAssistantStep({String prefix = ''}) async {
+    if (_disposed || _requestInterrupted) return;
     final requestNumber = ++_activeRequestNumber;
     String? streamingMessageId = _activeMessageId;
     var streamedContent = '';
@@ -381,7 +523,7 @@ class AiAssistantProvider extends ChangeNotifier {
         AiMessage(
           id: streamingMessageId!,
           role: 'assistant',
-          content: streamedContent,
+          content: prefix + streamedContent,
         ),
       );
       if (index < 0) {
@@ -392,7 +534,7 @@ class AiAssistantProvider extends ChangeNotifier {
       _notify();
     }
 
-    output = _AssistantTextOutput(showNextDelta, initiallyPaused: _paused);
+    output = _AssistantTextOutput(showNextDelta);
     _activeOutput = output;
 
     try {
@@ -416,7 +558,9 @@ class AiAssistantProvider extends ChangeNotifier {
         onTextDelta: output.add,
         onReasoningDelta: _recordReasoning,
         onStatus: (status) {
-          if (_disposed || _stopRequested || _activeStatus == status) return;
+          if (_disposed || _requestInterrupted || _activeStatus == status) {
+            return;
+          }
           _recordStatus(
             status == AiResponseStatus.connecting && requestNumber > 1
                 ? AiResponseStatus.awaitingReply
@@ -424,7 +568,7 @@ class AiAssistantProvider extends ChangeNotifier {
           );
         },
         onRetry: (attempt, error) {
-          if (_disposed || _stopRequested) return;
+          if (_disposed || _requestInterrupted) return;
           final retry = AiRequestRetry(attempt, error);
           _activeRetries.add(retry);
           _activeProcessEvents.add(
@@ -439,19 +583,25 @@ class AiAssistantProvider extends ChangeNotifier {
         },
       );
       await output.finish();
+      if (_requestInterrupted || _disposed) {
+        if (streamedContent.isNotEmpty) {
+          _history.add({'role': 'assistant', 'content': streamedContent});
+        }
+        return;
+      }
       if (completion.toolCalls.isEmpty) {
         if (completion.text.isNotEmpty) {
           if (streamingMessageId case final id?) {
             final index = _messages.indexWhere((message) => message.id == id);
             if (index >= 0) {
               _messages[index] = _withTurnDetails(
-                _messages[index].copyWith(content: completion.text),
+                _messages[index].copyWith(content: prefix + completion.text),
               );
             }
           } else {
             _messages.add(
               _withTurnDetails(
-                _message(role: 'assistant', content: completion.text),
+                _message(role: 'assistant', content: prefix + completion.text),
               ),
             );
           }
@@ -475,21 +625,6 @@ class AiAssistantProvider extends ChangeNotifier {
             arguments: call.arguments,
           ),
       ];
-      if (completion.text.isNotEmpty) {
-        _activeProcessEvents.add(
-          AiProcessEvent(
-            type: AiProcessEventType.assistant,
-            elapsed: _turnStopwatch.elapsed,
-            text: completion.text,
-          ),
-        );
-        final index = _messages.indexWhere(
-          (message) => message.id == _activeMessageId,
-        );
-        if (index >= 0) {
-          _messages[index] = _messages[index].copyWith(content: '');
-        }
-      }
       _history.add({
         'role': 'assistant',
         'content': completion.text.isEmpty ? null : completion.text,
@@ -510,7 +645,15 @@ class AiAssistantProvider extends ChangeNotifier {
         ],
       });
       for (final call in calls) {
-        if (_stopRequested) break;
+        if (_requestInterrupted || _disposed) {
+          _history.add({
+            'role': 'tool',
+            'tool_call_id': call.id,
+            'content':
+                'Cancelled before execution because the user interrupted this turn.',
+          });
+          continue;
+        }
         _recordStatus(AiResponseStatus.executingTools);
         String result;
         var succeeded = true;
@@ -540,11 +683,15 @@ class AiAssistantProvider extends ChangeNotifier {
           'content': result,
         });
       }
-      if (!_stopRequested) await _requestAssistant();
+      if (!_requestInterrupted) {
+        await _requestAssistantStep(
+          prefix: prefix.isEmpty ? '' : prefix + completion.text,
+        );
+      }
     } catch (error) {
       output.stop();
       await output.finish();
-      if (_stopRequested) {
+      if (_requestInterrupted) {
         if (streamedContent.isNotEmpty) {
           _history.add({'role': 'assistant', 'content': streamedContent});
         }
@@ -555,7 +702,7 @@ class AiAssistantProvider extends ChangeNotifier {
           _messages[index] = _withTurnDetails(_messages[index]);
         }
       }
-      if (!_stopRequested) {
+      if (!_requestInterrupted && !_disposed) {
         _error = error;
         final index = _messages.indexWhere(
           (message) => message.id == _activeMessageId,
@@ -568,36 +715,32 @@ class AiAssistantProvider extends ChangeNotifier {
       output.stop();
       await output.finish();
       if (identical(_activeOutput, output)) _activeOutput = null;
-      _busy = false;
-      _paused = false;
-      _abortRequest = null;
-      _turnStopwatch.stop();
-      _elapsedTimer?.cancel();
-      _elapsedTimer = null;
-      _processNotifyTimer?.cancel();
-      _processNotifyTimer = null;
-      _activeStatus = _stopRequested
-          ? AiResponseStatus.stopped
-          : _error != null
-          ? AiResponseStatus.failed
-          : AiResponseStatus.completed;
-      if (_activeMessageId != null) _appendStatusEvent(_activeStatus);
-      _refreshElapsed();
-      if (_stopRequested) {
-        _messages.removeWhere(
-          (message) =>
-              message.id == _activeMessageId &&
-              message.content.isEmpty &&
-              !message.processEvents.any(
-                (event) => event.type != AiProcessEventType.status,
-              ),
-        );
-      }
-      _activeMessageId = null;
-      _activeConfiguration = null;
-      _activeApiKey = null;
-      _notify();
     }
+  }
+
+  void _finishTurn() {
+    _busy = false;
+    _abortRequest = null;
+    _turnStopwatch.stop();
+    _elapsedTimer?.cancel();
+    _elapsedTimer = null;
+    _processNotifyTimer?.cancel();
+    _processNotifyTimer = null;
+    _activeStatus = _stopRequested
+        ? AiResponseStatus.stopped
+        : _error != null
+        ? AiResponseStatus.failed
+        : AiResponseStatus.completed;
+    if (_activeMessageId != null) _appendStatusEvent(_activeStatus);
+    _refreshElapsed();
+    // 即使尚未收到正文，也保留停止轮次的用时及全部状态、思考和操作记录。
+    _stoppedMessageId = _stopRequested && !_disposed ? _activeMessageId : null;
+    _activeMessageId = null;
+    _activeConfiguration = null;
+    _activeApiKey = null;
+    _stopRequested = false;
+    _steeringGuidanceId = null;
+    _notify();
   }
 
   void _appendStatusEvent(AiResponseStatus status) {
@@ -618,7 +761,7 @@ class AiAssistantProvider extends ChangeNotifier {
   }
 
   void _recordReasoning(String text) {
-    if (_disposed || _stopRequested || text.isEmpty) return;
+    if (_disposed || _requestInterrupted || text.isEmpty) return;
     if (_activeProcessEvents.isNotEmpty &&
         _activeProcessEvents.last.type == AiProcessEventType.status &&
         _activeProcessEvents.last.status == AiResponseStatus.thinking) {
@@ -697,7 +840,7 @@ class AiAssistantProvider extends ChangeNotifier {
     reasoningEffort: _activeConfiguration?.reasoningEffort,
     protocol: _activeConfiguration?.protocol,
     processingSteps: List.unmodifiable(_activeProcessingSteps),
-    status: _paused ? AiResponseStatus.paused : _activeStatus,
+    status: _activeStatus,
     retries: List.unmodifiable(_activeRetries),
     processEvents: List.unmodifiable(_activeProcessEvents),
   );
@@ -706,15 +849,12 @@ class AiAssistantProvider extends ChangeNotifier {
 }
 
 class _AssistantTextOutput {
-  _AssistantTextOutput(this._onChunk, {required bool initiallyPaused})
-    : _paused = initiallyPaused;
+  _AssistantTextOutput(this._onChunk);
 
   final void Function(String) _onChunk;
   final List<String> _pending = [];
-  bool _paused;
   bool _stopped = false;
   Future<void>? _drain;
-  Completer<void>? _resumeSignal;
 
   void add(String text) {
     if (_stopped || text.isEmpty) return;
@@ -730,29 +870,14 @@ class _AssistantTextOutput {
     }
   }
 
-  void pause() => _paused = true;
-
-  void resume() {
-    _paused = false;
-    final signal = _resumeSignal;
-    if (signal != null && !signal.isCompleted) signal.complete();
-    _resumeSignal = null;
-  }
-
   void stop() {
     _stopped = true;
     _pending.clear();
-    resume();
   }
 
   Future<void> _run() async {
     try {
       while (_pending.isNotEmpty && !_stopped) {
-        if (_paused) {
-          _resumeSignal ??= Completer<void>();
-          await _resumeSignal!.future;
-          continue;
-        }
         final text = _pending.join();
         _pending.clear();
         _onChunk(text);

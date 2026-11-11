@@ -515,11 +515,65 @@ abstract class AppLocalizations {
   /// **'Ask a question, or describe a setting to change…'**
   String get aiInputHint;
 
-  /// No description provided for @aiAttachImage.
+  /// No description provided for @aiAttachFile.
   ///
   /// In en, this message translates to:
-  /// **'Attach images'**
-  String get aiAttachImage;
+  /// **'Attach files'**
+  String get aiAttachFile;
+
+  /// No description provided for @aiStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop generating'**
+  String get aiStop;
+
+  /// No description provided for @aiContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue generating'**
+  String get aiContinue;
+
+  /// No description provided for @aiGuideTurn.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to queue'**
+  String get aiGuideTurn;
+
+  /// No description provided for @aiGuidanceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a follow-up message…'**
+  String get aiGuidanceHint;
+
+  /// No description provided for @aiGuidancePending.
+  ///
+  /// In en, this message translates to:
+  /// **'Queued messages'**
+  String get aiGuidancePending;
+
+  /// No description provided for @aiRemoveGuidance.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove queued message'**
+  String get aiRemoveGuidance;
+
+  /// No description provided for @aiSendPendingGuidance.
+  ///
+  /// In en, this message translates to:
+  /// **'Send now'**
+  String get aiSendPendingGuidance;
+
+  /// No description provided for @aiEditQueuedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit queued message'**
+  String get aiEditQueuedMessage;
+
+  /// No description provided for @aiSaveQueuedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Save changes'**
+  String get aiSaveQueuedMessage;
 
   /// No description provided for @aiRemoveImage.
   ///
@@ -569,18 +623,6 @@ abstract class AppLocalizations {
   /// **'Send message'**
   String get aiSend;
 
-  /// No description provided for @aiPause.
-  ///
-  /// In en, this message translates to:
-  /// **'Pause response'**
-  String get aiPause;
-
-  /// No description provided for @aiResume.
-  ///
-  /// In en, this message translates to:
-  /// **'Resume response'**
-  String get aiResume;
-
   /// No description provided for @aiClearConversation.
   ///
   /// In en, this message translates to:
@@ -629,12 +671,6 @@ abstract class AppLocalizations {
   /// **'Model reasoning'**
   String get aiProcessReasoning;
 
-  /// No description provided for @aiProcessAssistant.
-  ///
-  /// In en, this message translates to:
-  /// **'Assistant update'**
-  String get aiProcessAssistant;
-
   /// No description provided for @aiProcessActionSucceeded.
   ///
   /// In en, this message translates to:
@@ -670,12 +706,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Applying settings'**
   String get aiExecutingTools;
-
-  /// No description provided for @aiResponsePaused.
-  ///
-  /// In en, this message translates to:
-  /// **'Paused'**
-  String get aiResponsePaused;
 
   /// No description provided for @aiResponseFailed.
   ///

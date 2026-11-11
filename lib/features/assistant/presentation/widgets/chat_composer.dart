@@ -1,8 +1,8 @@
 /*
- * @Description: 构建双层 AI 输入区，预留附件承载层并提供键盘发送和模型选择菜单。
+ * @Description: 构建双层 AI 输入区，承载附件与待处理引导并提供键盘发送和模型选择。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:07:40
- * @LastEditTime: 2026-11-10 18:08:43
+ * @LastEditTime: 2026-11-11 14:49:48
  */
 
 import 'dart:async';
@@ -19,17 +19,19 @@ import '../../../../core/clipboard/image_clipboard.dart';
 import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
+import '../../../../core/theme/material_palette.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_scroll_behavior.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/image_clipboard_menu.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
+import '../../../../core/widgets/popup_menu_surface.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../domain/models.dart';
 import '../../state/provider.dart';
 import 'model_selector.dart';
 
-/// 后层独立于编辑器，后续可在它的顶部插入附件列表而不改变输入交互。
+/// 后层承载队列与附件，前层保留独立文字输入区。
 class ChatComposer extends StatelessWidget {
   const ChatComposer({
     super.key,
@@ -60,7 +62,7 @@ class ChatComposer extends StatelessWidget {
     final files = await openFiles(
       acceptedTypeGroups: [
         XTypeGroup(
-          label: context.l10n.aiAttachImage,
+          label: context.l10n.aiAttachFile,
           extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'],
         ),
       ],
@@ -131,12 +133,58 @@ class ChatComposer extends StatelessWidget {
   }
 
   Widget _attachmentStrip(BuildContext context) {
-    final child = attachments.isEmpty
+    final child = attachments.isEmpty && assistant.pendingGuidance.isEmpty
         ? const SizedBox.shrink()
-        : _ComposerAttachments(
-            attachments: attachments,
-            theme: theme,
-            onAttachmentsChanged: onAttachmentsChanged,
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (assistant.pendingGuidance.isNotEmpty)
+                _PendingGuidance(
+                  bottomInset: attachments.isNotEmpty ? 0 : 7,
+                  theme: theme,
+                  assistant: assistant,
+                  onEdit: (id) {
+                    final message = assistant.takePendingGuidance(id);
+                    if (message == null) return;
+                    final draft = input.text;
+                    final text = [
+                      message.content,
+                      if (draft.isNotEmpty) draft,
+                    ].where((part) => part.isNotEmpty).join('\n');
+                    input.value = TextEditingValue(
+                      text: text,
+                      selection: TextSelection.collapsed(offset: text.length),
+                    );
+                    onAttachmentsChanged([
+                      ...message.attachments,
+                      ...attachments,
+                    ]);
+                    focusNode.requestFocus();
+                  },
+                ),
+              if (attachments.isNotEmpty &&
+                  assistant.pendingGuidance.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: Divider(
+                    key: const ValueKey('ai-queue-attachments-divider'),
+                    height: 1,
+                    thickness: 1,
+                    color: theme.dividerColor,
+                  ),
+                ),
+              if (attachments.isNotEmpty)
+                _ComposerAttachments(
+                  topInset: assistant.pendingGuidance.isNotEmpty ? 0 : 7,
+                  attachments: attachments,
+                  theme: theme,
+                  onAttachmentsChanged: onAttachmentsChanged,
+                ),
+            ],
           );
     // 零时长 AnimatedSize 在附件改变尺寸时可能在布局中再次标记自身。
     if (MediaQuery.disableAnimationsOf(context)) return child;
@@ -186,6 +234,7 @@ class ChatComposer extends StatelessWidget {
           theme.secondary,
         ),
         borderRadius: BorderRadius.circular(22),
+        boxShadow: PopupMenuSurface.shadowsFor(theme),
       ),
       child: Padding(
         padding: const EdgeInsets.all(5),
@@ -196,26 +245,34 @@ class ChatComposer extends StatelessWidget {
             _attachmentStrip(context),
             AnimatedBuilder(
               animation: focusNode,
-              builder: (context, child) => AnimatedContainer(
-                key: const ValueKey('ai-composer-input-layer'),
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 180),
-                curve: Curves.easeOut,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(17),
-                  border: Border.all(
-                    color: focusNode.hasFocus
-                        ? theme.basePrimary
-                        : Colors.transparent,
-                  ),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(17),
-                  child: ColoredBox(
-                    key: const ValueKey('ai-composer-input-background'),
-                    color: theme.primary,
-                    child: child,
+              builder: (context, child) => TextFieldTapRegion(
+                // 第一层空白属于输入区，按住时不能被当作框外点击而失焦。
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  excludeFromSemantics: true,
+                  onTapDown: (_) => focusNode.requestFocus(),
+                  child: AnimatedContainer(
+                    key: const ValueKey('ai-composer-input-layer'),
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(17),
+                      border: Border.all(
+                        color: focusNode.hasFocus
+                            ? theme.basePrimary
+                            : Colors.transparent,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(17),
+                      child: ColoredBox(
+                        key: const ValueKey('ai-composer-input-background'),
+                        color: theme.primary,
+                        child: child,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -281,7 +338,9 @@ class ChatComposer extends StatelessWidget {
                                   height: 1.5,
                                 ),
                                 decoration: InputDecoration(
-                                  hintText: l10n.aiInputHint,
+                                  hintText: assistant.busy
+                                      ? l10n.aiGuidanceHint
+                                      : l10n.aiInputHint,
                                   hintStyle: TextStyle(
                                     color: theme.textColorTertiary,
                                   ),
@@ -304,9 +363,9 @@ class ChatComposer extends StatelessWidget {
                         return Row(
                           children: [
                             AppTooltip(
-                              message: l10n.aiAttachImage,
+                              message: l10n.aiAttachFile,
                               child: Semantics(
-                                label: l10n.aiAttachImage,
+                                label: l10n.aiAttachFile,
                                 button: true,
                                 child: MenuItemSurface(
                                   key: const ValueKey('ai-attach-file-button'),
@@ -343,27 +402,35 @@ class ChatComposer extends StatelessWidget {
                             const SizedBox(width: 6),
                             ValueListenableBuilder<TextEditingValue>(
                               valueListenable: input,
-                              builder: (context, value, _) => assistant.busy
+                              builder: (context, value, _) =>
+                                  assistant.busy &&
+                                      value.text.trim().isEmpty &&
+                                      attachments.isEmpty
                                   ? _actionButton(
                                       theme: theme,
-                                      key: const ValueKey(
-                                        'ai-pause-resume-button',
-                                      ),
-                                      label: assistant.paused
-                                          ? l10n.aiResume
-                                          : l10n.aiPause,
-                                      icon: assistant.paused
-                                          ? Symbols.play_arrow_rounded
-                                          : Symbols.stop_rounded,
+                                      key: const ValueKey('ai-stop-button'),
+                                      label: l10n.aiStop,
+                                      icon: Symbols.stop_rounded,
                                       size: 30,
-                                      onPressed: assistant.paused
-                                          ? assistant.resumeGeneration
-                                          : assistant.pauseGeneration,
+                                      onPressed: assistant.stopGeneration,
+                                    )
+                                  : assistant.canContinue &&
+                                        value.text.trim().isEmpty &&
+                                        attachments.isEmpty
+                                  ? _actionButton(
+                                      theme: theme,
+                                      key: const ValueKey('ai-continue-button'),
+                                      label: l10n.aiContinue,
+                                      icon: Symbols.play_arrow_rounded,
+                                      size: 30,
+                                      onPressed: () => onSend(false),
                                     )
                                   : _actionButton(
                                       theme: theme,
                                       key: const ValueKey('ai-send-button'),
-                                      label: ready
+                                      label: assistant.busy
+                                          ? l10n.aiGuideTurn
+                                          : ready
                                           ? l10n.aiSend
                                           : l10n.aiSetupAction,
                                       icon: Symbols.arrow_upward_rounded,
@@ -391,14 +458,240 @@ class ChatComposer extends StatelessWidget {
   }
 }
 
+/// 待发送队列与附件共用后层，编辑时将内容取回主输入框。
+class _PendingGuidance extends StatefulWidget {
+  const _PendingGuidance({
+    this.bottomInset = 7,
+    required this.theme,
+    required this.assistant,
+    required this.onEdit,
+  });
+  final double bottomInset;
+  final ValueChanged<String> onEdit;
+  final AppTheme theme;
+  final AiAssistantProvider assistant;
+
+  @override
+  State<_PendingGuidance> createState() => _PendingGuidanceState();
+}
+
+class _PendingGuidanceState extends State<_PendingGuidance> {
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    final assistant = widget.assistant;
+    return Padding(
+      key: const ValueKey('ai-pending-guidance'),
+      padding: EdgeInsets.only(top: 7, bottom: widget.bottomInset),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 160),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 5),
+              child: Text(
+                '${context.l10n.aiGuidancePending} (${assistant.pendingGuidance.length})',
+                key: const ValueKey('ai-pending-guidance-heading'),
+                style: TextStyle(color: theme.textColorTertiary, fontSize: 11),
+              ),
+            ),
+            Flexible(
+              child: ScrollbarTheme(
+                data: ScrollbarTheme.of(context).copyWith(
+                  crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset - 5,
+                ),
+                child: Scrollbar(
+                  controller: _scroll,
+                  child: ScrollConfiguration(
+                    behavior: const AppScrollBehavior(scrollbars: false),
+                    child: SingleChildScrollView(
+                      key: const ValueKey('ai-pending-guidance-scroll'),
+                      controller: _scroll,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Column(
+                        spacing: 5,
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final message in assistant.pendingGuidance)
+                            _QueuedMessage(
+                              key: ValueKey(message.id),
+                              message: message,
+                              theme: theme,
+                              assistant: assistant,
+                              onEdit: widget.onEdit,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QueuedMessage extends StatefulWidget {
+  const _QueuedMessage({
+    super.key,
+    required this.message,
+    required this.theme,
+    required this.assistant,
+    required this.onEdit,
+  });
+  final ValueChanged<String> onEdit;
+  final AiMessage message;
+  final AppTheme theme;
+  final AiAssistantProvider assistant;
+
+  @override
+  State<_QueuedMessage> createState() => _QueuedMessageState();
+}
+
+class _QueuedMessageState extends State<_QueuedMessage> {
+  Widget _button(
+    String action,
+    String label,
+    IconData icon,
+    VoidCallback? onPressed,
+  ) {
+    final theme = widget.theme;
+    final background = theme.assistantQueueSurfaceColor;
+    return AppTooltip(
+      message: label,
+      child: Semantics(
+        label: label,
+        button: true,
+        child: TitleBarIconButton(
+          key: ValueKey('ai-$action-guidance-${widget.message.id}'),
+          theme: theme,
+          isFocused: true,
+          icon: icon,
+          size: 25,
+          iconSize: 15,
+          backgroundColor: Colors.transparent,
+          surfaceColor: background,
+          hoverColor: theme.interactionHoverColor(background),
+          onPressed: onPressed,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final message = widget.message;
+    final assistant = widget.assistant;
+    final theme = widget.theme;
+    final l10n = context.l10n;
+    return Padding(
+      padding: EdgeInsets.zero,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.assistantQueueSurfaceColor,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 6, 5, 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (message.attachments.isNotEmpty)
+                      Wrap(
+                        spacing: 5,
+                        runSpacing: 5,
+                        children: [
+                          for (final attachment in message.attachments)
+                            ImageClipboardMenu(
+                              bytes: attachment.bytes,
+                              theme: theme,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.memory(
+                                  attachment.bytes,
+                                  width: 64,
+                                  height: 64,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stack) =>
+                                      const SizedBox(width: 64, height: 64),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    if (message.attachments.isNotEmpty &&
+                        message.content.isNotEmpty)
+                      const SizedBox(height: 8),
+                    if (message.content.isNotEmpty)
+                      Text(
+                        message.content,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: theme.textColorPrimary,
+                          fontSize: 13,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              _button(
+                'steer',
+                l10n.aiSendPendingGuidance,
+                Symbols.arrow_upward_rounded,
+                assistant.canGuideNow
+                    ? () => unawaited(assistant.guidePendingMessage(message.id))
+                    : null,
+              ),
+              _button(
+                'edit',
+                l10n.aiEditQueuedMessage,
+                Symbols.edit_rounded,
+                assistant.canGuideNow ? () => widget.onEdit(message.id) : null,
+              ),
+              _button(
+                'remove',
+                l10n.aiRemoveGuidance,
+                Symbols.close_rounded,
+                () => assistant.removePendingGuidance(message.id),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 附件在后层自动换行，超过两行后独立滚动，不挤压正文编辑区。
 class _ComposerAttachments extends StatefulWidget {
   const _ComposerAttachments({
+    this.topInset = 7,
     required this.attachments,
     required this.theme,
     required this.onAttachmentsChanged,
   });
 
+  final double topInset;
   final List<AiImageAttachment> attachments;
   final AppTheme theme;
   final ValueChanged<List<AiImageAttachment>> onAttachmentsChanged;
@@ -422,45 +715,56 @@ class _ComposerAttachmentsState extends State<_ComposerAttachments> {
       const gap = 8.0;
       const horizontalInset = 12.0;
       final width = math.max(0.0, constraints.maxWidth - horizontalInset * 2);
-      // 以 64 px 为上限增加列数，再均分余量，完整行不留下尾部空位。
-      final columns = math.max(1, ((width + gap) / (64 + gap)).ceil());
+      // 最多十列；窄窗口按可读缩略图宽度减少列数。
+      final columns = math.min(
+        10,
+        math.max(1, ((width + gap) / (48 + gap)).floor()),
+      );
       final size = math.max(0.0, (width - gap * (columns - 1)) / columns);
-      return ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: size * 2 + gap + 14),
-        child: Scrollbar(
-          key: const ValueKey('ai-attachments-scrollbar'),
-          controller: _scroll,
-          child: ScrollConfiguration(
-            behavior: const AppScrollBehavior(scrollbars: false),
-            child: SingleChildScrollView(
-              key: const ValueKey('ai-attachments-scroll'),
+      // 上下留白放在滚动区域外，滚动到中段时也不会消失。
+      return Padding(
+        padding: EdgeInsets.only(top: widget.topInset, bottom: 7),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: size * 2 + gap),
+          child: ScrollbarTheme(
+            data: ScrollbarTheme.of(context).copyWith(
+              crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset - 5,
+            ),
+            child: Scrollbar(
+              key: const ValueKey('ai-attachments-scrollbar'),
               controller: _scroll,
-              primary: false,
-              // 左右对称留白，右侧滚动条也位于这段留白内。
-              padding: const EdgeInsets.symmetric(
-                horizontal: horizontalInset,
-                vertical: 7,
-              ),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (
-                    var index = 0;
-                    index < widget.attachments.length;
-                    index++
-                  )
-                    _AttachmentThumbnail(
-                      size: size,
-                      attachment: widget.attachments[index],
-                      theme: widget.theme,
-                      onRemove: () {
-                        final updated = [...widget.attachments]
-                          ..removeAt(index);
-                        widget.onAttachmentsChanged(updated);
-                      },
-                    ),
-                ],
+              child: ScrollConfiguration(
+                behavior: const AppScrollBehavior(scrollbars: false),
+                child: SingleChildScrollView(
+                  key: const ValueKey('ai-attachments-scroll'),
+                  controller: _scroll,
+                  primary: false,
+                  // 左右对称留白，右侧滚动条也位于这段留白内。
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: horizontalInset,
+                  ),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (
+                        var index = 0;
+                        index < widget.attachments.length;
+                        index++
+                      )
+                        _AttachmentThumbnail(
+                          size: size,
+                          attachment: widget.attachments[index],
+                          theme: widget.theme,
+                          onRemove: () {
+                            final updated = [...widget.attachments]
+                              ..removeAt(index);
+                            widget.onAttachmentsChanged(updated);
+                          },
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),

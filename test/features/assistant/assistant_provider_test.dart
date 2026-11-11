@@ -2,7 +2,7 @@
  * @Description: 验证 AI 的低风险设置工具调用会立即执行并返回结果。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-10 13:53:32
+ * @LastEditTime: 2026-11-10 21:47:11
  */
 
 import 'dart:async';
@@ -21,6 +21,176 @@ import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 import 'assistant_test_scope.dart';
 
 void main() {
+  for (final protocol in AiApiProtocol.values) {
+    for (final withGuidance in [false, true]) {
+      test(
+        'stop cancels the response stream and retains partial context: ${protocol.name}, guidance=$withGuidance',
+        () async {
+          final theme = ThemeProvider();
+          final language = LanguageProvider();
+          final shell = AppShellProvider();
+          final split = SplitViewProvider();
+          final cancelled = Completer<void>();
+          final stream = StreamController<List<int>>(
+            onCancel: () => cancelled.complete(),
+          );
+          final requests = <Map<String, dynamic>>[];
+          final scope = await createAssistantTestScope(
+            theme: theme,
+            language: language,
+            shell: shell,
+            splitView: split,
+            client: MockClient.streaming((request, body) async {
+              requests.add(
+                jsonDecode(utf8.decode(await body.toBytes()))
+                    as Map<String, dynamic>,
+              );
+              if (requests.length == 1)
+                return http.StreamedResponse(stream.stream, 200);
+              final result = protocol == AiApiProtocol.openAiResponses
+                  ? {
+                      'output': [
+                        {
+                          'type': 'message',
+                          'role': 'assistant',
+                          'content': [
+                            {'type': 'output_text', 'text': 'New answer'},
+                          ],
+                        },
+                      ],
+                    }
+                  : {
+                      'choices': [
+                        {
+                          'message': {'content': 'New answer'},
+                        },
+                      ],
+                    };
+              return http.StreamedResponse(
+                Stream.value(utf8.encode(jsonEncode(result))),
+                200,
+              );
+            }),
+          );
+          addTearDown(() async {
+            scope.dispose();
+            await stream.close();
+            theme.dispose();
+            language.dispose();
+            shell.dispose();
+            split.dispose();
+          });
+          await scope.provider.initialized;
+          await scope.provider.saveService(
+            name: 'Test',
+            protocol: protocol,
+            baseUrl: 'https://example.test/v1',
+            models: ['test'],
+            apiKey: 'key',
+          );
+          const partial = '```html\n<style>\nbody { color:';
+          final send = scope.provider.sendMessage('Start');
+          stream.add(
+            utf8.encode(
+              protocol == AiApiProtocol.openAiResponses
+                  ? 'event: response.reasoning_summary_text.delta\ndata: {"type":"response.reasoning_summary_text.delta","delta":"Existing reasoning"}\n\n'
+                  : 'data: {"choices":[{"delta":{"reasoning_content":"Existing reasoning"}}]}\n\n',
+            ),
+          );
+          stream.add(
+            utf8.encode(
+              protocol == AiApiProtocol.openAiResponses
+                  ? 'event: response.output_text.delta\ndata: ${jsonEncode({'type': 'response.output_text.delta', 'delta': partial})}\n\n'
+                  : 'data: ${jsonEncode({
+                      'choices': [
+                        {
+                          'delta': {'content': partial},
+                        },
+                      ],
+                    })}\n\n',
+            ),
+          );
+          for (
+            var i = 0;
+            i < 100 && scope.provider.messages.last.content.isEmpty;
+            i++
+          ) {
+            await Future<void>.delayed(const Duration(milliseconds: 1));
+          }
+          expect(scope.provider.messages.last.content, partial);
+          if (withGuidance)
+            await scope.provider.sendMessage('Keep this guidance');
+          scope.provider.stopGeneration();
+          scope.provider.stopGeneration();
+          await send;
+          await cancelled.future;
+          final stopped = scope.provider.messages.last;
+          expect(stopped.content, partial);
+          expect(stopped.status, AiResponseStatus.stopped);
+          expect(stopped.elapsed, isNotNull);
+          expect(
+            stopped.processEvents
+                .where((event) => event.type == AiProcessEventType.reasoning)
+                .map((event) => event.text)
+                .join(),
+            'Existing reasoning',
+          );
+          expect(scope.provider.error, isNull);
+          expect(scope.provider.busy, isFalse);
+          if (withGuidance) {
+            expect(
+              scope.provider.pendingGuidance.single.content,
+              'Keep this guidance',
+            );
+          } else {
+            expect(scope.provider.pendingGuidance, isEmpty);
+          }
+          expect(requests, hasLength(1));
+          stream.add(
+            utf8.encode(
+              'data: {"choices":[{"delta":{"content":"Late text"}}]}\n\n',
+            ),
+          );
+          await Future<void>.delayed(Duration.zero);
+          expect(scope.provider.messages.last.content, partial);
+          expect(scope.provider.canContinue, isTrue);
+          await scope.provider.continueGeneration();
+          expect(
+            scope.provider.messages.last.content,
+            withGuidance ? 'New answer' : '${partial}New answer',
+          );
+          final history =
+              requests.last[protocol == AiApiProtocol.openAiResponses
+                      ? 'input'
+                      : 'messages']
+                  as List;
+          expect(
+            history
+                .where((item) => item['role'] == 'assistant')
+                .single['content'],
+            partial,
+          );
+          expect(
+            history.last['content'],
+            withGuidance ? 'Keep this guidance' : contains('next character'),
+          );
+          expect(scope.provider.messages.last.id, stopped.id);
+          expect(scope.provider.messages.last.createdAt, stopped.createdAt);
+          expect(scope.provider.messages, hasLength(2));
+          expect(scope.provider.canContinue, isFalse);
+          final notes = scope.provider.messages.last.processEvents.where(
+            (event) => event.type == AiProcessEventType.assistant,
+          );
+          if (withGuidance) {
+            expect(notes.single.text, partial);
+          } else {
+            expect(notes, isEmpty);
+          }
+        },
+      );
+    }
+  }
+
   test(
     'keeps live reasoning, tool results and follow-up phases in order',
     () async {
@@ -331,82 +501,85 @@ void main() {
     final send = scope.provider.sendMessage('Write a long answer.');
     await requestStarted.future;
 
+    final beforeStop = scope.provider.messages.last;
     scope.provider.stopGeneration();
     await send;
 
     expect(scope.provider.busy, isFalse);
     expect(scope.provider.error, isNull);
-    expect(scope.provider.messages, hasLength(1));
+    expect(scope.provider.messages, hasLength(2));
+    final stopped = scope.provider.messages.last;
+    expect(stopped.id, beforeStop.id);
+    expect(stopped.createdAt, beforeStop.createdAt);
+    expect(stopped.content, isEmpty);
+    expect(stopped.status, AiResponseStatus.stopped);
+    expect(stopped.elapsed, greaterThanOrEqualTo(beforeStop.elapsed!));
+    expect(
+      stopped.processEvents.take(beforeStop.processEvents.length),
+      beforeStop.processEvents,
+    );
+    expect(stopped.processEvents.last.status, AiResponseStatus.stopped);
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(scope.provider.messages.last.elapsed, stopped.elapsed);
   });
 
-  test(
-    'shows complete responses without typing delays and preserves pause',
-    () async {
-      final theme = ThemeProvider();
-      final language = LanguageProvider();
-      final shell = AppShellProvider();
-      final splitView = SplitViewProvider();
-      final text =
-          'A complete response shown without artificial typing delays.';
-      final responseGate = Completer<void>();
-      final scope = await createAssistantTestScope(
-        theme: theme,
-        language: language,
-        shell: shell,
-        splitView: splitView,
-        client: MockClient((_) async {
-          await responseGate.future;
-          return http.Response(
-            jsonEncode({
-              'choices': [
-                {
-                  'message': {'content': text},
-                },
-              ],
-            }),
-            200,
-          );
-        }),
-      );
-      addTearDown(scope.dispose);
-      addTearDown(theme.dispose);
-      addTearDown(language.dispose);
-      addTearDown(shell.dispose);
-      addTearDown(splitView.dispose);
+  test('shows complete responses without typing delays', () async {
+    final theme = ThemeProvider();
+    final language = LanguageProvider();
+    final shell = AppShellProvider();
+    final splitView = SplitViewProvider();
+    final text = 'A complete response shown without artificial typing delays.';
+    final responseGate = Completer<void>();
+    final scope = await createAssistantTestScope(
+      theme: theme,
+      language: language,
+      shell: shell,
+      splitView: splitView,
+      client: MockClient((_) async {
+        await responseGate.future;
+        return http.Response(
+          jsonEncode({
+            'choices': [
+              {
+                'message': {'content': text},
+              },
+            ],
+          }),
+          200,
+        );
+      }),
+    );
+    addTearDown(scope.dispose);
+    addTearDown(theme.dispose);
+    addTearDown(language.dispose);
+    addTearDown(shell.dispose);
+    addTearDown(splitView.dispose);
 
-      await scope.provider.initialized;
-      await scope.provider.saveService(
-        name: 'Test',
-        protocol: AiApiProtocol.openAiChatCompletions,
-        baseUrl: 'https://api.test/v1',
-        models: ['test-model'],
-        apiKey: 'test-key',
-      );
-      final displayed = <String>[];
-      scope.provider.addListener(() {
-        if (scope.provider.messages.length > 1) {
-          displayed.add(scope.provider.messages.last.content);
-        }
-      });
-      final send = scope.provider.sendMessage('Reply immediately.');
-      scope.provider.pauseGeneration();
-      final pausedElapsed = scope.provider.messages.last.elapsed;
-      responseGate.complete();
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-      expect(scope.provider.messages.last.content, isEmpty);
-      expect(scope.provider.messages.last.elapsed, pausedElapsed);
-
-      scope.provider.resumeGeneration();
-      await send;
-      expect(displayed.where((content) => content.isNotEmpty), isNotEmpty);
-      expect(
-        displayed.where((content) => content.isNotEmpty),
-        everyElement(text),
-      );
-      expect(scope.provider.messages.last.content, text);
-      expect(scope.provider.messages.last.elapsed, isNotNull);
-    },
-  );
+    await scope.provider.initialized;
+    await scope.provider.saveService(
+      name: 'Test',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://api.test/v1',
+      models: ['test-model'],
+      apiKey: 'test-key',
+    );
+    final displayed = <String>[];
+    scope.provider.addListener(() {
+      if (scope.provider.messages.length > 1) {
+        displayed.add(scope.provider.messages.last.content);
+      }
+    });
+    final send = scope.provider.sendMessage('Reply immediately.');
+    responseGate.complete();
+    await send;
+    expect(displayed.where((content) => content.isNotEmpty), isNotEmpty);
+    expect(
+      displayed.where((content) => content.isNotEmpty),
+      everyElement(text),
+    );
+    expect(scope.provider.messages.last.content, text);
+    expect(scope.provider.messages.last.elapsed, isNotNull);
+  });
 
   test(
     'applies a supported setting immediately without confirmation',
@@ -621,7 +794,7 @@ void main() {
 
     expect(scope.provider.busy, isTrue);
     expect(scope.provider.canChangeService, isTrue);
-    expect(scope.provider.canSendMessage, isFalse);
+    expect(scope.provider.canSendMessage, isTrue);
     await scope.provider.saveService(
       id: serviceId,
       name: 'Updated',

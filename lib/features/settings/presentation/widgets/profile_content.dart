@@ -2,7 +2,7 @@
  * @Description: 展示 GitHub 个人资料、设备授权验证码和本地登录会话操作。
  * @Author: LILYGO_L
  * @Date: 2026-10-02 20:56:44
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-11 14:33:00
  */
 
 import 'package:flutter/material.dart';
@@ -60,7 +60,11 @@ class _ProfileContentState extends State<ProfileContent> {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AccountAvatar(theme: theme, user: user),
+            AccountAvatar(
+              theme: theme,
+              user: user,
+              backgroundColor: theme.primary,
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
