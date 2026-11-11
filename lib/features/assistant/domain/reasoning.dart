@@ -2,7 +2,7 @@
  * @Description: 定义模型可用的思考强度与不同 API 的参数映射。
  * @Author: LILYGO_L
  * @Date: 2026-11-10 11:58:09
- * @LastEditTime: 2026-11-10 13:53:32
+ * @LastEditTime: 2026-11-11 21:20:54
  */
 enum AiReasoningEffort { none, minimal, low, medium, high, xhigh, max, ultra }
 
@@ -37,7 +37,7 @@ class AiReasoningCapabilities {
     }
     // Codex models-manager catalog: these families advertise the same levels.
     if (RegExp(
-      r'^gpt-(6-astra|6-sol|6\.1-sol|6\.1-terra|5\.6-sol|5\.6-terra)$',
+      r'^gpt-(6-sol|6\.1-sol|6\.1-terra|5\.6-sol|5\.6-terra)$',
     ).hasMatch(id)) {
       return const AiReasoningCapabilities([
         ...standard,
@@ -46,7 +46,8 @@ class AiReasoningCapabilities {
         AiReasoningEffort.ultra,
       ]);
     }
-    if (['gpt-6-luna', 'gpt-5.6-luna'].contains(id)) {
+    // 当前 gpt-6-astra 接口明确拒绝 ultra，最高使用 max。
+    if (['gpt-6-astra', 'gpt-6-luna', 'gpt-5.6-luna'].contains(id)) {
       return const AiReasoningCapabilities([
         ...standard,
         AiReasoningEffort.xhigh,

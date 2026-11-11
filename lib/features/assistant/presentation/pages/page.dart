@@ -2,7 +2,7 @@
  * @Description: 提供 LilygoBox AI 对话主页与设置操作确认。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-11 13:50:24
+ * @LastEditTime: 2026-11-11 17:07:00
  */
 
 import 'dart:ui' as ui;
@@ -18,7 +18,6 @@ import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/material_palette.dart';
 import '../../../../core/theme/provider.dart';
-import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_scroll_behavior.dart';
 import '../../../../core/widgets/app_tooltip.dart';
@@ -320,15 +319,6 @@ class _AssistantPageState extends State<AssistantPage> {
                                                     key: ValueKey(message.id),
                                                     message: message,
                                                     theme: theme,
-                                                    isResolving: assistant
-                                                        .isResolvingTool(
-                                                          message.id,
-                                                        ),
-                                                    onResolve: (approve) =>
-                                                        assistant.resolveTool(
-                                                          message.id,
-                                                          approve: approve,
-                                                        ),
                                                   ),
                                                 ),
                                               ),
@@ -536,18 +526,10 @@ class _Welcome extends StatelessWidget {
 }
 
 class _MessageView extends StatefulWidget {
-  const _MessageView({
-    super.key,
-    required this.message,
-    required this.theme,
-    required this.isResolving,
-    required this.onResolve,
-  });
+  const _MessageView({super.key, required this.message, required this.theme});
 
   final AiMessage message;
   final AppTheme theme;
-  final bool isResolving;
-  final ValueChanged<bool> onResolve;
 
   @override
   State<_MessageView> createState() => _MessageViewState();
@@ -567,7 +549,6 @@ class _MessageViewState extends State<_MessageView> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.message.toolName != null) return _ToolApprovalCard(widget);
     final message = widget.message;
     final isUser = message.role == 'user';
     final turnFinished = switch (message.status) {
@@ -841,6 +822,7 @@ String? _responseStatusLabel(
     AiResponseStatus.streaming => l10n.aiStreaming,
     AiResponseStatus.preparingTools => l10n.aiPreparingTools,
     AiResponseStatus.executingTools => l10n.aiExecutingTools,
+    AiResponseStatus.awaitingApproval => l10n.aiAwaitingApproval,
     AiResponseStatus.retrying => l10n.aiRetryingRequest(
       retryAttempt,
       ChatCompletionClient.maxRetries,
@@ -894,6 +876,7 @@ class _ProcessEventView extends StatelessWidget {
       AiResponseStatus.streaming => Symbols.edit_note_rounded,
       AiResponseStatus.preparingTools => Symbols.settings_suggest_rounded,
       AiResponseStatus.executingTools => Symbols.handyman_rounded,
+      AiResponseStatus.awaitingApproval => Symbols.verified_user_rounded,
       AiResponseStatus.retrying => Symbols.refresh_rounded,
       AiResponseStatus.completed => Symbols.check_rounded,
       AiResponseStatus.failed => Symbols.error_outline_rounded,
@@ -1010,6 +993,11 @@ String _aiActionSummary(
 ) {
   final l10n = context.l10n;
   return switch (name) {
+    'get_current_time' => l10n.aiToolTime,
+    'read_webpage' => '${l10n.aiToolWeb}: ${args['url']}',
+    'list_directory' => '${l10n.aiToolList}: ${args['path']}',
+    'read_file' => '${l10n.aiToolRead}: ${args['path']}',
+    'write_file' => '${l10n.aiToolWrite}: ${args['path']}',
     'set_theme' => l10n.aiActionTheme(
       args['theme'] == 'dark' ? l10n.themeDark : l10n.themeLight,
     ),
@@ -1037,91 +1025,4 @@ String _aiActionSummary(
     ),
     _ => l10n.aiActionUnknown,
   };
-}
-
-class _ToolApprovalCard extends StatelessWidget {
-  const _ToolApprovalCard(this.view);
-  final _MessageView view;
-
-  String _summary(BuildContext context) {
-    return _aiActionSummary(
-      context,
-      view.message.toolName,
-      view.message.toolArguments!,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final decided = view.message.toolDecision;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 650),
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: view.theme.primary,
-              border: Border.all(color: view.theme.dividerColor),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.aiApprovalTitle,
-                    style: TextStyle(
-                      color: view.theme.textColorPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _summary(context),
-                    style: TextStyle(color: view.theme.textColorSecondary),
-                  ),
-                  const SizedBox(height: 12),
-                  if (decided == null)
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        AppActionButton(
-                          theme: view.theme,
-                          label: l10n.aiApprove,
-                          icon: Symbols.check_rounded,
-                          primary: true,
-                          onPressed: view.isResolving
-                              ? null
-                              : () => view.onResolve(true),
-                        ),
-                        AppActionButton(
-                          theme: view.theme,
-                          label: l10n.aiReject,
-                          icon: Symbols.close_rounded,
-                          onPressed: view.isResolving
-                              ? null
-                              : () => view.onResolve(false),
-                        ),
-                      ],
-                    )
-                  else
-                    Text(
-                      decided ? l10n.aiActionApproved : l10n.aiActionRejected,
-                      style: TextStyle(
-                        color: view.theme.textColorTertiary,
-                        fontSize: 12,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

@@ -2,7 +2,7 @@
  * @Description: 验证 AI 的低风险设置工具调用会立即执行并返回结果。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-10 21:47:11
+ * @LastEditTime: 2026-11-11 16:51:06
  */
 
 import 'dart:async';
@@ -322,13 +322,19 @@ void main() {
         reply.copyWith(content: 'Updated').reasoningEffort,
         AiReasoningEffort.high,
       );
-      expect(reply.createdAt, live.createdAt);
-      expect(reply.copyWith(content: 'Updated').createdAt, live.createdAt);
+      final segments = scope.provider.messages
+          .where((message) => message.role == 'assistant')
+          .toList();
+      expect(segments, hasLength(2));
+      expect(segments.first.content, 'I will update the theme.');
+      expect(segments.first.createdAt, live.createdAt);
+      expect(segments.first.status, AiResponseStatus.completed);
+      expect(segments.first.processingSteps, isEmpty);
+      expect(reply.createdAt!.isBefore(live.createdAt!), isFalse);
+      expect(reply.copyWith(content: 'Updated').createdAt, reply.createdAt);
       expect(
         reply.processEvents.map((event) => event.type),
         containsAllInOrder([
-          AiProcessEventType.reasoning,
-          AiProcessEventType.assistant,
           AiProcessEventType.action,
           AiProcessEventType.reasoning,
         ]),
@@ -363,7 +369,12 @@ void main() {
       final previous = reply.processEvents;
       await scope.provider.sendMessage('Another question');
       expect(requests.last['reasoning_effort'], 'low');
-      expect(scope.provider.messages[1].processEvents, previous);
+      expect(
+        scope.provider.messages
+            .singleWhere((message) => message.id == reply.id)
+            .processEvents,
+        previous,
+      );
     },
   );
 

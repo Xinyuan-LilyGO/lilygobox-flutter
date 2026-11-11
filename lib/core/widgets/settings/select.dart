@@ -2,7 +2,7 @@
  * @Description: 提供带展开收起动画、选中状态和悬停渐变的设置下拉框。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-11 18:24:14
  */
 
 import 'package:flutter/material.dart';
@@ -21,6 +21,7 @@ class SettingSelect<T> extends StatefulWidget {
     required this.items,
     required this.onChanged,
     this.surfaceColor,
+    this.dropdownTapRegionGroupId,
   });
 
   final AppTheme theme;
@@ -30,6 +31,9 @@ class SettingSelect<T> extends StatefulWidget {
 
   /// 所在页面或弹窗的实际背景；默认是设置内容区的第二层背景。
   final Color? surfaceColor;
+
+  /// 嵌在菜单中时共享其点击区域，选中下拉项不会关闭外层菜单。
+  final Object? dropdownTapRegionGroupId;
 
   @override
   State<SettingSelect<T>> createState() => _SettingSelectState<T>();
@@ -185,18 +189,21 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
             width: _targetSize.width,
             child: Material(
               color: Colors.transparent,
-              child: PopupMenuTransition(
-                animation: _dropdownController,
-                child: _SettingSelectDropdown<T>(
-                  theme: widget.theme,
-                  value: widget.value,
-                  items: widget.items,
-                  width: _targetSize.width,
-                  onSelected: (value) {
-                    if (_isRemoving) return;
-                    widget.onChanged?.call(value);
-                    _removeDropdown();
-                  },
+              child: TapRegion(
+                groupId: widget.dropdownTapRegionGroupId,
+                child: PopupMenuTransition(
+                  animation: _dropdownController,
+                  child: _SettingSelectDropdown<T>(
+                    theme: widget.theme,
+                    value: widget.value,
+                    items: widget.items,
+                    width: _targetSize.width,
+                    onSelected: (value) {
+                      if (_isRemoving) return;
+                      widget.onChanged?.call(value);
+                      _removeDropdown();
+                    },
+                  ),
                 ),
               ),
             ),

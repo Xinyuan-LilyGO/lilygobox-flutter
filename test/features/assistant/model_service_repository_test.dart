@@ -2,7 +2,7 @@
  * @Description: 验证模型服务持久化、排序、迁移与写入失败回滚。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-10 17:32:47
+ * @LastEditTime: 2026-11-11 21:20:54
  */
 
 import 'dart:convert';
@@ -170,6 +170,62 @@ void main() {
       );
     },
   );
+
+  test('Astra rejects ultra and migrates saved ultra to max', () async {
+    final capabilities = AiReasoningCapabilities.forModel('gpt-6-astra');
+    expect(capabilities.levels, isNot(contains(AiReasoningEffort.ultra)));
+    expect(capabilities.levels.last, AiReasoningEffort.max);
+    for (final responses in [false, true]) {
+      expect(
+        capabilities.requestParameters(
+          AiReasoningEffort.max,
+          responses: responses,
+        ),
+        responses
+            ? {
+                'reasoning': {'effort': 'max'},
+              }
+            : {'reasoning_effort': 'max'},
+      );
+    }
+    // 其他模型原有的 ultra 档位不受本次修复影响。
+    expect(
+      AiReasoningCapabilities.forModel('gpt-6-sol').levels,
+      contains(AiReasoningEffort.ultra),
+    );
+    final id = await repository.save(
+      name: 'Astra',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://example.test/v1',
+      models: ['gpt-6-astra'],
+      apiKey: 'key',
+    );
+    final catalog =
+        jsonDecode(
+              preferences.stringValue(ModelServiceRepository.catalogKey, ''),
+            )
+            as Map<String, dynamic>;
+    final effortKey = jsonEncode([id, 'gpt-6-astra']);
+    (catalog['reasoningEfforts'] as Map)[effortKey] = 'ultra';
+    preferences.setValue(
+      ModelServiceRepository.catalogKey,
+      jsonEncode(catalog),
+    );
+    await preferences.flush();
+    final restored = ModelServiceRepository(preferences, keys);
+    await restored.load();
+    expect(restored.effortFor(id, 'gpt-6-astra'), AiReasoningEffort.max);
+    final saved =
+        jsonDecode(
+              preferences.stringValue(ModelServiceRepository.catalogKey, ''),
+            )
+            as Map;
+    expect((saved['reasoningEfforts'] as Map)[effortKey], 'max');
+    await expectLater(
+      restored.setReasoningEffort(id, 'gpt-6-astra', AiReasoningEffort.ultra),
+      throwsA(isA<AiConfigurationException>()),
+    );
+  });
 
   test('failed reasoning save preserves the previous selection', () async {
     final id = await repository.save(

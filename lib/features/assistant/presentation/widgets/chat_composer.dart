@@ -2,7 +2,7 @@
  * @Description: 构建双层 AI 输入区，承载附件与待处理引导并提供键盘发送和模型选择。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:07:40
- * @LastEditTime: 2026-11-11 14:49:48
+ * @LastEditTime: 2026-11-11 17:07:00
  */
 
 import 'dart:async';
@@ -29,7 +29,9 @@ import '../../../../core/widgets/popup_menu_surface.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../domain/models.dart';
 import '../../state/provider.dart';
+import 'approval_panel.dart';
 import 'model_selector.dart';
+import 'permissions_button.dart';
 
 /// 后层承载队列与附件，前层保留独立文字输入区。
 class ChatComposer extends StatelessWidget {
@@ -225,6 +227,17 @@ class ChatComposer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (assistant.pendingApproval case final request?) {
+      return AssistantApprovalPanel(
+        key: ValueKey(request.id),
+        request: request,
+        theme: theme,
+        inputFocus: focusNode,
+        onResolve: (approve) =>
+            assistant.resolveTool(request.id, approve: approve),
+      );
+    }
+
     final l10n = context.l10n;
     return DecoratedBox(
       key: const ValueKey('ai-composer-context-layer'),
@@ -389,14 +402,22 @@ class ChatComposer extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            const Spacer(),
-                            ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxWidth: constraints.maxWidth * .78,
-                              ),
-                              child: ModelSelector(
-                                theme: theme,
-                                assistant: assistant,
+                            const SizedBox(width: 4),
+                            AssistantPermissionsButton(
+                              theme: theme,
+                              assistant: assistant,
+                              compact:
+                                  constraints.maxWidth < 520 ||
+                                  MediaQuery.textScalerOf(context).scale(12) >
+                                      16,
+                            ),
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: ModelSelector(
+                                  theme: theme,
+                                  assistant: assistant,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 6),

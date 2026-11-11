@@ -2,7 +2,7 @@
  * @Description: 持久化已添加的模型服务、独立密钥与模型选择，并迁移已有的显式配置。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-10 17:19:17
+ * @LastEditTime: 2026-11-11 21:20:54
  */
 
 import 'dart:convert';
@@ -116,10 +116,25 @@ class ModelServiceRepository {
               if (entry.key is String && entry.value is String)
                 entry.key as String: entry.value as String,
         };
-        if (_selectedId != null &&
-            _model != null &&
-            AiReasoningCapabilities.forModel(_model!).levels.isNotEmpty &&
-            !_reasoningEfforts.containsKey(jsonEncode([_selectedId, _model]))) {
+        // 修复旧版本为 gpt-6-astra 保存了接口不接受的 ultra 档位。
+        var migratedAstra = false;
+        for (final service in _services) {
+          for (final model in service.models) {
+            final key = jsonEncode([service.id, model]);
+            if (model.toLowerCase() == 'gpt-6-astra' &&
+                _reasoningEfforts[key] == AiReasoningEffort.ultra.name) {
+              _reasoningEfforts[key] = AiReasoningEffort.max.name;
+              migratedAstra = true;
+            }
+          }
+        }
+        if (migratedAstra ||
+            (_selectedId != null &&
+                _model != null &&
+                AiReasoningCapabilities.forModel(_model!).levels.isNotEmpty &&
+                !_reasoningEfforts.containsKey(
+                  jsonEncode([_selectedId, _model]),
+                ))) {
           await _persist(_services, _selectedId, _model);
         }
       } catch (_) {

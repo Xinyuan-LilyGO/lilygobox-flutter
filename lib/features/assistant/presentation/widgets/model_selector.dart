@@ -2,7 +2,7 @@
  * @Description: 为主页提供右键菜单风格的服务分组模型菜单与设备风格搜索框。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-11 14:43:03
+ * @LastEditTime: 2026-11-11 21:15:35
  */
 
 import 'package:flutter/material.dart';
@@ -674,29 +674,7 @@ class _ModelSelectorState extends State<ModelSelector> {
                     listenable: assistant,
                     builder: (context, _) => SingleChildScrollView(
                       primary: false,
-                      child: AnimatedSwitcher(
-                        duration: MediaQuery.disableAnimationsOf(context)
-                            ? Duration.zero
-                            : PopupMenuTransition.duration,
-                        transitionBuilder: (child, animation) =>
-                            FadeTransition(opacity: animation, child: child),
-                        layoutBuilder: (current, previous) => Stack(
-                          alignment: Alignment.bottomCenter,
-                          children: [
-                            for (final child in previous)
-                              Positioned(
-                                left: 0,
-                                right: 0,
-                                bottom: 0,
-                                child: IgnorePointer(
-                                  child: ExcludeFocus(
-                                    child: ExcludeSemantics(child: child),
-                                  ),
-                                ),
-                              ),
-                            if (current != null) current,
-                          ],
-                        ),
+                      child: PopupMenuPageTransition(
                         child:
                             _reasoningModel != null &&
                                 _reasoningModel == assistant.selectedModel

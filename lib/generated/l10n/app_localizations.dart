@@ -758,31 +758,31 @@ abstract class AppLocalizations {
   /// No description provided for @aiApprovalTitle.
   ///
   /// In en, this message translates to:
-  /// **'Confirm setting change'**
+  /// **'Approval required'**
   String get aiApprovalTitle;
 
   /// No description provided for @aiApprove.
   ///
   /// In en, this message translates to:
-  /// **'Apply'**
+  /// **'Allow once'**
   String get aiApprove;
 
   /// No description provided for @aiReject.
   ///
   /// In en, this message translates to:
-  /// **'Decline'**
+  /// **'Deny'**
   String get aiReject;
 
   /// No description provided for @aiActionApproved.
   ///
   /// In en, this message translates to:
-  /// **'Change applied'**
+  /// **'Approved'**
   String get aiActionApproved;
 
   /// No description provided for @aiActionRejected.
   ///
   /// In en, this message translates to:
-  /// **'Change declined'**
+  /// **'Denied'**
   String get aiActionRejected;
 
   /// No description provided for @aiActionTheme.
@@ -3280,6 +3280,174 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Ultra'**
   String get aiReasoningUltra;
+
+  /// No description provided for @aiPermissions.
+  ///
+  /// In en, this message translates to:
+  /// **'Permissions'**
+  String get aiPermissions;
+
+  /// No description provided for @aiPermissionRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'Request approval'**
+  String get aiPermissionRequest;
+
+  /// No description provided for @aiPermissionCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom approval'**
+  String get aiPermissionCustom;
+
+  /// No description provided for @aiPermissionRequestSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask before accessing local files.'**
+  String get aiPermissionRequestSummary;
+
+  /// No description provided for @aiPermissionCustomSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Set network and file access.'**
+  String get aiPermissionCustomSummary;
+
+  /// No description provided for @aiPermissionRequestHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'App settings and public HTTPS pages can be accessed directly. Local file operations require approval unless granted in Custom approval. Each approval applies only to the displayed operation.'**
+  String get aiPermissionRequestHelp;
+
+  /// No description provided for @aiPermissionNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow public webpage access'**
+  String get aiPermissionNetwork;
+
+  /// No description provided for @aiPermissionFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'File access in authorized folders'**
+  String get aiPermissionFiles;
+
+  /// No description provided for @aiPermissionNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No automatic access'**
+  String get aiPermissionNone;
+
+  /// No description provided for @aiPermissionReadOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Read only'**
+  String get aiPermissionReadOnly;
+
+  /// No description provided for @aiPermissionReadWrite.
+  ///
+  /// In en, this message translates to:
+  /// **'Read and modify'**
+  String get aiPermissionReadWrite;
+
+  /// No description provided for @aiPermissionFoldersHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Applies to selected folders and their subfolders.'**
+  String get aiPermissionFoldersHelp;
+
+  /// No description provided for @aiPermissionFolders.
+  ///
+  /// In en, this message translates to:
+  /// **'Authorized folders'**
+  String get aiPermissionFolders;
+
+  /// No description provided for @aiPermissionNoFolders.
+  ///
+  /// In en, this message translates to:
+  /// **'No folders authorized. File access still requires approval.'**
+  String get aiPermissionNoFolders;
+
+  /// No description provided for @aiPermissionAddFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Add folder'**
+  String get aiPermissionAddFolder;
+
+  /// No description provided for @aiPermissionRemoveFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove authorization'**
+  String get aiPermissionRemoveFolder;
+
+  /// No description provided for @aiPermissionSessionHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Permissions apply to this conversation and reset when it is cleared or the app restarts. File contents used for analysis are sent to your configured model service. Terminal execution and file deletion are not enabled.'**
+  String get aiPermissionSessionHelp;
+
+  /// No description provided for @aiAwaitingApproval.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for approval'**
+  String get aiAwaitingApproval;
+
+  /// No description provided for @aiToolTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Read current time'**
+  String get aiToolTime;
+
+  /// No description provided for @aiToolWeb.
+  ///
+  /// In en, this message translates to:
+  /// **'Read webpage'**
+  String get aiToolWeb;
+
+  /// No description provided for @aiToolList.
+  ///
+  /// In en, this message translates to:
+  /// **'List directory'**
+  String get aiToolList;
+
+  /// No description provided for @aiToolRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Read file'**
+  String get aiToolRead;
+
+  /// No description provided for @aiToolWrite.
+  ///
+  /// In en, this message translates to:
+  /// **'Write file'**
+  String get aiToolWrite;
+
+  /// No description provided for @aiWritePreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Review the file content before approving'**
+  String get aiWritePreview;
+
+  /// No description provided for @aiBefore.
+  ///
+  /// In en, this message translates to:
+  /// **'Before'**
+  String get aiBefore;
+
+  /// No description provided for @aiAfter.
+  ///
+  /// In en, this message translates to:
+  /// **'After'**
+  String get aiAfter;
+
+  /// No description provided for @aiPermissionResolvedPath.
+  ///
+  /// In en, this message translates to:
+  /// **'Actual target'**
+  String get aiPermissionResolvedPath;
+
+  /// No description provided for @aiPermissionFolderFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to open the folder picker. Please try again.'**
+  String get aiPermissionFolderFailed;
 }
 
 class _AppLocalizationsDelegate

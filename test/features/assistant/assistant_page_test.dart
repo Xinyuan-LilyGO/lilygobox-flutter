@@ -2,7 +2,7 @@
  * @Description: 验证 AI 主页居中与底部输入状态、键盘发送、直达设置及缩放布局。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:16:04
- * @LastEditTime: 2026-11-11 14:49:48
+ * @LastEditTime: 2026-11-11 16:51:06
  */
 
 import 'dart:async';
@@ -1384,6 +1384,63 @@ void main() {
     expect(find.text('Model request retry 1: HTTP 503'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'tool preamble and answer have separate ordered elapsed sections',
+    (tester) async {
+      showProcess = true;
+      await tester.runAsync(() => scope.provider.initialized);
+      await scope.provider.saveService(
+        name: 'Test',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['test'],
+        apiKey: 'key',
+      );
+      await tester.pumpWidget(app());
+      await tester.enterText(
+        find.byKey(const ValueKey('ai-message-input')),
+        'Switch theme',
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await pumpAssistantUntilIdle(tester);
+      await tester.pumpAndSettle();
+      final replies = scope.provider.messages
+          .where((message) => message.role == 'assistant')
+          .toList();
+      expect(replies, hasLength(2));
+      final firstHeader = find.byKey(
+        ValueKey('ai-response-details-${replies.first.id}'),
+      );
+      final nextHeader = find.byKey(
+        ValueKey('ai-response-details-${replies.last.id}'),
+      );
+      final preamble = find.text('Updating the theme.', findRichText: true);
+      final answer = find.text(
+        'Ready to help with LilygoBox.',
+        findRichText: true,
+      );
+      expect(firstHeader, findsOneWidget);
+      expect(nextHeader, findsOneWidget);
+      expect(preamble, findsOneWidget);
+      expect(answer, findsOneWidget);
+      expect(
+        tester.getTopLeft(firstHeader).dy,
+        lessThan(tester.getTopLeft(preamble).dy),
+      );
+      expect(
+        tester.getTopLeft(preamble).dy,
+        lessThan(tester.getTopLeft(nextHeader).dy),
+      );
+      expect(
+        tester.getTopLeft(nextHeader).dy,
+        lessThan(tester.getTopLeft(answer).dy),
+      );
+      expect(replies.first.processingSteps, isEmpty);
+      expect(replies.last.processingSteps.single.name, 'set_theme');
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('process is collapsed by default and scrolls when expanded', (
     tester,

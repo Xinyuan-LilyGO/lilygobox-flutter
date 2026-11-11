@@ -16,6 +16,7 @@
 
 ## 功能说明
 
+- [AI 工具权限与批准](assistant-permissions.md)
 - [AI 思考强度](ai-reasoning-effort.md)
 - [模型图片输入能力声明](ai-image-input.md)
 - [Windows 剪贴板历史粘贴](windows-clipboard-history.md)

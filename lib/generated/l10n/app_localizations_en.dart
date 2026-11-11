@@ -371,19 +371,19 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get aiApprovalTitle => 'Confirm setting change';
+  String get aiApprovalTitle => 'Approval required';
 
   @override
-  String get aiApprove => 'Apply';
+  String get aiApprove => 'Allow once';
 
   @override
-  String get aiReject => 'Decline';
+  String get aiReject => 'Deny';
 
   @override
-  String get aiActionApproved => 'Change applied';
+  String get aiActionApproved => 'Approved';
 
   @override
-  String get aiActionRejected => 'Change declined';
+  String get aiActionRejected => 'Denied';
 
   @override
   String aiActionTheme(String value) {
@@ -1818,4 +1818,93 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiReasoningUltra => 'Ultra';
+
+  @override
+  String get aiPermissions => 'Permissions';
+
+  @override
+  String get aiPermissionRequest => 'Request approval';
+
+  @override
+  String get aiPermissionCustom => 'Custom approval';
+
+  @override
+  String get aiPermissionRequestSummary => 'Ask before accessing local files.';
+
+  @override
+  String get aiPermissionCustomSummary => 'Set network and file access.';
+
+  @override
+  String get aiPermissionRequestHelp =>
+      'App settings and public HTTPS pages can be accessed directly. Local file operations require approval unless granted in Custom approval. Each approval applies only to the displayed operation.';
+
+  @override
+  String get aiPermissionNetwork => 'Allow public webpage access';
+
+  @override
+  String get aiPermissionFiles => 'File access in authorized folders';
+
+  @override
+  String get aiPermissionNone => 'No automatic access';
+
+  @override
+  String get aiPermissionReadOnly => 'Read only';
+
+  @override
+  String get aiPermissionReadWrite => 'Read and modify';
+
+  @override
+  String get aiPermissionFoldersHelp =>
+      'Applies to selected folders and their subfolders.';
+
+  @override
+  String get aiPermissionFolders => 'Authorized folders';
+
+  @override
+  String get aiPermissionNoFolders =>
+      'No folders authorized. File access still requires approval.';
+
+  @override
+  String get aiPermissionAddFolder => 'Add folder';
+
+  @override
+  String get aiPermissionRemoveFolder => 'Remove authorization';
+
+  @override
+  String get aiPermissionSessionHelp =>
+      'Permissions apply to this conversation and reset when it is cleared or the app restarts. File contents used for analysis are sent to your configured model service. Terminal execution and file deletion are not enabled.';
+
+  @override
+  String get aiAwaitingApproval => 'Waiting for approval';
+
+  @override
+  String get aiToolTime => 'Read current time';
+
+  @override
+  String get aiToolWeb => 'Read webpage';
+
+  @override
+  String get aiToolList => 'List directory';
+
+  @override
+  String get aiToolRead => 'Read file';
+
+  @override
+  String get aiToolWrite => 'Write file';
+
+  @override
+  String get aiWritePreview => 'Review the file content before approving';
+
+  @override
+  String get aiBefore => 'Before';
+
+  @override
+  String get aiAfter => 'After';
+
+  @override
+  String get aiPermissionResolvedPath => 'Actual target';
+
+  @override
+  String get aiPermissionFolderFailed =>
+      'Unable to open the folder picker. Please try again.';
 }

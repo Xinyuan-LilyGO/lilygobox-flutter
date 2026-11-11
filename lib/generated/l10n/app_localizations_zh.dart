@@ -64,7 +64,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get general => '通用';
 
   @override
-  String get application => '应用';
+  String get application => '允许一次';
 
   @override
   String get languageAndRegion => '语言与地区';
@@ -361,19 +361,19 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get aiApprovalTitle => '确认设置变更';
+  String get aiApprovalTitle => '需要批准';
 
   @override
-  String get aiApprove => '应用';
+  String get aiApprove => '允许一次';
 
   @override
   String get aiReject => '拒绝';
 
   @override
-  String get aiActionApproved => '已应用变更';
+  String get aiActionApproved => '已批准';
 
   @override
-  String get aiActionRejected => '已拒绝变更';
+  String get aiActionRejected => '已拒绝';
 
   @override
   String aiActionTheme(String value) {
@@ -1703,4 +1703,90 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiReasoningUltra => '极高';
+
+  @override
+  String get aiPermissions => '权限';
+
+  @override
+  String get aiPermissionRequest => '请求批准';
+
+  @override
+  String get aiPermissionCustom => '自定义批准';
+
+  @override
+  String get aiPermissionRequestSummary => '本地文件操作前逐次批准。';
+
+  @override
+  String get aiPermissionCustomSummary => '自定义网络和文件访问范围。';
+
+  @override
+  String get aiPermissionRequestHelp =>
+      '软件设置与公开 HTTPS 网页可直接访问。本地文件操作需要逐次批准，或在自定义批准中授权。每次批准仅适用于展示的操作。';
+
+  @override
+  String get aiPermissionNetwork => '允许访问公开网页';
+
+  @override
+  String get aiPermissionFiles => '授权目录内的文件访问';
+
+  @override
+  String get aiPermissionNone => '不自动授权';
+
+  @override
+  String get aiPermissionReadOnly => '只读';
+
+  @override
+  String get aiPermissionReadWrite => '读取与修改';
+
+  @override
+  String get aiPermissionFoldersHelp => '所选文件夹及其子文件夹内生效。';
+
+  @override
+  String get aiPermissionFolders => '授权文件夹';
+
+  @override
+  String get aiPermissionNoFolders => '尚未授权文件夹，文件访问仍需批准。';
+
+  @override
+  String get aiPermissionAddFolder => '添加文件夹';
+
+  @override
+  String get aiPermissionRemoveFolder => '移除授权';
+
+  @override
+  String get aiPermissionSessionHelp =>
+      '权限仅在本次会话生效，清空会话或重启后重置。用于分析的文件内容会发送至配置的模型服务。暂不开放终端执行与文件删除。';
+
+  @override
+  String get aiAwaitingApproval => '等待批准';
+
+  @override
+  String get aiToolTime => '读取当前时间';
+
+  @override
+  String get aiToolWeb => '读取网页';
+
+  @override
+  String get aiToolList => '查看目录';
+
+  @override
+  String get aiToolRead => '读取文件';
+
+  @override
+  String get aiToolWrite => '写入文件';
+
+  @override
+  String get aiWritePreview => '批准前请核对文件内容';
+
+  @override
+  String get aiBefore => '修改前';
+
+  @override
+  String get aiAfter => '修改后';
+
+  @override
+  String get aiPermissionResolvedPath => '实际目标';
+
+  @override
+  String get aiPermissionFolderFailed => '无法打开文件夹选择器，请重试。';
 }
