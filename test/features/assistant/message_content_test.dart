@@ -2,7 +2,7 @@
  * @Description: 验证聊天 Markdown、跨段落选择、原文复制及消息时间布局。
  * @Author: LILYGO_L
  * @Date: 2026-11-09 15:27:53
- * @LastEditTime: 2026-11-11 14:58:26
+ * @LastEditTime: 2026-11-12 01:36:38
  */
 
 import 'dart:io';
@@ -17,12 +17,52 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/context_menu/text_selection_menu.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/theme/material_palette.dart';
+import 'package:lilygobox/features/assistant/data/message_link_opener.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/message_content.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 void main() {
+  for (final opens in [true, false]) {
+    testWidgets('link tap opens externally or shows failure: $opens', (
+      tester,
+    ) async {
+      final theme = ThemeProvider();
+      addTearDown(theme.dispose);
+      final launched = <Uri>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: ChatMessageBody(
+              message: const AiMessage(
+                id: 'link',
+                role: 'assistant',
+                content: '[打开链接](https://example.test/preview)',
+              ),
+              theme: theme.themeData,
+              linkOpener: MessageLinkOpener(
+                launch: (uri) async {
+                  launched.add(uri);
+                  return opens;
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('打开链接', findRichText: true));
+      await tester.pumpAndSettle();
+      expect(launched, [Uri.parse('https://example.test/preview')]);
+      expect(find.byType(SnackBar), opens ? findsNothing : findsOneWidget);
+      if (!opens) expect(find.text('无法打开此链接。'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final wide in [false, true]) {
     testWidgets(
       'chat code selection stays tight and copies whitespace: wide=$wide',
@@ -69,25 +109,17 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final selectable = tester.widget<SelectableText>(
-          find.byType(SelectableText),
+        final region = tester.state<SelectableRegionState>(
+          find.byType(SelectableRegion),
         );
-        expect(selectable.selectionWidthStyle, ui.BoxWidthStyle.tight);
-        expect(selectable.data, code);
-        final editable = tester.state<EditableTextState>(
-          find.byType(EditableText),
-        );
-        editable.userUpdateTextEditingValue(
-          editable.textEditingValue.copyWith(
-            selection: TextSelection(baseOffset: 0, extentOffset: code.length),
-          ),
-          SelectionChangedCause.keyboard,
-        );
+        region.selectAll(SelectionChangedCause.toolbar);
         await tester.pump();
-        editable.copySelection(SelectionChangedCause.keyboard);
+        region.copySelection(SelectionChangedCause.toolbar);
         await tester.pump();
         expect(copied, code);
-        final render = editable.renderEditable;
+        final render = tester.renderObject<RenderParagraph>(
+          find.descendant(of: find.text(code), matching: find.byType(RichText)),
+        );
         final boxes = render.getBoxesForSelection(
           TextSelection(baseOffset: 0, extentOffset: code.length),
         );
@@ -102,6 +134,137 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'region select all includes user, Markdown and both code widths',
+    (tester) async {
+      final theme = ThemeProvider();
+      addTearDown(theme.dispose);
+      final wideCode = 'wide token ' * 80;
+      final messages = [
+        AiMessage(id: 'user', role: 'user', content: 'USER_MESSAGE'),
+        AiMessage(
+          id: 'assistant',
+          role: 'assistant',
+          content:
+              'BODY_BEFORE\n\n```text\nSHORT_CODE\n```\n\n'
+              'BODY_BETWEEN\n\n```text\n$wideCode\n```\n\nBODY_AFTER',
+        ),
+      ];
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied = (call.arguments as Map)['text'] as String;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: SelectionArea(
+              child: SizedBox(
+                width: 400,
+                child: Column(
+                  children: [
+                    for (final message in messages)
+                      ChatMessageBody(
+                        message: message,
+                        theme: theme.themeData,
+                        useParentSelectionArea: true,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final region = tester.state<SelectableRegionState>(
+        find.byType(SelectableRegion),
+      );
+      region.selectAll(SelectionChangedCause.toolbar);
+      await tester.pump();
+      for (final text in ['USER_MESSAGE', 'SHORT_CODE\n', '$wideCode\n']) {
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.descendant(of: find.text(text), matching: find.byType(RichText)),
+        );
+        expect(paragraph.selections, isNotEmpty, reason: text);
+        expect(paragraph.selections.single.baseOffset, 0);
+        expect(paragraph.selections.single.extentOffset, text.length);
+      }
+      region.copySelection(SelectionChangedCause.toolbar);
+      await tester.pump();
+      for (final text in [
+        'USER_MESSAGE',
+        'BODY_BEFORE',
+        'SHORT_CODE',
+        'BODY_BETWEEN',
+        wideCode,
+        'BODY_AFTER',
+      ]) {
+        expect(copied, contains(text));
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'multiple and repeated inline code survives streaming and selection',
+    (tester) async {
+      final theme = ThemeProvider();
+      addTearDown(theme.dispose);
+      Future<void> render(String content) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: SelectionArea(
+                child: ChatMessageBody(
+                  message: AiMessage(
+                    id: 'inline',
+                    role: 'assistant',
+                    content: content,
+                  ),
+                  theme: theme.themeData,
+                  useParentSelectionArea: true,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      }
+
+      await render('Files: `alpha`');
+      final region = tester.state<SelectableRegionState>(
+        find.byType(SelectableRegion),
+      );
+      region.selectAll(SelectionChangedCause.keyboard);
+      await tester.pump();
+      await render('Files: `alpha`, `beta`, and `alpha`.');
+      expect(find.text('alpha'), findsNWidgets(2));
+      expect(find.text('beta'), findsOneWidget);
+      region.selectAll(SelectionChangedCause.keyboard);
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      await render('Files: `alpha`, `beta`, and `alpha`. More: `gamma`.');
+      expect(find.text('gamma'), findsOneWidget);
+    },
+  );
 
   for (final kind in ['user', 'markdown', 'wide-code']) {
     testWidgets(
@@ -368,7 +531,12 @@ void main() {
         );
         expect(find.byKey(const ValueKey('ai-code-block')), findsNWidgets(2));
         final inline = tester.widget<DecoratedBox>(
-          find.byKey(const ValueKey('ai-inline-code')),
+          find
+              .ancestor(
+                of: find.text('inline'),
+                matching: find.byType(DecoratedBox),
+              )
+              .first,
         );
         expect(
           (inline.decoration as BoxDecoration).borderRadius,

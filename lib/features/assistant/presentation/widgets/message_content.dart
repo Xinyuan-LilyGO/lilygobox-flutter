@@ -2,7 +2,7 @@
  * @Description: 渲染聊天 Markdown 正文、消息复制操作与固定发送时间。
  * @Author: LILYGO_L
  * @Date: 2026-11-09 15:26:28
- * @LastEditTime: 2026-11-11 14:58:26
+ * @LastEditTime: 2026-11-12 01:36:38
  */
 
 import 'dart:async';
@@ -15,14 +15,15 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/theme/material_palette.dart';
+import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
+import '../../data/message_link_opener.dart';
 import '../../domain/models.dart';
 import 'error_text.dart';
 
@@ -32,11 +33,13 @@ class ChatMessageBody extends StatefulWidget {
     required this.message,
     required this.theme,
     this.useParentSelectionArea = false,
+    this.linkOpener = const MessageLinkOpener(),
   });
 
   final AiMessage message;
   final AppTheme theme;
   final bool useParentSelectionArea;
+  final MessageLinkOpener linkOpener;
 
   @override
   State<ChatMessageBody> createState() => _ChatMessageBodyState();
@@ -57,19 +60,12 @@ class _ChatMessageBodyState extends State<ChatMessageBody> {
   }
 
   Future<void> _openLink(BuildContext context, String? href) async {
-    final uri = Uri.tryParse(href ?? '');
-    if (uri == null || !['https', 'http', 'mailto'].contains(uri.scheme)) {
-      return;
-    }
-    try {
-      if (await launchUrl(uri, mode: LaunchMode.externalApplication)) return;
-    } catch (_) {
-      // 启动失败统一交给本地化提示，不把平台异常展示给用户。
-    }
-    if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(context.l10n.aiOpenLinkFailed)));
+    final opened = await widget.linkOpener.open(href, message: message);
+    if (!opened && context.mounted) {
+      showAppNotice(
+        ScaffoldMessenger.of(context),
+        context.l10n.aiOpenLinkFailed,
+      );
     }
   }
 
@@ -90,6 +86,9 @@ class _ChatMessageBodyState extends State<ChatMessageBody> {
       height: 1.5,
     );
     if (message.role == 'user') {
+      if (widget.useParentSelectionArea) {
+        return Text(message.content, style: text);
+      }
       return SelectableText(
         message.content,
         focusNode: _selectionFocus,
@@ -98,10 +97,7 @@ class _ChatMessageBodyState extends State<ChatMessageBody> {
         style: text,
       );
     }
-    final codeBuilder = _CodeElementBuilder(
-      theme,
-      useParentSelectionArea: widget.useParentSelectionArea,
-    );
+    final codeBuilder = _CodeElementBuilder(theme);
     final markdown = MarkdownBody(
       data: message.content,
       builders: {
@@ -256,9 +252,8 @@ class _ChatMessageActionsState extends State<ChatMessageActions> {
 
 /// 区分行内代码与代码块，避免把代码块拆成行内标签。
 class _CodeElementBuilder extends MarkdownElementBuilder {
-  _CodeElementBuilder(this.theme, {required this.useParentSelectionArea});
+  _CodeElementBuilder(this.theme);
   final AppTheme theme;
-  final bool useParentSelectionArea;
   bool insideBlock = false;
 
   @override
@@ -270,7 +265,6 @@ class _CodeElementBuilder extends MarkdownElementBuilder {
   ) {
     if (insideBlock) return null;
     return DecoratedBox(
-      key: const ValueKey('ai-inline-code'),
       decoration: BoxDecoration(
         color: theme.primary,
         borderRadius: BorderRadius.circular(4),
@@ -315,7 +309,6 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
       text: code?.textContent ?? element.textContent,
       language: language,
       theme: theme,
-      useParentSelectionArea: inlineBuilder.useParentSelectionArea,
     );
   }
 }
@@ -325,13 +318,10 @@ class _CodeBlock extends StatefulWidget {
     required this.text,
     required this.language,
     required this.theme,
-    required this.useParentSelectionArea,
   });
   final String text;
   final String language;
   final AppTheme theme;
-  final bool useParentSelectionArea;
-
   @override
   State<_CodeBlock> createState() => _CodeBlockState();
 }
@@ -441,15 +431,6 @@ class _CodeBlockState extends State<_CodeBlock> {
                   )..layout();
                   final needsScroll = painter.width > constraints.maxWidth;
                   painter.dispose();
-                  if (!needsScroll && widget.useParentSelectionArea) {
-                    return SelectableText(
-                      widget.text,
-                      style: style,
-                      // 高亮贴合实际字符；不修改原文中的缩进、空格和换行。
-                      selectionWidthStyle: ui.BoxWidthStyle.tight,
-                      contextMenuBuilder: AppTextSelectionMenu.build,
-                    );
-                  }
                   if (!needsScroll) return Text(widget.text, style: style);
                   return Scrollbar(
                     key: const ValueKey('ai-code-horizontal-scrollbar'),
@@ -459,16 +440,9 @@ class _CodeBlockState extends State<_CodeBlock> {
                       controller: _scroll,
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.only(bottom: 8),
-                      // 聊天页中的宽代码也注册到外层选区，确保右键“全选”
-                      // 覆盖完整代码；独立组件仍使用普通文本避免嵌套选区。
-                      child: widget.useParentSelectionArea
-                          ? SelectableText(
-                              widget.text,
-                              style: style,
-                              selectionWidthStyle: ui.BoxWidthStyle.tight,
-                              contextMenuBuilder: AppTextSelectionMenu.build,
-                            )
-                          : Text(widget.text, style: style),
+                      // 使用普通 Text 接入外层选区，避免独立 SelectableText
+                      // 隔断跨消息全选；横向滚动只负责布局，不另建选区。
+                      child: Text(widget.text, style: style),
                     ),
                   );
                 },

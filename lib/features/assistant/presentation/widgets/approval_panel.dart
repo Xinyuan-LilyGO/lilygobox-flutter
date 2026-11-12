@@ -2,7 +2,7 @@
  * @Description: 在聊天输入区展示单次工具批准，保留操作详情与固定的批准按钮。
  * @Author: OpenAI Codex
  * @Date: 2026-11-11 17:07:00
- * @LastEditTime: 2026-11-11 17:07:00
+ * @LastEditTime: 2026-11-11 23:53:11
  */
 
 import 'dart:math' as math;
@@ -101,6 +101,7 @@ class _AssistantApprovalPanelState extends State<AssistantApprovalPanel> {
                     children: [
                       Icon(
                         Symbols.shield_rounded,
+                        fill: 1,
                         size: 20,
                         color: theme.textColorPrimary,
                       ),

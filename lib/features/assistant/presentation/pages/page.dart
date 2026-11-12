@@ -2,10 +2,8 @@
  * @Description: 提供 LilygoBox AI 对话主页与设置操作确认。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-11 17:07:00
+ * @LastEditTime: 2026-11-12 01:26:11
  */
-
-import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -559,61 +557,58 @@ class _MessageViewState extends State<_MessageView> {
     };
     final content = Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 650),
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: isUser ? widget.theme.primary : Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Padding(
-              padding: message.attachments.isNotEmpty
-                  ? const EdgeInsets.all(12)
-                  : EdgeInsets.symmetric(
-                      horizontal: isUser ? 12 : 14,
-                      vertical: isUser ? 9 : 11,
-                    ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (message.attachments.isNotEmpty)
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final attachment in message.attachments)
-                          ImageClipboardMenu(
-                            bytes: attachment.bytes,
-                            theme: widget.theme,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: ColoredBox(
-                                color: widget.theme.secondary,
-                                child: Image.memory(
-                                  attachment.bytes,
-                                  width: 100,
-                                  height: 100,
-                                  fit: BoxFit.contain,
-                                ),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: isUser ? widget.theme.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Padding(
+            padding: message.attachments.isNotEmpty
+                ? const EdgeInsets.all(12)
+                : EdgeInsets.symmetric(
+                    horizontal: isUser ? 12 : 14,
+                    vertical: isUser ? 9 : 11,
+                  ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (message.attachments.isNotEmpty)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final attachment in message.attachments)
+                        ImageClipboardMenu(
+                          bytes: attachment.bytes,
+                          theme: widget.theme,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: ColoredBox(
+                              color: widget.theme.secondary,
+                              child: Image.memory(
+                                attachment.bytes,
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.contain,
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                  if (message.attachments.isNotEmpty &&
-                      message.content.isNotEmpty)
-                    const SizedBox(height: 8),
-                  // 纯图片消息不构建空正文，避免 SelectableText 占用一行高度。
-                  if (message.content.isNotEmpty || message.attachments.isEmpty)
-                    ChatMessageBody(
-                      message: message,
-                      theme: widget.theme,
-                      useParentSelectionArea: true,
-                    ),
-                ],
-              ),
+                        ),
+                    ],
+                  ),
+                if (message.attachments.isNotEmpty &&
+                    message.content.isNotEmpty)
+                  const SizedBox(height: 8),
+                // 纯图片消息不构建空正文，避免空正文占用一行高度。
+                if (message.content.isNotEmpty || message.attachments.isEmpty)
+                  ChatMessageBody(
+                    message: message,
+                    theme: widget.theme,
+                    useParentSelectionArea: true,
+                  ),
+              ],
             ),
           ),
         ),
@@ -635,7 +630,13 @@ class _MessageViewState extends State<_MessageView> {
       children: [
         InkWell(
           key: ValueKey('ai-response-details-${message.id}'),
-          onTap: () => setState(() => _detailsExpanded = !_detailsExpanded),
+          onTap: () {
+            final selection = context
+                .findAncestorStateOfType<SelectionAreaState>();
+            selection?.selectableRegion.clearSelection();
+            selection?.selectableRegion.hideToolbar();
+            setState(() => _detailsExpanded = !_detailsExpanded);
+          },
           onHover: (hovered) => setState(() => _detailsHovered = hovered),
           onFocusChange: (focused) => setState(() => _detailsFocused = focused),
           mouseCursor: SystemMouseCursors.click,
@@ -775,10 +776,8 @@ class _MessageViewState extends State<_MessageView> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: SelectableText(
+                  child: Text(
                     '${l10n.aiTurnFailed}  ${aiErrorText(l10n, error)}',
-                    selectionWidthStyle: ui.BoxWidthStyle.tight,
-                    contextMenuBuilder: AppTextSelectionMenu.build,
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.error,
                       fontSize: 13,
@@ -899,15 +898,17 @@ class _ProcessEventView extends StatelessWidget {
                     ? Symbols.handyman_rounded
                     : modelNote
                     ? isThinking
-                          ? statusIcon
+                          ? Symbols.neurology_rounded
                           : Symbols.blur_on
                     : event.type == AiProcessEventType.retry
                     ? Symbols.refresh_rounded
                     : statusIcon,
-                fill: modelNote
-                    ? null
-                    : event.status == AiResponseStatus.thinking
+                fill:
+                    (modelNote && isThinking) ||
+                        event.status == AiResponseStatus.thinking
                     ? 0
+                    : modelNote
+                    ? null
                     : 1,
                 size: 12,
                 color: failed
@@ -925,10 +926,8 @@ class _ProcessEventView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: SelectableText(
+                      child: Text(
                         label,
-                        contextMenuBuilder: AppTextSelectionMenu.build,
-                        selectionWidthStyle: ui.BoxWidthStyle.tight,
                         style: TextStyle(
                           color: failed
                               ? Theme.of(context).colorScheme.error
@@ -951,10 +950,8 @@ class _ProcessEventView extends StatelessWidget {
                 ),
                 if (event.text.isNotEmpty) ...[
                   const SizedBox(height: 5),
-                  SelectableText(
+                  Text(
                     event.text,
-                    contextMenuBuilder: AppTextSelectionMenu.build,
-                    selectionWidthStyle: ui.BoxWidthStyle.tight,
                     style: TextStyle(
                       color: theme.textColorSecondary,
                       fontSize: 12,

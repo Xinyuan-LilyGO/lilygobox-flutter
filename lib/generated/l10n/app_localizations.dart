@@ -3296,61 +3296,67 @@ abstract class AppLocalizations {
   /// No description provided for @aiPermissionCustom.
   ///
   /// In en, this message translates to:
-  /// **'Custom approval'**
+  /// **'Custom permissions'**
   String get aiPermissionCustom;
 
   /// No description provided for @aiPermissionRequestSummary.
   ///
   /// In en, this message translates to:
-  /// **'Ask before accessing local files.'**
+  /// **'Ask before restricted actions.'**
   String get aiPermissionRequestSummary;
 
   /// No description provided for @aiPermissionCustomSummary.
   ///
   /// In en, this message translates to:
-  /// **'Set network and file access.'**
+  /// **'Set automatic access to webpages and files.'**
   String get aiPermissionCustomSummary;
 
   /// No description provided for @aiPermissionRequestHelp.
   ///
   /// In en, this message translates to:
-  /// **'App settings and public HTTPS pages can be accessed directly. Local file operations require approval unless granted in Custom approval. Each approval applies only to the displayed operation.'**
+  /// **'App settings and public HTTPS pages can be accessed directly. Local file operations require approval unless granted in Custom permissions. Each approval applies only to the displayed operation.'**
   String get aiPermissionRequestHelp;
 
   /// No description provided for @aiPermissionNetwork.
   ///
   /// In en, this message translates to:
-  /// **'Allow public webpage access'**
+  /// **'Allow webpage access'**
   String get aiPermissionNetwork;
+
+  /// No description provided for @aiPermissionNetworkHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'When off, webpage access requires approval.'**
+  String get aiPermissionNetworkHelp;
 
   /// No description provided for @aiPermissionFiles.
   ///
   /// In en, this message translates to:
-  /// **'File access in authorized folders'**
+  /// **'File access permissions'**
   String get aiPermissionFiles;
 
   /// No description provided for @aiPermissionNone.
   ///
   /// In en, this message translates to:
-  /// **'No automatic access'**
+  /// **'Ask every time'**
   String get aiPermissionNone;
 
   /// No description provided for @aiPermissionReadOnly.
   ///
   /// In en, this message translates to:
-  /// **'Read only'**
+  /// **'Allow reading'**
   String get aiPermissionReadOnly;
 
   /// No description provided for @aiPermissionReadWrite.
   ///
   /// In en, this message translates to:
-  /// **'Read and modify'**
+  /// **'Allow reading and editing'**
   String get aiPermissionReadWrite;
 
   /// No description provided for @aiPermissionFoldersHelp.
   ///
   /// In en, this message translates to:
-  /// **'Applies to selected folders and their subfolders.'**
+  /// **'Access is limited to authorized folders and their subfolders. Operations outside this scope still require approval.'**
   String get aiPermissionFoldersHelp;
 
   /// No description provided for @aiPermissionFolders.
@@ -3362,7 +3368,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiPermissionNoFolders.
   ///
   /// In en, this message translates to:
-  /// **'No folders authorized. File access still requires approval.'**
+  /// **'No folders added. Every file operation requires approval.'**
   String get aiPermissionNoFolders;
 
   /// No description provided for @aiPermissionAddFolder.
@@ -3380,7 +3386,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiPermissionSessionHelp.
   ///
   /// In en, this message translates to:
-  /// **'Permissions apply to this conversation and reset when it is cleared or the app restarts. File contents used for analysis are sent to your configured model service. Terminal execution and file deletion are not enabled.'**
+  /// **'Permissions apply to this conversation and reset when it is cleared or the app restarts. File contents read by the assistant are sent to your configured model service. Running terminal commands and deleting files are not supported.'**
   String get aiPermissionSessionHelp;
 
   /// No description provided for @aiAwaitingApproval.

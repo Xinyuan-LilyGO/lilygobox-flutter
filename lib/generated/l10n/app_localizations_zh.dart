@@ -64,7 +64,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get general => '通用';
 
   @override
-  String get application => '允许一次';
+  String get application => '应用';
 
   @override
   String get languageAndRegion => '语言与地区';
@@ -1711,41 +1711,44 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiPermissionRequest => '请求批准';
 
   @override
-  String get aiPermissionCustom => '自定义批准';
+  String get aiPermissionCustom => '自定义权限';
 
   @override
-  String get aiPermissionRequestSummary => '本地文件操作前逐次批准。';
+  String get aiPermissionRequestSummary => '执行受限操作前请求批准。';
 
   @override
-  String get aiPermissionCustomSummary => '自定义网络和文件访问范围。';
+  String get aiPermissionCustomSummary => '设置网页和文件的自动访问范围。';
 
   @override
   String get aiPermissionRequestHelp =>
-      '软件设置与公开 HTTPS 网页可直接访问。本地文件操作需要逐次批准，或在自定义批准中授权。每次批准仅适用于展示的操作。';
+      '软件设置与公开 HTTPS 网页可直接访问。本地文件操作需要逐次批准，或在自定义权限中授权。每次批准仅适用于展示的操作。';
 
   @override
-  String get aiPermissionNetwork => '允许访问公开网页';
+  String get aiPermissionNetwork => '允许访问网页';
 
   @override
-  String get aiPermissionFiles => '授权目录内的文件访问';
+  String get aiPermissionNetworkHelp => '关闭后，访问网页前需要批准。';
 
   @override
-  String get aiPermissionNone => '不自动授权';
+  String get aiPermissionFiles => '文件访问权限';
 
   @override
-  String get aiPermissionReadOnly => '只读';
+  String get aiPermissionNone => '每次请求批准';
 
   @override
-  String get aiPermissionReadWrite => '读取与修改';
+  String get aiPermissionReadOnly => '允许读取';
 
   @override
-  String get aiPermissionFoldersHelp => '所选文件夹及其子文件夹内生效。';
+  String get aiPermissionReadWrite => '允许读取和修改';
+
+  @override
+  String get aiPermissionFoldersHelp => '仅限已授权文件夹及其子文件夹，超出范围仍需批准。';
 
   @override
   String get aiPermissionFolders => '授权文件夹';
 
   @override
-  String get aiPermissionNoFolders => '尚未授权文件夹，文件访问仍需批准。';
+  String get aiPermissionNoFolders => '尚未添加文件夹，所有文件操作均需批准。';
 
   @override
   String get aiPermissionAddFolder => '添加文件夹';
@@ -1755,7 +1758,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiPermissionSessionHelp =>
-      '权限仅在本次会话生效，清空会话或重启后重置。用于分析的文件内容会发送至配置的模型服务。暂不开放终端执行与文件删除。';
+      '权限仅在本次会话生效，清空会话或重启软件后重置。读取的文件内容会发送至配置的模型服务。不支持执行终端命令或删除文件。';
 
   @override
   String get aiAwaitingApproval => '等待批准';

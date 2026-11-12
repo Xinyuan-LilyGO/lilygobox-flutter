@@ -2,7 +2,7 @@
  * @Description: 验证 AI 主页居中与底部输入状态、键盘发送、直达设置及缩放布局。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:16:04
- * @LastEditTime: 2026-11-11 16:51:06
+ * @LastEditTime: 2026-11-12 01:26:11
  */
 
 import 'dart:async';
@@ -1438,6 +1438,69 @@ void main() {
       );
       expect(replies.first.processingSteps, isEmpty);
       expect(replies.last.processingSteps.single.name, 'set_theme');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'select all always includes elapsed heading and only visible details',
+    (tester) async {
+      await tester.runAsync(() => scope.provider.initialized);
+      await scope.provider.saveService(
+        name: 'Test',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['test'],
+        apiKey: 'key',
+      );
+      await tester.pumpWidget(app());
+      unawaited(scope.provider.sendMessage('USER_SELECTION_TEST'));
+      await pumpAssistantUntilIdle(tester);
+      await tester.pumpAndSettle();
+      final reply = scope.provider.messages.last;
+      final header = find.byKey(ValueKey('ai-response-details-${reply.id}'));
+      final region = tester.state<SelectableRegionState>(
+        find.byType(SelectableRegion),
+      );
+      bool selected(Finder root) => find
+          .descendant(of: root, matching: find.byType(RichText))
+          .evaluate()
+          .any(
+            (element) => (element.renderObject! as RenderParagraph).selections
+                .any((selection) => !selection.isCollapsed),
+          );
+      region.selectAll(SelectionChangedCause.toolbar);
+      await tester.pump();
+      expect(selected(find.text('USER_SELECTION_TEST')), isTrue);
+      expect(selected(header), isTrue);
+      await tester.ensureVisible(header);
+      region.hideToolbar();
+      await tester.pumpAndSettle();
+      await tester.tap(header);
+      await tester.pumpAndSettle();
+      expect(selected(header), isFalse);
+      expect(selected(find.text('USER_SELECTION_TEST')), isFalse);
+      region.selectAll(SelectionChangedCause.toolbar);
+      await tester.pump();
+      expect(selected(header), isTrue);
+      expect(
+        selected(find.byKey(const ValueKey('ai-response-details-expanded'))),
+        isTrue,
+      );
+      expect(find.byType(SelectableText), findsNothing);
+      region.hideToolbar();
+      await tester.pumpAndSettle();
+      await tester.tap(header);
+      await tester.pumpAndSettle();
+      expect(selected(header), isFalse);
+      expect(selected(find.text('USER_SELECTION_TEST')), isFalse);
+      region.selectAll(SelectionChangedCause.toolbar);
+      await tester.pump();
+      expect(selected(header), isTrue);
+      expect(
+        find.byKey(const ValueKey('ai-response-details-expanded')),
+        findsNothing,
+      );
       expect(tester.takeException(), isNull);
     },
   );

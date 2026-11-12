@@ -2,7 +2,7 @@
  * @Description: 构建双层 AI 输入区，承载附件与待处理引导并提供键盘发送和模型选择。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:07:40
- * @LastEditTime: 2026-11-11 17:07:00
+ * @LastEditTime: 2026-11-11 23:53:11
  */
 
 import 'dart:async';
@@ -26,6 +26,7 @@ import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/image_clipboard_menu.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/popup_menu_surface.dart';
+import '../../../../core/widgets/popup_menu_transition.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../domain/models.dart';
 import '../../state/provider.dart';
@@ -227,17 +228,22 @@ class ChatComposer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (assistant.pendingApproval case final request?) {
-      return AssistantApprovalPanel(
-        key: ValueKey(request.id),
-        request: request,
-        theme: theme,
-        inputFocus: focusNode,
-        onResolve: (approve) =>
-            assistant.resolveTool(request.id, approve: approve),
-      );
-    }
+    final request = assistant.pendingApproval;
+    return PopupMenuPageTransition(
+      child: request != null
+          ? AssistantApprovalPanel(
+              key: ValueKey(request.id),
+              request: request,
+              theme: theme,
+              inputFocus: focusNode,
+              onResolve: (approve) =>
+                  assistant.resolveTool(request.id, approve: approve),
+            )
+          : _buildInput(context),
+    );
+  }
 
+  Widget _buildInput(BuildContext context) {
     final l10n = context.l10n;
     return DecoratedBox(
       key: const ValueKey('ai-composer-context-layer'),

@@ -1826,43 +1826,48 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiPermissionRequest => 'Request approval';
 
   @override
-  String get aiPermissionCustom => 'Custom approval';
+  String get aiPermissionCustom => 'Custom permissions';
 
   @override
-  String get aiPermissionRequestSummary => 'Ask before accessing local files.';
+  String get aiPermissionRequestSummary => 'Ask before restricted actions.';
 
   @override
-  String get aiPermissionCustomSummary => 'Set network and file access.';
+  String get aiPermissionCustomSummary =>
+      'Set automatic access to webpages and files.';
 
   @override
   String get aiPermissionRequestHelp =>
-      'App settings and public HTTPS pages can be accessed directly. Local file operations require approval unless granted in Custom approval. Each approval applies only to the displayed operation.';
+      'App settings and public HTTPS pages can be accessed directly. Local file operations require approval unless granted in Custom permissions. Each approval applies only to the displayed operation.';
 
   @override
-  String get aiPermissionNetwork => 'Allow public webpage access';
+  String get aiPermissionNetwork => 'Allow webpage access';
 
   @override
-  String get aiPermissionFiles => 'File access in authorized folders';
+  String get aiPermissionNetworkHelp =>
+      'When off, webpage access requires approval.';
 
   @override
-  String get aiPermissionNone => 'No automatic access';
+  String get aiPermissionFiles => 'File access permissions';
 
   @override
-  String get aiPermissionReadOnly => 'Read only';
+  String get aiPermissionNone => 'Ask every time';
 
   @override
-  String get aiPermissionReadWrite => 'Read and modify';
+  String get aiPermissionReadOnly => 'Allow reading';
+
+  @override
+  String get aiPermissionReadWrite => 'Allow reading and editing';
 
   @override
   String get aiPermissionFoldersHelp =>
-      'Applies to selected folders and their subfolders.';
+      'Access is limited to authorized folders and their subfolders. Operations outside this scope still require approval.';
 
   @override
   String get aiPermissionFolders => 'Authorized folders';
 
   @override
   String get aiPermissionNoFolders =>
-      'No folders authorized. File access still requires approval.';
+      'No folders added. Every file operation requires approval.';
 
   @override
   String get aiPermissionAddFolder => 'Add folder';
@@ -1872,7 +1877,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiPermissionSessionHelp =>
-      'Permissions apply to this conversation and reset when it is cleared or the app restarts. File contents used for analysis are sent to your configured model service. Terminal execution and file deletion are not enabled.';
+      'Permissions apply to this conversation and reset when it is cleared or the app restarts. File contents read by the assistant are sent to your configured model service. Running terminal commands and deleting files are not supported.';
 
   @override
   String get aiAwaitingApproval => 'Waiting for approval';

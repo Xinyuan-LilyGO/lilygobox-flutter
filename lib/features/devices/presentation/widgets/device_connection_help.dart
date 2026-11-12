@@ -2,7 +2,7 @@
  * @Description: 统一设备连接帮助入口，桌面显示侧边面板，窄屏显示底部面板。
  * @Author: LILYGO_L
  * @Date: 2026-10-07 18:00:00
- * @LastEditTime: 2026-11-11 15:01:02
+ * @LastEditTime: 2026-11-12 00:57:23
  */
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -61,7 +61,6 @@ class _DeviceHelpMenuState extends State<DeviceHelpMenu> {
       ],
       child: AppTooltip(
         message: context.l10n.moreActions,
-        verticalOffset: 16,
         child: Semantics(
           label: context.l10n.moreActions,
           button: true,
@@ -177,7 +176,6 @@ class _ConnectionHelpPanel extends StatelessWidget {
                                   const SizedBox(width: 12),
                                   AppTooltip(
                                     message: l10n.closeHelp,
-                                    verticalOffset: 16,
                                     child: Semantics(
                                       label: l10n.closeHelp,
                                       button: true,

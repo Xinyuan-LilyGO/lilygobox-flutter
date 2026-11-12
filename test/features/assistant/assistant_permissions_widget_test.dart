@@ -184,7 +184,13 @@ void main() {
             await tester.pumpAndSettle();
             expect(find.byType(SettingSelect<AiFileAccess>), findsOneWidget);
             await tester.tap(
-              find.text(locale == 'zh' ? '读取与修改' : 'Read and modify').last,
+              find
+                  .text(
+                    AppLocalizations.of(
+                      tester.element(access),
+                    ).aiPermissionReadWrite,
+                  )
+                  .last,
             );
             await tester.pumpAndSettle();
             expect(scope.provider.permissions.files, AiFileAccess.readWrite);

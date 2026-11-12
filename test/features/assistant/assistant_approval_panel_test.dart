@@ -148,7 +148,18 @@ void main() {
           expect(awaiting.isCompleted, isTrue);
           await scope.provider.sendMessage('queued message');
           await tester.pump();
-          await tester.pump(const Duration(milliseconds: 100));
+          await tester.pump(const Duration(milliseconds: 50));
+          final approvalFade = tester.widget<FadeTransition>(
+            find
+                .ancestor(
+                  of: find.byKey(const ValueKey('ai-approval-panel')),
+                  matching: find.byType(FadeTransition),
+                )
+                .first,
+          );
+          expect(approvalFade.opacity.value, inExclusiveRange(0, 1));
+          expect(focus.hasFocus, isFalse);
+          await tester.pump(const Duration(milliseconds: 150));
           expect(find.byType(TextField), findsNothing);
           expect(
             find.byKey(const ValueKey('ai-approval-panel')),
@@ -168,6 +179,18 @@ void main() {
           expect(tester.getRect(allow).bottom, lessThanOrEqualTo(600));
           expect(tester.getRect(deny).bottom, lessThanOrEqualTo(600));
           await tester.tap(dark ? allow : deny);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 50));
+          final inputFade = tester.widget<FadeTransition>(
+            find
+                .ancestor(
+                  of: find.byKey(const ValueKey('ai-composer-context-layer')),
+                  matching: find.byType(FadeTransition),
+                )
+                .first,
+          );
+          expect(inputFade.opacity.value, inExclusiveRange(0, 1));
+          expect(focus.hasFocus, isFalse);
           // 交替推进界面事件和真实文件 IO，等待下一轮模型请求。
           for (var i = 0; calls < 2 && i < 100; i++) {
             await tester.pump(const Duration(milliseconds: 20));

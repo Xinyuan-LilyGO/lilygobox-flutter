@@ -2,7 +2,7 @@
  * @Description: 提供主页 AI 权限入口及自定义批准展开面板。
  * @Author: OpenAI Codex
  * @Date: 2026-11-11 16:26:54
- * @LastEditTime: 2026-11-11 21:22:31
+ * @LastEditTime: 2026-11-12 00:59:12
  */
 
 import 'dart:math' as math;
@@ -95,9 +95,9 @@ class _AssistantPermissionsButtonState
             child: PopupMenuSurface(
               theme: theme,
               borderRadius: BorderRadius.circular(8),
-              padding: const EdgeInsets.fromLTRB(12, 8, 6, 12),
+              padding: const EdgeInsets.fromLTRB(8, 8, 6, 12),
               child: SizedBox(
-                width: width,
+                width: width + 4,
                 child: _PermissionsPanel(
                   key: ValueKey(_revision),
                   theme: theme,
@@ -349,7 +349,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: EdgeInsets.only(left: _custom ? 0 : 4, bottom: 8),
                 child: Row(
                   children: [
                     if (_custom) ...[
@@ -388,7 +388,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
               Flexible(
                 child: SingleChildScrollView(
                   controller: _scroll,
-                  padding: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.only(left: 4, right: 6),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -417,7 +417,6 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                           next: true,
                         ),
                       ] else ...[
-                        const SizedBox(height: 12),
                         Row(
                           children: [
                             Expanded(
@@ -458,6 +457,13 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                               ),
                             ),
                           ],
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            l10n.aiPermissionNetworkHelp,
+                            style: descriptionStyle,
+                          ),
                         ),
                         _section(l10n.aiPermissionFiles),
                         SettingSelect<AiFileAccess>(
@@ -523,8 +529,8 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                                 .06,
                               ),
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
+                                horizontal: 8,
+                                vertical: 7,
                               ),
                               onPressed: _picking ? null : _addFolder,
                             ),
