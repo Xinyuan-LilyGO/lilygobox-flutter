@@ -2,7 +2,7 @@
  * @Description: 提供 LilygoBox AI 对话主页与设置操作确认。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-12 15:19:13
+ * @LastEditTime: 2026-11-12 16:31:34
  */
 
 import 'package:flutter/gestures.dart';
@@ -24,12 +24,13 @@ import '../../../../core/widgets/image_clipboard_menu.dart';
 import '../../../../core/widgets/interaction_decoration.dart';
 import '../../../../core/widgets/popup_menu_transition.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
-import '../../data/chat_completion_client.dart';
 import '../../domain/models.dart';
+import '../../domain/process_timeline.dart';
 import '../../state/provider.dart';
 import '../widgets/chat_composer.dart';
 import '../widgets/error_text.dart';
 import '../widgets/message_content.dart';
+import '../widgets/process_event_view.dart';
 import '../widgets/reasoning_effort_label.dart';
 
 class AssistantPage extends StatefulWidget {
@@ -564,6 +565,7 @@ class _MessageViewState extends State<_MessageView> {
   Widget build(BuildContext context) {
     final message = widget.message;
     final isUser = message.role == 'user';
+    final timeline = buildAiProcessTimeline(message.processEvents);
     final turnFinished = switch (message.status) {
       AiResponseStatus.completed ||
       AiResponseStatus.failed ||
@@ -742,24 +744,26 @@ class _MessageViewState extends State<_MessageView> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  for (final event in message.processEvents)
-                                    if (event.type !=
+                                  for (final entry in timeline)
+                                    if (entry.event.type !=
                                             AiProcessEventType.assistant &&
-                                        event.type !=
+                                        entry.event.type !=
                                             AiProcessEventType.guidance &&
                                         !(turnFinished &&
-                                            event.type ==
+                                            entry.event.type ==
                                                 AiProcessEventType.status &&
-                                            event.status ==
+                                            entry.event.status ==
                                                 AiResponseStatus.thinking))
-                                      _ProcessEventView(
-                                        event: event,
+                                      AiProcessEventView(
+                                        key: ValueKey(entry.id),
+                                        event: entry.event,
+                                        operationEvents: entry.events,
                                         theme: widget.theme,
                                         isThinking:
                                             message.status ==
                                                 AiResponseStatus.thinking &&
                                             identical(
-                                              event,
+                                              entry.event,
                                               message.processEvents.last,
                                             ),
                                       ),
@@ -812,270 +816,16 @@ class _MessageViewState extends State<_MessageView> {
 
 String _responseStatusText(BuildContext context, AiMessage message) {
   final l10n = context.l10n;
-  final elapsed = _formatElapsed(message.elapsed!);
-  final label = _responseStatusLabel(
+  final elapsed = formatAiElapsed(message.elapsed!);
+  final label = aiResponseStatusLabel(
     context,
     message.status,
+    toolName:
+        message.processEvents.lastOrNull?.toolName ??
+        message.processEvents.lastOrNull?.action?.name,
     retryAttempt: message.retries.isEmpty ? 1 : message.retries.last.attempt,
   );
   return label == null
       ? l10n.aiResponseElapsed(elapsed)
       : l10n.aiStatusElapsed(label, elapsed);
-}
-
-String? _responseStatusLabel(
-  BuildContext context,
-  AiResponseStatus? status, {
-  int retryAttempt = 1,
-}) {
-  final l10n = context.l10n;
-  return switch (status) {
-    AiResponseStatus.connecting => l10n.aiConnecting,
-    AiResponseStatus.awaitingReply => l10n.aiAwaitingReply,
-    AiResponseStatus.thinking => l10n.aiAssistantThinking,
-    AiResponseStatus.streaming => l10n.aiStreaming,
-    AiResponseStatus.preparingTools => l10n.aiPreparingTools,
-    AiResponseStatus.executingTools => l10n.aiExecutingTools,
-    AiResponseStatus.accessingWeb => l10n.aiAccessingWeb,
-    AiResponseStatus.awaitingApproval => l10n.aiAwaitingApproval,
-    AiResponseStatus.retrying => l10n.aiRetryingRequest(
-      retryAttempt,
-      ChatCompletionClient.maxRetries,
-    ),
-    AiResponseStatus.failed => l10n.aiResponseFailed,
-    AiResponseStatus.stopped => l10n.aiResponseStopped,
-    AiResponseStatus.completed || null => null,
-  };
-}
-
-class _ProcessEventView extends StatelessWidget {
-  const _ProcessEventView({
-    required this.event,
-    required this.theme,
-    this.isThinking = false,
-  });
-  final AiProcessEvent event;
-  final AppTheme theme;
-  final bool isThinking;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final action = event.action;
-    final toolName = action?.name ?? event.toolName;
-    final retry = event.retry;
-    final isWeb =
-        action?.name == 'read_webpage' ||
-        event.status == AiResponseStatus.accessingWeb;
-    final failed =
-        action?.succeeded == false || event.status == AiResponseStatus.failed;
-    final label = switch (event.type) {
-      AiProcessEventType.status =>
-        _responseStatusLabel(context, event.status) ?? l10n.aiProcessCompleted,
-      AiProcessEventType.reasoning =>
-        isThinking ? l10n.aiAssistantThinking : l10n.aiProcessReasoning,
-      AiProcessEventType.action when action?.name == 'read_webpage' =>
-        action!.succeeded
-            ? l10n.aiWebSucceeded(action.arguments['url'].toString())
-            : l10n.aiWebFailed(action.arguments['url'].toString()),
-      AiProcessEventType.action =>
-        action!.succeeded
-            ? l10n.aiProcessActionSucceeded(
-                _aiActionSummary(context, action.name, action.arguments),
-              )
-            : l10n.aiProcessActionFailed(
-                _aiActionSummary(context, action.name, action.arguments),
-              ),
-      AiProcessEventType.retry =>
-        '${l10n.aiRequestRetryRecord(retry!.attempt)}: ${aiErrorText(l10n, retry.error)}',
-      // 兼容旧数据；新回合不会再生成这两类过程事件。
-      AiProcessEventType.assistant || AiProcessEventType.guidance => '',
-    };
-    final modelNote = event.type == AiProcessEventType.reasoning;
-    final statusIcon = switch (event.status) {
-      AiResponseStatus.connecting => Symbols.cloud_sync_rounded,
-      AiResponseStatus.awaitingReply => Symbols.hourglass_top_rounded,
-      AiResponseStatus.thinking => Symbols.neurology_rounded,
-      AiResponseStatus.streaming => Symbols.edit_note_rounded,
-      AiResponseStatus.preparingTools => Symbols.pending_actions_rounded,
-      AiResponseStatus.executingTools => Symbols.play_circle_rounded,
-      AiResponseStatus.accessingWeb => Symbols.language_rounded,
-      AiResponseStatus.awaitingApproval => Symbols.verified_user_rounded,
-      AiResponseStatus.retrying => Symbols.refresh_rounded,
-      AiResponseStatus.completed => Symbols.check_rounded,
-      AiResponseStatus.failed => Symbols.error_outline_rounded,
-      AiResponseStatus.stopped => Symbols.stop_circle_rounded,
-      null => Symbols.circle_rounded,
-    };
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Transform.flip(
-              flipY: false,
-              child: Icon(
-                failed
-                    ? Symbols.error_outline_rounded
-                    : isWeb
-                    ? Symbols.language_rounded
-                    : toolName != null
-                    ? _toolIcon(toolName)
-                    : modelNote
-                    ? isThinking
-                          ? Symbols.neurology_rounded
-                          : Symbols.blur_on
-                    : event.type == AiProcessEventType.retry
-                    ? Symbols.refresh_rounded
-                    : statusIcon,
-                fill:
-                    (!failed && isWeb) ||
-                        (modelNote && isThinking) ||
-                        event.status == AiResponseStatus.thinking
-                    ? 0
-                    : modelNote
-                    ? null
-                    : 1,
-                size: 12,
-                color: failed
-                    ? Theme.of(context).colorScheme.error
-                    : theme.textColorTertiary,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          color: failed
-                              ? Theme.of(context).colorScheme.error
-                              : theme.textColorSecondary,
-                          fontSize: 12,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      _formatElapsed(event.elapsed),
-                      style: TextStyle(
-                        color: theme.textColorTertiary,
-                        fontSize: 11,
-                        height: 1.5,
-                      ),
-                    ),
-                  ],
-                ),
-                if (action?.webFailure case final failure?) ...[
-                  const SizedBox(height: 5),
-                  Text(
-                    aiErrorText(l10n, failure),
-                    style: TextStyle(
-                      color: theme.textColorSecondary,
-                      fontSize: 12,
-                      height: 1.6,
-                    ),
-                  ),
-                ],
-                if (event.text.isNotEmpty) ...[
-                  const SizedBox(height: 5),
-                  Text(
-                    event.text,
-                    style: TextStyle(
-                      color: theme.textColorSecondary,
-                      fontSize: 12,
-                      height: 1.6,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 以实际操作选择图标，执行阶段和完成记录使用同一套映射。
-IconData _toolIcon(String name) => switch (name) {
-  'read_file' => Symbols.description_rounded,
-  'list_directory' => Symbols.folder_open_rounded,
-  'write_file' => Symbols.edit_document_rounded,
-  'get_current_time' => Symbols.schedule_rounded,
-  'read_webpage' => Symbols.language_rounded,
-  'set_theme' => Symbols.palette_rounded,
-  'set_language' => Symbols.translate_rounded,
-  'set_font' => Symbols.font_download_rounded,
-  'set_sidebar_visibility' ||
-  'set_sidebar_width' ||
-  'set_settings_sidebar_width' => Symbols.side_navigation_rounded,
-  'set_content_split_width' => Symbols.view_column_rounded,
-  _ => Symbols.play_circle_rounded,
-};
-
-String _formatElapsed(Duration duration) {
-  final totalMilliseconds = duration.inMilliseconds;
-  final totalSeconds = totalMilliseconds ~/ 1000;
-  final totalMinutes = totalSeconds ~/ 60;
-  final hours = totalMinutes ~/ 60;
-  final minutes = totalMinutes % 60;
-  final seconds = totalSeconds % 60;
-  final milliseconds = totalMilliseconds % 1000;
-  String twoDigits(int value) => value.toString().padLeft(2, '0');
-  String threeDigits(int value) => value.toString().padLeft(3, '0');
-  final time =
-      '${twoDigits(minutes)}:${twoDigits(seconds)}:${threeDigits(milliseconds)}';
-  return hours == 0 ? time : '${twoDigits(hours)}:$time';
-}
-
-String _aiActionSummary(
-  BuildContext context,
-  String? name,
-  Map<String, Object?> args,
-) {
-  final l10n = context.l10n;
-  return switch (name) {
-    'get_current_time' => l10n.aiToolTime,
-    'read_webpage' => '${l10n.aiToolWeb}: ${args['url']}',
-    'list_directory' => '${l10n.aiToolList}: ${args['path']}',
-    'read_file' => '${l10n.aiToolRead}: ${args['path']}',
-    'write_file' => '${l10n.aiToolWrite}: ${args['path']}',
-    'set_theme' => l10n.aiActionTheme(
-      args['theme'] == 'dark' ? l10n.themeDark : l10n.themeLight,
-    ),
-    'set_language' => l10n.aiActionLanguage(switch (args['language']) {
-      'en' => l10n.languageEnglish,
-      'zh' => l10n.languageChinese,
-      _ => l10n.languageAutoDetect,
-    }),
-    'set_font' => l10n.aiActionFont(switch (args['font']) {
-      'inter' => l10n.fontInter,
-      'googleSansFlex' => l10n.fontGoogleSansFlex,
-      'roboto' => l10n.fontRoboto,
-      _ => l10n.fontSystem,
-    }),
-    'set_sidebar_visibility' =>
-      args['visible'] == true
-          ? l10n.aiActionShowSidebar
-          : l10n.aiActionHideSidebar,
-    'set_sidebar_width' => l10n.aiActionSidebarWidth(args['width'].toString()),
-    'set_content_split_width' => l10n.aiActionSplitWidth(
-      args['width'].toString(),
-    ),
-    'set_settings_sidebar_width' => l10n.aiActionSettingsWidth(
-      args['width'].toString(),
-    ),
-    _ => l10n.aiActionUnknown,
-  };
 }

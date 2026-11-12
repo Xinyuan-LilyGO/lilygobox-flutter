@@ -211,6 +211,8 @@ class AiProcessEvent {
     required this.elapsed,
     this.status,
     this.toolName,
+    this.operationId,
+    this.toolArguments,
     this.text = '',
     this.action,
     this.retry,
@@ -221,6 +223,8 @@ class AiProcessEvent {
   final Duration elapsed;
   final AiResponseStatus? status;
   final String? toolName;
+  final String? operationId;
+  final Map<String, Object?>? toolArguments;
   final String text;
   final AiProcessingStep? action;
   final AiRequestRetry? retry;
@@ -307,12 +311,14 @@ class AiProcessingStep {
     required Map<String, Object?> arguments,
     required this.succeeded,
     this.webFailure,
+    this.output = '',
   }) : arguments = Map.unmodifiable(arguments);
 
   final String name;
   final Map<String, Object?> arguments;
   final bool succeeded;
   final AiWebFailure? webFailure;
+  final String output;
 }
 
 class AiToolCall {

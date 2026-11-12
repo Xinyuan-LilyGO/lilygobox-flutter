@@ -701,36 +701,39 @@ class _ModelSelectorState extends State<ModelSelector> {
             ? () => controller.isOpen ? controller.close() : controller.open()
             : null,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  assistant.selectedModel == null
-                      ? l10n.aiSelectModel
-                      : '${assistant.selectedModel}${assistant.reasoningEffort == null ? '' : ' · ${reasoningEffortLabel(l10n, assistant.reasoningEffort!)}'}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.textColorSecondary,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 20),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    assistant.selectedModel == null
+                        ? l10n.aiSelectModel
+                        : '${assistant.selectedModel}${assistant.reasoningEffort == null ? '' : ' · ${reasoningEffortLabel(l10n, assistant.reasoningEffort!)}'}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.textColorSecondary,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 3),
-              AnimatedRotation(
-                key: const ValueKey('ai-model-selector-arrow'),
-                turns: controller.isOpen ? 0.5 : 0,
-                duration: const Duration(milliseconds: 150),
-                curve: Curves.easeInOut,
-                child: Icon(
-                  Symbols.keyboard_arrow_down_rounded,
-                  size: 15,
-                  color: theme.textColorTertiary,
+                const SizedBox(width: 3),
+                AnimatedRotation(
+                  key: const ValueKey('ai-model-selector-arrow'),
+                  turns: controller.isOpen ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 150),
+                  curve: Curves.easeInOut,
+                  child: Icon(
+                    Symbols.keyboard_arrow_down_rounded,
+                    size: 15,
+                    color: theme.textColorTertiary,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

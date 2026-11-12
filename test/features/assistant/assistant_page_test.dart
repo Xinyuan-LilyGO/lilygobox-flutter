@@ -28,6 +28,7 @@ import 'package:lilygobox/core/theme/material_palette.dart';
 import 'package:lilygobox/core/widgets/app_scroll_behavior.dart';
 import 'package:lilygobox/core/widgets/app_capsule_slider.dart';
 import 'package:lilygobox/core/widgets/title_bar_icon_button.dart';
+import 'package:lilygobox/core/widgets/menu_item_surface.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 import 'package:lilygobox/features/assistant/presentation/pages/page.dart';
@@ -1429,6 +1430,9 @@ void main() {
       await tester.pumpAndSettle();
       final context = tester.element(find.byType(AssistantPage));
       final l10n = AppLocalizations.of(context);
+      expect(find.text(l10n.aiWebUnsupportedScheme), findsNothing);
+      await tester.tap(find.text(l10n.aiWebFailed('example.com')));
+      await tester.pumpAndSettle();
       expect(find.text(l10n.aiWebUnsupportedScheme), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
@@ -1576,9 +1580,9 @@ void main() {
     await tester.ensureVisible(header);
     await tester.tap(header);
     await tester.pumpAndSettle();
-    expect(find.text('Executed: Read current time'), findsOneWidget);
-    expect(find.byIcon(Symbols.schedule_rounded), findsNWidgets(2));
-    expect(find.text('Executing tools'), findsOneWidget);
+    expect(find.text('Read current time'), findsOneWidget);
+    expect(find.byIcon(Symbols.schedule_rounded), findsOneWidget);
+    expect(find.text('Executing tools'), findsNothing);
     expect(find.text('Waiting for the model response'), findsOneWidget);
     expect(find.byIcon(Symbols.handyman_rounded), findsNothing);
     expect(tester.takeException(), isNull);
@@ -1606,19 +1610,27 @@ void main() {
     final reply = scope.provider.messages.last;
     expect(reply.content, 'Ready to help with LilygoBox.');
     expect(find.text('Model reasoning'), findsNothing);
-    expect(find.text('Updating the theme.'), findsNothing);
+    expect(
+      find.text('Updating the theme.', findRichText: true),
+      findsOneWidget,
+    );
     final header = find.byKey(ValueKey('ai-response-details-${reply.id}'));
     await tester.ensureVisible(header);
     await tester.tap(header);
     await tester.pumpAndSettle();
-    expect(find.text('Model reasoning'), findsNWidgets(2));
-    expect(find.text('Inspect the current theme.'), findsOneWidget);
-    expect(find.text('Updating the theme.'), findsOneWidget);
+    expect(find.text('Model reasoning'), findsOneWidget);
+    expect(find.text('Inspect the current theme.'), findsNothing);
     expect(find.text('Executed: Change theme to Dark'), findsOneWidget);
     expect(find.text('Waiting for the model response'), findsOneWidget);
+    final thought = List.filled(30, 'Confirm the setting result. ').join();
+    expect(find.text(thought), findsNothing);
+    await tester.ensureVisible(find.text('Model reasoning'));
+    await tester.tap(find.text('Model reasoning'));
+    await tester.pumpAndSettle();
+    expect(find.text(thought), findsOneWidget);
     final scroll = find
         .ancestor(
-          of: find.text('Inspect the current theme.'),
+          of: find.text(thought),
           matching: find.byType(SingleChildScrollView),
         )
         .first;
@@ -1802,6 +1814,18 @@ void main() {
       );
       await tester.pumpWidget(app());
       await tester.pumpAndSettle();
+      final modelButton = find.byKey(const ValueKey('ai-model-selector'));
+      final permissionButton = find.byKey(
+        const ValueKey('ai-permissions-button'),
+      );
+      expect(
+        tester.getSize(modelButton).height,
+        closeTo(tester.getSize(permissionButton).height, .01),
+      );
+      expect(
+        tester.widget<MenuItemSurface>(modelButton).borderRadius,
+        tester.widget<MenuItemSurface>(permissionButton).borderRadius,
+      );
       final input = find.byKey(const ValueKey('ai-message-input'));
       await tester.enterText(input, 'Keep this draft');
       await tester.tap(find.byKey(const ValueKey('ai-model-selector')));

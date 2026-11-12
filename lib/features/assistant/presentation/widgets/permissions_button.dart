@@ -123,37 +123,40 @@ class _AssistantPermissionsButtonState
               controller.isOpen ? controller.close() : controller.open(),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  modeIcon,
-                  size: 16,
-                  fill: modeIcon == Symbols.front_hand_rounded ? 0 : 1,
-                  color: theme.textColorSecondary,
-                ),
-                if (!compact) ...[
-                  const SizedBox(width: 4),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: theme.textColorSecondary,
-                    ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 20),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    modeIcon,
+                    size: 16,
+                    fill: modeIcon == Symbols.front_hand_rounded ? 0 : 1,
+                    color: theme.textColorSecondary,
                   ),
-                  AnimatedRotation(
-                    turns: controller.isOpen ? .5 : 0,
-                    duration: MediaQuery.disableAnimationsOf(context)
-                        ? Duration.zero
-                        : PopupMenuTransition.duration,
-                    child: Icon(
-                      Symbols.expand_more_rounded,
-                      size: 14,
-                      color: theme.textColorSecondary,
+                  if (!compact) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.textColorSecondary,
+                      ),
                     ),
-                  ),
+                    AnimatedRotation(
+                      turns: controller.isOpen ? .5 : 0,
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : PopupMenuTransition.duration,
+                      child: Icon(
+                        Symbols.expand_more_rounded,
+                        size: 14,
+                        color: theme.textColorSecondary,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

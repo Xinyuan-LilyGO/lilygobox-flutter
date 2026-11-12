@@ -65,7 +65,10 @@ class AiAssistantProvider extends ChangeNotifier {
     waiter.complete(approve);
   }
 
-  Future<bool> _requestApproval(AiPreparedTool tool) {
+  Future<bool> _requestApproval(
+    AiPreparedTool tool, {
+    required String operationId,
+  }) {
     final id = _newId();
     final waiter = Completer<bool>();
     _approvals[id] = waiter;
@@ -80,7 +83,12 @@ class AiAssistantProvider extends ChangeNotifier {
         if (tool.target != null) 'resolved_path': tool.target,
       }),
     );
-    _recordStatus(AiResponseStatus.awaitingApproval);
+    _recordStatus(
+      AiResponseStatus.awaitingApproval,
+      toolName: tool.name,
+      operationId: operationId,
+      toolArguments: tool.arguments,
+    );
     _notify();
     return waiter.future;
   }
@@ -636,7 +644,6 @@ class AiAssistantProvider extends ChangeNotifier {
         return;
       }
       _startToolSegmentAfterText();
-      _recordStatus(AiResponseStatus.preparingTools);
       final calls = [
         for (final call in completion.toolCalls)
           AiToolCall(
@@ -674,6 +681,13 @@ class AiAssistantProvider extends ChangeNotifier {
           });
           continue;
         }
+        final operationId = _newId();
+        _recordStatus(
+          AiResponseStatus.preparingTools,
+          toolName: call.name,
+          operationId: operationId,
+          toolArguments: call.arguments,
+        );
         String result;
         var succeeded = true;
         AiWebFailure? webFailure;
@@ -681,7 +695,12 @@ class AiAssistantProvider extends ChangeNotifier {
           if (_settingTools.any(
             (spec) => (spec['function'] as Map)['name'] == call.name,
           )) {
-            _recordStatus(AiResponseStatus.executingTools, toolName: call.name);
+            _recordStatus(
+              AiResponseStatus.executingTools,
+              toolName: call.name,
+              operationId: operationId,
+              toolArguments: call.arguments,
+            );
             result = await _settings.execute(call.name, call.arguments);
           } else {
             final prepared = await _tools.prepare(call.name, call.arguments);
@@ -689,7 +708,9 @@ class AiAssistantProvider extends ChangeNotifier {
               throw StateError('Cancelled before execution');
             }
             final allowed = await _tools.isAllowed(prepared, _permissions);
-            final approved = allowed || await _requestApproval(prepared);
+            final approved =
+                allowed ||
+                await _requestApproval(prepared, operationId: operationId);
             if (!approved || _requestInterrupted || _disposed) {
               throw StateError(
                 'Operation denied or cancelled; do not retry without a new user request',
@@ -700,6 +721,8 @@ class AiAssistantProvider extends ChangeNotifier {
                   ? AiResponseStatus.accessingWeb
                   : AiResponseStatus.executingTools,
               toolName: call.name,
+              operationId: operationId,
+              toolArguments: call.arguments,
             );
             result = await _tools.execute(
               prepared,
@@ -721,6 +744,7 @@ class AiAssistantProvider extends ChangeNotifier {
           arguments: call.arguments,
           succeeded: succeeded,
           webFailure: webFailure,
+          output: result,
         );
         _activeProcessingSteps.add(step);
         _activeProcessEvents.add(
@@ -728,6 +752,7 @@ class AiAssistantProvider extends ChangeNotifier {
             type: AiProcessEventType.action,
             elapsed: _segmentElapsed,
             action: step,
+            operationId: operationId,
           ),
         );
         _refreshElapsed();
@@ -822,25 +847,45 @@ class AiAssistantProvider extends ChangeNotifier {
     _notify();
   }
 
-  void _appendStatusEvent(AiResponseStatus status, {String? toolName}) {
+  void _appendStatusEvent(
+    AiResponseStatus status, {
+    String? toolName,
+    String? operationId,
+    Map<String, Object?>? toolArguments,
+  }) {
     _activeProcessEvents.add(
       AiProcessEvent(
         type: AiProcessEventType.status,
         elapsed: _segmentElapsed,
         status: status,
         toolName: toolName,
+        operationId: operationId,
+        toolArguments: toolArguments == null
+            ? null
+            : Map.unmodifiable(toolArguments),
       ),
     );
   }
 
-  void _recordStatus(AiResponseStatus status, {String? toolName}) {
-    if (_activeStatus == status &&
+  void _recordStatus(
+    AiResponseStatus status, {
+    String? toolName,
+    String? operationId,
+    Map<String, Object?>? toolArguments,
+  }) {
+    if (operationId == null &&
+        _activeStatus == status &&
         (toolName == null ||
             _activeProcessEvents.lastOrNull?.toolName == toolName)) {
       return;
     }
     _activeStatus = status;
-    _appendStatusEvent(status, toolName: toolName);
+    _appendStatusEvent(
+      status,
+      toolName: toolName,
+      operationId: operationId,
+      toolArguments: toolArguments,
+    );
     _refreshElapsed();
   }
 

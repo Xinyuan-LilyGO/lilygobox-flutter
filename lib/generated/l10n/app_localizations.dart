@@ -863,6 +863,138 @@ abstract class AppLocalizations {
   /// **'Executing tools'**
   String get aiExecutingTools;
 
+  /// No description provided for @aiOperationError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error details'**
+  String get aiOperationError;
+
+  /// No description provided for @aiOperationTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'Target'**
+  String get aiOperationTarget;
+
+  /// No description provided for @aiOperationSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Outcome'**
+  String get aiOperationSummary;
+
+  /// No description provided for @aiDirectoryListed.
+  ///
+  /// In en, this message translates to:
+  /// **'Listed directory · {target}'**
+  String aiDirectoryListed(String target);
+
+  /// No description provided for @aiFileReadCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Read file · {target}'**
+  String aiFileReadCompleted(String target);
+
+  /// No description provided for @aiFileWriteCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrote file · {target}'**
+  String aiFileWriteCompleted(String target);
+
+  /// No description provided for @aiTimeReadCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Read current time'**
+  String get aiTimeReadCompleted;
+
+  /// No description provided for @aiWebReadSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Read the webpage content.'**
+  String get aiWebReadSummary;
+
+  /// No description provided for @aiDirectoryReadSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Listed the directory entries.'**
+  String get aiDirectoryReadSummary;
+
+  /// No description provided for @aiFileReadSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Read the file content.'**
+  String get aiFileReadSummary;
+
+  /// No description provided for @aiFileWriteSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrote the content to the target file.'**
+  String get aiFileWriteSummary;
+
+  /// No description provided for @aiExecutingListDirectory.
+  ///
+  /// In en, this message translates to:
+  /// **'Listing directory'**
+  String get aiExecutingListDirectory;
+
+  /// No description provided for @aiExecutingReadFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading file'**
+  String get aiExecutingReadFile;
+
+  /// No description provided for @aiExecutingWriteFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing file'**
+  String get aiExecutingWriteFile;
+
+  /// No description provided for @aiExecutingReadTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading current time'**
+  String get aiExecutingReadTime;
+
+  /// No description provided for @aiExecutingSetTheme.
+  ///
+  /// In en, this message translates to:
+  /// **'Changing theme'**
+  String get aiExecutingSetTheme;
+
+  /// No description provided for @aiExecutingSetLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Changing language'**
+  String get aiExecutingSetLanguage;
+
+  /// No description provided for @aiExecutingSetFont.
+  ///
+  /// In en, this message translates to:
+  /// **'Changing font'**
+  String get aiExecutingSetFont;
+
+  /// No description provided for @aiExecutingSetSidebarVisibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Changing sidebar visibility'**
+  String get aiExecutingSetSidebarVisibility;
+
+  /// No description provided for @aiExecutingSetSidebarWidth.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjusting sidebar width'**
+  String get aiExecutingSetSidebarWidth;
+
+  /// No description provided for @aiExecutingSetContentSplitWidth.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjusting content split width'**
+  String get aiExecutingSetContentSplitWidth;
+
+  /// No description provided for @aiExecutingNamedTool.
+  ///
+  /// In en, this message translates to:
+  /// **'Executing {name}'**
+  String aiExecutingNamedTool(String name);
+
   /// No description provided for @aiResponseFailed.
   ///
   /// In en, this message translates to:

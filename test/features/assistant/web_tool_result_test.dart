@@ -88,6 +88,8 @@ void main() {
             .where((event) => event.type == AiProcessEventType.action)
             .single;
         expect(event.action?.webFailure?.problem, entry.value);
+        expect(event.operationId, isNotNull);
+        expect(event.action?.output, toolResult['content']);
       },
     );
   }

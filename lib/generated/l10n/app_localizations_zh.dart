@@ -413,6 +413,80 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiExecutingTools => '正在执行工具';
 
   @override
+  String get aiOperationError => '错误详情';
+
+  @override
+  String get aiOperationTarget => '操作目标';
+
+  @override
+  String get aiOperationSummary => '操作结果';
+
+  @override
+  String aiDirectoryListed(String target) {
+    return '已查看目录 · $target';
+  }
+
+  @override
+  String aiFileReadCompleted(String target) {
+    return '已读取文件 · $target';
+  }
+
+  @override
+  String aiFileWriteCompleted(String target) {
+    return '已写入文件 · $target';
+  }
+
+  @override
+  String get aiTimeReadCompleted => '已获取当前时间';
+
+  @override
+  String get aiWebReadSummary => '已读取网页内容。';
+
+  @override
+  String get aiDirectoryReadSummary => '已查看目录中的项目。';
+
+  @override
+  String get aiFileReadSummary => '已读取文件内容。';
+
+  @override
+  String get aiFileWriteSummary => '已将内容写入目标文件。';
+
+  @override
+  String get aiExecutingListDirectory => '正在查看目录';
+
+  @override
+  String get aiExecutingReadFile => '正在读取文件';
+
+  @override
+  String get aiExecutingWriteFile => '正在写入文件';
+
+  @override
+  String get aiExecutingReadTime => '正在获取当前时间';
+
+  @override
+  String get aiExecutingSetTheme => '正在更改主题';
+
+  @override
+  String get aiExecutingSetLanguage => '正在更改语言';
+
+  @override
+  String get aiExecutingSetFont => '正在更改字体';
+
+  @override
+  String get aiExecutingSetSidebarVisibility => '正在调整侧边栏显示';
+
+  @override
+  String get aiExecutingSetSidebarWidth => '正在调整侧边栏宽度';
+
+  @override
+  String get aiExecutingSetContentSplitWidth => '正在调整内容分栏宽度';
+
+  @override
+  String aiExecutingNamedTool(String name) {
+    return '正在执行：$name';
+  }
+
+  @override
   String get aiResponseFailed => '处理失败';
 
   @override

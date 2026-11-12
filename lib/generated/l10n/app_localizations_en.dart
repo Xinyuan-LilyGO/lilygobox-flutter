@@ -441,6 +441,80 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiExecutingTools => 'Executing tools';
 
   @override
+  String get aiOperationError => 'Error details';
+
+  @override
+  String get aiOperationTarget => 'Target';
+
+  @override
+  String get aiOperationSummary => 'Outcome';
+
+  @override
+  String aiDirectoryListed(String target) {
+    return 'Listed directory · $target';
+  }
+
+  @override
+  String aiFileReadCompleted(String target) {
+    return 'Read file · $target';
+  }
+
+  @override
+  String aiFileWriteCompleted(String target) {
+    return 'Wrote file · $target';
+  }
+
+  @override
+  String get aiTimeReadCompleted => 'Read current time';
+
+  @override
+  String get aiWebReadSummary => 'Read the webpage content.';
+
+  @override
+  String get aiDirectoryReadSummary => 'Listed the directory entries.';
+
+  @override
+  String get aiFileReadSummary => 'Read the file content.';
+
+  @override
+  String get aiFileWriteSummary => 'Wrote the content to the target file.';
+
+  @override
+  String get aiExecutingListDirectory => 'Listing directory';
+
+  @override
+  String get aiExecutingReadFile => 'Reading file';
+
+  @override
+  String get aiExecutingWriteFile => 'Writing file';
+
+  @override
+  String get aiExecutingReadTime => 'Reading current time';
+
+  @override
+  String get aiExecutingSetTheme => 'Changing theme';
+
+  @override
+  String get aiExecutingSetLanguage => 'Changing language';
+
+  @override
+  String get aiExecutingSetFont => 'Changing font';
+
+  @override
+  String get aiExecutingSetSidebarVisibility => 'Changing sidebar visibility';
+
+  @override
+  String get aiExecutingSetSidebarWidth => 'Adjusting sidebar width';
+
+  @override
+  String get aiExecutingSetContentSplitWidth => 'Adjusting content split width';
+
+  @override
+  String aiExecutingNamedTool(String name) {
+    return 'Executing $name';
+  }
+
+  @override
   String get aiResponseFailed => 'Processing failed';
 
   @override
