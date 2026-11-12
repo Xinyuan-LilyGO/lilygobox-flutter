@@ -51,6 +51,8 @@ void main() {
   var failRequests = false;
   var transientFailures = 0;
   var showProcess = false;
+  var failWebTool = false;
+  var showTimeTool = false;
   final requestBodies = <String>[];
   final boundaryKey = GlobalKey();
   final latestMotionVariant = ValueVariant<bool>({false, true});
@@ -66,6 +68,8 @@ void main() {
     failRequests = false;
     transientFailures = 0;
     showProcess = false;
+    failWebTool = false;
+    showTimeTool = false;
     requestBodies.clear();
     if (const bool.fromEnvironment('CAPTURE_ASSISTANT_UI')) {
       final inter = FontLoader('LilygoBoxInter')
@@ -102,7 +106,21 @@ void main() {
           jsonEncode({
             'choices': [
               {
-                'message': showProcess && requests == 1
+                'message': failWebTool && requests == 1
+                    ? {
+                        'content': null,
+                        'tool_calls': [
+                          {
+                            'id': 'web-call',
+                            'type': 'function',
+                            'function': {
+                              'name': 'read_webpage',
+                              'arguments': '{"url":"http://example.com"}',
+                            },
+                          },
+                        ],
+                      }
+                    : showProcess && requests == 1
                     ? {
                         'content': 'Updating the theme.',
                         'reasoning_content': 'Inspect the current theme.',
@@ -111,8 +129,12 @@ void main() {
                             'id': 'theme-call',
                             'type': 'function',
                             'function': {
-                              'name': 'set_theme',
-                              'arguments': '{"theme":"dark"}',
+                              'name': showTimeTool
+                                  ? 'get_current_time'
+                                  : 'set_theme',
+                              'arguments': showTimeTool
+                                  ? '{}'
+                                  : '{"theme":"dark"}',
                             },
                           },
                         ],
@@ -1385,6 +1407,33 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final locale in ['en', 'zh']) {
+    testWidgets('web failure reason appears in elapsed details: ' + locale, (
+      tester,
+    ) async {
+      failWebTool = true;
+      await tester.runAsync(() => scope.provider.initialized);
+      await scope.provider.saveService(
+        name: 'Test',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test',
+        models: ['test'],
+        apiKey: 'key',
+      );
+      await tester.pumpWidget(app(locale: locale));
+      unawaited(scope.provider.sendMessage('Read webpage'));
+      await pumpAssistantUntilIdle(tester);
+      await tester.pumpAndSettle();
+      final reply = scope.provider.messages.last;
+      await tester.tap(find.byKey(ValueKey('ai-response-details-${reply.id}')));
+      await tester.pumpAndSettle();
+      final context = tester.element(find.byType(AssistantPage));
+      final l10n = AppLocalizations.of(context);
+      expect(find.text(l10n.aiWebUnsupportedScheme), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'tool preamble and answer have separate ordered elapsed sections',
     (tester) async {
@@ -1505,6 +1554,36 @@ void main() {
     },
   );
 
+  testWidgets('time tool uses a clock for execution and result', (
+    tester,
+  ) async {
+    await tester.runAsync(() => scope.provider.initialized);
+    await scope.provider.saveService(
+      name: 'Test',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://example.test',
+      models: ['test'],
+      apiKey: 'key',
+    );
+    showProcess = true;
+    showTimeTool = true;
+    await tester.pumpWidget(app());
+    unawaited(scope.provider.sendMessage('Check the time'));
+    await pumpAssistantUntilIdle(tester);
+    await tester.pumpAndSettle();
+    final reply = scope.provider.messages.last;
+    final header = find.byKey(ValueKey('ai-response-details-${reply.id}'));
+    await tester.ensureVisible(header);
+    await tester.tap(header);
+    await tester.pumpAndSettle();
+    expect(find.text('Executed: Read current time'), findsOneWidget);
+    expect(find.byIcon(Symbols.schedule_rounded), findsNWidgets(2));
+    expect(find.text('Executing tools'), findsOneWidget);
+    expect(find.text('Waiting for the model response'), findsOneWidget);
+    expect(find.byIcon(Symbols.handyman_rounded), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('process is collapsed by default and scrolls when expanded', (
     tester,
   ) async {
@@ -1535,11 +1614,8 @@ void main() {
     expect(find.text('Model reasoning'), findsNWidgets(2));
     expect(find.text('Inspect the current theme.'), findsOneWidget);
     expect(find.text('Updating the theme.'), findsOneWidget);
-    expect(find.text('Applied: Change theme to Dark'), findsOneWidget);
-    expect(
-      find.text('Waiting for the model after setting operations'),
-      findsOneWidget,
-    );
+    expect(find.text('Executed: Change theme to Dark'), findsOneWidget);
+    expect(find.text('Waiting for the model response'), findsOneWidget);
     final scroll = find
         .ancestor(
           of: find.text('Inspect the current theme.'),

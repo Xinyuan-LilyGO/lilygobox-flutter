@@ -22,6 +22,8 @@ class SettingSelect<T> extends StatefulWidget {
     required this.onChanged,
     this.surfaceColor,
     this.dropdownTapRegionGroupId,
+    this.triggerBuilder,
+    this.dropdownWidth,
   });
 
   final AppTheme theme;
@@ -34,6 +36,13 @@ class SettingSelect<T> extends StatefulWidget {
 
   /// 嵌在菜单中时共享其点击区域，选中下拉项不会关闭外层菜单。
   final Object? dropdownTapRegionGroupId;
+
+  /// 使用按钮等自定义入口直接打开同一套选择菜单。
+  final Widget Function(BuildContext context, VoidCallback? onPressed)?
+  triggerBuilder;
+
+  /// 自定义入口较窄时，为选项面板提供独立宽度。
+  final double? dropdownWidth;
 
   @override
   State<SettingSelect<T>> createState() => _SettingSelectState<T>();
@@ -48,6 +57,7 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
   bool _disposed = false;
   Size _targetSize = Size.zero;
   Offset _dropdownPosition = Offset.zero;
+  Size _overlaySize = Size.zero;
   OverlayEntry? _overlayEntry;
   late final AnimationController _dropdownController;
 
@@ -74,6 +84,12 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
 
   @override
   Widget build(BuildContext context) {
+    if (widget.triggerBuilder case final builder?) {
+      return builder(
+        context,
+        widget.onChanged == null ? null : _toggleDropdown,
+      );
+    }
     final selectedItem = widget.items.firstWhere(
       (item) => item.value == widget.value,
       orElse: () => widget.items.first,
@@ -126,6 +142,7 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
     }
 
     _targetSize = renderBox.size;
+    _overlaySize = overlay.size;
     _dropdownPosition = renderBox.localToGlobal(Offset.zero, ancestor: overlay);
     _expanded = true;
     _isRemoving = false;
@@ -173,6 +190,26 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
   }
 
   Widget _buildDropdownOverlay(BuildContext context) {
+    final width = (widget.dropdownWidth ?? _targetSize.width).clamp(
+      0.0,
+      _overlaySize.width,
+    );
+    var left = _dropdownPosition.dx;
+    var top = _dropdownPosition.dy + _targetSize.height + 3;
+    if (widget.dropdownWidth != null) {
+      // 图标入口靠近边缘时，菜单向窗口内侧展开，并在下方不足时向上展开。
+      left = left.clamp(0.0, _overlaySize.width - width);
+      final height =
+          10.0 +
+          widget.items.length * 28 +
+          (widget.items.length - 1).clamp(0, widget.items.length) * 4;
+      if (top + height > _overlaySize.height) {
+        top = (_dropdownPosition.dy - height - 3).clamp(
+          0.0,
+          (_overlaySize.height - height).clamp(0.0, _overlaySize.height),
+        );
+      }
+    }
     return Positioned.fill(
       child: Stack(
         children: [
@@ -184,9 +221,9 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
             ),
           ),
           Positioned(
-            left: _dropdownPosition.dx,
-            top: _dropdownPosition.dy + _targetSize.height + 3,
-            width: _targetSize.width,
+            left: left,
+            top: top,
+            width: width,
             child: Material(
               color: Colors.transparent,
               child: TapRegion(
@@ -197,7 +234,7 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
                     theme: widget.theme,
                     value: widget.value,
                     items: widget.items,
-                    width: _targetSize.width,
+                    width: width,
                     onSelected: (value) {
                       if (_isRemoving) return;
                       widget.onChanged?.call(value);

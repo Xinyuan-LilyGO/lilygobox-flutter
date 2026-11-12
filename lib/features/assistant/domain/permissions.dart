@@ -18,29 +18,39 @@ class AiPermissions {
     this.network = true,
     this.files = AiFileAccess.readOnly,
     List<String> folders = const [],
-  }) : folders = List.unmodifiable(folders);
+    Map<String, AiFileAccess> folderAccess = const {},
+  }) : folders = List.unmodifiable(folders),
+       folderAccess = Map.unmodifiable({
+         for (final folder in folders) folder: folderAccess[folder] ?? files,
+       });
 
   final AiApprovalMode mode;
   final bool network;
   final AiFileAccess files;
   final List<String> folders;
 
+  /// 每个目录独立保存权限；files 只作为新增目录的默认值。
+  final Map<String, AiFileAccess> folderAccess;
+
+  AiFileAccess accessForFolder(String folder) => folderAccess[folder]!;
+
   bool allowsNetwork() => mode == AiApprovalMode.onRequest || network;
 
   Future<bool> allowsFile(String path, {required bool write}) async {
-    if (mode != AiApprovalMode.custom ||
-        files == AiFileAccess.none ||
-        (write && files != AiFileAccess.readWrite)) {
-      return false;
-    }
+    if (mode != AiApprovalMode.custom) return false;
     final target = await canonicalAiPath(path);
-    for (final folder in folders) {
+    final lexicalTarget = _absolute(path);
+    // 优先采用最具体的目录设置，避免父目录授权覆盖子目录的限制。
+    final ordered = [...folders]
+      ..sort((a, b) => _absolute(b).length.compareTo(_absolute(a).length));
+    for (final folder in ordered) {
+      if (!_within(lexicalTarget, _absolute(folder))) continue;
       final root = await canonicalAiPath(folder);
       // 同时检查词法路径和实际路径，禁止通过目录链接借用另一目录的授权。
-      if (_within(target, root) &&
-          _within(_absolute(path), _absolute(folder))) {
-        return true;
-      }
+      if (!_within(target, root)) return false;
+      final access = accessForFolder(folder);
+      return access != AiFileAccess.none &&
+          (!write || access == AiFileAccess.readWrite);
     }
     return false;
   }

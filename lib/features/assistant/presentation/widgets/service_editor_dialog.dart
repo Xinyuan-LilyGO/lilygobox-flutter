@@ -2,7 +2,7 @@
  * @Description: 在独立弹窗中编辑模型服务，支持读取模型列表并在确认后提交。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-11 14:43:03
+ * @LastEditTime: 2026-11-12 16:15:03
  */
 
 import 'package:flutter/material.dart';
@@ -13,6 +13,7 @@ import '../../../../core/theme/material_palette.dart';
 import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/app_scroll_behavior.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
+import '../../../../core/widgets/dialog_style.dart';
 import '../../../../core/widgets/settings/fields.dart';
 import '../../../../core/widgets/settings/select.dart';
 import '../../domain/models.dart';
@@ -422,19 +423,18 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
           ),
         ),
         actions: [
-          AppActionButton(
+          AppActionButton.dialog(
             theme: theme,
             label: l10n.settingsCancel,
             onPressed: _working ? null : () => Navigator.pop(context),
           ),
-          AppActionButton(
+          AppActionButton.dialog(
             key: const ValueKey('ai-confirm-service'),
             theme: theme,
             label: widget.service == null
                 ? l10n.aiAddModelService
                 : l10n.aiSaveService,
             primary: true,
-            fontSize: 12,
             onPressed: _working ? null : _save,
           ),
         ],
@@ -458,21 +458,11 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              color: widget.theme.textColorSecondary,
-            ),
-          ),
+          Text(title, style: AppDialogStyle.fieldTitleStyle(widget.theme)),
           const SizedBox(height: 4),
           Text(
             description,
-            style: TextStyle(
-              fontSize: 11,
-              height: 1.4,
-              color: widget.theme.textColorTertiary,
-            ),
+            style: AppDialogStyle.descriptionStyle(widget.theme),
           ),
           const SizedBox(height: 8),
           input,

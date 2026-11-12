@@ -294,7 +294,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiConnecting => '正在连接';
 
   @override
-  String get aiAwaitingReply => '设置操作已结束，正在等待模型回复';
+  String get aiAwaitingReply => '正在等待模型回复';
 
   @override
   String get aiProcessCompleted => '已完成';
@@ -316,12 +316,85 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiStreaming => '正在输出';
 
   @override
-  String get aiPreparingTools => '正在准备设置操作';
+  String get aiPreparingTools => '正在准备工具调用';
 
   @override
   String aiRequestRetryRecord(int attempt) {
     return '模型请求重试 $attempt';
   }
+
+  @override
+  String get aiWebInvalidUrl => '网页地址无效，请检查完整网址。';
+
+  @override
+  String get aiWebUnsupportedScheme => '仅支持 HTTPS 网页，请提供 HTTPS 地址。';
+
+  @override
+  String get aiWebUnsupportedPort => '仅支持默认 HTTPS 端口 443。';
+
+  @override
+  String get aiWebCredentialsNotAllowed => '网页地址不能包含用户名或密码。';
+
+  @override
+  String get aiWebBlockedAddress => '已拦截本机、私网或保留地址，请使用公开网页地址。';
+
+  @override
+  String get aiWebDns => '无法解析网站域名，请检查网址或稍后重试。';
+
+  @override
+  String get aiWebConnection => '连接中断或无法建立连接，请检查网络后重试。';
+
+  @override
+  String get aiWebTimeout => '网页读取超时，请稍后重试。';
+
+  @override
+  String get aiWebTls => '无法建立安全连接，请检查网站证书和系统时间。';
+
+  @override
+  String get aiWebUnauthorized => '网站要求身份验证（HTTP 401），当前不支持登录态访问。';
+
+  @override
+  String get aiWebForbidden => '网站拒绝访问（HTTP 403），请确认该页面允许公开读取。';
+
+  @override
+  String get aiWebNotFound => '网页不存在（HTTP 404），请检查网址。';
+
+  @override
+  String get aiWebRateLimited => '网站限制访问频率（HTTP 429），请稍后重试。';
+
+  @override
+  String aiWebServerError(int status) {
+    return '网站服务异常（HTTP $status），请稍后重试。';
+  }
+
+  @override
+  String aiWebHttpStatus(int status) {
+    return '网站返回 HTTP $status，未能读取页面。';
+  }
+
+  @override
+  String get aiWebInvalidRedirect => '网站返回的跳转地址缺失或无效，未继续访问。';
+
+  @override
+  String get aiWebRedirectLoop => '检测到网页循环跳转，已停止访问。';
+
+  @override
+  String get aiWebTooManyRedirects => '网页跳转超过 5 次，已停止访问。';
+
+  @override
+  String get aiWebContentType => '该地址未返回可读取的文本内容，暂不支持图片或 PDF。';
+
+  @override
+  String get aiWebEncoding => '网页字符编码不受支持或内容无法解码。';
+
+  @override
+  String get aiWebTooLarge => '网页内容超过 1 MiB 限制，未返回不完整内容。';
+
+  @override
+  String get aiWebEmptyContent => '网站返回空内容，未读取到正文。';
+
+  @override
+  String get aiWebCancelled => '网页读取已取消。';
 
   @override
   String get aiAccessingWeb => '正在访问网页';
@@ -337,7 +410,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get aiExecutingTools => '正在修改设置';
+  String get aiExecutingTools => '正在执行工具';
 
   @override
   String get aiResponseFailed => '处理失败';
@@ -1743,7 +1816,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiPermissionNetworkHelp => '关闭后，访问网页前需要批准。';
 
   @override
-  String get aiPermissionFiles => '文件访问权限';
+  String get aiPermissionFiles => '默认文件夹访问权限';
+
+  @override
+  String get aiPermissionDefaultFoldersHelp => '新添加文件夹的初始权限。';
+
+  @override
+  String get aiPermissionFolderAccess => '文件夹权限';
 
   @override
   String get aiPermissionNone => '每次都需要请求批准';

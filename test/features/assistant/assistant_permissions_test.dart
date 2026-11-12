@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lilygobox/features/assistant/domain/web_failure.dart';
 import 'package:lilygobox/features/assistant/data/assistant_tools.dart';
 import 'package:lilygobox/features/assistant/domain/permissions.dart';
 
@@ -79,6 +80,62 @@ void main() {
       );
     },
   );
+
+  test('each folder keeps its permission when the default changes', () async {
+    final initial = AiPermissions(
+      mode: AiApprovalMode.custom,
+      files: AiFileAccess.readOnly,
+      folders: [root.path],
+    );
+    final changed = AiPermissions(
+      mode: initial.mode,
+      files: AiFileAccess.readWrite,
+      folders: [root.path, outside.path],
+      folderAccess: initial.folderAccess,
+    );
+    expect(changed.accessForFolder(root.path), AiFileAccess.readOnly);
+    expect(changed.accessForFolder(outside.path), AiFileAccess.readWrite);
+    expect(await changed.allowsFile(path('a.txt'), write: true), isFalse);
+    expect(
+      await changed.allowsFile('${outside.path}/a.txt', write: true),
+      isTrue,
+    );
+    final removed = AiPermissions(
+      files: changed.files,
+      folders: [outside.path],
+      folderAccess: changed.folderAccess,
+    );
+    expect(removed.folderAccess.containsKey(root.path), isFalse);
+  });
+
+  test('the most specific folder overrides parent permissions', () async {
+    final child = await Directory(path('child')).create();
+    for (final access in AiFileAccess.values) {
+      for (final folders in [
+        [root.path, child.path],
+        [child.path, root.path],
+      ]) {
+        final permissions = AiPermissions(
+          mode: AiApprovalMode.custom,
+          files: AiFileAccess.readWrite,
+          folders: folders,
+          folderAccess: {child.path: access},
+        );
+        expect(
+          await permissions.allowsFile(path('a.txt'), write: true),
+          isTrue,
+        );
+        expect(
+          await permissions.allowsFile('${child.path}/a.txt', write: false),
+          access != AiFileAccess.none,
+        );
+        expect(
+          await permissions.allowsFile('${child.path}/a.txt', write: true),
+          access == AiFileAccess.readWrite,
+        );
+      }
+    }
+  });
 
   test('new file write and exact replacement preserve UTF-8 content', () async {
     var prepared = await tools.prepare('write_file', {
@@ -172,7 +229,16 @@ void main() {
     final local = await tools.prepare('read_webpage', {
       'url': 'https://127.0.0.1',
     });
-    await expectLater(tools.execute(local), throwsA(isA<SocketException>()));
+    await expectLater(
+      tools.execute(local),
+      throwsA(
+        isA<AiWebFailure>().having(
+          (error) => error.problem,
+          'problem',
+          AiWebProblem.blockedAddress,
+        ),
+      ),
+    );
   });
 
   test('listing is bounded and returns direct entries', () async {

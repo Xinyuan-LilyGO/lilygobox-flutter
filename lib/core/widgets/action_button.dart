@@ -2,13 +2,14 @@
  * @Description: 统一紫色与灰色文字操作按钮，沿用主页配色、悬停渐变及点击波纹。
  * @Author: LILYGO_L
  * @Date: 2026-10-03 18:10:36
- * @LastEditTime: 2026-11-11 14:37:42
+ * @LastEditTime: 2026-11-12 16:15:03
  */
 
 import 'package:flutter/material.dart';
 
 import '../theme/definition.dart';
 import '../theme/material_palette.dart';
+import 'dialog_style.dart';
 import 'menu_item_surface.dart';
 
 /// 各页面通过 primary 选择紫色或灰色，配色与交互统一由此处管理。
@@ -31,7 +32,8 @@ class AppActionButton extends StatelessWidget {
     double? fontSize,
     EdgeInsetsGeometry? padding,
     BorderRadius? borderRadius,
-  }) : fontSize = fontSize ?? (primary || destructive ? 14 : 12),
+  }) : _hasExplicitFontSize = fontSize != null,
+       fontSize = fontSize ?? (primary || destructive ? 14 : 12),
        padding =
            padding ??
            (primary || destructive
@@ -42,6 +44,22 @@ class AppActionButton extends StatelessWidget {
            (primary || destructive
                ? const BorderRadius.all(Radius.circular(10))
                : const BorderRadius.all(Radius.circular(8)));
+
+  /// 标准提示框操作使用统一的 12px 字号，其他交互沿用公共按钮。
+  factory AppActionButton.dialog({
+    Key? key,
+    required AppTheme theme,
+    required String label,
+    required VoidCallback? onPressed,
+    bool primary = false,
+  }) => AppActionButton(
+    key: key,
+    theme: theme,
+    label: label,
+    onPressed: onPressed,
+    primary: primary,
+    fontSize: AppDialogStyle.actionFontSize,
+  );
 
   /// 设置页普通操作统一沿用恢复默认设置按钮的配色和交互。
   factory AppActionButton.settings({
@@ -77,6 +95,7 @@ class AppActionButton extends StatelessWidget {
   final double iconSize;
   final double iconSpacing;
   final double fontSize;
+  final bool _hasExplicitFontSize;
   final EdgeInsetsGeometry padding;
   final BorderRadius borderRadius;
 
@@ -84,7 +103,13 @@ class AppActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     // 灰色操作统一沿用恢复默认设置按钮，紫色保留主要操作配色。
     final filled = primary || destructive;
-    final inDialog = context.findAncestorWidgetOfExactType<Dialog>() != null;
+    final dialog = context.findAncestorWidgetOfExactType<Dialog>();
+    final dialogScope = AppDialogScope.maybeOf(context);
+    final inDialog = dialog != null || dialogScope != null;
+    final dialogSurface =
+        dialogScope?.surfaceColor ??
+        dialog?.backgroundColor ??
+        AppDialogStyle.backgroundColor(theme);
     final cardColors = tertiaryBackground && !filled
         ? theme.tertiarySurfaceButtonColors
         : null;
@@ -95,6 +120,8 @@ class AppActionButton extends StatelessWidget {
             ? theme.materialColors.error
             : primary
             ? theme.basePrimary
+            : inDialog
+            ? AppDialogStyle.neutralButtonColor(theme, dialogSurface)
             : settingBackground
             ? Color.alphaBlend(
                 theme.secondary.withValues(alpha: .9),
@@ -112,7 +139,9 @@ class AppActionButton extends StatelessWidget {
       label,
       textAlign: TextAlign.center,
       style: TextStyle(
-        fontSize: fontSize,
+        fontSize: inDialog && !_hasExplicitFontSize
+            ? AppDialogStyle.actionFontSize
+            : fontSize,
         fontWeight: filled ? FontWeight.w600 : FontWeight.w400,
         color: foreground,
       ),

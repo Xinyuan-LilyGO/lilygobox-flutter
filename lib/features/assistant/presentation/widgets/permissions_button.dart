@@ -126,7 +126,12 @@ class _AssistantPermissionsButtonState
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(modeIcon, size: 16, color: theme.textColorSecondary),
+                Icon(
+                  modeIcon,
+                  size: 16,
+                  fill: modeIcon == Symbols.front_hand_rounded ? 0 : 1,
+                  color: theme.textColorSecondary,
+                ),
                 if (!compact) ...[
                   const SizedBox(width: 4),
                   Text(
@@ -188,6 +193,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
     bool? network,
     AiFileAccess? files,
     List<String>? folders,
+    Map<String, AiFileAccess>? folderAccess,
   }) {
     final current = widget.assistant.permissions;
     widget.assistant.setPermissions(
@@ -196,9 +202,59 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
         network: network ?? current.network,
         files: files ?? current.files,
         folders: folders ?? current.folders,
+        folderAccess: folderAccess ?? current.folderAccess,
       ),
     );
   }
+
+  String _fileAccessLabel(AiFileAccess access) => switch (access) {
+    AiFileAccess.none => context.l10n.aiPermissionNone,
+    AiFileAccess.readOnly => context.l10n.aiPermissionReadOnly,
+    AiFileAccess.readWrite => context.l10n.aiPermissionReadWrite,
+  };
+
+  // 颜色表示自动授权范围，绿、黄、红依次对应请求批准、只读和读写。
+  Color _fileAccessColor(AiFileAccess access) {
+    final appTheme = widget.theme;
+    return switch (access) {
+      AiFileAccess.none => appTheme.adaptiveColor(
+        dark: Colors.green.shade400,
+        light: Colors.green.shade700,
+      ),
+      AiFileAccess.readOnly => appTheme.adaptiveColor(
+        dark: Colors.amber.shade500,
+        light: Colors.amber.shade600,
+      ),
+      AiFileAccess.readWrite => appTheme.materialColors.error,
+    };
+  }
+
+  String _folderName(String folder) {
+    final segments = Uri.file(
+      folder,
+      windows: defaultTargetPlatform == TargetPlatform.windows,
+    ).pathSegments.where((part) => part.isNotEmpty);
+    return segments.isEmpty ? folder : segments.last;
+  }
+
+  List<DropdownMenuItem<AiFileAccess>> _fileAccessItems() => [
+    for (final access in AiFileAccess.values)
+      DropdownMenuItem(
+        value: access,
+        child: Row(
+          children: [
+            Icon(
+              Symbols.shield_rounded,
+              size: 16,
+              fill: 1,
+              color: _fileAccessColor(access),
+            ),
+            const SizedBox(width: 6),
+            Expanded(child: Text(_fileAccessLabel(access))),
+          ],
+        ),
+      ),
+  ];
 
   void _showCustom() {
     _update(mode: AiApprovalMode.custom);
@@ -301,7 +357,11 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               child: Row(
                 children: [
-                  Icon(icon, size: 16),
+                  Icon(
+                    icon,
+                    size: 16,
+                    fill: icon == Symbols.front_hand_rounded ? 0 : 1,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -350,11 +410,30 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
     );
   }
 
-  Widget _section(String title) => Padding(
+  Widget _section(String title, {String? description}) => Padding(
     padding: const EdgeInsets.only(top: 16, bottom: 8),
-    child: Text(
-      title,
-      style: TextStyle(fontSize: 12, color: widget.theme.textColorSecondary),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 12,
+            color: widget.theme.textColorSecondary,
+          ),
+        ),
+        if (description != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            description,
+            style: TextStyle(
+              fontSize: 11,
+              height: 1.4,
+              color: widget.theme.textColorTertiary,
+            ),
+          ),
+        ],
+      ],
     ),
   );
 
@@ -496,27 +575,17 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                             style: descriptionStyle,
                           ),
                         ),
-                        _section(l10n.aiPermissionFiles),
+                        _section(
+                          l10n.aiPermissionFiles,
+                          description: l10n.aiPermissionDefaultFoldersHelp,
+                        ),
                         SettingSelect<AiFileAccess>(
                           key: const ValueKey('ai-permission-files'),
                           theme: theme,
                           surfaceColor: theme.popupSurfaceColor,
                           dropdownTapRegionGroupId: widget.menuController,
                           value: permissions.files,
-                          items: [
-                            DropdownMenuItem(
-                              value: AiFileAccess.none,
-                              child: Text(l10n.aiPermissionNone),
-                            ),
-                            DropdownMenuItem(
-                              value: AiFileAccess.readOnly,
-                              child: Text(l10n.aiPermissionReadOnly),
-                            ),
-                            DropdownMenuItem(
-                              value: AiFileAccess.readWrite,
-                              child: Text(l10n.aiPermissionReadWrite),
-                            ),
-                          ],
+                          items: _fileAccessItems(),
                           onChanged: (value) {
                             if (value != null) _update(files: value);
                           },
@@ -597,44 +666,117 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                                       for (final folder in permissions.folders)
                                         Padding(
                                           padding: EdgeInsets.zero,
-                                          child: Row(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
                                             children: [
-                                              Icon(
-                                                Symbols.folder_rounded,
-                                                size: 16,
-                                                color: theme.textColorSecondary,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: AppTooltip(
-                                                  message: folder,
-                                                  child: Text(
-                                                    folder,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: descriptionStyle,
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    Symbols.folder_rounded,
+                                                    size: 16,
+                                                    fill: 1,
+                                                    color: theme
+                                                        .textColorSecondary,
                                                   ),
-                                                ),
-                                              ),
-                                              AppTooltip(
-                                                message: l10n
-                                                    .aiPermissionRemoveFolder,
-                                                child: TitleBarIconButton(
-                                                  size: 22,
-                                                  onPressed: () => _update(
-                                                    folders: permissions.folders
-                                                        .where(
-                                                          (item) =>
-                                                              item != folder,
-                                                        )
-                                                        .toList(),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: AppTooltip(
+                                                      message: folder,
+                                                      child: Text(
+                                                        _folderName(folder),
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: descriptionStyle,
+                                                      ),
+                                                    ),
                                                   ),
-                                                  isFocused: true,
-                                                  theme: theme,
-                                                  icon: Symbols.close_rounded,
-                                                  backgroundColor:
-                                                      theme.popupSurfaceColor,
-                                                ),
+                                                  SettingSelect<AiFileAccess>(
+                                                    key: ValueKey(
+                                                      'ai-permission-folder-select-$folder',
+                                                    ),
+                                                    theme: theme,
+                                                    surfaceColor:
+                                                        theme.popupSurfaceColor,
+                                                    dropdownTapRegionGroupId:
+                                                        widget.menuController,
+                                                    dropdownWidth:
+                                                        240 *
+                                                        MediaQuery.textScalerOf(
+                                                          context,
+                                                        ).scale(1),
+                                                    value: permissions
+                                                        .accessForFolder(
+                                                          folder,
+                                                        ),
+                                                    items: _fileAccessItems(),
+                                                    onChanged: (value) {
+                                                      if (value == null) {
+                                                        return;
+                                                      }
+                                                      _update(
+                                                        folderAccess: {
+                                                          ...widget
+                                                              .assistant
+                                                              .permissions
+                                                              .folderAccess,
+                                                          folder: value,
+                                                        },
+                                                      );
+                                                    },
+                                                    triggerBuilder: (context, onPressed) => AppTooltip(
+                                                      message: _fileAccessLabel(
+                                                        permissions
+                                                            .accessForFolder(
+                                                              folder,
+                                                            ),
+                                                      ),
+                                                      child: TitleBarIconButton(
+                                                        key: ValueKey(
+                                                          'ai-permission-folder-access-$folder',
+                                                        ),
+                                                        size: 22,
+                                                        onPressed: onPressed,
+                                                        isFocused: true,
+                                                        theme: theme,
+                                                        icon: Symbols
+                                                            .shield_rounded,
+                                                        iconColor:
+                                                            _fileAccessColor(
+                                                              permissions
+                                                                  .accessForFolder(
+                                                                    folder,
+                                                                  ),
+                                                            ),
+                                                        backgroundColor: theme
+                                                            .popupSurfaceColor,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  AppTooltip(
+                                                    message: l10n
+                                                        .aiPermissionRemoveFolder,
+                                                    child: TitleBarIconButton(
+                                                      size: 22,
+                                                      onPressed: () => _update(
+                                                        folders: permissions
+                                                            .folders
+                                                            .where(
+                                                              (item) =>
+                                                                  item !=
+                                                                  folder,
+                                                            )
+                                                            .toList(),
+                                                      ),
+                                                      isFocused: true,
+                                                      theme: theme,
+                                                      icon:
+                                                          Symbols.close_rounded,
+                                                      backgroundColor: theme
+                                                          .popupSurfaceColor,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ],
                                           ),

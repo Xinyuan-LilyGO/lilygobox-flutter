@@ -2,7 +2,7 @@
  * @Description: 在聊天输入区展示单次工具批准，保留操作详情与固定的批准按钮。
  * @Author: OpenAI Codex
  * @Date: 2026-11-11 17:07:00
- * @LastEditTime: 2026-11-11 23:53:11
+ * @LastEditTime: 2026-11-12 16:21:03
  */
 
 import 'dart:math' as math;
@@ -13,6 +13,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/widgets/action_button.dart';
+import '../../../../core/widgets/dialog_style.dart';
 import '../../../../core/widgets/popup_menu_surface.dart';
 import '../../domain/models.dart';
 
@@ -161,25 +162,28 @@ class _AssistantApprovalPanelState extends State<AssistantApprovalPanel> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Wrap(
-                    alignment: WrapAlignment.end,
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      AppActionButton(
-                        key: const ValueKey('ai-approval-deny'),
-                        theme: theme,
-                        label: l10n.aiReject,
-                        onPressed: () => widget.onResolve(false),
-                      ),
-                      AppActionButton(
-                        key: const ValueKey('ai-approval-allow'),
-                        theme: theme,
-                        label: l10n.aiApprove,
-                        primary: true,
-                        onPressed: () => widget.onResolve(true),
-                      ),
-                    ],
+                  AppDialogScope(
+                    surfaceColor: theme.primary,
+                    child: Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        AppActionButton.dialog(
+                          key: const ValueKey('ai-approval-deny'),
+                          theme: theme,
+                          label: l10n.aiReject,
+                          onPressed: () => widget.onResolve(false),
+                        ),
+                        AppActionButton.dialog(
+                          key: const ValueKey('ai-approval-allow'),
+                          theme: theme,
+                          label: l10n.aiApprove,
+                          primary: true,
+                          onPressed: () => widget.onResolve(true),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

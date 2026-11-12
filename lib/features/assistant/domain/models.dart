@@ -2,12 +2,13 @@
  * @Description: 定义 AI 服务配置、会话消息与待确认的设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-12 11:40:05
+ * @LastEditTime: 2026-11-12 15:00:41
  */
 
 import 'dart:typed_data';
 
 import 'reasoning.dart';
+import 'web_failure.dart';
 
 class AiImageAttachment {
   const AiImageAttachment({
@@ -209,6 +210,7 @@ class AiProcessEvent {
     required this.type,
     required this.elapsed,
     this.status,
+    this.toolName,
     this.text = '',
     this.action,
     this.retry,
@@ -218,6 +220,7 @@ class AiProcessEvent {
   final AiProcessEventType type;
   final Duration elapsed;
   final AiResponseStatus? status;
+  final String? toolName;
   final String text;
   final AiProcessingStep? action;
   final AiRequestRetry? retry;
@@ -303,11 +306,13 @@ class AiProcessingStep {
     required this.name,
     required Map<String, Object?> arguments,
     required this.succeeded,
+    this.webFailure,
   }) : arguments = Map.unmodifiable(arguments);
 
   final String name;
   final Map<String, Object?> arguments;
   final bool succeeded;
+  final AiWebFailure? webFailure;
 }
 
 class AiToolCall {

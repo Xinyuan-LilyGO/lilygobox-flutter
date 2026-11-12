@@ -2,7 +2,7 @@
  * @Description: 校验并执行 AI 的时间、网页与本地文件工具。
  * @Author: OpenAI Codex
  * @Date: 2026-11-11 16:26:54
- * @LastEditTime: 2026-11-12 10:57:13
+ * @LastEditTime: 2026-11-12 15:00:41
  */
 
 import 'dart:async';
@@ -10,7 +10,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../domain/permissions.dart';
-import 'pinned_https_connection.dart';
+import 'webpage_reader.dart';
 
 /// 固化待批准参数，执行前再次校验实际路径，防止批准期间目标发生变化。
 class AiPreparedTool {
@@ -51,7 +51,7 @@ class AssistantTools {
       }
       return AiPreparedTool(name, args, target: target);
     }
-    if (name == 'read_webpage') _publicUri(args['url']);
+    if (name == 'read_webpage') WebpageReader.validateUri(args['url']);
     if (!const {'read_webpage', 'get_current_time'}.contains(name)) {
       throw const FormatException('Unsupported tool');
     }
@@ -156,94 +156,9 @@ class AssistantTools {
         }
         return jsonEncode({'written': tool.target});
       case 'read_webpage':
-        return _readWebpage(tool.arguments['url'], abort: abort);
+        return WebpageReader().read(tool.arguments['url'], abort: abort);
       default:
         throw const FormatException('Unsupported tool');
-    }
-  }
-
-  Uri _publicUri(Object? value) {
-    final uri = value is String ? Uri.tryParse(value) : null;
-    if (uri == null ||
-        uri.scheme != 'https' ||
-        uri.host.isEmpty ||
-        uri.userInfo.isNotEmpty ||
-        uri.port != 443) {
-      throw const FormatException(
-        'Only public HTTPS URLs on port 443 are supported',
-      );
-    }
-    return uri;
-  }
-
-  bool _publicAddress(InternetAddress address) {
-    if (address.type != InternetAddressType.IPv4) return false;
-    final b = address.rawAddress;
-    return !(b[0] == 0 ||
-        b[0] == 10 ||
-        b[0] == 127 ||
-        b[0] >= 224 ||
-        (b[0] == 169 && b[1] == 254) ||
-        (b[0] == 172 && b[1] >= 16 && b[1] <= 31) ||
-        (b[0] == 192 && (b[1] == 168 || b[1] == 0)) ||
-        (b[0] == 100 && b[1] >= 64 && b[1] <= 127) ||
-        (b[0] == 198 && (b[1] == 18 || b[1] == 19)));
-  }
-
-  Future<String> _readWebpage(Object? value, {Future<void>? abort}) async {
-    final uri = _publicUri(value);
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 15);
-    var finished = false;
-    unawaited(
-      abort?.then((_) {
-        if (!finished) client.close(force: true);
-      }),
-    );
-    try {
-      // 连接固定到已检查的地址，禁止重定向及系统代理绕过网络范围检查。
-      client.findProxy = (_) => 'DIRECT';
-      client.connectionFactory = (uri, proxyHost, proxyPort) async {
-        final addresses = await InternetAddress.lookup(
-          uri.host,
-          type: InternetAddressType.IPv4,
-        ).timeout(const Duration(seconds: 10));
-        if (addresses.isEmpty ||
-            addresses.any((address) => !_publicAddress(address))) {
-          throw const SocketException(
-            'Private and local network addresses are not allowed',
-          );
-        }
-        // 自定义连接工厂会替代 HttpClient 的默认 TLS 建连，必须自行
-        // 完成握手，不能把明文 HTTP 写入 HTTPS 端口。
-        return connectPinnedHttps(uri, addresses.first);
-      };
-      return await (() async {
-        final request = await client.getUrl(uri);
-        request.followRedirects = false;
-        final response = await request.close();
-        if (response.statusCode != 200) {
-          throw HttpException('HTTP ${response.statusCode}', uri: uri);
-        }
-        final mime = response.headers.contentType?.mimeType ?? '';
-        if (!mime.startsWith('text/') && mime != 'application/json') {
-          throw const FormatException('Unsupported web content type');
-        }
-        final bytes = <int>[];
-        await for (final chunk in response) {
-          bytes.addAll(chunk);
-          if (bytes.length > maxFileBytes) {
-            throw const FormatException('Web content exceeds 1 MiB');
-          }
-        }
-        return jsonEncode({
-          'url': uri.toString(),
-          'untrusted_content': utf8.decode(bytes, allowMalformed: true),
-        });
-      })().timeout(const Duration(seconds: 30));
-    } finally {
-      finished = true;
-      client.close(force: true);
     }
   }
 }

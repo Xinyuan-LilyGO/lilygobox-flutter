@@ -2,15 +2,15 @@
  * @Description: 统一应用操作的二次确认弹窗、取消按钮及确认按钮样式。
  * @Author: LILYGO_L
  * @Date: 2026-10-03 23:41:53
- * @LastEditTime: 2026-11-11 14:43:03
+ * @LastEditTime: 2026-11-12 16:15:03
  */
 
 import 'package:flutter/material.dart';
 
 import '../l10n/language_provider.dart';
 import '../theme/definition.dart';
-import '../theme/material_palette.dart';
 import 'action_button.dart';
+import 'dialog_style.dart';
 
 /// 确认和流程提示共用的弹窗外观。
 class AppDialog extends StatelessWidget {
@@ -38,16 +38,16 @@ class AppDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AlertDialog(
     constraints: constraints,
-    backgroundColor: theme.materialColors.surfaceContainerHigh,
+    backgroundColor: AppDialogStyle.backgroundColor(theme),
     surfaceTintColor: Colors.transparent,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    shape: const RoundedRectangleBorder(
+      borderRadius: AppDialogStyle.borderRadius,
+    ),
     title: Text(
       title,
-      style: TextStyle(
-        fontSize: titleFontSize,
-        fontWeight: titleFontWeight,
-        color: theme.textColorPrimary,
-      ),
+      style: AppDialogStyle.titleStyle(
+        theme,
+      ).copyWith(fontSize: titleFontSize, fontWeight: titleFontWeight),
     ),
     contentPadding: contentPadding,
     content: content,
@@ -79,16 +79,12 @@ Future<bool> showAppConfirmation({
       ),
       actions: [
         for (final confirm in [false, true])
-          AppActionButton(
+          AppActionButton.dialog(
             key: ValueKey('${confirm ? 'confirm' : 'cancel'}-$actionKey'),
             theme: theme,
             label: confirm ? confirmLabel : cancelLabel,
             primary: confirm,
-            settingBackground: !confirm,
             onPressed: () => Navigator.pop(dialogContext, confirm),
-            fontSize: 12,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            borderRadius: BorderRadius.circular(8),
           ),
       ],
     ),

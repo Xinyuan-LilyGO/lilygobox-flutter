@@ -656,7 +656,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiAwaitingReply.
   ///
   /// In en, this message translates to:
-  /// **'Waiting for the model after setting operations'**
+  /// **'Waiting for the model response'**
   String get aiAwaitingReply;
 
   /// No description provided for @aiProcessCompleted.
@@ -674,7 +674,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiProcessActionSucceeded.
   ///
   /// In en, this message translates to:
-  /// **'Applied: {action}'**
+  /// **'Executed: {action}'**
   String aiProcessActionSucceeded(String action);
 
   /// No description provided for @aiProcessActionFailed.
@@ -692,7 +692,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiPreparingTools.
   ///
   /// In en, this message translates to:
-  /// **'Preparing setting changes'**
+  /// **'Preparing tool calls'**
   String get aiPreparingTools;
 
   /// No description provided for @aiRequestRetryRecord.
@@ -700,6 +700,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Model request retry {attempt}'**
   String aiRequestRetryRecord(int attempt);
+
+  /// No description provided for @aiWebInvalidUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid webpage address. Check the complete URL.'**
+  String get aiWebInvalidUrl;
+
+  /// No description provided for @aiWebUnsupportedScheme.
+  ///
+  /// In en, this message translates to:
+  /// **'Only HTTPS webpages are supported. Provide an HTTPS URL.'**
+  String get aiWebUnsupportedScheme;
+
+  /// No description provided for @aiWebUnsupportedPort.
+  ///
+  /// In en, this message translates to:
+  /// **'Only the default HTTPS port 443 is supported.'**
+  String get aiWebUnsupportedPort;
+
+  /// No description provided for @aiWebCredentialsNotAllowed.
+  ///
+  /// In en, this message translates to:
+  /// **'Webpage URLs cannot contain a username or password.'**
+  String get aiWebCredentialsNotAllowed;
+
+  /// No description provided for @aiWebBlockedAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'Local, private, or reserved addresses are blocked. Use a public webpage URL.'**
+  String get aiWebBlockedAddress;
+
+  /// No description provided for @aiWebDns.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not resolve the website hostname. Check the URL or try again later.'**
+  String get aiWebDns;
+
+  /// No description provided for @aiWebConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'The connection failed or was interrupted. Check the network and try again.'**
+  String get aiWebConnection;
+
+  /// No description provided for @aiWebTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading the webpage timed out. Try again later.'**
+  String get aiWebTimeout;
+
+  /// No description provided for @aiWebTls.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not establish a secure connection. Check the website certificate and system time.'**
+  String get aiWebTls;
+
+  /// No description provided for @aiWebUnauthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'The website requires authentication (HTTP 401). Signed-in access is not supported.'**
+  String get aiWebUnauthorized;
+
+  /// No description provided for @aiWebForbidden.
+  ///
+  /// In en, this message translates to:
+  /// **'The website refused access (HTTP 403). Check whether the page allows public access.'**
+  String get aiWebForbidden;
+
+  /// No description provided for @aiWebNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'The webpage was not found (HTTP 404). Check the URL.'**
+  String get aiWebNotFound;
+
+  /// No description provided for @aiWebRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'The website rate limit was reached (HTTP 429). Try again later.'**
+  String get aiWebRateLimited;
+
+  /// No description provided for @aiWebServerError.
+  ///
+  /// In en, this message translates to:
+  /// **'The website returned a server error (HTTP {status}). Try again later.'**
+  String aiWebServerError(int status);
+
+  /// No description provided for @aiWebHttpStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'The website returned HTTP {status}. The page could not be read.'**
+  String aiWebHttpStatus(int status);
+
+  /// No description provided for @aiWebInvalidRedirect.
+  ///
+  /// In en, this message translates to:
+  /// **'The website returned a missing or invalid redirect URL. No further request was made.'**
+  String get aiWebInvalidRedirect;
+
+  /// No description provided for @aiWebRedirectLoop.
+  ///
+  /// In en, this message translates to:
+  /// **'A redirect loop was detected. Webpage access was stopped.'**
+  String get aiWebRedirectLoop;
+
+  /// No description provided for @aiWebTooManyRedirects.
+  ///
+  /// In en, this message translates to:
+  /// **'The webpage exceeded the limit of 5 redirects. Access was stopped.'**
+  String get aiWebTooManyRedirects;
+
+  /// No description provided for @aiWebContentType.
+  ///
+  /// In en, this message translates to:
+  /// **'This URL did not return supported text content. Images and PDFs are not supported.'**
+  String get aiWebContentType;
+
+  /// No description provided for @aiWebEncoding.
+  ///
+  /// In en, this message translates to:
+  /// **'The webpage uses an unsupported encoding or could not be decoded.'**
+  String get aiWebEncoding;
+
+  /// No description provided for @aiWebTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'The webpage exceeds the 1 MiB limit. No partial content was returned.'**
+  String get aiWebTooLarge;
+
+  /// No description provided for @aiWebEmptyContent.
+  ///
+  /// In en, this message translates to:
+  /// **'The website returned empty content. No page text was received.'**
+  String get aiWebEmptyContent;
+
+  /// No description provided for @aiWebCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Webpage access was cancelled.'**
+  String get aiWebCancelled;
 
   /// No description provided for @aiAccessingWeb.
   ///
@@ -722,7 +860,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiExecutingTools.
   ///
   /// In en, this message translates to:
-  /// **'Applying settings'**
+  /// **'Executing tools'**
   String get aiExecutingTools;
 
   /// No description provided for @aiResponseFailed.
@@ -3350,8 +3488,20 @@ abstract class AppLocalizations {
   /// No description provided for @aiPermissionFiles.
   ///
   /// In en, this message translates to:
-  /// **'File access permissions'**
+  /// **'Default folder access'**
   String get aiPermissionFiles;
+
+  /// No description provided for @aiPermissionDefaultFoldersHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Initial access for newly added folders.'**
+  String get aiPermissionDefaultFoldersHelp;
+
+  /// No description provided for @aiPermissionFolderAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder permissions'**
+  String get aiPermissionFolderAccess;
 
   /// No description provided for @aiPermissionNone.
   ///

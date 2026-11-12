@@ -258,6 +258,46 @@ void main() {
                 ),
               );
               await tester.pumpAndSettle();
+              final shield = find.byKey(
+                const ValueKey(
+                  'ai-permission-folder-access-C:/authorized/folder-0',
+                ),
+              );
+              await tester.ensureVisible(shield);
+              await tester.tap(shield);
+              await tester.pumpAndSettle();
+              final folderSelect = find.byKey(
+                const ValueKey(
+                  'ai-permission-folder-select-C:/authorized/folder-0',
+                ),
+              );
+              await tester.tap(
+                find
+                    .text(
+                      AppLocalizations.of(
+                        tester.element(folderSelect),
+                      ).aiPermissionReadOnly,
+                    )
+                    .last,
+              );
+              await tester.pumpAndSettle();
+              expect(
+                scope.provider.permissions.accessForFolder(
+                  'C:/authorized/folder-0',
+                ),
+                AiFileAccess.readOnly,
+              );
+              expect(
+                scope.provider.permissions.accessForFolder(
+                  'C:/authorized/folder-1',
+                ),
+                AiFileAccess.readWrite,
+              );
+              expect(scope.provider.permissions.files, AiFileAccess.readWrite);
+              expect(
+                find.byKey(const ValueKey('ai-permissions-panel')),
+                findsOneWidget,
+              );
               final list = find.byKey(
                 const ValueKey('ai-permission-folders-scroll'),
               );

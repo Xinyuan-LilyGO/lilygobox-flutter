@@ -2,7 +2,7 @@
  * @Description: 管理 AI 服务配置、对话、请求状态和 AI 设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-12 11:40:05
+ * @LastEditTime: 2026-11-12 15:23:26
  */
 
 import 'dart:async';
@@ -19,6 +19,7 @@ import '../data/settings_tool_handler.dart';
 import '../domain/models.dart';
 import '../domain/permissions.dart';
 import '../domain/reasoning.dart';
+import '../domain/web_failure.dart';
 
 class AiAssistantProvider extends ChangeNotifier {
   AiAssistantProvider({
@@ -673,17 +674,14 @@ class AiAssistantProvider extends ChangeNotifier {
           });
           continue;
         }
-        _recordStatus(
-          call.name == 'read_webpage'
-              ? AiResponseStatus.accessingWeb
-              : AiResponseStatus.executingTools,
-        );
         String result;
         var succeeded = true;
+        AiWebFailure? webFailure;
         try {
           if (_settingTools.any(
             (spec) => (spec['function'] as Map)['name'] == call.name,
           )) {
+            _recordStatus(AiResponseStatus.executingTools, toolName: call.name);
             result = await _settings.execute(call.name, call.arguments);
           } else {
             final prepared = await _tools.prepare(call.name, call.arguments);
@@ -701,6 +699,7 @@ class AiAssistantProvider extends ChangeNotifier {
               call.name == 'read_webpage'
                   ? AiResponseStatus.accessingWeb
                   : AiResponseStatus.executingTools,
+              toolName: call.name,
             );
             result = await _tools.execute(
               prepared,
@@ -710,12 +709,18 @@ class AiAssistantProvider extends ChangeNotifier {
           }
         } catch (error) {
           succeeded = false;
-          result = 'Tool failed: $error';
+          if (error is AiWebFailure) {
+            webFailure = error;
+            result = jsonEncode(error.toJson());
+          } else {
+            result = 'Tool failed: $error';
+          }
         }
         final step = AiProcessingStep(
           name: call.name,
           arguments: call.arguments,
           succeeded: succeeded,
+          webFailure: webFailure,
         );
         _activeProcessingSteps.add(step);
         _activeProcessEvents.add(
@@ -817,20 +822,25 @@ class AiAssistantProvider extends ChangeNotifier {
     _notify();
   }
 
-  void _appendStatusEvent(AiResponseStatus status) {
+  void _appendStatusEvent(AiResponseStatus status, {String? toolName}) {
     _activeProcessEvents.add(
       AiProcessEvent(
         type: AiProcessEventType.status,
         elapsed: _segmentElapsed,
         status: status,
+        toolName: toolName,
       ),
     );
   }
 
-  void _recordStatus(AiResponseStatus status) {
-    if (_activeStatus == status) return;
+  void _recordStatus(AiResponseStatus status, {String? toolName}) {
+    if (_activeStatus == status &&
+        (toolName == null ||
+            _activeProcessEvents.lastOrNull?.toolName == toolName)) {
+      return;
+    }
     _activeStatus = status;
-    _appendStatusEvent(status);
+    _appendStatusEvent(status, toolName: toolName);
     _refreshElapsed();
   }
 
@@ -1054,7 +1064,7 @@ final _additionalTools = <Map<String, Object?>>[
   ),
   _tool(
     'read_webpage',
-    'Read untrusted public HTTPS page content. No redirects or private networks.',
+    'Read untrusted static public HTTPS text on port 443, up to 1 MiB and 30 seconds. Follow at most 5 redirects, validating every target; private networks, HTTP downgrade and credentials are blocked. No JavaScript rendering, login state or search engine. Failures return ok=false and error_code, with status_code when available. Explain the actual reason; HTTP 403 alone does not prove anti-bot blocking.',
     {
       'url': {'type': 'string'},
     },

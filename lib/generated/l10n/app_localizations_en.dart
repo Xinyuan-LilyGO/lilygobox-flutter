@@ -303,8 +303,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiConnecting => 'Connecting';
 
   @override
-  String get aiAwaitingReply =>
-      'Waiting for the model after setting operations';
+  String get aiAwaitingReply => 'Waiting for the model response';
 
   @override
   String get aiProcessCompleted => 'Completed';
@@ -314,7 +313,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String aiProcessActionSucceeded(String action) {
-    return 'Applied: $action';
+    return 'Executed: $action';
   }
 
   @override
@@ -326,12 +325,104 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiStreaming => 'Responding';
 
   @override
-  String get aiPreparingTools => 'Preparing setting changes';
+  String get aiPreparingTools => 'Preparing tool calls';
 
   @override
   String aiRequestRetryRecord(int attempt) {
     return 'Model request retry $attempt';
   }
+
+  @override
+  String get aiWebInvalidUrl =>
+      'Invalid webpage address. Check the complete URL.';
+
+  @override
+  String get aiWebUnsupportedScheme =>
+      'Only HTTPS webpages are supported. Provide an HTTPS URL.';
+
+  @override
+  String get aiWebUnsupportedPort =>
+      'Only the default HTTPS port 443 is supported.';
+
+  @override
+  String get aiWebCredentialsNotAllowed =>
+      'Webpage URLs cannot contain a username or password.';
+
+  @override
+  String get aiWebBlockedAddress =>
+      'Local, private, or reserved addresses are blocked. Use a public webpage URL.';
+
+  @override
+  String get aiWebDns =>
+      'Could not resolve the website hostname. Check the URL or try again later.';
+
+  @override
+  String get aiWebConnection =>
+      'The connection failed or was interrupted. Check the network and try again.';
+
+  @override
+  String get aiWebTimeout => 'Reading the webpage timed out. Try again later.';
+
+  @override
+  String get aiWebTls =>
+      'Could not establish a secure connection. Check the website certificate and system time.';
+
+  @override
+  String get aiWebUnauthorized =>
+      'The website requires authentication (HTTP 401). Signed-in access is not supported.';
+
+  @override
+  String get aiWebForbidden =>
+      'The website refused access (HTTP 403). Check whether the page allows public access.';
+
+  @override
+  String get aiWebNotFound =>
+      'The webpage was not found (HTTP 404). Check the URL.';
+
+  @override
+  String get aiWebRateLimited =>
+      'The website rate limit was reached (HTTP 429). Try again later.';
+
+  @override
+  String aiWebServerError(int status) {
+    return 'The website returned a server error (HTTP $status). Try again later.';
+  }
+
+  @override
+  String aiWebHttpStatus(int status) {
+    return 'The website returned HTTP $status. The page could not be read.';
+  }
+
+  @override
+  String get aiWebInvalidRedirect =>
+      'The website returned a missing or invalid redirect URL. No further request was made.';
+
+  @override
+  String get aiWebRedirectLoop =>
+      'A redirect loop was detected. Webpage access was stopped.';
+
+  @override
+  String get aiWebTooManyRedirects =>
+      'The webpage exceeded the limit of 5 redirects. Access was stopped.';
+
+  @override
+  String get aiWebContentType =>
+      'This URL did not return supported text content. Images and PDFs are not supported.';
+
+  @override
+  String get aiWebEncoding =>
+      'The webpage uses an unsupported encoding or could not be decoded.';
+
+  @override
+  String get aiWebTooLarge =>
+      'The webpage exceeds the 1 MiB limit. No partial content was returned.';
+
+  @override
+  String get aiWebEmptyContent =>
+      'The website returned empty content. No page text was received.';
+
+  @override
+  String get aiWebCancelled => 'Webpage access was cancelled.';
 
   @override
   String get aiAccessingWeb => 'Accessing webpage';
@@ -347,7 +438,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get aiExecutingTools => 'Applying settings';
+  String get aiExecutingTools => 'Executing tools';
 
   @override
   String get aiResponseFailed => 'Processing failed';
@@ -1860,7 +1951,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'When off, webpage access requires approval.';
 
   @override
-  String get aiPermissionFiles => 'File access permissions';
+  String get aiPermissionFiles => 'Default folder access';
+
+  @override
+  String get aiPermissionDefaultFoldersHelp =>
+      'Initial access for newly added folders.';
+
+  @override
+  String get aiPermissionFolderAccess => 'Folder permissions';
 
   @override
   String get aiPermissionNone => 'Require approval every time';

@@ -2,12 +2,13 @@
  * @Description: 提供 LilygoBox AI 对话主页与设置操作确认。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-12 11:40:05
+ * @LastEditTime: 2026-11-12 15:19:13
  */
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
@@ -491,6 +492,20 @@ class _Welcome extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      Center(
+                        child: SvgPicture.asset(
+                          'assets/images/branding/lilygobox_logo.svg',
+                          width: 56,
+                          height: 56,
+                          fit: BoxFit.contain,
+                          colorFilter: ColorFilter.mode(
+                            theme.textColorPrimary,
+                            BlendMode.srcIn,
+                          ),
+                          excludeFromSemantics: true,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                       Text(
                         l10n.assistantGreeting,
                         textAlign: TextAlign.center,
@@ -847,6 +862,7 @@ class _ProcessEventView extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final action = event.action;
+    final toolName = action?.name ?? event.toolName;
     final retry = event.retry;
     final isWeb =
         action?.name == 'read_webpage' ||
@@ -881,8 +897,8 @@ class _ProcessEventView extends StatelessWidget {
       AiResponseStatus.awaitingReply => Symbols.hourglass_top_rounded,
       AiResponseStatus.thinking => Symbols.neurology_rounded,
       AiResponseStatus.streaming => Symbols.edit_note_rounded,
-      AiResponseStatus.preparingTools => Symbols.settings_suggest_rounded,
-      AiResponseStatus.executingTools => Symbols.handyman_rounded,
+      AiResponseStatus.preparingTools => Symbols.pending_actions_rounded,
+      AiResponseStatus.executingTools => Symbols.play_circle_rounded,
       AiResponseStatus.accessingWeb => Symbols.language_rounded,
       AiResponseStatus.awaitingApproval => Symbols.verified_user_rounded,
       AiResponseStatus.retrying => Symbols.refresh_rounded,
@@ -905,8 +921,8 @@ class _ProcessEventView extends StatelessWidget {
                     ? Symbols.error_outline_rounded
                     : isWeb
                     ? Symbols.language_rounded
-                    : action != null
-                    ? Symbols.handyman_rounded
+                    : toolName != null
+                    ? _toolIcon(toolName)
                     : modelNote
                     ? isThinking
                           ? Symbols.neurology_rounded
@@ -960,6 +976,17 @@ class _ProcessEventView extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (action?.webFailure case final failure?) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    aiErrorText(l10n, failure),
+                    style: TextStyle(
+                      color: theme.textColorSecondary,
+                      fontSize: 12,
+                      height: 1.6,
+                    ),
+                  ),
+                ],
                 if (event.text.isNotEmpty) ...[
                   const SizedBox(height: 5),
                   Text(
@@ -979,6 +1006,23 @@ class _ProcessEventView extends StatelessWidget {
     );
   }
 }
+
+/// 以实际操作选择图标，执行阶段和完成记录使用同一套映射。
+IconData _toolIcon(String name) => switch (name) {
+  'read_file' => Symbols.description_rounded,
+  'list_directory' => Symbols.folder_open_rounded,
+  'write_file' => Symbols.edit_document_rounded,
+  'get_current_time' => Symbols.schedule_rounded,
+  'read_webpage' => Symbols.language_rounded,
+  'set_theme' => Symbols.palette_rounded,
+  'set_language' => Symbols.translate_rounded,
+  'set_font' => Symbols.font_download_rounded,
+  'set_sidebar_visibility' ||
+  'set_sidebar_width' ||
+  'set_settings_sidebar_width' => Symbols.side_navigation_rounded,
+  'set_content_split_width' => Symbols.view_column_rounded,
+  _ => Symbols.play_circle_rounded,
+};
 
 String _formatElapsed(Duration duration) {
   final totalMilliseconds = duration.inMilliseconds;
