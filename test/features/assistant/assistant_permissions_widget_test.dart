@@ -248,6 +248,40 @@ void main() {
               find.byKey(const ValueKey('ai-permission-ask-outside')),
               findsNothing,
             );
+            if (!narrow) {
+              scope.provider.setPermissions(
+                AiPermissions(
+                  mode: AiApprovalMode.custom,
+                  network: false,
+                  files: AiFileAccess.readWrite,
+                  folders: List.generate(15, (i) => 'C:/authorized/folder-$i'),
+                ),
+              );
+              await tester.pumpAndSettle();
+              final list = find.byKey(
+                const ValueKey('ai-permission-folders-scroll'),
+              );
+              await tester.ensureVisible(list);
+              await tester.pumpAndSettle();
+              expect(tester.getSize(list).height, lessThanOrEqualTo(144));
+              final controller = tester
+                  .widget<SingleChildScrollView>(list)
+                  .controller!;
+              expect(controller.position.maxScrollExtent, greaterThan(0));
+              await tester.drag(list, const Offset(0, -120));
+              await tester.pumpAndSettle();
+              expect(controller.offset, greaterThan(0));
+              expect(
+                tester
+                    .widget<Scrollbar>(
+                      find.byKey(
+                        const ValueKey('ai-permission-folders-scrollbar'),
+                      ),
+                    )
+                    .thumbVisibility,
+                isNull,
+              );
+            }
             await tester.tap(find.byKey(const ValueKey('ai-permissions-back')));
             await tester.pumpAndSettle();
             expect(

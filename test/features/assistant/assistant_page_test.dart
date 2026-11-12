@@ -2,7 +2,7 @@
  * @Description: 验证 AI 主页居中与底部输入状态、键盘发送、直达设置及缩放布局。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:16:04
- * @LastEditTime: 2026-11-12 01:26:11
+ * @LastEditTime: 2026-11-12 11:40:05
  */
 
 import 'dart:async';
@@ -397,7 +397,7 @@ void main() {
     final controller = tester.widget<SingleChildScrollView>(list).controller!;
     expect(
       ScrollbarTheme.of(tester.element(list)).crossAxisMargin,
-      AppScrollBehavior.scrollbarEdgeInset - 5,
+      AppScrollBehavior.scrollbarEdgeInset - 4,
     );
     final conversation = find.byKey(const ValueKey('ai-message-scroll'));
     expect(
@@ -2093,7 +2093,7 @@ void main() {
       expect(tester.widget<Scrollbar>(scrollbar).thumbVisibility, isNull);
       expect(
         tester.getRect(scrollbar).right - tester.getRect(list).right,
-        closeTo(20, .1),
+        closeTo(16, .1),
       );
       expect(menuRect.right - tester.getRect(scrollbar).right, closeTo(4, .1));
       final selectorRect = tester.getRect(

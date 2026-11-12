@@ -2,7 +2,7 @@
  * @Description: 管理 AI 服务配置、对话、请求状态和 AI 设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-11 18:24:14
+ * @LastEditTime: 2026-11-12 11:40:05
  */
 
 import 'dart:async';
@@ -673,7 +673,11 @@ class AiAssistantProvider extends ChangeNotifier {
           });
           continue;
         }
-        _recordStatus(AiResponseStatus.executingTools);
+        _recordStatus(
+          call.name == 'read_webpage'
+              ? AiResponseStatus.accessingWeb
+              : AiResponseStatus.executingTools,
+        );
         String result;
         var succeeded = true;
         try {
@@ -693,7 +697,11 @@ class AiAssistantProvider extends ChangeNotifier {
                 'Operation denied or cancelled; do not retry without a new user request',
               );
             }
-            _recordStatus(AiResponseStatus.executingTools);
+            _recordStatus(
+              call.name == 'read_webpage'
+                  ? AiResponseStatus.accessingWeb
+                  : AiResponseStatus.executingTools,
+            );
             result = await _tools.execute(
               prepared,
               abort: _abortRequest?.future,

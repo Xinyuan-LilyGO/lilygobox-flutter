@@ -324,6 +324,19 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get aiAccessingWeb => '正在访问网页';
+
+  @override
+  String aiWebSucceeded(String url) {
+    return '已访问网页 $url';
+  }
+
+  @override
+  String aiWebFailed(String url) {
+    return '访问网页失败 $url';
+  }
+
+  @override
   String get aiExecutingTools => '正在修改设置';
 
   @override
@@ -1733,10 +1746,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiPermissionFiles => '文件访问权限';
 
   @override
-  String get aiPermissionNone => '每次请求批准';
+  String get aiPermissionNone => '每次都需要请求批准';
 
   @override
-  String get aiPermissionReadOnly => '允许读取';
+  String get aiPermissionReadOnly => '仅允许读取';
 
   @override
   String get aiPermissionReadWrite => '允许读取和修改';
@@ -1767,7 +1780,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiToolTime => '读取当前时间';
 
   @override
-  String get aiToolWeb => '读取网页';
+  String get aiToolWeb => '访问网页';
 
   @override
   String get aiToolList => '查看目录';

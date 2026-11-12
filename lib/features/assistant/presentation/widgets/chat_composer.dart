@@ -2,7 +2,7 @@
  * @Description: 构建双层 AI 输入区，承载附件与待处理引导并提供键盘发送和模型选择。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:07:40
- * @LastEditTime: 2026-11-11 23:53:11
+ * @LastEditTime: 2026-11-12 11:40:05
  */
 
 import 'dart:async';
@@ -256,7 +256,7 @@ class ChatComposer extends StatelessWidget {
         boxShadow: PopupMenuSurface.shadowsFor(theme),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(5),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -535,7 +535,7 @@ class _PendingGuidanceState extends State<_PendingGuidance> {
             Flexible(
               child: ScrollbarTheme(
                 data: ScrollbarTheme.of(context).copyWith(
-                  crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset - 5,
+                  crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset - 4,
                 ),
                 child: Scrollbar(
                   controller: _scroll,
@@ -755,7 +755,7 @@ class _ComposerAttachmentsState extends State<_ComposerAttachments> {
           constraints: BoxConstraints(maxHeight: size * 2 + gap),
           child: ScrollbarTheme(
             data: ScrollbarTheme.of(context).copyWith(
-              crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset - 5,
+              crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset - 4,
             ),
             child: Scrollbar(
               key: const ValueKey('ai-attachments-scrollbar'),

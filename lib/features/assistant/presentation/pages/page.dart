@@ -2,7 +2,7 @@
  * @Description: 提供 LilygoBox AI 对话主页与设置操作确认。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-12 01:26:11
+ * @LastEditTime: 2026-11-12 11:40:05
  */
 
 import 'package:flutter/gestures.dart';
@@ -722,7 +722,7 @@ class _MessageViewState extends State<_MessageView> {
                               controller: _detailsScroll,
                               primary: false,
                               padding: const EdgeInsetsDirectional.only(
-                                end: 16,
+                                end: 20,
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -821,6 +821,7 @@ String? _responseStatusLabel(
     AiResponseStatus.streaming => l10n.aiStreaming,
     AiResponseStatus.preparingTools => l10n.aiPreparingTools,
     AiResponseStatus.executingTools => l10n.aiExecutingTools,
+    AiResponseStatus.accessingWeb => l10n.aiAccessingWeb,
     AiResponseStatus.awaitingApproval => l10n.aiAwaitingApproval,
     AiResponseStatus.retrying => l10n.aiRetryingRequest(
       retryAttempt,
@@ -847,6 +848,9 @@ class _ProcessEventView extends StatelessWidget {
     final l10n = context.l10n;
     final action = event.action;
     final retry = event.retry;
+    final isWeb =
+        action?.name == 'read_webpage' ||
+        event.status == AiResponseStatus.accessingWeb;
     final failed =
         action?.succeeded == false || event.status == AiResponseStatus.failed;
     final label = switch (event.type) {
@@ -854,6 +858,10 @@ class _ProcessEventView extends StatelessWidget {
         _responseStatusLabel(context, event.status) ?? l10n.aiProcessCompleted,
       AiProcessEventType.reasoning =>
         isThinking ? l10n.aiAssistantThinking : l10n.aiProcessReasoning,
+      AiProcessEventType.action when action?.name == 'read_webpage' =>
+        action!.succeeded
+            ? l10n.aiWebSucceeded(action.arguments['url'].toString())
+            : l10n.aiWebFailed(action.arguments['url'].toString()),
       AiProcessEventType.action =>
         action!.succeeded
             ? l10n.aiProcessActionSucceeded(
@@ -875,6 +883,7 @@ class _ProcessEventView extends StatelessWidget {
       AiResponseStatus.streaming => Symbols.edit_note_rounded,
       AiResponseStatus.preparingTools => Symbols.settings_suggest_rounded,
       AiResponseStatus.executingTools => Symbols.handyman_rounded,
+      AiResponseStatus.accessingWeb => Symbols.language_rounded,
       AiResponseStatus.awaitingApproval => Symbols.verified_user_rounded,
       AiResponseStatus.retrying => Symbols.refresh_rounded,
       AiResponseStatus.completed => Symbols.check_rounded,
@@ -894,6 +903,8 @@ class _ProcessEventView extends StatelessWidget {
               child: Icon(
                 failed
                     ? Symbols.error_outline_rounded
+                    : isWeb
+                    ? Symbols.language_rounded
                     : action != null
                     ? Symbols.handyman_rounded
                     : modelNote
@@ -904,7 +915,8 @@ class _ProcessEventView extends StatelessWidget {
                     ? Symbols.refresh_rounded
                     : statusIcon,
                 fill:
-                    (modelNote && isThinking) ||
+                    (!failed && isWeb) ||
+                        (modelNote && isThinking) ||
                         event.status == AiResponseStatus.thinking
                     ? 0
                     : modelNote

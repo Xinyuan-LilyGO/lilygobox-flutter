@@ -334,6 +334,19 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get aiAccessingWeb => 'Accessing webpage';
+
+  @override
+  String aiWebSucceeded(String url) {
+    return 'Accessed webpage $url';
+  }
+
+  @override
+  String aiWebFailed(String url) {
+    return 'Failed to access webpage $url';
+  }
+
+  @override
   String get aiExecutingTools => 'Applying settings';
 
   @override
@@ -1850,10 +1863,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiPermissionFiles => 'File access permissions';
 
   @override
-  String get aiPermissionNone => 'Ask every time';
+  String get aiPermissionNone => 'Require approval every time';
 
   @override
-  String get aiPermissionReadOnly => 'Allow reading';
+  String get aiPermissionReadOnly => 'Allow reading only';
 
   @override
   String get aiPermissionReadWrite => 'Allow reading and editing';
@@ -1886,7 +1899,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiToolTime => 'Read current time';
 
   @override
-  String get aiToolWeb => 'Read webpage';
+  String get aiToolWeb => 'Access webpage';
 
   @override
   String get aiToolList => 'List directory';

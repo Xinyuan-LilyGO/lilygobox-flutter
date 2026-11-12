@@ -701,6 +701,24 @@ abstract class AppLocalizations {
   /// **'Model request retry {attempt}'**
   String aiRequestRetryRecord(int attempt);
 
+  /// No description provided for @aiAccessingWeb.
+  ///
+  /// In en, this message translates to:
+  /// **'Accessing webpage'**
+  String get aiAccessingWeb;
+
+  /// No description provided for @aiWebSucceeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Accessed webpage {url}'**
+  String aiWebSucceeded(String url);
+
+  /// No description provided for @aiWebFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to access webpage {url}'**
+  String aiWebFailed(String url);
+
   /// No description provided for @aiExecutingTools.
   ///
   /// In en, this message translates to:
@@ -3338,13 +3356,13 @@ abstract class AppLocalizations {
   /// No description provided for @aiPermissionNone.
   ///
   /// In en, this message translates to:
-  /// **'Ask every time'**
+  /// **'Require approval every time'**
   String get aiPermissionNone;
 
   /// No description provided for @aiPermissionReadOnly.
   ///
   /// In en, this message translates to:
-  /// **'Allow reading'**
+  /// **'Allow reading only'**
   String get aiPermissionReadOnly;
 
   /// No description provided for @aiPermissionReadWrite.
@@ -3404,7 +3422,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiToolWeb.
   ///
   /// In en, this message translates to:
-  /// **'Read webpage'**
+  /// **'Access webpage'**
   String get aiToolWeb;
 
   /// No description provided for @aiToolList.

@@ -2,7 +2,7 @@
  * @Description: 校验并执行 AI 的时间、网页与本地文件工具。
  * @Author: OpenAI Codex
  * @Date: 2026-11-11 16:26:54
- * @LastEditTime: 2026-11-11 16:34:20
+ * @LastEditTime: 2026-11-12 10:57:13
  */
 
 import 'dart:async';
@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../domain/permissions.dart';
+import 'pinned_https_connection.dart';
 
 /// 固化待批准参数，执行前再次校验实际路径，防止批准期间目标发生变化。
 class AiPreparedTool {
@@ -213,7 +214,9 @@ class AssistantTools {
             'Private and local network addresses are not allowed',
           );
         }
-        return Socket.startConnect(addresses.first, uri.port);
+        // 自定义连接工厂会替代 HttpClient 的默认 TLS 建连，必须自行
+        // 完成握手，不能把明文 HTTP 写入 HTTPS 端口。
+        return connectPinnedHttps(uri, addresses.first);
       };
       return await (() async {
         final request = await client.getUrl(uri);

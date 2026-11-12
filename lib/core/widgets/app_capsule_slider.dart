@@ -2,7 +2,7 @@
  * @Description: 共享设备风格的胶囊滑条，支持连续调节及固定等级点。
  * @Author: LILYGO_L
  * @Date: 2026-11-10 11:58:09
- * @LastEditTime: 2026-11-10 19:04:16
+ * @LastEditTime: 2026-11-12 11:40:05
  */
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -341,8 +341,10 @@ class _CapsuleTrackPainter extends CustomPainter {
       Paint()
         ..color = trackColor(
           Color.alphaBlend(
-            theme.basePrimary.withValues(alpha: .13),
-            theme.secondary,
+            theme.type == ThemeType.dark
+                ? theme.textColorPrimary.withValues(alpha: .45)
+                : theme.textColorPrimary.withValues(alpha: .06),
+            theme.type == ThemeType.dark ? theme.secondary : theme.primary,
           ),
         ),
     );
@@ -363,7 +365,7 @@ class _CapsuleTrackPainter extends CustomPainter {
             ..color = trackColor(
               x < width
                   ? theme.materialColors.onPrimary.withValues(alpha: .65)
-                  : theme.textColorTertiary,
+                  : theme.textColorPrimary,
             ),
         );
       }

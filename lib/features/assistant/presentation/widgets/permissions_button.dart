@@ -2,12 +2,13 @@
  * @Description: 提供主页 AI 权限入口及自定义批准展开面板。
  * @Author: OpenAI Codex
  * @Date: 2026-11-11 16:26:54
- * @LastEditTime: 2026-11-12 00:59:12
+ * @LastEditTime: 2026-11-12 14:23:39
  */
 
 import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -16,6 +17,7 @@ import '../../../../core/theme/definition.dart';
 import '../../../../core/theme/material_palette.dart';
 import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/app_notice.dart';
+import '../../../../core/widgets/app_scroll_behavior.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/popup_menu_surface.dart';
@@ -177,6 +179,7 @@ class _PermissionsPanel extends StatefulWidget {
 
 class _PermissionsPanelState extends State<_PermissionsPanel> {
   final _scroll = ScrollController();
+  final _foldersScroll = ScrollController();
   bool _custom = false;
   bool _picking = false;
 
@@ -206,11 +209,24 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
   Future<void> _addFolder() async {
     setState(() => _picking = true);
     try {
-      final folder = await getDirectoryPath();
-      if (mounted &&
-          folder != null &&
-          !widget.assistant.permissions.folders.contains(folder)) {
-        _update(folders: [...widget.assistant.permissions.folders, folder]);
+      final selected = await getDirectoryPaths();
+      if (!mounted) return;
+      final folders = [...widget.assistant.permissions.folders];
+      final known = folders
+          .map(
+            (folder) => defaultTargetPlatform == TargetPlatform.windows
+                ? folder.replaceAll('\\', '/').toLowerCase()
+                : folder,
+          )
+          .toSet();
+      for (final folder in selected.whereType<String>()) {
+        final key = defaultTargetPlatform == TargetPlatform.windows
+            ? folder.replaceAll('\\', '/').toLowerCase()
+            : folder;
+        if (folder.isNotEmpty && known.add(key)) folders.add(folder);
+      }
+      if (folders.length != widget.assistant.permissions.folders.length) {
+        _update(folders: folders);
       }
     } catch (_) {
       if (mounted) {
@@ -227,6 +243,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
   @override
   void dispose() {
     _scroll.dispose();
+    _foldersScroll.dispose();
     super.dispose();
   }
 
@@ -259,7 +276,25 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
       onPressed: onPressed,
       child: Builder(
         builder: (context) {
-          final foreground = DefaultTextStyle.of(context).style.color;
+          final foreground =
+              DefaultTextStyle.of(context).style.color ??
+              theme.textColorSecondary;
+          final normal = theme.textColorSecondary;
+          final highlighted = theme.materialColors.onPrimary;
+          double distance(Color a, Color b) =>
+              math.pow(a.r - b.r, 2).toDouble() +
+              math.pow(a.g - b.g, 2).toDouble() +
+              math.pow(a.b - b.b, 2).toDouble();
+          // 沿用公共菜单的前景渐变进度，让二级说明同步切换浅色。
+          final total = distance(normal, highlighted);
+          final progress = total == 0
+              ? 0.0
+              : math.sqrt(distance(normal, foreground) / total).clamp(0.0, 1.0);
+          final descriptionColor = Color.lerp(
+            theme.textColorTertiary,
+            highlighted,
+            progress,
+          );
           return ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 28),
             child: Padding(
@@ -274,11 +309,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                       children: [
                         Text(
                           title,
-                          style: TextStyle(
-                            fontSize: description == null ? 13 : 12,
-                            color: foreground,
-                            height: 1.4,
-                          ),
+                          style: TextStyle(fontSize: 12, color: foreground),
                         ),
                         if (description != null) ...[
                           const SizedBox(height: 4),
@@ -286,7 +317,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                             description,
                             style: TextStyle(
                               fontSize: 11,
-                              color: foreground,
+                              color: descriptionColor,
                               height: 1.4,
                             ),
                           ),
@@ -301,10 +332,10 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                         ? const Icon(Symbols.check_rounded, size: 17)
                         : null,
                   ),
-                  if (description != null) ...[
+                  if (next) ...[
                     const SizedBox(width: 4),
                     SizedBox(
-                      width: 16,
+                      width: 17,
                       child: next
                           ? const Icon(Symbols.chevron_right_rounded, size: 16)
                           : null,
@@ -537,42 +568,81 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        for (final folder in permissions.folders)
-                          Padding(
-                            padding: EdgeInsets.zero,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Symbols.folder_rounded,
-                                  size: 16,
-                                  color: theme.textColorSecondary,
+                        if (permissions.folders.isNotEmpty)
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 144),
+                            child: ScrollConfiguration(
+                              behavior: const AppScrollBehavior(
+                                scrollbars: false,
+                              ),
+                              child: Scrollbar(
+                                key: const ValueKey(
+                                  'ai-permission-folders-scrollbar',
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: AppTooltip(
-                                    message: folder,
-                                    child: Text(
-                                      folder,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: descriptionStyle,
-                                    ),
+                                controller: _foldersScroll,
+                                notificationPredicate: (notification) =>
+                                    notification.depth == 0,
+                                child: SingleChildScrollView(
+                                  key: const ValueKey(
+                                    'ai-permission-folders-scroll',
+                                  ),
+                                  controller: _foldersScroll,
+                                  primary: false,
+                                  padding: const EdgeInsetsDirectional.only(
+                                    end: 20,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      for (final folder in permissions.folders)
+                                        Padding(
+                                          padding: EdgeInsets.zero,
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Symbols.folder_rounded,
+                                                size: 16,
+                                                color: theme.textColorSecondary,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: AppTooltip(
+                                                  message: folder,
+                                                  child: Text(
+                                                    folder,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: descriptionStyle,
+                                                  ),
+                                                ),
+                                              ),
+                                              AppTooltip(
+                                                message: l10n
+                                                    .aiPermissionRemoveFolder,
+                                                child: TitleBarIconButton(
+                                                  size: 22,
+                                                  onPressed: () => _update(
+                                                    folders: permissions.folders
+                                                        .where(
+                                                          (item) =>
+                                                              item != folder,
+                                                        )
+                                                        .toList(),
+                                                  ),
+                                                  isFocused: true,
+                                                  theme: theme,
+                                                  icon: Symbols.close_rounded,
+                                                  backgroundColor:
+                                                      theme.popupSurfaceColor,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
-                                AppTooltip(
-                                  message: l10n.aiPermissionRemoveFolder,
-                                  child: TitleBarIconButton(
-                                    onPressed: () => _update(
-                                      folders: permissions.folders
-                                          .where((item) => item != folder)
-                                          .toList(),
-                                    ),
-                                    isFocused: true,
-                                    theme: theme,
-                                    icon: Symbols.close_rounded,
-                                    backgroundColor: theme.popupSurfaceColor,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                         Padding(
