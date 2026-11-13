@@ -11,6 +11,7 @@ import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/storage/preferences.dart';
 import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/features/assistant/data/assistant_tools.dart';
 import 'package:lilygobox/features/assistant/data/chat_completion_client.dart';
 import 'package:lilygobox/features/assistant/data/credential_store.dart';
 import 'package:lilygobox/features/assistant/data/settings_tool_handler.dart';
@@ -34,12 +35,14 @@ Future<AssistantTestScope> createAssistantTestScope({
   required AppShellProvider shell,
   required SplitViewProvider splitView,
   http.Client? client,
+  AssistantTools? tools,
 }) async {
   final preferences = await AppPreferences.load(
     storage: _MemoryPreferencesStorage(),
   );
   final provider = AiAssistantProvider(
     preferences: preferences,
+    tools: tools,
     credentialStore: MemoryAiCredentialStore(),
     client: client == null ? null : ChatCompletionClient(client: client),
     settings: SettingsToolHandler(

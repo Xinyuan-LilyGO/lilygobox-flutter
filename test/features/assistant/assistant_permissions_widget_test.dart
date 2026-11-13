@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,12 +27,12 @@ void main() {
         testWidgets(
           'permission menu applies changes through real clicks ($dark/$locale/narrow:$narrow)',
           (tester) async {
-            if (narrow) {
-              tester.view.devicePixelRatio = 1;
-              tester.view.physicalSize = const Size(360, 760);
-              addTearDown(tester.view.resetPhysicalSize);
-              addTearDown(tester.view.resetDevicePixelRatio);
-            }
+            tester.view.devicePixelRatio = 1;
+            tester.view.physicalSize = narrow
+                ? const Size(360, 760)
+                : const Size(800, 500);
+            addTearDown(tester.view.resetPhysicalSize);
+            addTearDown(tester.view.resetDevicePixelRatio);
             final boundaryKey = GlobalKey();
             Future<void> capture(String name) async {
               if (!const bool.fromEnvironment('CAPTURE_PERMISSION_UI') ||
@@ -158,6 +159,54 @@ void main() {
             await tester.tap(custom);
             await tester.pumpAndSettle();
             await capture('custom');
+            final pageScroll = find.byKey(
+              const ValueKey('ai-permissions-scroll'),
+            );
+            final pageScrollbar = find.byKey(
+              const ValueKey('ai-permissions-scrollbar'),
+            );
+            expect(
+              ScrollbarTheme.of(tester.element(pageScrollbar)).crossAxisMargin,
+              AppScrollBehavior.scrollbarEdgeInset - 4,
+            );
+            // 右侧控件必须留在内容区，不能进入滑块使用的独立通道。
+            final contentRight = tester.getRect(pageScroll).right - 16;
+            for (final key in [
+              'ai-permission-execution',
+              'ai-permission-full-files',
+              'ai-permission-network',
+              'ai-permission-files',
+              'ai-permission-add-folder',
+            ]) {
+              expect(
+                tester.getRect(find.byKey(ValueKey(key))).right,
+                lessThanOrEqualTo(contentRight + .01),
+              );
+            }
+            final pageController = tester
+                .widget<SingleChildScrollView>(pageScroll)
+                .controller!;
+            expect(pageController.position.maxScrollExtent, greaterThan(0));
+            final initialOffset = pageController.offset;
+            final targetOffset = (initialOffset + 100).clamp(
+              0.0,
+              pageController.position.maxScrollExtent,
+            );
+            await tester.sendEventToBinding(
+              PointerScrollEvent(
+                position: tester.getCenter(pageScroll),
+                scrollDelta: const Offset(0, 100),
+              ),
+            );
+            expect(pageController.offset, initialOffset);
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 60));
+            expect(pageController.offset, greaterThan(initialOffset));
+            expect(pageController.offset, lessThan(targetOffset));
+            await tester.pumpAndSettle();
+            expect(pageController.offset, closeTo(targetOffset, .01));
+            pageController.jumpTo(0);
+            await tester.pumpAndSettle();
             expect(scope.provider.permissions.mode, AiApprovalMode.custom);
             expect(
               find.descendant(
@@ -214,19 +263,26 @@ void main() {
               const ValueKey('ai-permission-add-folder'),
             );
             expect(
-              tester.getRect(addFolder).top,
-              greaterThan(tester.getRect(foldersLabel).bottom),
+              tester.getRect(addFolder).center.dy,
+              closeTo(tester.getRect(foldersLabel).center.dy, .01),
             );
             final foldersHelp = find.byKey(
               const ValueKey('ai-permission-folders-help'),
             );
             expect(
               tester.getRect(addFolder).left,
-              greaterThan(tester.getRect(foldersHelp).right),
+              greaterThan(tester.getRect(foldersLabel).right),
             );
             expect(
-              tester.getRect(addFolder).center.dy,
-              closeTo(tester.getRect(foldersHelp).center.dy, .01),
+              tester.getRect(foldersHelp).top,
+              closeTo(
+                (tester.getRect(foldersLabel).bottom >
+                            tester.getRect(addFolder).bottom
+                        ? tester.getRect(foldersLabel).bottom
+                        : tester.getRect(addFolder).bottom) +
+                    4,
+                .01,
+              ),
             );
             expect(
               find.descendant(
@@ -308,6 +364,16 @@ void main() {
                   .widget<SingleChildScrollView>(list)
                   .controller!;
               expect(controller.position.maxScrollExtent, greaterThan(0));
+              expect(
+                ScrollbarTheme.of(
+                  tester.element(
+                    find.byKey(
+                      const ValueKey('ai-permission-folders-scrollbar'),
+                    ),
+                  ),
+                ).crossAxisMargin,
+                AppScrollBehavior.scrollbarEdgeInset,
+              );
               await tester.drag(list, const Offset(0, -120));
               await tester.pumpAndSettle();
               expect(controller.offset, greaterThan(0));

@@ -70,7 +70,7 @@ class MaterialPalette {
       type: ThemeType.light,
       nameKey: 'theme_light',
       primary: const Color(0xFFF5F5F5),
-      secondary: const Color(0xFFE0E0E0),
+      secondary: const Color(0xFFE6E6E6),
       tertiary: const Color(0xFFD0D0D0),
       textColorPrimary: const Color.fromARGB(255, 25, 25, 25),
       textColorSecondary: const Color.fromARGB(255, 35, 35, 35),

@@ -645,47 +645,51 @@ class _MessageViewState extends State<_MessageView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        InkWell(
-          key: ValueKey('ai-response-details-${message.id}'),
-          onTap: () {
-            final selection = context
-                .findAncestorStateOfType<SelectionAreaState>();
-            selection?.selectableRegion.clearSelection();
-            selection?.selectableRegion.hideToolbar();
-            setState(() => _detailsExpanded = !_detailsExpanded);
-          },
-          onHover: (hovered) => setState(() => _detailsHovered = hovered),
-          onFocusChange: (focused) => setState(() => _detailsFocused = focused),
-          mouseCursor: SystemMouseCursors.click,
-          hoverColor: Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
-          child: InteractionDecoration.color(
-            palette: widget.theme,
-            color: _detailsHovered || _detailsFocused
-                ? widget.theme.textColorPrimary
-                : widget.theme.textColorTertiary,
-            builder: (context, color) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 7),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
-                      _responseStatusText(context, message),
-                      style: TextStyle(color: color, fontSize: 12),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: InkWell(
+            key: ValueKey('ai-response-details-${message.id}'),
+            onTap: () {
+              final selection = context
+                  .findAncestorStateOfType<SelectionAreaState>();
+              selection?.selectableRegion.clearSelection();
+              selection?.selectableRegion.hideToolbar();
+              setState(() => _detailsExpanded = !_detailsExpanded);
+            },
+            onHover: (hovered) => setState(() => _detailsHovered = hovered),
+            onFocusChange: (focused) =>
+                setState(() => _detailsFocused = focused),
+            mouseCursor: SystemMouseCursors.click,
+            hoverColor: Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+            child: InteractionDecoration.color(
+              palette: widget.theme,
+              color: _detailsHovered || _detailsFocused
+                  ? widget.theme.textColorPrimary
+                  : widget.theme.textColorTertiary,
+              builder: (context, color) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 7),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        _responseStatusText(context, message),
+                        style: TextStyle(color: color, fontSize: 12),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  AnimatedRotation(
-                    turns: _detailsExpanded ? .25 : 0,
-                    duration: const Duration(milliseconds: 150),
-                    child: Icon(
-                      Symbols.chevron_right_rounded,
-                      size: 16,
-                      color: color,
+                    const SizedBox(width: 4),
+                    AnimatedRotation(
+                      turns: _detailsExpanded ? .25 : 0,
+                      duration: const Duration(milliseconds: 150),
+                      child: Icon(
+                        Symbols.chevron_right_rounded,
+                        size: 16,
+                        color: color,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

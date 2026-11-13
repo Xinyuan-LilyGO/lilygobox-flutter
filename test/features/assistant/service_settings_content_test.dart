@@ -19,8 +19,8 @@ import 'package:http/testing.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
-import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/theme/material_palette.dart';
+import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/widgets/action_button.dart';
 import 'package:lilygobox/core/widgets/menu_item_surface.dart';
 import 'package:lilygobox/core/widgets/settings/select.dart';
@@ -253,8 +253,19 @@ void main() {
       final modelTitle = find.text('Model');
       final fetchButton = find.byKey(const ValueKey('ai-discover-models'));
       expect(
-        tester.getTopLeft(fetchButton).dy,
-        greaterThan(tester.getBottomLeft(modelTitle).dy),
+        tester.getCenter(fetchButton).dy,
+        closeTo(tester.getCenter(modelTitle).dy, .01),
+      );
+      expect(
+        tester.getRect(fetchButton).left,
+        greaterThan(tester.getRect(modelTitle).right),
+      );
+      final modelsHint = find.text(
+        AppLocalizations.of(tester.element(fetchButton)).aiModelsHint,
+      );
+      expect(
+        tester.getRect(modelsHint).top,
+        closeTo(tester.getRect(fetchButton).bottom + 4, .01),
       );
       await fill(tester);
       expect(scope.provider.services, isEmpty);

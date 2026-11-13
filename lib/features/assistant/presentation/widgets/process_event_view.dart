@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -6,6 +8,9 @@ import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/interaction_decoration.dart';
 import '../../data/chat_completion_client.dart';
 import '../../domain/models.dart';
+import 'code_block.dart';
+import 'command_display.dart';
+import 'command_policy_text.dart';
 import 'error_text.dart';
 
 String? aiResponseStatusLabel(
@@ -25,6 +30,11 @@ String? aiResponseStatusLabel(
       'list_directory' => l10n.aiExecutingListDirectory,
       'read_file' => l10n.aiExecutingReadFile,
       'write_file' => l10n.aiExecutingWriteFile,
+      'run_command' => l10n.aiToolCommand,
+      'read_process' => l10n.aiToolProcessRead,
+      'write_process_input' => l10n.aiToolProcessInput,
+      'stop_process' => l10n.aiToolProcessStop,
+      'get_execution_environment' => l10n.aiToolEnvironment,
       'get_current_time' => l10n.aiExecutingReadTime,
       'read_webpage' => l10n.aiAccessingWeb,
       'set_theme' => l10n.aiExecutingSetTheme,
@@ -127,7 +137,8 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
 
     final args =
         action?.arguments ?? event.toolArguments ?? const <String, Object?>{};
-    final target = args['path'] ?? args['url'];
+    final target =
+        args['path'] ?? args['url'] ?? args['executable'] ?? args['process_id'];
     final title =
         widget.detailsEnabled &&
             event.type == AiProcessEventType.status &&
@@ -135,23 +146,39 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
         ? '$label · ${_shortOperationTarget(target, web: toolName == 'read_webpage')}'
         : label;
     final failure = action?.webFailure;
+    final resultSummary = action == null
+        ? null
+        : _operationSummary(context, action);
+    final processResult = action == null ? null : _processResult(action);
     final stages = widget.operationEvents
         .where((step) => step.type == AiProcessEventType.status)
         .toList();
     // 折叠展示一次操作做了什么，而不是显示工具返回的网页源码、文件正文或 JSON。
     final sections = <({String? title, String text})>[
       if (event.text.isNotEmpty) (title: null, text: event.text),
-      if (target is String && target.isNotEmpty)
+      if (toolName == 'run_command') ...[
+        (title: l10n.aiCommandFull, text: formatAiCommand(args)),
+        if (args['working_directory'] case final String directory)
+          (title: l10n.aiCommandDirectory, text: directory),
+      ] else if (target is String && target.isNotEmpty)
         (title: l10n.aiOperationTarget, text: target),
-      if (action != null && action.succeeded)
-        (
-          title: l10n.aiOperationSummary,
-          text: _operationSummary(context, action),
-        ),
+      if (resultSummary != null)
+        (title: l10n.aiOperationSummary, text: resultSummary),
       if (failure != null)
         (title: l10n.aiOperationError, text: aiErrorText(l10n, failure))
-      else if (action != null && !action.succeeded && action.output.isNotEmpty)
-        (title: l10n.aiOperationError, text: action.output),
+      else if (action != null &&
+          !action.succeeded &&
+          (processResult == null
+              ? action.output.isNotEmpty
+              : (processResult['output'] as String? ?? '').isNotEmpty))
+        (
+          title: l10n.aiOperationError,
+          text: processResult != null
+              ? processResult['output'] as String
+              : action.name == 'run_command'
+              ? aiCommandPolicyOutputText(l10n, action.output) ?? action.output
+              : action.output,
+        ),
     ];
     final hasDetails =
         widget.detailsEnabled &&
@@ -173,70 +200,98 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
         : hasDetails
         ? theme.textColorTertiary
         : theme.textColorSecondary;
+    final titleView = InteractionDecoration.color(
+      palette: theme,
+      color: labelColor,
+      // 箭头参与文字排版，换行后紧跟末行，而不是占据独立的右侧列。
+      builder: (context, color) => Text.rich(
+        TextSpan(
+          text: title,
+          children: [
+            if (hasDetails)
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.only(start: 4),
+                  child: AnimatedRotation(
+                    turns: _expanded ? .25 : 0,
+                    duration: arrowDuration,
+                    child: Icon(
+                      Symbols.chevron_right_rounded,
+                      size: 16,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        style: TextStyle(color: color, fontSize: 12, height: 1.5),
+      ),
+    );
+    final summary = Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(
+            failed
+                ? Symbols.error_outline_rounded
+                : isWeb
+                ? Symbols.language_rounded
+                : event.status == AiResponseStatus.awaitingApproval ||
+                      event.status == AiResponseStatus.preparingTools
+                ? statusIcon
+                : toolName != null
+                ? _toolIcon(toolName)
+                : modelNote
+                ? (isThinking ? Symbols.neurology_rounded : Symbols.blur_on)
+                : event.type == AiProcessEventType.retry
+                ? Symbols.refresh_rounded
+                : statusIcon,
+            fill:
+                (!failed && isWeb) ||
+                    (modelNote && isThinking) ||
+                    event.status == AiResponseStatus.thinking
+                ? 0
+                : modelNote
+                ? null
+                : 1,
+            size: 12,
+            color: failed
+                ? Theme.of(context).colorScheme.error
+                : theme.textColorTertiary,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(child: titleView),
+      ],
+    );
     final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Icon(
-              failed
-                  ? Symbols.error_outline_rounded
-                  : isWeb
-                  ? Symbols.language_rounded
-                  : event.status == AiResponseStatus.awaitingApproval ||
-                        event.status == AiResponseStatus.preparingTools
-                  ? statusIcon
-                  : toolName != null
-                  ? _toolIcon(toolName)
-                  : modelNote
-                  ? (isThinking ? Symbols.neurology_rounded : Symbols.blur_on)
-                  : event.type == AiProcessEventType.retry
-                  ? Symbols.refresh_rounded
-                  : statusIcon,
-              fill:
-                  (!failed && isWeb) ||
-                      (modelNote && isThinking) ||
-                      event.status == AiResponseStatus.thinking
-                  ? 0
-                  : modelNote
-                  ? null
-                  : 1,
-              size: 12,
-              color: failed
-                  ? Theme.of(context).colorScheme.error
-                  : theme.textColorTertiary,
-            ),
-          ),
-          const SizedBox(width: 8),
           Expanded(
-            child: InteractionDecoration.color(
-              palette: theme,
-              color: labelColor,
-              builder: (context, color) => Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
-                      title,
-                      style: TextStyle(color: color, fontSize: 12, height: 1.5),
-                    ),
-                  ),
-                  if (hasDetails) ...[
-                    const SizedBox(width: 4),
-                    AnimatedRotation(
-                      turns: _expanded ? .25 : 0,
-                      duration: arrowDuration,
-                      child: Icon(
-                        Symbols.chevron_right_rounded,
-                        size: 16,
-                        color: color,
+            // 点击范围只包含图标、标题和箭头，右侧留白与时间不参与折叠。
+            child: Align(
+              alignment: AlignmentDirectional.topStart,
+              child: hasDetails
+                  ? Semantics(
+                      expanded: _expanded,
+                      child: InkWell(
+                        onTap: _toggle,
+                        onHover: (value) => setState(() => _hovered = value),
+                        onFocusChange: (value) =>
+                            setState(() => _focused = value),
+                        mouseCursor: SystemMouseCursors.click,
+                        hoverColor: Colors.transparent,
+                        borderRadius: BorderRadius.circular(4),
+                        child: summary,
                       ),
-                    ),
-                  ],
-                ],
-              ),
+                    )
+                  : summary,
             ),
           ),
           const SizedBox(width: 10),
@@ -256,21 +311,7 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (hasDetails)
-            Semantics(
-              expanded: _expanded,
-              child: InkWell(
-                onTap: _toggle,
-                onHover: (value) => setState(() => _hovered = value),
-                onFocusChange: (value) => setState(() => _focused = value),
-                mouseCursor: SystemMouseCursors.click,
-                hoverColor: Colors.transparent,
-                borderRadius: BorderRadius.circular(4),
-                child: row,
-              ),
-            )
-          else
-            row,
+          row,
           // 收起后移除正文，避免全选选到未显示的思考、参数和返回内容。
           ClipRect(
             child: AnimatedSize(
@@ -306,14 +347,24 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
                                   ),
                                 ),
                               ),
-                            Text(
-                              section.text,
-                              style: TextStyle(
-                                fontSize: 12,
-                                height: 1.6,
-                                color: theme.textColorSecondary,
+                            if (toolName == 'run_command' &&
+                                section.title == l10n.aiCommandFull)
+                              ChatCodeBlock(
+                                text: section.text,
+                                language: aiCommandDisplayLanguage,
+                                theme: theme,
+                                maxBodyHeight: 160,
+                                initialSoftWrap: true,
+                              )
+                            else
+                              Text(
+                                section.text,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  height: 1.6,
+                                  color: theme.textColorSecondary,
+                                ),
                               ),
-                            ),
                             const SizedBox(height: 6),
                           ],
                         ],
@@ -334,6 +385,11 @@ IconData _toolIcon(String name) => switch (name) {
   'write_file' => Symbols.edit_document_rounded,
   'get_current_time' => Symbols.schedule_rounded,
   'read_webpage' => Symbols.language_rounded,
+  'run_command' => Symbols.terminal_rounded,
+  'get_execution_environment' => Symbols.computer_rounded,
+  'read_process' => Symbols.article_rounded,
+  'write_process_input' => Symbols.keyboard_rounded,
+  'stop_process' => Symbols.stop_circle_rounded,
   'set_theme' => Symbols.palette_rounded,
   'set_language' => Symbols.translate_rounded,
   'set_font' => Symbols.font_download_rounded,
@@ -367,6 +423,12 @@ String _aiActionSummary(
   final l10n = context.l10n;
   return switch (name) {
     'get_current_time' => l10n.aiToolTime,
+    'run_command' => '${l10n.aiToolCommand}: ${args['executable']}',
+    'get_execution_environment' => l10n.aiToolEnvironment,
+    'read_process' => '${l10n.aiToolProcessRead}: ${args['process_id']}',
+    'write_process_input' =>
+      '${l10n.aiToolProcessInput}: ${args['process_id']}',
+    'stop_process' => '${l10n.aiToolProcessStop}: ${args['process_id']}',
     'read_webpage' => '${l10n.aiToolWeb}: ${args['url']}',
     'list_directory' => '${l10n.aiToolList}: ${args['path']}',
     'read_file' => '${l10n.aiToolRead}: ${args['path']}',
@@ -415,10 +477,30 @@ String _shortOperationTarget(String target, {required bool web}) {
 String _operationResultLabel(BuildContext context, AiProcessingStep action) {
   final l10n = context.l10n;
   final args = action.arguments;
-  final rawTarget = args['path'] ?? args['url'];
+  final rawTarget =
+      args['path'] ?? args['url'] ?? args['executable'] ?? args['process_id'];
   final target = rawTarget is String
       ? _shortOperationTarget(rawTarget, web: action.name == 'read_webpage')
       : '';
+  final process = _processResult(action);
+  if (action.name == 'run_command') {
+    if (process?['timed_out'] == true) return l10n.aiCommandTimedOut(target);
+    if (process?['stopped'] == true) {
+      return process?['running'] == true
+          ? l10n.aiCommandStopping(target)
+          : l10n.aiProcessStoppedLabel(target);
+    }
+    final exitCode = process?['exit_code'];
+    if (!action.succeeded || (exitCode is int && exitCode != 0)) {
+      return l10n.aiCommandFailed(target);
+    }
+    if (exitCode is int) return l10n.aiCommandFinished(target);
+    if (process?['running'] == true) return l10n.aiCommandStarted(target);
+    return l10n.aiCommandRan(target);
+  }
+  if (action.name == 'read_process' && action.succeeded) {
+    return l10n.aiProcessOutputRead(target);
+  }
   if (!action.succeeded) {
     return action.name == 'read_webpage'
         ? l10n.aiWebFailed(target)
@@ -426,6 +508,7 @@ String _operationResultLabel(BuildContext context, AiProcessingStep action) {
             _aiActionSummary(context, action.name, {
               ...args,
               if (args.containsKey('path')) 'path': target,
+              if (args.containsKey('executable')) 'executable': target,
             }),
           );
   }
@@ -441,9 +524,48 @@ String _operationResultLabel(BuildContext context, AiProcessingStep action) {
   };
 }
 
-String _operationSummary(BuildContext context, AiProcessingStep action) {
+// 旧记录及非进程结果不猜测状态，也不把“调用成功”当成“进程已完成”。
+Map<String, dynamic>? _processResult(AiProcessingStep action) {
+  if (!const {
+    'run_command',
+    'read_process',
+    'stop_process',
+  }.contains(action.name)) {
+    return null;
+  }
+  try {
+    final value = jsonDecode(action.output);
+    if (value is Map<String, dynamic> &&
+        value['running'] is bool &&
+        (value['exit_code'] == null || value['exit_code'] is int) &&
+        (value['output'] == null || value['output'] is String)) {
+      return value;
+    }
+  } on FormatException {
+    // 兼容旧版本的纯文本结果，仍保留原始错误说明。
+  }
+  return null;
+}
+
+String? _operationSummary(BuildContext context, AiProcessingStep action) {
   final l10n = context.l10n;
+  final result = _processResult(action);
+  if (result != null) {
+    if (result['timed_out'] == true) return l10n.aiProcessTimedOutSummary;
+    if (result['stopped'] == true) {
+      return result['running'] == true
+          ? l10n.aiProcessStoppingSummary
+          : l10n.aiProcessStoppedSummary;
+    }
+    final code = result['exit_code'];
+    if (code is int) return l10n.aiProcessExitedSummary(code);
+    if (result['running'] == true) return l10n.aiProcessRunningSummary;
+    return null;
+  }
+  if (!action.succeeded) return null;
   return switch (action.name) {
+    'run_command' || 'read_process' || 'stop_process' => null,
+    'write_process_input' => l10n.aiProcessInputSentSummary,
     'read_webpage' => l10n.aiWebReadSummary,
     'list_directory' => l10n.aiDirectoryReadSummary,
     'read_file' => l10n.aiFileReadSummary,

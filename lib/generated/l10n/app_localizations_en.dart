@@ -1960,6 +1960,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiCopyCode => 'Copy code';
 
   @override
+  String get aiEnableCodeWrap => 'Enable word wrap';
+
+  @override
+  String get aiDisableCodeWrap => 'Disable word wrap';
+
+  @override
   String get aiPlainText => 'Plain text';
 
   @override
@@ -2011,18 +2017,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiPermissionCustomSummary =>
-      'Set automatic access to webpages and files.';
+      'Set permissions for commands, files and web access.';
 
   @override
   String get aiPermissionRequestHelp =>
       'App settings and public HTTPS pages can be accessed directly. Local file operations require approval unless granted in Custom permissions. Each approval applies only to the displayed operation.';
 
   @override
-  String get aiPermissionNetwork => 'Allow webpage access';
+  String get aiPermissionNetwork => 'Allow network access';
 
   @override
   String get aiPermissionNetworkHelp =>
-      'When off, webpage access requires approval.';
+      'Allow web access. Ask for approval when disabled.';
 
   @override
   String get aiPermissionFiles => 'Default folder access';
@@ -2062,7 +2068,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiPermissionSessionHelp =>
-      'Permissions apply to this conversation and reset when it is cleared or the app restarts. File contents read by the assistant are sent to your configured model service. Running terminal commands and deleting files are not supported.';
+      'Permissions reset when the conversation is cleared or the app restarts. File contents and command output may be sent to the configured model service. Local commands are not sandboxed and can access files, networks and devices.';
 
   @override
   String get aiAwaitingApproval => 'Waiting for approval';
@@ -2097,4 +2103,153 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get aiPermissionFolderFailed =>
       'Unable to open the folder picker. Please try again.';
+
+  @override
+  String get aiPermissionExecution => 'Run local commands';
+
+  @override
+  String get aiPermissionExecutionHelp =>
+      'Allow commands, including device access, firmware flashing and tool installation.';
+
+  @override
+  String get aiPermissionFullFiles => 'Full file access';
+
+  @override
+  String get aiPermissionFullFilesHelp =>
+      'Allow access to local files without folder grants, within system permissions.';
+
+  @override
+  String get aiCommandApprovalNotice =>
+      'Local commands are not sandboxed and can access files, networks and devices, install tools and change the environment. Approval applies only to this command and its child processes.';
+
+  @override
+  String get aiCommandReason => 'Purpose';
+
+  @override
+  String get aiCommandArguments => 'Arguments';
+
+  @override
+  String get aiCommandDirectory => 'Working directory';
+
+  @override
+  String get aiToolCommand => 'Run local command';
+
+  @override
+  String get aiToolProcessRead => 'Read process output';
+
+  @override
+  String get aiToolProcessInput => 'Send process input';
+
+  @override
+  String get aiToolProcessStop => 'Stop process';
+
+  @override
+  String get aiToolEnvironment => 'Inspect execution environment';
+
+  @override
+  String get aiCommandSafetyTitle => 'Command needs confirmation';
+
+  @override
+  String get aiCommandRiskForceDelete =>
+      'This command includes forced or recursive deletion and may permanently delete files.';
+
+  @override
+  String get aiCommandRiskDiscardChanges =>
+      'This command may discard local file changes.';
+
+  @override
+  String get aiCommandRiskDiskWrite =>
+      'This command may modify disks or partitions and cause data loss.';
+
+  @override
+  String get aiCommandRiskOpaqueScript =>
+      'This call contains a script or dynamic expressions whose subsequent operations cannot be fully analyzed.';
+
+  @override
+  String get aiCommandRulePrompt =>
+      'A command rule requires approval for this call.';
+
+  @override
+  String get aiCommandMatchedRules => 'Matched rules';
+
+  @override
+  String get aiCommandPolicyForbidden =>
+      'A forbidden rule blocked this command. It was not executed.';
+
+  @override
+  String get aiCommandPolicyInvalidRules =>
+      'Command rules could not be read or validated. The command was not executed. Check command-rules.json.';
+
+  @override
+  String get aiCommandPolicyApprovalRequired =>
+      'This command requires approval and was not executed.';
+
+  @override
+  String get aiCommandPolicyChanged =>
+      'Command rules changed while this call was pending. The command was not executed; submit it again for review.';
+
+  @override
+  String aiCommandRan(String target) {
+    return 'Ran command · $target';
+  }
+
+  @override
+  String aiCommandStarted(String target) {
+    return 'Process started · $target';
+  }
+
+  @override
+  String aiCommandFinished(String target) {
+    return 'Command completed · $target';
+  }
+
+  @override
+  String aiCommandFailed(String target) {
+    return 'Command failed · $target';
+  }
+
+  @override
+  String aiCommandTimedOut(String target) {
+    return 'Command timed out · $target';
+  }
+
+  @override
+  String aiProcessStoppedLabel(String target) {
+    return 'Process stopped · $target';
+  }
+
+  @override
+  String aiProcessOutputRead(String target) {
+    return 'Read process output · $target';
+  }
+
+  @override
+  String get aiProcessRunningSummary => 'The process is still running.';
+
+  @override
+  String aiProcessExitedSummary(int code) {
+    return 'The process exited with code $code.';
+  }
+
+  @override
+  String get aiProcessTimedOutSummary =>
+      'Execution timed out. Process termination was requested.';
+
+  @override
+  String get aiProcessStoppedSummary => 'The process has stopped.';
+
+  @override
+  String get aiProcessStoppingSummary =>
+      'Stop requested. Waiting for the process to exit.';
+
+  @override
+  String get aiProcessInputSentSummary => 'Input was sent to the process.';
+
+  @override
+  String aiCommandStopping(String target) {
+    return 'Stopping process · $target';
+  }
+
+  @override
+  String get aiCommandFull => 'Full command';
 }

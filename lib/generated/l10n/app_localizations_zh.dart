@@ -1827,6 +1827,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiCopyCode => '复制代码';
 
   @override
+  String get aiEnableCodeWrap => '开启自动换行';
+
+  @override
+  String get aiDisableCodeWrap => '关闭自动换行';
+
+  @override
   String get aiPlainText => '纯文本';
 
   @override
@@ -1877,17 +1883,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiPermissionRequestSummary => '执行受限操作前请求批准。';
 
   @override
-  String get aiPermissionCustomSummary => '设置网页和文件的自动访问范围。';
+  String get aiPermissionCustomSummary => '设置命令、文件和网页访问权限。';
 
   @override
   String get aiPermissionRequestHelp =>
       '软件设置与公开 HTTPS 网页可直接访问。本地文件操作需要逐次批准，或在自定义权限中授权。每次批准仅适用于展示的操作。';
 
   @override
-  String get aiPermissionNetwork => '允许访问网页';
+  String get aiPermissionNetwork => '允许联网';
 
   @override
-  String get aiPermissionNetworkHelp => '关闭后，访问网页前需要批准。';
+  String get aiPermissionNetworkHelp => '允许访问网页，关闭后需请求批准。';
 
   @override
   String get aiPermissionFiles => '默认文件夹访问权限';
@@ -1924,7 +1930,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiPermissionSessionHelp =>
-      '权限仅在本次会话生效，清空会话或重启软件后重置。读取的文件内容会发送至配置的模型服务。不支持执行终端命令或删除文件。';
+      '权限在清空会话或重启软件后重置。文件内容和命令输出可能发送至配置的模型服务。本机命令未使用系统沙箱，可访问文件、网络和设备。';
 
   @override
   String get aiAwaitingApproval => '等待批准';
@@ -1958,4 +1964,141 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiPermissionFolderFailed => '无法打开文件夹选择器，请重试。';
+
+  @override
+  String get aiPermissionExecution => '运行本机命令';
+
+  @override
+  String get aiPermissionExecutionHelp => '允许执行命令，包括访问设备、烧录固件及安装工具。';
+
+  @override
+  String get aiPermissionFullFiles => '文件完全访问';
+
+  @override
+  String get aiPermissionFullFilesHelp => '允许访问本地文件，无需逐文件夹授权，仍受系统权限限制。';
+
+  @override
+  String get aiCommandApprovalNotice =>
+      '本机命令未使用系统沙箱，可访问文件、网络和设备，以及安装工具和修改环境。本次批准仅适用于这条命令及其子进程。';
+
+  @override
+  String get aiCommandReason => '操作目的';
+
+  @override
+  String get aiCommandArguments => '命令参数';
+
+  @override
+  String get aiCommandDirectory => '工作目录';
+
+  @override
+  String get aiToolCommand => '运行本机命令';
+
+  @override
+  String get aiToolProcessRead => '读取进程输出';
+
+  @override
+  String get aiToolProcessInput => '发送进程输入';
+
+  @override
+  String get aiToolProcessStop => '停止进程';
+
+  @override
+  String get aiToolEnvironment => '检查运行环境';
+
+  @override
+  String get aiCommandSafetyTitle => '命令需要额外确认';
+
+  @override
+  String get aiCommandRiskForceDelete => '此命令包含强制或递归删除操作，可能永久删除文件。';
+
+  @override
+  String get aiCommandRiskDiscardChanges => '此命令可能丢弃本地文件修改。';
+
+  @override
+  String get aiCommandRiskDiskWrite => '此命令可能修改磁盘或分区，导致数据丢失。';
+
+  @override
+  String get aiCommandRiskOpaqueScript => '此调用包含脚本或动态表达式，无法完整分析其后续操作。';
+
+  @override
+  String get aiCommandRulePrompt => '命令规则要求此次调用先获得批准。';
+
+  @override
+  String get aiCommandMatchedRules => '匹配规则';
+
+  @override
+  String get aiCommandPolicyForbidden => '命令被禁止规则拦截，未执行。';
+
+  @override
+  String get aiCommandPolicyInvalidRules =>
+      '无法读取或校验命令规则，命令未执行。请检查 command-rules.json。';
+
+  @override
+  String get aiCommandPolicyApprovalRequired => '此命令需要批准，尚未执行。';
+
+  @override
+  String get aiCommandPolicyChanged => '等待期间命令规则已变更，本次命令未执行，请重新提交并审核。';
+
+  @override
+  String aiCommandRan(String target) {
+    return '已运行命令 · $target';
+  }
+
+  @override
+  String aiCommandStarted(String target) {
+    return '进程已启动 · $target';
+  }
+
+  @override
+  String aiCommandFinished(String target) {
+    return '命令已完成 · $target';
+  }
+
+  @override
+  String aiCommandFailed(String target) {
+    return '命令执行失败 · $target';
+  }
+
+  @override
+  String aiCommandTimedOut(String target) {
+    return '命令执行超时 · $target';
+  }
+
+  @override
+  String aiProcessStoppedLabel(String target) {
+    return '进程已停止 · $target';
+  }
+
+  @override
+  String aiProcessOutputRead(String target) {
+    return '已读取进程输出 · $target';
+  }
+
+  @override
+  String get aiProcessRunningSummary => '进程仍在运行，尚未结束。';
+
+  @override
+  String aiProcessExitedSummary(int code) {
+    return '进程已退出，退出码 $code。';
+  }
+
+  @override
+  String get aiProcessTimedOutSummary => '执行超时，已请求终止进程。';
+
+  @override
+  String get aiProcessStoppedSummary => '进程已停止。';
+
+  @override
+  String get aiProcessStoppingSummary => '已请求停止，正在等待进程结束。';
+
+  @override
+  String get aiProcessInputSentSummary => '已发送进程输入。';
+
+  @override
+  String aiCommandStopping(String target) {
+    return '正在停止进程 · $target';
+  }
+
+  @override
+  String get aiCommandFull => '完整命令';
 }

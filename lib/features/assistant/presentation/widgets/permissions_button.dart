@@ -26,6 +26,7 @@ import '../../../../core/widgets/settings/select.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../domain/permissions.dart';
 import '../../state/provider.dart';
+import 'permission_labels.dart';
 
 /// 权限按会话配置，批准一次只放行当前工具调用。
 class AssistantPermissionsButton extends StatefulWidget {
@@ -97,7 +98,7 @@ class _AssistantPermissionsButtonState
             child: PopupMenuSurface(
               theme: theme,
               borderRadius: BorderRadius.circular(8),
-              padding: const EdgeInsets.fromLTRB(8, 8, 6, 12),
+              padding: const EdgeInsets.fromLTRB(8, 8, 4, 12),
               child: SizedBox(
                 width: width + 4,
                 child: _PermissionsPanel(
@@ -194,6 +195,8 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
   void _update({
     AiApprovalMode? mode,
     bool? network,
+    bool? execution,
+    bool? fullFiles,
     AiFileAccess? files,
     List<String>? folders,
     Map<String, AiFileAccess>? folderAccess,
@@ -203,6 +206,8 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
       AiPermissions(
         mode: mode ?? current.mode,
         network: network ?? current.network,
+        execution: execution ?? current.execution,
+        fullFiles: fullFiles ?? current.fullFiles,
         files: files ?? current.files,
         folders: folders ?? current.folders,
         folderAccess: folderAccess ?? current.folderAccess,
@@ -440,6 +445,90 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
     ),
   );
 
+  Widget _capabilitySwitch(
+    AiPermissionCategory category,
+    AiPermissions permissions,
+  ) {
+    final theme = widget.theme;
+    final title = aiPermissionCategoryLabel(context.l10n, category);
+    final key = switch (category) {
+      AiPermissionCategory.network => 'ai-permission-network',
+      AiPermissionCategory.fullFiles => 'ai-permission-full-files',
+      _ => 'ai-permission-${category.name}',
+    };
+    final value = switch (category) {
+      AiPermissionCategory.execution => permissions.execution,
+      AiPermissionCategory.fullFiles => permissions.fullFiles,
+      AiPermissionCategory.network => permissions.network,
+    };
+    return Padding(
+      padding: EdgeInsets.only(
+        top: category == AiPermissionCategory.execution ? 0 : 16,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          MergeSemantics(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.textColorSecondary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 44,
+                  height: 28,
+                  child: FittedBox(
+                    fit: BoxFit.contain,
+                    child: Switch(
+                      key: ValueKey(key),
+                      value: value,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      activeTrackColor: theme.basePrimary,
+                      inactiveTrackColor: theme.selectControlColorForSurface(
+                        theme.popupSurfaceColor,
+                      ),
+                      activeThumbColor: theme.materialColors.onPrimary,
+                      inactiveThumbColor: theme.materialColors.onPrimary,
+                      trackOutlineColor: const WidgetStatePropertyAll(
+                        Colors.transparent,
+                      ),
+                      onChanged: (enabled) {
+                        switch (category) {
+                          case AiPermissionCategory.execution:
+                            _update(execution: enabled);
+                          case AiPermissionCategory.fullFiles:
+                            _update(fullFiles: enabled);
+                          case AiPermissionCategory.network:
+                            _update(network: enabled);
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            aiPermissionCategoryHelp(context.l10n, category),
+            style: TextStyle(
+              fontSize: 11,
+              height: 1.4,
+              color: theme.textColorTertiary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.assistant,
@@ -499,306 +588,329 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                 ),
               ),
               Flexible(
-                child: SingleChildScrollView(
-                  controller: _scroll,
-                  padding: const EdgeInsets.only(left: 4, right: 6),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (!_custom) ...[
-                        _option(
-                          key: const ValueKey('ai-permission-mode-request'),
-                          icon: Symbols.front_hand_rounded,
-                          title: l10n.aiPermissionRequest,
-                          description: l10n.aiPermissionRequestSummary,
-                          selected:
-                              permissions.mode == AiApprovalMode.onRequest,
-                          onPressed: () {
-                            _update(mode: AiApprovalMode.onRequest);
-                            widget.onClose();
-                          },
-                        ),
-                        const SizedBox(height: 8),
-                        _option(
-                          key: const ValueKey('ai-permission-mode-custom'),
-                          icon: Symbols.tune_rounded,
-                          title: l10n.aiPermissionCustom,
-                          description: l10n.aiPermissionCustomSummary,
-                          selected: permissions.mode == AiApprovalMode.custom,
-                          onPressed: _showCustom,
-                          next: true,
-                        ),
-                      ] else ...[
-                        Row(
+                child: ScrollbarTheme(
+                  data: ScrollbarTheme.of(context).copyWith(
+                    // 菜单右侧已有 4 px 留白，与选择模型保持相同的靠边距离。
+                    crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset - 4,
+                  ),
+                  child: Scrollbar(
+                    key: const ValueKey('ai-permissions-scrollbar'),
+                    controller: _scroll,
+                    notificationPredicate: (notification) =>
+                        notification.depth == 0,
+                    child: ScrollConfiguration(
+                      behavior: const AppScrollBehavior(scrollbars: false),
+                      child: SingleChildScrollView(
+                        key: const ValueKey('ai-permissions-scroll'),
+                        controller: _scroll,
+                        padding: const EdgeInsets.only(left: 4, right: 16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Expanded(
-                              child: Text(
-                                l10n.aiPermissionNetwork,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: theme.textColorSecondary,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: 44,
-                              height: 28,
-                              child: FittedBox(
-                                fit: BoxFit.contain,
-                                child: Switch(
-                                  key: const ValueKey('ai-permission-network'),
-                                  value: permissions.network,
-                                  materialTapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                  activeTrackColor: theme.basePrimary,
-                                  inactiveTrackColor: theme
-                                      .selectControlColorForSurface(
-                                        theme.popupSurfaceColor,
-                                      ),
-                                  activeThumbColor:
-                                      theme.materialColors.onPrimary,
-                                  inactiveThumbColor:
-                                      theme.materialColors.onPrimary,
-                                  trackOutlineColor:
-                                      const WidgetStatePropertyAll(
-                                        Colors.transparent,
-                                      ),
-                                  onChanged: (value) => _update(network: value),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            l10n.aiPermissionNetworkHelp,
-                            style: descriptionStyle,
-                          ),
-                        ),
-                        _section(
-                          l10n.aiPermissionFiles,
-                          description: l10n.aiPermissionDefaultFoldersHelp,
-                        ),
-                        SettingSelect<AiFileAccess>(
-                          key: const ValueKey('ai-permission-files'),
-                          theme: theme,
-                          surfaceColor: theme.popupSurfaceColor,
-                          dropdownTapRegionGroupId: widget.menuController,
-                          value: permissions.files,
-                          items: _fileAccessItems(),
-                          onChanged: (value) {
-                            if (value != null) _update(files: value);
-                          },
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 16, bottom: 4),
-                          child: Text(
-                            l10n.aiPermissionFolders,
-                            key: const ValueKey('ai-permission-folders-label'),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.textColorSecondary,
-                            ),
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                permissions.folders.isEmpty
-                                    ? l10n.aiPermissionNoFolders
-                                    : l10n.aiPermissionFoldersHelp,
+                            if (!_custom) ...[
+                              _option(
                                 key: const ValueKey(
-                                  'ai-permission-folders-help',
+                                  'ai-permission-mode-request',
                                 ),
-                                style: descriptionStyle,
+                                icon: Symbols.front_hand_rounded,
+                                title: l10n.aiPermissionRequest,
+                                description: l10n.aiPermissionRequestSummary,
+                                selected:
+                                    permissions.mode ==
+                                    AiApprovalMode.onRequest,
+                                onPressed: () {
+                                  _update(mode: AiApprovalMode.onRequest);
+                                  widget.onClose();
+                                },
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            AppActionButton(
-                              key: const ValueKey('ai-permission-add-folder'),
-                              theme: theme,
-                              label: l10n.aiPermissionAddFolder,
-                              icon: Symbols.add_rounded,
-                              iconSize: 16,
-                              iconSpacing: 6,
-                              surfaceColor: theme.popupSurfaceColor,
-                              backgroundColor: Color.lerp(
-                                theme.popupSurfaceColor,
-                                theme.textColorPrimary,
-                                .06,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 7,
-                              ),
-                              onPressed: _picking ? null : _addFolder,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        if (permissions.folders.isNotEmpty)
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxHeight: 144),
-                            child: ScrollConfiguration(
-                              behavior: const AppScrollBehavior(
-                                scrollbars: false,
-                              ),
-                              child: Scrollbar(
+                              const SizedBox(height: 8),
+                              _option(
                                 key: const ValueKey(
-                                  'ai-permission-folders-scrollbar',
+                                  'ai-permission-mode-custom',
                                 ),
-                                controller: _foldersScroll,
-                                notificationPredicate: (notification) =>
-                                    notification.depth == 0,
-                                child: SingleChildScrollView(
-                                  key: const ValueKey(
-                                    'ai-permission-folders-scroll',
+                                icon: Symbols.tune_rounded,
+                                title: l10n.aiPermissionCustom,
+                                description: l10n.aiPermissionCustomSummary,
+                                selected:
+                                    permissions.mode == AiApprovalMode.custom,
+                                onPressed: _showCustom,
+                                next: true,
+                              ),
+                            ] else ...[
+                              for (final category
+                                  in AiPermissionCategory.values)
+                                _capabilitySwitch(category, permissions),
+                              if (!permissions.fullFiles) ...[
+                                _section(
+                                  l10n.aiPermissionFiles,
+                                  description:
+                                      l10n.aiPermissionDefaultFoldersHelp,
+                                ),
+                                SettingSelect<AiFileAccess>(
+                                  key: const ValueKey('ai-permission-files'),
+                                  theme: theme,
+                                  surfaceColor: theme.popupSurfaceColor,
+                                  dropdownTapRegionGroupId:
+                                      widget.menuController,
+                                  value: permissions.files,
+                                  items: _fileAccessItems(),
+                                  onChanged: (value) {
+                                    if (value != null) _update(files: value);
+                                  },
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    top: 16,
+                                    bottom: 4,
                                   ),
-                                  controller: _foldersScroll,
-                                  primary: false,
-                                  padding: const EdgeInsetsDirectional.only(
-                                    end: 20,
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
+                                  child: Row(
                                     children: [
-                                      for (final folder in permissions.folders)
-                                        Padding(
-                                          padding: EdgeInsets.zero,
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.stretch,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  Icon(
-                                                    Symbols.folder_rounded,
-                                                    size: 16,
-                                                    fill: 1,
-                                                    color: theme
-                                                        .textColorSecondary,
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                    child: AppTooltip(
-                                                      message: folder,
-                                                      child: Text(
-                                                        _folderName(folder),
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        style: descriptionStyle,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  SettingSelect<AiFileAccess>(
-                                                    key: ValueKey(
-                                                      'ai-permission-folder-select-$folder',
-                                                    ),
-                                                    theme: theme,
-                                                    surfaceColor:
-                                                        theme.popupSurfaceColor,
-                                                    dropdownTapRegionGroupId:
-                                                        widget.menuController,
-                                                    dropdownWidth:
-                                                        240 *
-                                                        MediaQuery.textScalerOf(
-                                                          context,
-                                                        ).scale(1),
-                                                    value: permissions
-                                                        .accessForFolder(
-                                                          folder,
-                                                        ),
-                                                    items: _fileAccessItems(),
-                                                    onChanged: (value) {
-                                                      if (value == null) {
-                                                        return;
-                                                      }
-                                                      _update(
-                                                        folderAccess: {
-                                                          ...widget
-                                                              .assistant
-                                                              .permissions
-                                                              .folderAccess,
-                                                          folder: value,
-                                                        },
-                                                      );
-                                                    },
-                                                    triggerBuilder: (context, onPressed) => AppTooltip(
-                                                      message: _fileAccessLabel(
-                                                        permissions
-                                                            .accessForFolder(
-                                                              folder,
-                                                            ),
-                                                      ),
-                                                      child: TitleBarIconButton(
-                                                        key: ValueKey(
-                                                          'ai-permission-folder-access-$folder',
-                                                        ),
-                                                        size: 22,
-                                                        onPressed: onPressed,
-                                                        isFocused: true,
-                                                        theme: theme,
-                                                        icon: Symbols
-                                                            .shield_rounded,
-                                                        iconColor:
-                                                            _fileAccessColor(
-                                                              permissions
-                                                                  .accessForFolder(
-                                                                    folder,
-                                                                  ),
-                                                            ),
-                                                        backgroundColor: theme
-                                                            .popupSurfaceColor,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  AppTooltip(
-                                                    message: l10n
-                                                        .aiPermissionRemoveFolder,
-                                                    child: TitleBarIconButton(
-                                                      size: 22,
-                                                      onPressed: () => _update(
-                                                        folders: permissions
-                                                            .folders
-                                                            .where(
-                                                              (item) =>
-                                                                  item !=
-                                                                  folder,
-                                                            )
-                                                            .toList(),
-                                                      ),
-                                                      isFocused: true,
-                                                      theme: theme,
-                                                      icon:
-                                                          Symbols.close_rounded,
-                                                      backgroundColor: theme
-                                                          .popupSurfaceColor,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
+                                      Expanded(
+                                        child: Text(
+                                          l10n.aiPermissionFolders,
+                                          key: const ValueKey(
+                                            'ai-permission-folders-label',
+                                          ),
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: theme.textColorSecondary,
                                           ),
                                         ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      AppActionButton(
+                                        key: const ValueKey(
+                                          'ai-permission-add-folder',
+                                        ),
+                                        theme: theme,
+                                        label: l10n.aiPermissionAddFolder,
+                                        icon: Symbols.add_rounded,
+                                        iconSize: 16,
+                                        iconSpacing: 6,
+                                        surfaceColor: theme.popupSurfaceColor,
+                                        backgroundColor: Color.lerp(
+                                          theme.popupSurfaceColor,
+                                          theme.textColorPrimary,
+                                          .06,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 7,
+                                        ),
+                                        onPressed: _picking ? null : _addFolder,
+                                      ),
                                     ],
                                   ),
                                 ),
+                                Text(
+                                  permissions.folders.isEmpty
+                                      ? l10n.aiPermissionNoFolders
+                                      : l10n.aiPermissionFoldersHelp,
+                                  key: const ValueKey(
+                                    'ai-permission-folders-help',
+                                  ),
+                                  style: descriptionStyle,
+                                ),
+                                const SizedBox(height: 8),
+                                if (permissions.folders.isNotEmpty)
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxHeight: 144,
+                                    ),
+                                    child: ScrollConfiguration(
+                                      behavior: const AppScrollBehavior(
+                                        scrollbars: false,
+                                      ),
+                                      child: ScrollbarTheme(
+                                        data: ScrollbarTheme.of(context)
+                                            .copyWith(
+                                              crossAxisMargin: AppScrollBehavior
+                                                  .scrollbarEdgeInset,
+                                            ),
+                                        child: Scrollbar(
+                                          key: const ValueKey(
+                                            'ai-permission-folders-scrollbar',
+                                          ),
+                                          controller: _foldersScroll,
+                                          notificationPredicate:
+                                              (notification) =>
+                                                  notification.depth == 0,
+                                          child: SingleChildScrollView(
+                                            key: const ValueKey(
+                                              'ai-permission-folders-scroll',
+                                            ),
+                                            controller: _foldersScroll,
+                                            primary: false,
+                                            padding:
+                                                const EdgeInsetsDirectional.only(
+                                                  end: 20,
+                                                ),
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                for (final folder
+                                                    in permissions.folders)
+                                                  Padding(
+                                                    padding: EdgeInsets.zero,
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .stretch,
+                                                      children: [
+                                                        Row(
+                                                          children: [
+                                                            Icon(
+                                                              Symbols
+                                                                  .folder_rounded,
+                                                              size: 16,
+                                                              fill: 1,
+                                                              color: theme
+                                                                  .textColorSecondary,
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 8,
+                                                            ),
+                                                            Expanded(
+                                                              child: AppTooltip(
+                                                                message: folder,
+                                                                child: Text(
+                                                                  _folderName(
+                                                                    folder,
+                                                                  ),
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  style:
+                                                                      descriptionStyle,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            SettingSelect<
+                                                              AiFileAccess
+                                                            >(
+                                                              key: ValueKey(
+                                                                'ai-permission-folder-select-$folder',
+                                                              ),
+                                                              theme: theme,
+                                                              surfaceColor: theme
+                                                                  .popupSurfaceColor,
+                                                              dropdownTapRegionGroupId:
+                                                                  widget
+                                                                      .menuController,
+                                                              dropdownWidth:
+                                                                  240 *
+                                                                  MediaQuery.textScalerOf(
+                                                                    context,
+                                                                  ).scale(1),
+                                                              value: permissions
+                                                                  .accessForFolder(
+                                                                    folder,
+                                                                  ),
+                                                              items:
+                                                                  _fileAccessItems(),
+                                                              onChanged: (value) {
+                                                                if (value ==
+                                                                    null) {
+                                                                  return;
+                                                                }
+                                                                _update(
+                                                                  folderAccess: {
+                                                                    ...widget
+                                                                        .assistant
+                                                                        .permissions
+                                                                        .folderAccess,
+                                                                    folder:
+                                                                        value,
+                                                                  },
+                                                                );
+                                                              },
+                                                              triggerBuilder:
+                                                                  (
+                                                                    context,
+                                                                    onPressed,
+                                                                  ) => AppTooltip(
+                                                                    message: _fileAccessLabel(
+                                                                      permissions
+                                                                          .accessForFolder(
+                                                                            folder,
+                                                                          ),
+                                                                    ),
+                                                                    child: TitleBarIconButton(
+                                                                      key: ValueKey(
+                                                                        'ai-permission-folder-access-$folder',
+                                                                      ),
+                                                                      size: 22,
+                                                                      onPressed:
+                                                                          onPressed,
+                                                                      isFocused:
+                                                                          true,
+                                                                      theme:
+                                                                          theme,
+                                                                      icon: Symbols
+                                                                          .shield_rounded,
+                                                                      iconColor: _fileAccessColor(
+                                                                        permissions.accessForFolder(
+                                                                          folder,
+                                                                        ),
+                                                                      ),
+                                                                      backgroundColor:
+                                                                          theme
+                                                                              .popupSurfaceColor,
+                                                                    ),
+                                                                  ),
+                                                            ),
+                                                            AppTooltip(
+                                                              message: l10n
+                                                                  .aiPermissionRemoveFolder,
+                                                              child: TitleBarIconButton(
+                                                                size: 22,
+                                                                onPressed: () => _update(
+                                                                  folders: permissions
+                                                                      .folders
+                                                                      .where(
+                                                                        (
+                                                                          item,
+                                                                        ) =>
+                                                                            item !=
+                                                                            folder,
+                                                                      )
+                                                                      .toList(),
+                                                                ),
+                                                                isFocused: true,
+                                                                theme: theme,
+                                                                icon: Symbols
+                                                                    .close_rounded,
+                                                                backgroundColor:
+                                                                    theme
+                                                                        .popupSurfaceColor,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                              Padding(
+                                padding: const EdgeInsets.only(top: 16),
+                                child: Text(
+                                  l10n.aiPermissionSessionHelp,
+                                  style: descriptionStyle,
+                                ),
                               ),
-                            ),
-                          ),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 16),
-                          child: Text(
-                            l10n.aiPermissionSessionHelp,
-                            style: descriptionStyle,
-                          ),
+                            ],
+                          ],
                         ),
-                      ],
-                    ],
+                      ),
+                    ),
                   ),
                 ),
               ),

@@ -1404,7 +1404,10 @@ void main() {
     expect(requests, 2);
     await tester.tap(find.byKey(ValueKey('ai-response-details-${reply.id}')));
     await tester.pumpAndSettle();
-    expect(find.text('Model request retry 1: HTTP 503'), findsOneWidget);
+    expect(
+      find.textContaining('Model request retry 1: HTTP 503'),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -1431,7 +1434,7 @@ void main() {
       final context = tester.element(find.byType(AssistantPage));
       final l10n = AppLocalizations.of(context);
       expect(find.text(l10n.aiWebUnsupportedScheme), findsNothing);
-      await tester.tap(find.text(l10n.aiWebFailed('example.com')));
+      await tester.tap(find.textContaining(l10n.aiWebFailed('example.com')));
       await tester.pumpAndSettle();
       expect(find.text(l10n.aiWebUnsupportedScheme), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -1578,9 +1581,18 @@ void main() {
     final reply = scope.provider.messages.last;
     final header = find.byKey(ValueKey('ai-response-details-${reply.id}'));
     await tester.ensureVisible(header);
+    final trigger = tester.getRect(header);
+    final messageRect = tester.getRect(
+      find.ancestor(of: header, matching: find.byType(Column)).first,
+    );
+    expect(trigger.right, lessThan(messageRect.right));
+    // 点击用时右侧空白不应打开详情。
+    await tester.tapAt(Offset(messageRect.right - 4, trigger.center.dy));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Read current time'), findsNothing);
     await tester.tap(header);
     await tester.pumpAndSettle();
-    expect(find.text('Read current time'), findsOneWidget);
+    expect(find.textContaining('Read current time'), findsOneWidget);
     expect(find.byIcon(Symbols.schedule_rounded), findsOneWidget);
     expect(find.text('Executing tools'), findsNothing);
     expect(find.text('Waiting for the model response'), findsOneWidget);
@@ -1609,7 +1621,7 @@ void main() {
     await tester.pumpAndSettle();
     final reply = scope.provider.messages.last;
     expect(reply.content, 'Ready to help with LilygoBox.');
-    expect(find.text('Model reasoning'), findsNothing);
+    expect(find.textContaining('Model reasoning'), findsNothing);
     expect(
       find.text('Updating the theme.', findRichText: true),
       findsOneWidget,
@@ -1618,14 +1630,17 @@ void main() {
     await tester.ensureVisible(header);
     await tester.tap(header);
     await tester.pumpAndSettle();
-    expect(find.text('Model reasoning'), findsOneWidget);
+    expect(find.textContaining('Model reasoning'), findsOneWidget);
     expect(find.text('Inspect the current theme.'), findsNothing);
-    expect(find.text('Executed: Change theme to Dark'), findsOneWidget);
+    expect(
+      find.textContaining('Executed: Change theme to Dark'),
+      findsOneWidget,
+    );
     expect(find.text('Waiting for the model response'), findsOneWidget);
     final thought = List.filled(30, 'Confirm the setting result. ').join();
     expect(find.text(thought), findsNothing);
-    await tester.ensureVisible(find.text('Model reasoning'));
-    await tester.tap(find.text('Model reasoning'));
+    await tester.ensureVisible(find.textContaining('Model reasoning'));
+    await tester.tap(find.textContaining('Model reasoning'));
     await tester.pumpAndSettle();
     expect(find.text(thought), findsOneWidget);
     final scroll = find
@@ -1644,7 +1659,7 @@ void main() {
     await tester.ensureVisible(header);
     await tester.tap(header);
     await tester.pumpAndSettle();
-    expect(find.text('Model reasoning'), findsNothing);
+    expect(find.textContaining('Model reasoning'), findsNothing);
   });
 
   testWidgets('shift enter and IME confirmation do not submit messages', (

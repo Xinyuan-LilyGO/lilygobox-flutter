@@ -3497,6 +3497,18 @@ abstract class AppLocalizations {
   /// **'Copy code'**
   String get aiCopyCode;
 
+  /// No description provided for @aiEnableCodeWrap.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable word wrap'**
+  String get aiEnableCodeWrap;
+
+  /// No description provided for @aiDisableCodeWrap.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable word wrap'**
+  String get aiDisableCodeWrap;
+
   /// No description provided for @aiPlainText.
   ///
   /// In en, this message translates to:
@@ -3596,7 +3608,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiPermissionCustomSummary.
   ///
   /// In en, this message translates to:
-  /// **'Set automatic access to webpages and files.'**
+  /// **'Set permissions for commands, files and web access.'**
   String get aiPermissionCustomSummary;
 
   /// No description provided for @aiPermissionRequestHelp.
@@ -3608,13 +3620,13 @@ abstract class AppLocalizations {
   /// No description provided for @aiPermissionNetwork.
   ///
   /// In en, this message translates to:
-  /// **'Allow webpage access'**
+  /// **'Allow network access'**
   String get aiPermissionNetwork;
 
   /// No description provided for @aiPermissionNetworkHelp.
   ///
   /// In en, this message translates to:
-  /// **'When off, webpage access requires approval.'**
+  /// **'Allow web access. Ask for approval when disabled.'**
   String get aiPermissionNetworkHelp;
 
   /// No description provided for @aiPermissionFiles.
@@ -3686,7 +3698,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiPermissionSessionHelp.
   ///
   /// In en, this message translates to:
-  /// **'Permissions apply to this conversation and reset when it is cleared or the app restarts. File contents read by the assistant are sent to your configured model service. Running terminal commands and deleting files are not supported.'**
+  /// **'Permissions reset when the conversation is cleared or the app restarts. File contents and command output may be sent to the configured model service. Local commands are not sandboxed and can access files, networks and devices.'**
   String get aiPermissionSessionHelp;
 
   /// No description provided for @aiAwaitingApproval.
@@ -3754,6 +3766,240 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to open the folder picker. Please try again.'**
   String get aiPermissionFolderFailed;
+
+  /// No description provided for @aiPermissionExecution.
+  ///
+  /// In en, this message translates to:
+  /// **'Run local commands'**
+  String get aiPermissionExecution;
+
+  /// No description provided for @aiPermissionExecutionHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow commands, including device access, firmware flashing and tool installation.'**
+  String get aiPermissionExecutionHelp;
+
+  /// No description provided for @aiPermissionFullFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Full file access'**
+  String get aiPermissionFullFiles;
+
+  /// No description provided for @aiPermissionFullFilesHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow access to local files without folder grants, within system permissions.'**
+  String get aiPermissionFullFilesHelp;
+
+  /// No description provided for @aiCommandApprovalNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Local commands are not sandboxed and can access files, networks and devices, install tools and change the environment. Approval applies only to this command and its child processes.'**
+  String get aiCommandApprovalNotice;
+
+  /// No description provided for @aiCommandReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Purpose'**
+  String get aiCommandReason;
+
+  /// No description provided for @aiCommandArguments.
+  ///
+  /// In en, this message translates to:
+  /// **'Arguments'**
+  String get aiCommandArguments;
+
+  /// No description provided for @aiCommandDirectory.
+  ///
+  /// In en, this message translates to:
+  /// **'Working directory'**
+  String get aiCommandDirectory;
+
+  /// No description provided for @aiToolCommand.
+  ///
+  /// In en, this message translates to:
+  /// **'Run local command'**
+  String get aiToolCommand;
+
+  /// No description provided for @aiToolProcessRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Read process output'**
+  String get aiToolProcessRead;
+
+  /// No description provided for @aiToolProcessInput.
+  ///
+  /// In en, this message translates to:
+  /// **'Send process input'**
+  String get aiToolProcessInput;
+
+  /// No description provided for @aiToolProcessStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop process'**
+  String get aiToolProcessStop;
+
+  /// No description provided for @aiToolEnvironment.
+  ///
+  /// In en, this message translates to:
+  /// **'Inspect execution environment'**
+  String get aiToolEnvironment;
+
+  /// No description provided for @aiCommandSafetyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Command needs confirmation'**
+  String get aiCommandSafetyTitle;
+
+  /// No description provided for @aiCommandRiskForceDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'This command includes forced or recursive deletion and may permanently delete files.'**
+  String get aiCommandRiskForceDelete;
+
+  /// No description provided for @aiCommandRiskDiscardChanges.
+  ///
+  /// In en, this message translates to:
+  /// **'This command may discard local file changes.'**
+  String get aiCommandRiskDiscardChanges;
+
+  /// No description provided for @aiCommandRiskDiskWrite.
+  ///
+  /// In en, this message translates to:
+  /// **'This command may modify disks or partitions and cause data loss.'**
+  String get aiCommandRiskDiskWrite;
+
+  /// No description provided for @aiCommandRiskOpaqueScript.
+  ///
+  /// In en, this message translates to:
+  /// **'This call contains a script or dynamic expressions whose subsequent operations cannot be fully analyzed.'**
+  String get aiCommandRiskOpaqueScript;
+
+  /// No description provided for @aiCommandRulePrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'A command rule requires approval for this call.'**
+  String get aiCommandRulePrompt;
+
+  /// No description provided for @aiCommandMatchedRules.
+  ///
+  /// In en, this message translates to:
+  /// **'Matched rules'**
+  String get aiCommandMatchedRules;
+
+  /// No description provided for @aiCommandPolicyForbidden.
+  ///
+  /// In en, this message translates to:
+  /// **'A forbidden rule blocked this command. It was not executed.'**
+  String get aiCommandPolicyForbidden;
+
+  /// No description provided for @aiCommandPolicyInvalidRules.
+  ///
+  /// In en, this message translates to:
+  /// **'Command rules could not be read or validated. The command was not executed. Check command-rules.json.'**
+  String get aiCommandPolicyInvalidRules;
+
+  /// No description provided for @aiCommandPolicyApprovalRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'This command requires approval and was not executed.'**
+  String get aiCommandPolicyApprovalRequired;
+
+  /// No description provided for @aiCommandPolicyChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Command rules changed while this call was pending. The command was not executed; submit it again for review.'**
+  String get aiCommandPolicyChanged;
+
+  /// No description provided for @aiCommandRan.
+  ///
+  /// In en, this message translates to:
+  /// **'Ran command · {target}'**
+  String aiCommandRan(String target);
+
+  /// No description provided for @aiCommandStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Process started · {target}'**
+  String aiCommandStarted(String target);
+
+  /// No description provided for @aiCommandFinished.
+  ///
+  /// In en, this message translates to:
+  /// **'Command completed · {target}'**
+  String aiCommandFinished(String target);
+
+  /// No description provided for @aiCommandFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Command failed · {target}'**
+  String aiCommandFailed(String target);
+
+  /// No description provided for @aiCommandTimedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Command timed out · {target}'**
+  String aiCommandTimedOut(String target);
+
+  /// No description provided for @aiProcessStoppedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Process stopped · {target}'**
+  String aiProcessStoppedLabel(String target);
+
+  /// No description provided for @aiProcessOutputRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Read process output · {target}'**
+  String aiProcessOutputRead(String target);
+
+  /// No description provided for @aiProcessRunningSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'The process is still running.'**
+  String get aiProcessRunningSummary;
+
+  /// No description provided for @aiProcessExitedSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'The process exited with code {code}.'**
+  String aiProcessExitedSummary(int code);
+
+  /// No description provided for @aiProcessTimedOutSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Execution timed out. Process termination was requested.'**
+  String get aiProcessTimedOutSummary;
+
+  /// No description provided for @aiProcessStoppedSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'The process has stopped.'**
+  String get aiProcessStoppedSummary;
+
+  /// No description provided for @aiProcessStoppingSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop requested. Waiting for the process to exit.'**
+  String get aiProcessStoppingSummary;
+
+  /// No description provided for @aiProcessInputSentSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Input was sent to the process.'**
+  String get aiProcessInputSentSummary;
+
+  /// No description provided for @aiCommandStopping.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopping process · {target}'**
+  String aiCommandStopping(String target);
+
+  /// No description provided for @aiCommandFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Full command'**
+  String get aiCommandFull;
 }
 
 class _AppLocalizationsDelegate

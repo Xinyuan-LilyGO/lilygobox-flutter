@@ -343,51 +343,37 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
                     child: _field(_key, 'ai-service-key', secret: true),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    l10n.aiModelLabel,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: theme.textColorSecondary,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          l10n.aiModelLabel,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.textColorSecondary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: AppActionButton(
+                          key: const ValueKey('ai-discover-models'),
+                          theme: theme,
+                          label: l10n.aiFetchModels,
+                          onPressed: _working ? null : _discover,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final hint = Text(
-                        l10n.aiModelsHint,
-                        style: TextStyle(
-                          fontSize: 11,
-                          height: 1.4,
-                          color: theme.textColorTertiary,
-                        ),
-                      );
-                      final button = AppActionButton(
-                        key: const ValueKey('ai-discover-models'),
-                        theme: theme,
-                        label: l10n.aiFetchModels,
-                        onPressed: _working ? null : _discover,
-                      );
-                      if (constraints.maxWidth < 380) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            hint,
-                            const SizedBox(height: 4),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: button,
-                            ),
-                          ],
-                        );
-                      }
-                      return Row(
-                        children: [
-                          Expanded(child: hint),
-                          const SizedBox(width: 12),
-                          button,
-                        ],
-                      );
-                    },
+                  Text(
+                    l10n.aiModelsHint,
+                    style: TextStyle(
+                      fontSize: 11,
+                      height: 1.4,
+                      color: theme.textColorTertiary,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Semantics(

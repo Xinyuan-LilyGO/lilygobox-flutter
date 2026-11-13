@@ -25,6 +25,7 @@ import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../data/message_link_opener.dart';
 import '../../domain/models.dart';
+import 'code_block.dart';
 import 'error_text.dart';
 
 class ChatMessageBody extends StatefulWidget {
@@ -305,152 +306,10 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     final code = element.children?.whereType<md.Element>().firstOrNull;
     final language =
         code?.attributes['class']?.replaceFirst('language-', '') ?? '';
-    return _CodeBlock(
+    return ChatCodeBlock(
       text: code?.textContent ?? element.textContent,
       language: language,
       theme: theme,
-    );
-  }
-}
-
-class _CodeBlock extends StatefulWidget {
-  const _CodeBlock({
-    required this.text,
-    required this.language,
-    required this.theme,
-  });
-  final String text;
-  final String language;
-  final AppTheme theme;
-  @override
-  State<_CodeBlock> createState() => _CodeBlockState();
-}
-
-class _CodeBlockState extends State<_CodeBlock> {
-  final _scroll = ScrollController();
-  bool _copied = false;
-  Timer? _reset;
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    _reset?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _copy() async {
-    await Clipboard.setData(ClipboardData(text: widget.text));
-    if (!mounted) return;
-    _reset?.cancel();
-    setState(() => _copied = true);
-    _reset = Timer(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _copied = false);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = widget.theme;
-    final l10n = context.l10n;
-    final label = _copied ? l10n.aiMessageCopied : l10n.aiCopyCode;
-    return SizedBox(
-      width: double.infinity,
-      child: DecoratedBox(
-        key: const ValueKey('ai-code-block'),
-        decoration: BoxDecoration(
-          color: theme.primary,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SelectionContainer.disabled(
-                child: Row(
-                  children: [
-                    Icon(
-                      Symbols.code_rounded,
-                      size: 16,
-                      color: theme.textColorSecondary,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        widget.language.isEmpty ||
-                                widget.language == 'text' ||
-                                widget.language == 'plaintext'
-                            ? l10n.aiPlainText
-                            : widget.language,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.textColorSecondary,
-                        ),
-                      ),
-                    ),
-                    AppTooltip(
-                      message: label,
-                      child: Semantics(
-                        label: label,
-                        button: true,
-                        child: TitleBarIconButton(
-                          key: const ValueKey('ai-copy-code'),
-                          theme: theme,
-                          isFocused: true,
-                          onPressed: _copy,
-                          icon: _copied
-                              ? Symbols.check_rounded
-                              : Symbols.content_copy_rounded,
-                          size: 25,
-                          iconSize: 15,
-                          backgroundColor: theme.primary,
-                          surfaceColor: theme.primary,
-                          hoverColor: theme.interactionHoverColor(
-                            theme.primary,
-                          ),
-                          iconColor: theme.textColorSecondary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final style = TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 13,
-                    height: 1.5,
-                    color: theme.textColorPrimary,
-                  );
-                  final painter = TextPainter(
-                    text: TextSpan(text: widget.text, style: style),
-                    textDirection: Directionality.of(context),
-                    textScaler: MediaQuery.textScalerOf(context),
-                  )..layout();
-                  final needsScroll = painter.width > constraints.maxWidth;
-                  painter.dispose();
-                  if (!needsScroll) return Text(widget.text, style: style);
-                  return Scrollbar(
-                    key: const ValueKey('ai-code-horizontal-scrollbar'),
-                    controller: _scroll,
-                    interactive: true,
-                    child: SingleChildScrollView(
-                      controller: _scroll,
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.only(bottom: 8),
-                      // 使用普通 Text 接入外层选区，避免独立 SelectableText
-                      // 隔断跨消息全选；横向滚动只负责布局，不另建选区。
-                      child: Text(widget.text, style: style),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

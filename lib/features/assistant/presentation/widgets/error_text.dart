@@ -9,10 +9,16 @@ import 'dart:async';
 
 import '../../../../generated/l10n/app_localizations.dart';
 import '../../data/chat_completion_client.dart';
+import '../../domain/command_policy.dart';
 import '../../domain/models.dart';
 import '../../domain/web_failure.dart';
+import 'command_policy_text.dart';
 
 String aiErrorText(AppLocalizations l10n, Object error) => switch (error) {
+  AiCommandPolicyFailure(:final problem) => aiCommandPolicyFailureText(
+    l10n,
+    problem,
+  ),
   AiConfigurationException(:final problem) => switch (problem) {
     AiProblem.invalidAddress => l10n.aiInvalidAddress,
     AiProblem.nameRequired => l10n.aiNameRequired,

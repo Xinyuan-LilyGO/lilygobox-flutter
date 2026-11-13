@@ -9,6 +9,8 @@ import 'package:lilygobox/app/shell/state/provider.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/features/assistant/data/assistant_tools.dart';
+import 'package:lilygobox/features/assistant/data/command_policy_store.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/domain/permissions.dart';
 
@@ -47,6 +49,11 @@ void main() {
       language: language,
       shell: shell,
       splitView: split,
+      tools: AssistantTools(
+        commandPolicy: AiCommandPolicyStore(
+          file: File('${root.path}/command-rules.json'),
+        ),
+      ),
       client: MockClient((request) async {
         requests.add(jsonDecode(request.body) as Map<String, dynamic>);
         final useTool =
@@ -86,8 +93,9 @@ void main() {
       apiKey: 'key',
     );
     scope.provider.addListener(() {
-      if (!awaiting.isCompleted && scope.provider.pendingApproval != null)
+      if (!awaiting.isCompleted && scope.provider.pendingApproval != null) {
         awaiting.complete();
+      }
     });
   });
   tearDown(() async {
@@ -210,8 +218,9 @@ void main() {
       void listener() {
         if (!second.isCompleted &&
             (scope.provider.pendingApproval != null &&
-                scope.provider.pendingApproval!.id != first))
+                scope.provider.pendingApproval!.id != first)) {
           second.complete();
+        }
       }
 
       scope.provider.addListener(listener);
@@ -228,4 +237,202 @@ void main() {
       expect(requests, hasLength(3));
     },
   );
+
+  Map<String, Object?> localCommand() {
+    final marker = '${root.path}/executed.txt';
+    return {
+      'executable': Platform.isWindows ? 'powershell.exe' : '/bin/sh',
+      'arguments': Platform.isWindows
+          ? [
+              '-NoLogo',
+              '-NoProfile',
+              '-NonInteractive',
+              '-Command',
+              "[IO.File]::WriteAllText('${marker.replaceAll("'", "''")}', 'executed')",
+            ]
+          : ['-c', 'printf executed > "$marker"'],
+      'working_directory': root.path,
+      'reason': 'Verify category approvals',
+      'yield_ms': 5000,
+    };
+  }
+
+  for (final rejected in [AiPermissionCategory.execution]) {
+    test(
+      'rejecting ${rejected.name} prevents the command from starting',
+      () async {
+        toolName = 'run_command';
+        arguments = localCommand();
+        final seen = <String>[];
+        final handled = <String>{};
+        void listener() {
+          final request = scope.provider.pendingApproval;
+          if (request == null || !handled.add(request.id)) return;
+          final category =
+              request.toolArguments!['permission_category'] as String;
+          seen.add(category);
+          expect(File('${root.path}/executed.txt').existsSync(), isFalse);
+          scheduleMicrotask(
+            () => scope.provider.resolveTool(
+              request.id,
+              approve: category != rejected.name,
+            ),
+          );
+        }
+
+        scope.provider.addListener(listener);
+        await scope.provider.sendMessage('Run command');
+        scope.provider.removeListener(listener);
+        expect(seen, [AiPermissionCategory.execution.name]);
+        expect(await File('${root.path}/executed.txt').exists(), isFalse);
+        expect(scope.provider.pendingApproval, isNull);
+        expect(
+          scope.provider.messages.last.processingSteps.single.succeeded,
+          isFalse,
+        );
+      },
+    );
+  }
+
+  test('a command requests one execution approval before launch', () async {
+    toolName = 'run_command';
+    arguments = localCommand();
+    final seen = <String>[];
+    final handled = <String>{};
+    void listener() {
+      final request = scope.provider.pendingApproval;
+      if (request == null || !handled.add(request.id)) return;
+      seen.add(request.toolArguments!['permission_category'] as String);
+      expect(File('${root.path}/executed.txt').existsSync(), isFalse);
+      scheduleMicrotask(
+        () => scope.provider.resolveTool(request.id, approve: true),
+      );
+    }
+
+    scope.provider.addListener(listener);
+    await scope.provider.sendMessage('Run command');
+    scope.provider.removeListener(listener);
+    expect(seen, [AiPermissionCategory.execution.name]);
+    expect(await File('${root.path}/executed.txt').readAsString(), 'executed');
+    expect(scope.provider.permissions.execution, isFalse);
+    expect(scope.provider.permissions.fullFiles, isFalse);
+  });
+
+  test('file and network grants do not authorize command execution', () async {
+    toolName = 'run_command';
+    arguments = localCommand();
+    arguments['arguments'] = Platform.isWindows
+        ? ['-NoProfile', '-Command', 'Write-Output harmless']
+        : ['-c', 'echo harmless'];
+    scope.provider.setPermissions(
+      AiPermissions(
+        mode: AiApprovalMode.custom,
+        execution: false,
+        fullFiles: true,
+        network: true,
+      ),
+    );
+    final sending = scope.provider.sendMessage('Run command');
+    await awaiting.future.timeout(const Duration(seconds: 5));
+    expect(pending().toolArguments!['permission_category'], 'execution');
+    await scope.provider.resolveTool(pending().id, approve: false);
+    await sending;
+    expect(await File('${root.path}/executed.txt').exists(), isFalse);
+  });
+  AiPermissions fullyAuthorized() => AiPermissions(
+    mode: AiApprovalMode.custom,
+    execution: true,
+    fullFiles: true,
+    network: true,
+  );
+  test(
+    'opaque commands still require a visible one-time safety approval under full access',
+    () async {
+      toolName = 'run_command';
+      arguments = localCommand();
+      scope.provider.setPermissions(fullyAuthorized());
+      final sending = scope.provider.sendMessage('Run command');
+      await awaiting.future.timeout(const Duration(seconds: 5));
+      expect(pending().toolArguments!['command_safety_approval'], isTrue);
+      expect(
+        pending().toolArguments!['command_risks'],
+        contains('opaqueScript'),
+      );
+      expect(File('${root.path}/executed.txt').existsSync(), isFalse);
+      await scope.provider.resolveTool(pending().id, approve: false);
+      await sending;
+      expect(File('${root.path}/executed.txt').existsSync(), isFalse);
+      expect(scope.provider.permissions.execution, isTrue);
+    },
+  );
+  test(
+    'one-time safety approval executes without changing capability switches',
+    () async {
+      toolName = 'run_command';
+      arguments = localCommand();
+      scope.provider.setPermissions(fullyAuthorized());
+      final sending = scope.provider.sendMessage('Run command');
+      await awaiting.future.timeout(const Duration(seconds: 5));
+      await scope.provider.resolveTool(pending().id, approve: true);
+      await sending;
+      expect(
+        await File('${root.path}/executed.txt').readAsString(),
+        'executed',
+      );
+      expect(scope.provider.pendingApproval, isNull);
+    },
+  );
+  test(
+    'forbidden commands never show an allow button and return a structured failure',
+    () async {
+      toolName = 'run_command';
+      arguments = localCommand();
+      scope.provider.setPermissions(fullyAuthorized());
+      await File('${root.path}/command-rules.json').writeAsString(
+        jsonEncode({
+          'version': 1,
+          'rules': [
+            {
+              'prefix': [arguments['executable']],
+              'decision': 'forbidden',
+            },
+          ],
+        }),
+      );
+      await scope.provider.sendMessage('Run command');
+      expect(awaiting.isCompleted, isFalse);
+      expect(File('${root.path}/executed.txt').existsSync(), isFalse);
+      expect(scope.provider.pendingApproval, isNull);
+      final step = scope.provider.messages.last.processingSteps.single;
+      expect(step.succeeded, isFalse);
+      expect(jsonDecode(step.output)['error_code'], 'command_forbidden');
+    },
+  );
+  test('policy changes while awaiting approval prevent execution', () async {
+    toolName = 'run_command';
+    arguments = localCommand();
+    scope.provider.setPermissions(fullyAuthorized());
+    final sending = scope.provider.sendMessage('Run command');
+    await awaiting.future.timeout(const Duration(seconds: 5));
+    await File('${root.path}/command-rules.json').writeAsString(
+      jsonEncode({
+        'version': 1,
+        'rules': [
+          {
+            'prefix': [arguments['executable']],
+            'decision': 'forbidden',
+          },
+        ],
+      }),
+    );
+    await scope.provider.resolveTool(pending().id, approve: true);
+    await sending;
+    expect(File('${root.path}/executed.txt').existsSync(), isFalse);
+    expect(
+      jsonDecode(
+        scope.provider.messages.last.processingSteps.single.output,
+      )['error_code'],
+      'command_forbidden',
+    );
+  });
 }

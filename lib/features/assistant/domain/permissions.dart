@@ -12,10 +12,15 @@ enum AiApprovalMode { onRequest, custom }
 
 enum AiFileAccess { none, readOnly, readWrite }
 
+/// 本机命令统一授权；文件与网页工具分别检查各自的访问范围。
+enum AiPermissionCategory { execution, fullFiles, network }
+
 class AiPermissions {
   AiPermissions({
     this.mode = AiApprovalMode.onRequest,
     this.network = true,
+    this.execution = false,
+    this.fullFiles = false,
     this.files = AiFileAccess.readOnly,
     List<String> folders = const [],
     Map<String, AiFileAccess> folderAccess = const {},
@@ -26,6 +31,16 @@ class AiPermissions {
 
   final AiApprovalMode mode;
   final bool network;
+  final bool execution;
+  final bool fullFiles;
+
+  bool allowsCategory(AiPermissionCategory category) =>
+      mode == AiApprovalMode.custom &&
+      switch (category) {
+        AiPermissionCategory.execution => execution,
+        AiPermissionCategory.fullFiles => fullFiles,
+        AiPermissionCategory.network => network,
+      };
   final AiFileAccess files;
   final List<String> folders;
 
@@ -39,6 +54,7 @@ class AiPermissions {
   Future<bool> allowsFile(String path, {required bool write}) async {
     if (mode != AiApprovalMode.custom) return false;
     final target = await canonicalAiPath(path);
+    if (fullFiles) return true;
     final lexicalTarget = _absolute(path);
     // 优先采用最具体的目录设置，避免父目录授权覆盖子目录的限制。
     final ordered = [...folders]
