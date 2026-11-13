@@ -22,12 +22,16 @@ class AppDialog extends StatelessWidget {
     required this.actions,
     this.constraints,
     this.contentPadding,
+    this.titleLeading,
     this.titleFontSize = 18,
     this.titleFontWeight = FontWeight.normal,
   });
 
   final AppTheme theme;
   final String title;
+
+  /// 可选的标题前置图标，与标题一起布局，正文不再单独占位。
+  final Widget? titleLeading;
   final Widget content;
   final List<Widget> actions;
   final BoxConstraints? constraints;
@@ -36,23 +40,34 @@ class AppDialog extends StatelessWidget {
   final FontWeight titleFontWeight;
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    constraints: constraints,
-    backgroundColor: AppDialogStyle.backgroundColor(theme),
-    surfaceTintColor: Colors.transparent,
-    shape: const RoundedRectangleBorder(
-      borderRadius: AppDialogStyle.borderRadius,
-    ),
-    title: Text(
+  Widget build(BuildContext context) {
+    final titleText = Text(
       title,
       style: AppDialogStyle.titleStyle(
         theme,
       ).copyWith(fontSize: titleFontSize, fontWeight: titleFontWeight),
-    ),
-    contentPadding: contentPadding,
-    content: content,
-    actions: actions,
-  );
+    );
+    return AlertDialog(
+      constraints: constraints,
+      backgroundColor: AppDialogStyle.backgroundColor(theme),
+      surfaceTintColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: AppDialogStyle.borderRadius,
+      ),
+      title: titleLeading == null
+          ? titleText
+          : Row(
+              children: [
+                titleLeading!,
+                const SizedBox(width: 8),
+                Expanded(child: titleText),
+              ],
+            ),
+      contentPadding: contentPadding,
+      content: content,
+      actions: actions,
+    );
+  }
 }
 
 Future<bool> showAppConfirmation({

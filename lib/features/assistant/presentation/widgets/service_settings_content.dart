@@ -303,7 +303,7 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
       borderRadius: BorderRadius.circular(6),
       clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(8),
         child: Row(
           children: [
             Semantics(

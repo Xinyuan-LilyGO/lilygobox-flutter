@@ -2,7 +2,7 @@
  * @Description: 定义 AI 服务配置、会话消息与待确认的设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-12 15:00:41
+ * @LastEditTime: 2026-11-13 16:57:31
  */
 
 import 'dart:typed_data';
@@ -184,6 +184,7 @@ enum AiResponseStatus {
   executingTools,
   accessingWeb,
   awaitingApproval,
+  awaitingUserInput,
   retrying,
   completed,
   failed,

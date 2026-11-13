@@ -2,7 +2,7 @@
  * @Description: 调用 OpenAI 兼容 Chat Completions 并解析设置工具调用。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-10 21:09:59
+ * @LastEditTime: 2026-11-13 16:57:31
  */
 
 import 'dart:async';
@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 
 import '../domain/models.dart';
 import '../domain/reasoning.dart';
+import 'reasoning_text_filter.dart';
 
 class AiRequestException implements Exception {
   const AiRequestException(this.message, {this.statusCode, this.retryAfter});
@@ -76,19 +77,29 @@ class ChatCompletionClient {
               ? AiResponseStatus.connecting
               : AiResponseStatus.retrying,
         );
+        void emitReasoning(String text) {
+          if (text.isEmpty) return;
+          onStatus?.call(AiResponseStatus.thinking);
+          onReasoningDelta?.call(text);
+        }
+
+        final filter = ReasoningTextFilter(
+          onText: (text) {
+            if (text.isEmpty) return;
+            onStatus?.call(AiResponseStatus.streaming);
+            onTextDelta?.call(text);
+          },
+          onReasoning: emitReasoning,
+        );
         try {
-          return await _completeOnce(
+          final completion = await _completeOnce(
             configuration: configuration,
             apiKey: apiKey,
             messages: messages,
             tools: tools,
             abortTrigger: abortTrigger,
             maxTokens: maxTokens,
-            onReasoningDelta: (text) {
-              if (text.isEmpty) return;
-              onStatus?.call(AiResponseStatus.thinking);
-              onReasoningDelta?.call(text);
-            },
+            onReasoningDelta: emitReasoning,
             onStatus: (status) {
               if (status == AiResponseStatus.preparingTools) {
                 outputStarted = true;
@@ -96,12 +107,28 @@ class ChatCompletionClient {
               onStatus?.call(status);
             },
             onTextDelta: (text) {
-              if (text.isNotEmpty) {
-                outputStarted = true;
-                onStatus?.call(AiResponseStatus.streaming);
-              }
-              onTextDelta?.call(text);
+              if (text.isNotEmpty) outputStarted = true;
+              filter.add(text);
             },
+          );
+          filter.finish();
+          // Normalize the final value too: the provider replaces streamed UI
+          // content with this completion and uses it for subsequent history.
+          final text = StringBuffer();
+          final inlineReasoning = StringBuffer();
+          ReasoningTextFilter(
+              onText: text.write,
+              onReasoning: inlineReasoning.write,
+            )
+            ..add(completion.text)
+            ..finish();
+          return AiCompletion(
+            text: text.toString(),
+            reasoning: completion.reasoning + inlineReasoning.toString(),
+            toolCalls: completion.toolCalls,
+            // Keep original protocol items, including encrypted reasoning, for
+            // Responses API continuation; they are never displayed as text.
+            responseItems: completion.responseItems,
           );
         } catch (error) {
           // 已输出正文或工具调用后不重发，避免重复回复或重复执行设置。
@@ -384,6 +411,11 @@ class ChatCompletionClient {
     }
 
     if (responseCompletion case final completion?) {
+      final received = streamedText.toString();
+      if (completion.text.startsWith(received) &&
+          completion.text.length > received.length) {
+        onTextDelta?.call(completion.text.substring(received.length));
+      }
       return AiCompletion(
         text: completion.text,
         toolCalls: completion.toolCalls,

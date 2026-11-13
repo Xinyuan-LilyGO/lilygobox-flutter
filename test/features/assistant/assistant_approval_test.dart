@@ -365,6 +365,79 @@ void main() {
       expect(scope.provider.permissions.execution, isTrue);
     },
   );
+  for (final promptRule in [false, true]) {
+    test(
+      'command bypass runs opaque scripts without approval (prompt:$promptRule)',
+      () async {
+        toolName = 'run_command';
+        arguments = localCommand();
+        scope.provider.setPermissions(
+          fullyAuthorized().copyWith(commandNoApproval: true),
+        );
+        if (promptRule) {
+          await File('${root.path}/command-rules.json').writeAsString(
+            jsonEncode({
+              'version': 1,
+              'rules': [
+                {
+                  'prefix': [arguments['executable']],
+                  'decision': 'prompt',
+                },
+              ],
+            }),
+          );
+        }
+        var approvalRequests = 0;
+        void rejectUnexpectedApproval() {
+          if (scope.provider.pendingApproval case final request?) {
+            approvalRequests++;
+            scheduleMicrotask(
+              () => scope.provider.resolveTool(request.id, approve: false),
+            );
+          }
+        }
+
+        scope.provider.addListener(rejectUnexpectedApproval);
+        await scope.provider.sendMessage('Run command');
+        scope.provider.removeListener(rejectUnexpectedApproval);
+        expect(approvalRequests, 0);
+        expect(
+          await File('${root.path}/executed.txt').readAsString(),
+          'executed',
+        );
+        expect(scope.provider.pendingApproval, isNull);
+      },
+    );
+  }
+
+  test('command bypass still rejects explicitly forbidden commands', () async {
+    toolName = 'run_command';
+    arguments = localCommand();
+    scope.provider.setPermissions(
+      fullyAuthorized().copyWith(commandNoApproval: true),
+    );
+    await File('${root.path}/command-rules.json').writeAsString(
+      jsonEncode({
+        'version': 1,
+        'rules': [
+          {
+            'prefix': [arguments['executable']],
+            'decision': 'forbidden',
+          },
+        ],
+      }),
+    );
+    await scope.provider.sendMessage('Run command');
+    expect(awaiting.isCompleted, isFalse);
+    expect(File('${root.path}/executed.txt').existsSync(), isFalse);
+    expect(
+      jsonDecode(
+        scope.provider.messages.last.processingSteps.single.output,
+      )['error_code'],
+      'command_forbidden',
+    );
+  });
+
   test(
     'one-time safety approval executes without changing capability switches',
     () async {

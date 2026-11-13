@@ -2,7 +2,7 @@
  * @Description: 管理 AI 服务配置、对话、请求状态和 AI 设置操作。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-12 15:23:26
+ * @LastEditTime: 2026-11-13 16:57:31
  */
 
 import 'dart:async';
@@ -20,6 +20,7 @@ import '../domain/command_policy.dart';
 import '../domain/models.dart';
 import '../domain/permissions.dart';
 import '../domain/reasoning.dart';
+import '../domain/user_input.dart';
 import '../domain/web_failure.dart';
 
 class AiAssistantProvider extends ChangeNotifier {
@@ -49,6 +50,45 @@ class AiAssistantProvider extends ChangeNotifier {
   AiMessage? _pendingApproval;
   AiMessage? get pendingApproval => _pendingApproval;
   AiPermissions get permissions => _permissions;
+  AiUserInputRequest? _pendingUserInput;
+  Completer<Map<String, List<String>>?>? _userInputWaiter;
+  AiUserInputRequest? get pendingUserInput => _pendingUserInput;
+
+  void resolveUserInput(String id, Map<String, List<String>> answers) {
+    final request = _pendingUserInput;
+    if (request == null || request.id != id) return;
+    _finishUserInput(request.validateAnswers(answers));
+    _notify();
+  }
+
+  void cancelUserInput(String id) {
+    if (_pendingUserInput?.id != id) return;
+    _finishUserInput(null);
+    _notify();
+  }
+
+  void _finishUserInput(Map<String, List<String>>? answers) {
+    final waiter = _userInputWaiter;
+    _pendingUserInput = null;
+    _userInputWaiter = null;
+    if (waiter != null && !waiter.isCompleted) waiter.complete(answers);
+  }
+
+  Future<Map<String, List<String>>?> _requestUserInput(
+    AiUserInputRequest request,
+    String operationId,
+  ) {
+    final waiter = Completer<Map<String, List<String>>?>();
+    _userInputWaiter = waiter;
+    _pendingUserInput = request;
+    _recordStatus(
+      AiResponseStatus.awaitingUserInput,
+      toolName: 'request_user_input',
+      operationId: operationId,
+    );
+    _notify();
+    return waiter.future;
+  }
 
   void setPermissions(AiPermissions value) {
     _permissions = value;
@@ -56,6 +96,7 @@ class AiAssistantProvider extends ChangeNotifier {
   }
 
   void _cancelApprovals() {
+    _finishUserInput(null);
     for (final entry in _approvals.entries.toList()) {
       _decideApproval(entry.key, false);
     }
@@ -721,7 +762,22 @@ class AiAssistantProvider extends ChangeNotifier {
         var succeeded = true;
         AiWebFailure? webFailure;
         try {
-          if (_settingTools.any(
+          if (call.name == 'request_user_input') {
+            final request = AiUserInputRequest.fromArguments(
+              _newId(),
+              call.arguments,
+            );
+            final answers = await _requestUserInput(request, operationId);
+            succeeded = answers != null;
+            result = jsonEncode({
+              'cancelled': answers == null,
+              'answers': {
+                if (answers != null)
+                  for (final entry in answers.entries)
+                    entry.key: {'answers': entry.value},
+              },
+            });
+          } else if (_settingTools.any(
             (spec) => (spec['function'] as Map)['name'] == call.name,
           )) {
             _recordStatus(
@@ -776,7 +832,8 @@ class AiAssistantProvider extends ChangeNotifier {
             );
             result = await _tools.execute(
               prepared,
-              commandSafetyApproved: commandSafetyApproved,
+              commandSafetyApproved:
+                  commandSafetyApproved || _permissions.skipsCommandApproval,
               abort: _abortRequest?.future,
               isCancelled: () => _requestInterrupted || _disposed,
             );
@@ -1161,6 +1218,49 @@ Map<String, Object?> _number(double min, double max) => {
 };
 
 final _additionalTools = <Map<String, Object?>>[
+  _tool(
+    'request_user_input',
+    'Ask the user one to three short questions when a decision or missing detail is needed, then wait for their answers. Provide two or three distinct options for each question; put the recommended option first. The interface also allows a custom answer. Do not use this for command/file permission approval; those approvals are handled separately. Never invent user answers or treat an answer as a permission grant.',
+    {
+      'questions': {
+        'type': 'array',
+        'minItems': 1,
+        'maxItems': 3,
+        'items': {
+          'type': 'object',
+          'additionalProperties': false,
+          'properties': {
+            'id': {
+              'type': 'string',
+              'description': 'Unique stable question id.',
+            },
+            'header': {'type': 'string', 'description': 'Short heading.'},
+            'question': {
+              'type': 'string',
+              'description': 'One clear question.',
+            },
+            'options': {
+              'type': 'array',
+              'minItems': 2,
+              'maxItems': 3,
+              'items': {
+                'type': 'object',
+                'additionalProperties': false,
+                'properties': {
+                  'label': {'type': 'string'},
+                  'description': {'type': 'string'},
+                },
+                'required': ['label', 'description'],
+              },
+            },
+          },
+          'required': ['id', 'header', 'question', 'options'],
+        },
+      },
+    },
+    ['questions'],
+  ),
+
   _tool(
     'get_execution_environment',
     'Get the local operating system, default shell and working directory. Does not execute commands or expose environment secrets.',

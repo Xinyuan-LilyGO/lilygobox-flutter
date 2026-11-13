@@ -36,6 +36,7 @@ String? aiResponseStatusLabel(
       'stop_process' => l10n.aiToolProcessStop,
       'get_execution_environment' => l10n.aiToolEnvironment,
       'get_current_time' => l10n.aiExecutingReadTime,
+      'request_user_input' => l10n.aiAskUser,
       'read_webpage' => l10n.aiAccessingWeb,
       'set_theme' => l10n.aiExecutingSetTheme,
       'set_language' => l10n.aiExecutingSetLanguage,
@@ -49,6 +50,7 @@ String? aiResponseStatusLabel(
     },
     AiResponseStatus.accessingWeb => l10n.aiAccessingWeb,
     AiResponseStatus.awaitingApproval => l10n.aiAwaitingApproval,
+    AiResponseStatus.awaitingUserInput => l10n.aiAwaitingUserInput,
     AiResponseStatus.retrying => l10n.aiRetryingRequest(
       retryAttempt,
       ChatCompletionClient.maxRetries,
@@ -104,8 +106,10 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
     final isWeb =
         action?.name == 'read_webpage' ||
         event.status == AiResponseStatus.accessingWeb;
+    final questionCancelled = action != null && _questionWasCancelled(action);
     final failed =
-        action?.succeeded == false || event.status == AiResponseStatus.failed;
+        (action?.succeeded == false && !questionCancelled) ||
+        event.status == AiResponseStatus.failed;
     final label = switch (event.type) {
       AiProcessEventType.status =>
         aiResponseStatusLabel(context, event.status, toolName: toolName) ??
@@ -128,6 +132,7 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
       AiResponseStatus.executingTools => Symbols.play_circle_rounded,
       AiResponseStatus.accessingWeb => Symbols.language_rounded,
       AiResponseStatus.awaitingApproval => Symbols.safety_check_rounded,
+      AiResponseStatus.awaitingUserInput => Symbols.help_rounded,
       AiResponseStatus.retrying => Symbols.refresh_rounded,
       AiResponseStatus.completed => Symbols.check_rounded,
       AiResponseStatus.failed => Symbols.error_outline_rounded,
@@ -150,6 +155,9 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
         ? null
         : _operationSummary(context, action);
     final processResult = action == null ? null : _processResult(action);
+    final questionDetails = action?.name == 'request_user_input'
+        ? _questionAnswerDetails(context, action!)
+        : null;
     final stages = widget.operationEvents
         .where((step) => step.type == AiProcessEventType.status)
         .toList();
@@ -162,11 +170,14 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
           (title: l10n.aiCommandDirectory, text: directory),
       ] else if (target is String && target.isNotEmpty)
         (title: l10n.aiOperationTarget, text: target),
+      if (questionDetails != null)
+        (title: l10n.aiQuestionAnswerDetails, text: questionDetails),
       if (resultSummary != null)
         (title: l10n.aiOperationSummary, text: resultSummary),
       if (failure != null)
         (title: l10n.aiOperationError, text: aiErrorText(l10n, failure))
       else if (action != null &&
+          !questionCancelled &&
           !action.succeeded &&
           (processResult == null
               ? action.output.isNotEmpty
@@ -182,7 +193,8 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
     ];
     final hasDetails =
         widget.detailsEnabled &&
-        (event.text.isNotEmpty ||
+        (questionDetails != null ||
+            event.text.isNotEmpty ||
             (action != null && target is String) ||
             failure != null ||
             (action != null && !action.succeeded && action.output.isNotEmpty) ||
@@ -240,7 +252,8 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
                 ? Symbols.error_outline_rounded
                 : isWeb
                 ? Symbols.language_rounded
-                : event.status == AiResponseStatus.awaitingApproval ||
+                : event.status == AiResponseStatus.awaitingUserInput ||
+                      event.status == AiResponseStatus.awaitingApproval ||
                       event.status == AiResponseStatus.preparingTools
                 ? statusIcon
                 : toolName != null
@@ -347,11 +360,14 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
                                   ),
                                 ),
                               ),
-                            if (toolName == 'run_command' &&
-                                section.title == l10n.aiCommandFull)
+                            if ((toolName == 'run_command' &&
+                                    section.title == l10n.aiCommandFull) ||
+                                section.title == l10n.aiOperationError)
                               ChatCodeBlock(
                                 text: section.text,
-                                language: aiCommandDisplayLanguage,
+                                language: section.title == l10n.aiCommandFull
+                                    ? aiCommandDisplayLanguage
+                                    : 'text',
                                 theme: theme,
                                 maxBodyHeight: 160,
                                 initialSoftWrap: true,
@@ -381,6 +397,7 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
 /// 以实际操作选择图标，执行阶段和完成记录使用同一套映射。
 IconData _toolIcon(String name) => switch (name) {
   'read_file' => Symbols.description_rounded,
+  'request_user_input' => Symbols.help_rounded,
   'list_directory' => Symbols.folder_open_rounded,
   'write_file' => Symbols.edit_document_rounded,
   'get_current_time' => Symbols.schedule_rounded,
@@ -423,6 +440,7 @@ String _aiActionSummary(
   final l10n = context.l10n;
   return switch (name) {
     'get_current_time' => l10n.aiToolTime,
+    'request_user_input' => l10n.aiAskUser,
     'run_command' => '${l10n.aiToolCommand}: ${args['executable']}',
     'get_execution_environment' => l10n.aiToolEnvironment,
     'read_process' => '${l10n.aiToolProcessRead}: ${args['process_id']}',
@@ -482,6 +500,11 @@ String _operationResultLabel(BuildContext context, AiProcessingStep action) {
   final target = rawTarget is String
       ? _shortOperationTarget(rawTarget, web: action.name == 'read_webpage')
       : '';
+  if (action.name == 'request_user_input') {
+    if (action.succeeded) return l10n.aiQuestionAnswered;
+    if (_questionWasCancelled(action)) return l10n.aiQuestionCancelled;
+    return l10n.aiProcessActionFailed(l10n.aiAskUser);
+  }
   final process = _processResult(action);
   if (action.name == 'run_command') {
     if (process?['timed_out'] == true) return l10n.aiCommandTimedOut(target);
@@ -564,7 +587,10 @@ String? _operationSummary(BuildContext context, AiProcessingStep action) {
   }
   if (!action.succeeded) return null;
   return switch (action.name) {
-    'run_command' || 'read_process' || 'stop_process' => null,
+    'run_command' ||
+    'read_process' ||
+    'stop_process' ||
+    'request_user_input' => null,
     'write_process_input' => l10n.aiProcessInputSentSummary,
     'read_webpage' => l10n.aiWebReadSummary,
     'list_directory' => l10n.aiDirectoryReadSummary,
@@ -573,4 +599,45 @@ String? _operationSummary(BuildContext context, AiProcessingStep action) {
     'get_current_time' => l10n.aiTimeReadCompleted,
     _ => _aiActionSummary(context, action.name, action.arguments),
   };
+}
+
+/// 只展示用户可读的问题与回答，不把工具协议 JSON 当作错误详情。
+String? _questionAnswerDetails(BuildContext context, AiProcessingStep action) {
+  final questions = action.arguments['questions'];
+  if (questions is! List) return null;
+  Map? answers;
+  try {
+    final result = jsonDecode(action.output);
+    if (result is Map && result['answers'] is Map) {
+      answers = result['answers'] as Map;
+    }
+  } on FormatException {
+    // 参数无效或工具失败的历史记录仍可显示实际收到的问题。
+  }
+  final entries = <String>[];
+  for (final value in questions) {
+    if (value is! Map || value['question'] is! String) continue;
+    final answer = answers?[value['id']];
+    final items = answer is Map ? answer['answers'] : null;
+    final text = items is List ? items.whereType<String>().join('\n') : '';
+    entries.add(
+      [
+        value['question'] as String,
+        if (text.isNotEmpty) '${context.l10n.aiQuestionAnswerLabel}: $text',
+        if (text.isEmpty && _questionWasCancelled(action))
+          context.l10n.aiQuestionCancelled,
+      ].join('\n'),
+    );
+  }
+  return entries.isEmpty ? null : entries.join('\n\n');
+}
+
+bool _questionWasCancelled(AiProcessingStep action) {
+  if (action.name != 'request_user_input' || action.succeeded) return false;
+  try {
+    final result = jsonDecode(action.output);
+    return result is Map && result['cancelled'] == true;
+  } on FormatException {
+    return false;
+  }
 }

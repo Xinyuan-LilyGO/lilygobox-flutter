@@ -19,6 +19,7 @@ List<AiProcessEntry> buildAiProcessTimeline(List<AiProcessEvent> events) {
         event.type == AiProcessEventType.action ||
         (event.type == AiProcessEventType.status &&
             (event.status == AiResponseStatus.preparingTools ||
+                event.status == AiResponseStatus.awaitingUserInput ||
                 event.status == AiResponseStatus.awaitingApproval ||
                 event.status == AiResponseStatus.executingTools ||
                 event.status == AiResponseStatus.accessingWeb));

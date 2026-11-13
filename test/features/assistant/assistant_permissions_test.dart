@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lilygobox/features/assistant/domain/web_failure.dart';
 import 'package:lilygobox/features/assistant/data/assistant_tools.dart';
 import 'package:lilygobox/features/assistant/domain/permissions.dart';
+import 'package:lilygobox/features/assistant/domain/web_failure.dart';
 
 void main() {
   late Directory root;
@@ -46,6 +46,23 @@ void main() {
       expect(jsonDecode(await tools.execute(time))['local_time'], isNotEmpty);
     },
   );
+
+  test('command bypass resets when local commands are disabled', () {
+    final enabled = AiPermissions(
+      mode: AiApprovalMode.custom,
+      execution: true,
+      commandNoApproval: true,
+    );
+    expect(enabled.skipsCommandApproval, isTrue);
+    final disabled = enabled.copyWith(execution: false);
+    expect(disabled.commandNoApproval, isFalse);
+    expect(disabled.copyWith(execution: true).skipsCommandApproval, isFalse);
+    expect(
+      enabled.copyWith(mode: AiApprovalMode.onRequest).skipsCommandApproval,
+      isFalse,
+    );
+    expect(AiPermissions(commandNoApproval: true).commandNoApproval, isFalse);
+  });
 
   test(
     'read only grants reads in selected directory and rejects writes',

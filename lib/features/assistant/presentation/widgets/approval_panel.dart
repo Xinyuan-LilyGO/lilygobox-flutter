@@ -2,7 +2,7 @@
  * @Description: 在聊天输入区展示单次工具批准，保留操作详情与固定的批准按钮。
  * @Author: OpenAI Codex
  * @Date: 2026-11-11 17:07:00
- * @LastEditTime: 2026-11-12 16:21:03
+ * @LastEditTime: 2026-11-13 17:24:48
  */
 
 import 'dart:math' as math;
@@ -70,7 +70,7 @@ class _AssistantApprovalPanelState extends State<AssistantApprovalPanel> {
       'list_directory' => l10n.aiToolList,
       'read_file' => l10n.aiToolRead,
       'write_file' => l10n.aiToolWrite,
-      'run_command' => l10n.aiToolCommand,
+      'run_command' => l10n.aiCommandNoticeTitle,
       _ => l10n.aiActionUnknown,
     };
     final command = widget.request.toolName == 'run_command';
@@ -104,10 +104,8 @@ class _AssistantApprovalPanelState extends State<AssistantApprovalPanel> {
         .toString();
     final resolved = args['resolved_path'] as String?;
     final style = TextStyle(color: theme.textColorSecondary, fontSize: 13);
-    final fieldTitleStyle = style.copyWith(
-      color: theme.textColorPrimary,
-      fontWeight: FontWeight.w500,
-    );
+    final fieldTitleStyle = AppDialogStyle.fieldTitleStyle(theme);
+    final descriptionStyle = AppDialogStyle.descriptionStyle(theme);
     return DecoratedBox(
       key: const ValueKey('ai-approval-panel'),
       decoration: BoxDecoration(
@@ -187,15 +185,8 @@ class _AssistantApprovalPanelState extends State<AssistantApprovalPanel> {
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   if (title != heading) ...[
-                                    Text(
-                                      title,
-                                      style: TextStyle(
-                                        color: theme.textColorPrimary,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
+                                    Text(title, style: fieldTitleStyle),
+                                    SizedBox(height: command ? 4 : 6),
                                   ],
                                   if (!command) Text(target, style: style),
                                   if (command) ...[
@@ -205,7 +196,7 @@ class _AssistantApprovalPanelState extends State<AssistantApprovalPanel> {
                                       key: const ValueKey(
                                         'ai-approval-description',
                                       ),
-                                      style: style.copyWith(height: 1.5),
+                                      style: descriptionStyle,
                                     ),
                                     const SizedBox(height: 12),
                                     Text(
@@ -231,7 +222,10 @@ class _AssistantApprovalPanelState extends State<AssistantApprovalPanel> {
                                         style: fieldTitleStyle,
                                       ),
                                       const SizedBox(height: 4),
-                                      Text(commandReason, style: style),
+                                      Text(
+                                        commandReason,
+                                        style: descriptionStyle,
+                                      ),
                                     ],
                                     if (commandDirectory.isNotEmpty) ...[
                                       const SizedBox(height: 12),
@@ -240,7 +234,10 @@ class _AssistantApprovalPanelState extends State<AssistantApprovalPanel> {
                                         style: fieldTitleStyle,
                                       ),
                                       const SizedBox(height: 4),
-                                      Text(commandDirectory, style: style),
+                                      Text(
+                                        commandDirectory,
+                                        style: descriptionStyle,
+                                      ),
                                     ],
                                   ],
                                   if (!command &&

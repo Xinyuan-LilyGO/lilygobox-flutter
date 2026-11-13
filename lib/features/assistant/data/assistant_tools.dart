@@ -61,7 +61,7 @@ class AssistantTools {
       _checkForbidden(assessment);
       return [
         if (!permissions.allowsCategory(AiPermissionCategory.execution) ||
-            assessment.needsApproval)
+            (assessment.needsApproval && !permissions.skipsCommandApproval))
           AiPermissionCategory.execution,
       ];
     }

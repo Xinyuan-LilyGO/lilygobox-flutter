@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/core/widgets/dialog_style.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/approval_panel.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/command_display.dart';
@@ -107,12 +108,31 @@ void main() {
           );
           expect(find.text(l10n.aiCommandReason), findsOneWidget);
           expect(find.text('test'), findsOneWidget);
+          expect(
+            tester.widget<Text>(find.text('test')).style,
+            AppDialogStyle.descriptionStyle(theme.themeData),
+          );
+          expect(
+            tester.widget<Text>(find.text('C:/work')).style,
+            AppDialogStyle.descriptionStyle(theme.themeData),
+          );
           expect(find.text(l10n.aiCommandDirectory), findsOneWidget);
           expect(find.textContaining(l10n.aiCommandRulePrompt), findsOneWidget);
           final description = tester.widget<Text>(
             find.byKey(const ValueKey('ai-approval-description')),
           );
-          expect(description.style?.height, 1.5);
+          expect(
+            description.style,
+            AppDialogStyle.descriptionStyle(theme.themeData),
+          );
+          final noticeTitle = tester.widget<Text>(
+            find.text(l10n.aiCommandNoticeTitle),
+          );
+          expect(
+            noticeTitle.style,
+            AppDialogStyle.fieldTitleStyle(theme.themeData),
+          );
+          expect(find.text(l10n.aiToolCommand), findsNothing);
           expect(
             description.data,
             [

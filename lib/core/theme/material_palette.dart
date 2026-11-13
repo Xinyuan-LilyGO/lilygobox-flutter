@@ -31,9 +31,9 @@ class MaterialPalette {
       tertiaryTextHoverColor: const Color.fromARGB(255, 50, 50, 50),
       tertiaryTextHighlightColor: const Color.fromARGB(255, 80, 80, 80),
       tertiaryTextSplashColor: const Color.fromARGB(255, 60, 60, 60),
-      tertiarySurfaceButtonBackgroundColor: const Color(0xFF282828),
-      tertiarySurfaceButtonHoverColor: const Color(0xFF323232),
-      tertiarySurfaceButtonPressedColor: const Color(0xFF3C3C3C),
+      tertiarySurfaceButtonBackgroundColor: const Color(0xFF363636),
+      tertiarySurfaceButtonHoverColor: const Color(0xFF404040),
+      tertiarySurfaceButtonPressedColor: const Color(0xFF4A4A4A),
       tertiarySurfaceButtonHighlightColor: const Color.fromARGB(
         97,
         255,
@@ -86,9 +86,9 @@ class MaterialPalette {
       tertiaryTextHoverColor: const Color.fromARGB(255, 180, 180, 180),
       tertiaryTextHighlightColor: const Color.fromARGB(100, 200, 200, 200),
       tertiaryTextSplashColor: const Color.fromARGB(100, 210, 210, 210),
-      tertiarySurfaceButtonBackgroundColor: const Color(0xFFBABABA),
-      tertiarySurfaceButtonHoverColor: const Color(0xFFACACAC),
-      tertiarySurfaceButtonPressedColor: const Color(0xFF9E9E9E),
+      tertiarySurfaceButtonBackgroundColor: const Color(0xFFC6C6C6),
+      tertiarySurfaceButtonHoverColor: const Color(0xFFB8B8B8),
+      tertiarySurfaceButtonPressedColor: const Color(0xFFAAAAAA),
       tertiarySurfaceButtonHighlightColor: const Color.fromARGB(48, 0, 0, 0),
       tertiarySurfaceButtonSplashColor: const Color.fromARGB(72, 0, 0, 0),
       appTitleTextColor: const Color.fromARGB(255, 50, 50, 50),
@@ -169,9 +169,9 @@ class MaterialPalette {
 
 /// 语义颜色与既有 AppTheme.lerp 使用同一进度，保留平滑主题切换。
 extension MaterialThemeRoles on AppTheme {
-  /// 下拉控件从承载背景派生底色，避免不同层级使用同一块灰色。
+  /// 下拉控件从承载背景派生底色，亮色主题降低对比并随主题切换平滑过渡。
   Color selectControlColorForSurface(Color surface) =>
-      Color.lerp(surface, textColorPrimary, .12)!;
+      Color.lerp(surface, textColorPrimary, .12 - .06 * lightProgress)!;
 
   /// 设置页普通按钮、下拉控件和服务卡片共用的表面底色。
   Color get settingsControlBackgroundColor =>
@@ -261,6 +261,12 @@ extension MaterialThemeRoles on AppTheme {
   Color get popupSurfaceColor => adaptiveColor(
     dark: Color.lerp(secondary, tertiary, .55)!,
     light: Colors.white,
+  );
+
+  /// 扩大权限的标题、说明与只读盾牌共用偏红橙色，亮色主题降低亮度。
+  Color get permissionWarningColor => adaptiveColor(
+    dark: const Color(0xFFE88B57),
+    light: const Color(0xFFB85A2B),
   );
 
   /// 正常电量使用绿色，亮暗主题分别保持图形对比度。

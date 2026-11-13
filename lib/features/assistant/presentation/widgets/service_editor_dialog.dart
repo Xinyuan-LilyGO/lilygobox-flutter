@@ -2,20 +2,23 @@
  * @Description: 在独立弹窗中编辑模型服务，支持读取模型列表并在确认后提交。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-12 16:15:03
+ * @LastEditTime: 2026-11-13 16:57:31
  */
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/theme/material_palette.dart';
 import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/app_scroll_behavior.dart';
+import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
 import '../../../../core/widgets/dialog_style.dart';
 import '../../../../core/widgets/settings/fields.dart';
 import '../../../../core/widgets/settings/select.dart';
+import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../domain/models.dart';
 import '../../state/provider.dart';
 import 'error_text.dart';
@@ -46,6 +49,7 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
   late AiApiProtocol _protocol;
   late AiServicePreset _preset;
   bool _working = false;
+  bool _showApiKey = false;
   Object? _error;
 
   @override
@@ -256,10 +260,7 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
                   if (_preset == AiServicePreset.custom) ...[
                     Text(
                       l10n.aiProtocolLabel,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.textColorSecondary,
-                      ),
+                      style: AppDialogStyle.fieldTitleStyle(theme),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -298,10 +299,7 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
                     const SizedBox(height: 16),
                     Text(
                       l10n.aiBaseUrlLabel,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.textColorSecondary,
-                      ),
+                      style: AppDialogStyle.fieldTitleStyle(theme),
                     ),
                     const SizedBox(height: 5),
                     Text(
@@ -320,10 +318,7 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
                   ],
                   Text(
                     l10n.aiApiKeyLabel,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: theme.textColorSecondary,
-                    ),
+                    style: AppDialogStyle.fieldTitleStyle(theme),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -349,10 +344,7 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
                       Flexible(
                         child: Text(
                           l10n.aiModelLabel,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: theme.textColorSecondary,
-                          ),
+                          style: AppDialogStyle.fieldTitleStyle(theme),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -437,7 +429,35 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
     theme: widget.theme,
     controller: controller,
     enabled: !_working,
-    obscureText: secret,
+    obscureText: secret && !_showApiKey,
+    suffixIcon: secret
+        ? Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Semantics(
+              button: true,
+              toggled: _showApiKey,
+              child: AppTooltip(
+                message: _showApiKey
+                    ? context.l10n.aiHideApiKey
+                    : context.l10n.aiShowApiKey,
+                child: TitleBarIconButton(
+                  key: const ValueKey('ai-service-key-visibility'),
+                  theme: widget.theme,
+                  isFocused: true,
+                  icon: _showApiKey
+                      ? Symbols.visibility_rounded
+                      : Symbols.visibility_off_rounded,
+                  iconColor: widget.theme.iconColor,
+                  backgroundColor: Colors.transparent,
+                  surfaceColor: AppDialogStyle.backgroundColor(widget.theme),
+                  onPressed: _working
+                      ? null
+                      : () => setState(() => _showApiKey = !_showApiKey),
+                ),
+              ),
+            ),
+          )
+        : null,
   );
 
   Widget _fieldSection(String title, String description, Widget input) =>

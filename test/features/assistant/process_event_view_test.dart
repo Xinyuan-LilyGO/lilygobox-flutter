@@ -57,6 +57,84 @@ Widget host(
 );
 
 void main() {
+  testWidgets('question details show readable answers and remain selectable', (
+    tester,
+  ) async {
+    final event = AiProcessEvent(
+      type: AiProcessEventType.action,
+      elapsed: const Duration(seconds: 1),
+      action: AiProcessingStep(
+        name: 'request_user_input',
+        arguments: {
+          'questions': [
+            {'id': 'target', 'question': 'Which folder?'},
+          ],
+        },
+        succeeded: true,
+        output: jsonEncode({
+          'cancelled': false,
+          'answers': {
+            'target': {
+              'answers': ['Project', 'Use the current folder'],
+            },
+          },
+        }),
+      ),
+    );
+    String? selected;
+    await tester.pumpWidget(
+      host(
+        event,
+        onSelectionChanged: (content) => selected = content?.plainText,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(processText('Answers received'), findsOneWidget);
+    expect(find.textContaining('Which folder?'), findsNothing);
+    await tester.tap(find.byIcon(Symbols.chevron_right_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Questions and answers'), findsOneWidget);
+    expect(
+      find.text('Which folder?\nAnswer: Project\nUse the current folder'),
+      findsOneWidget,
+    );
+    final region = tester.state<SelectableRegionState>(
+      find.byType(SelectableRegion),
+    );
+    region.selectAll(SelectionChangedCause.toolbar);
+    await tester.pump();
+    expect(selected, contains('Use the current folder'));
+    expect(selected, isNot(contains('"answers"')));
+  });
+
+  testWidgets('cancelled questions do not render tool JSON as an error', (
+    tester,
+  ) async {
+    final output = jsonEncode({'cancelled': true, 'answers': {}});
+    final event = AiProcessEvent(
+      type: AiProcessEventType.action,
+      elapsed: Duration.zero,
+      action: AiProcessingStep(
+        name: 'request_user_input',
+        arguments: {
+          'questions': [
+            {'id': 'target', 'question': 'Which folder?'},
+          ],
+        },
+        succeeded: false,
+        output: output,
+      ),
+    );
+    await tester.pumpWidget(host(event));
+    await tester.pumpAndSettle();
+    expect(processText('Question cancelled'), findsOneWidget);
+    await tester.tap(find.byIcon(Symbols.chevron_right_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text(output), findsNothing);
+    expect(find.byType(ChatCodeBlock), findsNothing);
+    expect(find.text('Which folder?\nQuestion cancelled'), findsOneWidget);
+  });
+
   testWidgets(
     'full command preserves scripts, arguments and working directory in selection',
     (tester) async {
@@ -446,6 +524,16 @@ void main() {
           expect(find.textContaining('"process_id"'), findsNothing);
           if (state == 'failed') {
             expect(processText('Device not found'), findsOneWidget);
+            final errorBlock = tester.widget<ChatCodeBlock>(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is ChatCodeBlock &&
+                    widget.text == 'Device not found',
+              ),
+            );
+            expect(errorBlock.language, 'text');
+            expect(errorBlock.maxBodyHeight, 160);
+            expect(errorBlock.initialSoftWrap, isTrue);
           }
           expect(processText('Run local command: $executable'), findsNothing);
           expect(tester.takeException(), isNull);

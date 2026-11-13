@@ -3767,10 +3767,136 @@ abstract class AppLocalizations {
   /// **'Unable to open the folder picker. Please try again.'**
   String get aiPermissionFolderFailed;
 
+  /// No description provided for @aiPermissionCommandNoApproval.
+  ///
+  /// In en, this message translates to:
+  /// **'Command approval bypass'**
+  String get aiPermissionCommandNoApproval;
+
+  /// No description provided for @aiPermissionCommandNoApprovalHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Run commands without requesting approval.'**
+  String get aiPermissionCommandNoApprovalHelp;
+
+  /// No description provided for @aiPermissionFullFilesWarningTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow access to all files?'**
+  String get aiPermissionFullFilesWarningTitle;
+
+  /// No description provided for @aiPermissionFullFilesWarningDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Within system permissions, this allows reading, creating, modifying or deleting any local file, without folder restrictions.\n\nThis may cause loss of important files or disclosure of sensitive information.'**
+  String get aiPermissionFullFilesWarningDescription;
+
+  /// No description provided for @aiPermissionCommandNoApprovalWarningTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Run commands without approval?'**
+  String get aiPermissionCommandNoApprovalWarningTitle;
+
+  /// No description provided for @aiPermissionCommandNoApprovalWarningDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Complex scripts and commands flagged as risky will run without approval. Explicitly forbidden commands remain blocked.\n\nCommands and their child processes may modify or delete files, access the network and change system settings, causing data loss or disclosure.'**
+  String get aiPermissionCommandNoApprovalWarningDescription;
+
+  /// No description provided for @aiPermissionWarningFooter.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable this only for tasks you trust. You can turn it off at any time.'**
+  String get aiPermissionWarningFooter;
+
+  /// No description provided for @aiPermissionWarningConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm and enable'**
+  String get aiPermissionWarningConfirm;
+
+  /// No description provided for @aiShowApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Show API key'**
+  String get aiShowApiKey;
+
+  /// No description provided for @aiHideApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide API key'**
+  String get aiHideApiKey;
+
+  /// No description provided for @aiQuestionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Input needed'**
+  String get aiQuestionTitle;
+
+  /// No description provided for @aiAwaitingUserInput.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for your answer'**
+  String get aiAwaitingUserInput;
+
+  /// No description provided for @aiAskUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask a question'**
+  String get aiAskUser;
+
+  /// No description provided for @aiQuestionAnswered.
+  ///
+  /// In en, this message translates to:
+  /// **'Answers received'**
+  String get aiQuestionAnswered;
+
+  /// No description provided for @aiQuestionCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Question cancelled'**
+  String get aiQuestionCancelled;
+
+  /// No description provided for @aiQuestionAnswerDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Questions and answers'**
+  String get aiQuestionAnswerDetails;
+
+  /// No description provided for @aiQuestionAnswerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Answer'**
+  String get aiQuestionAnswerLabel;
+
+  /// No description provided for @aiQuestionNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Add details or enter your own answer'**
+  String get aiQuestionNote;
+
+  /// No description provided for @aiQuestionSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit answers'**
+  String get aiQuestionSubmit;
+
+  /// No description provided for @aiQuestionCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get aiQuestionCancel;
+
+  /// No description provided for @aiQuestionChoose.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an option or enter an answer.'**
+  String get aiQuestionChoose;
+
   /// No description provided for @aiPermissionExecution.
   ///
   /// In en, this message translates to:
-  /// **'Run local commands'**
+  /// **'Allow running local commands'**
   String get aiPermissionExecution;
 
   /// No description provided for @aiPermissionExecutionHelp.
@@ -3782,7 +3908,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiPermissionFullFiles.
   ///
   /// In en, this message translates to:
-  /// **'Full file access'**
+  /// **'Allow access to all files'**
   String get aiPermissionFullFiles;
 
   /// No description provided for @aiPermissionFullFilesHelp.
@@ -3790,6 +3916,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Allow access to local files without folder grants, within system permissions.'**
   String get aiPermissionFullFilesHelp;
+
+  /// No description provided for @aiCommandNoticeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Risk notice'**
+  String get aiCommandNoticeTitle;
 
   /// No description provided for @aiCommandApprovalNotice.
   ///

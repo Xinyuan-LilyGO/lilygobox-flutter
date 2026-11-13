@@ -2,7 +2,7 @@
  * @Description: 构建双层 AI 输入区，承载附件与待处理引导并提供键盘发送和模型选择。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:07:40
- * @LastEditTime: 2026-11-12 11:40:05
+ * @LastEditTime: 2026-11-13 16:57:31
  */
 
 import 'dart:async';
@@ -33,6 +33,7 @@ import '../../state/provider.dart';
 import 'approval_panel.dart';
 import 'model_selector.dart';
 import 'permissions_button.dart';
+import 'user_input_panel.dart';
 
 /// 后层承载队列与附件，前层保留独立文字输入区。
 class ChatComposer extends StatelessWidget {
@@ -229,6 +230,7 @@ class ChatComposer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final request = assistant.pendingApproval;
+    final question = assistant.pendingUserInput;
     return PopupMenuPageTransition(
       child: request != null
           ? AssistantApprovalPanel(
@@ -238,6 +240,16 @@ class ChatComposer extends StatelessWidget {
               inputFocus: focusNode,
               onResolve: (approve) =>
                   assistant.resolveTool(request.id, approve: approve),
+            )
+          : question != null
+          ? AssistantUserInputPanel(
+              key: ValueKey(question.id),
+              request: question,
+              theme: theme,
+              inputFocus: focusNode,
+              onSubmit: (answers) =>
+                  assistant.resolveUserInput(question.id, answers),
+              onCancel: () => assistant.cancelUserInput(question.id),
             )
           : _buildInput(context),
     );

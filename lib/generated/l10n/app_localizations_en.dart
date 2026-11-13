@@ -2105,18 +2105,89 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unable to open the folder picker. Please try again.';
 
   @override
-  String get aiPermissionExecution => 'Run local commands';
+  String get aiPermissionCommandNoApproval => 'Command approval bypass';
+
+  @override
+  String get aiPermissionCommandNoApprovalHelp =>
+      'Run commands without requesting approval.';
+
+  @override
+  String get aiPermissionFullFilesWarningTitle => 'Allow access to all files?';
+
+  @override
+  String get aiPermissionFullFilesWarningDescription =>
+      'Within system permissions, this allows reading, creating, modifying or deleting any local file, without folder restrictions.\n\nThis may cause loss of important files or disclosure of sensitive information.';
+
+  @override
+  String get aiPermissionCommandNoApprovalWarningTitle =>
+      'Run commands without approval?';
+
+  @override
+  String get aiPermissionCommandNoApprovalWarningDescription =>
+      'Complex scripts and commands flagged as risky will run without approval. Explicitly forbidden commands remain blocked.\n\nCommands and their child processes may modify or delete files, access the network and change system settings, causing data loss or disclosure.';
+
+  @override
+  String get aiPermissionWarningFooter =>
+      'Enable this only for tasks you trust. You can turn it off at any time.';
+
+  @override
+  String get aiPermissionWarningConfirm => 'Confirm and enable';
+
+  @override
+  String get aiShowApiKey => 'Show API key';
+
+  @override
+  String get aiHideApiKey => 'Hide API key';
+
+  @override
+  String get aiQuestionTitle => 'Input needed';
+
+  @override
+  String get aiAwaitingUserInput => 'Waiting for your answer';
+
+  @override
+  String get aiAskUser => 'Ask a question';
+
+  @override
+  String get aiQuestionAnswered => 'Answers received';
+
+  @override
+  String get aiQuestionCancelled => 'Question cancelled';
+
+  @override
+  String get aiQuestionAnswerDetails => 'Questions and answers';
+
+  @override
+  String get aiQuestionAnswerLabel => 'Answer';
+
+  @override
+  String get aiQuestionNote => 'Add details or enter your own answer';
+
+  @override
+  String get aiQuestionSubmit => 'Submit answers';
+
+  @override
+  String get aiQuestionCancel => 'Cancel';
+
+  @override
+  String get aiQuestionChoose => 'Choose an option or enter an answer.';
+
+  @override
+  String get aiPermissionExecution => 'Allow running local commands';
 
   @override
   String get aiPermissionExecutionHelp =>
       'Allow commands and programs to run on this computer.';
 
   @override
-  String get aiPermissionFullFiles => 'Full file access';
+  String get aiPermissionFullFiles => 'Allow access to all files';
 
   @override
   String get aiPermissionFullFilesHelp =>
       'Allow access to local files without folder grants, within system permissions.';
+
+  @override
+  String get aiCommandNoticeTitle => 'Risk notice';
 
   @override
   String get aiCommandApprovalNotice =>

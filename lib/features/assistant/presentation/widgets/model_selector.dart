@@ -2,8 +2,10 @@
  * @Description: 为主页提供右键菜单风格的服务分组模型菜单与设备风格搜索框。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-12 11:40:05
+ * @LastEditTime: 2026-11-13 16:57:31
  */
+
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -296,6 +298,7 @@ class _ModelSelectorState extends State<ModelSelector> {
     return TextField(
       key: const ValueKey('ai-model-search'),
       contextMenuBuilder: AppTextSelectionMenu.build,
+      selectionWidthStyle: ui.BoxWidthStyle.tight,
       controller: _search,
       focusNode: _searchFocus,
       onChanged: (_) => setState(() {}),

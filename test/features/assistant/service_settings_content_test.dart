@@ -11,6 +11,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,6 +25,7 @@ import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/widgets/action_button.dart';
 import 'package:lilygobox/core/widgets/menu_item_surface.dart';
 import 'package:lilygobox/core/widgets/settings/select.dart';
+import 'package:lilygobox/core/widgets/title_bar_icon_button.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/service_settings_content.dart';
 import 'package:lilygobox/features/assistant/state/provider.dart';
@@ -169,6 +171,96 @@ void main() {
     await tester.enterText(field('key'), 'test-key');
     await tester.enterText(field('models'), 'model-a\nmodel-b');
   }
+
+  testWidgets(
+    'API key visibility toggles only current input and resets on reopen',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1120, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await scope.provider.saveService(
+        name: 'Gateway',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['model-a'],
+        apiKey: 'test-key',
+      );
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit service'));
+      await tester.pumpAndSettle();
+      final eye = find.byKey(const ValueKey('ai-service-key-visibility'));
+      TextField keyInput() => tester.widget<TextField>(input('key'));
+      expect(keyInput().obscureText, isTrue);
+      expect(
+        tester.widget<TitleBarIconButton>(eye).icon,
+        Symbols.visibility_off_rounded,
+      );
+      expect(keyInput().controller!.text, isEmpty);
+      final initialHeight = tester.getSize(input('key')).height;
+
+      await tester.tap(eye);
+      await tester.pump();
+      expect(keyInput().obscureText, isFalse);
+      expect(
+        tester.widget<TitleBarIconButton>(eye).icon,
+        Symbols.visibility_rounded,
+      );
+      expect(keyInput().controller!.text, isEmpty);
+      expect(
+        tester.widget<TitleBarIconButton>(eye).iconColor,
+        theme.themeData.iconColor,
+      );
+      expect(tester.getSize(input('key')).height, initialHeight);
+      expect(find.byTooltip('Hide API key'), findsOneWidget);
+
+      await tester.enterText(field('key'), 'replacement-key');
+      keyInput().controller!.selection = const TextSelection(
+        baseOffset: 2,
+        extentOffset: 7,
+      );
+      await tester.tap(eye);
+      await tester.pump();
+      expect(keyInput().obscureText, isTrue);
+      expect(
+        tester.widget<TitleBarIconButton>(eye).icon,
+        Symbols.visibility_off_rounded,
+      );
+      expect(keyInput().controller!.text, 'replacement-key');
+      expect(
+        keyInput().controller!.selection,
+        const TextSelection(baseOffset: 2, extentOffset: 7),
+      );
+      expect(find.byTooltip('Show API key'), findsOneWidget);
+      await tester.pumpAndSettle();
+      await capture(tester, 'service-api-key-hidden');
+      await tester.tap(eye);
+      await tester.pump();
+      expect(keyInput().obscureText, isFalse);
+      expect(
+        tester.widget<TitleBarIconButton>(eye).icon,
+        Symbols.visibility_rounded,
+      );
+      expect(keyInput().controller!.text, 'replacement-key');
+      await tester.pumpAndSettle();
+      await capture(tester, 'service-api-key-visible');
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit service'));
+      await tester.pumpAndSettle();
+      expect(keyInput().obscureText, isTrue);
+      expect(
+        tester.widget<TitleBarIconButton>(eye).icon,
+        Symbols.visibility_off_rounded,
+      );
+      expect(keyInput().controller!.text, isEmpty);
+      expect(
+        scope.provider.hasServiceKey(scope.provider.services.single.id),
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('image capabilities come only from fetched model metadata', (
     tester,
@@ -786,6 +878,9 @@ void main() {
         'models',
       ),
     ]) {
+      final titleText = tester.widget<Text>(find.text(title));
+      expect(titleText.style?.fontSize, 13);
+      expect(titleText.style?.fontWeight, FontWeight.w500);
       expect(
         tester.getTopLeft(find.text(title)).dy,
         lessThan(tester.getTopLeft(find.text(description)).dy),

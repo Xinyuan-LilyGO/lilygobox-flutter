@@ -1966,16 +1966,84 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiPermissionFolderFailed => '无法打开文件夹选择器，请重试。';
 
   @override
-  String get aiPermissionExecution => '运行本机命令';
+  String get aiPermissionCommandNoApproval => '命令免审批';
+
+  @override
+  String get aiPermissionCommandNoApprovalHelp => '运行命令时不再请求批准。';
+
+  @override
+  String get aiPermissionFullFilesWarningTitle => '要允许访问所有文件吗？';
+
+  @override
+  String get aiPermissionFullFilesWarningDescription =>
+      '开启后，可在系统权限范围内读取、创建、修改或删除任意本地文件，不再受授权文件夹限制。\n\n这可能导致重要文件丢失或敏感信息泄露。';
+
+  @override
+  String get aiPermissionCommandNoApprovalWarningTitle => '要开启命令免审批吗？';
+
+  @override
+  String get aiPermissionCommandNoApprovalWarningDescription =>
+      '开启后，复杂脚本和检测到风险的命令也会直接运行，不再请求批准；明确禁止的命令仍会被拦截。\n\n命令及其子进程可能修改或删除文件、联网以及更改系统设置，造成数据丢失或泄露。';
+
+  @override
+  String get aiPermissionWarningFooter => '请仅在信任当前任务时开启。你可以随时关闭此权限。';
+
+  @override
+  String get aiPermissionWarningConfirm => '确认开启';
+
+  @override
+  String get aiShowApiKey => '显示密钥';
+
+  @override
+  String get aiHideApiKey => '隐藏密钥';
+
+  @override
+  String get aiQuestionTitle => '需要你的回答';
+
+  @override
+  String get aiAwaitingUserInput => '正在等待你的回答';
+
+  @override
+  String get aiAskUser => '提问';
+
+  @override
+  String get aiQuestionAnswered => '已收到回答';
+
+  @override
+  String get aiQuestionCancelled => '已取消提问';
+
+  @override
+  String get aiQuestionAnswerDetails => '问题与回答';
+
+  @override
+  String get aiQuestionAnswerLabel => '回答';
+
+  @override
+  String get aiQuestionNote => '补充说明，或填写自己的答案';
+
+  @override
+  String get aiQuestionSubmit => '提交答案';
+
+  @override
+  String get aiQuestionCancel => '取消';
+
+  @override
+  String get aiQuestionChoose => '请选择一个选项，或填写自己的答案。';
+
+  @override
+  String get aiPermissionExecution => '允许运行本机命令';
 
   @override
   String get aiPermissionExecutionHelp => '允许在本机运行命令和程序。';
 
   @override
-  String get aiPermissionFullFiles => '文件完全访问';
+  String get aiPermissionFullFiles => '允许访问所有文件';
 
   @override
   String get aiPermissionFullFilesHelp => '允许访问本地文件，无需逐文件夹授权，仍受系统权限限制。';
+
+  @override
+  String get aiCommandNoticeTitle => '风险提示';
 
   @override
   String get aiCommandApprovalNotice => '命令不受沙箱限制；本次批准仅对该命令及其子进程有效。';

@@ -20,11 +20,13 @@ class AiPermissions {
     this.mode = AiApprovalMode.onRequest,
     this.network = true,
     this.execution = false,
+    bool commandNoApproval = false,
     this.fullFiles = false,
     this.files = AiFileAccess.readOnly,
     List<String> folders = const [],
     Map<String, AiFileAccess> folderAccess = const {},
-  }) : folders = List.unmodifiable(folders),
+  }) : commandNoApproval = execution && commandNoApproval,
+       folders = List.unmodifiable(folders),
        folderAccess = Map.unmodifiable({
          for (final folder in folders) folder: folderAccess[folder] ?? files,
        });
@@ -32,6 +34,11 @@ class AiPermissions {
   final AiApprovalMode mode;
   final bool network;
   final bool execution;
+
+  /// 仅在自定义模式且允许运行本机命令时跳过命令确认。
+  final bool commandNoApproval;
+  bool get skipsCommandApproval =>
+      allowsCategory(AiPermissionCategory.execution) && commandNoApproval;
   final bool fullFiles;
 
   bool allowsCategory(AiPermissionCategory category) =>
@@ -48,6 +55,26 @@ class AiPermissions {
   final Map<String, AiFileAccess> folderAccess;
 
   AiFileAccess accessForFolder(String folder) => folderAccess[folder]!;
+
+  AiPermissions copyWith({
+    AiApprovalMode? mode,
+    bool? network,
+    bool? execution,
+    bool? commandNoApproval,
+    bool? fullFiles,
+    AiFileAccess? files,
+    List<String>? folders,
+    Map<String, AiFileAccess>? folderAccess,
+  }) => AiPermissions(
+    mode: mode ?? this.mode,
+    network: network ?? this.network,
+    execution: execution ?? this.execution,
+    commandNoApproval: commandNoApproval ?? this.commandNoApproval,
+    fullFiles: fullFiles ?? this.fullFiles,
+    files: files ?? this.files,
+    folders: folders ?? this.folders,
+    folderAccess: folderAccess ?? this.folderAccess,
+  );
 
   bool allowsNetwork() => mode == AiApprovalMode.onRequest || network;
 

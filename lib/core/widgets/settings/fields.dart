@@ -2,14 +2,19 @@
  * @Description: 提供设置项文本输入框、只读字段及输入框装饰。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-13 17:24:48
  */
+
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../context_menu/text_selection_menu.dart';
 import '../../theme/definition.dart';
+import '../../theme/material_palette.dart';
+import '../app_scroll_behavior.dart';
+import '../dialog_style.dart';
 
 class SettingTextField extends StatelessWidget {
   const SettingTextField({
@@ -37,6 +42,7 @@ class SettingTextField extends StatelessWidget {
       height: 32.0,
       child: TextFormField(
         contextMenuBuilder: AppTextSelectionMenu.build,
+        selectionWidthStyle: ui.BoxWidthStyle.tight,
         initialValue: value,
         enabled: enabled,
         keyboardType: keyboardType,
@@ -49,9 +55,10 @@ class SettingTextField extends StatelessWidget {
           fontWeight: FontWeight.w600,
         ),
         decoration: _inputDecoration(
+          context,
           theme,
           contentPadding: contentPadding,
-          // 提示框沿用搜索框的无边框底色，聚焦时显示紫色轮廓。
+          // 提示框保留无边框样式，聚焦时显示紫色轮廓。
           disableHover: context.findAncestorWidgetOfExactType<Dialog>() != null,
         ),
       ),
@@ -73,6 +80,9 @@ class SettingControlledTextField extends StatelessWidget {
     this.minLines = 1,
     this.maxLines = 1,
     this.contentPadding,
+    this.suffixIcon,
+    this.maxLength,
+    this.inputFormatters,
   });
 
   final AppTheme theme;
@@ -85,33 +95,62 @@ class SettingControlledTextField extends StatelessWidget {
   final int minLines;
   final int maxLines;
   final EdgeInsetsGeometry? contentPadding;
+  final Widget? suffixIcon;
+  final int? maxLength;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
-  Widget build(BuildContext context) => TextField(
-    contextMenuBuilder: AppTextSelectionMenu.build,
-    controller: controller,
-    enabled: enabled,
-    minLines: minLines,
-    maxLines: maxLines,
-    obscureText: obscureText,
-    autofocus: autofocus,
-    keyboardType:
-        keyboardType ?? (maxLines > 1 ? TextInputType.multiline : null),
-    autocorrect: false,
-    enableSuggestions: false,
-    onChanged: onChanged,
-    cursorColor: theme.dividerColorNormal,
-    style: TextStyle(
-      color: theme.textColorPrimary,
-      fontSize: 13,
-      fontWeight: FontWeight.w600,
-    ),
-    decoration: _inputDecoration(
-      theme,
-      contentPadding: contentPadding,
-      disableHover: true,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Widget field(ScrollController? scroll) => TextField(
+      scrollController: scroll,
+      contextMenuBuilder: AppTextSelectionMenu.build,
+      selectionWidthStyle: ui.BoxWidthStyle.tight,
+      controller: controller,
+      enabled: enabled,
+      minLines: minLines,
+      maxLines: maxLines,
+      maxLength: maxLength,
+      inputFormatters: inputFormatters,
+      obscureText: obscureText,
+      autofocus: autofocus,
+      keyboardType:
+          keyboardType ?? (maxLines > 1 ? TextInputType.multiline : null),
+      autocorrect: false,
+      enableSuggestions: false,
+      onChanged: onChanged,
+      cursorColor: theme.dividerColorNormal,
+      style: TextStyle(
+        color: theme.textColorPrimary,
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+      ),
+      decoration:
+          _inputDecoration(
+            context,
+            theme,
+            contentPadding: maxLines > 1
+                ? _multilinePadding(contentPadding)
+                : contentPadding,
+            disableHover: true,
+          ).copyWith(
+            suffixIcon: suffixIcon,
+            suffixIconConstraints: suffixIcon == null
+                ? null
+                : const BoxConstraints(minWidth: 32),
+            counterText: maxLength == null ? null : '',
+          ),
+    );
+    return maxLines > 1
+        ? _SettingTextScrollRegion(builder: field)
+        : field(null);
+  }
+
+  EdgeInsetsGeometry _multilinePadding(EdgeInsetsGeometry? padding) {
+    final resolved =
+        (padding ?? const EdgeInsets.symmetric(horizontal: 6, vertical: 8))
+            .resolve(TextDirection.ltr);
+    return resolved.copyWith(right: resolved.right + 14);
+  }
 }
 
 class SettingReadOnlyField extends StatelessWidget {
@@ -144,17 +183,23 @@ class SettingReadOnlyField extends StatelessWidget {
 }
 
 InputDecoration _inputDecoration(
+  BuildContext context,
   AppTheme theme, {
   EdgeInsetsGeometry? contentPadding,
   bool disableHover = false,
 }) {
+  final dialog = context.findAncestorWidgetOfExactType<Dialog>();
+  final surface =
+      AppDialogScope.maybeOf(context)?.surfaceColor ??
+      dialog?.backgroundColor ??
+      (dialog != null
+          ? AppDialogStyle.backgroundColor(theme)
+          : theme.secondary);
   return InputDecoration(
     isDense: true,
     filled: true,
     hoverColor: disableHover ? Colors.transparent : null,
-    fillColor: disableHover
-        ? theme.secondary
-        : theme.primary.withValues(alpha: 0.74),
+    fillColor: theme.selectControlColorForSurface(surface),
     contentPadding:
         contentPadding ??
         const EdgeInsets.symmetric(horizontal: 6.0, vertical: 8.0),
@@ -179,5 +224,34 @@ InputDecoration _inputDecoration(
         color: disableHover ? theme.basePrimary : theme.dividerColorNormal,
       ),
     ),
+  );
+}
+
+/// 滚动条以完整输入框为承载区，正文的独立通道不挤动滑块。
+class _SettingTextScrollRegion extends StatefulWidget {
+  const _SettingTextScrollRegion({required this.builder});
+  final Widget Function(ScrollController) builder;
+
+  @override
+  State<_SettingTextScrollRegion> createState() =>
+      _SettingTextScrollRegionState();
+}
+
+class _SettingTextScrollRegionState extends State<_SettingTextScrollRegion> {
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ScrollbarTheme(
+    data: ScrollbarTheme.of(context).copyWith(
+      crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
+      mainAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
+    ),
+    child: Scrollbar(controller: _scroll, child: widget.builder(_scroll)),
   );
 }

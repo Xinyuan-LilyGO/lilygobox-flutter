@@ -25,8 +25,11 @@ abstract final class AppDialogStyle {
     color: theme.textColorPrimary,
   );
 
-  static TextStyle fieldTitleStyle(AppTheme theme) =>
-      TextStyle(fontSize: 12, color: theme.textColorSecondary);
+  static TextStyle fieldTitleStyle(AppTheme theme) => TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    color: theme.textColorSecondary,
+  );
 
   static TextStyle descriptionStyle(AppTheme theme) =>
       TextStyle(fontSize: 11, height: 1.4, color: theme.textColorTertiary);
