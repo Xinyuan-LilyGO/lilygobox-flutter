@@ -18,12 +18,16 @@ class ChatCodeBlock extends StatefulWidget {
     required this.text,
     required this.language,
     required this.theme,
+    this.backgroundColor,
     this.maxBodyHeight,
     this.initialSoftWrap = false,
   });
   final String text;
   final String language;
   final AppTheme theme;
+
+  /// 嵌入批准面板等同色容器时，可选用另一层主题背景。
+  final Color? backgroundColor;
 
   /// 仅限制正文高度，语言标签和复制按钮固定；普通聊天代码块不限制。
   final double? maxBodyHeight;
@@ -63,6 +67,7 @@ class _ChatCodeBlockState extends State<ChatCodeBlock> {
   @override
   Widget build(BuildContext context) {
     final theme = widget.theme;
+    final surfaceColor = widget.backgroundColor ?? theme.primary;
     final l10n = context.l10n;
     final label = _copied ? l10n.aiMessageCopied : l10n.aiCopyCode;
     final wrapLabel = _softWrap
@@ -73,7 +78,7 @@ class _ChatCodeBlockState extends State<ChatCodeBlock> {
       child: DecoratedBox(
         key: const ValueKey('ai-code-block'),
         decoration: BoxDecoration(
-          color: theme.primary,
+          color: surfaceColor,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Padding(
@@ -124,11 +129,11 @@ class _ChatCodeBlockState extends State<ChatCodeBlock> {
                             size: 25,
                             iconSize: 15,
                             backgroundColor: _softWrap
-                                ? theme.interactionHoverColor(theme.primary)
-                                : theme.primary,
-                            surfaceColor: theme.primary,
+                                ? theme.interactionHoverColor(surfaceColor)
+                                : surfaceColor,
+                            surfaceColor: surfaceColor,
                             hoverColor: theme.interactionSelectedColor(
-                              theme.primary,
+                              surfaceColor,
                             ),
                             iconColor: _softWrap
                                 ? theme.textColorPrimary
@@ -152,10 +157,10 @@ class _ChatCodeBlockState extends State<ChatCodeBlock> {
                                 : Symbols.content_copy_rounded,
                             size: 25,
                             iconSize: 15,
-                            backgroundColor: theme.primary,
-                            surfaceColor: theme.primary,
+                            backgroundColor: surfaceColor,
+                            surfaceColor: surfaceColor,
                             hoverColor: theme.interactionHoverColor(
-                              theme.primary,
+                              surfaceColor,
                             ),
                             iconColor: theme.textColorSecondary,
                           ),

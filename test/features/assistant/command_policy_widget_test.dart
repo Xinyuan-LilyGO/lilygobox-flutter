@@ -73,8 +73,55 @@ void main() {
           expect(find.text('powershell.exe'), findsNothing);
           expect(find.textContaining(l10n.aiCommandArguments), findsNothing);
           expect(find.textContaining('C:/work'), findsOneWidget);
-          expect(find.text(l10n.aiCommandRiskForceDelete), findsOneWidget);
-          expect(find.text(l10n.aiCommandRulePrompt), findsOneWidget);
+          expect(
+            find.textContaining(l10n.aiCommandRiskForceDelete),
+            findsOneWidget,
+          );
+          expect(find.text(l10n.aiPermissionExecutionHelp), findsNothing);
+          expect(
+            find.textContaining(l10n.aiCommandApprovalNotice),
+            findsOneWidget,
+          );
+          final commandTop = tester
+              .getTopLeft(find.text(l10n.aiCommandFull))
+              .dy;
+          expect(
+            tester
+                .getBottomLeft(
+                  find.textContaining(l10n.aiCommandRiskForceDelete),
+                )
+                .dy,
+            lessThan(commandTop),
+          );
+          expect(
+            tester
+                .getBottomLeft(
+                  find.textContaining(l10n.aiCommandApprovalNotice),
+                )
+                .dy,
+            lessThan(commandTop),
+          );
+          expect(
+            tester.getTopLeft(find.text(l10n.aiCommandReason)).dy,
+            greaterThan(commandTop),
+          );
+          expect(find.text(l10n.aiCommandReason), findsOneWidget);
+          expect(find.text('test'), findsOneWidget);
+          expect(find.text(l10n.aiCommandDirectory), findsOneWidget);
+          expect(find.textContaining(l10n.aiCommandRulePrompt), findsOneWidget);
+          final description = tester.widget<Text>(
+            find.byKey(const ValueKey('ai-approval-description')),
+          );
+          expect(description.style?.height, 1.5);
+          expect(
+            description.data,
+            [
+              l10n.aiCommandRiskForceDelete,
+              l10n.aiCommandRulePrompt,
+              '${l10n.aiCommandMatchedRules}: ["powershell"]',
+              l10n.aiCommandApprovalNotice,
+            ].join(' '),
+          );
           expect(find.byType(Dialog), findsNothing);
           expect(tester.takeException(), isNull);
           await tester.ensureVisible(

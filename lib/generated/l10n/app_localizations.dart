@@ -3776,7 +3776,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiPermissionExecutionHelp.
   ///
   /// In en, this message translates to:
-  /// **'Allow commands, including device access, firmware flashing and tool installation.'**
+  /// **'Allow commands and programs to run on this computer.'**
   String get aiPermissionExecutionHelp;
 
   /// No description provided for @aiPermissionFullFiles.
@@ -3794,7 +3794,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiCommandApprovalNotice.
   ///
   /// In en, this message translates to:
-  /// **'Local commands are not sandboxed and can access files, networks and devices, install tools and change the environment. Approval applies only to this command and its child processes.'**
+  /// **'Commands are not sandboxed. Approval covers only this command and its child processes.'**
   String get aiCommandApprovalNotice;
 
   /// No description provided for @aiCommandReason.
@@ -3872,7 +3872,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiCommandRiskOpaqueScript.
   ///
   /// In en, this message translates to:
-  /// **'This call contains a script or dynamic expressions whose subsequent operations cannot be fully analyzed.'**
+  /// **'Contains a script or dynamic expressions whose behavior cannot be fully predicted.'**
   String get aiCommandRiskOpaqueScript;
 
   /// No description provided for @aiCommandRulePrompt.

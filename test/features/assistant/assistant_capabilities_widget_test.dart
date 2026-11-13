@@ -78,6 +78,11 @@ void main() {
             await tester.pumpAndSettle();
             expect(tester.widget<Switch>(toggle).value, isTrue);
           }
+          final l10n = AppLocalizations.of(
+            tester.element(find.byType(AssistantPermissionsButton)),
+          );
+          expect(find.text(l10n.aiPermissionExecutionHelp), findsOneWidget);
+          expect(find.textContaining('烧录固件'), findsNothing);
           expect(find.byType(Switch), findsNWidgets(3));
           for (final removed in ['devices', 'firmware', 'installation']) {
             expect(
@@ -183,6 +188,16 @@ void main() {
           findsOneWidget,
         );
         expect(find.text(l10n.aiCommandApprovalNotice), findsOneWidget);
+        expect(
+          find.text(aiPermissionCategoryHelp(l10n, category)),
+          findsNothing,
+        );
+        expect(find.text(l10n.aiCommandReason), findsOneWidget);
+        expect(
+          find.text('Inspect and build the selected project'),
+          findsOneWidget,
+        );
+        expect(find.text(l10n.aiCommandDirectory), findsOneWidget);
         expect(find.textContaining('powershell.exe'), findsOneWidget);
         expect(find.textContaining('D:/projects/board'), findsOneWidget);
         expect(

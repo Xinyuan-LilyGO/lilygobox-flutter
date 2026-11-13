@@ -74,10 +74,27 @@ class _AssistantApprovalPanelState extends State<AssistantApprovalPanel> {
       _ => l10n.aiActionUnknown,
     };
     final command = widget.request.toolName == 'run_command';
+    final commandReason = args['reason']?.toString().trim() ?? '';
+    final commandDirectory =
+        (args['resolved_path'] ?? args['working_directory'])?.toString() ?? '';
     final safetyApproval = command && args['command_safety_approval'] == true;
     final category = AiPermissionCategory.values
         .where((value) => value.name == args['permission_category'])
         .firstOrNull;
+    final commandDescription = <String>[
+      if (safetyApproval) ...[
+        for (final risk in AiCommandRisk.values.where(
+          (value) =>
+              (args['command_risks'] as List?)?.contains(value.name) == true,
+        ))
+          aiCommandRiskText(l10n, risk),
+        if ((args['command_rules'] as List?)?.isNotEmpty == true) ...[
+          l10n.aiCommandRulePrompt,
+          '${l10n.aiCommandMatchedRules}: ${(args['command_rules'] as List).join(', ')}',
+        ],
+      ],
+      if (command) l10n.aiCommandApprovalNotice,
+    ].join(' ');
     final heading = safetyApproval
         ? l10n.aiCommandSafetyTitle
         : command && category != null
@@ -87,6 +104,10 @@ class _AssistantApprovalPanelState extends State<AssistantApprovalPanel> {
         .toString();
     final resolved = args['resolved_path'] as String?;
     final style = TextStyle(color: theme.textColorSecondary, fontSize: 13);
+    final fieldTitleStyle = style.copyWith(
+      color: theme.textColorPrimary,
+      fontWeight: FontWeight.w500,
+    );
     return DecoratedBox(
       key: const ValueKey('ai-approval-panel'),
       decoration: BoxDecoration(
@@ -176,8 +197,21 @@ class _AssistantApprovalPanelState extends State<AssistantApprovalPanel> {
                                     ),
                                     const SizedBox(height: 6),
                                   ],
+                                  if (!command) Text(target, style: style),
                                   if (command) ...[
-                                    Text(l10n.aiCommandFull, style: style),
+                                    // 说明连续排版，宽度不足时自然折行，不插入强制换行。
+                                    Text(
+                                      commandDescription,
+                                      key: const ValueKey(
+                                        'ai-approval-description',
+                                      ),
+                                      style: style.copyWith(height: 1.5),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      l10n.aiCommandFull,
+                                      style: fieldTitleStyle,
+                                    ),
                                     const SizedBox(height: 6),
                                     ChatCodeBlock(
                                       key: const ValueKey(
@@ -186,65 +220,28 @@ class _AssistantApprovalPanelState extends State<AssistantApprovalPanel> {
                                       text: formatAiCommand(args),
                                       language: aiCommandDisplayLanguage,
                                       theme: theme,
+                                      backgroundColor: theme.secondary,
                                       maxBodyHeight: 160,
                                       initialSoftWrap: true,
                                     ),
-                                  ] else
-                                    Text(target, style: style),
-                                  if (safetyApproval) ...[
-                                    for (final risk
-                                        in AiCommandRisk.values.where(
-                                          (value) =>
-                                              (args['command_risks'] as List?)
-                                                  ?.contains(value.name) ==
-                                              true,
-                                        )) ...[
-                                      const SizedBox(height: 8),
+                                    if (commandReason.isNotEmpty) ...[
+                                      const SizedBox(height: 12),
                                       Text(
-                                        aiCommandRiskText(l10n, risk),
-                                        style: style,
+                                        l10n.aiCommandReason,
+                                        style: fieldTitleStyle,
                                       ),
+                                      const SizedBox(height: 4),
+                                      Text(commandReason, style: style),
                                     ],
-                                    if ((args['command_rules'] as List?)
-                                            ?.isNotEmpty ==
-                                        true) ...[
-                                      const SizedBox(height: 8),
+                                    if (commandDirectory.isNotEmpty) ...[
+                                      const SizedBox(height: 12),
                                       Text(
-                                        l10n.aiCommandRulePrompt,
-                                        style: style,
+                                        l10n.aiCommandDirectory,
+                                        style: fieldTitleStyle,
                                       ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        '${l10n.aiCommandMatchedRules}: ${(args['command_rules'] as List).join(', ')}',
-                                        style: style,
-                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(commandDirectory, style: style),
                                     ],
-                                  ],
-                                  if (command) ...[
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      aiPermissionCategoryHelp(
-                                        l10n,
-                                        category ??
-                                            AiPermissionCategory.execution,
-                                      ),
-                                      style: style,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      l10n.aiCommandApprovalNotice,
-                                      style: style,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      '${l10n.aiCommandReason}: ${args['reason']}',
-                                      style: style,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      '${l10n.aiCommandDirectory}: ${resolved ?? args['working_directory']}',
-                                      style: style,
-                                    ),
                                   ],
                                   if (!command &&
                                       resolved != null &&

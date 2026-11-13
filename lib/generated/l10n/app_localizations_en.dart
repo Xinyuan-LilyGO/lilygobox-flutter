@@ -2109,7 +2109,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiPermissionExecutionHelp =>
-      'Allow commands, including device access, firmware flashing and tool installation.';
+      'Allow commands and programs to run on this computer.';
 
   @override
   String get aiPermissionFullFiles => 'Full file access';
@@ -2120,7 +2120,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiCommandApprovalNotice =>
-      'Local commands are not sandboxed and can access files, networks and devices, install tools and change the environment. Approval applies only to this command and its child processes.';
+      'Commands are not sandboxed. Approval covers only this command and its child processes.';
 
   @override
   String get aiCommandReason => 'Purpose';
@@ -2163,7 +2163,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiCommandRiskOpaqueScript =>
-      'This call contains a script or dynamic expressions whose subsequent operations cannot be fully analyzed.';
+      'Contains a script or dynamic expressions whose behavior cannot be fully predicted.';
 
   @override
   String get aiCommandRulePrompt =>

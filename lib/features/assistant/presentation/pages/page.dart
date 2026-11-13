@@ -30,6 +30,7 @@ import '../../state/provider.dart';
 import '../widgets/chat_composer.dart';
 import '../widgets/error_text.dart';
 import '../widgets/message_content.dart';
+import '../widgets/process_details_scroll_view.dart';
 import '../widgets/process_event_view.dart';
 import '../widgets/reasoning_effort_label.dart';
 
@@ -553,13 +554,6 @@ class _MessageViewState extends State<_MessageView> {
   bool _detailsExpanded = false;
   bool _detailsHovered = false;
   bool _detailsFocused = false;
-  final _detailsScroll = ScrollController();
-
-  @override
-  void dispose() {
-    _detailsScroll.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -737,42 +731,35 @@ class _MessageViewState extends State<_MessageView> {
                       if (message.processEvents.isNotEmpty)
                         ConstrainedBox(
                           constraints: const BoxConstraints(maxHeight: 300),
-                          child: Scrollbar(
-                            controller: _detailsScroll,
-                            child: SingleChildScrollView(
-                              controller: _detailsScroll,
-                              primary: false,
-                              padding: const EdgeInsetsDirectional.only(
-                                end: 20,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  for (final entry in timeline)
-                                    if (entry.event.type !=
-                                            AiProcessEventType.assistant &&
-                                        entry.event.type !=
-                                            AiProcessEventType.guidance &&
-                                        !(turnFinished &&
-                                            entry.event.type ==
-                                                AiProcessEventType.status &&
-                                            entry.event.status ==
-                                                AiResponseStatus.thinking))
-                                      AiProcessEventView(
-                                        key: ValueKey(entry.id),
-                                        event: entry.event,
-                                        operationEvents: entry.events,
-                                        theme: widget.theme,
-                                        isThinking:
-                                            message.status ==
-                                                AiResponseStatus.thinking &&
-                                            identical(
-                                              entry.event,
-                                              message.processEvents.last,
-                                            ),
-                                      ),
-                                ],
-                              ),
+                          child: ProcessDetailsScrollView(
+                            active: !turnFinished,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                for (final entry in timeline)
+                                  if (entry.event.type !=
+                                          AiProcessEventType.assistant &&
+                                      entry.event.type !=
+                                          AiProcessEventType.guidance &&
+                                      !(turnFinished &&
+                                          entry.event.type ==
+                                              AiProcessEventType.status &&
+                                          entry.event.status ==
+                                              AiResponseStatus.thinking))
+                                    AiProcessEventView(
+                                      key: ValueKey(entry.id),
+                                      event: entry.event,
+                                      operationEvents: entry.events,
+                                      theme: widget.theme,
+                                      isThinking:
+                                          message.status ==
+                                              AiResponseStatus.thinking &&
+                                          identical(
+                                            entry.event,
+                                            message.processEvents.last,
+                                          ),
+                                    ),
+                              ],
                             ),
                           ),
                         ),

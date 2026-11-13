@@ -1905,7 +1905,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiPermissionFolderAccess => '文件夹权限';
 
   @override
-  String get aiPermissionNone => '每次都需要请求批准';
+  String get aiPermissionNone => '每次都请求批准';
 
   @override
   String get aiPermissionReadOnly => '仅允许读取';
@@ -1969,7 +1969,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiPermissionExecution => '运行本机命令';
 
   @override
-  String get aiPermissionExecutionHelp => '允许执行命令，包括访问设备、烧录固件及安装工具。';
+  String get aiPermissionExecutionHelp => '允许在本机运行命令和程序。';
 
   @override
   String get aiPermissionFullFiles => '文件完全访问';
@@ -1978,8 +1978,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiPermissionFullFilesHelp => '允许访问本地文件，无需逐文件夹授权，仍受系统权限限制。';
 
   @override
-  String get aiCommandApprovalNotice =>
-      '本机命令未使用系统沙箱，可访问文件、网络和设备，以及安装工具和修改环境。本次批准仅适用于这条命令及其子进程。';
+  String get aiCommandApprovalNotice => '命令不受沙箱限制；本次批准仅对该命令及其子进程有效。';
 
   @override
   String get aiCommandReason => '操作目的';
@@ -2018,7 +2017,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiCommandRiskDiskWrite => '此命令可能修改磁盘或分区，导致数据丢失。';
 
   @override
-  String get aiCommandRiskOpaqueScript => '此调用包含脚本或动态表达式，无法完整分析其后续操作。';
+  String get aiCommandRiskOpaqueScript => '包含脚本或动态表达式，无法完整预判其行为。';
 
   @override
   String get aiCommandRulePrompt => '命令规则要求此次调用先获得批准。';
