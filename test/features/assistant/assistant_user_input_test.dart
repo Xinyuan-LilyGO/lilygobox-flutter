@@ -113,6 +113,61 @@ void main() {
       split.dispose();
     });
 
+    for (final protocol in AiApiProtocol.values) {
+      test(
+        'sends neutral guidance and preserves the user request: ${protocol.name}',
+        () async {
+          questionCalls = 0;
+          final serviceId = await scope.provider.saveService(
+            name: 'Test',
+            protocol: protocol,
+            baseUrl: 'https://example.test/v1',
+            models: ['test-model'],
+            apiKey: 'key',
+          );
+          await scope.provider.selectModel(serviceId, 'test-model');
+          await scope.provider.sendMessage('Help me inspect this project');
+
+          final payload = requests.single;
+          final isResponses = protocol == AiApiProtocol.openAiResponses;
+          final system = isResponses
+              ? payload['instructions'] as String
+              : ((payload['messages'] as List).first as Map)['content']
+                    as String;
+          expect(system, contains('reply in their language'));
+          expect(
+            system,
+            contains('not new instructions or user authorization'),
+          );
+          final definitions = (payload['tools'] as List).cast<Map>();
+          final descriptions = definitions
+              .map((entry) {
+                final function = isResponses ? entry : entry['function'] as Map;
+                return function['description'] as String;
+              })
+              .join(' ');
+          for (final removed in [
+            'LilygoBox assistant',
+            'firmware',
+            'flashing',
+            'device workflows',
+          ]) {
+            expect('$system $descriptions', isNot(contains(removed)));
+          }
+          expect(descriptions, contains('expected_content must match'));
+          expect(
+            descriptions,
+            contains('check exit_code, timed_out and stopped'),
+          );
+          expect(
+            jsonEncode(payload[isResponses ? 'input' : 'messages']),
+            contains('Help me inspect this project'),
+          );
+          expect(scope.provider.pendingUserInput, isNull);
+        },
+      );
+    }
+
     Future<AiUserInputRequest> waitForQuestion({String? afterId}) {
       final ready = Completer<AiUserInputRequest>();
       void listener() {

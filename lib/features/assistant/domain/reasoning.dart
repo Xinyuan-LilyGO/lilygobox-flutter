@@ -2,11 +2,11 @@
  * @Description: 定义模型可用的思考强度与不同 API 的参数映射。
  * @Author: LILYGO_L
  * @Date: 2026-11-10 11:58:09
- * @LastEditTime: 2026-11-11 21:20:54
+ * @LastEditTime: 2026-11-13 18:01:23
  */
 enum AiReasoningEffort { none, minimal, low, medium, high, xhigh, max, ultra }
 
-/// 仅明确支持的模型显示强度面板；未知别名不推测其能力。
+/// 以模型名称中连续出现的已知标识识别能力，不依赖服务端扩展字段。
 class AiReasoningCapabilities {
   const AiReasoningCapabilities(this.levels, {this.deepSeek = false});
 
@@ -20,71 +20,75 @@ class AiReasoningCapabilities {
       ? AiReasoningEffort.high
       : levels.firstOrNull;
 
+  static const _standard = [
+    AiReasoningEffort.low,
+    AiReasoningEffort.medium,
+    AiReasoningEffort.high,
+  ];
+  static const _extended = AiReasoningCapabilities([
+    ..._standard,
+    AiReasoningEffort.xhigh,
+    AiReasoningEffort.max,
+    AiReasoningEffort.ultra,
+  ]);
+  static const _upToMax = AiReasoningCapabilities([
+    ..._standard,
+    AiReasoningEffort.xhigh,
+    AiReasoningEffort.max,
+  ]);
+  static const _gpt5 = AiReasoningCapabilities([
+    AiReasoningEffort.minimal,
+    ..._standard,
+  ]);
+  static const _deepSeek = AiReasoningCapabilities([
+    AiReasoningEffort.none,
+    AiReasoningEffort.low,
+    AiReasoningEffort.high,
+    AiReasoningEffort.max,
+  ], deepSeek: true);
+  static const _models = <String, AiReasoningCapabilities>{
+    'deepseek-flash': _deepSeek,
+    'deepseek-v4-pro': _deepSeek,
+    'gpt-6-sol': _extended,
+    'gpt-6.1-sol': _extended,
+    'gpt-6.1-terra': _extended,
+    'gpt-5.6-sol': _extended,
+    'gpt-5.6-terra': _extended,
+    // 当前 gpt-6-astra 接口拒绝 ultra，带前后缀时也保持最高 max。
+    'gpt-6-astra': _upToMax,
+    'gpt-6-luna': _upToMax,
+    'gpt-5.6-luna': _upToMax,
+    'gpt-5.5': AiReasoningCapabilities([..._standard, AiReasoningEffort.xhigh]),
+    'o1': AiReasoningCapabilities(_standard),
+    'o3': AiReasoningCapabilities(_standard),
+    'o3-mini': AiReasoningCapabilities(_standard),
+    'o4-mini': AiReasoningCapabilities(_standard),
+    'gpt-5': _gpt5,
+    'gpt-5-mini': _gpt5,
+    'gpt-5-nano': _gpt5,
+    'gpt-5.1': AiReasoningCapabilities([AiReasoningEffort.none, ..._standard]),
+    'gpt-5.2': AiReasoningCapabilities([
+      AiReasoningEffort.none,
+      ..._standard,
+      AiReasoningEffort.xhigh,
+    ]),
+    'gpt-5.4': AiReasoningCapabilities([
+      AiReasoningEffort.none,
+      ..._standard,
+      AiReasoningEffort.xhigh,
+    ]),
+  };
+  static final _modelIdentifiers = _models.keys.toList()
+    ..sort((a, b) {
+      final byLength = b.length.compareTo(a.length);
+      return byLength != 0 ? byLength : a.compareTo(b);
+    });
+
+  /// 连续子字符串匹配；前缀、后缀和大小写不改变能力，长标识优先。
   static AiReasoningCapabilities forModel(String model) {
     final id = model.toLowerCase();
-    const standard = [
-      AiReasoningEffort.low,
-      AiReasoningEffort.medium,
-      AiReasoningEffort.high,
-    ];
-    if (['deepseek-flash', 'deepseek-v4-pro'].contains(id)) {
-      return const AiReasoningCapabilities([
-        AiReasoningEffort.none,
-        AiReasoningEffort.low,
-        AiReasoningEffort.high,
-        AiReasoningEffort.max,
-      ], deepSeek: true);
-    }
-    // Codex models-manager catalog: these families advertise the same levels.
-    if (RegExp(
-      r'^gpt-(6-sol|6\.1-sol|6\.1-terra|5\.6-sol|5\.6-terra)$',
-    ).hasMatch(id)) {
-      return const AiReasoningCapabilities([
-        ...standard,
-        AiReasoningEffort.xhigh,
-        AiReasoningEffort.max,
-        AiReasoningEffort.ultra,
-      ]);
-    }
-    // 当前 gpt-6-astra 接口明确拒绝 ultra，最高使用 max。
-    if (['gpt-6-astra', 'gpt-6-luna', 'gpt-5.6-luna'].contains(id)) {
-      return const AiReasoningCapabilities([
-        ...standard,
-        AiReasoningEffort.xhigh,
-        AiReasoningEffort.max,
-      ]);
-    }
-    if (RegExp(r'^gpt-5\.5(?:-\d{4}-\d{2}-\d{2})?$').hasMatch(id)) {
-      return const AiReasoningCapabilities([
-        ...standard,
-        AiReasoningEffort.xhigh,
-      ]);
-    }
-    if (RegExp(
-      r'^(o1|o3|o3-mini|o4-mini)(?:-\d{4}-\d{2}-\d{2})?$',
-    ).hasMatch(id)) {
-      return const AiReasoningCapabilities(standard);
-    }
-    if (RegExp(
-      r'^gpt-5(?:-mini|-nano)?(?:-\d{4}-\d{2}-\d{2})?$',
-    ).hasMatch(id)) {
-      return const AiReasoningCapabilities([
-        AiReasoningEffort.minimal,
-        ...standard,
-      ]);
-    }
-    if (RegExp(r'^gpt-5\.1(?:-\d{4}-\d{2}-\d{2})?$').hasMatch(id)) {
-      return const AiReasoningCapabilities([
-        AiReasoningEffort.none,
-        ...standard,
-      ]);
-    }
-    if (RegExp(r'^gpt-5\.(2|4)(?:-\d{4}-\d{2}-\d{2})?$').hasMatch(id)) {
-      return const AiReasoningCapabilities([
-        AiReasoningEffort.none,
-        ...standard,
-        AiReasoningEffort.xhigh,
-      ]);
+    for (final identifier in _modelIdentifiers) {
+      if (id.contains(identifier)) return _models[identifier]!;
     }
     return const AiReasoningCapabilities([]);
   }

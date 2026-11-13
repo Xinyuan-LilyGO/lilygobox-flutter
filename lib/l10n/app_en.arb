@@ -193,7 +193,7 @@
     "@aiActionSettingsWidth": {"placeholders": {"value": {"type": "String"}}},
     "aiActionUnknown": "Change an application setting",
     "aiServiceTitle": "Model services",
-    "aiServiceDescription": "Add model services and configure endpoints, keys and models. Keys stay in this device’s system secure storage.",
+    "aiServiceDescription": "Add model services and configure endpoints, keys and models. Keys use this device’s system secure storage.",
     "aiProviderLabel": "Provider",
     "aiProviderDescription": "Official providers set the API URL and protocol automatically. Choose Custom to configure them yourself. Switching providers clears the entered key and model list.",
     "aiProviderDeepseek": "DeepSeek (official)",
@@ -982,8 +982,7 @@
     "aiPermissionRequestHelp": "App settings and public HTTPS pages can be accessed directly. Local file operations require approval unless granted in Custom permissions. Each approval applies only to the displayed operation.",
     "aiPermissionNetwork": "Allow network access",
     "aiPermissionNetworkHelp": "Allow web access. Ask for approval when disabled.",
-    "aiPermissionFiles": "Default folder access",
-    "aiPermissionDefaultFoldersHelp": "Initial access for newly added folders.",
+    "aiPermissionFiles": "Default access for newly added folders",
     "aiPermissionFolderAccess": "Folder permissions",
     "aiPermissionNone": "Require approval every time",
     "aiPermissionReadOnly": "Allow reading only",
@@ -1074,5 +1073,12 @@
     "aiProcessInputSentSummary": "Input was sent to the process.",
     "aiCommandStopping": "Stopping process · {target}",
     "@aiCommandStopping": {"placeholders": {"target": {"type": "String"}}},
-    "aiCommandFull": "Full command"
+    "aiCommandFull": "Full command",
+    "aiServiceConfiguration": "Model service configuration",
+    "aiServiceConfigurationHelp": "Back up services and models separately. Exported files contain plaintext API keys; keep them secure.",
+    "aiServiceConfigurationFileType": "LilygoBox model service configuration (JSON)",
+    "aiServiceConfigurationImportTitle": "Import model service configuration?",
+    "aiServiceConfigurationImportHelp": "Matching service IDs and their keys will be updated. New services will be added; other existing services will be kept.",
+    "aiServiceConfigurationInvalid": "This file is invalid or is not a supported model service configuration.",
+    "aiAddedServicesHelp": "Add, edit or delete model services."
 }

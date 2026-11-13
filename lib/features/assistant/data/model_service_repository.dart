@@ -2,12 +2,13 @@
  * @Description: 持久化已添加的模型服务、独立密钥与模型选择，并迁移已有的显式配置。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-11 21:20:54
+ * @LastEditTime: 2026-11-13 19:20:26
  */
 
 import 'dart:convert';
 
 import '../../../core/storage/preferences.dart';
+import '../domain/model_service_configuration.dart';
 import '../domain/models.dart';
 import '../domain/reasoning.dart';
 import 'credential_store.dart';
@@ -116,19 +117,21 @@ class ModelServiceRepository {
               if (entry.key is String && entry.value is String)
                 entry.key as String: entry.value as String,
         };
-        // 修复旧版本为 gpt-6-astra 保存了接口不接受的 ultra 档位。
-        var migratedAstra = false;
+        // 根据统一能力规则修复旧 ultra 档位，带前后缀的名称同样生效。
+        var migratedEffort = false;
         for (final service in _services) {
           for (final model in service.models) {
             final key = jsonEncode([service.id, model]);
-            if (model.toLowerCase() == 'gpt-6-astra' &&
+            final levels = AiReasoningCapabilities.forModel(model).levels;
+            if (levels.contains(AiReasoningEffort.max) &&
+                !levels.contains(AiReasoningEffort.ultra) &&
                 _reasoningEfforts[key] == AiReasoningEffort.ultra.name) {
               _reasoningEfforts[key] = AiReasoningEffort.max.name;
-              migratedAstra = true;
+              migratedEffort = true;
             }
           }
         }
-        if (migratedAstra ||
+        if (migratedEffort ||
             (_selectedId != null &&
                 _model != null &&
                 AiReasoningCapabilities.forModel(_model!).levels.isNotEmpty &&
@@ -235,6 +238,75 @@ class ModelServiceRepository {
         await _credentials.write(oldKey, serviceId: serviceId);
       } else {
         await _credentials.clear(serviceId: serviceId);
+      }
+      throw const AiConfigurationException(AiProblem.storage);
+    }
+  }
+
+  /// 导出内容包含明文密钥，仅供用户显式触发的配置迁移使用。
+  String exportConfiguration() {
+    for (final service in _services) {
+      if (_keys[service.id]?.isNotEmpty != true) {
+        throw const AiConfigurationException(AiProblem.keyRequired);
+      }
+    }
+    final source = ModelServiceConfiguration(
+      services: _services,
+      apiKeys: _keys,
+      selectedId: _selectedId,
+      model: _model,
+      reasoningEfforts: _reasoningEfforts,
+    ).encode();
+    // 确保每个导出文件都符合导入限制。
+    ModelServiceConfiguration.decode(source);
+    return source;
+  }
+
+  Future<void> importConfiguration(String source) async {
+    final configuration = ModelServiceConfiguration.decode(source);
+    if (configuration.services.isEmpty) return;
+    final imported = {for (final item in configuration.services) item.id: item};
+    final next = [
+      for (final item in _services) imported[item.id] ?? item,
+      for (final item in configuration.services)
+        if (find(item.id) == null) item,
+    ];
+    final previousKeys = <String, String?>{};
+    try {
+      for (final service in configuration.services) {
+        // 读取安全存储的实际值，确保回滚不仅依赖内存缓存。
+        previousKeys[service.id] = await _credentials.read(
+          serviceId: service.id,
+        );
+      }
+      for (final service in configuration.services) {
+        await _credentials.write(
+          configuration.apiKeys[service.id]!,
+          serviceId: service.id,
+        );
+      }
+      await _persist(
+        next,
+        configuration.selectedId,
+        configuration.model,
+        reasoningEfforts: {
+          ..._reasoningEfforts,
+          ...configuration.reasoningEfforts,
+        },
+      );
+      _keys.addAll(configuration.apiKeys);
+    } catch (_) {
+      // 尽量恢复全部密钥；单个恢复失败不应跳过其余服务。
+      for (final entry in previousKeys.entries) {
+        try {
+          if (entry.value case final key?) {
+            await _credentials.write(key, serviceId: entry.key);
+          } else {
+            await _credentials.clear(serviceId: entry.key);
+          }
+        } catch (_) {
+          // 仍统一返回存储失败，不记录密钥或带来源内容的异常。
+        }
       }
       throw const AiConfigurationException(AiProblem.storage);
     }

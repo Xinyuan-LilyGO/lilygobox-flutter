@@ -578,7 +578,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiServiceTitle => '模型服务';
 
   @override
-  String get aiServiceDescription => '添加模型服务，配置接口、密钥与模型。密钥仅保存在本机系统安全存储中。';
+  String get aiServiceDescription => '添加模型服务，配置接口、密钥与模型。密钥使用本机系统安全存储。';
 
   @override
   String get aiProviderLabel => '服务提供商';
@@ -1896,10 +1896,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiPermissionNetworkHelp => '允许访问网页，关闭后需请求批准。';
 
   @override
-  String get aiPermissionFiles => '默认文件夹访问权限';
-
-  @override
-  String get aiPermissionDefaultFoldersHelp => '新添加文件夹的初始权限。';
+  String get aiPermissionFiles => '新添加文件夹的默认访问权限';
 
   @override
   String get aiPermissionFolderAccess => '文件夹权限';
@@ -2168,4 +2165,26 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiCommandFull => '完整命令';
+
+  @override
+  String get aiServiceConfiguration => '模型服务配置';
+
+  @override
+  String get aiServiceConfigurationHelp => '单独备份服务与模型配置，导出文件包含明文 API 密钥，请妥善保管。';
+
+  @override
+  String get aiServiceConfigurationFileType => 'LilygoBox 模型服务配置 (JSON)';
+
+  @override
+  String get aiServiceConfigurationImportTitle => '导入模型服务配置？';
+
+  @override
+  String get aiServiceConfigurationImportHelp =>
+      '相同服务 ID 的配置和密钥将被更新，新服务将被添加，其他已有服务保留。';
+
+  @override
+  String get aiServiceConfigurationInvalid => '文件无效或不是受支持的模型服务配置。';
+
+  @override
+  String get aiAddedServicesHelp => '添加、编辑或删除模型服务。';
 }

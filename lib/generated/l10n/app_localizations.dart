@@ -1136,7 +1136,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiServiceDescription.
   ///
   /// In en, this message translates to:
-  /// **'Add model services and configure endpoints, keys and models. Keys stay in this device’s system secure storage.'**
+  /// **'Add model services and configure endpoints, keys and models. Keys use this device’s system secure storage.'**
   String get aiServiceDescription;
 
   /// No description provided for @aiProviderLabel.
@@ -3632,14 +3632,8 @@ abstract class AppLocalizations {
   /// No description provided for @aiPermissionFiles.
   ///
   /// In en, this message translates to:
-  /// **'Default folder access'**
+  /// **'Default access for newly added folders'**
   String get aiPermissionFiles;
-
-  /// No description provided for @aiPermissionDefaultFoldersHelp.
-  ///
-  /// In en, this message translates to:
-  /// **'Initial access for newly added folders.'**
-  String get aiPermissionDefaultFoldersHelp;
 
   /// No description provided for @aiPermissionFolderAccess.
   ///
@@ -4132,6 +4126,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Full command'**
   String get aiCommandFull;
+
+  /// No description provided for @aiServiceConfiguration.
+  ///
+  /// In en, this message translates to:
+  /// **'Model service configuration'**
+  String get aiServiceConfiguration;
+
+  /// No description provided for @aiServiceConfigurationHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Back up services and models separately. Exported files contain plaintext API keys; keep them secure.'**
+  String get aiServiceConfigurationHelp;
+
+  /// No description provided for @aiServiceConfigurationFileType.
+  ///
+  /// In en, this message translates to:
+  /// **'LilygoBox model service configuration (JSON)'**
+  String get aiServiceConfigurationFileType;
+
+  /// No description provided for @aiServiceConfigurationImportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Import model service configuration?'**
+  String get aiServiceConfigurationImportTitle;
+
+  /// No description provided for @aiServiceConfigurationImportHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Matching service IDs and their keys will be updated. New services will be added; other existing services will be kept.'**
+  String get aiServiceConfigurationImportHelp;
+
+  /// No description provided for @aiServiceConfigurationInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'This file is invalid or is not a supported model service configuration.'**
+  String get aiServiceConfigurationInvalid;
+
+  /// No description provided for @aiAddedServicesHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Add, edit or delete model services.'**
+  String get aiAddedServicesHelp;
 }
 
 class _AppLocalizationsDelegate

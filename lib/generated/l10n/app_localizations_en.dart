@@ -607,7 +607,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiServiceDescription =>
-      'Add model services and configure endpoints, keys and models. Keys stay in this device’s system secure storage.';
+      'Add model services and configure endpoints, keys and models. Keys use this device’s system secure storage.';
 
   @override
   String get aiProviderLabel => 'Provider';
@@ -2031,11 +2031,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Allow web access. Ask for approval when disabled.';
 
   @override
-  String get aiPermissionFiles => 'Default folder access';
-
-  @override
-  String get aiPermissionDefaultFoldersHelp =>
-      'Initial access for newly added folders.';
+  String get aiPermissionFiles => 'Default access for newly added folders';
 
   @override
   String get aiPermissionFolderAccess => 'Folder permissions';
@@ -2323,4 +2319,30 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiCommandFull => 'Full command';
+
+  @override
+  String get aiServiceConfiguration => 'Model service configuration';
+
+  @override
+  String get aiServiceConfigurationHelp =>
+      'Back up services and models separately. Exported files contain plaintext API keys; keep them secure.';
+
+  @override
+  String get aiServiceConfigurationFileType =>
+      'LilygoBox model service configuration (JSON)';
+
+  @override
+  String get aiServiceConfigurationImportTitle =>
+      'Import model service configuration?';
+
+  @override
+  String get aiServiceConfigurationImportHelp =>
+      'Matching service IDs and their keys will be updated. New services will be added; other existing services will be kept.';
+
+  @override
+  String get aiServiceConfigurationInvalid =>
+      'This file is invalid or is not a supported model service configuration.';
+
+  @override
+  String get aiAddedServicesHelp => 'Add, edit or delete model services.';
 }

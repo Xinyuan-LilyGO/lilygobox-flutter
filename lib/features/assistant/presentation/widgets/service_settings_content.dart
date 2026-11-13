@@ -2,7 +2,7 @@
  * @Description: 展示可排序的模型服务列表，并通过弹窗添加或编辑服务。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-11 14:37:42
+ * @LastEditTime: 2026-11-13 20:20:43
  */
 
 import 'package:flutter/material.dart';
@@ -14,8 +14,11 @@ import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/theme/material_palette.dart';
 import '../../../../core/widgets/action_button.dart';
+import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
+import '../../../settings/presentation/widgets/content_layout.dart';
+import '../../data/model_service_configuration_file_service.dart';
 import '../../domain/models.dart';
 import '../../state/provider.dart';
 import 'error_text.dart';
@@ -32,6 +35,7 @@ class AiServiceSettingsContent extends StatefulWidget {
 
 class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
   Object? _error;
+  bool _transferring = false;
 
   Future<void> _edit(
     AiAssistantProvider assistant, [
@@ -95,12 +99,72 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
     }
   }
 
+  Future<void> _transferConfiguration(
+    AiAssistantProvider assistant, {
+    required bool importing,
+  }) async {
+    if (_transferring || !assistant.canChangeService) return;
+    final l10n = context.l10n;
+    setState(() => _transferring = true);
+    try {
+      if (importing) {
+        final source =
+            await ModelServiceConfigurationFileService.importConfiguration(
+              fileTypeLabel: l10n.aiServiceConfigurationFileType,
+            );
+        if (source == null || !mounted) return;
+        final confirmed = await showAppConfirmation(
+          context: context,
+          theme: widget.theme,
+          actionKey: 'import-model-services',
+          title: l10n.aiServiceConfigurationImportTitle,
+          description: l10n.aiServiceConfigurationImportHelp,
+          confirmLabel: l10n.configurationImport,
+        );
+        if (!confirmed || !mounted) return;
+        await assistant.importServiceConfiguration(source);
+      } else {
+        final source = await assistant.exportServiceConfiguration();
+        if (!mounted) return;
+        final exported =
+            await ModelServiceConfigurationFileService.exportConfiguration(
+              source,
+              fileTypeLabel: l10n.aiServiceConfigurationFileType,
+            );
+        if (!exported) return;
+      }
+      if (!mounted) return;
+      setState(() => _error = null);
+      _showTransferMessage(
+        importing
+            ? l10n.configurationImportSucceeded
+            : l10n.configurationExportSucceeded,
+      );
+    } on FormatException {
+      if (mounted) _showTransferMessage(l10n.aiServiceConfigurationInvalid);
+    } catch (_) {
+      if (mounted) {
+        _showTransferMessage(
+          importing
+              ? l10n.configurationImportFailed
+              : l10n.configurationExportFailed,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _transferring = false);
+    }
+  }
+
+  void _showTransferMessage(String message) {
+    showAppNotice(ScaffoldMessenger.of(context), message);
+  }
+
   @override
   Widget build(BuildContext context) {
     final assistant = context.watch<AiAssistantProvider>();
     final theme = widget.theme;
     final l10n = context.l10n;
-    final busy = !assistant.canChangeService;
+    final busy = _transferring || !assistant.canChangeService;
     return CustomScrollView(
       slivers: [
         SliverPadding(
@@ -128,7 +192,41 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
                 ),
                 const SizedBox(height: 24),
                 Divider(height: 1, color: theme.dividerColor),
-                const SizedBox(height: 20),
+                const SizedBox(height: 14),
+                SettingsField(
+                  theme: theme,
+                  title: l10n.aiServiceConfiguration,
+                  description: l10n.aiServiceConfigurationHelp,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      AppActionButton.settings(
+                        key: const ValueKey('ai-export-services'),
+                        theme: theme,
+                        label: l10n.configurationExport,
+                        onPressed: busy || assistant.services.isEmpty
+                            ? null
+                            : () => _transferConfiguration(
+                                assistant,
+                                importing: false,
+                              ),
+                      ),
+                      AppActionButton.settings(
+                        key: const ValueKey('ai-import-services'),
+                        theme: theme,
+                        label: l10n.configurationImport,
+                        onPressed: busy
+                            ? null
+                            : () => _transferConfiguration(
+                                assistant,
+                                importing: true,
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
                 if (!assistant.credentialLoaded)
                   const Center(child: CircularProgressIndicator())
                 else ...[
@@ -142,7 +240,7 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
                           color: theme.textColorPrimary,
                         ),
                       );
-                      final addButton = AppActionButton(
+                      final button = AppActionButton(
                         key: const ValueKey('ai-add-service'),
                         theme: theme,
                         label: l10n.aiAddModelService,
@@ -164,7 +262,7 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
                             const SizedBox(height: 8),
                             Align(
                               alignment: Alignment.centerRight,
-                              child: addButton,
+                              child: button,
                             ),
                           ],
                         );
@@ -172,10 +270,20 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
                       return Row(
                         children: [
                           Expanded(child: title),
-                          addButton,
+                          const SizedBox(width: 12),
+                          button,
                         ],
                       );
                     },
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    l10n.aiAddedServicesHelp,
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.4,
+                      color: theme.textColorTertiary,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   if (assistant.services.isEmpty)

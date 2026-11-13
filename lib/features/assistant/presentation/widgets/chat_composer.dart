@@ -2,7 +2,7 @@
  * @Description: 构建双层 AI 输入区，承载附件与待处理引导并提供键盘发送和模型选择。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 11:07:40
- * @LastEditTime: 2026-11-13 16:57:31
+ * @LastEditTime: 2026-11-13 17:42:49
  */
 
 import 'dart:async';
@@ -23,6 +23,7 @@ import '../../../../core/theme/material_palette.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_scroll_behavior.dart';
 import '../../../../core/widgets/app_tooltip.dart';
+import '../../../../core/widgets/empty_line_selection.dart';
 import '../../../../core/widgets/image_clipboard_menu.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/popup_menu_surface.dart';
@@ -251,7 +252,7 @@ class ChatComposer extends StatelessWidget {
                   assistant.resolveUserInput(question.id, answers),
               onCancel: () => assistant.cancelUserInput(question.id),
             )
-          : _buildInput(context),
+          : EmptyLineSelection(child: _buildInput(context)),
     );
   }
 

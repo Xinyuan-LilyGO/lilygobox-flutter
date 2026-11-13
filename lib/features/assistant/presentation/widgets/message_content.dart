@@ -2,7 +2,7 @@
  * @Description: 渲染聊天 Markdown 正文、消息复制操作与固定发送时间。
  * @Author: LILYGO_L
  * @Date: 2026-11-09 15:26:28
- * @LastEditTime: 2026-11-12 01:36:38
+ * @LastEditTime: 2026-11-13 17:42:49
  */
 
 import 'dart:async';
@@ -22,6 +22,7 @@ import '../../../../core/theme/definition.dart';
 import '../../../../core/theme/material_palette.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_tooltip.dart';
+import '../../../../core/widgets/empty_line_selection.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../data/message_link_opener.dart';
 import '../../domain/models.dart';
@@ -77,7 +78,7 @@ class _ChatMessageBodyState extends State<ChatMessageBody> {
         _selectionFocus.unfocus();
       }
     },
-    child: _buildContent(context),
+    child: EmptyLineSelection(child: _buildContent(context)),
   );
 
   Widget _buildContent(BuildContext context) {

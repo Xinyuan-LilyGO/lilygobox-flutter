@@ -193,7 +193,7 @@
     "@aiActionSettingsWidth": {"placeholders": {"value": {"type": "String"}}},
     "aiActionUnknown": "更改应用设置",
     "aiServiceTitle": "模型服务",
-    "aiServiceDescription": "添加模型服务，配置接口、密钥与模型。密钥仅保存在本机系统安全存储中。",
+    "aiServiceDescription": "添加模型服务，配置接口、密钥与模型。密钥使用本机系统安全存储。",
     "aiProviderLabel": "服务提供商",
     "aiProviderDescription": "官方服务自动配置 API 地址与协议；自定义服务可自行填写。切换提供商会清空已输入的密钥和模型列表。",
     "aiProviderDeepseek": "DeepSeek 官方",
@@ -649,8 +649,7 @@
     "aiPermissionRequestHelp": "软件设置与公开 HTTPS 网页可直接访问。本地文件操作需要逐次批准，或在自定义权限中授权。每次批准仅适用于展示的操作。",
     "aiPermissionNetwork": "允许联网",
     "aiPermissionNetworkHelp": "允许访问网页，关闭后需请求批准。",
-    "aiPermissionFiles": "默认文件夹访问权限",
-    "aiPermissionDefaultFoldersHelp": "新添加文件夹的初始权限。",
+    "aiPermissionFiles": "新添加文件夹的默认访问权限",
     "aiPermissionFolderAccess": "文件夹权限",
     "aiPermissionNone": "每次都请求批准",
     "aiPermissionReadOnly": "仅允许读取",
@@ -741,5 +740,12 @@
     "aiProcessInputSentSummary": "已发送进程输入。",
     "aiCommandStopping": "正在停止进程 · {target}",
     "@aiCommandStopping": {"placeholders": {"target": {"type": "String"}}},
-    "aiCommandFull": "完整命令"
+    "aiCommandFull": "完整命令",
+    "aiServiceConfiguration": "模型服务配置",
+    "aiServiceConfigurationHelp": "单独备份服务与模型配置，导出文件包含明文 API 密钥，请妥善保管。",
+    "aiServiceConfigurationFileType": "LilygoBox 模型服务配置 (JSON)",
+    "aiServiceConfigurationImportTitle": "导入模型服务配置？",
+    "aiServiceConfigurationImportHelp": "相同服务 ID 的配置和密钥将被更新，新服务将被添加，其他已有服务保留。",
+    "aiServiceConfigurationInvalid": "文件无效或不是受支持的模型服务配置。",
+    "aiAddedServicesHelp": "添加、编辑或删除模型服务。"
 }

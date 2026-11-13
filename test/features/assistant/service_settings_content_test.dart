@@ -11,7 +11,6 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,6 +29,7 @@ import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/service_settings_content.dart';
 import 'package:lilygobox/features/assistant/state/provider.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
 import 'assistant_test_scope.dart';
@@ -161,6 +161,8 @@ void main() {
   Finder input(String key) =>
       find.descendant(of: field(key), matching: find.byType(TextField));
   Future<void> open(WidgetTester tester) async {
+    await tester.ensureVisible(find.byKey(const ValueKey('ai-add-service')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('ai-add-service')));
     await tester.pumpAndSettle();
   }
@@ -663,6 +665,12 @@ void main() {
             narrow ? const Size(390, 720) : const Size(1120, 800),
           );
           await tester.pumpWidget(app(scale: narrow ? 1.6 : 1));
+          await tester.pumpAndSettle();
+          await tester.scrollUntilVisible(
+            find.text('Example model service'),
+            200,
+            scrollable: find.byType(Scrollable).first,
+          );
           await tester.pumpAndSettle();
           expect(find.text('Example model service'), findsOneWidget);
           expect(find.text('API URL: https://example.test/v1'), findsOneWidget);

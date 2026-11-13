@@ -2,7 +2,7 @@
  * @Description: 验证模型服务持久化、排序、迁移与写入失败回滚。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-11 21:20:54
+ * @LastEditTime: 2026-11-13 19:20:26
  */
 
 import 'dart:convert';
@@ -226,6 +226,46 @@ void main() {
       throwsA(isA<AiConfigurationException>()),
     );
   });
+
+  test(
+    'decorated model ids retain separate efforts and migrate unsupported ultra',
+    () async {
+      const sol = 'custom-gpt-6.1-sol-test';
+      const astra = 'ai-apizn/gpt-6-astra';
+      final id = await repository.save(
+        name: 'Gateway',
+        protocol: AiApiProtocol.openAiResponses,
+        baseUrl: 'https://example.test/v1',
+        models: [sol, astra],
+        apiKey: 'key',
+      );
+      expect(repository.effortFor(id, sol), AiReasoningEffort.medium);
+      await repository.setReasoningEffort(id, sol, AiReasoningEffort.ultra);
+      final catalog =
+          jsonDecode(
+                preferences.stringValue(ModelServiceRepository.catalogKey, ''),
+              )
+              as Map;
+      final astraKey = jsonEncode([id, astra]);
+      (catalog['reasoningEfforts'] as Map)[astraKey] = 'ultra';
+      preferences.setValue(
+        ModelServiceRepository.catalogKey,
+        jsonEncode(catalog),
+      );
+      await preferences.flush();
+      final restored = ModelServiceRepository(preferences, keys);
+      await restored.load();
+      expect(restored.services.single.models, [sol, astra]);
+      expect(restored.effortFor(id, sol), AiReasoningEffort.ultra);
+      expect(restored.effortFor(id, astra), AiReasoningEffort.max);
+      final saved =
+          jsonDecode(
+                preferences.stringValue(ModelServiceRepository.catalogKey, ''),
+              )
+              as Map;
+      expect((saved['reasoningEfforts'] as Map)[astraKey], 'max');
+    },
+  );
 
   test('failed reasoning save preserves the previous selection', () async {
     final id = await repository.save(
@@ -510,6 +550,194 @@ void main() {
       );
     },
   );
+  test(
+    'service backup restores secrets, capabilities, selection and effort on another installation',
+    () async {
+      final first = await repository.save(
+        name: 'Backup',
+        protocol: AiApiProtocol.openAiResponses,
+        baseUrl: 'https://backup.test/v1',
+        models: ['gpt-6.1-sol', 'vision'],
+        apiKey: 'backup-secret',
+        imageInputs: {'vision': AiImageInput.supported},
+      );
+      await repository.setReasoningEffort(
+        first,
+        'gpt-6.1-sol',
+        AiReasoningEffort.high,
+      );
+      await repository.select(first, 'vision');
+      final source = repository.exportConfiguration();
+      final targetPreferences = await AppPreferences.load(storage: _Storage());
+      addTearDown(targetPreferences.dispose);
+      final targetKeys = MemoryAiCredentialStore();
+      final target = ModelServiceRepository(targetPreferences, targetKeys);
+      await target.load();
+      await target.importConfiguration(source);
+      final restored = ModelServiceRepository(targetPreferences, targetKeys);
+      await restored.load();
+      expect(restored.selectedId, first);
+      expect(restored.selectedModel, 'vision');
+      expect(restored.selectedService!.protocol, AiApiProtocol.openAiResponses);
+      expect(
+        restored.selectedService!.imageInputFor('vision'),
+        AiImageInput.supported,
+      );
+      expect(restored.effortFor(first, 'gpt-6.1-sol'), AiReasoningEffort.high);
+      expect(restored.keyFor(first), 'backup-secret');
+      expect(targetKeys.values[first], 'backup-secret');
+      expect(
+        targetPreferences.stringValue(ModelServiceRepository.catalogKey, ''),
+        isNot(contains('backup-secret')),
+      );
+    },
+  );
+
+  test(
+    'backup merges unrelated services and replaces a matching id without duplicates',
+    () async {
+      final first = await add('first', 'old-secret');
+      final source = repository.exportConfiguration();
+      final second = await add('second', 'second-secret');
+      final json = jsonDecode(source) as Map<String, dynamic>;
+      final entry = (json['services'] as List).single as Map<String, dynamic>;
+      entry['name'] = 'Renamed';
+      entry['apiKey'] = 'new-secret';
+      await repository.importConfiguration(jsonEncode(json));
+      expect(repository.services.map((v) => v.id), [first, second]);
+      expect(repository.find(first)!.name, 'Renamed');
+      expect(repository.keyFor(first), 'new-secret');
+      expect(repository.keyFor(second), 'second-secret');
+      await repository.importConfiguration(jsonEncode(json));
+      expect(repository.services, hasLength(2));
+    },
+  );
+
+  test(
+    'invalid backup is fully validated before touching any stored service or key',
+    () async {
+      final first = await add('first', 'old-secret');
+      final json =
+          jsonDecode(repository.exportConfiguration()) as Map<String, dynamic>;
+      final entries = json['services'] as List;
+      final valid = Map<String, dynamic>.from(entries.single as Map);
+      valid['apiKey'] = 'new-secret';
+      entries[0] = valid;
+      entries.add({...valid, 'id': 'broken', 'protocol': 'unknown'});
+      await expectLater(
+        repository.importConfiguration(jsonEncode(json)),
+        throwsFormatException,
+      );
+      expect(repository.keyFor(first), 'old-secret');
+      expect(keys.values[first], 'old-secret');
+      expect(repository.services, hasLength(1));
+    },
+  );
+
+  test(
+    'wrong format, duplicate ids, invalid selection and image metadata are rejected without leaking source',
+    () async {
+      await add('first', 'do-not-include-in-errors');
+      final original = repository.exportConfiguration();
+      final invalidSources = <String>[
+        '{invalid',
+        jsonEncode({'format': 'lilygobox-config', 'schemaVersion': 1}),
+      ];
+      for (final change in <void Function(Map<String, dynamic>)>[
+        (json) => json['schemaVersion'] = 2,
+        (json) =>
+            (json['services'] as List).add((json['services'] as List).first),
+        (json) => json['selectedId'] = 'missing',
+        (json) =>
+            ((json['services'] as List).first as Map)['discoveredImageInputs'] =
+                {'chat': 'bad'},
+        (json) => ((json['services'] as List).first as Map)['apiKey'] = '',
+      ]) {
+        final json = jsonDecode(original) as Map<String, dynamic>;
+        change(json);
+        invalidSources.add(jsonEncode(json));
+      }
+      for (final source in invalidSources) {
+        await expectLater(
+          repository.importConfiguration(source),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.toString(),
+              'sanitized error',
+              isNot(contains('do-not-include-in-errors')),
+            ),
+          ),
+        );
+      }
+      expect(repository.services, hasLength(1));
+    },
+  );
+
+  test(
+    'failed backup persistence restores all previous keys and repository state',
+    () async {
+      final first = await add('first', 'old-secret');
+      final json =
+          jsonDecode(repository.exportConfiguration()) as Map<String, dynamic>;
+      final entries = json['services'] as List;
+      final firstEntry = entries.single as Map<String, dynamic>;
+      firstEntry['apiKey'] = 'new-secret';
+      entries.add({
+        ...firstEntry,
+        'id': 'new-service',
+        'apiKey': 'another-secret',
+      });
+      storage.fail = true;
+      await expectLater(
+        repository.importConfiguration(jsonEncode(json)),
+        throwsA(isA<AiConfigurationException>()),
+      );
+      expect(repository.keyFor(first), 'old-secret');
+      expect(keys.values[first], 'old-secret');
+      expect(keys.values.containsKey('new-service'), isFalse);
+      expect(repository.services, hasLength(1));
+      storage.fail = false;
+      await preferences.flush();
+      final restored = ModelServiceRepository(preferences, keys);
+      await restored.load();
+      expect(restored.services, hasLength(1));
+      expect(restored.keyFor(first), 'old-secret');
+    },
+  );
+
+  test(
+    'a credential failure rolls back earlier imported keys before catalog mutation',
+    () async {
+      final failingKeys = _FailingKeys();
+      final target = ModelServiceRepository(preferences, failingKeys);
+      await target.load();
+      final id = await target.save(
+        name: 'first',
+        protocol: AiApiProtocol.openAiResponses,
+        baseUrl: 'https://first.test',
+        models: ['chat'],
+        apiKey: 'old-secret',
+      );
+      final json =
+          jsonDecode(target.exportConfiguration()) as Map<String, dynamic>;
+      final entries = json['services'] as List;
+      final first = entries.single as Map<String, dynamic>;
+      first['apiKey'] = 'updated-secret';
+      entries.add({
+        ...first,
+        'id': 'new-service',
+        'apiKey': 'fail-on-this-secret',
+      });
+      failingKeys.fail = true;
+      await expectLater(
+        target.importConfiguration(jsonEncode(json)),
+        throwsA(isA<AiConfigurationException>()),
+      );
+      expect(failingKeys.values[id], 'old-secret');
+      expect(failingKeys.values.containsKey('new-service'), isFalse);
+      expect(target.services, hasLength(1));
+    },
+  );
 }
 
 class _Storage implements PreferencesStorage {
@@ -521,5 +749,16 @@ class _Storage implements PreferencesStorage {
   Future<void> write(String value) async {
     if (fail) throw StateError('write failed');
     this.value = value;
+  }
+}
+
+class _FailingKeys extends MemoryAiCredentialStore {
+  bool fail = false;
+  @override
+  Future<void> write(String value, {String? serviceId}) async {
+    if (fail && value == 'fail-on-this-secret') {
+      throw StateError('storage failed');
+    }
+    await super.write(value, serviceId: serviceId);
   }
 }

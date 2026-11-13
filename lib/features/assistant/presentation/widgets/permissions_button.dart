@@ -2,7 +2,7 @@
  * @Description: 提供主页 AI 权限入口及自定义批准展开面板。
  * @Author: OpenAI Codex
  * @Date: 2026-11-11 16:26:54
- * @LastEditTime: 2026-11-12 14:23:39
+ * @LastEditTime: 2026-11-13 18:11:52
  */
 
 import 'dart:math' as math;
@@ -378,9 +378,9 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                       children: [
                         Text(
                           title,
-                          style: AppDialogStyle.fieldTitleStyle(theme).copyWith(
-                            color: foreground,
-                          ),
+                          style: AppDialogStyle.fieldTitleStyle(
+                            theme,
+                          ).copyWith(color: foreground),
                         ),
                         if (description != null) ...[
                           const SizedBox(height: 4),
@@ -764,11 +764,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                                     _commandNoApprovalSwitch(permissions),
                                 ],
                                 if (!permissions.fullFiles) ...[
-                                  _section(
-                                    l10n.aiPermissionFiles,
-                                    description:
-                                        l10n.aiPermissionDefaultFoldersHelp,
-                                  ),
+                                  _section(l10n.aiPermissionFiles),
                                   SettingSelect<AiFileAccess>(
                                     key: const ValueKey('ai-permission-files'),
                                     theme: theme,

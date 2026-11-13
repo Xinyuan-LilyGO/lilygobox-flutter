@@ -159,7 +159,6 @@ void main() {
         'deepseek-chat',
         'deepseek-reasoner',
         'unknown-model',
-        'o1-pro',
       ]) {
         final capabilities = AiReasoningCapabilities.forModel(model);
         expect(capabilities.levels, isEmpty);

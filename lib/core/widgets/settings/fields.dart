@@ -2,7 +2,7 @@
  * @Description: 提供设置项文本输入框、只读字段及输入框装饰。
  * @Author: LILYGO_L
  * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-11-13 17:24:48
+ * @LastEditTime: 2026-11-13 17:42:49
  */
 
 import 'dart:ui' as ui;
@@ -15,6 +15,7 @@ import '../../theme/definition.dart';
 import '../../theme/material_palette.dart';
 import '../app_scroll_behavior.dart';
 import '../dialog_style.dart';
+import '../empty_line_selection.dart';
 
 class SettingTextField extends StatelessWidget {
   const SettingTextField({
@@ -38,28 +39,31 @@ class SettingTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 32.0,
-      child: TextFormField(
-        contextMenuBuilder: AppTextSelectionMenu.build,
-        selectionWidthStyle: ui.BoxWidthStyle.tight,
-        initialValue: value,
-        enabled: enabled,
-        keyboardType: keyboardType,
-        inputFormatters: inputFormatters,
-        onChanged: onChanged,
-        cursorColor: theme.dividerColorNormal,
-        style: TextStyle(
-          color: theme.textColorPrimary,
-          fontSize: 13.0,
-          fontWeight: FontWeight.w600,
-        ),
-        decoration: _inputDecoration(
-          context,
-          theme,
-          contentPadding: contentPadding,
-          // 提示框保留无边框样式，聚焦时显示紫色轮廓。
-          disableHover: context.findAncestorWidgetOfExactType<Dialog>() != null,
+    return EmptyLineSelection(
+      child: SizedBox(
+        height: 32.0,
+        child: TextFormField(
+          contextMenuBuilder: AppTextSelectionMenu.build,
+          selectionWidthStyle: ui.BoxWidthStyle.tight,
+          initialValue: value,
+          enabled: enabled,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
+          onChanged: onChanged,
+          cursorColor: theme.dividerColorNormal,
+          style: TextStyle(
+            color: theme.textColorPrimary,
+            fontSize: 13.0,
+            fontWeight: FontWeight.w600,
+          ),
+          decoration: _inputDecoration(
+            context,
+            theme,
+            contentPadding: contentPadding,
+            // 提示框保留无边框样式，聚焦时显示紫色轮廓。
+            disableHover:
+                context.findAncestorWidgetOfExactType<Dialog>() != null,
+          ),
         ),
       ),
     );
@@ -140,9 +144,11 @@ class SettingControlledTextField extends StatelessWidget {
             counterText: maxLength == null ? null : '',
           ),
     );
-    return maxLines > 1
-        ? _SettingTextScrollRegion(builder: field)
-        : field(null);
+    return EmptyLineSelection(
+      child: maxLines > 1
+          ? _SettingTextScrollRegion(builder: field)
+          : field(null),
+    );
   }
 
   EdgeInsetsGeometry _multilinePadding(EdgeInsetsGeometry? padding) {
