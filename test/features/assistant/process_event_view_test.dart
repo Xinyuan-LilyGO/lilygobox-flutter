@@ -26,6 +26,7 @@ Widget host(
   ThemeType type = ThemeType.light,
   String locale = 'en',
   bool thinking = false,
+  bool disableAnimations = false,
   double width = 320,
   ValueChanged<SelectedContent?>? onSelectionChanged,
   List<AiProcessEvent> stages = const [],
@@ -35,9 +36,10 @@ Widget host(
   supportedLocales: AppLocalizations.supportedLocales,
   home: Scaffold(
     body: MediaQuery(
-      data: const MediaQueryData(
-        size: Size(340, 700),
-        textScaler: TextScaler.linear(1.3),
+      data: MediaQueryData(
+        disableAnimations: disableAnimations,
+        size: const Size(340, 700),
+        textScaler: const TextScaler.linear(1.3),
       ),
       child: SelectionArea(
         onSelectionChanged: onSelectionChanged,
@@ -57,6 +59,153 @@ Widget host(
 );
 
 void main() {
+  testWidgets(
+    'latest process summary follows steps and final status overrides stale steps',
+    (tester) async {
+      late BuildContext context;
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en'),
+          home: Builder(
+            builder: (value) {
+              context = value;
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+      const running = AiProcessEvent(
+        type: AiProcessEventType.status,
+        elapsed: Duration.zero,
+        status: AiResponseStatus.executingTools,
+        toolName: 'read_file',
+        toolArguments: {'path': 'config.json'},
+      );
+      const reply = AiMessage(
+        id: 'latest',
+        role: 'assistant',
+        content: '',
+        status: AiResponseStatus.executingTools,
+        processEvents: [running],
+      );
+      final internal = aiProcessEventSummary(context, running);
+      expect(aiMessageProcessSummary(context, reply), internal);
+      expect(internal.label, 'Reading file · config.json');
+      expect(internal.icon, Symbols.description_rounded);
+      final done = aiMessageProcessSummary(
+        context,
+        reply.copyWith(status: AiResponseStatus.completed),
+      );
+      expect(done!.label, 'Completed');
+      expect(done.icon, Symbols.check_circle_rounded);
+      expect(done.fill, 1);
+      final stopped = aiMessageProcessSummary(
+        context,
+        reply.copyWith(status: AiResponseStatus.stopped),
+      );
+      expect(stopped!.label, 'Stopped');
+    },
+  );
+
+  for (final reasoning in [true, false]) {
+    testWidgets(
+      'detail rows fade and resize in both directions (reasoning=$reasoning)',
+      (tester) async {
+        final event = reasoning
+            ? const AiProcessEvent(
+                type: AiProcessEventType.reasoning,
+                elapsed: Duration.zero,
+                text: 'Animated reasoning',
+              )
+            : AiProcessEvent(
+                type: AiProcessEventType.action,
+                elapsed: Duration.zero,
+                action: AiProcessingStep(
+                  name: 'read_file',
+                  arguments: {'path': 'D:/project/config.txt'},
+                  succeeded: true,
+                  output: 'File read',
+                ),
+              );
+        await tester.pumpWidget(host(event));
+        await tester.pumpAndSettle();
+        final view = find.byType(AnimatedSwitcher);
+        final collapsedHeight = tester.getSize(view).height;
+        await tester.tap(find.byType(InkWell).first);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 80));
+        final content = find.byKey(
+          const ValueKey('ai-process-details-expanded'),
+        );
+        final fade = find
+            .ancestor(of: content, matching: find.byType(FadeTransition))
+            .first;
+        final size = find
+            .ancestor(of: content, matching: find.byType(SizeTransition))
+            .first;
+        expect(
+          tester.widget<FadeTransition>(fade).opacity.value,
+          inExclusiveRange(0, 1),
+        );
+        expect(
+          tester.widget<SizeTransition>(size).sizeFactor.value,
+          inExclusiveRange(0, 1),
+        );
+        expect(tester.getSize(view).height, greaterThan(collapsedHeight));
+        await tester.pumpAndSettle();
+        final expandedHeight = tester.getSize(view).height;
+        await tester.tap(find.byType(InkWell).first);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 80));
+        expect(content, findsOneWidget);
+        expect(
+          tester.widget<FadeTransition>(fade).opacity.value,
+          inExclusiveRange(0, 1),
+        );
+        expect(tester.getSize(view).height, lessThan(expandedHeight));
+        final outgoing = find.ancestor(
+          of: content,
+          matching: find.byType(IgnorePointer),
+        );
+        expect(
+          tester
+              .widgetList<IgnorePointer>(outgoing)
+              .any((widget) => widget.ignoring),
+          isTrue,
+        );
+        await tester.pumpAndSettle();
+        expect(content, findsNothing);
+        expect(tester.getSize(view).height, collapsedHeight);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('detail rows switch immediately when animations are disabled', (
+    tester,
+  ) async {
+    const event = AiProcessEvent(
+      type: AiProcessEventType.reasoning,
+      elapsed: Duration.zero,
+      text: 'Reduced motion reasoning',
+    );
+    await tester.pumpWidget(host(event, disableAnimations: true));
+    await tester.tap(find.byType(InkWell));
+    await tester.pump();
+    final expanded = find.byKey(const ValueKey('ai-process-details-expanded'));
+    expect(expanded, findsOneWidget);
+    final fade = find
+        .ancestor(of: expanded, matching: find.byType(FadeTransition))
+        .first;
+    expect(tester.widget<FadeTransition>(fade).opacity.value, 1);
+    await tester.tap(find.byType(InkWell));
+    await tester.pump();
+    expect(expanded, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('question details show readable answers and remain selectable', (
     tester,
   ) async {

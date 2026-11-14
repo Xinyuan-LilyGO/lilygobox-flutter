@@ -1,6 +1,6 @@
 /*
  * @Description: 校验独立模型服务备份格式，包含密钥、模型能力及选择配置。
- * @Author: Codex
+ * @Author: LILYGO_L
  * @Date: 2026-11-13 19:20:26
  * @LastEditTime: 2026-11-13 19:20:26
  */

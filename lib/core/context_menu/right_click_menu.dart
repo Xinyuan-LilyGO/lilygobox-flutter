@@ -72,6 +72,7 @@ class RightClickMenuBuilder {
     required AppTheme theme,
     required Widget child,
     VoidCallback? onSecondaryTap,
+    ValueChanged<PointerEvent>? onMenuPointerEvent,
     bool openAbove = false,
     Offset alignmentOffset = Offset.zero,
   }) {
@@ -111,7 +112,19 @@ class RightClickMenuBuilder {
           builder: (context, revision, child) => PopupMenuTransition(
             key: ValueKey(revision),
             alignment: openAbove ? Alignment.bottomLeft : Alignment.topLeft,
-            child: child!,
+            // 覆盖层不在原锚点的指针路径中；允许画布接收从菜单上开始的
+            // 原始拖动序列，普通菜单不传此回调时保持原有行为。
+            child: onMenuPointerEvent == null
+                ? child!
+                : Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerSignal: onMenuPointerEvent,
+                    onPointerDown: onMenuPointerEvent,
+                    onPointerMove: onMenuPointerEvent,
+                    onPointerUp: onMenuPointerEvent,
+                    onPointerCancel: onMenuPointerEvent,
+                    child: child!,
+                  ),
           ),
           child: buildMenuPanel(
             menuItems: menuItems,
@@ -120,33 +133,78 @@ class RightClickMenuBuilder {
           ),
         ),
       ],
-      child: Listener(
-        behavior: HitTestBehavior.opaque,
-        // 锚点属于 MenuAnchor 的内部区域，系统不会把点击图片当作外部点击。
-        // 左键按下也应立即关闭菜单；右键松手仍由下方手势重新打开。
-        onPointerDown: onSecondaryTap == null
-            ? null
-            : (event) {
-                if (event.buttons &
-                        (kPrimaryMouseButton | kSecondaryMouseButton) !=
-                    0) {
-                  controller.close();
-                }
-              },
-        child: GestureDetector(
-          // 遵循桌面上下文菜单的松手触发方式，按住右键时不提前覆盖原控件。
-          onSecondaryTapUp: onSecondaryTap == null
+      child: Builder(
+        builder: (anchorContext) => Listener(
+          behavior: HitTestBehavior.opaque,
+          // 锚点属于 MenuAnchor 的内部区域，系统不会把点击图片当作外部点击。
+          // 左键按下也应立即关闭菜单；右键松手仍由下方手势重新打开。
+          onPointerDown: onSecondaryTap == null
               ? null
-              : (details) {
-                  onSecondaryTap();
-                  // 调整菜单位置，让菜单更贴近鼠标。
-                  final adjustedPosition = Offset(
-                    details.localPosition.dx,
-                    details.localPosition.dy - 8,
-                  );
-                  controller.open(position: adjustedPosition);
+              : (event) {
+                  if (event.buttons &
+                          (kPrimaryMouseButton | kSecondaryMouseButton) !=
+                      0) {
+                    controller.close();
+                  }
                 },
-          child: child,
+          child: GestureDetector(
+            // 遵循桌面上下文菜单的松手触发方式，按住右键时不提前覆盖原控件。
+            onSecondaryTapUp: onSecondaryTap == null
+                ? null
+                : (details) {
+                    onSecondaryTap();
+                    // 菜单按覆盖层像素定位，不能把缩放画布内的局部坐标直接相加。
+                    final anchorBox =
+                        anchorContext.findRenderObject()! as RenderBox;
+                    final overlayBox =
+                        Overlay.of(anchorContext).context.findRenderObject()!
+                            as RenderBox;
+                    final anchorOrigin = overlayBox.globalToLocal(
+                      anchorBox.localToGlobal(Offset.zero),
+                    );
+                    final pointerPosition = overlayBox.globalToLocal(
+                      details.globalPosition,
+                    );
+                    var menuOrigin = pointerPosition - const Offset(0, 8);
+                    if (!openAbove) {
+                      // Flutter 溢出时会相对整张锚点卡片翻转，长卡片会让菜单
+                      // 跳到远离鼠标的位置。先在覆盖层内围绕鼠标翻转并限位，
+                      // 再转回锚点偏移，避免触发框架的二次翻转。
+                      const edgeInset = 8.0;
+                      if (menuOrigin.dy + menuHeight >
+                          overlayBox.size.height - edgeInset) {
+                        menuOrigin = Offset(
+                          menuOrigin.dx,
+                          pointerPosition.dy + edgeInset - menuHeight,
+                        );
+                      }
+                      if (menuOrigin.dx + menuWidth >
+                          overlayBox.size.width - edgeInset) {
+                        menuOrigin = Offset(
+                          pointerPosition.dx - menuWidth,
+                          menuOrigin.dy,
+                        );
+                      }
+                      final maxX =
+                          (overlayBox.size.width - menuWidth - edgeInset).clamp(
+                            edgeInset,
+                            double.infinity,
+                          );
+                      final maxY =
+                          (overlayBox.size.height - menuHeight - edgeInset)
+                              .clamp(edgeInset, double.infinity);
+                      menuOrigin = Offset(
+                        menuOrigin.dx.clamp(edgeInset, maxX),
+                        menuOrigin.dy.clamp(edgeInset, maxY),
+                      );
+                    }
+                    // 向上展开的工具栏菜单沿用锚点定位，避免鼠标位置覆盖上方偏移。
+                    controller.open(
+                      position: openAbove ? null : menuOrigin - anchorOrigin,
+                    );
+                  },
+            child: child,
+          ),
         ),
       ),
     );

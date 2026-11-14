@@ -464,7 +464,7 @@ abstract class AppLocalizations {
   /// No description provided for @sidebarHome.
   ///
   /// In en, this message translates to:
-  /// **'Home'**
+  /// **'Agent workflow'**
   String get sidebarHome;
 
   /// No description provided for @deviceManagement.
@@ -3485,6 +3485,12 @@ abstract class AppLocalizations {
   /// **'Copied'**
   String get aiMessageCopied;
 
+  /// No description provided for @aiTaskLinkUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This agent has been deleted or cannot be opened here.'**
+  String get aiTaskLinkUnavailable;
+
   /// No description provided for @aiOpenLinkFailed.
   ///
   /// In en, this message translates to:
@@ -3800,7 +3806,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiPermissionWarningFooter.
   ///
   /// In en, this message translates to:
-  /// **'Enable this only for tasks you trust. You can turn it off at any time.'**
+  /// **'Enable this only for agents you trust. You can turn it off at any time.'**
   String get aiPermissionWarningFooter;
 
   /// No description provided for @aiPermissionWarningConfirm.
@@ -4168,6 +4174,582 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add, edit or delete model services.'**
   String get aiAddedServicesHelp;
+
+  /// No description provided for @aiWorkspaceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Agents'**
+  String get aiWorkspaceTitle;
+
+  /// No description provided for @aiWorkspaceDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Create independent agents, follow their progress, or continue a conversation.'**
+  String get aiWorkspaceDescription;
+
+  /// No description provided for @aiWorkspaceCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'New agent'**
+  String get aiWorkspaceCreate;
+
+  /// No description provided for @aiWorkspaceEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No child agents yet'**
+  String get aiWorkspaceEmptyTitle;
+
+  /// No description provided for @aiWorkspaceEmptyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Create an agent here or ask the main agent to create a child.'**
+  String get aiWorkspaceEmptyDescription;
+
+  /// No description provided for @aiWorkspaceTaskTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent name'**
+  String get aiWorkspaceTaskTitle;
+
+  /// No description provided for @aiWorkspaceTaskPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Work instructions'**
+  String get aiWorkspaceTaskPrompt;
+
+  /// No description provided for @aiWorkspaceCreateDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Work independently using the current service and model.'**
+  String get aiWorkspaceCreateDescription;
+
+  /// No description provided for @aiWorkspaceRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Running'**
+  String get aiWorkspaceRunning;
+
+  /// No description provided for @aiWorkspaceCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get aiWorkspaceCompleted;
+
+  /// No description provided for @aiWorkspaceNeedsApproval.
+  ///
+  /// In en, this message translates to:
+  /// **'Awaiting approval'**
+  String get aiWorkspaceNeedsApproval;
+
+  /// No description provided for @aiWorkspaceNeedsAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'Awaiting answer'**
+  String get aiWorkspaceNeedsAnswer;
+
+  /// No description provided for @aiWorkspaceFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get aiWorkspaceFailed;
+
+  /// No description provided for @aiWorkspaceStopped.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped'**
+  String get aiWorkspaceStopped;
+
+  /// No description provided for @aiWorkspaceIdle.
+  ///
+  /// In en, this message translates to:
+  /// **'Not started'**
+  String get aiWorkspaceIdle;
+
+  /// No description provided for @aiWorkspaceOpenMain.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to main agent'**
+  String get aiWorkspaceOpenMain;
+
+  /// No description provided for @aiWorkspaceStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop agent'**
+  String get aiWorkspaceStop;
+
+  /// No description provided for @aiWorkspaceTaskRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the work instructions.'**
+  String get aiWorkspaceTaskRequired;
+
+  /// No description provided for @aiWorkspaceOpenAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Open agent'**
+  String get aiWorkspaceOpenAction;
+
+  /// No description provided for @aiWorkspaceSpawnAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Create child agent'**
+  String get aiWorkspaceSpawnAction;
+
+  /// No description provided for @aiWorkspaceSendAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Send agent message'**
+  String get aiWorkspaceSendAction;
+
+  /// No description provided for @aiWorkspaceWaitAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Wait for child agents'**
+  String get aiWorkspaceWaitAction;
+
+  /// No description provided for @aiWorkspaceListAction.
+  ///
+  /// In en, this message translates to:
+  /// **'List child agents'**
+  String get aiWorkspaceListAction;
+
+  /// No description provided for @aiWorkspaceStopAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop child agent'**
+  String get aiWorkspaceStopAction;
+
+  /// No description provided for @aiTopologyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent workflow'**
+  String get aiTopologyTitle;
+
+  /// No description provided for @aiTopologyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect agents at every level and collaborate.'**
+  String get aiTopologyDescription;
+
+  /// No description provided for @aiTopologyCreatePrimary.
+  ///
+  /// In en, this message translates to:
+  /// **'Create main agent'**
+  String get aiTopologyCreatePrimary;
+
+  /// No description provided for @aiTopologyCreateChild.
+  ///
+  /// In en, this message translates to:
+  /// **'Add child agent'**
+  String get aiTopologyCreateChild;
+
+  /// No description provided for @aiTopologyPrimary.
+  ///
+  /// In en, this message translates to:
+  /// **'Main agent'**
+  String get aiTopologyPrimary;
+
+  /// No description provided for @aiTopologyPermanent.
+  ///
+  /// In en, this message translates to:
+  /// **'Child agent'**
+  String get aiTopologyPermanent;
+
+  /// No description provided for @aiTopologyClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'Closed'**
+  String get aiTopologyClosed;
+
+  /// No description provided for @aiTopologyOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open conversation'**
+  String get aiTopologyOpen;
+
+  /// No description provided for @aiTopologyInspect.
+  ///
+  /// In en, this message translates to:
+  /// **'Inspect activity'**
+  String get aiTopologyInspect;
+
+  /// No description provided for @aiTopologyBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to agent workflow'**
+  String get aiTopologyBack;
+
+  /// No description provided for @aiTopologyDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate card'**
+  String get aiTopologyDuplicate;
+
+  /// No description provided for @aiTopologyRenameHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Identify this agent on the canvas and in conversations. Line breaks are supported.'**
+  String get aiTopologyRenameHelp;
+
+  /// No description provided for @aiTopologyNameOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent name (optional)'**
+  String get aiTopologyNameOptional;
+
+  /// No description provided for @aiTopologyTaskContentRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the work instructions.'**
+  String get aiTopologyTaskContentRequired;
+
+  /// No description provided for @aiTopologyNameHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave blank to generate a name from the work instructions.'**
+  String get aiTopologyNameHelp;
+
+  /// No description provided for @aiTopologyModelHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the service and model for this agent.'**
+  String get aiTopologyModelHelp;
+
+  /// No description provided for @aiTopologyPermissionsHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the operations this agent is allowed to perform.'**
+  String get aiTopologyPermissionsHelp;
+
+  /// No description provided for @aiTopologyTaskHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Describe the goal and necessary context. Execution starts after creation.'**
+  String get aiTopologyTaskHelp;
+
+  /// No description provided for @aiTopologyParentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Parent agent'**
+  String get aiTopologyParentLabel;
+
+  /// No description provided for @aiTopologyBringToFront.
+  ///
+  /// In en, this message translates to:
+  /// **'Bring to front'**
+  String get aiTopologyBringToFront;
+
+  /// No description provided for @aiTopologyRename.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get aiTopologyRename;
+
+  /// No description provided for @aiTopologyMakeRootTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Make this agent a main agent?'**
+  String get aiTopologyMakeRootTitle;
+
+  /// No description provided for @aiTopologyMakeRootHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'“{task}” will become a main agent and disconnect from its previous agent group. Its conversation, descendants, and connections within its subtree will remain.'**
+  String aiTopologyMakeRootHelp(String task);
+
+  /// No description provided for @aiTopologyRootPromotionNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'After deletion, “{task}” will change from a child agent to a main agent.'**
+  String aiTopologyRootPromotionNotice(String task);
+
+  /// No description provided for @aiTopologyMergeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Change agent ownership?'**
+  String get aiTopologyMergeTitle;
+
+  /// No description provided for @aiTopologyMergeRootHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Main agent “{task}” will become a child of “{parent}”. Descendants, conversations, and internal connections remain; communication links across the branch boundary will be disconnected.'**
+  String aiTopologyMergeRootHelp(String task, String parent);
+
+  /// No description provided for @aiTopologyMergeChildHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'“{task}” and its descendants will disconnect from the current parent and move under “{parent}”. Other agents in the original group stay in place. Conversations and internal connections remain; communication links across the branch boundary will be disconnected.'**
+  String aiTopologyMergeChildHelp(String task, String parent);
+
+  /// No description provided for @aiTopologyMergeConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm and connect'**
+  String get aiTopologyMergeConfirm;
+
+  /// No description provided for @aiTopologyConnectSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect selected agents'**
+  String get aiTopologyConnectSelected;
+
+  /// No description provided for @aiTopologyMakeRoot.
+  ///
+  /// In en, this message translates to:
+  /// **'Make main agent'**
+  String get aiTopologyMakeRoot;
+
+  /// No description provided for @aiTopologyMakeChild.
+  ///
+  /// In en, this message translates to:
+  /// **'Make child agent'**
+  String get aiTopologyMakeChild;
+
+  /// No description provided for @aiTopologyChooseParent.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose parent agent'**
+  String get aiTopologyChooseParent;
+
+  /// No description provided for @aiTopologyChooseParentHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Change this main agent to a child agent and choose its parent. Existing descendants, conversation, and other connections will remain.'**
+  String get aiTopologyChooseParentHelp;
+
+  /// No description provided for @aiTopologyAutoLayout.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto layout'**
+  String get aiTopologyAutoLayout;
+
+  /// No description provided for @aiTopologyReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset view'**
+  String get aiTopologyReset;
+
+  /// No description provided for @aiTopologyZoomIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom in'**
+  String get aiTopologyZoomIn;
+
+  /// No description provided for @aiTopologyZoomOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom out'**
+  String get aiTopologyZoomOut;
+
+  /// No description provided for @aiTopologyNewPrimaryHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Create the starting point of an independent agent tree. Child agents can delegate further.'**
+  String get aiTopologyNewPrimaryHelp;
+
+  /// No description provided for @aiTopologyNewChildHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep an independent conversation and delegate further agents.'**
+  String get aiTopologyNewChildHelp;
+
+  /// No description provided for @aiTopologyEmptyHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a main agent, then add child agents at any level.'**
+  String get aiTopologyEmptyHelp;
+
+  /// No description provided for @aiTopologyDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete agent'**
+  String get aiTopologyDelete;
+
+  /// No description provided for @aiTopologyDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this agent?'**
+  String get aiTopologyDeleteTitle;
+
+  /// No description provided for @aiTopologyDeleteHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'This agent and all its descendants will be stopped and removed.'**
+  String get aiTopologyDeleteHelp;
+
+  /// No description provided for @aiTopologyNoParent.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a main agent or child agent first.'**
+  String get aiTopologyNoParent;
+
+  /// No description provided for @aiTopologyModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Execution model'**
+  String get aiTopologyModel;
+
+  /// No description provided for @aiTopologyInherit.
+  ///
+  /// In en, this message translates to:
+  /// **'Inherit parent model'**
+  String get aiTopologyInherit;
+
+  /// No description provided for @aiWorkspaceDeleteAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete child agent'**
+  String get aiWorkspaceDeleteAction;
+
+  /// No description provided for @aiTopologyMessageFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'From agent: {title}'**
+  String aiTopologyMessageFrom(String title);
+
+  /// No description provided for @aiAgentIdValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent ID: {id}'**
+  String aiAgentIdValue(String id);
+
+  /// No description provided for @aiAgentModelServiceValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Model service: {value}'**
+  String aiAgentModelServiceValue(String value);
+
+  /// No description provided for @aiTopologyTaskId.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent ID'**
+  String get aiTopologyTaskId;
+
+  /// No description provided for @aiTopologyCopyId.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy agent ID'**
+  String get aiTopologyCopyId;
+
+  /// No description provided for @aiTopologyCanvasBackground.
+  ///
+  /// In en, this message translates to:
+  /// **'Canvas background'**
+  String get aiTopologyCanvasBackground;
+
+  /// No description provided for @aiTopologyCanvasDots.
+  ///
+  /// In en, this message translates to:
+  /// **'Dots'**
+  String get aiTopologyCanvasDots;
+
+  /// No description provided for @aiTopologyCanvasGrid.
+  ///
+  /// In en, this message translates to:
+  /// **'Grid'**
+  String get aiTopologyCanvasGrid;
+
+  /// No description provided for @aiTopologyCanvasPlain.
+  ///
+  /// In en, this message translates to:
+  /// **'Plain'**
+  String get aiTopologyCanvasPlain;
+
+  /// No description provided for @aiTopologyDeleteRootHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this main agent. The most recently created direct child becomes the main agent; other child branches are preserved.'**
+  String get aiTopologyDeleteRootHelp;
+
+  /// No description provided for @aiTopologyStopSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop selected agents'**
+  String get aiTopologyStopSelected;
+
+  /// No description provided for @aiTopologyDeleteSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete selected agents'**
+  String get aiTopologyDeleteSelected;
+
+  /// No description provided for @aiTopologyDisconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect'**
+  String get aiTopologyDisconnect;
+
+  /// No description provided for @aiTopologyDisconnectSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect selected links'**
+  String get aiTopologyDisconnectSelected;
+
+  /// No description provided for @aiTopologySelectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all agents'**
+  String get aiTopologySelectAll;
+
+  /// No description provided for @aiTopologyClearSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear selection'**
+  String get aiTopologyClearSelection;
+
+  /// No description provided for @aiTopologyConnectHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag between agent handles to connect them. Joining different agent trees requires confirmation.'**
+  String get aiTopologyConnectHint;
+
+  /// No description provided for @aiTopologyInvalidConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot connect: choose a valid agent without creating a cycle.'**
+  String get aiTopologyInvalidConnection;
+
+  /// No description provided for @aiTopologyDeleteSelectedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete selected agents?'**
+  String get aiTopologyDeleteSelectedTitle;
+
+  /// No description provided for @aiTopologyDeleteSelectedHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected agents will stop and be removed. Descendants of selected child agents are removed; unselected child branches of deleted main agents are preserved.'**
+  String get aiTopologyDeleteSelectedHelp;
+
+  /// No description provided for @aiTopologySelectedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String aiTopologySelectedCount(int count);
+
+  /// No description provided for @aiTopologySelectionHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Left-drag to select · Right-drag to pan · Ctrl + wheel to zoom'**
+  String get aiTopologySelectionHelp;
+
+  /// No description provided for @aiTopologyDisconnectTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect agents?'**
+  String get aiTopologyDisconnectTitle;
+
+  /// No description provided for @aiTopologyDisconnectHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect the selected links and update main agent and child roles to match the remaining connections. work instructions and conversation history will be retained.'**
+  String get aiTopologyDisconnectHelp;
+
+  /// No description provided for @aiTopologyRoleChangeNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'“{task}” will become a {role}.'**
+  String aiTopologyRoleChangeNotice(String task, String role);
 }
 
 class _AppLocalizationsDelegate

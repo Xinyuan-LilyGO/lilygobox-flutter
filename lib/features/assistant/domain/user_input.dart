@@ -1,6 +1,6 @@
 /*
  * @Description: 定义提问、选项和答案结构，校验用户回答。
- * @Author: Codex
+ * @Author: LILYGO_L
  * @Date: 2026-11-13 16:57:31
  * @LastEditTime: 2026-11-13 16:57:31
  */

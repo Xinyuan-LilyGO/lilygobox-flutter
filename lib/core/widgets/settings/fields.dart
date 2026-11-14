@@ -258,6 +258,12 @@ class _SettingTextScrollRegionState extends State<_SettingTextScrollRegion> {
       crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
       mainAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
     ),
-    child: Scrollbar(controller: _scroll, child: widget.builder(_scroll)),
+    child: Scrollbar(
+      controller: _scroll,
+      child: ScrollConfiguration(
+        behavior: const AppScrollBehavior(scrollbars: false),
+        child: widget.builder(_scroll),
+      ),
+    ),
   );
 }

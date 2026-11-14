@@ -1,6 +1,6 @@
 /*
  * @Description: 分离兼容接口放入正文开头的思考内容，并保留流式边界。
- * @Author: Codex
+ * @Author: LILYGO_L
  * @Date: 2026-11-13 16:57:31
  * @LastEditTime: 2026-11-13 16:57:31
  */

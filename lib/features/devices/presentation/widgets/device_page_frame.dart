@@ -93,7 +93,6 @@ class DevicePageFrame extends StatelessWidget {
                   children: [
                     AppTooltip(
                       message: context.l10n.back,
-                      verticalOffset: 16,
                       child: Semantics(
                         label: context.l10n.back,
                         button: true,

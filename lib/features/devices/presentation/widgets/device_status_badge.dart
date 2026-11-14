@@ -73,6 +73,6 @@ class DeviceStatusBadge extends StatelessWidget {
     );
     final message = tooltipMessage;
     if (message == null || message.isEmpty) return badge;
-    return AppTooltip(message: message, verticalOffset: 16, child: badge);
+    return AppTooltip(message: message, child: badge);
   }
 }

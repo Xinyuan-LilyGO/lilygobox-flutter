@@ -2,7 +2,7 @@
  * @Description: 提供 LilygoBox AI 对话主页与设置操作确认。
  * @Author: LILYGO_L
  * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-12 16:31:34
+ * @LastEditTime: 2026-11-13 21:05:53
  */
 
 import 'package:flutter/gestures.dart';
@@ -26,6 +26,7 @@ import '../../../../core/widgets/popup_menu_transition.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../domain/models.dart';
 import '../../domain/process_timeline.dart';
+import '../../state/agent_workspace_provider.dart';
 import '../../state/provider.dart';
 import '../widgets/chat_composer.dart';
 import '../widgets/error_text.dart';
@@ -33,9 +34,17 @@ import '../widgets/message_content.dart';
 import '../widgets/process_details_scroll_view.dart';
 import '../widgets/process_event_view.dart';
 import '../widgets/reasoning_effort_label.dart';
+import '../widgets/task_navigation_scope.dart';
 
 class AssistantPage extends StatefulWidget {
-  const AssistantPage({super.key});
+  const AssistantPage({
+    super.key,
+    this.readOnly = false,
+    this.initialDraft = '',
+  });
+
+  final bool readOnly;
+  final String initialDraft;
 
   @override
   State<AssistantPage> createState() => _AssistantPageState();
@@ -57,6 +66,7 @@ class _AssistantPageState extends State<AssistantPage> {
   @override
   void initState() {
     super.initState();
+    _input.text = widget.initialDraft;
     _scroll.addListener(_updateLatestButton);
   }
 
@@ -132,6 +142,7 @@ class _AssistantPageState extends State<AssistantPage> {
     AiAssistantProvider assistant, {
     required bool fromKeyboard,
   }) async {
+    if (widget.readOnly) return;
     final text = _input.text;
     final continuing =
         text.trim().isEmpty && _attachments.isEmpty && assistant.canContinue;
@@ -222,6 +233,10 @@ class _AssistantPageState extends State<AssistantPage> {
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeProvider>().themeData;
     final assistant = context.watch<AiAssistantProvider>();
+    // 其他子智能体占用或释放运行槽后，同步刷新当前会话的发送可用状态。
+    context.select<AiWorkspaceProvider?, int>(
+      (workspaces) => workspaces?.runningCount ?? 0,
+    );
     final messages = assistant.messages;
     final l10n = context.l10n;
     final ready = assistant.credentialLoaded && assistant.hasApiKey;
@@ -232,7 +247,7 @@ class _AssistantPageState extends State<AssistantPage> {
         color: theme.secondary,
         child: Column(
           children: [
-            if (messages.isNotEmpty)
+            if (messages.isNotEmpty && !widget.readOnly)
               Align(
                 alignment: Alignment.centerRight,
                 child: Padding(
@@ -335,29 +350,40 @@ class _AssistantPageState extends State<AssistantPage> {
                   ),
                   LayoutId(
                     id: _ConversationSlot.composer,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        heightFactor: 1,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 820),
-                          child: ChatComposer(
-                            input: _input,
-                            focusNode: _inputFocus,
-                            scrollController: _inputScroll,
-                            theme: theme,
-                            assistant: assistant,
-                            ready: ready,
-                            onSend: (fromKeyboard) =>
-                                _send(assistant, fromKeyboard: fromKeyboard),
-                            attachments: _attachments,
-                            onAttachmentsChanged: (attachments) =>
-                                setState(() => _attachments = attachments),
+                    child:
+                        widget.readOnly &&
+                            assistant.pendingApproval == null &&
+                            assistant.pendingUserInput == null
+                        ? const SizedBox.shrink()
+                        : Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                            child: Align(
+                              alignment: Alignment.bottomCenter,
+                              heightFactor: 1,
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 820,
+                                ),
+                                child: ChatComposer(
+                                  input: _input,
+                                  focusNode: _inputFocus,
+                                  scrollController: _inputScroll,
+                                  theme: theme,
+                                  assistant: assistant,
+                                  ready: ready,
+                                  onSend: (fromKeyboard) => _send(
+                                    assistant,
+                                    fromKeyboard: fromKeyboard,
+                                  ),
+                                  attachments: _attachments,
+                                  onAttachmentsChanged: (attachments) =>
+                                      setState(
+                                        () => _attachments = attachments,
+                                      ),
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    ),
                   ),
                   if (messages.isNotEmpty)
                     LayoutId(
@@ -555,10 +581,30 @@ class _MessageViewState extends State<_MessageView> {
   bool _detailsHovered = false;
   bool _detailsFocused = false;
 
+  Widget _processEvent(
+    AiProcessEvent event,
+    List<AiProcessEvent> events,
+    bool thinking,
+    Key key,
+  ) => AiProcessEventView(
+    key: key,
+    event: event,
+    operationEvents: events,
+    theme: widget.theme,
+    isThinking: thinking,
+  );
+
   @override
   Widget build(BuildContext context) {
     final message = widget.message;
     final isUser = message.role == 'user';
+    final sourceTitle = message.toolName == 'agent_message'
+        ? (message.toolArguments?['source_agent_title'] as String? ??
+              message.toolArguments?['source_agent_id'] as String?)
+        : null;
+    final sourceId = message.toolName == 'agent_message'
+        ? (message.toolArguments?['source_agent_id'] as String?)
+        : null;
     final timeline = buildAiProcessTimeline(message.processEvents);
     final turnFinished = switch (message.status) {
       AiResponseStatus.completed ||
@@ -585,6 +631,38 @@ class _MessageViewState extends State<_MessageView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (sourceTitle != null) ...[
+                  InkWell(
+                    onTap:
+                        sourceId == null ||
+                            TaskNavigationScope.maybeOf(context) == null
+                        ? null
+                        : () => TaskNavigationScope.maybeOf(
+                            context,
+                          )!.openTask(sourceId),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Text(
+                      context.l10n.aiTopologyMessageFrom(sourceTitle),
+                      key: ValueKey('agent-message-source-${message.id}'),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: widget.theme.textColorTertiary,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                  if (sourceId != null && sourceId.isNotEmpty)
+                    Text(
+                      context.l10n.aiAgentIdValue(sourceId),
+                      key: ValueKey('agent-message-source-id-${message.id}'),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: widget.theme.textColorTertiary,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                  const SizedBox(height: 4),
+                ],
                 if (message.attachments.isNotEmpty)
                   Wrap(
                     spacing: 8,
@@ -636,6 +714,7 @@ class _MessageViewState extends State<_MessageView> {
       );
     }
     final l10n = context.l10n;
+    final processSummary = aiMessageProcessSummary(context, message);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -666,6 +745,15 @@ class _MessageViewState extends State<_MessageView> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    if (processSummary != null) ...[
+                      Icon(
+                        processSummary.icon,
+                        size: 12,
+                        fill: processSummary.fill,
+                        color: color,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     Flexible(
                       child: Text(
                         _responseStatusText(context, message),
@@ -746,18 +834,16 @@ class _MessageViewState extends State<_MessageView> {
                                               AiProcessEventType.status &&
                                           entry.event.status ==
                                               AiResponseStatus.thinking))
-                                    AiProcessEventView(
-                                      key: ValueKey(entry.id),
-                                      event: entry.event,
-                                      operationEvents: entry.events,
-                                      theme: widget.theme,
-                                      isThinking:
-                                          message.status ==
+                                    _processEvent(
+                                      entry.event,
+                                      entry.events,
+                                      message.status ==
                                               AiResponseStatus.thinking &&
                                           identical(
                                             entry.event,
                                             message.processEvents.last,
                                           ),
+                                      ValueKey(entry.id),
                                     ),
                               ],
                             ),
@@ -808,15 +894,7 @@ class _MessageViewState extends State<_MessageView> {
 String _responseStatusText(BuildContext context, AiMessage message) {
   final l10n = context.l10n;
   final elapsed = formatAiElapsed(message.elapsed!);
-  final label = aiResponseStatusLabel(
-    context,
-    message.status,
-    toolName:
-        message.processEvents.lastOrNull?.toolName ??
-        message.processEvents.lastOrNull?.action?.name,
-    retryAttempt: message.retries.isEmpty ? 1 : message.retries.last.attempt,
-  );
-  return label == null
-      ? l10n.aiResponseElapsed(elapsed)
-      : l10n.aiStatusElapsed(label, elapsed);
+  final summary = aiMessageProcessSummary(context, message);
+  final time = l10n.aiResponseElapsed(elapsed);
+  return summary == null ? time : '${summary.label} · $time';
 }

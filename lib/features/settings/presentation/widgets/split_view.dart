@@ -277,7 +277,6 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
                   const SizedBox(width: 4),
                   AppTooltip(
                     message: l10n.back,
-                    verticalOffset: 16,
                     child: _iconButton(theme, Symbols.close_rounded, _close),
                   ),
                 ],
@@ -490,7 +489,6 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
                     children: [
                       AppTooltip(
                         message: l10n.back,
-                        verticalOffset: 16,
                         child: _iconButton(
                           theme,
                           Symbols.arrow_back_rounded,
@@ -525,7 +523,6 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
                   right: 18,
                   child: AppTooltip(
                     message: l10n.closeSettings,
-                    verticalOffset: 16,
                     child: _iconButton(theme, Symbols.close_rounded, _close),
                   ),
                 ),

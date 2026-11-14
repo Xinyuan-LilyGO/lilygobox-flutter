@@ -203,7 +203,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get controlCenter => 'Control Center';
 
   @override
-  String get sidebarHome => 'Home';
+  String get sidebarHome => 'Agent workflow';
 
   @override
   String get deviceManagement => 'Devices';
@@ -1954,6 +1954,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiMessageCopied => 'Copied';
 
   @override
+  String get aiTaskLinkUnavailable =>
+      'This agent has been deleted or cannot be opened here.';
+
+  @override
   String get aiOpenLinkFailed => 'Unable to open this link.';
 
   @override
@@ -2124,7 +2128,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiPermissionWarningFooter =>
-      'Enable this only for tasks you trust. You can turn it off at any time.';
+      'Enable this only for agents you trust. You can turn it off at any time.';
 
   @override
   String get aiPermissionWarningConfirm => 'Confirm and enable';
@@ -2345,4 +2349,330 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiAddedServicesHelp => 'Add, edit or delete model services.';
+
+  @override
+  String get aiWorkspaceTitle => 'Agents';
+
+  @override
+  String get aiWorkspaceDescription =>
+      'Create independent agents, follow their progress, or continue a conversation.';
+
+  @override
+  String get aiWorkspaceCreate => 'New agent';
+
+  @override
+  String get aiWorkspaceEmptyTitle => 'No child agents yet';
+
+  @override
+  String get aiWorkspaceEmptyDescription =>
+      'Create an agent here or ask the main agent to create a child.';
+
+  @override
+  String get aiWorkspaceTaskTitle => 'Agent name';
+
+  @override
+  String get aiWorkspaceTaskPrompt => 'Work instructions';
+
+  @override
+  String get aiWorkspaceCreateDescription =>
+      'Work independently using the current service and model.';
+
+  @override
+  String get aiWorkspaceRunning => 'Running';
+
+  @override
+  String get aiWorkspaceCompleted => 'Completed';
+
+  @override
+  String get aiWorkspaceNeedsApproval => 'Awaiting approval';
+
+  @override
+  String get aiWorkspaceNeedsAnswer => 'Awaiting answer';
+
+  @override
+  String get aiWorkspaceFailed => 'Failed';
+
+  @override
+  String get aiWorkspaceStopped => 'Stopped';
+
+  @override
+  String get aiWorkspaceIdle => 'Not started';
+
+  @override
+  String get aiWorkspaceOpenMain => 'Back to main agent';
+
+  @override
+  String get aiWorkspaceStop => 'Stop agent';
+
+  @override
+  String get aiWorkspaceTaskRequired => 'Enter the work instructions.';
+
+  @override
+  String get aiWorkspaceOpenAction => 'Open agent';
+
+  @override
+  String get aiWorkspaceSpawnAction => 'Create child agent';
+
+  @override
+  String get aiWorkspaceSendAction => 'Send agent message';
+
+  @override
+  String get aiWorkspaceWaitAction => 'Wait for child agents';
+
+  @override
+  String get aiWorkspaceListAction => 'List child agents';
+
+  @override
+  String get aiWorkspaceStopAction => 'Stop child agent';
+
+  @override
+  String get aiTopologyTitle => 'Agent workflow';
+
+  @override
+  String get aiTopologyDescription =>
+      'Connect agents at every level and collaborate.';
+
+  @override
+  String get aiTopologyCreatePrimary => 'Create main agent';
+
+  @override
+  String get aiTopologyCreateChild => 'Add child agent';
+
+  @override
+  String get aiTopologyPrimary => 'Main agent';
+
+  @override
+  String get aiTopologyPermanent => 'Child agent';
+
+  @override
+  String get aiTopologyClosed => 'Closed';
+
+  @override
+  String get aiTopologyOpen => 'Open conversation';
+
+  @override
+  String get aiTopologyInspect => 'Inspect activity';
+
+  @override
+  String get aiTopologyBack => 'Back to agent workflow';
+
+  @override
+  String get aiTopologyDuplicate => 'Duplicate card';
+
+  @override
+  String get aiTopologyRenameHelp =>
+      'Identify this agent on the canvas and in conversations. Line breaks are supported.';
+
+  @override
+  String get aiTopologyNameOptional => 'Agent name (optional)';
+
+  @override
+  String get aiTopologyTaskContentRequired => 'Enter the work instructions.';
+
+  @override
+  String get aiTopologyNameHelp =>
+      'Leave blank to generate a name from the work instructions.';
+
+  @override
+  String get aiTopologyModelHelp =>
+      'Choose the service and model for this agent.';
+
+  @override
+  String get aiTopologyPermissionsHelp =>
+      'Set the operations this agent is allowed to perform.';
+
+  @override
+  String get aiTopologyTaskHelp =>
+      'Describe the goal and necessary context. Execution starts after creation.';
+
+  @override
+  String get aiTopologyParentLabel => 'Parent agent';
+
+  @override
+  String get aiTopologyBringToFront => 'Bring to front';
+
+  @override
+  String get aiTopologyRename => 'Rename';
+
+  @override
+  String get aiTopologyMakeRootTitle => 'Make this agent a main agent?';
+
+  @override
+  String aiTopologyMakeRootHelp(String task) {
+    return '“$task” will become a main agent and disconnect from its previous agent group. Its conversation, descendants, and connections within its subtree will remain.';
+  }
+
+  @override
+  String aiTopologyRootPromotionNotice(String task) {
+    return 'After deletion, “$task” will change from a child agent to a main agent.';
+  }
+
+  @override
+  String get aiTopologyMergeTitle => 'Change agent ownership?';
+
+  @override
+  String aiTopologyMergeRootHelp(String task, String parent) {
+    return 'Main agent “$task” will become a child of “$parent”. Descendants, conversations, and internal connections remain; communication links across the branch boundary will be disconnected.';
+  }
+
+  @override
+  String aiTopologyMergeChildHelp(String task, String parent) {
+    return '“$task” and its descendants will disconnect from the current parent and move under “$parent”. Other agents in the original group stay in place. Conversations and internal connections remain; communication links across the branch boundary will be disconnected.';
+  }
+
+  @override
+  String get aiTopologyMergeConfirm => 'Confirm and connect';
+
+  @override
+  String get aiTopologyConnectSelected => 'Connect selected agents';
+
+  @override
+  String get aiTopologyMakeRoot => 'Make main agent';
+
+  @override
+  String get aiTopologyMakeChild => 'Make child agent';
+
+  @override
+  String get aiTopologyChooseParent => 'Choose parent agent';
+
+  @override
+  String get aiTopologyChooseParentHelp =>
+      'Change this main agent to a child agent and choose its parent. Existing descendants, conversation, and other connections will remain.';
+
+  @override
+  String get aiTopologyAutoLayout => 'Auto layout';
+
+  @override
+  String get aiTopologyReset => 'Reset view';
+
+  @override
+  String get aiTopologyZoomIn => 'Zoom in';
+
+  @override
+  String get aiTopologyZoomOut => 'Zoom out';
+
+  @override
+  String get aiTopologyNewPrimaryHelp =>
+      'Create the starting point of an independent agent tree. Child agents can delegate further.';
+
+  @override
+  String get aiTopologyNewChildHelp =>
+      'Keep an independent conversation and delegate further agents.';
+
+  @override
+  String get aiTopologyEmptyHelp =>
+      'Create a main agent, then add child agents at any level.';
+
+  @override
+  String get aiTopologyDelete => 'Delete agent';
+
+  @override
+  String get aiTopologyDeleteTitle => 'Delete this agent?';
+
+  @override
+  String get aiTopologyDeleteHelp =>
+      'This agent and all its descendants will be stopped and removed.';
+
+  @override
+  String get aiTopologyNoParent => 'Select a main agent or child agent first.';
+
+  @override
+  String get aiTopologyModel => 'Execution model';
+
+  @override
+  String get aiTopologyInherit => 'Inherit parent model';
+
+  @override
+  String get aiWorkspaceDeleteAction => 'Delete child agent';
+
+  @override
+  String aiTopologyMessageFrom(String title) {
+    return 'From agent: $title';
+  }
+
+  @override
+  String aiAgentIdValue(String id) {
+    return 'Agent ID: $id';
+  }
+
+  @override
+  String aiAgentModelServiceValue(String value) {
+    return 'Model service: $value';
+  }
+
+  @override
+  String get aiTopologyTaskId => 'Agent ID';
+
+  @override
+  String get aiTopologyCopyId => 'Copy agent ID';
+
+  @override
+  String get aiTopologyCanvasBackground => 'Canvas background';
+
+  @override
+  String get aiTopologyCanvasDots => 'Dots';
+
+  @override
+  String get aiTopologyCanvasGrid => 'Grid';
+
+  @override
+  String get aiTopologyCanvasPlain => 'Plain';
+
+  @override
+  String get aiTopologyDeleteRootHelp =>
+      'Delete this main agent. The most recently created direct child becomes the main agent; other child branches are preserved.';
+
+  @override
+  String get aiTopologyStopSelected => 'Stop selected agents';
+
+  @override
+  String get aiTopologyDeleteSelected => 'Delete selected agents';
+
+  @override
+  String get aiTopologyDisconnect => 'Disconnect';
+
+  @override
+  String get aiTopologyDisconnectSelected => 'Disconnect selected links';
+
+  @override
+  String get aiTopologySelectAll => 'Select all agents';
+
+  @override
+  String get aiTopologyClearSelection => 'Clear selection';
+
+  @override
+  String get aiTopologyConnectHint =>
+      'Drag between agent handles to connect them. Joining different agent trees requires confirmation.';
+
+  @override
+  String get aiTopologyInvalidConnection =>
+      'Cannot connect: choose a valid agent without creating a cycle.';
+
+  @override
+  String get aiTopologyDeleteSelectedTitle => 'Delete selected agents?';
+
+  @override
+  String get aiTopologyDeleteSelectedHelp =>
+      'Selected agents will stop and be removed. Descendants of selected child agents are removed; unselected child branches of deleted main agents are preserved.';
+
+  @override
+  String aiTopologySelectedCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get aiTopologySelectionHelp =>
+      'Left-drag to select · Right-drag to pan · Ctrl + wheel to zoom';
+
+  @override
+  String get aiTopologyDisconnectTitle => 'Disconnect agents?';
+
+  @override
+  String get aiTopologyDisconnectHelp =>
+      'Disconnect the selected links and update main agent and child roles to match the remaining connections. work instructions and conversation history will be retained.';
+
+  @override
+  String aiTopologyRoleChangeNotice(String task, String role) {
+    return '“$task” will become a $role.';
+  }
 }

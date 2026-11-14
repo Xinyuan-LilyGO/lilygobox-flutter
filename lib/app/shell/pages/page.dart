@@ -2,7 +2,7 @@
  * @Description: 构建品牌侧栏、主页设备入口、账号入口和保留状态的内容页。
  * @Author: LILYGO_L
  * @Date: 2025-11-06 14:22:51
- * @LastEditTime: 2026-11-10 14:46:40
+ * @LastEditTime: 2026-11-13 21:05:53
  */
 
 import 'package:flutter/material.dart';
@@ -15,7 +15,7 @@ import 'package:vector_graphics/vector_graphics_compat.dart'
 import '../../../core/l10n/language_provider.dart';
 import '../../../core/theme/provider.dart';
 import '../../../core/widgets/retained_page_stack.dart';
-import '../../../features/assistant/presentation/pages/page.dart';
+import '../../../features/assistant/presentation/pages/task_topology_page.dart';
 import '../../../features/devices/presentation/catalog.dart';
 import '../../../features/devices/presentation/pages/add_page.dart';
 import '../../../features/devices/presentation/pages/connected_page.dart';
@@ -96,7 +96,7 @@ class _AppShellState extends State<AppShell> {
               ? deviceManager.addedDevices[selectedIndex - 1]
               : AppPage.home,
           pages: {
-            AppPage.home: const AssistantPage(),
+            AppPage.home: const TaskTopologyPage(),
             'deviceManagement': const HomePageContent(),
             for (final name in deviceManager.addedDevices)
               name: _buildDevicePage(
@@ -195,16 +195,16 @@ class _AppShellState extends State<AppShell> {
               SidebarNavigationItem(
                 key: const ValueKey('sidebar-home'),
                 showIndicator: false,
-                icon: Symbols.home_rounded,
+                icon: Symbols.blur_on,
                 iconFill: 1,
                 iconColor: theme.textColorSecondary,
                 label: context.l10n.sidebarHome,
                 onPressed: () {
                   context.read<AppShellProvider>().openAssistant();
-                  context.read<AppNavigationProvider>().goHome();
+                  context.read<AppNavigationProvider>().openWorkflowHome();
                 },
                 isSelected: isOverview,
-                disableWhenSelected: isOverview,
+                disableWhenSelected: false,
               ),
               SidebarNavigationItem(
                 key: const ValueKey('sidebar-devices'),

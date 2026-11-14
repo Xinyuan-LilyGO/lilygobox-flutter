@@ -49,7 +49,6 @@ class UnsupportedDeviceSettings extends StatelessWidget {
             right: 20,
             child: AppTooltip(
               message: context.l10n.closeSettings,
-              verticalOffset: 16,
               child: AnimatedCircleIconButton(
                 icon: Icons.close_rounded,
                 theme: theme,

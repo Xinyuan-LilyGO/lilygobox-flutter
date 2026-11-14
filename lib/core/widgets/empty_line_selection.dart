@@ -1,6 +1,6 @@
 /*
  * @Description: 为被选中的真实空行绘制窄高亮，不改变文本或选区。
- * @Author: Codex
+ * @Author: LILYGO_L
  * @Date: 2026-11-13 17:42:49
  * @LastEditTime: 2026-11-13 17:42:49
  */

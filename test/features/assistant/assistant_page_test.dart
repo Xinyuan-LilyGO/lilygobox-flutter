@@ -1237,7 +1237,7 @@ void main() {
     expect(scope.provider.busy, isTrue);
     expect(activeField.focusNode!.hasFocus, isTrue);
     expect(activeField.readOnly, isFalse);
-    expect(find.text('Connecting · 00:00:000'), findsOneWidget);
+    expect(find.text('Connecting · Worked for 00:00:000'), findsOneWidget);
     await tester.pump(const Duration(seconds: 1));
     expect(find.textContaining('Connecting'), findsOneWidget);
 
@@ -1394,7 +1394,7 @@ void main() {
     }
     await tester.pump();
     expect(scope.provider.messages.last.status, AiResponseStatus.retrying);
-    expect(find.textContaining('Retrying model request (1/2)'), findsOneWidget);
+    expect(find.textContaining('Model request retry 1'), findsOneWidget);
     await pumpAssistantUntilIdle(tester);
     await tester.pumpAndSettle();
     final reply = scope.provider.messages.last;
@@ -2068,9 +2068,15 @@ void main() {
       expect(scope.provider.reasoningEffort, AiReasoningEffort.high);
       expect(find.text('o3 · High'), findsOneWidget);
 
+      final beforeHeight = tester
+          .getSize(find.byKey(const ValueKey('ai-model-menu-surface')))
+          .height;
       await tester.tap(find.byKey(const ValueKey('ai-reasoning-models')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 75));
+      final intermediateHeight = tester
+          .getSize(find.byKey(const ValueKey('ai-model-menu-surface')))
+          .height;
       final listFade = tester.widget<FadeTransition>(
         find
             .ancestor(
@@ -2082,6 +2088,18 @@ void main() {
       expect(listFade.opacity.value, greaterThan(0));
       expect(listFade.opacity.value, lessThan(1));
       await tester.pumpAndSettle();
+      final finalHeight = tester
+          .getSize(find.byKey(const ValueKey('ai-model-menu-surface')))
+          .height;
+      expect(intermediateHeight, isNot(closeTo(beforeHeight, .01)));
+      expect(intermediateHeight, isNot(closeTo(finalHeight, .01)));
+      expect(
+        intermediateHeight,
+        inInclusiveRange(
+          beforeHeight < finalHeight ? beforeHeight : finalHeight,
+          beforeHeight > finalHeight ? beforeHeight : finalHeight,
+        ),
+      );
       await tester.tap(find.byKey(ValueKey('ai-model-$service-plain')));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('ai-reasoning-panel')), findsNothing);

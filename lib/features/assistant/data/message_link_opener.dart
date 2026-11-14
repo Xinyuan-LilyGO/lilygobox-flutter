@@ -1,6 +1,6 @@
 /*
  * @Description: 解析聊天中的网页和本地 HTML 链接，并交给系统默认程序打开。
- * @Author: OpenAI Codex
+ * @Author: LILYGO_L
  * @Date: 2026-11-11 23:59:55
  * @LastEditTime: 2026-11-12 00:06:19
  */

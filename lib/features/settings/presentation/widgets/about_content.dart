@@ -447,7 +447,6 @@ class _UpdateStatusButton extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         AppTooltip(
-          verticalOffset: 16,
           message: checking
               ? context.l10n.checkingForUpdates
               : available

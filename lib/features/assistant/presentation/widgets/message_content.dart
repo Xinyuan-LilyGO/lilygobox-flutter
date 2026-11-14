@@ -25,9 +25,11 @@ import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/empty_line_selection.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../data/message_link_opener.dart';
+import '../../domain/agent_link.dart';
 import '../../domain/models.dart';
 import 'code_block.dart';
 import 'error_text.dart';
+import 'task_navigation_scope.dart';
 
 class ChatMessageBody extends StatefulWidget {
   const ChatMessageBody({
@@ -62,6 +64,19 @@ class _ChatMessageBodyState extends State<ChatMessageBody> {
   }
 
   Future<void> _openLink(BuildContext context, String? href) async {
+    if (isAgentLink(href)) {
+      final id = agentIdFromLink(href);
+      final navigation = TaskNavigationScope.maybeOf(context);
+      if (id == null || navigation == null) {
+        showAppNotice(
+          ScaffoldMessenger.of(context),
+          context.l10n.aiTaskLinkUnavailable,
+        );
+      } else {
+        navigation.openTask(id);
+      }
+      return;
+    }
     final opened = await widget.linkOpener.open(href, message: message);
     if (!opened && context.mounted) {
       showAppNotice(

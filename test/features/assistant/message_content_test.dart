@@ -20,10 +20,57 @@ import 'package:lilygobox/core/theme/material_palette.dart';
 import 'package:lilygobox/features/assistant/data/message_link_opener.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/message_content.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/task_navigation_scope.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 void main() {
+  for (final valid in [true, false]) {
+    testWidgets('internal task links stay in the app (valid=$valid)', (
+      tester,
+    ) async {
+      final theme = ThemeProvider();
+      addTearDown(theme.dispose);
+      final navigated = <String>[];
+      final launched = <Uri>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: TaskNavigationScope(
+              openTask: (id) {
+                navigated.add(id);
+                return true;
+              },
+              child: ChatMessageBody(
+                message: AiMessage(
+                  id: 'task-link',
+                  role: 'assistant',
+                  content:
+                      '[进入任务](${valid ? "lilygobox://agent/123-0" : "lilygobox://wrong/123-0"})',
+                ),
+                theme: theme.themeData,
+                linkOpener: MessageLinkOpener(
+                  launch: (uri) async {
+                    launched.add(uri);
+                    return true;
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('进入任务', findRichText: true));
+      await tester.pumpAndSettle();
+      expect(navigated, valid ? ['123-0'] : isEmpty);
+      expect(launched, isEmpty);
+      expect(find.byType(SnackBar), valid ? findsNothing : findsOneWidget);
+    });
+  }
+
   for (final opens in [true, false]) {
     testWidgets('link tap opens externally or shows failure: $opens', (
       tester,

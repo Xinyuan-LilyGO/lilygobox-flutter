@@ -197,7 +197,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get controlCenter => '控制中心';
 
   @override
-  String get sidebarHome => '首页';
+  String get sidebarHome => '智能体工作流';
 
   @override
   String get deviceManagement => '设备管理';
@@ -1821,6 +1821,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiMessageCopied => '已复制';
 
   @override
+  String get aiTaskLinkUnavailable => '该智能体已删除或当前无法打开。';
+
+  @override
   String get aiOpenLinkFailed => '无法打开此链接。';
 
   @override
@@ -1983,7 +1986,7 @@ class AppLocalizationsZh extends AppLocalizations {
       '开启后，复杂脚本和检测到风险的命令也会直接运行，不再请求批准；明确禁止的命令仍会被拦截。\n\n命令及其子进程可能修改或删除文件、联网以及更改系统设置，造成数据丢失或泄露。';
 
   @override
-  String get aiPermissionWarningFooter => '请仅在信任当前任务时开启。你可以随时关闭此权限。';
+  String get aiPermissionWarningFooter => '请仅在信任当前智能体时开启。你可以随时关闭此权限。';
 
   @override
   String get aiPermissionWarningConfirm => '确认开启';
@@ -2187,4 +2190,314 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiAddedServicesHelp => '添加、编辑或删除模型服务。';
+
+  @override
+  String get aiWorkspaceTitle => '子智能体';
+
+  @override
+  String get aiWorkspaceDescription => '创建独立智能体，查看进度或继续对话。';
+
+  @override
+  String get aiWorkspaceCreate => '新建智能体';
+
+  @override
+  String get aiWorkspaceEmptyTitle => '还没有子智能体';
+
+  @override
+  String get aiWorkspaceEmptyDescription => '从这里创建智能体，也可以让主智能体创建下级。';
+
+  @override
+  String get aiWorkspaceTaskTitle => '智能体名称';
+
+  @override
+  String get aiWorkspaceTaskPrompt => '工作内容';
+
+  @override
+  String get aiWorkspaceCreateDescription => '使用当前服务与模型独立工作。';
+
+  @override
+  String get aiWorkspaceRunning => '进行中';
+
+  @override
+  String get aiWorkspaceCompleted => '已完成';
+
+  @override
+  String get aiWorkspaceNeedsApproval => '等待批准';
+
+  @override
+  String get aiWorkspaceNeedsAnswer => '等待回答';
+
+  @override
+  String get aiWorkspaceFailed => '执行失败';
+
+  @override
+  String get aiWorkspaceStopped => '已停止';
+
+  @override
+  String get aiWorkspaceIdle => '待开始';
+
+  @override
+  String get aiWorkspaceOpenMain => '返回主智能体';
+
+  @override
+  String get aiWorkspaceStop => '停止智能体';
+
+  @override
+  String get aiWorkspaceTaskRequired => '请填写工作内容。';
+
+  @override
+  String get aiWorkspaceOpenAction => '打开智能体';
+
+  @override
+  String get aiWorkspaceSpawnAction => '创建子智能体';
+
+  @override
+  String get aiWorkspaceSendAction => '发送智能体消息';
+
+  @override
+  String get aiWorkspaceWaitAction => '等待子智能体';
+
+  @override
+  String get aiWorkspaceListAction => '查看子智能体';
+
+  @override
+  String get aiWorkspaceStopAction => '停止子智能体';
+
+  @override
+  String get aiTopologyTitle => '智能体工作流';
+
+  @override
+  String get aiTopologyDescription => '连接各级智能体，协同处理工作。';
+
+  @override
+  String get aiTopologyCreatePrimary => '创建主智能体';
+
+  @override
+  String get aiTopologyCreateChild => '添加子智能体';
+
+  @override
+  String get aiTopologyPrimary => '主智能体';
+
+  @override
+  String get aiTopologyPermanent => '子智能体';
+
+  @override
+  String get aiTopologyClosed => '已结束';
+
+  @override
+  String get aiTopologyOpen => '打开对话';
+
+  @override
+  String get aiTopologyInspect => '查看执行记录';
+
+  @override
+  String get aiTopologyBack => '返回智能体工作流';
+
+  @override
+  String get aiTopologyDuplicate => '复制卡片';
+
+  @override
+  String get aiTopologyRenameHelp => '用于在画布和对话中识别智能体，支持换行。';
+
+  @override
+  String get aiTopologyNameOptional => '智能体名称（可选）';
+
+  @override
+  String get aiTopologyTaskContentRequired => '请填写工作内容。';
+
+  @override
+  String get aiTopologyNameHelp => '留空时根据工作内容生成名称。';
+
+  @override
+  String get aiTopologyModelHelp => '选择此智能体使用的服务和模型。';
+
+  @override
+  String get aiTopologyPermissionsHelp => '设置此智能体可执行的操作范围。';
+
+  @override
+  String get aiTopologyTaskHelp => '填写工作目标和必要信息，创建后开始执行。';
+
+  @override
+  String get aiTopologyParentLabel => '上级智能体';
+
+  @override
+  String get aiTopologyBringToFront => '置于顶层';
+
+  @override
+  String get aiTopologyRename => '重命名';
+
+  @override
+  String get aiTopologyMakeRootTitle => '将此智能体设为主智能体？';
+
+  @override
+  String aiTopologyMakeRootHelp(String task) {
+    return '“$task”将变为主智能体，并断开与原智能体组的连接。聊天、下级智能体及子树内部连接会保留。';
+  }
+
+  @override
+  String aiTopologyRootPromotionNotice(String task) {
+    return '删除后，“$task”将由子智能体变为主智能体。';
+  }
+
+  @override
+  String get aiTopologyMergeTitle => '调整智能体归属？';
+
+  @override
+  String aiTopologyMergeRootHelp(String task, String parent) {
+    return '主智能体“$task”将变为子智能体，归属到“$parent”下面。原有下级、聊天和内部连接会保留；与其他分支的沟通连接将断开。';
+  }
+
+  @override
+  String aiTopologyMergeChildHelp(String task, String parent) {
+    return '“$task”及其下级将断开原上级，改为归属到“$parent”下面。原智能体组的其他智能体保持不变，聊天和内部连接会保留；跨分支的沟通连接将断开。';
+  }
+
+  @override
+  String get aiTopologyMergeConfirm => '确认并连接';
+
+  @override
+  String get aiTopologyConnectSelected => '连接所选智能体';
+
+  @override
+  String get aiTopologyMakeRoot => '设为主智能体';
+
+  @override
+  String get aiTopologyMakeChild => '设为子智能体';
+
+  @override
+  String get aiTopologyChooseParent => '选择上级智能体';
+
+  @override
+  String get aiTopologyChooseParentHelp =>
+      '将此主智能体改为子智能体，并选择上级智能体。现有下级、聊天和其他连接会保留。';
+
+  @override
+  String get aiTopologyAutoLayout => '自动布局';
+
+  @override
+  String get aiTopologyReset => '重置视图';
+
+  @override
+  String get aiTopologyZoomIn => '放大';
+
+  @override
+  String get aiTopologyZoomOut => '缩小';
+
+  @override
+  String get aiTopologyNewPrimaryHelp => '创建独立智能体树的起点，各级子智能体均可继续分派。';
+
+  @override
+  String get aiTopologyNewChildHelp => '保留独立对话，也可继续分派下一级智能体。';
+
+  @override
+  String get aiTopologyEmptyHelp => '先创建主智能体，再逐层添加子智能体。';
+
+  @override
+  String get aiTopologyDelete => '删除智能体';
+
+  @override
+  String get aiTopologyDeleteTitle => '删除这个智能体？';
+
+  @override
+  String get aiTopologyDeleteHelp => '该智能体及其所有下级智能体将停止并移除。';
+
+  @override
+  String get aiTopologyNoParent => '请先选择一个主智能体或子智能体。';
+
+  @override
+  String get aiTopologyModel => '执行模型';
+
+  @override
+  String get aiTopologyInherit => '继承上级模型';
+
+  @override
+  String get aiWorkspaceDeleteAction => '删除子智能体';
+
+  @override
+  String aiTopologyMessageFrom(String title) {
+    return '来自智能体：$title';
+  }
+
+  @override
+  String aiAgentIdValue(String id) {
+    return '智能体 ID：$id';
+  }
+
+  @override
+  String aiAgentModelServiceValue(String value) {
+    return '模型服务：$value';
+  }
+
+  @override
+  String get aiTopologyTaskId => '智能体 ID';
+
+  @override
+  String get aiTopologyCopyId => '复制智能体 ID';
+
+  @override
+  String get aiTopologyCanvasBackground => '画布背景';
+
+  @override
+  String get aiTopologyCanvasDots => '点阵';
+
+  @override
+  String get aiTopologyCanvasGrid => '网格';
+
+  @override
+  String get aiTopologyCanvasPlain => '纯色';
+
+  @override
+  String get aiTopologyDeleteRootHelp =>
+      '删除此主智能体；最后创建的直属子智能体将成为主智能体，其余子智能体分支保留。';
+
+  @override
+  String get aiTopologyStopSelected => '停止所选智能体';
+
+  @override
+  String get aiTopologyDeleteSelected => '删除所选智能体';
+
+  @override
+  String get aiTopologyDisconnect => '断开连接';
+
+  @override
+  String get aiTopologyDisconnectSelected => '断开所选连接';
+
+  @override
+  String get aiTopologySelectAll => '全选智能体';
+
+  @override
+  String get aiTopologyClearSelection => '取消选择';
+
+  @override
+  String get aiTopologyConnectHint => '拖动连接点连接智能体；跨智能体树时需先确认合并。';
+
+  @override
+  String get aiTopologyInvalidConnection => '无法连接：请选择有效智能体，且不能形成循环。';
+
+  @override
+  String get aiTopologyDeleteSelectedTitle => '删除所选智能体？';
+
+  @override
+  String get aiTopologyDeleteSelectedHelp =>
+      '所选智能体将停止并移除。子智能体的下级将一并移除；删除主智能体时保留未选中的子智能体分支。';
+
+  @override
+  String aiTopologySelectedCount(int count) {
+    return '已选 $count 项';
+  }
+
+  @override
+  String get aiTopologySelectionHelp => '左键框选 · 右键拖动平移 · Ctrl＋滚轮缩放';
+
+  @override
+  String get aiTopologyDisconnectTitle => '断开连接？';
+
+  @override
+  String get aiTopologyDisconnectHelp =>
+      '将断开所选连接，并根据剩余连接自动调整主智能体和子智能体。工作内容与聊天记录会保留。';
+
+  @override
+  String aiTopologyRoleChangeNotice(String task, String role) {
+    return '“$task”将变为$role。';
+  }
 }

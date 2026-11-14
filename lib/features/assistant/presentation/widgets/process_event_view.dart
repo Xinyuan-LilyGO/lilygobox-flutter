@@ -36,6 +36,13 @@ String? aiResponseStatusLabel(
       'stop_process' => l10n.aiToolProcessStop,
       'get_execution_environment' => l10n.aiToolEnvironment,
       'get_current_time' => l10n.aiExecutingReadTime,
+      'open_agent' => l10n.aiWorkspaceOpenAction,
+      'spawn_agent' => l10n.aiWorkspaceSpawnAction,
+      'send_agent_message' => l10n.aiWorkspaceSendAction,
+      'wait_agents' => l10n.aiWorkspaceWaitAction,
+      'list_agents' => l10n.aiWorkspaceListAction,
+      'stop_agent' => l10n.aiWorkspaceStopAction,
+      'delete_agent' => l10n.aiWorkspaceDeleteAction,
       'request_user_input' => l10n.aiAskUser,
       'read_webpage' => l10n.aiAccessingWeb,
       'set_theme' => l10n.aiExecutingSetTheme,
@@ -59,6 +66,125 @@ String? aiResponseStatusLabel(
     AiResponseStatus.stopped => l10n.aiResponseStopped,
     AiResponseStatus.completed || null => null,
   };
+}
+
+/// Shared presentation for timeline entries, response headers and task cards.
+({String label, IconData icon, double fill}) aiProcessEventSummary(
+  BuildContext context,
+  AiProcessEvent event, {
+  bool isThinking = false,
+  bool includeTarget = true,
+}) {
+  final l10n = context.l10n;
+  final action = event.action;
+  final toolName = action?.name ?? event.toolName;
+  final retry = event.retry;
+  final isWeb =
+      action?.name == 'read_webpage' ||
+      event.status == AiResponseStatus.accessingWeb;
+  final questionCancelled = action != null && _questionWasCancelled(action);
+  final failed =
+      (action?.succeeded == false && !questionCancelled) ||
+      event.status == AiResponseStatus.failed;
+  final label = switch (event.type) {
+    AiProcessEventType.status =>
+      aiResponseStatusLabel(context, event.status, toolName: toolName) ??
+          l10n.aiProcessCompleted,
+    AiProcessEventType.reasoning =>
+      isThinking ? l10n.aiAssistantThinking : l10n.aiProcessReasoning,
+    AiProcessEventType.action => _operationResultLabel(context, action!),
+    AiProcessEventType.retry =>
+      '${l10n.aiRequestRetryRecord(retry!.attempt)}: ${aiErrorText(l10n, retry.error)}',
+    // 兼容旧数据；新回合不会再生成这两类过程事件。
+    AiProcessEventType.assistant || AiProcessEventType.guidance => '',
+  };
+  final modelNote = event.type == AiProcessEventType.reasoning;
+  final statusIcon = switch (event.status) {
+    AiResponseStatus.connecting => Symbols.cloud_sync_rounded,
+    AiResponseStatus.awaitingReply => Symbols.hourglass_top_rounded,
+    AiResponseStatus.thinking => Symbols.neurology_rounded,
+    AiResponseStatus.streaming => Symbols.edit_note_rounded,
+    AiResponseStatus.preparingTools => Symbols.pending_actions_rounded,
+    AiResponseStatus.executingTools => Symbols.play_circle_rounded,
+    AiResponseStatus.accessingWeb => Symbols.language_rounded,
+    AiResponseStatus.awaitingApproval => Symbols.safety_check_rounded,
+    AiResponseStatus.awaitingUserInput => Symbols.help_rounded,
+    AiResponseStatus.retrying => Symbols.refresh_rounded,
+    AiResponseStatus.completed => Symbols.check_circle_rounded,
+    AiResponseStatus.failed => Symbols.error_outline_rounded,
+    AiResponseStatus.stopped => Symbols.stop_circle_rounded,
+    null => Symbols.circle_rounded,
+  };
+
+  final args =
+      action?.arguments ?? event.toolArguments ?? const <String, Object?>{};
+  final target =
+      args['path'] ?? args['url'] ?? args['executable'] ?? args['process_id'];
+  final title =
+      includeTarget &&
+          event.type == AiProcessEventType.status &&
+          target is String
+      ? '$label · ${_shortOperationTarget(target, web: toolName == 'read_webpage')}'
+      : label;
+  return (
+    label: title,
+    icon: failed
+        ? Symbols.error_outline_rounded
+        : isWeb
+        ? Symbols.language_rounded
+        : event.status == AiResponseStatus.awaitingUserInput ||
+              event.status == AiResponseStatus.awaitingApproval ||
+              event.status == AiResponseStatus.preparingTools
+        ? statusIcon
+        : toolName != null
+        ? _toolIcon(toolName)
+        : modelNote
+        ? (isThinking ? Symbols.neurology_rounded : Symbols.blur_on)
+        : event.type == AiProcessEventType.retry
+        ? Symbols.refresh_rounded
+        : statusIcon,
+    fill:
+        (!failed && isWeb) ||
+            (modelNote && isThinking) ||
+            event.status == AiResponseStatus.thinking
+        ? 0
+        : modelNote
+        ? 0
+        : 1,
+  );
+}
+
+({String label, IconData icon, double fill})? aiMessageProcessSummary(
+  BuildContext context,
+  AiMessage message,
+) {
+  final terminal =
+      message.status == AiResponseStatus.completed ||
+      message.status == AiResponseStatus.failed ||
+      message.status == AiResponseStatus.stopped;
+  final latest = message.processEvents
+      .where(
+        (event) =>
+            event.type != AiProcessEventType.assistant &&
+            event.type != AiProcessEventType.guidance,
+      )
+      .lastOrNull;
+  final event = terminal || latest == null
+      ? (message.status == null
+            ? null
+            : AiProcessEvent(
+                type: AiProcessEventType.status,
+                elapsed: message.elapsed ?? Duration.zero,
+                status: message.status,
+              ))
+      : latest;
+  return event == null
+      ? null
+      : aiProcessEventSummary(
+          context,
+          event,
+          isThinking: message.status == AiResponseStatus.thinking,
+        );
 }
 
 /// 用时中的单条记录：简短阶段直接展示，思考和操作详情按需展开。
@@ -102,43 +228,17 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
     final l10n = context.l10n;
     final action = event.action;
     final toolName = action?.name ?? event.toolName;
-    final retry = event.retry;
-    final isWeb =
-        action?.name == 'read_webpage' ||
-        event.status == AiResponseStatus.accessingWeb;
     final questionCancelled = action != null && _questionWasCancelled(action);
     final failed =
         (action?.succeeded == false && !questionCancelled) ||
         event.status == AiResponseStatus.failed;
-    final label = switch (event.type) {
-      AiProcessEventType.status =>
-        aiResponseStatusLabel(context, event.status, toolName: toolName) ??
-            l10n.aiProcessCompleted,
-      AiProcessEventType.reasoning =>
-        isThinking ? l10n.aiAssistantThinking : l10n.aiProcessReasoning,
-      AiProcessEventType.action => _operationResultLabel(context, action!),
-      AiProcessEventType.retry =>
-        '${l10n.aiRequestRetryRecord(retry!.attempt)}: ${aiErrorText(l10n, retry.error)}',
-      // 兼容旧数据；新回合不会再生成这两类过程事件。
-      AiProcessEventType.assistant || AiProcessEventType.guidance => '',
-    };
-    final modelNote = event.type == AiProcessEventType.reasoning;
-    final statusIcon = switch (event.status) {
-      AiResponseStatus.connecting => Symbols.cloud_sync_rounded,
-      AiResponseStatus.awaitingReply => Symbols.hourglass_top_rounded,
-      AiResponseStatus.thinking => Symbols.neurology_rounded,
-      AiResponseStatus.streaming => Symbols.edit_note_rounded,
-      AiResponseStatus.preparingTools => Symbols.pending_actions_rounded,
-      AiResponseStatus.executingTools => Symbols.play_circle_rounded,
-      AiResponseStatus.accessingWeb => Symbols.language_rounded,
-      AiResponseStatus.awaitingApproval => Symbols.safety_check_rounded,
-      AiResponseStatus.awaitingUserInput => Symbols.help_rounded,
-      AiResponseStatus.retrying => Symbols.refresh_rounded,
-      AiResponseStatus.completed => Symbols.check_rounded,
-      AiResponseStatus.failed => Symbols.error_outline_rounded,
-      AiResponseStatus.stopped => Symbols.stop_circle_rounded,
-      null => Symbols.circle_rounded,
-    };
+    final presentation = aiProcessEventSummary(
+      context,
+      event,
+      isThinking: isThinking,
+      includeTarget: false,
+    );
+    final label = presentation.label;
 
     final args =
         action?.arguments ?? event.toolArguments ?? const <String, Object?>{};
@@ -148,7 +248,7 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
         widget.detailsEnabled &&
             event.type == AiProcessEventType.status &&
             target is String
-        ? '$label · ${_shortOperationTarget(target, web: toolName == 'read_webpage')}'
+        ? '$label · ${_shortOperationTarget(target, web: toolName == "read_webpage")}'
         : label;
     final failure = action?.webFailure;
     final resultSummary = action == null
@@ -248,29 +348,8 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
         Padding(
           padding: const EdgeInsets.only(top: 2),
           child: Icon(
-            failed
-                ? Symbols.error_outline_rounded
-                : isWeb
-                ? Symbols.language_rounded
-                : event.status == AiResponseStatus.awaitingUserInput ||
-                      event.status == AiResponseStatus.awaitingApproval ||
-                      event.status == AiResponseStatus.preparingTools
-                ? statusIcon
-                : toolName != null
-                ? _toolIcon(toolName)
-                : modelNote
-                ? (isThinking ? Symbols.neurology_rounded : Symbols.blur_on)
-                : event.type == AiProcessEventType.retry
-                ? Symbols.refresh_rounded
-                : statusIcon,
-            fill:
-                (!failed && isWeb) ||
-                    (modelNote && isThinking) ||
-                    event.status == AiResponseStatus.thinking
-                ? 0
-                : modelNote
-                ? null
-                : 1,
+            presentation.icon,
+            fill: presentation.fill,
             size: 12,
             color: failed
                 ? Theme.of(context).colorScheme.error
@@ -325,15 +404,39 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           row,
-          // 收起后移除正文，避免全选选到未显示的思考、参数和返回内容。
+          // 与总用时一致淡入并展开高度；退出内容隔离交互与选择，动画后移除。
           ClipRect(
-            child: AnimatedSize(
+            child: AnimatedSwitcher(
               duration: duration,
-              curve: Curves.easeOut,
-              alignment: Alignment.topCenter,
+              reverseDuration: duration,
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (child, animation) => SizeTransition(
+                sizeFactor: animation,
+                axisAlignment: -1,
+                child: FadeTransition(opacity: animation, child: child),
+              ),
+              layoutBuilder: (currentChild, previousChildren) => Stack(
+                alignment: Alignment.topCenter,
+                children: [
+                  for (final child in previousChildren)
+                    IgnorePointer(
+                      child: ExcludeFocus(
+                        child: ExcludeSemantics(
+                          child: SelectionContainer.disabled(child: child),
+                        ),
+                      ),
+                    ),
+                  ?currentChild,
+                ],
+              ),
               child: !_expanded || !hasDetails
-                  ? const SizedBox(width: double.infinity)
+                  ? const SizedBox(
+                      key: ValueKey('ai-process-details-collapsed'),
+                      width: double.infinity,
+                    )
                   : Padding(
+                      key: const ValueKey('ai-process-details-expanded'),
                       padding: const EdgeInsets.only(
                         left: 20,
                         top: 5,
@@ -396,6 +499,12 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
 
 /// 以实际操作选择图标，执行阶段和完成记录使用同一套映射。
 IconData _toolIcon(String name) => switch (name) {
+  'open_agent' => Symbols.arrow_outward_rounded,
+  'spawn_agent' || 'list_agents' => Symbols.account_tree_rounded,
+  'send_agent_message' => Symbols.chat_rounded,
+  'wait_agents' => Symbols.hourglass_top_rounded,
+  'stop_agent' => Symbols.stop_circle_rounded,
+  'delete_agent' => Symbols.delete_rounded,
   'read_file' => Symbols.description_rounded,
   'request_user_input' => Symbols.help_rounded,
   'list_directory' => Symbols.folder_open_rounded,
@@ -440,6 +549,13 @@ String _aiActionSummary(
   final l10n = context.l10n;
   return switch (name) {
     'get_current_time' => l10n.aiToolTime,
+    'open_agent' => l10n.aiWorkspaceOpenAction,
+    'spawn_agent' => '${l10n.aiWorkspaceSpawnAction}: ${args['title']}',
+    'send_agent_message' => l10n.aiWorkspaceSendAction,
+    'wait_agents' => l10n.aiWorkspaceWaitAction,
+    'list_agents' => l10n.aiWorkspaceListAction,
+    'stop_agent' => l10n.aiWorkspaceStopAction,
+    'delete_agent' => l10n.aiWorkspaceDeleteAction,
     'request_user_input' => l10n.aiAskUser,
     'run_command' => '${l10n.aiToolCommand}: ${args['executable']}',
     'get_execution_environment' => l10n.aiToolEnvironment,

@@ -109,7 +109,6 @@ class AppTitleBar extends StatelessWidget {
                           curve: Curves.easeInOut,
                           child: Center(
                             child: AppTooltip(
-                              verticalOffset: 16,
                               message: isSidebarVisible
                                   ? context.l10n.hideSidebar
                                   : context.l10n.showSidebar,
@@ -143,7 +142,6 @@ class AppTitleBar extends StatelessWidget {
               children: [
                 if (context.watch<AppUpdateProvider>().update != null)
                   AppTooltip(
-                    verticalOffset: 16,
                     message: context.l10n.appUpdateTitle,
                     child: TitleBarIconButton(
                       key: const ValueKey('titlebar-update'),
@@ -160,7 +158,6 @@ class AppTitleBar extends StatelessWidget {
                   ),
                 const SizedBox(width: 6),
                 AppTooltip(
-                  verticalOffset: 16,
                   message: context.l10n.settings,
                   child: TitleBarIconButton(
                     key: const ValueKey('titlebar-settings'),
@@ -204,7 +201,6 @@ class AppTitleBarControls extends StatelessWidget {
       children: [
         AppTooltip(
           message: context.l10n.minimizeWindow,
-          verticalOffset: 16,
           child: AppTitleBarControlsButtonTemplate(
             theme: theme,
             icon: Symbols.remove_rounded,
@@ -216,7 +212,6 @@ class AppTitleBarControls extends StatelessWidget {
           message: isMaximized
               ? context.l10n.restoreWindow
               : context.l10n.maximizeWindow,
-          verticalOffset: 16,
           child: AppTitleBarControlsButtonTemplate(
             theme: theme,
             icon: isMaximized
@@ -231,7 +226,6 @@ class AppTitleBarControls extends StatelessWidget {
         ),
         AppTooltip(
           message: context.l10n.closeWindow,
-          verticalOffset: 16,
           child: AppTitleBarControlsButtonTemplate(
             theme: theme,
             icon: Symbols.close_rounded,

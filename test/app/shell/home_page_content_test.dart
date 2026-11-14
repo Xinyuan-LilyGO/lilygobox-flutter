@@ -18,6 +18,7 @@ import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/widgets/popup_menu_surface.dart';
+import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
 import 'package:lilygobox/features/assistant/state/provider.dart';
 import 'package:lilygobox/features/devices/data/lan_discovery.dart';
 import 'package:lilygobox/features/devices/presentation/pages/connected_page.dart';
@@ -104,6 +105,9 @@ void main() {
         ChangeNotifierProvider.value(value: splitView),
         ChangeNotifierProvider<AiAssistantProvider>.value(
           value: assistantScope.provider,
+        ),
+        ChangeNotifierProvider(
+          create: (_) => AiWorkspaceProvider(assistantScope.provider),
         ),
         ChangeNotifierProvider<LanConnection>.value(value: connection),
       ],

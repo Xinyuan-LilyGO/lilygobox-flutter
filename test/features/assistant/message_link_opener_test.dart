@@ -1,6 +1,6 @@
 /*
  * @Description: 验证聊天链接的系统打开、本地 HTML 路径及相对文件引用。
- * @Author: OpenAI Codex
+ * @Author: LILYGO_L
  * @Date: 2026-11-12 00:05:14
  * @LastEditTime: 2026-11-12 00:05:14
  */

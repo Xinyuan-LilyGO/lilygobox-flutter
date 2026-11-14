@@ -28,8 +28,18 @@ class ChatCompletionClient {
   ChatCompletionClient({
     http.Client? client,
     this.retryDelay = const Duration(seconds: 1),
-  }) : _client = client ?? http.Client();
+  }) : _client = client ?? http.Client(),
+       _ownsTransport = true;
 
+  ChatCompletionClient._fork(ChatCompletionClient parent)
+    : _client = parent._client,
+      retryDelay = parent.retryDelay,
+      _ownsTransport = false;
+
+  /// 每个对话拥有独立的流和取消状态，仅复用 HTTP 传输连接池。
+  ChatCompletionClient fork() => ChatCompletionClient._fork(this);
+
+  final bool _ownsTransport;
   final http.Client _client;
   final Duration retryDelay;
   static const maxRetries = 2;
@@ -587,7 +597,7 @@ class ChatCompletionClient {
   Future<void> close() async {
     _responseTimeout?.cancel();
     _failResponse?.call(http.RequestAbortedException(), StackTrace.current);
-    _client.close();
+    if (_ownsTransport) _client.close();
     await _responseSubscription?.cancel();
   }
 

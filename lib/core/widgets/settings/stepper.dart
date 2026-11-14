@@ -83,7 +83,6 @@ class _SettingStepperButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppTooltip(
       message: tooltip,
-      verticalOffset: 16,
       child: MenuItemSurface(
         theme: theme,
         onPressed: onPressed,

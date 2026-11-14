@@ -1,6 +1,6 @@
 /*
  * @Description: 提供主页 AI 权限入口及自定义批准展开面板。
- * @Author: OpenAI Codex
+ * @Author: LILYGO_L
  * @Date: 2026-11-11 16:26:54
  * @LastEditTime: 2026-11-13 18:11:52
  */
@@ -37,10 +37,14 @@ class AssistantPermissionsButton extends StatefulWidget {
     required this.theme,
     required this.assistant,
     this.compact = false,
+    this.fieldSurfaceColor,
   });
   final AppTheme theme;
   final AiAssistantProvider assistant;
   final bool compact;
+
+  /// 创建等标准弹窗中使用紧凑字段按钮，下方左对齐展开。
+  final Color? fieldSurfaceColor;
 
   @override
   State<AssistantPermissionsButton> createState() =>
@@ -50,13 +54,19 @@ class AssistantPermissionsButton extends StatefulWidget {
 class _AssistantPermissionsButtonState
     extends State<AssistantPermissionsButton> {
   final _menu = MenuController();
+  final _buttonKey = GlobalKey();
   int _revision = 0;
+  double? _fieldMenuHeight;
 
   @override
   Widget build(BuildContext context) {
     final theme = widget.theme;
     final assistant = widget.assistant;
     final compact = widget.compact;
+    final field = widget.fieldSurfaceColor != null;
+    final fieldColor = field
+        ? theme.selectControlColorForSurface(widget.fieldSurfaceColor!)
+        : null;
 
     final label = assistant.permissions.mode == AiApprovalMode.onRequest
         ? context.l10n.aiPermissionRequest
@@ -73,9 +83,11 @@ class _AssistantPermissionsButtonState
       controller: _menu,
       clipBehavior: Clip.none,
       crossAxisUnconstrained: true,
-      alignmentOffset: const Offset(0, -8),
-      style: const MenuStyle(
-        alignment: AlignmentDirectional.topStart,
+      alignmentOffset: field ? const Offset(-16, -8) : const Offset(0, -8),
+      style: MenuStyle(
+        alignment: field
+            ? AlignmentDirectional.bottomStart
+            : AlignmentDirectional.topStart,
         backgroundColor: WidgetStatePropertyAll(Colors.transparent),
         elevation: WidgetStatePropertyAll(0),
         shadowColor: WidgetStatePropertyAll(Colors.transparent),
@@ -87,7 +99,21 @@ class _AssistantPermissionsButtonState
           ),
         ),
       ),
-      onOpen: () => setState(() => _revision++),
+      onOpen: () => setState(() {
+        if (field) {
+          final box = _buttonKey.currentContext?.findRenderObject();
+          if (box is RenderBox) {
+            _fieldMenuHeight =
+                ((Overlay.of(context).context.findRenderObject()! as RenderBox)
+                            .size
+                            .height -
+                        box.localToGlobal(Offset(0, box.size.height)).dy -
+                        32)
+                    .clamp(0.0, 480.0);
+          }
+        }
+        _revision++;
+      }),
       onClose: () {
         if (mounted) setState(() {});
       },
@@ -96,8 +122,9 @@ class _AssistantPermissionsButtonState
           padding: const EdgeInsets.all(16),
           child: PopupMenuTransition(
             key: ValueKey(_revision),
-            alignment: Alignment.bottomLeft,
+            alignment: field ? Alignment.topLeft : Alignment.bottomLeft,
             child: PopupMenuSurface(
+              key: const ValueKey('ai-permissions-menu-surface'),
               theme: theme,
               borderRadius: BorderRadius.circular(8),
               padding: EdgeInsets.zero,
@@ -108,7 +135,9 @@ class _AssistantPermissionsButtonState
                   theme: theme,
                   assistant: assistant,
                   menuController: _menu,
-                  maxHeight: (available.height - 100).clamp(0.0, 480.0),
+                  maxHeight: field
+                      ? _fieldMenuHeight ?? 480
+                      : (available.height - 100).clamp(0.0, 480.0),
                   onClose: _menu.close,
                 ),
               ),
@@ -121,10 +150,13 @@ class _AssistantPermissionsButtonState
         child: MenuItemSurface(
           key: const ValueKey('ai-permissions-button'),
           theme: theme,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(field ? 4 : 8),
+          backgroundColor: fieldColor,
+          surfaceColor: fieldColor,
           onPressed: () =>
               controller.isOpen ? controller.close() : controller.open(),
           child: Padding(
+            key: _buttonKey,
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 20),
@@ -147,7 +179,10 @@ class _AssistantPermissionsButtonState
                       ),
                     ),
                     AnimatedRotation(
-                      turns: controller.isOpen ? .5 : 0,
+                      key: const ValueKey('ai-permissions-button-arrow'),
+                      turns: field
+                          ? (controller.isOpen ? 0 : -.25)
+                          : (controller.isOpen ? .5 : 0),
                       duration: MediaQuery.disableAnimationsOf(context)
                           ? Duration.zero
                           : PopupMenuTransition.duration,

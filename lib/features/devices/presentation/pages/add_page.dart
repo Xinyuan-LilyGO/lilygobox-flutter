@@ -156,7 +156,6 @@ class _AddDevicePageState extends State<AddDevicePage> {
                           children: [
                             AppTooltip(
                               message: l10n.back,
-                              verticalOffset: 16,
                               child: Semantics(
                                 label: l10n.back,
                                 button: true,

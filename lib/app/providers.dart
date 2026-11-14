@@ -2,7 +2,7 @@
  * @Description: 集中创建并注入应用级状态管理对象。
  * @Author: LILYGO_L
  * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-11-09 09:45:46
+ * @LastEditTime: 2026-11-13 21:05:53
  */
 
 import 'dart:async';
@@ -20,6 +20,7 @@ import '../core/window/provider.dart';
 import '../features/account/state/provider.dart';
 import '../features/assistant/data/credential_store.dart';
 import '../features/assistant/data/settings_tool_handler.dart';
+import '../features/assistant/state/agent_workspace_provider.dart';
 import '../features/assistant/state/provider.dart';
 import '../features/devices/data/pairing_store.dart';
 import '../features/devices/state/lan_connection.dart';
@@ -121,6 +122,11 @@ class _AppProvidersState extends State<AppProviders>
               splitView: context.read<SplitViewProvider>(),
             ),
           ),
+        ),
+        ChangeNotifierProvider(
+          lazy: false,
+          create: (context) =>
+              AiWorkspaceProvider(context.read<AiAssistantProvider>()),
         ),
         ChangeNotifierProvider(
           create: (_) => DeviceManagerProvider(preferences: widget.preferences),

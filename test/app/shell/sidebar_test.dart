@@ -19,6 +19,7 @@ import 'package:lilygobox/app/shell/widgets/resizable_sidebar.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
 import 'package:lilygobox/features/assistant/state/provider.dart';
 import 'package:lilygobox/features/devices/state/manager_provider.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
@@ -136,6 +137,9 @@ void main() {
               ChangeNotifierProvider.value(value: language),
               ChangeNotifierProvider<AiAssistantProvider>.value(
                 value: assistantScope.provider,
+              ),
+              ChangeNotifierProvider(
+                create: (_) => AiWorkspaceProvider(assistantScope.provider),
               ),
             ],
             child: MaterialApp(
@@ -423,6 +427,9 @@ void main() {
             ChangeNotifierProvider<AiAssistantProvider>.value(
               value: assistantScope.provider,
             ),
+            ChangeNotifierProvider(
+              create: (_) => AiWorkspaceProvider(assistantScope.provider),
+            ),
           ],
           child: MaterialApp(
             locale: const Locale('zh'),
@@ -434,7 +441,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('LilygoBox'), findsOneWidget);
-      expect(find.text('首页'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('sidebar-home')),
+          matching: find.text('智能体工作流'),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('设备管理'), findsOneWidget);
       final deviceNavigationIcon = find
           .descendant(
@@ -470,7 +483,13 @@ void main() {
       shell.toggleSidebar();
       await tester.pumpAndSettle();
       expect(tester.getSize(panel).width, 0);
-      expect(find.text('首页'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('sidebar-home')),
+          matching: find.text('智能体工作流'),
+        ),
+        findsNothing,
+      );
       shell.toggleSidebar();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 90));

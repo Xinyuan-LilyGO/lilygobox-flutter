@@ -25,6 +25,9 @@ class AppNavigationProvider with ChangeNotifier {
   String? _addedDeviceId;
   String? get addedDeviceId => _addedDeviceId;
 
+  int _workflowHomeRevision = 0;
+  int get workflowHomeRevision => _workflowHomeRevision;
+
   AppPage get currentPage => _currentPage;
   String? get settingsDeviceName => _settingsDeviceName;
   AppPage get contentPage => _contentPage;
@@ -74,6 +77,16 @@ class AppNavigationProvider with ChangeNotifier {
 
   void goHome() {
     setPage(AppPage.home);
+  }
+
+  /// 侧栏入口始终返回智能体画布，即使当前已经位于工作流页面。
+  void openWorkflowHome() {
+    _workflowHomeRevision++;
+    if (_currentPage != AppPage.home) {
+      goHome();
+    } else {
+      notifyListeners();
+    }
   }
 
   /// 保留本轮添加成功的设备标识，由完成页展示结果，用户决定何时返回。

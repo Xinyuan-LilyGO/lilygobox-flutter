@@ -19,6 +19,7 @@
 
 ## 功能说明
 
+- [主页智能体工作流](assistant-workspaces.md)：多层智能体树、主智能体与可视化子智能体、双向消息、独立会话和本地恢复。
 - [AI 工具权限与批准](assistant-permissions.md)
 - [提问卡片与回答回传](assistant-user-input.md)：模型工具触发、输入区替换、选项与自填答案、停止和取消，以及思考与正文分离。
 - [AI 思考强度](ai-reasoning-effort.md)

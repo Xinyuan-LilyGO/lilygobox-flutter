@@ -172,7 +172,6 @@ class DeviceDashboard extends StatelessWidget {
             ? statusBadge
             : AppTooltip(
                 message: description,
-                verticalOffset: 16,
                 child: statusBadge,
               );
         return Column(
