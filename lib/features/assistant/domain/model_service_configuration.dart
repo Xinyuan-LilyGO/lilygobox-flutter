@@ -108,7 +108,10 @@ class ModelServiceConfiguration {
       if (selectedId != null || model != null) throw const FormatException();
     } else {
       final selected = services.where((v) => v.id == selectedId).firstOrNull;
-      if (selected == null || !selected.models.contains(model)) {
+      if ((selectedId == null && model != null) ||
+          (selectedId != null &&
+              (selected == null ||
+                  (model != null && !selected.models.contains(model))))) {
         throw const FormatException();
       }
     }

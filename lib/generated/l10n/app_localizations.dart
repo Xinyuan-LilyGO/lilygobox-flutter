@@ -4745,6 +4745,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'“{task}” will become a {role}.'**
   String aiTopologyRoleChangeNotice(String task, String role);
+
+  /// No description provided for @aiProcessingSpeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing speed'**
+  String get aiProcessingSpeed;
+
+  /// No description provided for @aiProcessingSpeedStandard.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard'**
+  String get aiProcessingSpeedStandard;
+
+  /// No description provided for @aiProcessingSpeedFast.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast'**
+  String get aiProcessingSpeedFast;
+
+  /// No description provided for @aiProcessingSpeedUltra.
+  ///
+  /// In en, this message translates to:
+  /// **'Ultrafast'**
+  String get aiProcessingSpeedUltra;
+
+  /// No description provided for @aiProcessingSpeedCost.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast and Ultrafast usually cost more'**
+  String get aiProcessingSpeedCost;
 }
 
 class _AppLocalizationsDelegate

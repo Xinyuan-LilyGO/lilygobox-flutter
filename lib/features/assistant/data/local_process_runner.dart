@@ -1,9 +1,64 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
+/// 所有智能体共享本机进程容量；超出 CPU 并行度的命令按 FIFO 排队。
+class LocalProcessPool {
+  LocalProcessPool({int? maximumRunning})
+    : maximumRunning = maximumRunning ?? Platform.numberOfProcessors {
+    if (this.maximumRunning < 1) throw ArgumentError.value(this.maximumRunning);
+  }
+
+  static final shared = LocalProcessPool();
+  final int maximumRunning;
+  final Queue<_ProcessSlot> _waiting = Queue();
+  int _running = 0;
+
+  _ProcessSlot _enqueue() {
+    final slot = _ProcessSlot();
+    _waiting.add(slot);
+    _drain();
+    return slot;
+  }
+
+  void _cancel(_ProcessSlot slot) {
+    if (slot.active || slot.released) return;
+    _waiting.remove(slot);
+    slot.released = true;
+    slot.ready.complete(false);
+  }
+
+  void _release(_ProcessSlot slot) {
+    if (!slot.active || slot.released) return;
+    slot.released = true;
+    _running--;
+    _drain();
+  }
+
+  void _drain() {
+    while (_running < maximumRunning && _waiting.isNotEmpty) {
+      final slot = _waiting.removeFirst();
+      slot.active = true;
+      _running++;
+      slot.ready.complete(true);
+    }
+  }
+}
+
+class _ProcessSlot {
+  final ready = Completer<bool>();
+  bool active = false;
+  bool released = false;
+}
+
 /// 管理 AI 启动的进程；不把命令参数检查当作操作系统沙箱。
 class LocalProcessRunner {
+  LocalProcessRunner({LocalProcessPool? pool})
+    : _pool = pool ?? LocalProcessPool.shared;
+
+  final LocalProcessPool _pool;
+  final Set<_ProcessSlot> _waiting = {};
   static const maxOutputCharacters = 65536;
   final Map<String, _LocalSession> _sessions = {};
   int _nextId = 0;
@@ -13,36 +68,73 @@ class LocalProcessRunner {
   Future<Map<String, Object?>> start(
     Map<String, Object?> args, {
     bool Function()? isCancelled,
+    Future<void>? abort,
+    Future<void> Function()? beforeStart,
   }) async {
     if (_disposed || isCancelled?.call() == true) {
       throw StateError('Command cancelled before launch');
     }
     final generation = _generation;
-    while (_sessions.length >= 32 &&
-        _sessions.values.any((session) => session.finished)) {
-      _sessions.remove(
-        _sessions.entries.firstWhere((entry) => entry.value.finished).key,
+    final slot = _pool._enqueue();
+    _waiting.add(slot);
+    var aborted = false;
+    final cancellation = abort?.asStream().listen((_) {
+      aborted = true;
+      _pool._cancel(slot);
+    });
+    var handedOff = false;
+    try {
+      final acquired = await slot.ready.future;
+      _waiting.remove(slot);
+      if (!acquired ||
+          aborted ||
+          _disposed ||
+          generation != _generation ||
+          isCancelled?.call() == true) {
+        throw StateError('Command cancelled while waiting to launch');
+      }
+      await beforeStart?.call();
+      if (aborted ||
+          _disposed ||
+          generation != _generation ||
+          isCancelled?.call() == true) {
+        throw StateError('Command cancelled before launch');
+      }
+      while (_sessions.length >= 32 &&
+          _sessions.values.any((session) => session.finished)) {
+        _sessions.remove(
+          _sessions.entries.firstWhere((entry) => entry.value.finished).key,
+        );
+      }
+      final process = await Process.start(
+        args['executable'] as String,
+        (args['arguments'] as List).cast<String>(),
+        workingDirectory: args['working_directory'] as String,
+        runInShell: false,
       );
+      final id = 'process-${_nextId++}';
+      final session = _LocalSession(
+        process,
+        args['timeout_seconds'] as int,
+        () => _pool._release(slot),
+      );
+      handedOff = true;
+      _sessions[id] = session;
+      if (aborted ||
+          _disposed ||
+          generation != _generation ||
+          isCancelled?.call() == true) {
+        await session.stop();
+        _sessions.remove(id);
+        throw StateError('Command cancelled during launch');
+      }
+      await session.wait(args['yield_ms'] as int);
+      return session.snapshot(id, 0);
+    } finally {
+      await cancellation?.cancel();
+      _waiting.remove(slot);
+      if (!handedOff) _pool._release(slot);
     }
-    if (_sessions.values.where((session) => !session.finished).length >= 8) {
-      throw StateError('Too many running processes');
-    }
-    final process = await Process.start(
-      args['executable'] as String,
-      (args['arguments'] as List).cast<String>(),
-      workingDirectory: args['working_directory'] as String,
-      runInShell: false,
-    );
-    final id = 'process-${_nextId++}';
-    final session = _LocalSession(process, args['timeout_seconds'] as int);
-    _sessions[id] = session;
-    if (_disposed || generation != _generation || isCancelled?.call() == true) {
-      await session.stop();
-      _sessions.remove(id);
-      throw StateError('Command cancelled during launch');
-    }
-    await session.wait(args['yield_ms'] as int);
-    return session.snapshot(id, 0);
   }
 
   Future<Map<String, Object?>> read(Map<String, Object?> args) async {
@@ -72,6 +164,9 @@ class LocalProcessRunner {
 
   Future<void> cancelAll({bool forget = false}) async {
     _generation++;
+    for (final slot in _waiting.toList()) {
+      _pool._cancel(slot);
+    }
     final sessions = _sessions.values.toList();
     if (forget) _sessions.clear();
     await Future.wait(sessions.map((session) => session.stop()));
@@ -84,7 +179,7 @@ class LocalProcessRunner {
 }
 
 class _LocalSession {
-  _LocalSession(this.process, int timeoutSeconds) {
+  _LocalSession(this.process, int timeoutSeconds, this._release) {
     final outputDone = Future.wait([
       _capture(process.stdout),
       _capture(process.stderr),
@@ -97,8 +192,7 @@ class _LocalSession {
     // 后代进程可能持有输出管道，退出后仍需允许取消它们。
     unawaited(
       _done.then((_) {
-        finished = true;
-        _timeout.cancel();
+        _finish();
       }),
     );
     _timeout = Timer(Duration(seconds: timeoutSeconds), () {
@@ -108,6 +202,15 @@ class _LocalSession {
   }
 
   final Process process;
+  final void Function() _release;
+
+  void _finish() {
+    if (finished) return;
+    finished = true;
+    _timeout.cancel();
+    _release();
+  }
+
   late final Timer _timeout;
   late final Future<int> _exited;
   late final Future<List<Object?>> _done;
@@ -190,5 +293,6 @@ class _LocalSession {
       const Duration(seconds: 3),
       onTimeout: () => <Object?>[],
     );
+    _finish();
   }
 }

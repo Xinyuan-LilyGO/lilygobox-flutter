@@ -95,17 +95,6 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage>
   @override
   void didUpdateWidget(covariant ConnectedDevicePage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!oldWidget.active && widget.active) {
-      // 从主页重新进入时返回概览，仅清空导航历史，保留控制值。
-      _view = _DeviceDetailView.control;
-      _viewHistory.clear();
-      _viewTransition.value = 1;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !widget.active) return;
-        widget.nestedView?.value = false;
-        widget.pageTitle?.value = null;
-      });
-    }
     if (oldWidget.nestedView != widget.nestedView) {
       oldWidget.nestedView?.removeListener(_handleOuterBack);
       widget.nestedView?.addListener(_handleOuterBack);

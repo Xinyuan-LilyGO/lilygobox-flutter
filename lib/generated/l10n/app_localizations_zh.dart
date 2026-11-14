@@ -2495,4 +2495,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String aiTopologyRoleChangeNotice(String task, String role) {
     return '“$task”将变为$role。';
   }
+
+  @override
+  String get aiProcessingSpeed => '处理速度';
+
+  @override
+  String get aiProcessingSpeedStandard => '标准';
+
+  @override
+  String get aiProcessingSpeedFast => '快速';
+
+  @override
+  String get aiProcessingSpeedUltra => '超快速';
+
+  @override
+  String get aiProcessingSpeedCost => '快速与超快速通常费用更高';
 }

@@ -4,6 +4,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 import '../domain/permissions.dart';
@@ -36,12 +37,10 @@ class AiTopologyEditSnapshot {
         for (final task in tasks)
           task.id: (task.title, task.parentId, task.kind, task.closed),
       },
-      _deliveryCounts = Map.of(_owner._deliveryCounts),
       _deliveredMessages = {
         for (final entry in _owner._deliveredMessages.entries)
           entry.key: Set<String>.of(entry.value),
       };
-  final Map<String, int> _deliveryCounts;
   final Map<String, Set<String>> _deliveredMessages;
   final AiWorkspaceProvider _owner;
   final List<AiAgentWorkspace> _tasks;
@@ -156,8 +155,6 @@ class AiWorkspaceProvider extends ChangeNotifier {
       _navigationRequest;
   Timer? _saveTimer;
   Object? persistenceError;
-  static const maximumAutomaticMessages = 12;
-  final Map<String, int> _deliveryCounts = {};
   final Map<String, Set<String>> _deliveredMessages = {};
   List<AiAgentWorkspace> get sessions => List.unmodifiable(_sessions);
   List<AiAgentWorkspace> get primaries => List.unmodifiable(
@@ -275,12 +272,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
       }
     }
     _pruneConnections();
-    // History never resets safety quotas or permits automatic-message replay.
-    for (final entry in snapshot._deliveryCounts.entries) {
-      if ((_deliveryCounts[entry.key] ?? 0) < entry.value) {
-        _deliveryCounts[entry.key] = entry.value;
-      }
-    }
+    // Undo must not replay already delivered messages.
     for (final entry in snapshot._deliveredMessages.entries) {
       (_deliveredMessages[entry.key] ??= {}).addAll(entry.value);
     }
@@ -558,11 +550,11 @@ class AiWorkspaceProvider extends ChangeNotifier {
     _supplementalConnections
       ..clear()
       ..addAll(plan.peers);
-    final budgetMoves = {
+    final messageMoves = {
       for (final id in plan.parents.keys) (oldRoots[id]!, _rootId(id)),
     };
-    for (final (oldRoot, newRoot) in budgetMoves) {
-      if (oldRoot != newRoot) _mergeBudget(oldRoot, newRoot);
+    for (final (oldRoot, newRoot) in messageMoves) {
+      if (oldRoot != newRoot) _mergeDeliveredMessages(oldRoot, newRoot);
     }
     _notify();
   }
@@ -864,6 +856,10 @@ class AiWorkspaceProvider extends ChangeNotifier {
                   .where((e) => e.name == conversation['effort'])
                   .firstOrNull;
               if (effort != null) await assistant.setReasoningEffort(effort);
+              final speed = assistant.processingSpeeds
+                  .where((s) => s.name == conversation['processingSpeed'])
+                  .firstOrNull;
+              if (speed != null) await assistant.setProcessingSpeed(speed);
             }
             if (_disposed) {
               assistant.dispose();
@@ -951,7 +947,6 @@ class AiWorkspaceProvider extends ChangeNotifier {
     assistant.workspaceTurnAllowed = () => !_disposed && !session.closed;
     assistant.onWorkspaceHumanMessage = () {
       final group = _rootId(session.id);
-      _deliveryCounts.remove(group);
       _deliveredMessages.remove(group);
     };
     assistant.workspaceToolDefinitions = _tools;
@@ -968,6 +963,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     String? model,
     AiPermissions? permissions,
     AiReasoningEffort? reasoningEffort,
+    AiProcessingSpeed? processingSpeed,
   }) => create(
     title: title,
     task: task,
@@ -976,6 +972,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     model: model,
     permissions: permissions,
     reasoningEffort: reasoningEffort,
+    processingSpeed: processingSpeed,
   );
 
   Future<AiAgentWorkspace> create({
@@ -987,6 +984,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     String? model,
     AiPermissions? permissions,
     AiReasoningEffort? reasoningEffort,
+    AiProcessingSpeed? processingSpeed,
     bool modelInitiated = false,
     bool startImmediately = true,
   }) async {
@@ -1059,6 +1057,10 @@ class AiWorkspaceProvider extends ChangeNotifier {
         worker.dispose();
         rethrow;
       }
+    }
+    if (processingSpeed != null &&
+        worker.processingSpeeds.contains(processingSpeed)) {
+      await worker.setProcessingSpeed(processingSpeed);
     }
     if (permissions != null) worker.setPermissions(permissions);
     final session = AiAgentWorkspace(
@@ -1186,8 +1188,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
           subtree.contains(connection.fromId) !=
           subtree.contains(connection.toId),
     );
-    // This retains the existing conservative automatic-message budget handling
-    // and notifies after both the boundary cut and role change are complete.
+    // Notify after both the boundary cut and role change are complete.
     reparent(id, null);
   }
 
@@ -1222,7 +1223,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     final oldRoot = _rootId(childId);
     final newRoot = parent == null ? childId : _rootId(parent.id);
     if (oldRoot != newRoot) {
-      _mergeBudget(
+      _mergeDeliveredMessages(
         oldRoot,
         newRoot,
         removeSource: parent != null && oldRoot == child.id,
@@ -1238,24 +1239,18 @@ class AiWorkspaceProvider extends ChangeNotifier {
     _notify();
   }
 
-  // 编辑分支保留来源额度，复制到新树；同树移动不调用，避免重复累计。
-  void _mergeBudget(
+  // 跨树移动保留已发送消息记录，避免重新发送相同消息。
+  void _mergeDeliveredMessages(
     String sourceId,
     String targetId, {
     bool removeSource = false,
   }) {
     if (sourceId == targetId) return;
-    final count = _deliveryCounts[sourceId];
-    if (count != null) {
-      _deliveryCounts[targetId] = ((_deliveryCounts[targetId] ?? 0) + count)
-          .clamp(0, maximumAutomaticMessages);
-    }
     final messages = _deliveredMessages[sourceId];
     if (messages != null) {
       (_deliveredMessages[targetId] ??= {}).addAll(messages);
     }
     if (removeSource) {
-      _deliveryCounts.remove(sourceId);
       _deliveredMessages.remove(sourceId);
     }
   }
@@ -1327,6 +1322,13 @@ class AiWorkspaceProvider extends ChangeNotifier {
       startImmediately: false,
     );
     await copy.assistant.setReasoningEffort(effort);
+    if (copy.assistant.processingSpeeds.contains(
+      original.assistant.processingSpeed,
+    )) {
+      await copy.assistant.setProcessingSpeed(
+        original.assistant.processingSpeed,
+      );
+    }
     copy.assistant.restoreConversationFork(conversation);
     return copy;
   }
@@ -1400,6 +1402,9 @@ class AiWorkspaceProvider extends ChangeNotifier {
         );
         copies[card.sourceId] = copy;
         await copy.assistant.setReasoningEffort(card.effort);
+        if (copy.assistant.processingSpeeds.contains(card.processingSpeed)) {
+          await copy.assistant.setProcessingSpeed(card.processingSpeed);
+        }
         copy.assistant.restoreConversationFork(card.conversation);
         pending.remove(card);
       }
@@ -1475,7 +1480,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
         for (final child in permanentChildren) {
           if (child != replacement) child.parentId = replacement.id;
         }
-        _mergeBudget(session.id, replacement.id, removeSource: true);
+        _mergeDeliveredMessages(session.id, replacement.id, removeSource: true);
         if (_selectedId == session.id) selectionFallback = replacement;
       }
       rootRemovals.add(session);
@@ -1500,7 +1505,6 @@ class AiWorkspaceProvider extends ChangeNotifier {
     for (final item in removing) {
       _sessions.remove(item);
       _detachForEdit(item);
-      _deliveryCounts.remove(item.id);
       _deliveredMessages.remove(item.id);
     }
     _pruneConnections();
@@ -1602,7 +1606,9 @@ class AiWorkspaceProvider extends ChangeNotifier {
         final group = source == null
             ? sourceId ?? 'manual'
             : _rootId(source.id);
-        final deliveryKey = jsonEncode([sourceId, target.id, text]);
+        final deliveryKey = sha256
+            .convert(utf8.encode(jsonEncode([sourceId, target.id, text])))
+            .toString();
         if (_deliveredMessages[group]?.contains(deliveryKey) == true) {
           return {
             'delivered': false,
@@ -1610,13 +1616,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
             ...target.toToolResult(),
           };
         }
-        if ((_deliveryCounts[group] ?? 0) >= maximumAutomaticMessages) {
-          throw StateError(
-            'Automatic message budget reached; wait for user input',
-          );
-        }
         _recordTransfer(sourceId, target.id);
-        _deliveryCounts[group] = (_deliveryCounts[group] ?? 0) + 1;
         (_deliveredMessages[group] ??= {}).add(deliveryKey);
         unawaited(
           target.assistant
@@ -1659,7 +1659,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
         };
       case 'wait_agents':
         final ids = (args['agent_ids'] as List).cast<String>();
-        if (ids.isEmpty || ids.length > 16) {
+        if (ids.isEmpty) {
           throw StateError('Agent ids are required');
         }
         final targets = [for (final id in ids) checked(id)];
@@ -1774,7 +1774,7 @@ final _tools = [
   ),
   _tool(
     'send_agent_message',
-    'Send a message to a directly connected agent in either direction. Source identity is attached; it is not user authorization. Returns immediately, queues if busy, and does not automatically reply. Duplicate messages are suppressed; a collaboration chain allows at most 12 deliveries until user input.',
+    'Send a message to a directly connected agent in either direction. Source identity is attached; it is not user authorization. Returns immediately, queues if busy, and does not automatically reply. Duplicate messages are suppressed. Continue collaboration until the requested work is complete or user input is needed.',
     {
       'agent_id': {'type': 'string'},
       'message': {'type': 'string'},
@@ -1789,7 +1789,6 @@ final _tools = [
         'type': 'array',
         'items': {'type': 'string'},
         'minItems': 1,
-        'maxItems': 16,
       },
       'wait_ms': {'type': 'integer', 'minimum': 0, 'maximum': 5000},
     },

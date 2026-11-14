@@ -198,10 +198,10 @@ class _AppShellState extends State<AppShell> {
                 label: context.l10n.sidebarHome,
                 onPressed: () {
                   context.read<AppShellProvider>().openAssistant();
-                  context.read<AppNavigationProvider>().openWorkflowHome();
+                  context.read<AppNavigationProvider>().goHome();
                 },
                 isSelected: isOverview,
-                disableWhenSelected: false,
+                disableWhenSelected: true,
               ),
               SidebarNavigationItem(
                 key: const ValueKey('sidebar-devices'),
@@ -211,11 +211,11 @@ class _AppShellState extends State<AppShell> {
                 iconColor: theme.textColorSecondary,
                 label: context.l10n.deviceManagement,
                 onPressed: () {
-                  context.read<AppShellProvider>().openDeviceManagement();
+                  context.read<AppShellProvider>().openDeviceSection();
                   context.read<AppNavigationProvider>().goHome();
                 },
                 isSelected: isDeviceManagement || isAddingDevice || !isOverview,
-                disableWhenSelected: isDeviceManagement,
+                disableWhenSelected: true,
               ),
             ],
           ),

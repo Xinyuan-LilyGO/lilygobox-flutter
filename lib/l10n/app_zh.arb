@@ -865,5 +865,10 @@
                 "type": "String"
             }
         }
-    }
+    },
+    "aiProcessingSpeed": "处理速度",
+    "aiProcessingSpeedStandard": "标准",
+    "aiProcessingSpeedFast": "快速",
+    "aiProcessingSpeedUltra": "超快速",
+    "aiProcessingSpeedCost": "快速与超快速通常费用更高"
 }

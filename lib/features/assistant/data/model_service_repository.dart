@@ -4,13 +4,15 @@
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import '../../../core/storage/preferences.dart';
 import '../domain/model_service_configuration.dart';
 import '../domain/models.dart';
 import '../domain/reasoning.dart';
 import 'credential_store.dart';
 
-class ModelServiceRepository {
+class ModelServiceRepository extends ChangeNotifier {
   ModelServiceRepository(this._preferences, this._credentials);
   static const catalogKey = 'ai.services.v2';
   final AppPreferences _preferences;
@@ -57,6 +59,41 @@ class ModelServiceRepository {
     await _persist(_services, _selectedId, _model, reasoningEfforts: next);
   }
 
+  AiProcessingSpeed speedFor(String id, String model) {
+    final saved = _preferences.stringValue(
+      'ai.processingSpeed.${jsonEncode([id, model])}',
+      'standard',
+    );
+    return processingSpeedsForModel(
+          model,
+          responses: find(id)?.protocol == AiApiProtocol.openAiResponses,
+          serviceTiers: find(id)?.serviceTiers[model],
+        ).where((s) => s.name == saved).firstOrNull ??
+        AiProcessingSpeed.standard;
+  }
+
+  Future<void> setProcessingSpeed(
+    String id,
+    String model,
+    AiProcessingSpeed speed,
+  ) async {
+    if (find(id)?.models.contains(model) != true ||
+        !processingSpeedsForModel(
+          model,
+          responses: find(id)?.protocol == AiApiProtocol.openAiResponses,
+          serviceTiers: find(id)?.serviceTiers[model],
+        ).contains(speed)) {
+      throw const AiConfigurationException(AiProblem.noService);
+    }
+    final key = 'ai.processingSpeed.${jsonEncode([id, model])}';
+    final previous = _preferences.stringValue(key, 'standard');
+    _preferences.setValue(key, speed.name);
+    if (!await _preferences.flush()) {
+      _preferences.setValue(key, previous);
+      throw const AiConfigurationException(AiProblem.storage);
+    }
+  }
+
   AiModelService? get selectedService => find(_selectedId);
   String? keyFor(String? id) => _keys[id];
   AiModelService? find(String? id) {
@@ -101,11 +138,14 @@ class ModelServiceRepository {
           if (key != null) _keys[service.id] = key;
         }
         final selected = find(json['selectedId'] as String?);
-        _selectedId =
-            selected?.id ?? (_services.isEmpty ? null : _services.first.id);
+        _selectedId = json.containsKey('selectedId')
+            ? selected?.id
+            : _services.firstOrNull?.id;
         final models = selectedService?.models ?? const <String>[];
         _model = models.contains(json['model'])
             ? json['model'] as String
+            : json.containsKey('model')
+            ? null
             : models.firstOrNull;
         final efforts = json['reasoningEfforts'];
         _reasoningEfforts = {
@@ -172,6 +212,7 @@ class ModelServiceRepository {
     String? apiKey,
     AiServicePreset preset = AiServicePreset.custom,
     Map<String, AiImageInput>? imageInputs,
+    Map<String, List<String>>? serviceTiers,
   }) async {
     final address = validateAddress(preset.baseUrl ?? baseUrl);
     final cleanModels = models
@@ -206,6 +247,13 @@ class ModelServiceRepository {
       baseUrl: address,
       models: cleanModels,
       preset: preset,
+      serviceTiers:
+          serviceTiers ??
+          (old != null &&
+                  old.baseUrl == address &&
+                  old.protocol == (preset.protocol ?? protocol)
+              ? old.serviceTiers
+              : const {}),
       imageInputs:
           imageInputs ??
           (old != null &&
@@ -220,15 +268,20 @@ class ModelServiceRepository {
       if (old == null) service,
     ];
     final nextId = _selectedId ?? serviceId;
-    final nextModel = nextId == serviceId && !cleanModels.contains(_model)
-        ? cleanModels.first
+    final nextModel = nextId == serviceId
+        ? (old == null
+              ? cleanModels.first
+              : cleanModels.contains(_model)
+              ? _model
+              : null)
         : _model;
     try {
       if (newKey?.isNotEmpty == true) {
         await _credentials.write(newKey!, serviceId: serviceId);
       }
-      await _persist(next, nextId, nextModel ?? cleanModels.first);
+      await _persist(next, nextId, nextModel);
       _keys[serviceId] = newKey?.isNotEmpty == true ? newKey! : oldKey!;
+      notifyListeners();
       return serviceId;
     } catch (_) {
       if (oldKey != null) {
@@ -292,6 +345,7 @@ class ModelServiceRepository {
         },
       );
       _keys.addAll(configuration.apiKeys);
+      notifyListeners();
     } catch (_) {
       // 尽量恢复全部密钥；单个恢复失败不应跳过其余服务。
       for (final entry in previousKeys.entries) {
@@ -334,15 +388,14 @@ class ModelServiceRepository {
   Future<void> remove(String id) async {
     if (find(id) == null) return;
     final next = _services.where((item) => item.id != id).toList();
-    final nextId = _selectedId == id ? next.firstOrNull?.id : _selectedId;
-    final nextModel = _selectedId == id
-        ? next.firstOrNull?.models.first
-        : _model;
+    final nextId = _selectedId == id ? null : _selectedId;
+    final nextModel = _selectedId == id ? null : _model;
     final oldKey = _keys[id];
     try {
       await _credentials.clear(serviceId: id);
       await _persist(next, nextId, nextModel);
       _keys.remove(id);
+      notifyListeners();
     } catch (_) {
       if (oldKey != null) await _credentials.write(oldKey, serviceId: id);
       throw const AiConfigurationException(AiProblem.storage);

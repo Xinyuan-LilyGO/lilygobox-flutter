@@ -111,3 +111,56 @@ class AiReasoningCapabilities {
     return {'reasoning_effort': effort.name};
   }
 }
+
+/// 服务处理档位独立于思考强度；目录声明优先，缺失时采用已知模型能力。
+enum AiProcessingSpeed { standard, fast, ultrafast }
+
+List<AiProcessingSpeed> processingSpeedsForModel(
+  String model, {
+  bool responses = true,
+  List<String>? serviceTiers,
+}) {
+  final id = model.toLowerCase();
+  // Codex 的内置模型目录提供这些模型的 Fast 档位；显式目录声明优先。
+  final fast = serviceTiers != null
+      ? serviceTiers.any((tier) => tier == 'priority' || tier == 'fast')
+      : [
+          'gpt-6.1-sol',
+          'gpt-6-astra',
+          'gpt-6.1-terra',
+          'gpt-6-luna',
+          'gpt-5.6-sol',
+        ].any(id.contains);
+  // 标准 /models 列表可能只有 id；未声明档位不等于账号不支持。
+  final ultra =
+      responses &&
+      (serviceTiers != null
+          ? serviceTiers.contains('ultrafast')
+          : ['gpt-6.1-sol', 'gpt-6-astra'].any(id.contains));
+  if (!fast && !ultra) return const [];
+  return [
+    AiProcessingSpeed.standard,
+    if (fast) AiProcessingSpeed.fast,
+    if (ultra) AiProcessingSpeed.ultrafast,
+  ];
+}
+
+Map<String, Object?> processingSpeedParameters(
+  String model,
+  AiProcessingSpeed speed, {
+  bool responses = true,
+  List<String>? serviceTiers,
+}) {
+  if (!processingSpeedsForModel(
+    model,
+    responses: responses,
+    serviceTiers: serviceTiers,
+  ).contains(speed)) {
+    return const {};
+  }
+  return switch (speed) {
+    AiProcessingSpeed.standard => const {'service_tier': 'default'},
+    AiProcessingSpeed.fast => const {'service_tier': 'priority'},
+    AiProcessingSpeed.ultrafast => const {'service_tier': 'ultrafast'},
+  };
+}

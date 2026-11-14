@@ -65,7 +65,7 @@ class ChatCompletionClient {
     void Function(String)? onReasoningDelta,
     void Function(AiResponseStatus)? onStatus,
     void Function(int, Object)? onRetry,
-    int maxTokens = 2048,
+    int? maxTokens,
   }) async {
     var cancelled = false;
     var finished = false;
@@ -187,7 +187,7 @@ class ChatCompletionClient {
     void Function(String)? onTextDelta,
     void Function(String)? onReasoningDelta,
     void Function(AiResponseStatus)? onStatus,
-    int maxTokens = 2048,
+    int? maxTokens,
   }) async {
     final base = configuration.baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final responses = configuration.protocol == AiApiProtocol.openAiResponses;
@@ -204,6 +204,12 @@ class ChatCompletionClient {
           ..body = jsonEncode({
             'model': configuration.model,
             'stream': true,
+            ...processingSpeedParameters(
+              configuration.model,
+              configuration.processingSpeed,
+              responses: responses,
+              serviceTiers: configuration.serviceTiers,
+            ),
             ...AiReasoningCapabilities.forModel(
               configuration.model,
             ).requestParameters(
@@ -216,7 +222,7 @@ class ChatCompletionClient {
               'messages': messages,
               if (tools.isNotEmpty) 'tools': tools,
               if (tools.isNotEmpty) 'tool_choice': 'auto',
-              'max_tokens': maxTokens,
+              if (maxTokens != null) 'max_tokens': maxTokens,
             },
           });
     final response = await _client
@@ -564,6 +570,15 @@ class ChatCompletionClient {
           ..sort();
     return AiModelCatalog(
       models: models,
+      serviceTiers: {
+        for (final item in data.whereType<Map>())
+          if (item['id'] case final String id)
+            if (id.trim().isNotEmpty && item['service_tiers'] is List)
+              id.trim(): [
+                for (final tier in item['service_tiers'] as List)
+                  if (tier is Map && tier['id'] is String) tier['id'] as String,
+              ],
+      },
       imageInputs: {
         for (final item in data.whereType<Map>())
           if (item['id'] case final String id)
@@ -611,7 +626,7 @@ class ChatCompletionClient {
   Map<String, Object?> _responsesRequest(
     List<Map<String, Object?>> messages,
     List<Map<String, Object?>> tools,
-    int maxTokens,
+    int? maxTokens,
   ) {
     final instructions = <String>[];
     final input = <Map<String, Object?>>[];
@@ -687,7 +702,7 @@ class ChatCompletionClient {
               },
         ],
       if (tools.isNotEmpty) 'tool_choice': 'auto',
-      'max_output_tokens': maxTokens,
+      if (maxTokens != null) 'max_output_tokens': maxTokens,
       'store': false,
       'include': ['reasoning.encrypted_content'],
     };

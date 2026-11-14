@@ -33,6 +33,7 @@ import 'package:lilygobox/features/assistant/presentation/widgets/chat_composer.
 import 'package:lilygobox/features/assistant/state/provider.dart';
 import 'package:lilygobox/features/settings/presentation/widgets/split_view.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/model_selector.dart';
 import 'package:provider/provider.dart';
 
 import 'assistant_test_scope.dart';
@@ -2031,6 +2032,107 @@ void main() {
   }
 
   testWidgets(
+    'deleted model returns the live workspace selector to Choose model',
+    (tester) async {
+      await tester.runAsync(() => scope.provider.initialized);
+      final service = await scope.provider.saveService(
+        name: 'Models',
+        protocol: AiApiProtocol.openAiResponses,
+        baseUrl: 'https://example.test/v1',
+        models: ['gpt-6.1-sol', 'gpt-6-astra'],
+        apiKey: 'key',
+      );
+      final agent = scope.provider.forkForWorkspace();
+      addTearDown(agent.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ModelSelector(theme: theme.themeData, assistant: agent),
+          ),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('gpt-6.1-sol'), findsOneWidget);
+      await scope.provider.saveService(
+        id: service,
+        name: 'Models',
+        protocol: AiApiProtocol.openAiResponses,
+        baseUrl: 'https://example.test/v1',
+        models: ['gpt-6-astra'],
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('gpt-6.1-sol'), findsNothing);
+      expect(find.text('Select model'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'processing speed selection is available only for supported models',
+    (tester) async {
+      await tester.runAsync(() => scope.provider.initialized);
+      final service = await scope.provider.saveService(
+        name: 'Speed service',
+        protocol: AiApiProtocol.openAiResponses,
+        baseUrl: 'https://example.test/v1',
+        models: ['gpt-6.1-sol', 'deepseek-flash'],
+        serviceTiers: {
+          'gpt-6.1-sol': ['priority'],
+        },
+        apiKey: 'key',
+      );
+      await scope.provider.selectModel(service, 'gpt-6.1-sol');
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ai-model-selector')));
+      await tester.pumpAndSettle();
+      final toggle = find.byKey(const ValueKey('ai-processing-speed-toggle'));
+      expect(toggle, findsOneWidget);
+      expect(find.text('Processing speed'), findsNothing);
+      expect(scope.provider.processingSpeeds, [
+        AiProcessingSpeed.standard,
+        AiProcessingSpeed.fast,
+      ]);
+      final icon = find.descendant(of: toggle, matching: find.byType(Icon));
+      expect(
+        tester.widget<Icon>(icon).color,
+        theme.themeData.textColorTertiary,
+      );
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(
+        scope.provider.configuration.processingSpeed,
+        AiProcessingSpeed.fast,
+      );
+      expect(tester.widget<Icon>(icon).color, theme.themeData.basePrimary);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(scope.provider.processingSpeed, AiProcessingSpeed.standard);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      final child = scope.provider.forkForWorkspace();
+      addTearDown(child.dispose);
+      expect(child.configuration.processingSpeed, AiProcessingSpeed.fast);
+      await child.setProcessingSpeed(AiProcessingSpeed.standard);
+      expect(scope.provider.processingSpeed, AiProcessingSpeed.fast);
+      await tester.tap(find.byKey(const ValueKey('ai-model-selector')));
+      await tester.pumpAndSettle();
+      await scope.provider.selectModel(service, 'deepseek-flash');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ai-model-selector')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('ai-processing-speed-toggle')),
+        findsNothing,
+      );
+      expect(scope.provider.processingSpeed, AiProcessingSpeed.standard);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'reasoning opens first, fades to models and preserves concrete effort choices',
     (tester) async {
       await tester.runAsync(() => scope.provider.initialized);
@@ -2153,6 +2255,53 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('processing speed popup fits narrow windows and larger text', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(() => scope.provider.initialized);
+    await scope.provider.saveService(
+      name: 'Speed',
+      protocol: AiApiProtocol.openAiResponses,
+      baseUrl: 'https://example.test/v1',
+      models: ['gpt-6.1-sol'],
+      apiKey: 'key',
+    );
+    for (final type in ThemeType.values) {
+      theme.setTheme(type);
+      for (final locale in ['en', 'zh']) {
+        await tester.pumpWidget(app(scale: 1.6, locale: locale));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('ai-model-selector')));
+        await tester.pumpAndSettle();
+        final toggle = find.byKey(const ValueKey('ai-processing-speed-toggle'));
+        final icons = find.descendant(of: toggle, matching: find.byType(Icon));
+        expect(icons, findsOneWidget);
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(scope.provider.processingSpeed, AiProcessingSpeed.fast);
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(scope.provider.processingSpeed, AiProcessingSpeed.ultrafast);
+        expect(icons, findsNWidgets(2));
+        final heading = tester.getRect(
+          find.text(locale == 'en' ? 'Reasoning effort' : '思考强度'),
+        );
+        expect(tester.getCenter(toggle).dx, greaterThan(heading.right));
+        expect(tester.getCenter(toggle).dy, closeTo(heading.center.dy, 1));
+        expect(tester.takeException(), isNull);
+        await capture(tester, 'speed-${type.name}-$locale');
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(scope.provider.processingSpeed, AiProcessingSpeed.standard);
+        await tester.tapAt(const Offset(10, 10));
+        await tester.pumpAndSettle();
+        await tester.pumpWidget(const SizedBox());
+      }
+    }
+  });
 
   testWidgets('reasoning popup fits narrow windows in both languages', (
     tester,

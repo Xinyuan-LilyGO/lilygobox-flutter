@@ -13,6 +13,7 @@ import '../../../../core/theme/definition.dart';
 import '../../../../core/theme/material_palette.dart';
 import '../../../../core/widgets/app_capsule_slider.dart';
 import '../../../../core/widgets/app_scroll_behavior.dart';
+import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/interaction_decoration.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/popup_menu_surface.dart';
@@ -86,6 +87,35 @@ class _ModelSelectorState extends State<ModelSelector> {
   void initState() {
     super.initState();
     _scroll.addListener(_updatePinnedService);
+    _lastAssistantSelection = _assistantSelection;
+    widget.assistant.addListener(_assistantSelectionChanged);
+  }
+
+  Object? _lastAssistantSelection;
+  Object get _assistantSelection => (
+    widget.assistant.selectedService?.id,
+    widget.assistant.selectedModel,
+    widget.assistant.reasoningEffort,
+    widget.assistant.processingSpeed,
+  );
+
+  void _assistantSelectionChanged() {
+    final selection = _assistantSelection;
+    if (!mounted || _lastAssistantSelection == selection) return;
+    setState(() {
+      _lastAssistantSelection = selection;
+      if (_reasoningModel != _selectedModel) _reasoningModel = null;
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant ModelSelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.assistant != widget.assistant) {
+      oldWidget.assistant.removeListener(_assistantSelectionChanged);
+      widget.assistant.addListener(_assistantSelectionChanged);
+      _lastAssistantSelection = _assistantSelection;
+    }
   }
 
   void _updatePinnedService() {
@@ -167,6 +197,7 @@ class _ModelSelectorState extends State<ModelSelector> {
 
   @override
   void dispose() {
+    widget.assistant.removeListener(_assistantSelectionChanged);
     _search.dispose();
     _searchFocus.dispose();
     _scroll.dispose();
@@ -214,6 +245,79 @@ class _ModelSelectorState extends State<ModelSelector> {
     }
   }
 
+  Widget _processingSpeedToggle() {
+    final assistant = widget.assistant;
+    final theme = widget.theme;
+    final l10n = context.l10n;
+    final speeds = assistant.processingSpeeds;
+    final speed = assistant.processingSpeed;
+    final next = speeds[(speeds.indexOf(speed) + 1) % speeds.length];
+    String label(AiProcessingSpeed value) => switch (value) {
+      AiProcessingSpeed.standard => l10n.aiProcessingSpeedStandard,
+      AiProcessingSpeed.fast => l10n.aiProcessingSpeedFast,
+      AiProcessingSpeed.ultrafast => l10n.aiProcessingSpeedUltra,
+    };
+    final description = '${l10n.aiProcessingSpeed}: ${label(speed)}';
+    final color = speed == AiProcessingSpeed.standard
+        ? theme.textColorTertiary
+        : theme.basePrimary;
+    return AppTooltip(
+      message: label(speed),
+      child: Semantics(
+        label: description,
+        button: true,
+        child: MenuItemSurface(
+          key: const ValueKey('ai-processing-speed-toggle'),
+          theme: theme,
+          backgroundColor: theme.popupSurfaceColor,
+          borderRadius: BorderRadius.circular(16),
+          onPressed: assistant.canChangeService
+              ? () async {
+                  try {
+                    await assistant.setProcessingSpeed(next);
+                    if (mounted) setState(() => _error = null);
+                  } catch (error) {
+                    if (mounted) setState(() => _error = error);
+                  }
+                }
+              : null,
+          child: SizedBox(
+            width: 32,
+            height: 32,
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: speed == AiProcessingSpeed.ultrafast
+                  ? Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Positioned(
+                          left: 0,
+                          child: Icon(
+                            Symbols.bolt_rounded,
+                            fill: 1,
+                            size: 18,
+                            color: color,
+                          ),
+                        ),
+                        Positioned(
+                          right: 0,
+                          child: Icon(
+                            Symbols.bolt_rounded,
+                            fill: 1,
+                            size: 18,
+                            color: color,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Icon(Symbols.bolt_rounded, fill: 1, size: 19, color: color),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _reasoningContent() {
     final theme = widget.theme;
     final l10n = context.l10n;
@@ -252,10 +356,32 @@ class _ModelSelectorState extends State<ModelSelector> {
             ),
           ),
           const SizedBox(height: 12),
-          Text(
-            l10n.aiReasoningEffort,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: theme.textColorTertiary),
+          SizedBox(
+            height: 32,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 34),
+                  child: Text(
+                    l10n.aiReasoningEffort,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.textColorTertiary,
+                    ),
+                  ),
+                ),
+                if (widget.assistant.processingSpeeds.isNotEmpty)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: _processingSpeedToggle(),
+                    ),
+                  ),
+              ],
+            ),
           ),
           const SizedBox(height: 4),
           Text(

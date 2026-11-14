@@ -120,8 +120,13 @@ class AiAssistantProvider extends ChangeNotifier {
       _workspaceService = parent.selectedService,
       _workspaceModel = parent.selectedModel,
       _workspaceApiKey = parent._apiKeyForSelectedService,
-      _workspaceEffort = parent.reasoningEffort {
+      _workspaceEffort = parent.reasoningEffort,
+      _workspaceSpeed = parent.processingSpeed {
     _permissions = parent.permissions;
+    _workspaceSelectionUnavailable = parent._workspaceSelectionUnavailable;
+    _unavailableServiceId = parent._unavailableServiceId;
+    _unavailableModel = parent._unavailableModel;
+    _repository.addListener(_serviceCatalogChanged);
     _credentialLoaded = true;
     _initializing = Future.value();
   }
@@ -149,6 +154,29 @@ class AiAssistantProvider extends ChangeNotifier {
     _unavailableServiceId = serviceId;
     _unavailableModel = model;
     _workspaceApiKey = null;
+    _workspaceService = null;
+    _workspaceModel = null;
+    _workspaceEffort = null;
+    _workspaceSpeed = AiProcessingSpeed.standard;
+    _notify();
+  }
+
+  void _serviceCatalogChanged() {
+    if (_disposed || !_isWorkspace) return;
+    final serviceId = _workspaceService?.id;
+    final model = _workspaceModel;
+    if (serviceId != null && model != null) {
+      final service = _repository.find(serviceId);
+      if (service == null ||
+          !service.models.contains(model) ||
+          _repository.keyFor(serviceId)?.isNotEmpty != true) {
+        stopGeneration();
+        markWorkspaceSelectionUnavailable(serviceId: serviceId, model: model);
+        return;
+      }
+      _workspaceService = service;
+      _workspaceApiKey = _repository.keyFor(serviceId);
+    }
     _notify();
   }
 
@@ -161,6 +189,7 @@ class AiAssistantProvider extends ChangeNotifier {
       ? _workspaceApiKey
       : _repository.keyFor(selectedService?.id);
   AiReasoningEffort? _workspaceEffort;
+  AiProcessingSpeed _workspaceSpeed = AiProcessingSpeed.standard;
   List<Map<String, Object?>> workspaceToolDefinitions = const [];
   Future<Map<String, Object?>> Function(String, Map<String, Object?>)?
   workspaceToolHandler;
@@ -223,6 +252,7 @@ class AiAssistantProvider extends ChangeNotifier {
     'serviceId': selectedService?.id ?? _unavailableServiceId,
     'model': selectedModel ?? _unavailableModel,
     'effort': reasoningEffort?.name,
+    'processingSpeed': processingSpeed.name,
     'messages': [
       for (final message
           in _messages
@@ -466,22 +496,56 @@ class AiAssistantProvider extends ChangeNotifier {
       : selectedService == null || selectedModel == null
       ? null
       : _repository.effortFor(selectedService!.id, selectedModel!);
+  List<AiProcessingSpeed> get processingSpeeds => processingSpeedsForModel(
+    selectedModel ?? '',
+    responses: selectedService?.protocol == AiApiProtocol.openAiResponses,
+    serviceTiers: selectedService?.serviceTiers[selectedModel],
+  );
+
+  AiProcessingSpeed get processingSpeed {
+    final model = selectedModel;
+    if (model == null || selectedService == null) {
+      return AiProcessingSpeed.standard;
+    }
+    final speed = _isWorkspace
+        ? _workspaceSpeed
+        : _repository.speedFor(selectedService!.id, model);
+    return processingSpeeds.contains(speed)
+        ? speed
+        : AiProcessingSpeed.standard;
+  }
+
+  Future<void> setProcessingSpeed(AiProcessingSpeed speed) => _change(() async {
+    final service = selectedService;
+    final model = selectedModel;
+    if (service == null || model == null || !processingSpeeds.contains(speed)) {
+      throw const AiConfigurationException(AiProblem.noService);
+    }
+    if (_isWorkspace) {
+      _workspaceSpeed = speed;
+    } else {
+      await _repository.setProcessingSpeed(service.id, model, speed);
+    }
+  });
+
   AiServiceConfiguration get configuration => AiServiceConfiguration(
     protocol: selectedService?.protocol ?? AiApiProtocol.openAiChatCompletions,
     baseUrl: selectedService?.baseUrl ?? '',
     model: selectedModel ?? '',
     reasoningEffort: reasoningEffort,
+    processingSpeed: processingSpeed,
+    serviceTiers: selectedService?.serviceTiers[selectedModel],
   );
   List<AiMessage> get messages => List.unmodifiable(_messages);
   List<AiMessage> get pendingGuidance => List.unmodifiable(_pendingGuidance);
   bool get canGuideNow => canSendMessage && _steeringGuidanceId == null;
   bool get _requestInterrupted => _stopRequested || _steeringGuidanceId != null;
   bool get credentialLoaded => _credentialLoaded;
-  bool get hasApiKey => hasServiceKey(selectedService?.id);
+  bool get hasApiKey =>
+      selectedModel != null && hasServiceKey(selectedService?.id);
   bool hasServiceKey(String? id) =>
-      _workspaceService != null && id == _workspaceService!.id
-      ? _workspaceApiKey?.isNotEmpty == true
-      : _repository.keyFor(id)?.isNotEmpty == true;
+      _repository.find(id) != null &&
+      _repository.keyFor(id)?.isNotEmpty == true;
   bool get busy => _busy;
   bool get stopRequested => _stopRequested;
   bool get canContinue => !_busy && canSendMessage && _stoppedMessageId != null;
@@ -543,6 +607,7 @@ class AiAssistantProvider extends ChangeNotifier {
     String? apiKey,
     AiServicePreset preset = AiServicePreset.custom,
     Map<String, AiImageInput>? imageInputs,
+    Map<String, List<String>>? serviceTiers,
   }) => _change(
     () => _repository.save(
       id: id,
@@ -553,6 +618,7 @@ class AiAssistantProvider extends ChangeNotifier {
       apiKey: apiKey,
       preset: preset,
       imageInputs: imageInputs,
+      serviceTiers: serviceTiers,
     ),
   );
 
@@ -621,6 +687,7 @@ class AiAssistantProvider extends ChangeNotifier {
     _workspaceModel = model;
     _workspaceApiKey = _repository.keyFor(serviceId);
     _workspaceEffort = _repository.effortFor(serviceId, model);
+    _workspaceSpeed = _repository.speedFor(serviceId, model);
   });
 
   Future<void> setReasoningEffort(AiReasoningEffort? effort) => _change(
@@ -907,6 +974,7 @@ class AiAssistantProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (_isWorkspace) _repository.removeListener(_serviceCatalogChanged);
     _cancelTaskNaming();
     stopGeneration();
     _processNotifyTimer?.cancel();
@@ -1707,7 +1775,7 @@ final _additionalTools = <Map<String, Object?>>[
   ),
   _tool(
     'run_command',
-    'Run an executable with string arguments and an absolute existing working_directory; give a short reason. No implicit shell: invoke one explicitly for scripts. Query get_execution_environment when platform details are unknown. For Windows PowerShell, set Console.OutputEncoding to UTF8. Keep processes attached. Returns process_id and output_cursor; use read_process while running=true, then check exit_code, timed_out and stopped. Default timeout 600s, maximum 3600s.',
+    'Run an executable with string arguments and an absolute existing working_directory; give a short reason. No implicit shell: invoke one explicitly for scripts. Query get_execution_environment when platform details are unknown. For Windows PowerShell, set Console.OutputEncoding to UTF8. Keep processes attached. Local commands share a CPU-sized launch queue across agents; busy capacity queues the command rather than rejecting it. Returns process_id and output_cursor; use read_process while running=true, then check exit_code, timed_out and stopped. Default timeout 600s, maximum 3600s.',
     {
       'executable': {'type': 'string'},
       'arguments': {

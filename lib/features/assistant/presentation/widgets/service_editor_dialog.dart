@@ -42,6 +42,7 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
   final _key = TextEditingController();
   final _formScrollController = ScrollController();
   final Map<String, AiImageInput> _imageInputs = {};
+  final Map<String, List<String>> _serviceTiers = {};
   late String _capabilityAddress;
   late AiApiProtocol _protocol;
   late AiServicePreset _preset;
@@ -59,6 +60,7 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
     _address = TextEditingController(text: service?.baseUrl ?? '');
     _models = TextEditingController(text: service?.models.join('\n') ?? '');
     _imageInputs.addAll(service?.imageInputs ?? {});
+    _serviceTiers.addAll(service?.serviceTiers ?? {});
     _capabilityAddress = _baseUrl;
     _address.addListener(_addressChanged);
   }
@@ -67,6 +69,7 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
     if (_baseUrl == _capabilityAddress) return;
     setState(() {
       _imageInputs.clear();
+      _serviceTiers.clear();
       _capabilityAddress = _baseUrl;
     });
   }
@@ -96,6 +99,7 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
       _key.clear();
       _models.clear();
       _imageInputs.clear();
+      _serviceTiers.clear();
       _capabilityAddress = _baseUrl;
       _error = null;
     });
@@ -126,6 +130,7 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
         models: _models.text.split(RegExp(r'[,，\n\r]+')),
         apiKey: _key.text,
         imageInputs: _imageInputs,
+        serviceTiers: _serviceTiers,
       );
       if (mounted) {
         setState(() => _working = false);
@@ -159,6 +164,9 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
       }
       if (mounted) {
         // 每次成功获取均以本次服务声明为准，缺失能力恢复为未知。
+        _serviceTiers
+          ..clear()
+          ..addAll(catalog.serviceTiers);
         _imageInputs
           ..clear()
           ..addAll(catalog.imageInputs);
@@ -290,6 +298,7 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
                               if (protocol != null && protocol != _protocol) {
                                 _protocol = protocol;
                                 _imageInputs.clear();
+                                _serviceTiers.clear();
                               }
                             }),
                     ),

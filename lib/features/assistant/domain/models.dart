@@ -28,9 +28,15 @@ class AiModelCatalog {
   AiModelCatalog({
     required List<String> models,
     required Map<String, AiImageInput> imageInputs,
+    Map<String, List<String>> serviceTiers = const {},
   }) : models = List.unmodifiable(models),
-       imageInputs = Map.unmodifiable(imageInputs);
+       imageInputs = Map.unmodifiable(imageInputs),
+       serviceTiers = Map.unmodifiable({
+         for (final entry in serviceTiers.entries)
+           entry.key: List<String>.unmodifiable(entry.value),
+       });
   final List<String> models;
+  final Map<String, List<String>> serviceTiers;
   final Map<String, AiImageInput> imageInputs;
 }
 
@@ -59,23 +65,31 @@ class AiServiceConfiguration {
     this.baseUrl = '',
     this.model = '',
     this.reasoningEffort,
+    this.processingSpeed = AiProcessingSpeed.standard,
+    this.serviceTiers,
   });
 
   final AiApiProtocol protocol;
   final String baseUrl;
   final String model;
   final AiReasoningEffort? reasoningEffort;
+  final AiProcessingSpeed processingSpeed;
+  final List<String>? serviceTiers;
 
   AiServiceConfiguration copyWith({
     AiApiProtocol? protocol,
     String? baseUrl,
     String? model,
     AiReasoningEffort? reasoningEffort,
+    AiProcessingSpeed? processingSpeed,
+    List<String>? serviceTiers,
   }) => AiServiceConfiguration(
     protocol: protocol ?? this.protocol,
     baseUrl: baseUrl ?? this.baseUrl,
     model: model ?? this.model,
     reasoningEffort: reasoningEffort ?? this.reasoningEffort,
+    processingSpeed: processingSpeed ?? this.processingSpeed,
+    serviceTiers: serviceTiers ?? this.serviceTiers,
   );
 }
 
@@ -89,7 +103,13 @@ class AiModelService {
     required List<String> models,
     this.preset = AiServicePreset.custom,
     Map<String, AiImageInput> imageInputs = const {},
+    Map<String, List<String>> serviceTiers = const {},
   }) : models = List.unmodifiable(models),
+       serviceTiers = Map.unmodifiable({
+         for (final model in models)
+           if (serviceTiers.containsKey(model))
+             model: List<String>.unmodifiable(serviceTiers[model]!),
+       }),
        imageInputs = Map.unmodifiable({
          for (final model in models)
            if (imageInputs.containsKey(model)) model: imageInputs[model]!,
@@ -101,6 +121,7 @@ class AiModelService {
   final String baseUrl;
   final List<String> models;
   final AiServicePreset preset;
+  final Map<String, List<String>> serviceTiers;
   final Map<String, AiImageInput> imageInputs;
   AiImageInput imageInputFor(String model) =>
       imageInputs[model] ?? AiImageInput.unknown;
@@ -114,6 +135,7 @@ class AiModelService {
     'baseUrl': baseUrl,
     'models': models,
     'preset': preset.name,
+    'serviceTiers': serviceTiers,
     'discoveredImageInputs': {
       for (final entry in imageInputs.entries) entry.key: entry.value.name,
     },
@@ -135,6 +157,14 @@ class AiModelService {
       protocol: protocol,
       baseUrl: json['baseUrl'] as String,
       models: (json['models'] as List).cast<String>(),
+      serviceTiers: {
+        if (json['serviceTiers'] case final Map entries)
+          for (final entry in entries.entries)
+            if (entry.key is String &&
+                entry.value is List &&
+                (entry.value as List).every((value) => value is String))
+              entry.key as String: (entry.value as List).cast<String>(),
+      },
       imageInputs: {
         // 旧 imageInputs 可能来自手动设置，不用作自动能力判断。
         if (json['discoveredImageInputs'] case final Map entries)

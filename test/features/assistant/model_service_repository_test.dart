@@ -25,6 +25,80 @@ void main() {
     await repository.load();
   });
   tearDown(() => preferences.dispose());
+  test(
+    'catalog speed capabilities survive reload and are invalidated on endpoint change',
+    () async {
+      final id = await repository.save(
+        name: 'Catalog',
+        protocol: AiApiProtocol.openAiResponses,
+        baseUrl: 'https://example.test/v1',
+        models: ['gpt-6.1-sol', 'gpt-6-astra'],
+        apiKey: 'key',
+        serviceTiers: {
+          'gpt-6.1-sol': ['priority', 'ultrafast'],
+          'gpt-6-astra': [],
+        },
+      );
+      await repository.setProcessingSpeed(
+        id,
+        'gpt-6.1-sol',
+        AiProcessingSpeed.ultrafast,
+      );
+      final reloadedPreferences = await AppPreferences.load(storage: storage);
+      addTearDown(reloadedPreferences.dispose);
+      final restored = ModelServiceRepository(reloadedPreferences, keys);
+      await restored.load();
+      expect(restored.speedFor(id, 'gpt-6.1-sol'), AiProcessingSpeed.ultrafast);
+      expect(restored.find(id)!.serviceTiers['gpt-6-astra'], isEmpty);
+      await repository.save(
+        id: id,
+        name: 'Catalog',
+        protocol: AiApiProtocol.openAiResponses,
+        baseUrl: 'https://different.test/v1',
+        models: ['gpt-6.1-sol'],
+        apiKey: 'new-key',
+      );
+      expect(repository.find(id)!.serviceTiers, isEmpty);
+      expect(
+        repository.speedFor(id, 'gpt-6.1-sol'),
+        AiProcessingSpeed.ultrafast,
+      );
+    },
+  );
+
+  test(
+    'processing speed persists separately for each service and model',
+    () async {
+      final id = await repository.save(
+        name: 'Speed',
+        protocol: AiApiProtocol.openAiResponses,
+        baseUrl: 'https://example.test/v1',
+        models: ['gpt-6.1-sol', 'gpt-6-astra', 'deepseek-flash'],
+        apiKey: 'key',
+      );
+      await repository.setProcessingSpeed(
+        id,
+        'gpt-6.1-sol',
+        AiProcessingSpeed.fast,
+      );
+      final restored = ModelServiceRepository(preferences, keys);
+      await restored.load();
+      expect(restored.speedFor(id, 'gpt-6.1-sol'), AiProcessingSpeed.fast);
+      expect(restored.speedFor(id, 'gpt-6-astra'), AiProcessingSpeed.standard);
+      await expectLater(
+        restored.setProcessingSpeed(
+          id,
+          'deepseek-flash',
+          AiProcessingSpeed.fast,
+        ),
+        throwsA(isA<AiConfigurationException>()),
+      );
+      expect(
+        restored.speedFor(id, 'deepseek-flash'),
+        AiProcessingSpeed.standard,
+      );
+    },
+  );
 
   Future<String> add(String name, String key) => repository.save(
     name: name,
@@ -442,7 +516,7 @@ void main() {
         baseUrl: 'https://first.test/v2',
         models: ['updated'],
       );
-      expect(repository.selectedModel, 'updated');
+      expect(repository.selectedModel, isNull);
       expect(repository.keyFor(id), 'secret-first');
       await expectLater(
         repository.save(
@@ -466,12 +540,20 @@ void main() {
   );
 
   test(
-    'removing selected service switches safely and an empty catalog stays empty',
+    'removing selected service clears selection without switching services',
     () async {
       final first = await add('first', 'secret-first');
       final second = await add('second', 'secret-second');
       await repository.remove(first);
-      expect(repository.selectedService?.id, second);
+      expect(repository.selectedService, isNull);
+      expect(repository.selectedModel, isNull);
+      final retained = ModelServiceRepository(preferences, keys);
+      await retained.load();
+      expect(retained.selectedModel, isNull);
+      expect(retained.selectedService, isNull);
+      final imported = ModelServiceRepository(preferences, keys);
+      await imported.importConfiguration(repository.exportConfiguration());
+      expect(imported.selectedService, isNull);
       expect(repository.keyFor(first), isNull);
       expect(keys.values.containsKey(first), isFalse);
       await repository.remove(second);

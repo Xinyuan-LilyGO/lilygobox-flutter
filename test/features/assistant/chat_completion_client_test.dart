@@ -13,6 +13,212 @@ import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 
 void main() {
+  for (final protocol in AiApiProtocol.values) {
+    for (final outputLimit in [null, 128]) {
+      test(
+        'output token limit is optional for $protocol: $outputLimit',
+        () async {
+          late Map<String, dynamic> body;
+          final client = ChatCompletionClient(
+            client: MockClient((request) async {
+              body = jsonDecode(request.body) as Map<String, dynamic>;
+              return http.Response(
+                jsonEncode(
+                  protocol == AiApiProtocol.openAiResponses
+                      ? {
+                          'output': [
+                            {
+                              'type': 'message',
+                              'content': [
+                                {'type': 'output_text', 'text': 'Done'},
+                              ],
+                            },
+                          ],
+                        }
+                      : {
+                          'choices': [
+                            {
+                              'message': {'content': 'Done'},
+                            },
+                          ],
+                        },
+                ),
+                200,
+              );
+            }),
+          );
+          addTearDown(client.close);
+          await client.complete(
+            configuration: AiServiceConfiguration(
+              protocol: protocol,
+              baseUrl: 'https://example.test/v1',
+              model: 'gpt-6.1-sol',
+            ),
+            apiKey: 'key',
+            messages: const [
+              {'role': 'user', 'content': 'Hello'},
+            ],
+            tools: const [],
+            maxTokens: outputLimit,
+          );
+          final field = protocol == AiApiProtocol.openAiResponses
+              ? 'max_output_tokens'
+              : 'max_tokens';
+          expect(body.containsKey(field), outputLimit != null);
+          if (outputLimit != null) expect(body[field], outputLimit);
+        },
+      );
+    }
+  }
+
+  test(
+    'speed tiers respect explicit catalogs and fall back when metadata is absent',
+    () async {
+      final client = ChatCompletionClient(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'data': [
+                {
+                  'id': 'gpt-6.1-sol',
+                  'service_tiers': [
+                    {'id': 'priority', 'name': 'Fast'},
+                    {'id': 'ultrafast', 'name': 'Ultra Fast'},
+                  ],
+                },
+                {'id': 'gpt-6-astra', 'service_tiers': []},
+                {
+                  'id': 'custom-gpt-6.1-sol',
+                  'reasoning_levels': ['ultrafast'],
+                },
+              ],
+            }),
+            200,
+          ),
+        ),
+      );
+      addTearDown(client.close);
+      final catalog = await client.discoverModelCatalog(
+        baseUrl: 'https://example.test/v1',
+        apiKey: 'key',
+      );
+      expect(
+        processingSpeedsForModel(
+          'gpt-6.1-sol',
+          serviceTiers: catalog.serviceTiers['gpt-6.1-sol'],
+        ),
+        AiProcessingSpeed.values,
+      );
+      expect(
+        processingSpeedsForModel(
+          'gpt-6-astra',
+          serviceTiers: catalog.serviceTiers['gpt-6-astra'],
+        ),
+        isEmpty,
+      );
+      expect(
+        processingSpeedsForModel(
+          'custom-gpt-6.1-sol',
+          serviceTiers: catalog.serviceTiers['custom-gpt-6.1-sol'],
+        ),
+        contains(AiProcessingSpeed.ultrafast),
+      );
+      expect(
+        processingSpeedParameters('gpt-6.1-sol', AiProcessingSpeed.ultrafast),
+        {'service_tier': 'ultrafast'},
+      );
+    },
+  );
+  test('processing speed matches supported model substrings only', () {
+    expect(
+      processingSpeedsForModel('custom-GPT-6.1-SOL-test'),
+      AiProcessingSpeed.values,
+    );
+    expect(
+      processingSpeedsForModel('gpt-6.1-terra'),
+      isNot(contains(AiProcessingSpeed.ultrafast)),
+    );
+    expect(
+      processingSpeedsForModel('gpt-6-astra'),
+      contains(AiProcessingSpeed.ultrafast),
+    );
+    expect(
+      processingSpeedsForModel('gpt-6.1-sol', responses: false),
+      isNot(contains(AiProcessingSpeed.ultrafast)),
+    );
+    expect(
+      processingSpeedsForModel('gpt-6.1-sol', serviceTiers: ['priority']),
+      [AiProcessingSpeed.standard, AiProcessingSpeed.fast],
+    );
+    expect(processingSpeedsForModel('deepseek-flash'), isEmpty);
+    expect(processingSpeedsForModel('unknown'), isEmpty);
+  });
+  for (final protocol in AiApiProtocol.values) {
+    for (final speed in AiProcessingSpeed.values) {
+      test('serializes processing speed $protocol $speed', () async {
+        Map<String, dynamic>? body;
+        final client = ChatCompletionClient(
+          client: MockClient((request) async {
+            body = jsonDecode(request.body) as Map<String, dynamic>;
+            return http.Response(
+              jsonEncode(
+                protocol == AiApiProtocol.openAiResponses
+                    ? {
+                        'output': [
+                          {
+                            'type': 'message',
+                            'content': [
+                              {'type': 'output_text', 'text': 'Done'},
+                            ],
+                          },
+                        ],
+                      }
+                    : {
+                        'choices': [
+                          {
+                            'message': {'content': 'Done'},
+                          },
+                        ],
+                      },
+              ),
+              200,
+            );
+          }),
+        );
+        addTearDown(client.close);
+        for (final model in ['custom-gpt-6.1-sol-test', 'deepseek-flash']) {
+          await client.complete(
+            configuration: AiServiceConfiguration(
+              protocol: protocol,
+              baseUrl: 'https://example.test/v1',
+              model: model,
+              processingSpeed: speed,
+            ),
+            apiKey: 'key',
+            messages: const [
+              {'role': 'user', 'content': 'Hello'},
+            ],
+            tools: const [],
+          );
+          final expected =
+              model == 'deepseek-flash' ||
+                  (speed == AiProcessingSpeed.ultrafast &&
+                      protocol != AiApiProtocol.openAiResponses)
+              ? null
+              : switch (speed) {
+                  AiProcessingSpeed.standard => 'default',
+                  AiProcessingSpeed.fast => 'priority',
+                  AiProcessingSpeed.ultrafast => 'ultrafast',
+                };
+          expect(body!['service_tier'], expected);
+          if (expected == null) {
+            expect(body!.containsKey('service_tier'), isFalse);
+          }
+        }
+      });
+    }
+  }
+
   test(
     'model catalog uses explicit metadata and never guesses names',
     () async {

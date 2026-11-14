@@ -125,7 +125,6 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   Offset? _nodePointerDown;
   bool _nodePrimaryDown = false;
   String? _openId;
-  int _lastWorkflowHomeRevision = 0;
   final List<String?> _conversationHistory = [];
   int _lastNavigationRevision = 0;
   AiWorkspaceProvider? _navigationWorkspace;
@@ -1739,15 +1738,6 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeProvider>().themeData;
     final workspaces = context.watch<AiWorkspaceProvider>();
-    final homeRevision = context
-        .watch<AppNavigationProvider>()
-        .workflowHomeRevision;
-    if (_lastWorkflowHomeRevision != homeRevision) {
-      _lastWorkflowHomeRevision = homeRevision;
-      _openId = null;
-      _conversationHistory.clear();
-      workspaces.activeConversationId = null;
-    }
     if (!identical(_navigationWorkspace, workspaces)) {
       _navigationWorkspace = workspaces;
       _lastNavigationRevision = workspaces.navigationRequest?.revision ?? 0;
@@ -3372,6 +3362,7 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
               model: choice?[1],
               permissions: _draft.permissions,
               reasoningEffort: _draft.reasoningEffort,
+              processingSpeed: _draft.processingSpeed,
             )
           : await widget.workspaces.create(
               title: _title.text.trim(),
@@ -3380,6 +3371,7 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
               model: choice?[1],
               permissions: _draft.permissions,
               reasoningEffort: _draft.reasoningEffort,
+              processingSpeed: _draft.processingSpeed,
               parentId: widget.parent!.id,
               kind: AiWorkspaceKind.permanent,
             );

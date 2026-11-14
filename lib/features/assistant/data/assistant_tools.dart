@@ -259,22 +259,36 @@ class AssistantTools {
       case 'run_command':
         await _processCleanup;
         checkCancelled();
-        final assessment = await _commandPolicy.assess(tool.arguments);
-        _checkForbidden(assessment);
-        if (assessment.revision != tool.commandAssessment?.revision) {
-          throw const AiCommandPolicyFailure(AiCommandPolicyProblem.changed);
-        }
-        if (assessment.needsApproval && !commandSafetyApproved) {
-          throw const AiCommandPolicyFailure(
-            AiCommandPolicyProblem.approvalRequired,
-          );
-        }
-        checkCancelled();
         return jsonEncode(
-          await _processes.start({
-            ...tool.arguments,
-            'working_directory': tool.target!,
-          }, isCancelled: isCancelled),
+          await _processes.start(
+            {...tool.arguments, 'working_directory': tool.target!},
+            isCancelled: isCancelled,
+            abort: abort,
+            beforeStart: () async {
+              checkCancelled();
+              if (await canonicalAiPath(
+                    tool.arguments['working_directory'] as String,
+                  ) !=
+                  tool.target) {
+                throw const FileSystemException(
+                  'Target changed while waiting to launch',
+                );
+              }
+              final assessment = await _commandPolicy.assess(tool.arguments);
+              _checkForbidden(assessment);
+              if (assessment.revision != tool.commandAssessment?.revision) {
+                throw const AiCommandPolicyFailure(
+                  AiCommandPolicyProblem.changed,
+                );
+              }
+              if (assessment.needsApproval && !commandSafetyApproved) {
+                throw const AiCommandPolicyFailure(
+                  AiCommandPolicyProblem.approvalRequired,
+                );
+              }
+              checkCancelled();
+            },
+          ),
         );
       case 'read_process':
         return jsonEncode(await _processes.read(tool.arguments));

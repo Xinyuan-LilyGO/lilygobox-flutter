@@ -154,6 +154,7 @@ class AiTaskCardCopy {
        model = source.model,
        permissions = source.assistant.permissions,
        effort = source.assistant.reasoningEffort,
+       processingSpeed = source.assistant.processingSpeed,
        conversation = source.assistant.snapshotConversationFork(),
        connectedSourceIds = List.unmodifiable(connectedSourceIds);
   final AiWorkspaceKind kind;
@@ -165,6 +166,7 @@ class AiTaskCardCopy {
   final String model;
   final AiPermissions permissions;
   final AiReasoningEffort? effort;
+  final AiProcessingSpeed processingSpeed;
   final AiConversationFork conversation;
   final List<String> connectedSourceIds;
 }

@@ -2670,4 +2670,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String aiTopologyRoleChangeNotice(String task, String role) {
     return '“$task” will become a $role.';
   }
+
+  @override
+  String get aiProcessingSpeed => 'Processing speed';
+
+  @override
+  String get aiProcessingSpeedStandard => 'Standard';
+
+  @override
+  String get aiProcessingSpeedFast => 'Fast';
+
+  @override
+  String get aiProcessingSpeedUltra => 'Ultrafast';
+
+  @override
+  String get aiProcessingSpeedCost => 'Fast and Ultrafast usually cost more';
 }

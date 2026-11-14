@@ -113,6 +113,7 @@ void main() {
   Widget app({
     String language = 'en',
     double scale = 1,
+    bool active = true,
     ValueNotifier<bool>? nestedView,
     ValueNotifier<DevicePageTitle?>? pageTitle,
   }) => MultiProvider(
@@ -135,10 +136,11 @@ void main() {
       home: Scaffold(
         backgroundColor: theme.themeData.secondary,
         body: DevicePageFrame(
-          active: true,
+          active: active,
           pageTitle: pageTitle,
           onBack: navigation.goHome,
           child: ConnectedDevicePage(
+            active: active,
             deviceId: '001122334455',
             pageTitle: pageTitle,
             nestedView: nestedView,
@@ -215,7 +217,6 @@ void main() {
           wirelessUrl: Uri.https('example.com', '/wireless'),
           wirelessSize: 3,
           wirelessSha256: 'hash',
-          notes: const ['改进设备连接'],
         ),
       );
       session.wirelessFirmware = '2.12.3';
@@ -227,7 +228,6 @@ void main() {
       );
       expect(find.text('发现固件更新'), findsOneWidget);
       expect(find.textContaining('1.1.2  →  1.1.3'), findsOneWidget);
-      expect(find.textContaining('改进设备连接'), findsOneWidget);
       expect(find.textContaining('无线固件版本\n'), findsNothing);
       expect(find.text('有新版本'), findsOneWidget);
       final button = tester.widget<MenuItemSurface>(
@@ -300,6 +300,38 @@ void main() {
     await tester.tap(find.text('关闭'));
     await tester.pumpAndSettle();
   });
+
+  testWidgets(
+    'device section switching retains battery view and back history',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final title = ValueNotifier<DevicePageTitle?>(null);
+      final nested = ValueNotifier(false);
+      addTearDown(title.dispose);
+      addTearDown(nested.dispose);
+      await tester.pumpWidget(app(pageTitle: title, nestedView: nested));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('device-card-battery')));
+      await tester.pumpAndSettle();
+      expect(title.value, DevicePageTitle.battery);
+      expect(nested.value, isTrue);
+      await tester.pumpWidget(
+        app(active: false, pageTitle: title, nestedView: nested),
+      );
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(app(pageTitle: title, nestedView: nested));
+      await tester.pumpAndSettle();
+      expect(title.value, DevicePageTitle.battery);
+      expect(nested.value, isTrue);
+      expect(find.byKey(const ValueKey('device-card-battery')), findsNothing);
+      nested.value = false;
+      await tester.pumpAndSettle();
+      expect(title.value, isNull);
+      expect(find.byKey(const ValueKey('device-card-battery')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('retained device titles update when language changes', (
     tester,

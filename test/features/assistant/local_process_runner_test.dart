@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -110,6 +111,115 @@ void main() {
         }),
         throwsFormatException,
       );
+    },
+  );
+
+  test(
+    'process capacity is shared and overflow queues until an earlier process exits',
+    () async {
+      final pool = LocalProcessPool(maximumRunning: 2);
+      final runners = List.generate(3, (_) => LocalProcessRunner(pool: pool));
+      addTearDown(() async {
+        for (final runner in runners) {
+          await runner.dispose();
+        }
+      });
+      final script = Platform.isWindows
+          ? r"$null = [Console]::ReadLine(); Write-Output 'finished'"
+          : 'read value; echo finished';
+      final first = await runners[0].start(
+        command(script, root.path, yieldMs: 0),
+      );
+      final second = await runners[1].start(
+        command(script, root.path, yieldMs: 0),
+      );
+      var launched = false;
+      var validated = false;
+      final waiting = runners[2]
+          .start(
+            command('echo queued-command', root.path, yieldMs: 0),
+            beforeStart: () async {
+              validated = true;
+            },
+          )
+          .then((value) {
+            launched = true;
+            return value;
+          });
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(launched, isFalse);
+      expect(validated, isFalse);
+      await runners[0].input({
+        'process_id': first['process_id'],
+        'input': 'continue\n',
+      });
+      final third = await waiting.timeout(const Duration(seconds: 10));
+      expect(third['process_id'], isNotNull);
+      expect(validated, isTrue);
+      final stillRunning = await runners[1].read({
+        'process_id': second['process_id'],
+        'wait_ms': 0,
+        'cursor': 0,
+      });
+      expect(stillRunning['running'], isTrue);
+    },
+  );
+
+  test(
+    'queued commands cancel promptly without stopping another agent process',
+    () async {
+      final pool = LocalProcessPool(maximumRunning: 1);
+      final firstRunner = LocalProcessRunner(pool: pool);
+      final queuedRunner = LocalProcessRunner(pool: pool);
+      addTearDown(firstRunner.dispose);
+      addTearDown(queuedRunner.dispose);
+      final script = Platform.isWindows
+          ? r'$null = [Console]::ReadLine()'
+          : 'read value';
+      final first = await firstRunner.start(
+        command(script, root.path, yieldMs: 0),
+      );
+      final abort = Completer<void>();
+      final pending = queuedRunner.start(
+        command('echo should-not-launch', root.path, yieldMs: 0),
+        abort: abort.future,
+      );
+      final cancelled = expectLater(pending, throwsStateError);
+      abort.complete();
+      await cancelled.timeout(const Duration(seconds: 2));
+      final running = await firstRunner.read({
+        'process_id': first['process_id'],
+        'wait_ms': 0,
+        'cursor': 0,
+      });
+      expect(running['running'], isTrue);
+      final afterDispose = queuedRunner.start(
+        command('echo also-cancelled', root.path, yieldMs: 0),
+      );
+      final disposed = expectLater(afterDispose, throwsStateError);
+      await queuedRunner.dispose();
+      await disposed.timeout(const Duration(seconds: 2));
+    },
+  );
+
+  test(
+    'failed process launch releases capacity for the next queued command',
+    () async {
+      final runner = LocalProcessRunner(
+        pool: LocalProcessPool(maximumRunning: 1),
+      );
+      addTearDown(runner.dispose);
+      await expectLater(
+        runner.start({
+          ...command('echo unused', root.path),
+          'executable': '${root.path}/missing-executable',
+        }),
+        throwsA(isA<ProcessException>()),
+      );
+      final result = await runner
+          .start(command('echo recovered', root.path))
+          .timeout(const Duration(seconds: 10));
+      expect(result['output'], contains('recovered'));
     },
   );
 
