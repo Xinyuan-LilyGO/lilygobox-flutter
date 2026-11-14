@@ -1,8 +1,5 @@
 /*
  * @Description: 验证导航灯条上下移动、连续切换和减少动画模式。
- * @Author: LILYGO_L
- * @Date: 2026-11-10 14:46:40
- * @LastEditTime: 2026-11-10 14:46:40
  */
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

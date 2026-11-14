@@ -1,8 +1,5 @@
 /*
  * @Description: 使用限时 UDP 广播发现局域网设备，校验协议和本轮随机标识。
- * @Author: LILYGO_L
- * @Date: 2026-10-04 18:37:01
- * @LastEditTime: 2026-11-09 09:45:46
  */
 import 'dart:async';
 import 'dart:convert';

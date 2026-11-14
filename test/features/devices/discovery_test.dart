@@ -1,8 +1,5 @@
 /*
  * @Description: 验证发现去重、超时、取消及过期异步结果不会误报连接成功。
- * @Author: LILYGO_L
- * @Date: 2026-10-02 13:35:30
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';

@@ -1,8 +1,5 @@
 /*
  * @Description: 展示可排序的模型服务列表，并通过弹窗添加或编辑服务。
- * @Author: LILYGO_L
- * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-13 20:20:43
  */
 
 import 'package:flutter/material.dart';

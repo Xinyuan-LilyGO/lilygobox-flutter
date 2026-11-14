@@ -1,8 +1,5 @@
 /*
  * @Description: 验证模型服务列表排序、确认添加、取消、编辑与删除。
- * @Author: LILYGO_L
- * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-12 11:40:05
  */
 
 import 'dart:async';

@@ -1,8 +1,5 @@
 /*
  * @Description: 验证主题卡片切换、重复选中限制及窄窗口布局。
- * @Author: LILYGO_L
- * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

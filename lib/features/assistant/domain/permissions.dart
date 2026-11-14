@@ -1,8 +1,5 @@
 /*
  * @Description: 定义 AI 会话批准策略与文件访问范围并校验授权路径。
- * @Author: LILYGO_L
- * @Date: 2026-11-11 16:26:54
- * @LastEditTime: 2026-11-11 18:24:14
  */
 
 import 'dart:io';

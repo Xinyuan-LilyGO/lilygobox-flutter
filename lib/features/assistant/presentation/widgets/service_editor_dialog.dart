@@ -1,8 +1,5 @@
 /*
  * @Description: 在独立弹窗中编辑模型服务，支持读取模型列表并在确认后提交。
- * @Author: LILYGO_L
- * @Date: 2026-11-04 12:04:44
- * @LastEditTime: 2026-11-13 16:57:31
  */
 
 import 'package:flutter/material.dart';

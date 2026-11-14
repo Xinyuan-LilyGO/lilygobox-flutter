@@ -1,8 +1,5 @@
 /*
  * @Description: 统一账号头像展示，加载失败时回退到本地人物图标。
- * @Author: LILYGO_L
- * @Date: 2026-10-03 14:22:16
- * @LastEditTime: 2026-11-11 14:33:00
  */
 
 import 'package:flutter/material.dart';

@@ -1,8 +1,5 @@
 /*
  * @Description: 在聊天输入区展示单次工具批准，保留操作详情与固定的批准按钮。
- * @Author: LILYGO_L
- * @Date: 2026-11-11 17:07:00
- * @LastEditTime: 2026-11-13 17:24:48
  */
 
 import 'dart:math' as math;

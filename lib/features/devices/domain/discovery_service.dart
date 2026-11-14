@@ -1,8 +1,5 @@
 /*
  * @Description: 定义不暴露连接方式的设备发现及连接接口。
- * @Author: LILYGO_L
- * @Date: 2026-10-02 13:35:30
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 class DiscoveredDevice {

@@ -1,8 +1,5 @@
 /*
  * @Description: 提供主页 AI 权限入口及自定义批准展开面板。
- * @Author: LILYGO_L
- * @Date: 2026-11-11 16:26:54
- * @LastEditTime: 2026-11-13 18:11:52
  */
 
 import 'dart:math' as math;

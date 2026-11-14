@@ -1,8 +1,5 @@
 /*
  * @Description: 根据导航状态切换主窗口外壳、设置及设备设置页面。
- * @Author: LILYGO_L
- * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

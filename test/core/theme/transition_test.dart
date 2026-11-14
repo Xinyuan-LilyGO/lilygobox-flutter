@@ -1,8 +1,5 @@
 /*
  * @Description: 验证全局主题同步渐变、连续切换及减少动画设置。
- * @Author: LILYGO_L
- * @Date: 2026-10-02 22:01:29
- * @LastEditTime: 2026-11-09 10:28:36
  */
 
 import 'package:flutter/material.dart';

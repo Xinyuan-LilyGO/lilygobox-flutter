@@ -1,8 +1,5 @@
 /*
  * @Description: 管理设备发现、去重、连接、超时及离开页面后的取消行为。
- * @Author: LILYGO_L
- * @Date: 2026-10-02 13:35:30
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';

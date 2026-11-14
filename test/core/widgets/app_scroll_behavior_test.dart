@@ -1,8 +1,5 @@
 /*
  * @Description: 验证全局平滑滚轮、中键连续滚动、嵌套仲裁与退出清理。
- * @Author: LILYGO_L
- * @Date: 2026-10-12 00:00:00
- * @LastEditTime: 2026-11-10 22:40:20
  */
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';

@@ -1,8 +1,5 @@
 /*
  * @Description: 验证运行中引导的顺序、上下文、取消和失败保留行为。
- * @Author: LILYGO_L
- * @Date: 2026-11-10 20:27:04
- * @LastEditTime: 2026-11-10 21:31:01
  */
 
 import 'dart:async';

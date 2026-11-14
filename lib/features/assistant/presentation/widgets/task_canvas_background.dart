@@ -1,8 +1,5 @@
 /*
  * @Description: 绘制可选择的点阵和网格画布背景，缩放时保持线条和点的屏幕尺寸。
- * @Author: LILYGO_L
- * @Date: 2026-11-13 23:17:00
- * @LastEditTime: 2026-11-13 23:17:00
  */
 import 'dart:ui';
 

@@ -1,8 +1,5 @@
 /*
  * @Description: 验证设备身份变化后的重新配对使用公共确认弹窗，取消时保留授权。
- * @Author: LILYGO_L
- * @Date: 2026-10-06 16:00:00
- * @LastEditTime: 2026-11-09 09:45:46
  */
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

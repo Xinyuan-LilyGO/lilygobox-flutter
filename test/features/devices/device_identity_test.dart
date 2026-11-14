@@ -1,8 +1,5 @@
 /*
  * @Description: 验证 MAC 标识格式、旧设备记录去重和安全存储授权迁移。
- * @Author: LILYGO_L
- * @Date: 2026-10-06 15:00:00
- * @LastEditTime: 2026-11-09 09:45:46
  */
 import 'dart:convert';
 

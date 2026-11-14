@@ -1,8 +1,5 @@
 /*
  * @Description: 统一应用操作的二次确认弹窗、取消按钮及确认按钮样式。
- * @Author: LILYGO_L
- * @Date: 2026-10-03 23:41:53
- * @LastEditTime: 2026-11-12 16:15:03
  */
 
 import 'package:flutter/material.dart';

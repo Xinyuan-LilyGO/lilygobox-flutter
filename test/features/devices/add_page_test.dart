@@ -1,8 +1,5 @@
 /*
  * @Description: 验证整页添加导航、真实结果驱动的连接界面及响应式布局。
- * @Author: LILYGO_L
- * @Date: 2026-10-02 13:35:30
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

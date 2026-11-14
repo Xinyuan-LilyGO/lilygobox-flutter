@@ -1,8 +1,5 @@
 /*
  * @Description: 验证 OpenAI 兼容聊天请求与设置工具调用解析。
- * @Author: LILYGO_L
- * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-10 21:09:59
  */
 
 import 'dart:async';

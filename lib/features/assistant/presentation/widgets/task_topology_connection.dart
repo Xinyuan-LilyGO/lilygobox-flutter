@@ -1,8 +1,5 @@
 /*
  * @Description: 根据智能体卡片相对位置选择连接边，避免固定端点造成曲线回绕。
- * @Author: LILYGO_L
- * @Date: 2026-11-13 23:12:34
- * @LastEditTime: 2026-11-13 23:12:34
  */
 import 'dart:math' as math;
 import 'dart:ui';

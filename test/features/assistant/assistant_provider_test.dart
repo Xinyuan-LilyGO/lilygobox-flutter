@@ -1,8 +1,5 @@
 /*
  * @Description: 验证 AI 的低风险设置工具调用会立即执行并返回结果。
- * @Author: LILYGO_L
- * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-11 16:51:06
  */
 
 import 'dart:async';

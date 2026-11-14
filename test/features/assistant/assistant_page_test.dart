@@ -1,8 +1,5 @@
 /*
  * @Description: 验证 AI 主页居中与底部输入状态、键盘发送、直达设置及缩放布局。
- * @Author: LILYGO_L
- * @Date: 2026-11-04 11:16:04
- * @LastEditTime: 2026-11-12 11:40:05
  */
 
 import 'dart:async';

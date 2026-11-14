@@ -1,8 +1,5 @@
 /*
  * @Description: 全局平滑滚轮与鼠标中键连续滚动，保留嵌套仲裁和减少动画偏好。
- * @Author: LILYGO_L
- * @Date: 2026-10-12 00:00:00
- * @LastEditTime: 2026-11-12 11:40:05
  */
 import 'dart:async';
 import 'dart:math' as math;

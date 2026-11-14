@@ -1,8 +1,5 @@
 /*
  * @Description: 通过 Windows 托盘通道同步菜单配色和语言，接收显示及退出操作。
- * @Author: LILYGO_L
- * @Date: 2026-10-04 00:20:00
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/services.dart';

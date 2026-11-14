@@ -1,8 +1,5 @@
 /*
  * @Description: 同步应用级设备连接，保存设备资料并记录本轮添加结果。
- * @Author: LILYGO_L
- * @Date: 2026-10-07 00:00:00
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import '../features/devices/state/lan_connection.dart';

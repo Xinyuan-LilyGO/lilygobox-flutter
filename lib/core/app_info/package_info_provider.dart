@@ -1,8 +1,5 @@
 /*
  * @Description: 加载并缓存应用名称、版本和软件包信息，管理加载状态。
- * @Author: LILYGO_L
- * @Date: 2025-11-03 15:05:33
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

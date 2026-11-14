@@ -1,8 +1,5 @@
 /*
  * @Description: 渲染聊天 Markdown 正文、消息复制操作与固定发送时间。
- * @Author: LILYGO_L
- * @Date: 2026-11-09 15:26:28
- * @LastEditTime: 2026-11-13 17:42:49
  */
 
 import 'dart:async';

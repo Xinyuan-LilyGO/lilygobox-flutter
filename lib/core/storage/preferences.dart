@@ -1,8 +1,5 @@
 /*
  * @Description: 在应用数据目录保存普通配置，串行合并写入并报告读写失败。
- * @Author: LILYGO_L
- * @Date: 2026-10-03 20:29:43
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';

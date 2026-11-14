@@ -1,8 +1,5 @@
 /*
  * @Description: 统一紫色与灰色文字操作按钮，沿用主页配色、悬停渐变及点击波纹。
- * @Author: LILYGO_L
- * @Date: 2026-10-03 18:10:36
- * @LastEditTime: 2026-11-12 16:15:03
  */
 
 import 'package:flutter/material.dart';

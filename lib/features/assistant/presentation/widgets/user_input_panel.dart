@@ -1,8 +1,5 @@
 /*
  * @Description: 在聊天输入区展示问题、选项及自填答案，并回传用户选择。
- * @Author: LILYGO_L
- * @Date: 2026-11-13 16:57:31
- * @LastEditTime: 2026-11-13 17:24:48
  */
 
 import 'dart:math' as math;

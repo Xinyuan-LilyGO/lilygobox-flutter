@@ -1,8 +1,5 @@
 /*
  * @Description: 验证原图查看入口、遮罩关闭和 Ctrl 滚轮缩放。
- * @Author: LILYGO_L
- * @Date: 2026-11-10 19:46:57
- * @LastEditTime: 2026-11-10 19:48:38
  */
 import 'dart:convert';
 import 'package:flutter/gestures.dart';

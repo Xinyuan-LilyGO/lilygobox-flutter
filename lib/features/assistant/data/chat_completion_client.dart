@@ -1,8 +1,5 @@
 /*
  * @Description: 调用 OpenAI 兼容 Chat Completions 并解析设置工具调用。
- * @Author: LILYGO_L
- * @Date: 2026-11-04 09:36:57
- * @LastEditTime: 2026-11-13 16:57:31
  */
 
 import 'dart:async';

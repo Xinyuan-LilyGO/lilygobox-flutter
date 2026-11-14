@@ -1,8 +1,5 @@
 /*
  * @Description: 验证托盘菜单复用样式、双向悬停渐变、重复打开及操作回调。
- * @Author: LILYGO_L
- * @Date: 2026-10-04 01:10:00
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';

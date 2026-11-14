@@ -1,8 +1,5 @@
 /*
  * @Description: 按需创建并保留已访问页面，切换时暂停隐藏页面动画并隔离键盘焦点。
- * @Author: LILYGO_L
- * @Date: 2026-10-03 20:29:43
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

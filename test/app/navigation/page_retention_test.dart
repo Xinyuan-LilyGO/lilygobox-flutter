@@ -1,8 +1,5 @@
 /*
  * @Description: 验证设置覆盖页的返回路径、连接页面保留及隐藏页面资源释放。
- * @Author: LILYGO_L
- * @Date: 2026-10-03 20:29:43
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

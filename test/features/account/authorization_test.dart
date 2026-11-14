@@ -1,8 +1,5 @@
 /*
  * @Description: 验证 GitHub 授权请求、轮询限速、取消竞态、凭证保存和失效处理。
- * @Author: LILYGO_L
- * @Date: 2026-10-03 14:22:16
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';

@@ -1,8 +1,5 @@
 /*
  * @Description: 为图片提供统一的右键复制菜单和原图预览入口。
- * @Author: LILYGO_L
- * @Date: 2026-11-10 15:53:00
- * @LastEditTime: 2026-11-10 19:48:38
  */
 
 import 'dart:developer' as developer;

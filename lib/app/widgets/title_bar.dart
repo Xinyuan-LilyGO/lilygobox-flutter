@@ -1,8 +1,5 @@
 /*
  * @Description: 构建主窗口标题栏，提供标题淡入淡出、侧栏开关及窗口控制。
- * @Author: LILYGO_L
- * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';

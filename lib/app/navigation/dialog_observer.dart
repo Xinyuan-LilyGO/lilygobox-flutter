@@ -1,8 +1,5 @@
 /*
  * @Description: 跟踪内容区弹出路由，在弹窗及退出动画期间锁定标题栏页面切换。
- * @Author: LILYGO_L
- * @Date: 2026-10-03 23:56:45
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

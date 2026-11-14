@@ -1,10 +1,5 @@
 /*
  * @Description: 自动生成的本地化文件
- * @Author: LILYGO_L
- * @Date: 2025-10-27 11:20:43
- * @LastEditTime: 2026-11-09 09:47:22
- * @Generated: flutter gen-l10n
- * @Note: 请勿手动编辑，翻译内容请在 lib/l10n 目录下的 .arb 文件中修改。
  */
 
 // ignore: unused_import

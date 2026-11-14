@@ -1,8 +1,5 @@
 /*
  * @Description: 编辑设备电池额定容量，校验范围并等待设备保存确认。
- * @Author: LILYGO_L
- * @Date: 2026-10-13 00:00:00
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

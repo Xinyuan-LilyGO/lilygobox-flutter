@@ -1,8 +1,5 @@
 /*
  * @Description: 展示外观设置，支持紧凑主题预览卡片切换。
- * @Author: LILYGO_L
- * @Date: 2025-10-31 17:01:16
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

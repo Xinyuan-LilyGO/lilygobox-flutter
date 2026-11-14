@@ -1,8 +1,5 @@
 /*
  * @Description: 验证透明图标按钮在明暗主题下的悬停渐变不会闪色。
- * @Author: LILYGO_L
- * @Date: 2026-11-10 17:19:17
- * @LastEditTime: 2026-11-10 17:19:17
  */
 
 import 'dart:ui' show PointerDeviceKind;

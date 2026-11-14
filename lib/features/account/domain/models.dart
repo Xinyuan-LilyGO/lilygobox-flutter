@@ -1,8 +1,5 @@
 /*
  * @Description: 定义 GitHub 公开资料、设备授权状态及不含敏感信息的错误类型。
- * @Author: LILYGO_L
- * @Date: 2026-10-03 14:22:16
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 enum AccountError {

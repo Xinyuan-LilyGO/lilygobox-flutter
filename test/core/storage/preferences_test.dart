@@ -1,8 +1,5 @@
 /*
  * @Description: 验证配置重启恢复、串行写入、异常重试、无效值回退及设备资料保留。
- * @Author: LILYGO_L
- * @Date: 2026-10-03 20:29:43
- * @LastEditTime: 2026-11-09 10:28:36
  */
 
 import 'dart:async';

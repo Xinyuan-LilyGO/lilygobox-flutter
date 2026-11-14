@@ -1,8 +1,5 @@
 /*
  * @Description: 构建图标与文字组合的侧栏导航项及选中指示条。
- * @Author: LILYGO_L
- * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-11-10 14:46:40
  */
 
 import 'package:flutter/material.dart';

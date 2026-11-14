@@ -1,8 +1,5 @@
 /*
  * @Description: 在可平移缩放的多层智能体树中组织主智能体和可见子智能体，并保留独立对话。
- * @Author: LILYGO_L
- * @Date: 2026-11-13 22:04:31
- * @LastEditTime: 2026-11-13 23:16:03
  */
 import 'dart:convert';
 import 'dart:math' as math;

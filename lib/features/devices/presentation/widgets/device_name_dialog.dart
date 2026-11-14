@@ -1,8 +1,5 @@
 /*
  * @Description: 编辑设备名称，校验长度并等待设备保存确认。
- * @Author: LILYGO_L
- * @Date: 2026-10-14 00:00:00
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

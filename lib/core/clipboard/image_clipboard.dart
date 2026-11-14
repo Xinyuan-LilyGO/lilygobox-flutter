@@ -1,8 +1,5 @@
 /*
  * @Description: 提供跨平台图片剪贴板的读取和写入能力。
- * @Author: LILYGO_L
- * @Date: 2026-11-10 15:52:00
- * @LastEditTime: 2026-11-10 16:50:56
  */
 
 import 'dart:async';

@@ -1,8 +1,5 @@
 /*
  * @Description: 提供原图遮罩预览、关闭交互和 Ctrl 滚轮缩放。
- * @Author: LILYGO_L
- * @Date: 2026-11-10 19:46:57
- * @LastEditTime: 2026-11-10 20:06:57
  */
 
 import 'dart:math' as math;

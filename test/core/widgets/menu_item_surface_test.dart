@@ -1,8 +1,5 @@
 /*
  * @Description: 验证共用菜单表面的悬停渐变、选中禁用和点击波纹。
- * @Author: LILYGO_L
- * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-11-10 16:54:59
  */
 
 import 'package:flutter/gestures.dart';

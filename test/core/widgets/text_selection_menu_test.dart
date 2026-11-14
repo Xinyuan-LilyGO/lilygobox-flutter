@@ -1,8 +1,5 @@
 /*
  * @Description: 验证公共文本右键菜单的剪切复制粘贴、只读限制和窗口边界。
- * @Author: LILYGO_L
- * @Date: 2026-10-07 00:00:00
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';

@@ -1,8 +1,5 @@
 /*
  * @Description: 校验并执行 AI 的时间、网页与本地文件工具。
- * @Author: LILYGO_L
- * @Date: 2026-11-11 16:26:54
- * @LastEditTime: 2026-11-12 15:00:41
  */
 
 import 'dart:async';

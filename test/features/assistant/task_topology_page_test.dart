@@ -1,8 +1,5 @@
 /*
  * @Description: 验证多层任务树创建、拖动、独立会话与临时任务只读行为。
- * @Author: LILYGO_L
- * @Date: 2026-11-13 21:03:39
- * @LastEditTime: 2026-11-13 23:16:03
  */
 import 'dart:async';
 import 'dart:convert';

@@ -1,8 +1,5 @@
 /*
  * @Description: 统一标准提示框及嵌入式批准面板的文字、背景和普通按钮配色。
- * @Author: LILYGO_L
- * @Date: 2026-11-12 16:11:34
- * @LastEditTime: 2026-11-12 16:11:34
  */
 
 import 'package:flutter/material.dart';

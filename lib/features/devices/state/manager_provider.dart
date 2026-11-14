@@ -1,8 +1,5 @@
 /*
  * @Description: 管理已添加设备列表及设备的添加、删除和清空操作。
- * @Author: LILYGO_L
- * @Date: 2025-11-17 13:58:44
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:convert';

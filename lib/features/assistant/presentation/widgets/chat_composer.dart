@@ -1,8 +1,5 @@
 /*
  * @Description: 构建双层 AI 输入区，承载附件与待处理引导并提供键盘发送和模型选择。
- * @Author: LILYGO_L
- * @Date: 2026-11-04 11:07:40
- * @LastEditTime: 2026-11-13 17:42:49
  */
 
 import 'dart:async';

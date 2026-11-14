@@ -1,8 +1,5 @@
 /*
  * @Description: 验证侧栏连续拖动、折叠展开、导航布局与账号入口行为。
- * @Author: LILYGO_L
- * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:ui' as ui;

@@ -1,8 +1,5 @@
 /*
  * @Description: 验证共享胶囊滑条的连续调节、离散等级和禁用行为。
- * @Author: LILYGO_L
- * @Date: 2026-11-10 12:00:08
- * @LastEditTime: 2026-11-10 19:04:16
  */
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

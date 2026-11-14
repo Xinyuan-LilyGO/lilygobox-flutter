@@ -1,8 +1,5 @@
 /*
  * @Description: 提供通用设置分类的页面布局。
- * @Author: LILYGO_L
- * @Date: 2026-05-24 23:22:38
- * @LastEditTime: 2026-11-09 10:26:48
  */
 
 import 'package:flutter/material.dart';

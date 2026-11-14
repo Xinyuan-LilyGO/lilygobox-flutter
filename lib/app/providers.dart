@@ -1,8 +1,5 @@
 /*
  * @Description: 集中创建并注入应用级状态管理对象。
- * @Author: LILYGO_L
- * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-11-13 21:05:53
  */
 
 import 'dart:async';

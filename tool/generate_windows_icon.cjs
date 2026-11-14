@@ -1,8 +1,5 @@
 /*
  * @Description: 从软件 SVG 标志生成 Windows 多尺寸应用图标和高清预览。
- * @Author: LILYGO_L
- * @Date: 2026-10-03 21:36:06
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 // 运行需要 Node.js 和 sharp；仅用于生成资源，不参与应用运行。

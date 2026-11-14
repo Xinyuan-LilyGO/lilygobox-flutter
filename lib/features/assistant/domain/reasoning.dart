@@ -1,8 +1,5 @@
 /*
  * @Description: 定义模型可用的思考强度与不同 API 的参数映射。
- * @Author: LILYGO_L
- * @Date: 2026-11-10 11:58:09
- * @LastEditTime: 2026-11-13 18:01:23
  */
 enum AiReasoningEffort { none, minimal, low, medium, high, xhigh, max, ultra }
 

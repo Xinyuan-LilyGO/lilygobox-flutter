@@ -1,8 +1,5 @@
 /*
  * @Description: 统一菜单的淡入和轻微展开动画，支持外部进度及系统减少动画设置。
- * @Author: LILYGO_L
- * @Date: 2026-10-07 00:00:00
- * @LastEditTime: 2026-11-11 21:15:35
  */
 
 import 'package:flutter/material.dart';

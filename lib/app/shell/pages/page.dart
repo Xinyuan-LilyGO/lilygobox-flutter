@@ -1,8 +1,5 @@
 /*
  * @Description: 构建品牌侧栏、主页设备入口、账号入口和保留状态的内容页。
- * @Author: LILYGO_L
- * @Date: 2025-11-06 14:22:51
- * @LastEditTime: 2026-11-13 21:05:53
  */
 
 import 'package:flutter/material.dart';

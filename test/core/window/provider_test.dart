@@ -1,8 +1,5 @@
 /*
  * @Description: 验证关闭隐藏到托盘、恢复窗口、退出前保存及托盘不可用时的回退。
- * @Author: LILYGO_L
- * @Date: 2026-10-03 21:12:12
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';

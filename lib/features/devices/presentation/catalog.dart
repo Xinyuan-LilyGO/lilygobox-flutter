@@ -1,8 +1,5 @@
 /*
  * @Description: 将设备型号映射为连接方式图标和对应的设备页面。
- * @Author: LILYGO_L
- * @Date: 2026-05-16 10:50:23
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/widgets.dart';

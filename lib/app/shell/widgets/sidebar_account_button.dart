@@ -1,8 +1,5 @@
 /*
  * @Description: 展示侧栏账号入口及等宽浮动菜单卡片，管理展开收起动画。
- * @Author: LILYGO_L
- * @Date: 2026-10-01 15:49:33
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';

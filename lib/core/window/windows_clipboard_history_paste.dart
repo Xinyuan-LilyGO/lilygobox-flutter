@@ -1,8 +1,5 @@
 /*
  * @Description: 修正 Windows 剪贴板历史发送的 Ctrl+V 键盘事件序列。
- * @Author: LILYGO_L
- * @Date: 2026-11-04 18:05:00
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:ui' as ui;

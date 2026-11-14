@@ -1,8 +1,5 @@
 /*
  * @Description: 定义独立子智能体工作空间及模型会话信息。
- * @Author: LILYGO_L
- * @Date: 2026-11-13 20:10:00
- * @LastEditTime: 2026-11-13 20:10:00
  */
 import '../domain/agent_link.dart';
 import '../domain/permissions.dart';

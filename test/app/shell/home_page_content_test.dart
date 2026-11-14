@@ -1,8 +1,5 @@
 /*
  * @Description: 验证首页添加入口、设备状态及窄窗口和大字体布局。
- * @Author: LILYGO_L
- * @Date: 2026-10-02 01:00:00
- * @LastEditTime: 2026-11-09 10:40:08
  */
 
 import 'package:flutter/gestures.dart';

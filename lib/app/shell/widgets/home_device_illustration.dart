@@ -1,8 +1,5 @@
 /*
  * @Description: 绘制首页空状态的设备插画，适配深浅主题与显示缩放。
- * @Author: LILYGO_L
- * @Date: 2026-10-02 01:00:00
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

@@ -1,8 +1,5 @@
 /*
  * @Description: 通过真实回环 UDP 和 WebSocket 验证发现、设备确认、断线及取消竞态。
- * @Author: LILYGO_L
- * @Date: 2026-10-04 18:37:01
- * @LastEditTime: 2026-11-09 09:45:46
  */
 import 'dart:async';
 import 'dart:convert';

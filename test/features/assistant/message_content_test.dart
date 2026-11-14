@@ -1,8 +1,5 @@
 /*
  * @Description: 验证聊天 Markdown、跨段落选择、原文复制及消息时间布局。
- * @Author: LILYGO_L
- * @Date: 2026-11-09 15:27:53
- * @LastEditTime: 2026-11-12 01:36:38
  */
 
 import 'dart:io';

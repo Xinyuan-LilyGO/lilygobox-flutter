@@ -1,8 +1,5 @@
 /*
  * @Description: 主页与设备详情菜单共用连接操作及删除确认。
- * @Author: LILYGO_L
- * @Date: 2026-10-10 16:00:00
- * @LastEditTime: 2026-11-09 09:45:46
  */
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';

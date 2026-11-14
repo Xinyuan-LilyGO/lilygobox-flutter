@@ -1,8 +1,5 @@
 /*
  * @Description: 设备详情页，采用可变卡片布局展示设备、连接、电池和控制信息。
- * @Author: LILYGO_L
- * @Date: 2026-10-06 15:14:56
- * @LastEditTime: 2026-11-09 09:45:46
  */
 import 'dart:async';
 import 'dart:ui' as ui;

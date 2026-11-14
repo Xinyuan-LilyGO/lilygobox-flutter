@@ -1,8 +1,5 @@
 /*
  * @Description: 展示界面语言选择并使用当前语言显示选项名称。
- * @Author: LILYGO_L
- * @Date: 2025-10-31 17:01:16
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'package:flutter/material.dart';

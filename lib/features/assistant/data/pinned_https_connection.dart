@@ -1,8 +1,5 @@
 /*
  * @Description: 为已校验的公网地址建立保留域名校验的 HTTPS 连接。
- * @Author: LILYGO_L
- * @Date: 2026-11-12 10:57:13
- * @LastEditTime: 2026-11-12 10:57:13
  */
 
 import 'dart:io';

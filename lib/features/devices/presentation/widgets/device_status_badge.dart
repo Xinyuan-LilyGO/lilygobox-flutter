@@ -1,8 +1,5 @@
 /*
  * @Description: 主页与设备概览共用连接状态徽标及悬停说明。
- * @Author: LILYGO_L
- * @Date: 2026-10-10 10:00:00
- * @LastEditTime: 2026-11-09 09:45:46
  */
 import 'package:flutter/material.dart';
 import '../../../../core/theme/definition.dart';

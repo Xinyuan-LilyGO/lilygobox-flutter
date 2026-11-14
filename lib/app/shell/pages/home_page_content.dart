@@ -1,8 +1,5 @@
 /*
  * @Description: 展示主页设备卡片、名称搜索、默认空状态与悬浮添加入口。
- * @Author: LILYGO_L
- * @Date: 2025-11-07 11:23:45
- * @LastEditTime: 2026-11-13 16:57:31
  */
 
 import 'dart:async';

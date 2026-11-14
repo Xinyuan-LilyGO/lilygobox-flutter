@@ -1,8 +1,5 @@
 /*
  * @Description: 让文本编辑和选中文字复用应用右键菜单，保留系统剪贴板及选择行为。
- * @Author: LILYGO_L
- * @Date: 2026-10-07 00:00:00
- * @LastEditTime: 2026-11-10 16:42:36
  */
 
 import 'package:flutter/material.dart';

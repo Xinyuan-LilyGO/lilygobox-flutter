@@ -1,8 +1,5 @@
 /*
  * @Description: 管理主侧栏的显示状态、宽度及导航选中项。
- * @Author: LILYGO_L
- * @Date: 2025-11-05 14:44:59
- * @LastEditTime: 2026-11-13 21:05:53
  */
 
 import 'package:flutter/material.dart';

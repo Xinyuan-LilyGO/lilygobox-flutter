@@ -1,8 +1,5 @@
 /*
  * @Description: 管理桌面窗口状态、托盘后台运行及保存配置后的完整退出。
- * @Author: LILYGO_L
- * @Date: 2025-11-05 14:38:38
- * @LastEditTime: 2026-11-09 09:45:46
  */
 
 import 'dart:async';
