@@ -441,7 +441,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('sidebar-home')),
-          matching: find.text('智能体工作流'),
+          matching: find.text('智能体'),
         ),
         findsOneWidget,
       );
@@ -483,7 +483,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('sidebar-home')),
-          matching: find.text('智能体工作流'),
+          matching: find.text('智能体'),
         ),
         findsNothing,
       );

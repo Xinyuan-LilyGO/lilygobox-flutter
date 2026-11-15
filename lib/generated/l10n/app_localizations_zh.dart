@@ -192,7 +192,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get controlCenter => '控制中心';
 
   @override
-  String get sidebarHome => '智能体工作流';
+  String get sidebarHome => '智能体';
 
   @override
   String get deviceManagement => '设备管理';
@@ -256,6 +256,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiImagePreviewFailed => '无法加载图片。';
+
+  @override
+  String get aiSaveImageAs => '图片另存为';
+
+  @override
+  String get aiSaveImageFailed => '保存图片失败，请重试。';
 
   @override
   String get aiCopyImage => '复制图片';

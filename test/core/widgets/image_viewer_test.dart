@@ -112,6 +112,7 @@ void main() {
     await tester.pumpWidget(app(reduced: true));
     await tester.tap(thumbnail, buttons: kSecondaryMouseButton);
     await tester.pumpAndSettle();
+    expect(find.text('Save image as'), findsOneWidget);
     await tester.tap(find.text('View original image'));
     await tester.pumpAndSettle();
     expect(viewport, findsOneWidget);

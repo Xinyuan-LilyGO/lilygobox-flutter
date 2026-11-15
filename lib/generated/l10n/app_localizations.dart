@@ -459,7 +459,7 @@ abstract class AppLocalizations {
   /// No description provided for @sidebarHome.
   ///
   /// In en, this message translates to:
-  /// **'Agent workflow'**
+  /// **'Agents'**
   String get sidebarHome;
 
   /// No description provided for @deviceManagement.
@@ -587,6 +587,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not load the image.'**
   String get aiImagePreviewFailed;
+
+  /// No description provided for @aiSaveImageAs.
+  ///
+  /// In en, this message translates to:
+  /// **'Save image as'**
+  String get aiSaveImageAs;
+
+  /// No description provided for @aiSaveImageFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save image. Please try again.'**
+  String get aiSaveImageFailed;
 
   /// No description provided for @aiCopyImage.
   ///

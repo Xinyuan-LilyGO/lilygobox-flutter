@@ -98,7 +98,8 @@ void main() {
         find.byKey(const ValueKey('sidebar-agent-workspaces')),
         findsNothing,
       );
-      expect(find.text('智能体工作流'), findsNWidgets(2));
+      expect(find.text('智能体工作流'), findsOneWidget);
+      expect(find.text('智能体'), findsOneWidget);
       expect(find.text('创建主智能体'), findsWidgets);
       await tester.tap(find.byKey(const ValueKey('sidebar-devices')));
       await tester.pumpAndSettle();
@@ -106,7 +107,8 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('sidebar-home')));
       await tester.pumpAndSettle();
       expect(shell.deviceManagementSelected, isFalse);
-      expect(find.text('智能体工作流'), findsNWidgets(2));
+      expect(find.text('智能体工作流'), findsOneWidget);
+      expect(find.text('智能体'), findsOneWidget);
       await tester.runAsync(() async {
         await workspaces.create(
           title: 'Saved agent',

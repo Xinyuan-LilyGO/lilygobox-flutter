@@ -198,7 +198,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get controlCenter => 'Control Center';
 
   @override
-  String get sidebarHome => 'Agent workflow';
+  String get sidebarHome => 'Agents';
 
   @override
   String get deviceManagement => 'Devices';
@@ -263,6 +263,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiImagePreviewFailed => 'Could not load the image.';
+
+  @override
+  String get aiSaveImageAs => 'Save image as';
+
+  @override
+  String get aiSaveImageFailed => 'Failed to save image. Please try again.';
 
   @override
   String get aiCopyImage => 'Copy image';

@@ -1,5 +1,5 @@
 /*
- * @Description: 为图片提供统一的右键复制菜单和原图预览入口。
+ * @Description: 为图片提供统一的右键复制、另存为菜单和原图预览入口。
  */
 
 import 'dart:developer' as developer;
@@ -10,6 +10,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../clipboard/image_clipboard.dart';
 import '../context_menu/right_click_menu.dart';
+import '../files/image_file_service.dart';
 import '../l10n/language_provider.dart';
 import '../theme/definition.dart';
 import 'app_notice.dart';
@@ -59,6 +60,28 @@ class _ImageClipboardMenuState extends State<ImageClipboardMenu> {
         label: context.l10n.aiViewOriginal,
         icon: Symbols.open_in_full_rounded,
         onTap: _viewOriginal,
+      ),
+      RightClickMenuItem(
+        label: context.l10n.aiSaveImageAs,
+        icon: Symbols.save_alt,
+        onTap: () async {
+          final messenger = ScaffoldMessenger.of(context);
+          final failure = context.l10n.aiSaveImageFailed;
+          final label = context.l10n.aiSaveImageAs;
+          final bytes = widget.bytes;
+          _menu.close();
+          try {
+            await ImageFileService.saveAs(bytes, label: label);
+          } catch (error, stack) {
+            developer.log(
+              'Image save failed',
+              name: 'ImageFileService',
+              error: error,
+              stackTrace: stack,
+            );
+            if (messenger.mounted) showAppNotice(messenger, failure);
+          }
+        },
       ),
       RightClickMenuItem(
         label: context.l10n.aiCopyImage,
