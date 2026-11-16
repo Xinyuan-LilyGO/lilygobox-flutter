@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
@@ -193,7 +193,7 @@ class _FirmwareUpdateFlowDialogState extends State<FirmwareUpdateFlowDialog> {
         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
       ),
       content: SizedBox(
-        width: 390,
+        width: 438,
         child: Semantics(
           liveRegion: true,
           child: Row(
@@ -322,6 +322,7 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
           }
         },
         child: AlertDialog(
+          contentPadding: const EdgeInsets.fromLTRB(0, 20, 0, 24),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -332,6 +333,7 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
           content: SizedBox(
             width: 390,
             child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,

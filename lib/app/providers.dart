@@ -15,6 +15,7 @@ import '../core/storage/preferences.dart';
 import '../core/theme/provider.dart';
 import '../core/window/provider.dart';
 import '../features/account/state/provider.dart';
+import '../features/assistant/data/agent_storage.dart';
 import '../features/assistant/data/credential_store.dart';
 import '../features/assistant/data/settings_tool_handler.dart';
 import '../features/assistant/state/agent_workspace_provider.dart';
@@ -42,6 +43,18 @@ class AppProviders extends StatefulWidget {
 
 class _AppProvidersState extends State<AppProviders>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  final AgentStorage _storage = AgentStorage();
+  AiWorkspaceProvider? _workspaces;
+  Future<bool> _flushApp() async {
+    try {
+      await _workspaces?.flush();
+      return await widget.preferences.flush();
+    } catch (error) {
+      debugPrint('Cannot save agent data: $error');
+      return false;
+    }
+  }
+
   late final ThemeProvider _theme = ThemeProvider(
     vsync: this,
     preferences: widget.preferences,
@@ -68,7 +81,7 @@ class _AppProvidersState extends State<AppProviders>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
-      unawaited(widget.preferences.flush());
+      unawaited(_flushApp());
     }
   }
 
@@ -76,6 +89,7 @@ class _AppProvidersState extends State<AppProviders>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _theme.dispose();
+    unawaited(_flushApp().whenComplete(_storage.close));
     super.dispose();
   }
 
@@ -88,7 +102,7 @@ class _AppProvidersState extends State<AppProviders>
         ChangeNotifierProvider.value(value: widget.preferences),
         ChangeNotifierProvider.value(value: _theme),
         ChangeNotifierProvider(
-          create: (_) => WindowProvider(beforeClose: widget.preferences.flush),
+          create: (_) => WindowProvider(beforeClose: _flushApp),
         ),
         ChangeNotifierProvider(create: (_) => AppNavigationProvider()),
         ChangeNotifierProvider(
@@ -110,6 +124,7 @@ class _AppProvidersState extends State<AppProviders>
           lazy: false,
           create: (context) => AiAssistantProvider(
             preferences: widget.preferences,
+            storage: _storage,
             credentialStore: const SecureAiCredentialStore(),
             settings: SettingsToolHandler(
               preferences: widget.preferences,
@@ -122,8 +137,9 @@ class _AppProvidersState extends State<AppProviders>
         ),
         ChangeNotifierProvider(
           lazy: false,
-          create: (context) =>
-              AiWorkspaceProvider(context.read<AiAssistantProvider>()),
+          create: (context) => _workspaces = AiWorkspaceProvider(
+            context.read<AiAssistantProvider>(),
+          ),
         ),
         ChangeNotifierProvider(
           create: (_) => DeviceManagerProvider(preferences: widget.preferences),

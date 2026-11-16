@@ -1,11 +1,11 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/material_palette.dart';
@@ -15,6 +15,7 @@ import 'package:lilygobox/core/widgets/confirmation_dialog.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/permissions_button.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'assistant_test_scope.dart';
 
@@ -67,9 +68,8 @@ void main() {
                   format: ui.ImageByteFormat.png,
                 );
                 await Directory('tmp').create(recursive: true);
-                await File(
-                  'tmp/permission-warning-$name-$dark.png',
-                ).writeAsBytes(bytes!.buffer.asUint8List());
+                await File('tmp/permission-warning-$name-$dark.png')
+                    .writeAsBytes(bytes!.buffer.asUint8List());
                 image.dispose();
               });
             }
@@ -102,7 +102,7 @@ void main() {
             await tester.pumpWidget(
               MaterialApp(
                 locale: const Locale('zh'),
-                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                localizationsDelegates: appLocalizationDelegates,
                 supportedLocales: AppLocalizations.supportedLocales,
                 scrollBehavior: const AppScrollBehavior(),
                 theme: ThemeData(
@@ -170,7 +170,7 @@ void main() {
               find.byKey(const ValueKey('ai-permission-mode-custom')),
             );
             expect(firstRect.left - panelRect.left, closeTo(8, .01));
-            expect(panelRect.right - lastRect.right, closeTo(8, .01));
+            expect(panelRect.right - lastRect.right, closeTo(20, .01));
             expect(panelRect.bottom - lastRect.bottom, closeTo(8, .01));
             await capture('menu');
             await openCustom();

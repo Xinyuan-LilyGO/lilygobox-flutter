@@ -4,9 +4,9 @@
 
 import 'dart:io';
 
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/app_info/app_update_provider.dart';
@@ -36,9 +36,8 @@ class _AboutContentState extends State<AboutContent> {
   Widget build(BuildContext context) {
     final packageInfoProvider = context.watch<PackageInfoProvider>();
     final updates = context.watch<AppUpdateProvider>();
-    final version = appReleaseVersion(
-      packageInfoProvider.version,
-    ).replaceFirst(RegExp(r'^[vV]'), '');
+    final version = appReleaseVersion(packageInfoProvider.version)
+        .replaceFirst(RegExp(r'^[vV]'), '');
 
     final copyrightYear = DateTime.now().year;
     final theme = widget.theme;
@@ -48,7 +47,7 @@ class _AboutContentState extends State<AboutContent> {
       title: context.l10n.about,
       description: context.l10n.aboutSettingsDescription,
       children: [
-        SettingsField(
+        SettingsSection(
           theme: theme,
           title: context.l10n.version,
           description: version,
@@ -70,15 +69,13 @@ class _AboutContentState extends State<AboutContent> {
               );
             },
           ),
-          child: const SizedBox.shrink(),
         ),
         const SizedBox(height: 16),
-        SettingsField(
+        SettingsSection(
           theme: theme,
           title: context.l10n.copyright,
           description:
               '${packageInfoProvider.appName} $copyrightYear LILYGO Corporation',
-          child: const SizedBox.shrink(),
         ),
       ],
     );
@@ -481,9 +478,7 @@ class _UpdateStatusButton extends StatelessWidget {
                         ),
                       )
                     : Icon(
-                        available
-                            ? Symbols.download
-                            : Symbols.refresh,
+                        available ? Symbols.download : Symbols.refresh,
                         size: 18,
                       ),
               ),

@@ -17,16 +17,20 @@ class TrayIcon {
   TrayIcon(HWND owner, flutter::BinaryMessenger* messenger,
            const flutter::DartProject& project);
   ~TrayIcon();
+  static int RunMenuHost(const flutter::DartProject& project, HWND owner);
   bool HandleMessage(UINT message, WPARAM wparam, LPARAM lparam);
 
  private:
   bool EnsureIcon();
+  bool EnsureMenuProcess();
+  bool SendMenuCommand(const std::string& command);
+  static LRESULT CALLBACK HostProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);
   bool EnsureMenu();
-  void PrepareMenu();
   void ShowMenu(int duration_ms);
   void TickFade();
   void CheckMenuDismissal();
   void OpenMenu();
+  void PrepareMenu();
   void PresentMenu();
   void DismissMenu();
   void ResizeMenu();
@@ -45,9 +49,17 @@ class TrayIcon {
   NOTIFYICONDATAW icon_{};
   UINT taskbar_created_;
   bool configured_ = false;
+  bool warmup_scheduled_ = false;
+  bool menu_warming_ = false;
   bool menu_ready_ = false;
   bool menu_requested_ = false;
-  bool warmup_scheduled_ = false;
+  UINT_PTR open_generation_ = 0;
+  bool is_menu_host_ = false;
+  bool menu_host_painted_ = false;
+  HWND menu_host_window_ = nullptr;
+  HANDLE menu_process_ = nullptr;
+  HANDLE menu_job_ = nullptr;
+  DWORD menu_process_id_ = 0;
   bool menu_presented_ = false;
   int64_t request_id_ = 0;
   HHOOK mouse_hook_ = nullptr;

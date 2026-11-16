@@ -2,7 +2,7 @@
  * @Description: 构建图标与文字组合的侧栏导航项及选中指示条。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/provider.dart';

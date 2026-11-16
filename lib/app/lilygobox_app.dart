@@ -4,12 +4,13 @@
 
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../core/app_info/app_update_provider.dart';
 import '../core/app_info/app_update_service.dart';
 import '../core/app_info/package_info_provider.dart';
+import '../core/l10n/delegates.dart';
 import '../core/l10n/language_provider.dart';
 import '../core/theme/material_palette.dart';
 import '../core/theme/provider.dart';
@@ -44,21 +45,20 @@ class _LilygoBoxAppState extends State<LilygoBoxApp> {
         useMaterial3: true,
         scrollbarTheme: const ScrollbarThemeData(
           crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
+          mainAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
         ),
         colorScheme: MaterialPalette.create(type).materialColors,
         tooltipTheme: TooltipThemeData(
           decoration: BoxDecoration(
-            color: MaterialPalette.create(
-              type,
-            ).noticeBackgroundColor.withValues(alpha: .8),
+            color: MaterialPalette.create(type).noticeBackgroundColor
+                .withValues(alpha: .8),
             borderRadius: BorderRadius.circular(4),
           ),
         ),
         snackBarTheme: SnackBarThemeData(
           // 通知栏只复用悬停提示背景和透明度，其他样式保持原设置。
-          backgroundColor: MaterialPalette.create(
-            type,
-          ).noticeBackgroundColor.withValues(alpha: .8),
+          backgroundColor: MaterialPalette.create(type).noticeBackgroundColor
+              .withValues(alpha: .8),
           contentTextStyle: TextStyle(
             color: MaterialPalette.create(
               type == ThemeType.dark ? ThemeType.light : ThemeType.dark,
@@ -107,7 +107,7 @@ class _LilygoBoxAppState extends State<LilygoBoxApp> {
           themeAnimationCurve: Curves.easeInOut,
           debugShowCheckedModeBanner: false,
           locale: languageProvider.locale,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           navigatorObservers: [_dialogs],
           // 标题栏位于 Navigator 上方，弹窗只覆盖下方内容区。
@@ -128,74 +128,98 @@ class _LilygoBoxAppState extends State<LilygoBoxApp> {
                         // 独立 Overlay 为标题栏悬停提示提供显示空间。
                         child: Stack(
                           children: [
+                            // 路由遮罩不能将仍可见的标题栏
+                            // 悬停提示锚点从无障碍树中移除。
                             Column(
                               children: [
-                                ValueListenableBuilder<bool>(
-                                  valueListenable: _dialogs.hasDialog,
-                                  builder: (context, blocked, _) => AppTitleBar(
-                                    navigationEnabled:
-                                        !blocked &&
-                                        !(startup?.visible ?? false),
-                                    onUpdatePressed: () {
-                                      final navigatorContext = _navigatorKey
-                                          .currentState
-                                          ?.overlay
-                                          ?.context;
-                                      if (navigatorContext == null) return;
+                                Semantics(
+                                  container: true,
+                                  explicitChildNodes: true,
+                                  child: ValueListenableBuilder<bool>(
+                                    valueListenable: _dialogs.hasDialog,
+                                    builder: (context, blocked, _) =>
+                                        AppTitleBar(
+                                          navigationEnabled:
+                                              !blocked &&
+                                              !(startup?.visible ?? false),
+                                          onUpdatePressed: () {
+                                            final navigatorContext =
+                                                _navigatorKey
+                                                    .currentState
+                                                    ?.overlay
+                                                    ?.context;
+                                            if (navigatorContext == null) {
+                                              return;
+                                            }
 
-                                      final updates = context
-                                          .read<AppUpdateProvider>();
-                                      final currentVersion = appReleaseVersion(
-                                        context
-                                            .read<PackageInfoProvider>()
-                                            .version,
-                                      );
-                                      showDialog<void>(
-                                        context: navigatorContext,
-                                        builder: (dialogContext) =>
-                                            AppUpdateDialog(
-                                              theme: context
-                                                  .read<ThemeProvider>()
-                                                  .themeData,
-                                              currentVersion: currentVersion,
-                                              initialUpdate: updates.update,
-                                            ),
-                                      );
-                                    },
+                                            final updates = context
+                                                .read<AppUpdateProvider>();
+                                            final currentVersion =
+                                                appReleaseVersion(
+                                                  context
+                                                      .read<
+                                                        PackageInfoProvider
+                                                      >()
+                                                      .version,
+                                                );
+                                            showDialog<void>(
+                                              context: navigatorContext,
+                                              builder: (dialogContext) =>
+                                                  AppUpdateDialog(
+                                                    theme: context
+                                                        .read<ThemeProvider>()
+                                                        .themeData,
+                                                    currentVersion:
+                                                        currentVersion,
+                                                    initialUpdate:
+                                                        updates.update,
+                                                  ),
+                                            );
+                                          },
+                                        ),
                                   ),
                                 ),
                                 Expanded(
-                                  child: ClipRect(
-                                    child: Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        IgnorePointer(
-                                          ignoring: startup?.visible ?? false,
-                                          child: ExcludeFocus(
-                                            excluding:
-                                                startup?.visible ?? false,
-                                            child: ExcludeSemantics(
+                                  child: Semantics(
+                                    container: true,
+                                    explicitChildNodes: true,
+                                    child: ClipRect(
+                                      child: Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          IgnorePointer(
+                                            ignoring: startup?.visible ?? false,
+                                            child: ExcludeFocus(
                                               excluding:
                                                   startup?.visible ?? false,
-                                              child: ScaffoldMessenger(
-                                                child: navigator!,
+                                              child: ExcludeSemantics(
+                                                excluding:
+                                                    startup?.visible ?? false,
+                                                child: ScaffoldMessenger(
+                                                  child: Scaffold(
+                                                    backgroundColor:
+                                                        Colors.transparent,
+                                                    // 将通知绘制在 Navigator 及其对话框遮罩上方。
+                                                    body: navigator!,
+                                                  ),
+                                                ),
                                               ),
                                             ),
                                           ),
-                                        ),
-                                        if (startup?.visible ?? false)
-                                          FadeTransition(
-                                            opacity: startup!.opacity,
-                                            child: Consumer<ThemeProvider>(
-                                              builder: (context, theme, _) =>
-                                                  StartupScreen(
-                                                    themeType:
-                                                        theme.currentTheme,
-                                                    framed: false,
-                                                  ),
+                                          if (startup?.visible ?? false)
+                                            FadeTransition(
+                                              opacity: startup!.opacity,
+                                              child: Consumer<ThemeProvider>(
+                                                builder: (context, theme, _) =>
+                                                    StartupScreen(
+                                                      themeType:
+                                                          theme.currentTheme,
+                                                      framed: false,
+                                                    ),
+                                              ),
                                             ),
-                                          ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -212,10 +236,7 @@ class _LilygoBoxAppState extends State<LilygoBoxApp> {
               ),
             ),
           ),
-          home: const Scaffold(
-            backgroundColor: Colors.transparent,
-            body: Column(children: [WindowPageStack()]),
-          ),
+          home: const Column(children: [WindowPageStack()]),
         );
       },
     );

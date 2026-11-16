@@ -2,10 +2,11 @@
  * @Description: 验证 GitHub 授权请求、轮询限速、取消竞态、凭证保存和失效处理。
  */
 
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -105,7 +106,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           locale: const Locale('en'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Builder(
             builder: (context) {
@@ -226,7 +227,7 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             locale: const Locale('en'),
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Builder(
               builder: (context) => Scaffold(
@@ -306,7 +307,7 @@ void main() {
             value: account,
             child: MaterialApp(
               locale: Locale(locale),
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              localizationsDelegates: appLocalizationDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               home: MediaQuery(
                 data: const MediaQueryData(textScaler: TextScaler.linear(2)),

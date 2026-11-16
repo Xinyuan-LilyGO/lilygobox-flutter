@@ -1,9 +1,10 @@
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -75,7 +76,7 @@ void main() {
         });
         Widget app() => MaterialApp(
           locale: const Locale('zh'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(
@@ -182,7 +183,7 @@ void main() {
           await tester.pumpWidget(
             MaterialApp(
               locale: Locale(narrow ? 'en' : 'zh'),
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              localizationsDelegates: appLocalizationDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               theme: ThemeData(
                 colorScheme: theme.themeData.materialColors,
@@ -292,7 +293,7 @@ void main() {
     Map<String, List<String>>? submitted;
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Align(
@@ -421,7 +422,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           locale: const Locale('zh'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: Align(

@@ -5,7 +5,6 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/device_connection_coordinator.dart';
@@ -14,27 +13,47 @@ import 'package:lilygobox/app/navigation/provider.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
 import 'package:lilygobox/app/widgets/title_bar_control_button.dart';
 import 'package:lilygobox/app/widgets/window_frame.dart';
+import 'package:lilygobox/app/widgets/window_page_stack.dart';
+import 'package:lilygobox/core/app_info/app_update_provider.dart';
 import 'package:lilygobox/core/app_info/package_info_provider.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/storage/preferences.dart';
 import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/core/widgets/app_notice.dart';
 import 'package:lilygobox/core/widgets/title_bar_icon_button.dart';
 import 'package:lilygobox/core/window/provider.dart';
 import 'package:lilygobox/features/account/domain/models.dart';
 import 'package:lilygobox/features/account/state/provider.dart';
+import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
+import 'package:lilygobox/features/assistant/state/provider.dart';
 import 'package:lilygobox/features/devices/data/lan_discovery.dart';
 import 'package:lilygobox/features/devices/presentation/widgets/home_device_card.dart';
 import 'package:lilygobox/features/devices/state/lan_connection.dart';
 import 'package:lilygobox/features/devices/state/manager_provider.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/storage/preferences_test.dart' show MemoryPreferencesStorage;
 import '../../features/account/authorization_test.dart'
     show FakeApi, MemoryStore;
+import '../../features/assistant/assistant_test_scope.dart';
 
 class TestWindowProvider extends WindowProvider {
+  bool _maximized = false;
+  @override
+  bool get isMaximized => _maximized;
+  void onWindowMaximize() {
+    _maximized = true;
+    notifyListeners();
+  }
+
+  void onWindowUnmaximize() {
+    _maximized = false;
+    notifyListeners();
+  }
+
   int minimizeCalls = 0;
   int closeCalls = 0;
 
@@ -168,7 +187,57 @@ void main() {
     ]) {
       addTearDown(provider.dispose);
     }
+    final assistantScope = await createAssistantTestScope(
+      theme: theme,
+      language: language,
+      shell: shell,
+      splitView: split,
+    );
+    final workspaces = AiWorkspaceProvider(assistantScope.provider);
+    final update = AppUpdateProvider(info);
+    addTearDown(workspaces.dispose);
+    addTearDown(assistantScope.dispose);
+    addTearDown(update.dispose);
+    final semantics = tester.ensureSemantics();
     final boundaryKey = GlobalKey();
+    void expectWindowControlsReachable() {
+      final root = tester
+          .binding
+          .renderViews
+          .single
+          .owner!
+          .semanticsOwner!
+          .rootSemanticsNode!;
+      final reachable = <int>{};
+      void visit(SemanticsNode node) {
+        reachable.add(node.id);
+        node.visitChildren((child) {
+          visit(child);
+          return true;
+        });
+      }
+
+      visit(root);
+      final controls = find.byType(AppTitleBarControlsButtonTemplate);
+      expect(controls, findsNWidgets(3));
+      for (var index = 0; index < 3; index++) {
+        final button = controls.at(index);
+        final tooltip = find
+            .ancestor(of: button, matching: find.byType(Tooltip))
+            .first;
+        final anchor = tester.getSemantics(tooltip);
+        // getSemantics can return a detached node: require membership in the
+        // actual published tree, including while a modal route blocks content.
+        expect(reachable, contains(anchor.id), reason: 'window tooltip $index');
+        expect(
+          reachable,
+          contains(tester.getSemantics(button).id),
+          reason: 'window button $index',
+        );
+        expect(anchor.getSemanticsData().tooltip, isNotEmpty);
+      }
+    }
+
     Future<List<List<int>>> sampleWindowEdges() async {
       final boundary =
           boundaryKey.currentContext!.findRenderObject()
@@ -194,6 +263,77 @@ void main() {
       }))!;
     }
 
+    Future<void> expectNoticeAboveBarrier({required bool overDialog}) async {
+      final noticeContext = overDialog
+          ? tester.element(find.byType(AlertDialog))
+          : tester.element(find.byType(WindowPageStack));
+      final messenger = ScaffoldMessenger.of(noticeContext);
+      showAppNotice(messenger, 'Notice remains above the dialog barrier');
+      await tester.pumpAndSettle();
+      final notice = find.byType(SnackBar);
+      expect(notice, findsOneWidget);
+      final surface = find
+          .descendant(of: notice, matching: find.byType(Material))
+          .first;
+      final rect = tester.getRect(surface);
+      final clip = find
+          .descendant(
+            of: find.byType(AppWindowFrame),
+            matching: find.byType(ClipRRect),
+          )
+          .first;
+      final frameRect = tester.getRect(clip);
+      expect(find.ancestor(of: notice, matching: clip), findsOneWidget);
+      expect(rect.left, greaterThanOrEqualTo(frameRect.left));
+      expect(rect.right, lessThanOrEqualTo(frameRect.right));
+      expect(rect.bottom, lessThanOrEqualTo(frameRect.bottom));
+      final boundary =
+          boundaryKey.currentContext!.findRenderObject()
+              as RenderRepaintBoundary;
+      // The surface deliberately has 80% opacity, so its pixels change with
+      // the backdrop. Opaque glyph interiors must retain their exact text
+      // colour: a barrier painted over the notice would darken these too.
+      final text = find.text('Notice remains above the dialog barrier');
+      final textRect = tester.getRect(text);
+      final textColor = Theme.of(tester.element(notice))
+          .snackBarTheme
+          .contentTextStyle!
+          .color!;
+      expect(textColor.a, 1);
+      final argb = textColor.toARGB32();
+      final expected = [(argb >> 16) & 255, (argb >> 8) & 255, argb & 255];
+      final intactTextPixels = await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 1);
+        final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+        final bytes = data!.buffer.asUint8List();
+        var matching = 0;
+        for (var y = textRect.top.ceil(); y < textRect.bottom.floor(); y++) {
+          for (var x = textRect.left.ceil(); x < textRect.right.floor(); x++) {
+            final offset = (y * image.width + x) * 4;
+            if (bytes[offset + 3] == 255 &&
+                (bytes[offset] - expected[0]).abs() <= 1 &&
+                (bytes[offset + 1] - expected[1]).abs() <= 1 &&
+                (bytes[offset + 2] - expected[2]).abs() <= 1) {
+              matching++;
+            }
+          }
+        }
+        image.dispose();
+        return matching;
+      });
+      expect(
+        intactTextPixels,
+        greaterThan(20),
+        reason: 'Notice glyphs must paint in their opaque text colour above the modal barrier',
+      );
+      if (overDialog) {
+        expect(find.byType(AlertDialog), findsOneWidget);
+        expectWindowControlsReachable();
+      }
+      messenger.removeCurrentSnackBar();
+      await tester.pumpAndSettle();
+    }
+
     await tester.pumpWidget(
       MultiProvider(
         providers: [
@@ -205,6 +345,11 @@ void main() {
           ChangeNotifierProvider.value(value: split),
           ChangeNotifierProvider.value(value: devices),
           ChangeNotifierProvider.value(value: info),
+          ChangeNotifierProvider.value(value: update),
+          ChangeNotifierProvider<AiAssistantProvider>.value(
+            value: assistantScope.provider,
+          ),
+          ChangeNotifierProvider.value(value: workspaces),
           ChangeNotifierProvider.value(value: preferences),
           ChangeNotifierProvider.value(value: account),
           ChangeNotifierProvider<LanConnection>.value(value: connection),
@@ -214,11 +359,16 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expectWindowControlsReachable();
     await tester.tap(find.byKey(const ValueKey('settings-category-general')));
     await tester.pumpAndSettle();
+    expectWindowControlsReachable();
+    await expectNoticeAboveBarrier(overDialog: false);
     final beforeDialog = await sampleWindowEdges();
     await tester.tap(find.byKey(const ValueKey('restore-defaults')));
     await tester.pumpAndSettle();
+    expectWindowControlsReachable();
+    await expectNoticeAboveBarrier(overDialog: true);
     final withDialog = await sampleWindowEdges();
     expect(withDialog[0], beforeDialog[0]);
     expect(withDialog[1], beforeDialog[1]);
@@ -253,11 +403,14 @@ void main() {
     await tester.tap(windowButtons.at(1));
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsOneWidget);
+    expectWindowControlsReachable();
     expect(tester.getRect(barrier), const Rect.fromLTWH(0, 30, 1000, 620));
     expect(tester.widget<ClipRRect>(frameClip).borderRadius, BorderRadius.zero);
+    await expectNoticeAboveBarrier(overDialog: true);
     await tester.tap(windowButtons.at(1));
     await tester.binding.setSurfaceSize(const Size(900, 600));
     await tester.pumpAndSettle();
+    expectWindowControlsReachable();
     expect(tester.getRect(barrier), const Rect.fromLTWH(10, 40, 880, 550));
     await tester.tap(windowButtons.at(2));
     await tester.pumpAndSettle();
@@ -273,6 +426,7 @@ void main() {
 
     navigation.goHome();
     await tester.pumpAndSettle();
+    expectWindowControlsReachable();
     final trigger = find.byKey(const ValueKey('account-menu-trigger'));
     final signOut = find.byKey(const ValueKey('account-menu-sign-out'));
     await tester.tap(trigger);
@@ -304,6 +458,7 @@ void main() {
     expect(shell.isSidebarVisible, wasVisible);
     expect(find.byType(AlertDialog), findsOneWidget);
     expect(account.user, isNotNull);
+    expectWindowControlsReachable();
     await tester.tap(find.byKey(const ValueKey('cancel-github-sign-out')));
     await tester.pumpAndSettle();
     expect(store.token, isNotNull);
@@ -347,6 +502,7 @@ void main() {
       address: '192.168.1.8',
       port: 18464,
     );
+    shell.openDeviceSection();
     connection.publish(target);
     await tester.pumpAndSettle();
     final notice = find.byType(SnackBar);
@@ -385,6 +541,8 @@ void main() {
       tester.getRect(noticeSurface).right,
       lessThanOrEqualTo(tester.getRect(frameClip).right),
     );
+    expectWindowControlsReachable();
     expect(tester.takeException(), isNull);
+    semantics.dispose();
   });
 }

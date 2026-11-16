@@ -2,9 +2,9 @@
  * @Description: 构建品牌侧栏、主页设备入口、账号入口和保留状态的内容页。
  */
 
-import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:vector_graphics/vector_graphics_compat.dart'
     show RenderingStrategy;

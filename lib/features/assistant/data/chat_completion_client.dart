@@ -166,7 +166,7 @@ class ChatCompletionClient {
           try {
             await Future.any<void>([
               waiting.future,
-              if (abortTrigger != null) abortTrigger,
+              ?abortTrigger,
             ]);
           } finally {
             timer.cancel();
@@ -210,19 +210,18 @@ class ChatCompletionClient {
               responses: responses,
               serviceTiers: configuration.serviceTiers,
             ),
-            ...AiReasoningCapabilities.forModel(
-              configuration.model,
-            ).requestParameters(
-              configuration.reasoningEffort,
-              responses: responses,
-            ),
+            ...AiReasoningCapabilities.forModel(configuration.model)
+                .requestParameters(
+                  configuration.reasoningEffort,
+                  responses: responses,
+                ),
             if (responses)
               ..._responsesRequest(messages, tools, maxTokens)
             else ...{
               'messages': messages,
               if (tools.isNotEmpty) 'tools': tools,
               if (tools.isNotEmpty) 'tool_choice': 'auto',
-              if (maxTokens != null) 'max_tokens': maxTokens,
+              'max_tokens': ?maxTokens,
             },
           });
     final response = await _client
@@ -583,8 +582,7 @@ class ChatCompletionClient {
         for (final item in data.whereType<Map>())
           if (item['id'] case final String id)
             if (id.trim().isNotEmpty)
-              if (_imageInputDeclaration(item) case final capability?)
-                id.trim(): capability,
+              id.trim(): ?_imageInputDeclaration(item),
       },
     );
   }
@@ -702,7 +700,7 @@ class ChatCompletionClient {
               },
         ],
       if (tools.isNotEmpty) 'tool_choice': 'auto',
-      if (maxTokens != null) 'max_output_tokens': maxTokens,
+      'max_output_tokens': ?maxTokens,
       'store': false,
       'include': ['reasoning.encrypted_content'],
     };

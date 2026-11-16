@@ -3,8 +3,10 @@
  */
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:window_manager/window_manager.dart';
+
+import '../../core/window/desktop_window.dart';
 
 Future<void> configureDesktopWindow() async {
   if (kIsWeb ||
@@ -13,20 +15,17 @@ Future<void> configureDesktopWindow() async {
           defaultTargetPlatform != TargetPlatform.macOS)) {
     return;
   }
-  await windowManager.ensureInitialized();
-
-  const windowOptions = WindowOptions(
-    size: Size(1280, 850),
-    backgroundColor: Colors.transparent,
-    skipTaskbar: false,
-    titleBarStyle: TitleBarStyle.hidden,
-    center: true,
-  );
-
-  await windowManager.waitUntilReadyToShow(windowOptions, () async {
-    await windowManager.setMinimumSize(const Size(500, 400));
-    await windowManager.setAsFrameless();
-    await windowManager.show();
-    await windowManager.focus();
-  });
+  final window = await initializeDesktopWindow();
+  if (window == null) throw StateError('Desktop window is unavailable');
+  window.setSize(const Size(1280, 850).toNative(), false);
+  window.minimumSize = const Size(500, 400).toNative();
+  window.backgroundColor = Colors.transparent.toNative();
+  window.isVisibleInTaskbar = true;
+  window.titleBarStyle = TitleBarStyle.hidden;
+  // 窗口阴影由 AppWindowFrame 绘制，禁用原生阴影，避免新版窗口库重复叠加。
+  window.hasShadow = false;
+  window.setFrameless(true);
+  window.center();
+  window.show();
+  window.focus();
 }

@@ -1,7 +1,7 @@
 /*
  * @Description: 集中维护原有灰阶与紫色配色，并提供 Material 3 语义角色映射。
  */
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'definition.dart';
 
@@ -254,11 +254,9 @@ extension MaterialThemeRoles on AppTheme {
     light: const Color(0xFFE5E5E5),
   );
 
-  /// 浮层保留亮色白底与深色灰底，不应用种子色染色。
-  Color get popupSurfaceColor => adaptiveColor(
-    dark: Color.lerp(secondary, tertiary, .55)!,
-    light: Colors.white,
-  );
+  /// 浮层使用亮色白底与暗色近黑底，不混入承载层灰色或种子色。
+  Color get popupSurfaceColor =>
+      adaptiveColor(dark: const Color(0xFF191919), light: Colors.white);
 
   /// 扩大权限的标题、说明与只读盾牌共用偏红橙色，亮色主题降低亮度。
   Color get permissionWarningColor => adaptiveColor(
@@ -273,7 +271,7 @@ extension MaterialThemeRoles on AppTheme {
   );
 }
 
-/// Semantic states for compact buttons on the app's shared surfaces.
+/// 应用共用背景上紧凑按钮的语义状态。
 class ButtonStateColors {
   const ButtonStateColors({
     required this.background,

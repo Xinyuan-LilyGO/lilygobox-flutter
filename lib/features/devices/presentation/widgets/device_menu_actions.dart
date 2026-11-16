@@ -1,8 +1,8 @@
 /*
  * @Description: 主页与设备详情菜单共用连接操作及删除确认。
  */
-import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../app/shell/state/provider.dart';
@@ -87,6 +87,7 @@ Future<void> deleteDeviceFromDetail(BuildContext context, String id) async {
     context: context,
     theme: context.read<ThemeProvider>().themeData,
     actionKey: 'delete-device',
+    destructive: true,
     title: l10n.deleteDeviceConfirmTitle,
     description: l10n.deleteDeviceConfirmDescription(manager.displayName(id)),
     confirmLabel: l10n.delete,

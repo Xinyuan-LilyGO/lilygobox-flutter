@@ -6,7 +6,7 @@ abstract final class AppCacheDirectories {
     final environment = Platform.environment;
     if (Platform.isWindows) {
       final base = environment['LOCALAPPDATA'] ?? Directory.systemTemp.path;
-      return Directory('$base/LILYGO/lilygobox/cache');
+      return Directory('$base/LILYGO/LilygoBox/cache');
     }
     final userDirectory = environment['HOME'];
     final base = Platform.isMacOS

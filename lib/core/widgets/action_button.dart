@@ -2,7 +2,7 @@
  * @Description: 统一紫色与灰色文字操作按钮，沿用主页配色、悬停渐变及点击波纹。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../theme/definition.dart';
 import '../theme/material_palette.dart';
@@ -49,12 +49,14 @@ class AppActionButton extends StatelessWidget {
     required String label,
     required VoidCallback? onPressed,
     bool primary = false,
+    bool destructive = false,
   }) => AppActionButton(
     key: key,
     theme: theme,
     label: label,
     onPressed: onPressed,
     primary: primary,
+    destructive: destructive,
     fontSize: AppDialogStyle.actionFontSize,
   );
 
@@ -99,6 +101,7 @@ class AppActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 灰色操作统一沿用恢复默认设置按钮，紫色保留主要操作配色。
+    final enabled = onPressed != null;
     final filled = primary || destructive;
     final dialog = context.findAncestorWidgetOfExactType<Dialog>();
     final dialogScope = AppDialogScope.maybeOf(context);
@@ -110,7 +113,7 @@ class AppActionButton extends StatelessWidget {
     final cardColors = tertiaryBackground && !filled
         ? theme.tertiarySurfaceButtonColors
         : null;
-    final background =
+    final activeBackground =
         backgroundColor ??
         cardColors?.background ??
         (destructive
@@ -127,7 +130,15 @@ class AppActionButton extends StatelessWidget {
             : surfaceColor == null
             ? theme.settingsControlBackgroundColor
             : theme.selectControlColorForSurface(surfaceColor!));
-    final foreground = destructive
+    final background = enabled
+        ? activeBackground
+        : Color.alphaBlend(
+            theme.materialColors.onSurface.withValues(alpha: .12),
+            inDialog ? dialogSurface : surfaceColor ?? theme.primary,
+          );
+    final foreground = !enabled
+        ? theme.materialColors.onSurface.withValues(alpha: .38)
+        : destructive
         ? theme.materialColors.onError
         : primary
         ? theme.materialColors.onPrimary
@@ -146,7 +157,7 @@ class AppActionButton extends StatelessWidget {
 
     return Semantics(
       button: true,
-      enabled: onPressed != null,
+      enabled: enabled,
       child: MenuItemSurface(
         theme: theme,
         onPressed: onPressed,

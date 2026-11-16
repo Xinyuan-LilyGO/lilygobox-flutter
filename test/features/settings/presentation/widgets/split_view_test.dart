@@ -2,15 +2,16 @@
  * @Description: 验证设置侧栏拖动、窄屏导航、主题语言切换和确认后仅重置应用偏好。
  */
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/navigation/provider.dart';
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/features/account/state/provider.dart';
 import 'package:lilygobox/features/devices/state/manager_provider.dart';
 import 'package:lilygobox/features/settings/presentation/pages/page.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -44,12 +45,11 @@ void main() {
     child: Consumer<LanguageProvider>(
       builder: (context, languages, _) => MaterialApp(
         locale: languages.locale,
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
           child: child!,
         ),
         home: const Scaffold(body: SettingsPage()),
@@ -107,7 +107,7 @@ void main() {
   ) async {
     await tester.binding.setSurfaceSize(const Size(1000, 650));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    theme.setTheme(ThemeType.light);
+    theme.setTheme(ThemeType.dark);
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('settings-category-general')));
@@ -116,13 +116,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('cancel-restore-defaults')));
     await tester.pumpAndSettle();
-    expect(theme.currentTheme, ThemeType.light);
+    expect(theme.currentTheme, ThemeType.dark);
     expect(language.locale?.languageCode, 'zh');
     await tester.tap(find.byKey(const ValueKey('restore-defaults')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('confirm-restore-defaults')));
     await tester.pumpAndSettle();
-    expect(theme.currentTheme, ThemeType.dark);
+    expect(theme.currentTheme, ThemeProvider.defaultTheme);
     expect(language.locale?.languageCode, 'en');
     expect(devices.addedDevices, ['T-Display-P4']);
     expect(find.text('Restore defaults'), findsWidgets);

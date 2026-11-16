@@ -2,10 +2,11 @@
  * @Description: 验证聊天 Markdown、跨段落选择、原文复制及消息时间布局。
  */
 
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -33,7 +34,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           locale: const Locale('zh'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: TaskNavigationScope(
@@ -78,7 +79,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           locale: const Locale('zh'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: ChatMessageBody(
@@ -132,7 +133,7 @@ void main() {
         );
         await tester.pumpWidget(
           MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               body: SizedBox(
@@ -213,7 +214,7 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: SelectionArea(
@@ -272,7 +273,7 @@ void main() {
       Future<void> render(String content) async {
         await tester.pumpWidget(
           MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               body: SelectionArea(
@@ -351,7 +352,7 @@ void main() {
             value: theme,
             child: MaterialApp(
               locale: const Locale('en'),
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              localizationsDelegates: appLocalizationDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               home: Scaffold(
                 body: Row(
@@ -536,7 +537,7 @@ void main() {
             ),
             builder: (context, child) =>
                 RepaintBoundary(key: boundary, child: child!),
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               backgroundColor: theme.themeData.secondary,
@@ -694,7 +695,7 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: MediaQuery(

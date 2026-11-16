@@ -15,6 +15,8 @@ import 'provider.dart';
 
 export 'agent_workspace.dart';
 
+part 'agent_recycle_bin.dart';
+
 /// A real message dispatch, retained only for the short transport animation.
 class AiAgentTransfer {
   const AiAgentTransfer(this.id, this.fromId, this.toId, this.startedAt);
@@ -41,6 +43,7 @@ class AiTopologyEditSnapshot {
         for (final entry in _owner._deliveredMessages.entries)
           entry.key: Set<String>.of(entry.value),
       };
+  final List<AiRecycledAgent> _recycled = [];
   final Map<String, Set<String>> _deliveredMessages;
   final AiWorkspaceProvider _owner;
   final List<AiAgentWorkspace> _tasks;
@@ -70,9 +73,20 @@ class AiWorkspaceProvider extends ChangeNotifier {
     main.workspaceToolDefinitions = _tools;
     main.workspaceToolHandler = (name, args) =>
         _executeTool('main', name, args);
-    initialized = _restore();
+    initialized = _restore().then((_) async {
+      await purgeExpiredRecycledAgents();
+      if (!_disposed) {
+        _recycleTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+          unawaited(
+            purgeExpiredRecycledAgents().catchError((Object error) {
+              persistenceError = error;
+              if (!_disposed) notifyListeners();
+            }),
+          );
+        });
+      }
+    });
   }
-  static const storageKey = 'ai.agentWorkflow.v2';
   static const canvasStyleStorageKey = 'ai.agentCanvasStyle.v1';
   final ValueNotifier<List<AiAgentTransfer>> _transfers = ValueNotifier(
     const [],
@@ -136,6 +150,16 @@ class AiWorkspaceProvider extends ChangeNotifier {
     return result;
   }
 
+  final List<AiRecycledAgent> _recycledAgents = [];
+  final Set<String> _purgedAgentIds = {};
+  int _recycleRetentionDays = 30;
+  Timer? _recycleTimer;
+  bool _recycleOperation = false;
+  int recycleRevision = 0;
+  void _recycleChanged() {
+    if (!_disposed) notifyListeners();
+  }
+
   final AiAssistantProvider main;
   final List<AiAgentWorkspace> _sessions = [];
   final Map<String, AiTaskConnection> _supplementalConnections = {};
@@ -188,6 +212,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
       connections,
       _selectedId,
     );
+    snapshot._recycled.addAll(_recycledAgents);
     _editSnapshots.add(snapshot);
     return snapshot;
   }
@@ -208,6 +233,17 @@ class AiWorkspaceProvider extends ChangeNotifier {
       throw StateError('Previous topology snapshot is no longer available');
     }
     final desired = snapshot._tasks.map((task) => task.id).toSet();
+    if (desired.any(_purgedAgentIds.contains)) {
+      throw StateError('A permanently deleted agent cannot be restored');
+    }
+    final affected = {
+      ...snapshot._tasks.map((task) => task.id),
+      ...?previous?._tasks.map((task) => task.id),
+    };
+    _recycledAgents.removeWhere((entry) => affected.contains(entry.id));
+    _recycledAgents.addAll(
+      snapshot._recycled.where((entry) => affected.contains(entry.id)),
+    );
     final externalTasks = previous == null
         ? <AiAgentWorkspace>[]
         : _sessions
@@ -297,7 +333,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
 
   void _detachForEdit(AiAgentWorkspace task) {
     _pendingNames.remove(task.id);
-    task.assistant.removeListener(_notify);
+    _removeSessionListener(task.assistant);
     task.assistant.closeWorkspaceRuntime();
     if (_editSnapshots.any((snapshot) => snapshot._tasks.contains(task))) {
       _detachedEditTasks[task.id] = task;
@@ -478,38 +514,32 @@ class AiWorkspaceProvider extends ChangeNotifier {
     });
   }
 
-  /// Side-effect-free counterpart of removeMany's retained-root-branch policy.
-  List<AiTaskConnection> _graphAfterDeletion(Set<String> selected) {
-    final parents = {for (final task in _sessions) task.id: task.parentId};
-    final removed = <String>{};
-    void removeBranch(String id) {
-      if (!removed.add(id)) return;
+  /// 共用删除计划：删除所选智能体，保留未删除的分支。
+  Map<String, String?> _parentsAfterDeletion(Set<String> selected) {
+    final parents = {
+      for (final task in _sessions)
+        if (!selected.contains(task.id)) task.id: task.parentId,
+    };
+    for (final id in selected) {
+      final replacement = _replacementRootFor(id, selected);
+      if (replacement == null) continue;
+      parents[replacement.id] = null;
       for (final child in childrenOf(id)) {
-        removeBranch(child.id);
-      }
-    }
-
-    for (final id in selected) {
-      if (find(id)?.kind != AiWorkspaceKind.primary) removeBranch(id);
-    }
-    for (final id in selected) {
-      if (find(id)?.kind != AiWorkspaceKind.primary) continue;
-      final replacement = _replacementRootFor(id, removed);
-      if (replacement != null) {
-        parents[replacement.id] = null;
-        for (final child in childrenOf(id)) {
-          if (child.kind == AiWorkspaceKind.permanent &&
-              !removed.contains(child.id) &&
-              child.id != replacement.id) {
-            parents[child.id] = replacement.id;
-          }
+        if (parents.containsKey(child.id) && child.id != replacement.id) {
+          parents[child.id] = replacement.id;
         }
       }
-      removed.add(id);
-      for (final child in childrenOf(id)) {
-        if (parents[child.id] == id) removeBranch(child.id);
-      }
     }
+    for (final entry in parents.entries.toList()) {
+      if (selected.contains(entry.value)) parents[entry.key] = null;
+    }
+    return parents;
+  }
+
+  /// 用于断线预览的 removeMany 对应计划，不产生副作用。
+  List<AiTaskConnection> _graphAfterDeletion(Set<String> selected) {
+    final parents = _parentsAfterDeletion(selected);
+    final removed = selected;
     return [
       for (final task in _sessions)
         if (!removed.contains(task.id) && _canLink(task))
@@ -720,14 +750,24 @@ class AiWorkspaceProvider extends ChangeNotifier {
     await main.initialized;
     if (_disposed) return;
     try {
-      final source = main.workspacePreferences.stringValue(storageKey, '');
-      if (source.isEmpty) return;
-      final decoded = jsonDecode(source);
+      final storage = main.storage;
+      if (storage == null) return;
+      final decoded = await storage.request('readWorkflowData');
+      if (decoded == null) return;
       if (decoded is! Map ||
-          decoded['version'] != 2 ||
+          decoded['version'] != 1 ||
           decoded['sessions'] is! List) {
         throw const FormatException('Invalid agent topology');
       }
+      if (decoded['canvas'] case final Map positions) {
+        canvasPositions = {
+          for (final e in positions.entries)
+            e.key as String: (e.value as List)
+                .map((v) => (v as num).toDouble())
+                .toList(),
+        };
+      }
+      _restoreRecycleState(decoded);
       final rawRecords = decoded['sessions'] as List;
       final byId = <String, Map>{};
       for (final raw in rawRecords) {
@@ -751,9 +791,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
         final record = Map<String, dynamic>.from(raw);
         byId[record['id'] as String] = record;
       }
-      final rawConnections = decoded.containsKey('connections')
-          ? decoded['connections']
-          : const [];
+      final rawConnections = decoded['connections'];
       if (rawConnections is! List) {
         throw const FormatException('Invalid saved agent connections');
       }
@@ -879,6 +917,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
                   DateTime.now(),
             );
 
+            session.closed = raw['closed'] == true;
             _register(session);
           } catch (_) {
             assistant.dispose();
@@ -904,12 +943,38 @@ class AiWorkspaceProvider extends ChangeNotifier {
     }
   }
 
-  void _saveNow() {
-    if (_restoring || persistenceError != null) return;
+  final Map<AiAssistantProvider, VoidCallback> _sessionListeners = {};
+  void _removeSessionListener(AiAssistantProvider assistant) {
+    final listener = _sessionListeners.remove(assistant);
+    if (listener != null) assistant.removeListener(listener);
+  }
+
+  final Set<String> _dirtyConversations = {};
+  Map<String, Object?> _conversationForSave(AiAgentWorkspace session) =>
+      main.storage == null || _dirtyConversations.remove(session.id)
+      ? session.assistant.snapshotWorkspaceConversation()
+      : {'@conversation': session.id};
+
+  Future<void>? _lastSave;
+  Future<void> _saveNow() {
+    if (_disposed) return _lastSave ?? Future.value();
+    return _lastSave = _writeSnapshot();
+  }
+
+  Future<void> _writeSnapshot() async {
+    if (_restoring ||
+        _recycleOperation ||
+        persistenceError != null ||
+        main.storage == null) {
+      return;
+    }
     try {
-      final source = jsonEncode({
-        'version': 2,
+      final source = <String, Object?>{
+        'version': 1,
         'selectedId': _selectedId,
+        'recycleRetentionDays': _recycleRetentionDays,
+        'recycleBin': [for (final entry in _recycledAgents) entry.toJson()],
+        'canvas': canvasPositions,
         'connections': [
           for (final connection in connections.where((c) => !c.isHierarchy))
             {'fromId': connection.fromId, 'toId': connection.toId},
@@ -924,13 +989,276 @@ class AiWorkspaceProvider extends ChangeNotifier {
               'closed': session.closed,
               'parentId': session.parentId,
               'createdAt': session.createdAt.toIso8601String(),
-              'conversation': session.assistant.snapshotWorkspaceConversation(),
+              'conversation': _conversationForSave(session),
             },
         ],
-      });
-      main.workspacePreferences.setValue(storageKey, source);
+      };
+      await main.storage!.saveWorkflow(source);
     } catch (error) {
       persistenceError = error;
+    }
+  }
+
+  Map<String, Object?> exportData({
+    String? agentId,
+    bool includeChildren = false,
+    bool chatsOnly = false,
+  }) {
+    final selected = <String>{};
+    if (agentId == null) {
+      selected.addAll(_sessions.map((s) => s.id));
+    } else {
+      selected.add(agentId);
+      if (includeChildren) {
+        bool changed = true;
+        while (changed) {
+          final before = selected.length;
+          selected.addAll(
+            _sessions
+                .where((s) => selected.contains(s.parentId))
+                .map((s) => s.id),
+          );
+          changed = before != selected.length;
+        }
+      }
+    }
+    return {
+      'version': 1,
+      'selectedId': null,
+      'recycleRetentionDays': _recycleRetentionDays,
+      'recycleBin': [for (final entry in _recycledAgents) entry.toJson()],
+      'canvas': canvasPositions,
+      'connections': [
+        for (final c in connections.where(
+          (c) =>
+              !c.isHierarchy &&
+              selected.contains(c.fromId) &&
+              selected.contains(c.toId),
+        ))
+          {'fromId': c.fromId, 'toId': c.toId},
+      ],
+      'sessions': [
+        for (final s in _sessions.where((s) => selected.contains(s.id)))
+          {
+            'id': s.id,
+            'title': s.title,
+            'task': s.task,
+            'kind': selected.contains(s.parentId)
+                ? s.kind.name
+                : AiWorkspaceKind.primary.name,
+            'closed': s.closed,
+            'parentId': selected.contains(s.parentId) ? s.parentId : null,
+            'createdAt': s.createdAt.toIso8601String(),
+            'conversation': s.assistant.snapshotWorkspaceConversation(),
+          },
+      ],
+    };
+  }
+
+  /// 最近一次成功导入新增的节点，供画布完成定位；失败和取消不更新。
+  int importRevision = 0;
+  Set<String> importedAgentIds = const {};
+  Map<String, List<double>> canvasPositions = {};
+  void updateCanvasPositions(Map<String, List<double>> positions) {
+    canvasPositions = positions;
+    _notify();
+  }
+
+  Future<Map<String, String>> importData(
+    Map<String, dynamic> data, {
+    List<Map<String, Object?>> Function(Map<String, String>)? memoriesFor,
+    Future<void> Function()? checkpoint,
+    void Function(int completed, int total)? onStaging,
+    void Function()? onBeforeCommit,
+  }) async {
+    await initialized;
+    await checkpoint?.call();
+    if (sessions.any((s) => s.busy)) throw StateError('Agents are running');
+    if (data['version'] != 1 ||
+        data['sessions'] is! List ||
+        data['connections'] is! List) {
+      throw const FormatException('Invalid workflow');
+    }
+    final mapping = <String, String>{};
+    final records = (data['sessions'] as List)
+        .map((r) => Map<String, dynamic>.from(r as Map))
+        .toList();
+    for (final raw in records) {
+      await checkpoint?.call();
+      final id = raw['id'];
+      if (id is! String ||
+          mapping.containsKey(id) ||
+          raw['title'] is! String ||
+          raw['task'] is! String ||
+          raw['conversation'] is! Map ||
+          !AiWorkspaceKind.values.any((k) => k.name == raw['kind'])) {
+        throw const FormatException('Invalid agent');
+      }
+      mapping[id] = '${DateTime.now().microsecondsSinceEpoch}-${_sequence++}';
+    }
+    final parents = {
+      for (final r in records) r['id'] as String: r['parentId'] as String?,
+    };
+    for (final raw in records) {
+      await checkpoint?.call();
+      if (raw['kind'] == 'primary' && raw['parentId'] != null) {
+        throw const FormatException('A main agent cannot have a parent');
+      }
+      var cursor = raw['id'] as String?;
+      final seen = <String>{};
+      while (cursor != null) {
+        if (!parents.containsKey(cursor) || !seen.add(cursor)) {
+          throw const FormatException('Invalid hierarchy');
+        }
+        cursor = parents[cursor];
+      }
+    }
+    final edges = <AiTaskConnection>[];
+    final edgeIds = <String>{};
+    for (final raw in data['connections'] as List) {
+      await checkpoint?.call();
+      final from = mapping[raw['fromId']];
+      final to = mapping[raw['toId']];
+      if (from == null || to == null || from == to) {
+        throw const FormatException('Invalid connection');
+      }
+      final endpoints = [from, to]..sort();
+      final id = _connectionId(from, to);
+      if (!edgeIds.add(id)) throw const FormatException('Duplicate connection');
+      edges.add(
+        AiTaskConnection(
+          id: id,
+          fromId: endpoints.first,
+          toId: endpoints.last,
+          isHierarchy: false,
+        ),
+      );
+    }
+    final importedPositions = <String, List<double>>{};
+    if (data['canvas'] case final Map positions) {
+      for (final entry in positions.entries) {
+        await checkpoint?.call();
+        final id = mapping[entry.key];
+        if (id == null) continue;
+        final values = (entry.value as List)
+            .map((v) => (v as num).toDouble())
+            .toList();
+        if (values.length != 2 || values.any((v) => !v.isFinite)) {
+          throw const FormatException('Invalid canvas position');
+        }
+        importedPositions[id] = values;
+      }
+    }
+    final importedRecycle = _prepareRecycleImport(data, mapping);
+    final staged = <AiAgentWorkspace>[];
+    var committed = false;
+    try {
+      for (final raw in records) {
+        await checkpoint?.call();
+        final conversation = Map<String, dynamic>.from(
+          raw['conversation'] as Map,
+        );
+        final serviceId = conversation['serviceId'];
+        final model = conversation['model'];
+        if (serviceId is! String || model is! String) {
+          throw const FormatException('Invalid model selection');
+        }
+        final assistant = main.forkForWorkspace();
+        final session = AiAgentWorkspace(
+          id: mapping[raw['id']]!,
+          title: raw['title'] as String,
+          task: raw['task'] as String,
+          kind: AiWorkspaceKind.values.singleWhere(
+            (k) => k.name == raw['kind'],
+          ),
+          parentId: mapping[raw['parentId']],
+          assistant: assistant,
+          createdAt:
+              DateTime.tryParse(raw['createdAt'] as String? ?? '') ??
+              DateTime.now(),
+        )..closed = raw['closed'] == true;
+        staged.add(session);
+        final service = main.services
+            .where((s) => s.id == serviceId)
+            .firstOrNull;
+        if (service != null &&
+            service.models.contains(model) &&
+            main.hasServiceKey(serviceId)) {
+          await assistant.selectModel(serviceId, model);
+          final effort = AiReasoningEffort.values
+              .where((e) => e.name == conversation['effort'])
+              .firstOrNull;
+          if (effort != null) await assistant.setReasoningEffort(effort);
+          final speed = assistant.processingSpeeds
+              .where((v) => v.name == conversation['processingSpeed'])
+              .firstOrNull;
+          if (speed != null) await assistant.setProcessingSpeed(speed);
+        } else {
+          assistant.markWorkspaceSelectionUnavailable(
+            serviceId: serviceId,
+            model: model,
+          );
+        }
+        assistant.setPermissions(AiPermissions());
+        assistant.restoreWorkspaceConversation(conversation);
+        onStaging?.call(staged.length, records.length);
+        await checkpoint?.call();
+      }
+      if (_disposed || sessions.any((s) => s.busy)) {
+        throw StateError('Workspace changed while importing');
+      }
+      final combined = exportData();
+      combined['recycleBin'] = [
+        for (final entry in [..._recycledAgents, ...importedRecycle])
+          entry.toJson(),
+      ];
+      combined['selectedId'] = _selectedId;
+      combined['canvas'] = {...canvasPositions, ...importedPositions};
+      combined['sessions'] = [
+        ...combined['sessions'] as List,
+        for (final session in staged)
+          {
+            'id': session.id,
+            'title': session.title,
+            'task': session.task,
+            'kind': session.kind.name,
+            'closed': session.closed,
+            'parentId': session.parentId,
+            'createdAt': session.createdAt.toIso8601String(),
+            'conversation': session.assistant.snapshotWorkspaceConversation(),
+          },
+      ];
+      combined['connections'] = [
+        ...combined['connections'] as List,
+        for (final edge in edges) {'fromId': edge.fromId, 'toId': edge.toId},
+      ];
+      final memories = memoriesFor?.call(mapping) ?? <Map<String, Object?>>[];
+      await checkpoint?.call();
+      onBeforeCommit?.call();
+      if (main.storage != null) {
+        await main.storage!.commitImport(combined, memories);
+      } else {
+        if (memories.isNotEmpty) throw StateError('Storage is unavailable');
+      }
+      committed = true;
+      _recycledAgents.addAll(importedRecycle);
+      for (final session in staged) {
+        _register(session);
+      }
+      _supplementalConnections.addAll({
+        for (final edge in edges) edge.id: edge,
+      });
+      canvasPositions.addAll(importedPositions);
+      importedAgentIds = Set.unmodifiable(mapping.values);
+      importRevision++;
+      _notify();
+      return mapping;
+    } finally {
+      if (!committed) {
+        for (final session in staged) {
+          session.assistant.dispose();
+        }
+      }
     }
   }
 
@@ -938,12 +1266,16 @@ class AiWorkspaceProvider extends ChangeNotifier {
     await initialized;
     _saveTimer?.cancel();
     _saveTimer = null;
-    _saveNow();
+    await _saveNow();
+    if (persistenceError != null) {
+      throw StateError('Agent data could not be saved: $persistenceError');
+    }
     await main.workspacePreferences.flush();
   }
 
   void _register(AiAgentWorkspace session) {
     final assistant = session.assistant;
+    assistant.memoryOwner = session.id;
     assistant.workspaceTurnAllowed = () => !_disposed && !session.closed;
     assistant.onWorkspaceHumanMessage = () {
       final group = _rootId(session.id);
@@ -952,7 +1284,14 @@ class AiWorkspaceProvider extends ChangeNotifier {
     assistant.workspaceToolDefinitions = _tools;
     assistant.workspaceToolHandler = (name, args) =>
         _executeTool(session.id, name, args);
-    assistant.addListener(_notify);
+    _dirtyConversations.add(session.id);
+    void listener() {
+      _dirtyConversations.add(session.id);
+      _notify();
+    }
+
+    _sessionListeners[assistant] = listener;
+    assistant.addListener(listener);
     _sessions.add(session);
   }
 
@@ -964,6 +1303,8 @@ class AiWorkspaceProvider extends ChangeNotifier {
     AiPermissions? permissions,
     AiReasoningEffort? reasoningEffort,
     AiProcessingSpeed? processingSpeed,
+    int? contextBudgetTokens,
+    int? contextCompactionPercent,
   }) => create(
     title: title,
     task: task,
@@ -973,6 +1314,8 @@ class AiWorkspaceProvider extends ChangeNotifier {
     permissions: permissions,
     reasoningEffort: reasoningEffort,
     processingSpeed: processingSpeed,
+    contextBudgetTokens: contextBudgetTokens,
+    contextCompactionPercent: contextCompactionPercent,
   );
 
   Future<AiAgentWorkspace> create({
@@ -985,11 +1328,24 @@ class AiWorkspaceProvider extends ChangeNotifier {
     AiPermissions? permissions,
     AiReasoningEffort? reasoningEffort,
     AiProcessingSpeed? processingSpeed,
+    int? contextBudgetTokens,
+    int? contextCompactionPercent,
     bool modelInitiated = false,
     bool startImmediately = true,
   }) async {
     await initialized;
     if (_disposed) throw StateError('Workspace is closed');
+    if (contextBudgetTokens != null && contextBudgetTokens <= 0) {
+      throw RangeError.value(contextBudgetTokens, 'contextBudgetTokens');
+    }
+    if (contextCompactionPercent != null) {
+      RangeError.checkValueInInterval(
+        contextCompactionPercent,
+        1,
+        100,
+        'contextCompactionPercent',
+      );
+    }
     if (modelInitiated && permissions != null) {
       throw StateError('Model-created agents must inherit parent permissions');
     }
@@ -1062,6 +1418,10 @@ class AiWorkspaceProvider extends ChangeNotifier {
         worker.processingSpeeds.contains(processingSpeed)) {
       await worker.setProcessingSpeed(processingSpeed);
     }
+    worker.contextBudgetTokens =
+        contextBudgetTokens ?? template.contextBudgetTokens;
+    worker.contextCompactionPercent =
+        contextCompactionPercent ?? template.contextCompactionPercent;
     if (permissions != null) worker.setPermissions(permissions);
     final session = AiAgentWorkspace(
       id: '${DateTime.now().microsecondsSinceEpoch}-${_sequence++}',
@@ -1259,31 +1619,28 @@ class AiWorkspaceProvider extends ChangeNotifier {
   AiAgentWorkspace? replacementRootFor(String id) =>
       _replacementRootFor(id, const {});
 
-  /// Preview the same promotions as removeMany, excluding selected subtrees.
+  /// 预览明确选中的主智能体被删除后的接任关系。
   Map<String, AiAgentWorkspace> rootReplacementsForDeletion(
     Iterable<String> ids,
   ) {
-    final selected = ids
-        .toSet()
-        .map(find)
-        .whereType<AiAgentWorkspace>()
-        .toList();
-    final forced = <String>{};
-    void exclude(AiAgentWorkspace task) {
-      if (!forced.add(task.id)) return;
-      for (final child in childrenOf(task.id)) {
-        exclude(child);
-      }
-    }
-
-    for (final task in selected) {
-      if (task.kind != AiWorkspaceKind.primary) exclude(task);
-    }
+    final selected = ids.toSet();
     return Map.unmodifiable({
-      for (final task in selected)
-        if (task.kind == AiWorkspaceKind.primary)
-          if (_replacementRootFor(task.id, forced) case final replacement?)
-            task.id: replacement,
+      for (final id in selected)
+        if (find(id)?.kind == AiWorkspaceKind.primary)
+          id: ?_replacementRootFor(id, selected),
+    });
+  }
+
+  /// 删除后提升为主智能体的全部保留子节点，以各自 ID 为键。
+  Map<String, AiAgentWorkspace> promotedRootsForDeletion(Iterable<String> ids) {
+    final parents = _parentsAfterDeletion(ids.toSet());
+    return Map.unmodifiable({
+      for (final task in _sessions)
+        if (parents.containsKey(task.id) &&
+            parents[task.id] == null &&
+            task.parentId != null &&
+            task.kind != AiWorkspaceKind.primary)
+          task.id: task,
     });
   }
 
@@ -1330,6 +1687,14 @@ class AiWorkspaceProvider extends ChangeNotifier {
       );
     }
     copy.assistant.restoreConversationFork(conversation);
+    try {
+      await main.storage?.request('copyMemories', {
+        'mapping': {id: copy.id},
+      });
+    } catch (_) {
+      removeMany([copy.id]);
+      rethrow;
+    }
     return copy;
   }
 
@@ -1415,6 +1780,11 @@ class AiWorkspaceProvider extends ChangeNotifier {
           }
         }
       }
+      await main.storage?.request('copyMemories', {
+        'mapping': {
+          for (final entry in copies.entries) entry.key: entry.value.id,
+        },
+      });
       return [for (final card in cards) copies[card.sourceId]!];
     } catch (_) {
       removeMany(copies.values.map((copy) => copy.id));
@@ -1441,75 +1811,42 @@ class AiWorkspaceProvider extends ChangeNotifier {
 
   void remove(String id) => removeMany([id]);
 
-  /// 主智能体保留未明确删除的长期分支；显式选择的非主智能体删除整棵子树。
+  /// 只将所选智能体移入回收站，保留的下级分支继续活动。
   void removeMany(Iterable<String> ids) {
     if (_disposed) return;
-    final selected = ids
-        .toSet()
-        .map(find)
-        .whereType<AiAgentWorkspace>()
-        .toList();
+    final selected = ids.toSet().where((id) => find(id) != null).toSet();
     if (selected.isEmpty) return;
-    final forced = <String>{};
-    void mark(AiAgentWorkspace node) {
-      if (!forced.add(node.id)) return;
-      for (final child in childrenOf(node.id)) {
-        mark(child);
+    final recycleSnapshot = exportData();
+    final parents = _parentsAfterDeletion(selected);
+    final oldRoots = {for (final id in parents.keys) id: _rootId(id)};
+    final replacements = rootReplacementsForDeletion(selected);
+    final promotions = promotedRootsForDeletion(selected);
+    final fallback = replacements[_selectedId] ?? promotions.values.firstOrNull;
+    for (final task in _sessions) {
+      if (!parents.containsKey(task.id)) continue;
+      if (task.parentId != parents[task.id]) {
+        task.parentId = parents[task.id];
+        task.kind = task.parentId == null
+            ? AiWorkspaceKind.primary
+            : AiWorkspaceKind.permanent;
       }
     }
-
-    for (final session in selected) {
-      if (session.kind != AiWorkspaceKind.primary) mark(session);
+    for (final id in promotions.keys) {
+      final oldRoot = oldRoots[id]!;
+      if (oldRoot != id) _mergeDeliveredMessages(oldRoot, id);
     }
-    AiAgentWorkspace? selectionFallback;
-    final rootRemovals = <AiAgentWorkspace>[];
-    for (final session in selected.where(
-      (s) => s.kind == AiWorkspaceKind.primary,
-    )) {
-      final replacement = _replacementRootFor(session.id, forced);
-      if (replacement != null) {
-        final permanentChildren = childrenOf(session.id)
-            .where(
-              (child) =>
-                  child.kind == AiWorkspaceKind.permanent &&
-                  !forced.contains(child.id),
-            )
-            .toList();
-        replacement.kind = AiWorkspaceKind.primary;
-        replacement.parentId = null;
-        for (final child in permanentChildren) {
-          if (child != replacement) child.parentId = replacement.id;
-        }
-        _mergeDeliveredMessages(session.id, replacement.id, removeSource: true);
-        if (_selectedId == session.id) selectionFallback = replacement;
-      }
-      rootRemovals.add(session);
-    }
-    final removing = <AiAgentWorkspace>[];
-    final visited = <String>{};
-    void collect(AiAgentWorkspace node) {
-      if (!visited.add(node.id)) return;
-      for (final child in childrenOf(node.id)) {
-        collect(child);
-      }
-      removing.add(node);
-    }
-
-    for (final session in rootRemovals) {
-      collect(session);
-    }
-    for (final id in forced) {
-      final session = find(id);
-      if (session != null) collect(session);
-    }
+    final removing = _sessions
+        .where((task) => selected.contains(task.id))
+        .toList();
+    _moveToRecycleBin(removing, recycleSnapshot);
     for (final item in removing) {
       _sessions.remove(item);
       _detachForEdit(item);
       _deliveredMessages.remove(item.id);
     }
     _pruneConnections();
-    if (visited.contains(_selectedId)) {
-      _selectedId = selectionFallback?.id ?? _sessions.firstOrNull?.id;
+    if (selected.contains(_selectedId)) {
+      _selectedId = fallback?.id ?? _sessions.firstOrNull?.id;
     }
     _notify();
   }
@@ -1643,19 +1980,13 @@ class AiWorkspaceProvider extends ChangeNotifier {
             target.parentId != (sourceId ?? 'main')) {
           throw StateError('Only an owned child agent may be deleted');
         }
-        final deleting = <String>[];
-        void collectDeleted(String id) {
-          deleting.add(id);
-          for (final child in childrenOf(id)) {
-            collectDeleted(child.id);
-          }
-        }
-        collectDeleted(target.id);
+        final promoted = promotedRootsForDeletion([target.id]).keys.toList();
         remove(target.id);
         return {
           'agent_id': target.id,
           'status': 'deleted',
-          'deleted_agent_ids': deleting,
+          'deleted_agent_ids': [target.id],
+          'promoted_agent_ids': promoted,
         };
       case 'wait_agents':
         final ids = (args['agent_ids'] as List).cast<String>();
@@ -1683,6 +2014,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _recycleTimer?.cancel();
     _saveTimer?.cancel();
     _saveTimer = null;
     _saveNow();
@@ -1696,7 +2028,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     main.workspaceToolDefinitions = const [];
     main.workspaceToolHandler = null;
     for (final session in _sessions) {
-      session.assistant.removeListener(_notify);
+      _removeSessionListener(session.assistant);
       session.assistant.dispose();
     }
     for (final task in _detachedEditTasks.values) {
@@ -1741,19 +2073,16 @@ final _tools = [
     {
       'title': {
         'type': 'string',
-        'description':
-            'Optional agent name. When omitted or empty, the selected model generates a name from work instructions.',
+        'description': 'Optional agent name. When omitted or empty, the selected model generates a name from work instructions.',
       },
       'task': {'type': 'string'},
       'service_id': {
         'type': 'string',
-        'description':
-            'Exact service_id from list_agent_models; required together with model.',
+        'description': 'Exact service_id from list_agent_models; required together with model.',
       },
       'model': {
         'type': 'string',
-        'description':
-            'Exact model ID within the selected service; required together with service_id.',
+        'description': 'Exact model ID within the selected service; required together with service_id.',
       },
     },
     ['task'],
@@ -1804,7 +2133,7 @@ final _tools = [
   ),
   _tool(
     'delete_agent',
-    'Delete an owned direct child and its entire descendant branch from the workflow, stopping all active operations and removing their conversations. This is destructive; use only when no longer needed. Cannot delete the caller, a main agent, or an unrelated agent.',
+    'Delete only an owned direct child from the workflow, stopping its active operations and moving its data to the recycle bin. Its direct children remain active as main agents, keeping their own descendants. Cannot delete the caller, a main agent, or an unrelated agent.',
     {
       'agent_id': {'type': 'string'},
     },

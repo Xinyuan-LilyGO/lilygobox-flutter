@@ -1,9 +1,10 @@
 /*
  * @Description: 验证电池容量编辑的范围校验、保存等待及失败后输入保留。
  */
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/features/devices/presentation/widgets/battery_capacity_dialog.dart';
@@ -22,7 +23,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           locale: const Locale('en'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Builder(
             builder: (context) => Scaffold(

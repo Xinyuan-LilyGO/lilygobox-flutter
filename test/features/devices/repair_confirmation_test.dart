@@ -1,7 +1,8 @@
 /*
  * @Description: 验证设备身份变化后的重新配对使用公共确认弹窗，取消时保留授权。
  */
-import 'package:flutter/material.dart';
+import 'package:lilygobox/core/l10n/delegates.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/features/devices/data/lan_discovery.dart';
@@ -58,7 +59,7 @@ void main() {
           ],
           child: const MaterialApp(
             locale: Locale('zh'),
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(body: ConnectedDevicePage(deviceId: '001122334455')),
           ),

@@ -1,8 +1,9 @@
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -108,7 +109,7 @@ void main() {
           await tester.pumpWidget(
             MaterialApp(
               locale: Locale(locale),
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              localizationsDelegates: appLocalizationDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               scrollBehavior: const AppScrollBehavior(),
               home: Scaffold(

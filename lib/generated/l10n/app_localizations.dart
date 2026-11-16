@@ -3243,7 +3243,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiSettingsGroup.
   ///
   /// In en, this message translates to:
-  /// **'AI'**
+  /// **'Agents'**
   String get aiSettingsGroup;
 
   /// No description provided for @aiProtocolLabel.
@@ -4386,10 +4386,28 @@ abstract class AppLocalizations {
   /// **'Back to agent workflow'**
   String get aiTopologyBack;
 
+  /// No description provided for @aiTopologyCopyWorkflow.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy agent workflow'**
+  String get aiTopologyCopyWorkflow;
+
+  /// No description provided for @aiTopologyPasteAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste agent'**
+  String get aiTopologyPasteAgent;
+
+  /// No description provided for @aiTopologyPasteWorkflow.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste agent workflow'**
+  String get aiTopologyPasteWorkflow;
+
   /// No description provided for @aiTopologyDuplicate.
   ///
   /// In en, this message translates to:
-  /// **'Duplicate card'**
+  /// **'Copy agent'**
   String get aiTopologyDuplicate;
 
   /// No description provided for @aiTopologyRenameHelp.
@@ -4581,7 +4599,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiTopologyDeleteHelp.
   ///
   /// In en, this message translates to:
-  /// **'This agent and all its descendants will be stopped and removed.'**
+  /// **'Delete only this agent. Its unselected direct children become main agents, with their descendants preserved. Removed agents go to the recycle bin and can be restored in Settings → Agents → Storage.'**
   String get aiTopologyDeleteHelp;
 
   /// No description provided for @aiTopologyNoParent.
@@ -4665,7 +4683,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiTopologyDeleteRootHelp.
   ///
   /// In en, this message translates to:
-  /// **'Delete this main agent. The most recently created direct child becomes the main agent; other child branches are preserved.'**
+  /// **'Delete this main agent. The most recently created direct child becomes the main agent; other child branches are preserved. Removed agents go to the recycle bin and can be restored in Settings → Agents → Storage.'**
   String get aiTopologyDeleteRootHelp;
 
   /// No description provided for @aiTopologyStopSelected.
@@ -4725,7 +4743,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiTopologyDeleteSelectedHelp.
   ///
   /// In en, this message translates to:
-  /// **'Selected agents will stop and be removed. Descendants of selected child agents are removed; unselected child branches of deleted main agents are preserved.'**
+  /// **'Delete only the selected agents and preserve unselected descendant branches. Unselected direct children of deleted child agents become main agents. A deleted main agent is replaced by its most recently created unselected direct child. Removed agents go to the recycle bin and can be restored in Settings → Agents → Storage.'**
   String get aiTopologyDeleteSelectedHelp;
 
   /// No description provided for @aiTopologySelectedCount.
@@ -4737,8 +4755,14 @@ abstract class AppLocalizations {
   /// No description provided for @aiTopologySelectionHelp.
   ///
   /// In en, this message translates to:
-  /// **'Left-drag to select · Right-drag to pan · Ctrl + wheel to zoom'**
+  /// **'Left-drag to select · Ctrl/Shift + click to multi-select · Right-drag to pan · Wheel to pan vertically · Shift + wheel to pan horizontally · Ctrl + wheel to zoom'**
   String get aiTopologySelectionHelp;
+
+  /// No description provided for @aiTopologyShortcutsHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Left-click: select a card or link\nLeft-drag empty canvas: box-select cards and links\nCtrl/Shift + click or box-select: extend selection\nDouble-click a card: open conversation\nDrag a card: move it\nDrag a connection port: connect agents\nRight-drag / middle-drag / Space + left-drag: pan canvas\nWheel: pan vertically\nShift + wheel: pan horizontally\nCtrl + wheel: zoom\nCtrl + A: select all\nCtrl + C / Ctrl + V: copy / paste cards\nCtrl + Z: undo\nCtrl + Y or Ctrl + Shift + Z: redo\nDelete / Backspace: delete selected cards or disconnect selected links\nEsc: cancel selection or connection'**
+  String get aiTopologyShortcutsHelp;
 
   /// No description provided for @aiTopologyDisconnectTitle.
   ///
@@ -4787,6 +4811,1122 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Fast and Ultrafast usually cost more'**
   String get aiProcessingSpeedCost;
+
+  /// No description provided for @agentStorageScopeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Identify agents by their full ID; the full name and ID appear below.'**
+  String get agentStorageScopeHint;
+
+  /// No description provided for @agentStorageBackupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Import and export'**
+  String get agentStorageBackupTitle;
+
+  /// No description provided for @agentStorageManageHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search, add and edit memories in the selected scope.'**
+  String get agentStorageManageHint;
+
+  /// No description provided for @agentStorageDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'This device'**
+  String get agentStorageDevice;
+
+  /// No description provided for @agentStorageDeviceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Local conversations, memories and workflow data.'**
+  String get agentStorageDeviceHint;
+
+  /// No description provided for @agentStorageManageAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage'**
+  String get agentStorageManageAction;
+
+  /// No description provided for @agentStorageCleanAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Clean up now'**
+  String get agentStorageCleanAction;
+
+  /// No description provided for @agentStorageBackupHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Import or export workflows, agents, conversations and long-term memories.'**
+  String get agentStorageBackupHint;
+
+  /// No description provided for @agentStorageMemoryCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Long-term memory'**
+  String get agentStorageMemoryCategory;
+
+  /// No description provided for @agentStorageOtherCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Indexes and database space'**
+  String get agentStorageOtherCategory;
+
+  /// No description provided for @agentStorageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage'**
+  String get agentStorageTitle;
+
+  /// No description provided for @agentStorageDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage conversations, memories and portable backups.'**
+  String get agentStorageDescription;
+
+  /// No description provided for @agentStorageMemoryScopeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the agent whose long-term memories you want to manage. The memories and automatic memory settings below apply only to that agent.'**
+  String get agentStorageMemoryScopeHint;
+
+  /// No description provided for @agentStorageScope.
+  ///
+  /// In en, this message translates to:
+  /// **'Long-term memory owner'**
+  String get agentStorageScope;
+
+  /// No description provided for @agentStorageMemories.
+  ///
+  /// In en, this message translates to:
+  /// **'Long-term memories'**
+  String get agentStorageMemories;
+
+  /// No description provided for @agentStorageContextTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat history and context'**
+  String get agentStorageContextTitle;
+
+  /// No description provided for @agentStorageContextManageHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage chat context, compacted summaries and the context cache.'**
+  String get agentStorageContextManageHint;
+
+  /// No description provided for @agentStorageRecords.
+  ///
+  /// In en, this message translates to:
+  /// **'Conversations and workflow'**
+  String get agentStorageRecords;
+
+  /// No description provided for @agentStorageAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add memory'**
+  String get agentStorageAdd;
+
+  /// No description provided for @agentStorageManageContext.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage chat history and context'**
+  String get agentStorageManageContext;
+
+  /// No description provided for @agentStorageManage.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage memories'**
+  String get agentStorageManage;
+
+  /// No description provided for @agentStorageImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Import package'**
+  String get agentStorageImport;
+
+  /// No description provided for @agentStorageExportMemory.
+  ///
+  /// In en, this message translates to:
+  /// **'Export long-term memories'**
+  String get agentStorageExportMemory;
+
+  /// No description provided for @agentStorageImportMemory.
+  ///
+  /// In en, this message translates to:
+  /// **'Import long-term memories'**
+  String get agentStorageImportMemory;
+
+  /// No description provided for @agentStorageExportAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Export agent'**
+  String get agentStorageExportAgent;
+
+  /// No description provided for @agentStorageExportBranch.
+  ///
+  /// In en, this message translates to:
+  /// **'Export agent branch'**
+  String get agentStorageExportBranch;
+
+  /// No description provided for @agentStorageExportChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Export conversations'**
+  String get agentStorageExportChat;
+
+  /// No description provided for @agentStorageExportWorkflow.
+  ///
+  /// In en, this message translates to:
+  /// **'Export agent workflow'**
+  String get agentStorageExportWorkflow;
+
+  /// No description provided for @agentStorageExportAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Back up all agent data'**
+  String get agentStorageExportAll;
+
+  /// No description provided for @agentStorageDeleteChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete conversation and context'**
+  String get agentStorageDeleteChat;
+
+  /// No description provided for @agentStorageDeleteChatHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this agent’s chat history and context summary? Its saved memories remain.'**
+  String get agentStorageDeleteChatHint;
+
+  /// No description provided for @agentStorageDeleteMemoryHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this memory? This does not delete the original conversation.'**
+  String get agentStorageDeleteMemoryHint;
+
+  /// No description provided for @agentStorageEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved memories.'**
+  String get agentStorageEmpty;
+
+  /// No description provided for @agentStorageContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory content'**
+  String get agentStorageContent;
+
+  /// No description provided for @agentStorageSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Source'**
+  String get agentStorageSource;
+
+  /// No description provided for @agentStorageImportPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Import preview'**
+  String get agentStorageImportPreview;
+
+  /// No description provided for @agentStorageImportHint.
+  ///
+  /// In en, this message translates to:
+  /// **'New agents receive new IDs. Memories are merged into the selected scope; exact duplicates are skipped. Imported permissions are reset and no operations resume.'**
+  String get agentStorageImportHint;
+
+  /// No description provided for @agentStorageSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get agentStorageSuccess;
+
+  /// No description provided for @agentStorageCompactResult.
+  ///
+  /// In en, this message translates to:
+  /// **'Context compacted: {before} → {after} tokens (estimated).'**
+  String agentStorageCompactResult(int before, int after);
+
+  /// No description provided for @agentStorageCompactTooShort.
+  ///
+  /// In en, this message translates to:
+  /// **'There is not enough conversation history to compact yet.'**
+  String get agentStorageCompactTooShort;
+
+  /// No description provided for @agentStorageCompactUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure an available model service before compacting context.'**
+  String get agentStorageCompactUnavailable;
+
+  /// No description provided for @agentStorageCompactCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Context compaction cancelled.'**
+  String get agentStorageCompactCancelled;
+
+  /// No description provided for @agentStorageCompactUnchanged.
+  ///
+  /// In en, this message translates to:
+  /// **'No usable summary was generated. Context is unchanged.'**
+  String get agentStorageCompactUnchanged;
+
+  /// No description provided for @agentStorageCompactFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Context compaction failed. Check the model service and try again.'**
+  String get agentStorageCompactFailed;
+
+  /// No description provided for @agentStorageCleanFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Clean-up failed. Please try again later.'**
+  String get agentStorageCleanFailed;
+
+  /// No description provided for @agentStorageCleanNothing.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to clean up.'**
+  String get agentStorageCleanNothing;
+
+  /// No description provided for @agentStorageCleanResult.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed {count} leftover items and freed {size}.'**
+  String agentStorageCleanResult(int count, String size);
+
+  /// No description provided for @agentStorageCleanSpaceResult.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage organized. Freed {size}.'**
+  String agentStorageCleanSpaceResult(String size);
+
+  /// No description provided for @agentStoragePackageType.
+  ///
+  /// In en, this message translates to:
+  /// **'LilygoBox data package (7z)'**
+  String get agentStoragePackageType;
+
+  /// No description provided for @agentStorageCompact.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact context'**
+  String get agentStorageCompact;
+
+  /// No description provided for @agentStorageRetrieving.
+  ///
+  /// In en, this message translates to:
+  /// **'Retrieve memories'**
+  String get agentStorageRetrieving;
+
+  /// No description provided for @agentStorageSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Save memory'**
+  String get agentStorageSaving;
+
+  /// No description provided for @agentStorageDeleting.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete memory'**
+  String get agentStorageDeleting;
+
+  /// No description provided for @agentStorageMemoryEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically use long-term memories'**
+  String get agentStorageMemoryEnabled;
+
+  /// No description provided for @agentStorageMemoryHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Retrieve relevant memories before each turn to inform replies, and allow the agent to search, save or delete memories.'**
+  String get agentStorageMemoryHint;
+
+  /// No description provided for @agentStorageUsage.
+  ///
+  /// In en, this message translates to:
+  /// **'Local storage usage'**
+  String get agentStorageUsage;
+
+  /// No description provided for @agentStorageSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search memories'**
+  String get agentStorageSearch;
+
+  /// No description provided for @agentStorageNoAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Select an agent first.'**
+  String get agentStorageNoAgent;
+
+  /// No description provided for @agentStorageBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop the selected agents before importing or deleting their data.'**
+  String get agentStorageBusy;
+
+  /// No description provided for @agentMemoryDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Identical — skip'**
+  String get agentMemoryDuplicate;
+
+  /// No description provided for @agentMemoryConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'Different versions of the same memory'**
+  String get agentMemoryConflict;
+
+  /// No description provided for @agentMemoryNew.
+  ///
+  /// In en, this message translates to:
+  /// **'New memory'**
+  String get agentMemoryNew;
+
+  /// No description provided for @agentMemorySkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get agentMemorySkip;
+
+  /// No description provided for @agentMemoryBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep both'**
+  String get agentMemoryBoth;
+
+  /// No description provided for @agentMemoryReplace.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace existing'**
+  String get agentMemoryReplace;
+
+  /// No description provided for @agentMemoryIncoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Incoming content (editable)'**
+  String get agentMemoryIncoming;
+
+  /// No description provided for @agentMemoryExisting.
+  ///
+  /// In en, this message translates to:
+  /// **'Existing content'**
+  String get agentMemoryExisting;
+
+  /// No description provided for @agentMemoryReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Review memories'**
+  String get agentMemoryReview;
+
+  /// No description provided for @agentStorageMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Load more'**
+  String get agentStorageMore;
+
+  /// No description provided for @agentStorageEditMemory.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get agentStorageEditMemory;
+
+  /// No description provided for @agentStorageClean.
+  ///
+  /// In en, this message translates to:
+  /// **'Free up storage space'**
+  String get agentStorageClean;
+
+  /// No description provided for @agentStorageCleanHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove leftover files now to free up storage space. Chats, memories and recycle bin contents are kept.'**
+  String get agentStorageCleanHint;
+
+  /// No description provided for @agentStorageContextBudget.
+  ///
+  /// In en, this message translates to:
+  /// **'Context budget'**
+  String get agentStorageContextBudget;
+
+  /// No description provided for @agentStorageContextHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget × percentage = automatic compaction threshold. Press Enter or leave the field to save. Refer to the provider’s model capacity and leave room for the full request.'**
+  String get agentStorageContextHint;
+
+  /// No description provided for @agentStorageArchived.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived scope'**
+  String get agentStorageArchived;
+
+  /// No description provided for @agentStorageFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Operation failed. Check the file or storage permissions.'**
+  String get agentStorageFailure;
+
+  /// No description provided for @agentStorageSensitiveHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Packages contain the selected conversations, context or long-term memory text, but no API keys. Keep them private.'**
+  String get agentStorageSensitiveHint;
+
+  /// No description provided for @agentStorageTokens.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} tokens (estimated)'**
+  String agentStorageTokens(int count);
+
+  /// No description provided for @agentStorageExportTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Export data'**
+  String get agentStorageExportTab;
+
+  /// No description provided for @agentStorageImportAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'Import data'**
+  String get agentStorageImportAgents;
+
+  /// No description provided for @agentStorageImportTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Import data'**
+  String get agentStorageImportTab;
+
+  /// No description provided for @agentStoragePackageKind.
+  ///
+  /// In en, this message translates to:
+  /// **'Export contents'**
+  String get agentStoragePackageKind;
+
+  /// No description provided for @agentStoragePackageKindHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the contents to export as one .7z file.'**
+  String get agentStoragePackageKindHint;
+
+  /// No description provided for @agentStorageMemoryPackage.
+  ///
+  /// In en, this message translates to:
+  /// **'Long-term memory package'**
+  String get agentStorageMemoryPackage;
+
+  /// No description provided for @agentStorageChatPackage.
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation and context package'**
+  String get agentStorageChatPackage;
+
+  /// No description provided for @agentStorageAgentPackage.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent package'**
+  String get agentStorageAgentPackage;
+
+  /// No description provided for @agentStorageWorkflowPackage.
+  ///
+  /// In en, this message translates to:
+  /// **'Workflow package'**
+  String get agentStorageWorkflowPackage;
+
+  /// No description provided for @agentStorageBackupPackage.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete data package'**
+  String get agentStorageBackupPackage;
+
+  /// No description provided for @agentStorageMemoryPackageHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Export the selected agent’s long-term memories. Import them into another agent.'**
+  String get agentStorageMemoryPackageHint;
+
+  /// No description provided for @agentStorageChatPackageHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Export the selected agent’s complete conversation, context history and compaction summary, message bodies, reasoning, tool calls, activity records, images and attachments, without long-term memories.'**
+  String get agentStorageChatPackageHint;
+
+  /// No description provided for @agentStorageAgentPackageHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Export one agent’s name, model reference, conversation, context summary, long-term memories and attachments. Optionally include its children.'**
+  String get agentStorageAgentPackageHint;
+
+  /// No description provided for @agentStorageWorkflowPackageHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Export all workflow agents, connections, canvas layout, conversations, context history and compaction summaries, long-term memories and attachments.'**
+  String get agentStorageWorkflowPackageHint;
+
+  /// No description provided for @agentStorageBackupPackageHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Includes the workflow and the conversations, attachments and memories in the recycle bin.'**
+  String get agentStorageBackupPackageHint;
+
+  /// No description provided for @agentStorageIncludeChildren.
+  ///
+  /// In en, this message translates to:
+  /// **'Include child agents'**
+  String get agentStorageIncludeChildren;
+
+  /// No description provided for @agentStorageChooseAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an agent to export'**
+  String get agentStorageChooseAgent;
+
+  /// No description provided for @agentStorageMemoryDestination.
+  ///
+  /// In en, this message translates to:
+  /// **'Where to import long-term memories'**
+  String get agentStorageMemoryDestination;
+
+  /// No description provided for @agentStorageMemoryDestinationHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an existing agent, or create a main agent for these long-term memories.'**
+  String get agentStorageMemoryDestinationHint;
+
+  /// No description provided for @agentStorageExportTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'Export target'**
+  String get agentStorageExportTarget;
+
+  /// No description provided for @agentStorageExportTargetHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an agent or the agent workflow, then select what to export.'**
+  String get agentStorageExportTargetHint;
+
+  /// No description provided for @agentStorageChooseExportTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose what to export'**
+  String get agentStorageChooseExportTarget;
+
+  /// No description provided for @agentStorageAgentTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent'**
+  String get agentStorageAgentTarget;
+
+  /// No description provided for @agentStorageIncludeArchived.
+  ///
+  /// In en, this message translates to:
+  /// **'Include agents in the recycle bin'**
+  String get agentStorageIncludeArchived;
+
+  /// No description provided for @agentRecycleSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search agents'**
+  String get agentRecycleSearch;
+
+  /// No description provided for @agentRecycleBin.
+  ///
+  /// In en, this message translates to:
+  /// **'Recycle bin'**
+  String get agentRecycleBin;
+
+  /// No description provided for @agentRecycleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore or permanently delete removed agents.'**
+  String get agentRecycleHint;
+
+  /// No description provided for @agentRecycleRetention.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically delete'**
+  String get agentRecycleRetention;
+
+  /// No description provided for @agentRecycleDays7.
+  ///
+  /// In en, this message translates to:
+  /// **'After 7 days'**
+  String get agentRecycleDays7;
+
+  /// No description provided for @agentRecycleDays30.
+  ///
+  /// In en, this message translates to:
+  /// **'After 30 days'**
+  String get agentRecycleDays30;
+
+  /// No description provided for @agentRecycleDays90.
+  ///
+  /// In en, this message translates to:
+  /// **'After 90 days'**
+  String get agentRecycleDays90;
+
+  /// No description provided for @agentRecycleNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get agentRecycleNever;
+
+  /// No description provided for @agentRecycleEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'The recycle bin is empty'**
+  String get agentRecycleEmpty;
+
+  /// No description provided for @agentRecycleRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get agentRecycleRestore;
+
+  /// No description provided for @agentRecycleDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete permanently'**
+  String get agentRecycleDelete;
+
+  /// No description provided for @agentRecycleEmptyAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty recycle bin'**
+  String get agentRecycleEmptyAction;
+
+  /// No description provided for @agentRecycleDeleteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Conversations, attachments and memories will be permanently deleted. This cannot be undone.'**
+  String get agentRecycleDeleteHint;
+
+  /// No description provided for @agentRecycleRestoreHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The original ID, conversation and memory are preserved. If the parent no longer exists, the agent is restored as a main agent. Permissions must be granted again. Expired items are removed at the next startup if the app is closed.'**
+  String get agentRecycleRestoreHint;
+
+  /// No description provided for @agentRecycleDeletedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted'**
+  String get agentRecycleDeletedAt;
+
+  /// No description provided for @agentRecycleExpiresAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires'**
+  String get agentRecycleExpiresAt;
+
+  /// No description provided for @agentRecycleRetentionConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Changing retention permanently deletes any agents that have already expired. Continue?'**
+  String get agentRecycleRetentionConfirm;
+
+  /// No description provided for @agentTopologyHintSelectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Ctrl + A · Select all agents and connections'**
+  String get agentTopologyHintSelectAll;
+
+  /// No description provided for @agentTopologyHintCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Ctrl + C · Copy agents or workflow'**
+  String get agentTopologyHintCopy;
+
+  /// No description provided for @agentTopologyHintPaste.
+  ///
+  /// In en, this message translates to:
+  /// **'Ctrl + V · Paste agents or workflow'**
+  String get agentTopologyHintPaste;
+
+  /// No description provided for @agentTopologyHintUndo.
+  ///
+  /// In en, this message translates to:
+  /// **'Ctrl + Z · Undo'**
+  String get agentTopologyHintUndo;
+
+  /// No description provided for @agentTopologyHintRedo.
+  ///
+  /// In en, this message translates to:
+  /// **'Ctrl + Y · Redo'**
+  String get agentTopologyHintRedo;
+
+  /// No description provided for @agentTopologyHintDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete · Delete selected content'**
+  String get agentTopologyHintDelete;
+
+  /// No description provided for @agentTopologyHintEscape.
+  ///
+  /// In en, this message translates to:
+  /// **'Esc · Clear selection or connection'**
+  String get agentTopologyHintEscape;
+
+  /// No description provided for @agentTopologyHintBoxSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Left-drag · Select agents and connections'**
+  String get agentTopologyHintBoxSelect;
+
+  /// No description provided for @agentTopologyHintPan.
+  ///
+  /// In en, this message translates to:
+  /// **'Wheel / Shift + wheel · Pan canvas'**
+  String get agentTopologyHintPan;
+
+  /// No description provided for @agentTopologyHintZoom.
+  ///
+  /// In en, this message translates to:
+  /// **'Ctrl + wheel · Zoom canvas'**
+  String get agentTopologyHintZoom;
+
+  /// No description provided for @agentStorageWorkflowCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Workflow'**
+  String get agentStorageWorkflowCategory;
+
+  /// No description provided for @agentStorageContextUsage.
+  ///
+  /// In en, this message translates to:
+  /// **'Current context'**
+  String get agentStorageContextUsage;
+
+  /// No description provided for @agentStorageContextUsageHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Local estimate of chat history, excluding the full request’s system instructions, tool definitions and retrieved memories.'**
+  String get agentStorageContextUsageHint;
+
+  /// No description provided for @agentStorageContextInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a whole number greater than 0.'**
+  String get agentStorageContextInvalid;
+
+  /// No description provided for @agentStorageCompactHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Summarize older conversation for future requests. Original conversations and attachments are retained.'**
+  String get agentStorageCompactHint;
+
+  /// No description provided for @agentStorageCompactNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact now'**
+  String get agentStorageCompactNow;
+
+  /// No description provided for @agentStorageChatDataTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation and context'**
+  String get agentStorageChatDataTitle;
+
+  /// No description provided for @agentStorageContextPercent.
+  ///
+  /// In en, this message translates to:
+  /// **'Compaction trigger'**
+  String get agentStorageContextPercent;
+
+  /// No description provided for @agentStorageContextTriggerTokens.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic compaction threshold: {count} tokens (estimated)'**
+  String agentStorageContextTriggerTokens(int count);
+
+  /// No description provided for @agentStorageContextPercentInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a whole percentage from 1 to 100.'**
+  String get agentStorageContextPercentInvalid;
+
+  /// No description provided for @agentStorageContextPercentWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'A high percentage may leave too little room for new messages, tools and responses. Compact before the context window is full.'**
+  String get agentStorageContextPercentWarning;
+
+  /// No description provided for @agentTopologyZoomPercentage.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom percentage'**
+  String get agentTopologyZoomPercentage;
+
+  /// No description provided for @agentTopologyControlHints.
+  ///
+  /// In en, this message translates to:
+  /// **'Ctrl + A Select all · Ctrl + C Copy · Ctrl + V Paste · Ctrl + Z Undo · Ctrl + Y Redo · Ctrl + Wheel Zoom'**
+  String get agentTopologyControlHints;
+
+  /// No description provided for @agentTopologyShiftHints.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift + Wheel Pan horizontally · Shift + Click / Drag Add to selection · Ctrl + Shift + Z Redo'**
+  String get agentTopologyShiftHints;
+
+  /// No description provided for @agentTopologySpaceHints.
+  ///
+  /// In en, this message translates to:
+  /// **'Space + Left drag Pan canvas'**
+  String get agentTopologySpaceHints;
+
+  /// No description provided for @agentStorageDatabaseLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent data directory (conversations, context and long-term memories)'**
+  String get agentStorageDatabaseLocation;
+
+  /// No description provided for @agentStorageChoosePackage.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose data package'**
+  String get agentStorageChoosePackage;
+
+  /// No description provided for @agentStorageImportAutoHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a .7z package to detect its type, then review its contents before importing. Packages contain no API keys; keep them private.'**
+  String get agentStorageImportAutoHint;
+
+  /// No description provided for @agentStorageImportCreatesAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'New agents will receive new IDs. Existing agents will not be overwritten.'**
+  String get agentStorageImportCreatesAgents;
+
+  /// No description provided for @agentStorageImportMemoryCreatesAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'A new agent will be created with these long-term memories. Existing agents stay unchanged. The new agent will not run automatically; select a model to use it.'**
+  String get agentStorageImportMemoryCreatesAgent;
+
+  /// No description provided for @agentStorageImportedMemoryAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported agent'**
+  String get agentStorageImportedMemoryAgent;
+
+  /// No description provided for @agentStorageImportMemoryMergeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Long-term memories will be merged into the selected agent. Exact duplicates are skipped; conflicts can be reviewed before importing.'**
+  String get agentStorageImportMemoryMergeHint;
+
+  /// No description provided for @agentStorageImportSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Data imported.'**
+  String get agentStorageImportSuccess;
+
+  /// No description provided for @agentStorageExportSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Data exported.'**
+  String get agentStorageExportSuccess;
+
+  /// No description provided for @agentStorageTransferCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Operation cancelled.'**
+  String get agentStorageTransferCancelled;
+
+  /// No description provided for @agentStorageTransferTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing data package'**
+  String get agentStorageTransferTitle;
+
+  /// No description provided for @agentStorageTransferPreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing data'**
+  String get agentStorageTransferPreparing;
+
+  /// No description provided for @agentStorageTransferReading.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading package'**
+  String get agentStorageTransferReading;
+
+  /// No description provided for @agentStorageTransferCompressing.
+  ///
+  /// In en, this message translates to:
+  /// **'Compressing data'**
+  String get agentStorageTransferCompressing;
+
+  /// No description provided for @agentStorageTransferDecompressing.
+  ///
+  /// In en, this message translates to:
+  /// **'Decompressing data'**
+  String get agentStorageTransferDecompressing;
+
+  /// No description provided for @agentStorageTransferVerifying.
+  ///
+  /// In en, this message translates to:
+  /// **'Verifying package'**
+  String get agentStorageTransferVerifying;
+
+  /// No description provided for @agentStorageTransferAnalyzing.
+  ///
+  /// In en, this message translates to:
+  /// **'Analyzing data'**
+  String get agentStorageTransferAnalyzing;
+
+  /// No description provided for @agentStorageTransferWriting.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving file'**
+  String get agentStorageTransferWriting;
+
+  /// No description provided for @agentStorageTransferCommitting.
+  ///
+  /// In en, this message translates to:
+  /// **'Completing import'**
+  String get agentStorageTransferCommitting;
+
+  /// No description provided for @agentStorageTransferCancelling.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelling'**
+  String get agentStorageTransferCancelling;
+
+  /// No description provided for @agentStorageTransferElapsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Elapsed {duration}'**
+  String agentStorageTransferElapsed(String duration);
+
+  /// No description provided for @agentStorageImportFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Data package'**
+  String get agentStorageImportFile;
+
+  /// No description provided for @agentStorageChangePackage.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose another package'**
+  String get agentStorageChangePackage;
+
+  /// No description provided for @agentStorageAutoMemoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically organize long-term memories'**
+  String get agentStorageAutoMemoryTitle;
+
+  /// No description provided for @agentStorageAutoMemoryHint.
+  ///
+  /// In en, this message translates to:
+  /// **'After each completed turn, select useful lasting information, compare it with existing memories and save new items. Makes an additional request to the current model.'**
+  String get agentStorageAutoMemoryHint;
+
+  /// No description provided for @agentStorageAutoMemoryAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Organize long-term memories'**
+  String get agentStorageAutoMemoryAction;
+
+  /// No description provided for @agentStorageAutoMemoryResult.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved {saved} long-term memories; skipped {duplicates} duplicates.'**
+  String agentStorageAutoMemoryResult(int saved, int duplicates);
+
+  /// No description provided for @agentStorageImportInvalidKind.
+  ///
+  /// In en, this message translates to:
+  /// **'This package is not supported by this entry. Choose the appropriate long-term memory, agent or workflow package.'**
+  String get agentStorageImportInvalidKind;
+
+  /// No description provided for @agentStorageTransferFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Import or export failed'**
+  String get agentStorageTransferFailedTitle;
+
+  /// No description provided for @agentStorageInvalidPackage.
+  ///
+  /// In en, this message translates to:
+  /// **'The package is invalid, damaged or unsupported. Select a valid data package.'**
+  String get agentStorageInvalidPackage;
+
+  /// No description provided for @agentStorageDeleteSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete selected ({count})'**
+  String agentStorageDeleteSelected(int count);
+
+  /// No description provided for @agentStorageRestoreSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore selected ({count})'**
+  String agentStorageRestoreSelected(int count);
+
+  /// No description provided for @agentStorageDeleteSelectedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Permanently delete the {count} selected long-term memories? This cannot be undone.'**
+  String agentStorageDeleteSelectedHint(int count);
+
+  /// No description provided for @agentRecycleDeleteSelectedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Permanently delete the {count} selected agents and their chat history, context, and long-term memories? This cannot be undone.'**
+  String agentRecycleDeleteSelectedHint(int count);
+
+  /// No description provided for @agentRecycleDeleteSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Permanently delete selected ({count})'**
+  String agentRecycleDeleteSelected(int count);
+
+  /// No description provided for @agentRecycleRemainingDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically deletes in {count} days'**
+  String agentRecycleRemainingDays(int count);
+
+  /// No description provided for @agentRecycleRemainingHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically deletes in {count} hours'**
+  String agentRecycleRemainingHours(int count);
+
+  /// No description provided for @agentRecycleRemainingMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically deletes in {count} minutes'**
+  String agentRecycleRemainingMinutes(int count);
+
+  /// No description provided for @agentRecyclePendingDeletion.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending automatic deletion'**
+  String get agentRecyclePendingDeletion;
+
+  /// No description provided for @agentMemoryAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get agentMemoryAdd;
+
+  /// No description provided for @agentMemoryEmptyContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory content cannot be empty.'**
+  String get agentMemoryEmptyContent;
+
+  /// No description provided for @agentStorageNewAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'New agent'**
+  String get agentStorageNewAgent;
 }
 
 class _AppLocalizationsDelegate

@@ -4,8 +4,8 @@
 
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';

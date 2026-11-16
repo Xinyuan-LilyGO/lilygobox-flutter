@@ -6,12 +6,12 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
@@ -119,7 +119,7 @@ class _ChatMessageBodyState extends State<ChatMessageBody> {
         'pre': _CodeBlockBuilder(theme, codeBuilder),
       },
       onTapLink: (_, href, _) => unawaited(_openLink(context, href)),
-      styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+      styleSheet: MarkdownStyleSheet(
         p: text,
         a: text.copyWith(
           color: theme.basePrimary,

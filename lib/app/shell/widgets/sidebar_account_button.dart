@@ -4,9 +4,9 @@
 
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/context_menu/right_click_menu.dart';
@@ -128,6 +128,7 @@ class _SidebarAccountButtonState extends State<SidebarAccountButton>
                 width: info.anchorRect.width,
                 menuItems: [
                   RightClickMenuItem(
+                    key: const ValueKey('account-menu-settings'),
                     icon: Symbols.settings_rounded,
                     label: context.l10n.settings,
                     onTap: () {

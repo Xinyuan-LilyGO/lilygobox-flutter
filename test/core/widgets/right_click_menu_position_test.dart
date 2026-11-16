@@ -1,14 +1,15 @@
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/context_menu/right_click_menu.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/widgets/popup_menu_surface.dart';
+import 'package:material_ui/material_ui.dart';
 
 void main() {
   Future<RightClickMenuController> mountMenu(
     WidgetTester tester, {
     bool openAbove = false,
+    int itemCount = 7,
     double scale = 1,
     Rect anchor = const Rect.fromLTWH(0, 100, 800, 480),
   }) async {
@@ -33,7 +34,7 @@ void main() {
                       openAbove: openAbove,
                       onSecondaryTap: () {},
                       menuItems: [
-                        for (var index = 0; index < 7; index++)
+                        for (var index = 0; index < itemCount; index++)
                           RightClickMenuItem(
                             label: 'Action $index',
                             onTap: controller.close,
@@ -52,6 +53,29 @@ void main() {
     );
     return controller;
   }
+
+  testWidgets(
+    'overflowing menu reserves scrollbar space outside item targets',
+    (tester) async {
+      await mountMenu(tester, itemCount: 24);
+      await tester.tapAt(
+        const Offset(400, 200),
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      final panel = tester.getRect(find.byType(PopupMenuSurface));
+      final firstItem = tester.getRect(
+        find
+            .ancestor(
+              of: find.text('Action 0'),
+              matching: find.byType(DefaultTextStyle),
+            )
+            .first,
+      );
+      expect(firstItem.right, lessThanOrEqualTo(panel.right - 20));
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   // Seven 28px rows, 10px outer padding, five 4px gaps and one 9px divider gap.
   const menuHeight = 235.0;

@@ -2,7 +2,8 @@
  * @Description: 验证设置覆盖页的返回路径、连接页面保留及隐藏页面资源释放。
  */
 
-import 'package:flutter/material.dart';
+import 'package:lilygobox/core/l10n/delegates.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/navigation/provider.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
@@ -104,7 +105,7 @@ void main() {
         ],
         child: MaterialApp(
           locale: const Locale('zh'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context).copyWith(disableAnimations: true),
@@ -156,7 +157,7 @@ void main() {
           ],
           child: MaterialApp(
             locale: const Locale('zh'),
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             builder: (context, child) => MediaQuery(
               data: MediaQuery.of(context).copyWith(disableAnimations: true),

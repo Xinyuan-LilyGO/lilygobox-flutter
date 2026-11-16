@@ -2,7 +2,7 @@
  * @Description: 验证全局主题同步渐变、连续切换及减少动画设置。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/widgets/menu_item_surface.dart';

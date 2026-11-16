@@ -2,8 +2,8 @@
  * @Description: 绘制首页空状态的设备插画，适配深浅主题与显示缩放。
  */
 
-import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../core/theme/definition.dart';
 

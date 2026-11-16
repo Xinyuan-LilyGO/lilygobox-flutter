@@ -1,7 +1,8 @@
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/theme/definition.dart';
@@ -32,7 +33,7 @@ Widget host(
   List<AiProcessEvent> stages = const [],
 }) => MaterialApp(
   locale: Locale(locale),
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: appLocalizationDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   home: Scaffold(
     body: MediaQuery(
@@ -65,7 +66,7 @@ void main() {
       late BuildContext context;
       await tester.pumpWidget(
         MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('en'),
           home: Builder(

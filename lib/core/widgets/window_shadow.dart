@@ -2,7 +2,7 @@
  * @Description: 主窗口与独立托盘窗口共用的紧凑阴影，避免大范围外扩。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 独立桌面窗口的贴边阴影，使用负扩展半径收紧外缘。
 const appWindowShadows = <BoxShadow>[

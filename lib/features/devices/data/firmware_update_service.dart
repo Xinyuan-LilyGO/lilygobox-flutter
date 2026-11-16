@@ -131,7 +131,7 @@ class _FirmwareHttpException extends HttpException {
 }
 
 class FirmwareUpdateService {
-  const FirmwareUpdateService({http.Client? client}) : _client = client;
+  const FirmwareUpdateService({this._client});
 
   final http.Client? _client;
 

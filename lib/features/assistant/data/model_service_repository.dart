@@ -1,5 +1,5 @@
 /*
- * @Description: 持久化已添加的模型服务、独立密钥与模型选择，并迁移已有的显式配置。
+ * @Description: 持久化已添加的模型服务、独立密钥与模型选择，保持当前模型选择。
  */
 
 import 'dart:convert';
@@ -138,15 +138,11 @@ class ModelServiceRepository extends ChangeNotifier {
           if (key != null) _keys[service.id] = key;
         }
         final selected = find(json['selectedId'] as String?);
-        _selectedId = json.containsKey('selectedId')
-            ? selected?.id
-            : _services.firstOrNull?.id;
+        _selectedId = selected?.id;
         final models = selectedService?.models ?? const <String>[];
         _model = models.contains(json['model'])
             ? json['model'] as String
-            : json.containsKey('model')
-            ? null
-            : models.firstOrNull;
+            : null;
         final efforts = json['reasoningEfforts'];
         _reasoningEfforts = {
           if (efforts is Map)
@@ -154,29 +150,6 @@ class ModelServiceRepository extends ChangeNotifier {
               if (entry.key is String && entry.value is String)
                 entry.key as String: entry.value as String,
         };
-        // 根据统一能力规则修复旧 ultra 档位，带前后缀的名称同样生效。
-        var migratedEffort = false;
-        for (final service in _services) {
-          for (final model in service.models) {
-            final key = jsonEncode([service.id, model]);
-            final levels = AiReasoningCapabilities.forModel(model).levels;
-            if (levels.contains(AiReasoningEffort.max) &&
-                !levels.contains(AiReasoningEffort.ultra) &&
-                _reasoningEfforts[key] == AiReasoningEffort.ultra.name) {
-              _reasoningEfforts[key] = AiReasoningEffort.max.name;
-              migratedEffort = true;
-            }
-          }
-        }
-        if (migratedEffort ||
-            (_selectedId != null &&
-                _model != null &&
-                AiReasoningCapabilities.forModel(_model!).levels.isNotEmpty &&
-                !_reasoningEfforts.containsKey(
-                  jsonEncode([_selectedId, _model]),
-                ))) {
-          await _persist(_services, _selectedId, _model);
-        }
       } catch (_) {
         _services = [];
         _keys.clear();
@@ -184,23 +157,6 @@ class ModelServiceRepository extends ChangeNotifier {
       }
       return;
     }
-    // 仅迁移确实保存过的地址、模型和密钥；默认值不创建服务。
-    final address = _preferences.stringValue('ai.baseUrl', '');
-    final model = _preferences.stringValue('ai.model', '');
-    if (address.isEmpty || model.isEmpty) return;
-    final key = await _credentials.read();
-    if (key == null || key.isEmpty) return;
-    final protocol = AiApiProtocol.openAiChatCompletions;
-    await save(
-      name: _preferences.stringValue('ai.provider', '') != 'openAiCompatible'
-          ? 'DeepSeek'
-          : Uri.parse(address).host,
-      protocol: protocol,
-      baseUrl: address,
-      models: [model],
-      apiKey: key,
-    );
-    await _credentials.clear();
   }
 
   Future<String> save({

@@ -3,12 +3,67 @@
  */
 import 'dart:ui' show PointerDeviceKind;
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/widgets/app_tooltip.dart';
 import 'package:lilygobox/core/widgets/retained_page_stack.dart';
+import 'package:material_ui/material_ui.dart';
 
 void main() {
+  testWidgets('nested menu tooltip keeps independent semantics anchors', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: MenuAnchor(
+              menuChildren: [
+                MenuItemButton(onPressed: () {}, child: const Text('Share')),
+              ],
+              builder: (context, controller, child) => AppTooltip(
+                message: 'Collaborate hint',
+                child: TextButton(
+                  onPressed: controller.open,
+                  child: const Text('Collaborate'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final menuNode = tester.getSemantics(find.byType(AppTooltip));
+    final tooltipNode = tester.getSemantics(find.byType(Tooltip));
+    expect(tooltipNode.id, isNot(menuNode.id));
+    expect(tooltipNode.getSemanticsData().tooltip, 'Collaborate hint');
+    expect(tooltipNode.traversalParentIdentifier, isNotNull);
+    expect(menuNode.traversalParentIdentifier, isNotNull);
+    expect(
+      tooltipNode.traversalParentIdentifier,
+      isNot(menuNode.traversalParentIdentifier),
+    );
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.text('Collaborate')));
+    await tester.pump(AppTooltip.waitDuration);
+    await tester.pumpAndSettle();
+    expect(find.text('Collaborate hint'), findsOneWidget);
+    expect(tester.getSemantics(find.byType(Tooltip)).id, tooltipNode.id);
+    expect(
+      tester.getSemantics(find.byType(Tooltip)).getSemanticsData().tooltip,
+      'Collaborate hint',
+    );
+    await mouse.moveTo(Offset.zero);
+    await tester.pumpAndSettle();
+    expect(find.text('Collaborate hint'), findsNothing);
+    expect(tester.getSemantics(find.byType(Tooltip)).id, tooltipNode.id);
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
+  });
   for (final size in [18.0, 30.0, 48.0]) {
     testWidgets('tooltip keeps an 8px edge gap for a ${size}px control', (
       tester,

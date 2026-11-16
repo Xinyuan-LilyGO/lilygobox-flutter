@@ -2,7 +2,7 @@
  * @Description: 展示界面语言选择并使用当前语言显示选项名称。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/l10n/language_provider.dart';
@@ -32,7 +32,7 @@ class _LanguageAndRegionContentState extends State<LanguageAndRegionContent> {
       title: context.l10n.languageAndRegion,
       description: context.l10n.languageSettingsDescription,
       children: [
-        SettingsField(
+        SettingsSection(
           theme: theme,
           title: context.l10n.language,
           description: context.l10n.languageDescription,
@@ -40,7 +40,7 @@ class _LanguageAndRegionContentState extends State<LanguageAndRegionContent> {
             width: 220,
             child: SettingSelect<String>(
               theme: theme,
-              surfaceColor: theme.secondary,
+              surfaceColor: theme.primary,
               value: currentLanguageCode,
               items: LanguageProvider.supportedLanguages.map((language) {
                 final languageName = switch (language['code']) {

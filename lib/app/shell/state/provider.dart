@@ -2,7 +2,7 @@
  * @Description: 管理主侧栏的显示状态、宽度及导航选中项。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../core/storage/preferences.dart';
 

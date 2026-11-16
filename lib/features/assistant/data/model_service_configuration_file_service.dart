@@ -7,6 +7,8 @@ import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
 
+import '../../../core/files/export_file_name.dart';
+
 class ModelServiceConfigurationFileService {
   const ModelServiceConfigurationFileService._();
 
@@ -22,7 +24,7 @@ class ModelServiceConfigurationFileService {
       throw const FormatException('Model service configuration is too large.');
     }
     final destination = await getSaveLocation(
-      suggestedName: fileName,
+      suggestedName: datedExportFileName(fileName),
       acceptedTypeGroups: [
         XTypeGroup(label: fileTypeLabel, extensions: const ['json']),
       ],

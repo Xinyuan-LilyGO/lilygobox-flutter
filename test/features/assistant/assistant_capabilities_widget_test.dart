@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:lilygobox/core/l10n/delegates.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
@@ -52,7 +53,7 @@ void main() {
           await tester.pumpWidget(
             MaterialApp(
               locale: Locale(locale),
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              localizationsDelegates: appLocalizationDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               home: Scaffold(
                 body: Align(
@@ -146,7 +147,7 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             locale: const Locale('zh'),
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               body: Center(

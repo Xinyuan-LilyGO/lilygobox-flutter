@@ -2,13 +2,15 @@
  * @Description: 验证 AI 主页居中与底部输入状态、键盘发送、直达设置及缩放布局。
  */
 
+import 'package:lilygobox/core/l10n/delegates.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,6 +29,7 @@ import 'package:lilygobox/core/widgets/app_capsule_slider.dart';
 import 'package:lilygobox/core/widgets/title_bar_icon_button.dart';
 import 'package:lilygobox/core/widgets/menu_item_surface.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
+import 'package:lilygobox/features/assistant/data/conversation_codec.dart';
 import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 import 'package:lilygobox/features/assistant/presentation/pages/page.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_composer.dart';
@@ -76,13 +79,12 @@ void main() {
       final defaultFont = FontLoader('Roboto')
         ..addFont(rootBundle.load('assets/fonts/Roboto/Roboto-Variable.ttf'));
       final symbols =
-          FontLoader(
-            'packages/material_symbols_icons/MaterialSymbolsRounded',
-          )..addFont(
-            rootBundle.load(
-              'packages/material_symbols_icons/lib/fonts/MaterialSymbolsRounded.ttf',
-            ),
-          );
+          FontLoader('packages/material_symbols_icons/MaterialSymbolsRounded')
+            ..addFont(
+              rootBundle.load(
+                'packages/material_symbols_icons/lib/fonts/MaterialSymbolsRounded.ttf',
+              ),
+            );
       await Future.wait([inter.load(), defaultFont.load(), symbols.load()]);
     }
     scope = await createAssistantTestScope(
@@ -180,7 +182,7 @@ void main() {
     child: MaterialApp(
       scrollBehavior: const AppScrollBehavior(),
       locale: Locale(locale),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: appLocalizationDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: ThemeData(
         useMaterial3: true,
@@ -231,6 +233,59 @@ void main() {
       await file.writeAsBytes(bytes!.buffer.asUint8List());
     });
   }
+
+  testWidgets(
+    'async restored conversation opens at the latest message and preserves a valid reading position',
+    (tester) async {
+      await tester.runAsync(() => scope.provider.initialized);
+      await scope.provider.saveService(
+        name: 'Test',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['test'],
+        apiKey: 'key',
+      );
+      await tester.runAsync(
+        () => scope.provider.sendMessage(
+          List.generate(80, (i) => 'History paragraph $i.').join('\n\n'),
+        ),
+      );
+      final snapshot = scope.provider.snapshotWorkspaceConversation();
+      scope.provider.clearConversation();
+      final bucket = PageStorageBucket();
+      Widget conversation() =>
+          PageStorage(bucket: bucket, child: const AssistantPage());
+      await tester.pumpWidget(app(content: conversation()));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('ai-message-scroll')), findsNothing);
+      await tester.runAsync(() async {
+        await Future<void>.delayed(Duration.zero);
+        scope.provider.restoreWorkspaceConversation(snapshot);
+      });
+      await tester.pumpAndSettle();
+      final scroll = tester
+          .widget<SingleChildScrollView>(
+            find.byKey(const ValueKey('ai-message-scroll')),
+          )
+          .controller!;
+      expect(scroll.position.maxScrollExtent, greaterThan(0));
+      expect(scroll.position.extentAfter, lessThanOrEqualTo(1));
+      scroll.jumpTo(0);
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(app(content: const SizedBox.shrink()));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(app(content: conversation()));
+      await tester.pumpAndSettle();
+      final restored = tester
+          .widget<SingleChildScrollView>(
+            find.byKey(const ValueKey('ai-message-scroll')),
+          )
+          .controller!;
+      expect(restored.offset, 0);
+      expect(restored.position.extentAfter, greaterThan(120));
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   for (final stop in [false, true]) {
     testWidgets(
@@ -447,15 +502,17 @@ void main() {
       find.byKey(const ValueKey('ai-queue-attachments-divider')),
       findsNothing,
     );
-    tester.widget<ChatComposer>(find.byType(ChatComposer)).onAttachmentsChanged([
-      AiImageAttachment(
-        name: 'draft.png',
-        bytes: base64Decode(
-          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
+    tester.widget<ChatComposer>(find.byType(ChatComposer)).onAttachmentsChanged(
+      [
+        AiImageAttachment(
+          name: 'draft.png',
+          bytes: base64Decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=',
+          ),
+          mimeType: 'image/png',
         ),
-        mimeType: 'image/png',
-      ),
-    ]);
+      ],
+    );
     await tester.pumpAndSettle();
     final divider = find.byKey(const ValueKey('ai-queue-attachments-divider'));
     expect(divider, findsOneWidget);
@@ -606,7 +663,7 @@ void main() {
     addTearDown(focus.dispose);
     addTearDown(scroll.dispose);
     final bytes = base64Decode(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=',
     );
     var reads = 0;
     List<AiImageAttachment> attachments = [];
@@ -658,7 +715,7 @@ void main() {
     final image = AiImageAttachment(
       name: 'image.png',
       bytes: base64Decode(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=',
       ),
       mimeType: 'image/png',
     );
@@ -762,8 +819,8 @@ void main() {
       );
       expect(innerRect.top - outerRect.top, 5);
       expect(outerRect.bottom - innerRect.bottom, 5);
-      expect(innerRect.left - outerRect.left, 5);
-      expect(outerRect.right - innerRect.right, 5);
+      expect(innerRect.left - outerRect.left, 4);
+      expect(outerRect.right - innerRect.right, 4);
       await capture(tester, 'home-empty-dark');
       expect(find.text('Adjust sidebar layout'), findsNothing);
       expect(find.text('Configure AI service'), findsNothing);
@@ -869,63 +926,61 @@ void main() {
     },
   );
 
-  testWidgets(
-    'composer keeps selection tight and reserves a scrollbar gutter',
-    (tester) async {
-      await tester.pumpWidget(app());
-      await tester.pumpAndSettle();
-      expect(
-        find.descendant(
-          of: find.byType(ChatComposer),
-          matching: find.byType(Scrollbar),
-        ),
-        findsOneWidget,
-      );
-      final field = find.byKey(const ValueKey('ai-message-input'));
-      final text =
-          'A long first line for selection.\nShort\n${List.filled(20, 'More log content to scroll.').join('\n')}';
-      await tester.enterText(field, text);
-      final input = tester.widget<TextField>(field);
-      input.controller!.selection = TextSelection(
-        baseOffset: 0,
-        extentOffset: text.length,
-      );
-      await tester.pumpAndSettle();
-      final editable = tester.state<EditableTextState>(
-        find.descendant(of: field, matching: find.byType(EditableText)),
-      );
-      final shortStart = text.indexOf('Short');
-      final boxes = editable.renderEditable.getBoxesForSelection(
-        TextSelection(baseOffset: shortStart, extentOffset: shortStart + 5),
-      );
-      expect(boxes.single.right - boxes.single.left, lessThan(100));
-      final scrollbar = find.byKey(const ValueKey('ai-input-scrollbar'));
-      expect(
-        tester.getRect(scrollbar).right - tester.getRect(field).right,
-        closeTo(14, .1),
-      );
-      expect(input.scrollController!.position.maxScrollExtent, greaterThan(0));
-      final original = input.controller!.text;
-      input.scrollController!.jumpTo(0);
-      await tester.pumpAndSettle();
-      await tester.sendEventToBinding(
-        PointerScrollEvent(
-          position: tester.getCenter(field),
-          scrollDelta: const Offset(0, 60),
-          kind: PointerDeviceKind.mouse,
-        ),
-      );
-      expect(input.scrollController!.offset, 0);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 60));
-      expect(input.scrollController!.offset, inExclusiveRange(0, 60));
-      await tester.pumpAndSettle();
-      expect(input.scrollController!.offset, closeTo(60, .1));
-      expect(input.controller!.text, original);
-      expect(tester.takeException(), isNull);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.windows),
-  );
+  testWidgets('composer keeps selection tight and reserves a scrollbar gutter', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(ChatComposer),
+        matching: find.byType(Scrollbar),
+      ),
+      findsOneWidget,
+    );
+    final field = find.byKey(const ValueKey('ai-message-input'));
+    final text =
+        'A long first line for selection.\nShort\n${List.filled(20, 'More log content to scroll.').join('\n')}';
+    await tester.enterText(field, text);
+    final input = tester.widget<TextField>(field);
+    input.controller!.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: text.length,
+    );
+    await tester.pumpAndSettle();
+    final editable = tester.state<EditableTextState>(
+      find.descendant(of: field, matching: find.byType(EditableText)),
+    );
+    final shortStart = text.indexOf('Short');
+    final boxes = editable.renderEditable.getBoxesForSelection(
+      TextSelection(baseOffset: shortStart, extentOffset: shortStart + 5),
+    );
+    expect(boxes.single.right - boxes.single.left, lessThan(100));
+    final scrollbar = find.byKey(const ValueKey('ai-input-scrollbar'));
+    expect(
+      tester.getRect(scrollbar).right - tester.getRect(field).right,
+      closeTo(14, .1),
+    );
+    expect(input.scrollController!.position.maxScrollExtent, greaterThan(0));
+    final original = input.controller!.text;
+    input.scrollController!.jumpTo(0);
+    await tester.pumpAndSettle();
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: tester.getCenter(field),
+        scrollDelta: const Offset(0, 60),
+        kind: PointerDeviceKind.mouse,
+      ),
+    );
+    expect(input.scrollController!.offset, 0);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(input.scrollController!.offset, inExclusiveRange(0, 60));
+    await tester.pumpAndSettle();
+    expect(input.scrollController!.offset, closeTo(60, .1));
+    expect(input.controller!.text, original);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
   testWidgets(
     'animates wheel scrolling and latest button with theme contrast',
@@ -1032,8 +1087,154 @@ void main() {
     variant: latestMotionVariant,
   );
 
+  testWidgets('one latest click reaches the end of mixed image messages', (
+    tester,
+  ) async {
+    await tester.runAsync(() => scope.provider.initialized);
+    await scope.provider.saveService(
+      name: 'Test',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://example.test/v1',
+      models: ['test'],
+      apiKey: 'key',
+    );
+    final image = AiImageAttachment(
+      name: 'image.png',
+      mimeType: 'image/png',
+      bytes: base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=',
+      ),
+    );
+    for (var i = 0; i < 16; i++) {
+      await tester.runAsync(
+        () => scope.provider.sendMessage(
+          i < 4
+              ? 'Short message'
+              : List.filled(8, 'An image description line').join('\n'),
+          attachments: [image],
+        ),
+      );
+    }
+    await tester.pumpWidget(
+      app(disableAnimations: latestMotionVariant.currentValue!),
+    );
+    await tester.pumpAndSettle();
+    final sentImages = find.descendant(
+      of: find.byKey(const ValueKey('ai-message-scroll')),
+      matching: find.byType(Image),
+    );
+    expect(tester.getSize(sentImages.first), const Size(100, 100));
+    tester.widget<ChatComposer>(find.byType(ChatComposer)).onAttachmentsChanged(
+      [image],
+    );
+    await tester.pumpAndSettle();
+    final controller = tester
+        .widget<SingleChildScrollView>(
+          find.byKey(const ValueKey('ai-message-scroll')),
+        )
+        .controller!;
+    final extent = controller.position.maxScrollExtent;
+    // Mixed-height messages must not change the scrollbar mapping as we scroll.
+    for (final fraction in [.2, .5, .8, .35, 1.0, 0.0]) {
+      controller.jumpTo(extent * fraction);
+      await tester.pumpAndSettle();
+      expect(controller.position.maxScrollExtent, closeTo(extent, .1));
+      expect(controller.offset, closeTo(extent * fraction, .1));
+    }
+    controller.jumpTo(1);
+    await tester.pumpAndSettle();
+    final button = find.byKey(const ValueKey('ai-scroll-to-latest'));
+    expect(button, findsOneWidget);
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(controller.position.extentAfter, closeTo(0, 1));
+    expect(button, findsNothing);
+    expect(tester.takeException(), isNull);
+  }, variant: latestMotionVariant);
+
   testWidgets(
-    'one latest click reaches the end of mixed image messages',
+    'scrolling long Markdown reuses message paint without changing selection or extent',
+    (tester) async {
+      await tester.runAsync(() => scope.provider.initialized);
+      final content = List.generate(
+        35,
+        (i) =>
+            '### Section $i\n\n- First long list item with enough text to wrap across the conversation width.\n- Second item\n\n| Name | Value |\n| --- | --- |\n| Row $i | Table content |\n',
+      ).join('\n');
+      scope.provider.restoreWorkspaceConversation({
+        'messages': [
+          ConversationCodec.message(
+            AiMessage(id: 'paint-test', role: 'assistant', content: content),
+          ),
+        ],
+        'history': <Map<String, Object?>>[],
+      });
+      await tester.pumpWidget(app(disableAnimations: true));
+      await tester.pumpAndSettle();
+      final scroll = tester
+          .widget<SingleChildScrollView>(
+            find.byKey(const ValueKey('ai-message-scroll')),
+          )
+          .controller!;
+      final boundaryFinder = find.byKey(
+        const ValueKey('ai-message-paint-paint-test'),
+      );
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        boundaryFinder,
+      );
+      final extent = scroll.position.maxScrollExtent;
+      expect(extent, greaterThan(1000));
+      scroll.jumpTo(extent * .3);
+      await tester.pumpAndSettle();
+      boundary.debugResetMetrics();
+      for (var i = 1; i <= 8; i++) {
+        scroll.jumpTo(extent * .3 + i * 8);
+        await tester.pump();
+      }
+      // The viewport repaints, but the completed Markdown display list is reused.
+      expect(boundary.debugSymmetricPaintCount, 0);
+      expect(boundary.debugAsymmetricPaintCount, greaterThan(0));
+      expect(scroll.position.maxScrollExtent, closeTo(extent, .1));
+      final region = tester.state<SelectableRegionState>(
+        find.byType(SelectableRegion),
+      );
+      region.selectAll(SelectionChangedCause.toolbar);
+      await tester.pump();
+      final paragraphs = find.descendant(
+        of: boundaryFinder,
+        matching: find.byType(RichText),
+      );
+      expect(
+        paragraphs.evaluate().any(
+          (e) => (e.renderObject! as RenderParagraph).selections.any(
+            (s) => !s.isCollapsed,
+          ),
+        ),
+        isTrue,
+      );
+      region.clearSelection();
+      region.hideToolbar();
+      await tester.pump();
+      theme.setTheme(ThemeType.dark);
+      await tester.pumpAndSettle();
+      final paragraph = paragraphs
+          .evaluate()
+          .map((e) => e.renderObject! as RenderParagraph)
+          .firstWhere((p) => p.text.toPlainText().contains('Section 0'));
+      bool hasColor(InlineSpan span, Color color) =>
+          span.style?.color == color ||
+          (span is TextSpan &&
+              (span.children?.any((child) => hasColor(child, color)) ?? false));
+      expect(
+        hasColor(paragraph.text, theme.themeData.textColorPrimary),
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'message repaint boundary updates when a running reply receives content',
     (tester) async {
       await tester.runAsync(() => scope.provider.initialized);
       await scope.provider.saveService(
@@ -1043,60 +1244,39 @@ void main() {
         models: ['test'],
         apiKey: 'key',
       );
-      final image = AiImageAttachment(
-        name: 'image.png',
-        mimeType: 'image/png',
-        bytes: base64Decode(
-          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
-        ),
+      await tester.pumpWidget(app(disableAnimations: true));
+      await tester.pumpAndSettle();
+      responseGate = Completer<void>();
+      unawaited(scope.provider.sendMessage('Paint boundary update'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      final reply = scope.provider.messages.last;
+      final finder = find.byKey(ValueKey('ai-message-paint-${reply.id}'));
+      final boundary = tester.renderObject<RenderRepaintBoundary>(finder);
+      boundary.debugResetMetrics();
+      responseGate!.complete();
+      await pumpAssistantUntilIdle(tester);
+      await tester.pumpAndSettle();
+      expect(
+        tester.renderObject<RenderRepaintBoundary>(finder),
+        same(boundary),
       );
-      for (var i = 0; i < 16; i++) {
-        await tester.runAsync(
-          () => scope.provider.sendMessage(
-            i < 4
-                ? 'Short message'
-                : List.filled(8, 'An image description line').join('\n'),
-            attachments: [image],
+      expect(
+        find.descendant(
+          of: finder,
+          matching: find.text(
+            'Ready to help with LilygoBox.',
+            findRichText: true,
           ),
-        );
-      }
-      await tester.pumpWidget(
-        app(disableAnimations: latestMotionVariant.currentValue!),
+        ),
+        findsOneWidget,
       );
-      await tester.pumpAndSettle();
-      final sentImages = find.descendant(
-        of: find.byKey(const ValueKey('ai-message-scroll')),
-        matching: find.byType(Image),
+      expect(
+        boundary.debugSymmetricPaintCount + boundary.debugAsymmetricPaintCount,
+        greaterThan(0),
       );
-      expect(tester.getSize(sentImages.first), const Size(100, 100));
-      tester
-          .widget<ChatComposer>(find.byType(ChatComposer))
-          .onAttachmentsChanged([image]);
-      await tester.pumpAndSettle();
-      final controller = tester
-          .widget<SingleChildScrollView>(
-            find.byKey(const ValueKey('ai-message-scroll')),
-          )
-          .controller!;
-      final extent = controller.position.maxScrollExtent;
-      // Mixed-height messages must not change the scrollbar mapping as we scroll.
-      for (final fraction in [.2, .5, .8, .35, 1.0, 0.0]) {
-        controller.jumpTo(extent * fraction);
-        await tester.pumpAndSettle();
-        expect(controller.position.maxScrollExtent, closeTo(extent, .1));
-        expect(controller.offset, closeTo(extent * fraction, .1));
-      }
-      controller.jumpTo(1);
-      await tester.pumpAndSettle();
-      final button = find.byKey(const ValueKey('ai-scroll-to-latest'));
-      expect(button, findsOneWidget);
-      await tester.tap(button);
-      await tester.pumpAndSettle();
-      expect(controller.position.extentAfter, closeTo(0, 1));
-      expect(button, findsNothing);
       expect(tester.takeException(), isNull);
     },
-    variant: latestMotionVariant,
   );
 
   testWidgets('many draft images wrap and scroll without covering the editor', (
@@ -1105,7 +1285,7 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
     final bytes = base64Decode(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=',
     );
     final images = List.generate(
       40,
@@ -2049,7 +2229,7 @@ void main() {
           home: Scaffold(
             body: ModelSelector(theme: theme.themeData, assistant: agent),
           ),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('en'),
         ),

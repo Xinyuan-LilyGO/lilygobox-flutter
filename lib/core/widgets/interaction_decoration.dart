@@ -2,7 +2,7 @@
  * @Description: 统一交互背景渐变，切换主题时同步更新配色并保留子组件状态。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 只为同一配色下的交互做渐变，避免旧主题颜色滞留在新主题页面上。
 class InteractionDecoration extends StatefulWidget {

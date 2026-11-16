@@ -1,8 +1,8 @@
 /*
  * @Description: 共享设备风格的胶囊滑条，支持连续调节及固定等级点。
  */
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../theme/definition.dart';
 import '../theme/material_palette.dart';

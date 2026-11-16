@@ -4,6 +4,7 @@
 
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -1814,7 +1815,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get aiSettingsGroup => 'AI';
+  String get aiSettingsGroup => 'Agents';
 
   @override
   String get aiProtocolLabel => 'API protocol';
@@ -2458,7 +2459,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiTopologyBack => 'Back to agent workflow';
 
   @override
-  String get aiTopologyDuplicate => 'Duplicate card';
+  String get aiTopologyCopyWorkflow => 'Copy agent workflow';
+
+  @override
+  String get aiTopologyPasteAgent => 'Paste agent';
+
+  @override
+  String get aiTopologyPasteWorkflow => 'Paste agent workflow';
+
+  @override
+  String get aiTopologyDuplicate => 'Copy agent';
 
   @override
   String get aiTopologyRenameHelp =>
@@ -2572,7 +2582,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiTopologyDeleteHelp =>
-      'This agent and all its descendants will be stopped and removed.';
+      'Delete only this agent. Its unselected direct children become main agents, with their descendants preserved. Removed agents go to the recycle bin and can be restored in Settings → Agents → Storage.';
 
   @override
   String get aiTopologyNoParent => 'Select a main agent or child agent first.';
@@ -2621,7 +2631,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiTopologyDeleteRootHelp =>
-      'Delete this main agent. The most recently created direct child becomes the main agent; other child branches are preserved.';
+      'Delete this main agent. The most recently created direct child becomes the main agent; other child branches are preserved. Removed agents go to the recycle bin and can be restored in Settings → Agents → Storage.';
 
   @override
   String get aiTopologyStopSelected => 'Stop selected agents';
@@ -2654,7 +2664,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiTopologyDeleteSelectedHelp =>
-      'Selected agents will stop and be removed. Descendants of selected child agents are removed; unselected child branches of deleted main agents are preserved.';
+      'Delete only the selected agents and preserve unselected descendant branches. Unselected direct children of deleted child agents become main agents. A deleted main agent is replaced by its most recently created unselected direct child. Removed agents go to the recycle bin and can be restored in Settings → Agents → Storage.';
 
   @override
   String aiTopologySelectedCount(int count) {
@@ -2663,7 +2673,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiTopologySelectionHelp =>
-      'Left-drag to select · Right-drag to pan · Ctrl + wheel to zoom';
+      'Left-drag to select · Ctrl/Shift + click to multi-select · Right-drag to pan · Wheel to pan vertically · Shift + wheel to pan horizontally · Ctrl + wheel to zoom';
+
+  @override
+  String get aiTopologyShortcutsHelp =>
+      'Left-click: select a card or link\nLeft-drag empty canvas: box-select cards and links\nCtrl/Shift + click or box-select: extend selection\nDouble-click a card: open conversation\nDrag a card: move it\nDrag a connection port: connect agents\nRight-drag / middle-drag / Space + left-drag: pan canvas\nWheel: pan vertically\nShift + wheel: pan horizontally\nCtrl + wheel: zoom\nCtrl + A: select all\nCtrl + C / Ctrl + V: copy / paste cards\nCtrl + Z: undo\nCtrl + Y or Ctrl + Shift + Z: redo\nDelete / Backspace: delete selected cards or disconnect selected links\nEsc: cancel selection or connection';
 
   @override
   String get aiTopologyDisconnectTitle => 'Disconnect agents?';
@@ -2691,4 +2705,645 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiProcessingSpeedCost => 'Fast and Ultrafast usually cost more';
+
+  @override
+  String get agentStorageScopeHint =>
+      'Identify agents by their full ID; the full name and ID appear below.';
+
+  @override
+  String get agentStorageBackupTitle => 'Import and export';
+
+  @override
+  String get agentStorageManageHint =>
+      'Search, add and edit memories in the selected scope.';
+
+  @override
+  String get agentStorageDevice => 'This device';
+
+  @override
+  String get agentStorageDeviceHint =>
+      'Local conversations, memories and workflow data.';
+
+  @override
+  String get agentStorageManageAction => 'Manage';
+
+  @override
+  String get agentStorageCleanAction => 'Clean up now';
+
+  @override
+  String get agentStorageBackupHint =>
+      'Import or export workflows, agents, conversations and long-term memories.';
+
+  @override
+  String get agentStorageMemoryCategory => 'Long-term memory';
+
+  @override
+  String get agentStorageOtherCategory => 'Indexes and database space';
+
+  @override
+  String get agentStorageTitle => 'Storage';
+
+  @override
+  String get agentStorageDescription =>
+      'Manage conversations, memories and portable backups.';
+
+  @override
+  String get agentStorageMemoryScopeHint =>
+      'Choose the agent whose long-term memories you want to manage. The memories and automatic memory settings below apply only to that agent.';
+
+  @override
+  String get agentStorageScope => 'Long-term memory owner';
+
+  @override
+  String get agentStorageMemories => 'Long-term memories';
+
+  @override
+  String get agentStorageContextTitle => 'Chat history and context';
+
+  @override
+  String get agentStorageContextManageHint =>
+      'Manage chat context, compacted summaries and the context cache.';
+
+  @override
+  String get agentStorageRecords => 'Conversations and workflow';
+
+  @override
+  String get agentStorageAdd => 'Add memory';
+
+  @override
+  String get agentStorageManageContext => 'Manage chat history and context';
+
+  @override
+  String get agentStorageManage => 'Manage memories';
+
+  @override
+  String get agentStorageImport => 'Import package';
+
+  @override
+  String get agentStorageExportMemory => 'Export long-term memories';
+
+  @override
+  String get agentStorageImportMemory => 'Import long-term memories';
+
+  @override
+  String get agentStorageExportAgent => 'Export agent';
+
+  @override
+  String get agentStorageExportBranch => 'Export agent branch';
+
+  @override
+  String get agentStorageExportChat => 'Export conversations';
+
+  @override
+  String get agentStorageExportWorkflow => 'Export agent workflow';
+
+  @override
+  String get agentStorageExportAll => 'Back up all agent data';
+
+  @override
+  String get agentStorageDeleteChat => 'Delete conversation and context';
+
+  @override
+  String get agentStorageDeleteChatHint =>
+      'Delete this agent’s chat history and context summary? Its saved memories remain.';
+
+  @override
+  String get agentStorageDeleteMemoryHint =>
+      'Delete this memory? This does not delete the original conversation.';
+
+  @override
+  String get agentStorageEmpty => 'No saved memories.';
+
+  @override
+  String get agentStorageContent => 'Memory content';
+
+  @override
+  String get agentStorageSource => 'Source';
+
+  @override
+  String get agentStorageImportPreview => 'Import preview';
+
+  @override
+  String get agentStorageImportHint =>
+      'New agents receive new IDs. Memories are merged into the selected scope; exact duplicates are skipped. Imported permissions are reset and no operations resume.';
+
+  @override
+  String get agentStorageSuccess => 'Completed';
+
+  @override
+  String agentStorageCompactResult(int before, int after) {
+    return 'Context compacted: $before → $after tokens (estimated).';
+  }
+
+  @override
+  String get agentStorageCompactTooShort =>
+      'There is not enough conversation history to compact yet.';
+
+  @override
+  String get agentStorageCompactUnavailable =>
+      'Configure an available model service before compacting context.';
+
+  @override
+  String get agentStorageCompactCancelled => 'Context compaction cancelled.';
+
+  @override
+  String get agentStorageCompactUnchanged =>
+      'No usable summary was generated. Context is unchanged.';
+
+  @override
+  String get agentStorageCompactFailed =>
+      'Context compaction failed. Check the model service and try again.';
+
+  @override
+  String get agentStorageCleanFailed =>
+      'Clean-up failed. Please try again later.';
+
+  @override
+  String get agentStorageCleanNothing => 'Nothing to clean up.';
+
+  @override
+  String agentStorageCleanResult(int count, String size) {
+    return 'Removed $count leftover items and freed $size.';
+  }
+
+  @override
+  String agentStorageCleanSpaceResult(String size) {
+    return 'Storage organized. Freed $size.';
+  }
+
+  @override
+  String get agentStoragePackageType => 'LilygoBox data package (7z)';
+
+  @override
+  String get agentStorageCompact => 'Compact context';
+
+  @override
+  String get agentStorageRetrieving => 'Retrieve memories';
+
+  @override
+  String get agentStorageSaving => 'Save memory';
+
+  @override
+  String get agentStorageDeleting => 'Delete memory';
+
+  @override
+  String get agentStorageMemoryEnabled =>
+      'Automatically use long-term memories';
+
+  @override
+  String get agentStorageMemoryHint =>
+      'Retrieve relevant memories before each turn to inform replies, and allow the agent to search, save or delete memories.';
+
+  @override
+  String get agentStorageUsage => 'Local storage usage';
+
+  @override
+  String get agentStorageSearch => 'Search memories';
+
+  @override
+  String get agentStorageNoAgent => 'Select an agent first.';
+
+  @override
+  String get agentStorageBusy =>
+      'Stop the selected agents before importing or deleting their data.';
+
+  @override
+  String get agentMemoryDuplicate => 'Identical — skip';
+
+  @override
+  String get agentMemoryConflict => 'Different versions of the same memory';
+
+  @override
+  String get agentMemoryNew => 'New memory';
+
+  @override
+  String get agentMemorySkip => 'Skip';
+
+  @override
+  String get agentMemoryBoth => 'Keep both';
+
+  @override
+  String get agentMemoryReplace => 'Replace existing';
+
+  @override
+  String get agentMemoryIncoming => 'Incoming content (editable)';
+
+  @override
+  String get agentMemoryExisting => 'Existing content';
+
+  @override
+  String get agentMemoryReview => 'Review memories';
+
+  @override
+  String get agentStorageMore => 'Load more';
+
+  @override
+  String get agentStorageEditMemory => 'Edit';
+
+  @override
+  String get agentStorageClean => 'Free up storage space';
+
+  @override
+  String get agentStorageCleanHint =>
+      'Remove leftover files now to free up storage space. Chats, memories and recycle bin contents are kept.';
+
+  @override
+  String get agentStorageContextBudget => 'Context budget';
+
+  @override
+  String get agentStorageContextHint =>
+      'Budget × percentage = automatic compaction threshold. Press Enter or leave the field to save. Refer to the provider’s model capacity and leave room for the full request.';
+
+  @override
+  String get agentStorageArchived => 'Archived scope';
+
+  @override
+  String get agentStorageFailure =>
+      'Operation failed. Check the file or storage permissions.';
+
+  @override
+  String get agentStorageSensitiveHint =>
+      'Packages contain the selected conversations, context or long-term memory text, but no API keys. Keep them private.';
+
+  @override
+  String agentStorageTokens(int count) {
+    return '$count tokens (estimated)';
+  }
+
+  @override
+  String get agentStorageExportTab => 'Export data';
+
+  @override
+  String get agentStorageImportAgents => 'Import data';
+
+  @override
+  String get agentStorageImportTab => 'Import data';
+
+  @override
+  String get agentStoragePackageKind => 'Export contents';
+
+  @override
+  String get agentStoragePackageKindHint =>
+      'Choose the contents to export as one .7z file.';
+
+  @override
+  String get agentStorageMemoryPackage => 'Long-term memory package';
+
+  @override
+  String get agentStorageChatPackage => 'Conversation and context package';
+
+  @override
+  String get agentStorageAgentPackage => 'Agent package';
+
+  @override
+  String get agentStorageWorkflowPackage => 'Workflow package';
+
+  @override
+  String get agentStorageBackupPackage => 'Complete data package';
+
+  @override
+  String get agentStorageMemoryPackageHint =>
+      'Export the selected agent’s long-term memories. Import them into another agent.';
+
+  @override
+  String get agentStorageChatPackageHint =>
+      'Export the selected agent’s complete conversation, context history and compaction summary, message bodies, reasoning, tool calls, activity records, images and attachments, without long-term memories.';
+
+  @override
+  String get agentStorageAgentPackageHint =>
+      'Export one agent’s name, model reference, conversation, context summary, long-term memories and attachments. Optionally include its children.';
+
+  @override
+  String get agentStorageWorkflowPackageHint =>
+      'Export all workflow agents, connections, canvas layout, conversations, context history and compaction summaries, long-term memories and attachments.';
+
+  @override
+  String get agentStorageBackupPackageHint =>
+      'Includes the workflow and the conversations, attachments and memories in the recycle bin.';
+
+  @override
+  String get agentStorageIncludeChildren => 'Include child agents';
+
+  @override
+  String get agentStorageChooseAgent => 'Choose an agent to export';
+
+  @override
+  String get agentStorageMemoryDestination =>
+      'Where to import long-term memories';
+
+  @override
+  String get agentStorageMemoryDestinationHint =>
+      'Choose an existing agent, or create a main agent for these long-term memories.';
+
+  @override
+  String get agentStorageExportTarget => 'Export target';
+
+  @override
+  String get agentStorageExportTargetHint =>
+      'Choose an agent or the agent workflow, then select what to export.';
+
+  @override
+  String get agentStorageChooseExportTarget => 'Choose what to export';
+
+  @override
+  String get agentStorageAgentTarget => 'Agent';
+
+  @override
+  String get agentStorageIncludeArchived => 'Include agents in the recycle bin';
+
+  @override
+  String get agentRecycleSearch => 'Search agents';
+
+  @override
+  String get agentRecycleBin => 'Recycle bin';
+
+  @override
+  String get agentRecycleHint =>
+      'Restore or permanently delete removed agents.';
+
+  @override
+  String get agentRecycleRetention => 'Automatically delete';
+
+  @override
+  String get agentRecycleDays7 => 'After 7 days';
+
+  @override
+  String get agentRecycleDays30 => 'After 30 days';
+
+  @override
+  String get agentRecycleDays90 => 'After 90 days';
+
+  @override
+  String get agentRecycleNever => 'Never';
+
+  @override
+  String get agentRecycleEmpty => 'The recycle bin is empty';
+
+  @override
+  String get agentRecycleRestore => 'Restore';
+
+  @override
+  String get agentRecycleDelete => 'Delete permanently';
+
+  @override
+  String get agentRecycleEmptyAction => 'Empty recycle bin';
+
+  @override
+  String get agentRecycleDeleteHint =>
+      'Conversations, attachments and memories will be permanently deleted. This cannot be undone.';
+
+  @override
+  String get agentRecycleRestoreHint =>
+      'The original ID, conversation and memory are preserved. If the parent no longer exists, the agent is restored as a main agent. Permissions must be granted again. Expired items are removed at the next startup if the app is closed.';
+
+  @override
+  String get agentRecycleDeletedAt => 'Deleted';
+
+  @override
+  String get agentRecycleExpiresAt => 'Expires';
+
+  @override
+  String get agentRecycleRetentionConfirm =>
+      'Changing retention permanently deletes any agents that have already expired. Continue?';
+
+  @override
+  String get agentTopologyHintSelectAll =>
+      'Ctrl + A · Select all agents and connections';
+
+  @override
+  String get agentTopologyHintCopy => 'Ctrl + C · Copy agents or workflow';
+
+  @override
+  String get agentTopologyHintPaste => 'Ctrl + V · Paste agents or workflow';
+
+  @override
+  String get agentTopologyHintUndo => 'Ctrl + Z · Undo';
+
+  @override
+  String get agentTopologyHintRedo => 'Ctrl + Y · Redo';
+
+  @override
+  String get agentTopologyHintDelete => 'Delete · Delete selected content';
+
+  @override
+  String get agentTopologyHintEscape => 'Esc · Clear selection or connection';
+
+  @override
+  String get agentTopologyHintBoxSelect =>
+      'Left-drag · Select agents and connections';
+
+  @override
+  String get agentTopologyHintPan => 'Wheel / Shift + wheel · Pan canvas';
+
+  @override
+  String get agentTopologyHintZoom => 'Ctrl + wheel · Zoom canvas';
+
+  @override
+  String get agentStorageWorkflowCategory => 'Workflow';
+
+  @override
+  String get agentStorageContextUsage => 'Current context';
+
+  @override
+  String get agentStorageContextUsageHint =>
+      'Local estimate of chat history, excluding the full request’s system instructions, tool definitions and retrieved memories.';
+
+  @override
+  String get agentStorageContextInvalid =>
+      'Enter a whole number greater than 0.';
+
+  @override
+  String get agentStorageCompactHint =>
+      'Summarize older conversation for future requests. Original conversations and attachments are retained.';
+
+  @override
+  String get agentStorageCompactNow => 'Compact now';
+
+  @override
+  String get agentStorageChatDataTitle => 'Conversation and context';
+
+  @override
+  String get agentStorageContextPercent => 'Compaction trigger';
+
+  @override
+  String agentStorageContextTriggerTokens(int count) {
+    return 'Automatic compaction threshold: $count tokens (estimated)';
+  }
+
+  @override
+  String get agentStorageContextPercentInvalid =>
+      'Enter a whole percentage from 1 to 100.';
+
+  @override
+  String get agentStorageContextPercentWarning =>
+      'A high percentage may leave too little room for new messages, tools and responses. Compact before the context window is full.';
+
+  @override
+  String get agentTopologyZoomPercentage => 'Zoom percentage';
+
+  @override
+  String get agentTopologyControlHints =>
+      'Ctrl + A Select all · Ctrl + C Copy · Ctrl + V Paste · Ctrl + Z Undo · Ctrl + Y Redo · Ctrl + Wheel Zoom';
+
+  @override
+  String get agentTopologyShiftHints =>
+      'Shift + Wheel Pan horizontally · Shift + Click / Drag Add to selection · Ctrl + Shift + Z Redo';
+
+  @override
+  String get agentTopologySpaceHints => 'Space + Left drag Pan canvas';
+
+  @override
+  String get agentStorageDatabaseLocation =>
+      'Agent data directory (conversations, context and long-term memories)';
+
+  @override
+  String get agentStorageChoosePackage => 'Choose data package';
+
+  @override
+  String get agentStorageImportAutoHint =>
+      'Choose a .7z package to detect its type, then review its contents before importing. Packages contain no API keys; keep them private.';
+
+  @override
+  String get agentStorageImportCreatesAgents =>
+      'New agents will receive new IDs. Existing agents will not be overwritten.';
+
+  @override
+  String get agentStorageImportMemoryCreatesAgent =>
+      'A new agent will be created with these long-term memories. Existing agents stay unchanged. The new agent will not run automatically; select a model to use it.';
+
+  @override
+  String get agentStorageImportedMemoryAgent => 'Imported agent';
+
+  @override
+  String get agentStorageImportMemoryMergeHint =>
+      'Long-term memories will be merged into the selected agent. Exact duplicates are skipped; conflicts can be reviewed before importing.';
+
+  @override
+  String get agentStorageImportSuccess => 'Data imported.';
+
+  @override
+  String get agentStorageExportSuccess => 'Data exported.';
+
+  @override
+  String get agentStorageTransferCancelled => 'Operation cancelled.';
+
+  @override
+  String get agentStorageTransferTitle => 'Processing data package';
+
+  @override
+  String get agentStorageTransferPreparing => 'Preparing data';
+
+  @override
+  String get agentStorageTransferReading => 'Reading package';
+
+  @override
+  String get agentStorageTransferCompressing => 'Compressing data';
+
+  @override
+  String get agentStorageTransferDecompressing => 'Decompressing data';
+
+  @override
+  String get agentStorageTransferVerifying => 'Verifying package';
+
+  @override
+  String get agentStorageTransferAnalyzing => 'Analyzing data';
+
+  @override
+  String get agentStorageTransferWriting => 'Saving file';
+
+  @override
+  String get agentStorageTransferCommitting => 'Completing import';
+
+  @override
+  String get agentStorageTransferCancelling => 'Cancelling';
+
+  @override
+  String agentStorageTransferElapsed(String duration) {
+    return 'Elapsed $duration';
+  }
+
+  @override
+  String get agentStorageImportFile => 'Data package';
+
+  @override
+  String get agentStorageChangePackage => 'Choose another package';
+
+  @override
+  String get agentStorageAutoMemoryTitle =>
+      'Automatically organize long-term memories';
+
+  @override
+  String get agentStorageAutoMemoryHint =>
+      'After each completed turn, select useful lasting information, compare it with existing memories and save new items. Makes an additional request to the current model.';
+
+  @override
+  String get agentStorageAutoMemoryAction => 'Organize long-term memories';
+
+  @override
+  String agentStorageAutoMemoryResult(int saved, int duplicates) {
+    return 'Saved $saved long-term memories; skipped $duplicates duplicates.';
+  }
+
+  @override
+  String get agentStorageImportInvalidKind =>
+      'This package is not supported by this entry. Choose the appropriate long-term memory, agent or workflow package.';
+
+  @override
+  String get agentStorageTransferFailedTitle => 'Import or export failed';
+
+  @override
+  String get agentStorageInvalidPackage =>
+      'The package is invalid, damaged or unsupported. Select a valid data package.';
+
+  @override
+  String agentStorageDeleteSelected(int count) {
+    return 'Delete selected ($count)';
+  }
+
+  @override
+  String agentStorageRestoreSelected(int count) {
+    return 'Restore selected ($count)';
+  }
+
+  @override
+  String agentStorageDeleteSelectedHint(int count) {
+    return 'Permanently delete the $count selected long-term memories? This cannot be undone.';
+  }
+
+  @override
+  String agentRecycleDeleteSelectedHint(int count) {
+    return 'Permanently delete the $count selected agents and their chat history, context, and long-term memories? This cannot be undone.';
+  }
+
+  @override
+  String agentRecycleDeleteSelected(int count) {
+    return 'Permanently delete selected ($count)';
+  }
+
+  @override
+  String agentRecycleRemainingDays(int count) {
+    return 'Automatically deletes in $count days';
+  }
+
+  @override
+  String agentRecycleRemainingHours(int count) {
+    return 'Automatically deletes in $count hours';
+  }
+
+  @override
+  String agentRecycleRemainingMinutes(int count) {
+    return 'Automatically deletes in $count minutes';
+  }
+
+  @override
+  String get agentRecyclePendingDeletion => 'Pending automatic deletion';
+
+  @override
+  String get agentMemoryAdd => 'Import';
+
+  @override
+  String get agentMemoryEmptyContent => 'Memory content cannot be empty.';
+
+  @override
+  String get agentStorageNewAgent => 'New agent';
 }

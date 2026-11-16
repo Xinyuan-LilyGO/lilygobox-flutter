@@ -6,7 +6,6 @@ import 'dart:async';
 import 'dart:ui' show PointerDeviceKind;
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,6 +14,7 @@ import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/widgets/menu_item_surface.dart';
 import 'package:lilygobox/core/widgets/popup_menu_surface.dart';
 import 'package:lilygobox/core/widgets/popup_menu_transition.dart';
+import 'package:material_ui/material_ui.dart';
 
 void main() {
   testWidgets(
@@ -24,10 +24,14 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
       final calls = <String>[];
       final fadeRequests = <Map<Object?, Object?>>[];
+      final prepareRequests = <Map<Object?, Object?>>[];
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
         TrayMenuApp.channel,
         (call) async {
           calls.add(call.method);
+          if (call.method == 'prepared') {
+            prepareRequests.add(call.arguments as Map<Object?, Object?>);
+          }
           if (call.method == 'painted') {
             fadeRequests.add(call.arguments as Map<Object?, Object?>);
           }
@@ -74,13 +78,16 @@ void main() {
       addTearDown(mouse.removePointer);
 
       await event('prepare', {
+        'requestId': 1,
         'theme': 'dark',
         'show': '显示窗口',
         'exit': '退出',
         'reduceMotion': false,
       });
       expect(find.byType(MenuItemSurface), findsNWidgets(2));
-      expect(calls, ['ready']); // 预热绘制不会通知原生窗口弹出。
+      expect(calls, ['ready', 'prepared']);
+      expect(prepareRequests.single['requestId'], 1);
+      expect(fadeRequests, isEmpty); // 预热只确认首帧，不播放弹出动画。
       // 原来的不透明 Scaffold 和整数窗口裁剪会破坏这些半透明圆角像素。
       for (final scale in [1.0, 1.25, 1.5]) {
         final boundary =
@@ -133,7 +140,7 @@ void main() {
       }
       await tester.tap(find.text('退出'));
       await tester.pumpAndSettle();
-      expect(calls, ['ready']);
+      expect(calls, ['ready', 'prepared']); // 预热卡片不能触发退出。
 
       for (final type in ThemeType.values) {
         themes.setTheme(type);
@@ -253,6 +260,47 @@ void main() {
         await tester.pumpAndSettle();
         expect(calls.last, 'dismiss');
       }
+      // 点击发生在预热首帧之前时，只确认新打开请求，不能用旧预热隐藏菜单。
+      final countBeforeRace = calls.length;
+      final preparedBeforeRace = prepareRequests.length;
+      final pending = <Future<void>>[];
+      for (final method in ['prepare', 'present']) {
+        final done = Completer<void>();
+        pending.add(done.future);
+        unawaited(
+          tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+            'lilygobox/tray_menu',
+            const StandardMethodCodec().encodeMethodCall(
+              MethodCall(method, {
+                'requestId': method == 'prepare' ? 2000 : 2001,
+                'theme': 'dark',
+                'show': '显示窗口',
+                'exit': '退出',
+                'reduceMotion': false,
+              }),
+            ),
+            (_) => done.complete(),
+          ),
+        );
+      }
+      await tester.pump();
+      await tester.pumpAndSettle();
+      await Future.wait(pending);
+      expect(calls.sublist(countBeforeRace), ['painted']);
+      expect(prepareRequests.length, preparedBeforeRace);
+      expect(fadeRequests.last['requestId'], 2001);
+      // 迟到的预热请求也不能禁用已打开菜单的操作。
+      await event('prepare', {
+        'requestId': 2000,
+        'theme': 'dark',
+        'show': '旧预热文案',
+        'exit': '退出',
+        'reduceMotion': false,
+      });
+      expect(find.text('旧预热文案'), findsNothing);
+      await tester.tap(find.text('显示窗口'));
+      await tester.pumpAndSettle();
+      expect(calls.last, 'show');
       expect(tester.takeException(), isNull);
     },
   );

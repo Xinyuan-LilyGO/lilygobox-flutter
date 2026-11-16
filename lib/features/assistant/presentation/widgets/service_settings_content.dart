@@ -2,14 +2,13 @@
  * @Description: 展示可排序的模型服务列表，并通过弹窗添加或编辑服务。
  */
 
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
-import '../../../../core/theme/material_palette.dart';
 import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_tooltip.dart';
@@ -63,6 +62,7 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
       context: context,
       theme: widget.theme,
       actionKey: 'ai-service',
+      destructive: true,
       title: l10n.aiDeleteService,
       description: l10n.aiDeleteServiceMessage(service.name),
       confirmLabel: l10n.aiDeleteService,
@@ -162,186 +162,176 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
     final theme = widget.theme;
     final l10n = context.l10n;
     final busy = _transferring || !assistant.canChangeService;
-    return CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(24, 22, 24, 12),
-          sliver: SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  l10n.aiServiceTitle,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: theme.textColorPrimary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  l10n.aiServiceDescription,
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.5,
-                    color: theme.textColorTertiary,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Divider(height: 1, color: theme.dividerColor),
-                const SizedBox(height: 14),
-                SettingsField(
-                  theme: theme,
-                  title: l10n.aiServiceConfiguration,
-                  description: l10n.aiServiceConfigurationHelp,
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      AppActionButton.settings(
-                        key: const ValueKey('ai-export-services'),
-                        theme: theme,
-                        label: l10n.configurationExport,
-                        onPressed: busy || assistant.services.isEmpty
-                            ? null
-                            : () => _transferConfiguration(
-                                assistant,
-                                importing: false,
-                              ),
-                      ),
-                      AppActionButton.settings(
-                        key: const ValueKey('ai-import-services'),
-                        theme: theme,
-                        label: l10n.configurationImport,
-                        onPressed: busy
-                            ? null
-                            : () => _transferConfiguration(
-                                assistant,
-                                importing: true,
-                              ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                if (!assistant.credentialLoaded)
-                  const Center(child: CircularProgressIndicator())
-                else ...[
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final title = Text(
-                        l10n.aiAddedServices,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: theme.textColorPrimary,
-                        ),
-                      );
-                      final button = AppActionButton(
-                        key: const ValueKey('ai-add-service'),
-                        theme: theme,
-                        label: l10n.aiAddModelService,
-                        icon: Symbols.add_rounded,
-                        iconSize: 18,
-                        iconSpacing: 6,
-                        fontSize: 12,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 7,
-                        ),
-                        onPressed: busy ? null : () => _edit(assistant),
-                      );
-                      if (constraints.maxWidth < 480) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            title,
-                            const SizedBox(height: 8),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: button,
-                            ),
-                          ],
-                        );
-                      }
-                      return Row(
-                        children: [
-                          Expanded(child: title),
-                          const SizedBox(width: 12),
-                          button,
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    l10n.aiAddedServicesHelp,
-                    style: TextStyle(
-                      fontSize: 12,
-                      height: 1.4,
-                      color: theme.textColorTertiary,
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxWidth: SettingsContentLayout.contentWidth + 48,
+        ),
+        child: CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(24, 22, 24, 12),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SettingsContentHeader(
+                      theme: theme,
+                      title: l10n.aiServiceTitle,
+                      description: l10n.aiServiceDescription,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (assistant.services.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 32),
-                      child: Center(
-                        child: Text(
-                          l10n.aiNoServices,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: theme.textColorTertiary,
+                    SettingsSection(
+                      theme: theme,
+                      title: l10n.aiServiceConfiguration,
+                      description: l10n.aiServiceConfigurationHelp,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          AppActionButton.settings(
+                            key: const ValueKey('ai-export-services'),
+                            theme: theme,
+                            label: l10n.configurationExport,
+                            onPressed: busy || assistant.services.isEmpty
+                                ? null
+                                : () => _transferConfiguration(
+                                    assistant,
+                                    importing: false,
+                                  ),
+                          ),
+                          AppActionButton.settings(
+                            key: const ValueKey('ai-import-services'),
+                            theme: theme,
+                            label: l10n.configurationImport,
+                            onPressed: busy
+                                ? null
+                                : () => _transferConfiguration(
+                                    assistant,
+                                    importing: true,
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    if (!assistant.credentialLoaded)
+                      const Center(child: CircularProgressIndicator())
+                    else ...[
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final title = Text(
+                            l10n.aiAddedServices,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: theme.textColorPrimary,
+                            ),
+                          );
+                          final button = AppActionButton(
+                            key: const ValueKey('ai-add-service'),
+                            theme: theme,
+                            label: l10n.aiAddModelService,
+                            icon: Symbols.add_rounded,
+                            iconSize: 18,
+                            iconSpacing: 6,
+                            fontSize: 12,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 7,
+                            ),
+                            onPressed: busy ? null : () => _edit(assistant),
+                          );
+                          if (constraints.maxWidth < 480) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                title,
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: button,
+                                ),
+                              ],
+                            );
+                          }
+                          return Row(
+                            children: [
+                              Expanded(child: title),
+                              const SizedBox(width: 12),
+                              button,
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        l10n.aiAddedServicesHelp,
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.4,
+                          color: theme.textColorTertiary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (assistant.services.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 32),
+                          child: Center(
+                            child: Text(
+                              l10n.aiNoServices,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: theme.textColorTertiary,
+                              ),
+                            ),
                           ),
                         ),
+                    ],
+                    if (_error ?? assistant.configurationError
+                        case final error?) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        aiErrorText(l10n, error),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                          fontSize: 12,
+                        ),
                       ),
-                    ),
-                ],
-                if (_error ?? assistant.configurationError
-                    case final error?) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    aiErrorText(l10n, error),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        if (assistant.credentialLoaded && assistant.services.isNotEmpty)
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-            sliver: SliverReorderableList(
-              key: const ValueKey('ai-service-list'),
-              dragBoundaryProvider: _ServiceDragBoundary.new,
-              autoScrollerVelocityScalar: 500,
-              itemCount: assistant.services.length,
-              onReorder: (oldIndex, newIndex) => _reorder(
-                assistant,
-                oldIndex,
-                newIndex > oldIndex ? newIndex - 1 : newIndex,
+                    ],
+                  ],
+                ),
               ),
-              itemBuilder: (context, index) {
-                final service = assistant.services[index];
-                return Padding(
-                  key: ValueKey(service.id),
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _serviceRow(
-                    assistant: assistant,
-                    service: service,
-                    index: index,
-                    busy: busy,
-                  ),
-                );
-              },
             ),
-          ),
-      ],
+            if (assistant.credentialLoaded && assistant.services.isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                sliver: SliverReorderableList(
+                  key: const ValueKey('ai-service-list'),
+                  dragBoundaryProvider: _ServiceDragBoundary.new,
+                  autoScrollerVelocityScalar: 500,
+                  itemCount: assistant.services.length,
+                  onReorderItem: (oldIndex, newIndex) =>
+                      _reorder(assistant, oldIndex, newIndex),
+                  itemBuilder: (context, index) {
+                    final service = assistant.services[index];
+                    return Padding(
+                      key: ValueKey(service.id),
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _serviceRow(
+                        assistant: assistant,
+                        service: service,
+                        index: index,
+                        busy: busy,
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -382,7 +372,6 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
       children: [
         AppActionButton(
           theme: theme,
-          tertiaryBackground: true,
           label: l10n.aiEditService,
           onPressed: busy ? null : () => _edit(assistant, service),
         ),
@@ -404,11 +393,11 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
     final canDrag = !busy && assistant.services.length > 1;
     return Material(
       key: ValueKey('ai-service-card-${service.id}'),
-      color: theme.settingsControlBackgroundColor,
-      borderRadius: BorderRadius.circular(6),
+      color: theme.primary,
+      borderRadius: BorderRadius.circular(10),
       clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
             Semantics(
@@ -433,7 +422,7 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
                     child: Container(
                       color: Colors.transparent,
                       width: 28,
-                      height: 32,
+                      height: 28,
                       child: Icon(
                         Symbols.drag_indicator_rounded,
                         size: 20,

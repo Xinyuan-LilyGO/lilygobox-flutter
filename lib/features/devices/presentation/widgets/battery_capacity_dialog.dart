@@ -2,8 +2,8 @@
  * @Description: 编辑设备电池额定容量，校验范围并等待设备保存确认。
  */
 
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';

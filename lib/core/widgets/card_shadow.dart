@@ -2,7 +2,7 @@
  * @Description: 统一主页与设备页面卡片的柔和阴影，适配明暗主题。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../theme/definition.dart';
 

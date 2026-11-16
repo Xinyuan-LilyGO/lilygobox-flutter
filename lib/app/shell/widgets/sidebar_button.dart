@@ -2,7 +2,7 @@
  * @Description: 提供侧栏图标按钮、选中指示及鼠标交互效果。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class SidebarButtonTemplate extends StatefulWidget {
   const SidebarButtonTemplate({

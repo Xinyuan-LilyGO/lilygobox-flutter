@@ -7,7 +7,9 @@ import 'package_info_provider.dart';
 
 class AppUpdateProvider with ChangeNotifier {
   AppUpdateProvider(this._packageInfo) {
-    unawaited(check());
+    scheduleMicrotask(() {
+      if (!_disposed) unawaited(check());
+    });
   }
 
   final PackageInfoProvider _packageInfo;
@@ -15,6 +17,18 @@ class AppUpdateProvider with ChangeNotifier {
   AppUpdateFailureKind? _failure;
   bool _checking = false;
   bool _cacheCleaned = false;
+  bool _disposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   AppUpdate? get update => _update;
   AppUpdateFailureKind? get failure => _failure;

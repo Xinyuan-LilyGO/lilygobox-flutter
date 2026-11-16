@@ -5,12 +5,13 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../core/theme/definition.dart';
 import '../../core/widgets/window_shadow.dart';
+import '../../core/window/desktop_window.dart';
 
 class AppWindowFrame extends StatefulWidget {
   const AppWindowFrame({
@@ -19,19 +20,24 @@ class AppWindowFrame extends StatefulWidget {
     required this.isMaximized,
     required this.child,
     this.showShadow = true,
+    this.window,
   });
 
   final AppTheme theme;
   final bool isMaximized;
   final Widget child;
   final bool showShadow;
+  final Window? window;
 
   @override
   State<AppWindowFrame> createState() => _AppWindowFrameState();
 }
 
-class _AppWindowFrameState extends State<AppWindowFrame> with WindowListener {
+class _AppWindowFrameState extends State<AppWindowFrame> {
   static const _channel = MethodChannel('lilygobox/window_layout');
+  static _AppWindowFrameState? _channelOwner;
+  Window? _window;
+  ListenerId? _windowListener;
   bool _snapped = false;
   int _request = 0;
   bool get _windows =>
@@ -41,7 +47,25 @@ class _AppWindowFrameState extends State<AppWindowFrame> with WindowListener {
   void initState() {
     super.initState();
     if (_windows) {
-      windowManager.addListener(this);
+      _channelOwner = this;
+      _channel.setMethodCallHandler((call) async {
+        if (call.method == 'layoutChanged' && call.arguments is bool) {
+          ++_request;
+          final snapped = call.arguments as bool;
+          if (mounted && _snapped != snapped) {
+            setState(() => _snapped = snapped);
+          }
+        }
+      });
+      _window = widget.window ?? currentDesktopWindow();
+      _windowListener = _window?.addListener((event) {
+        if (event is WindowMovedEvent ||
+            event is WindowResizedEvent ||
+            event is WindowRestoredEvent ||
+            event is WindowMaximizedEvent) {
+          unawaited(_refreshLayout());
+        }
+      });
       unawaited(_refreshLayout());
     }
   }
@@ -61,19 +85,12 @@ class _AppWindowFrameState extends State<AppWindowFrame> with WindowListener {
   }
 
   @override
-  void onWindowMove() => unawaited(_refreshLayout());
-  @override
-  void onWindowMoved() => unawaited(_refreshLayout());
-  @override
-  void onWindowResize() => unawaited(_refreshLayout());
-  @override
-  void onWindowResized() => unawaited(_refreshLayout());
-  @override
-  void onWindowUnmaximize() => unawaited(_refreshLayout());
-
-  @override
   void dispose() {
-    if (_windows) windowManager.removeListener(this);
+    if (identical(_channelOwner, this)) {
+      _channelOwner = null;
+      _channel.setMethodCallHandler(null);
+    }
+    if (_windowListener case final listener?) _window?.removeListener(listener);
     super.dispose();
   }
 
@@ -111,11 +128,16 @@ class _AppWindowFrameState extends State<AppWindowFrame> with WindowListener {
             borderRadius: isMaximized
                 ? BorderRadius.zero
                 : BorderRadius.circular(10),
-            boxShadow: isMaximized || !widget.showShadow ? [] : appWindowShadows,
+            boxShadow: isMaximized || !widget.showShadow
+                ? []
+                : appWindowShadows,
           ),
           child: ClipRRect(
-            // 底色与遮罩先合成再裁剪，避免圆角抗锯齿边缘透出未变暗的底色。
-            clipBehavior: Clip.antiAliasWithSaveLayer,
+            // 仅圆角窗口需要离屏遮罩；最大化或贴靠时的
+            // 矩形窗口不应分配全屏 saveLayer。
+            clipBehavior: isMaximized
+                ? Clip.hardEdge
+                : Clip.antiAliasWithSaveLayer,
             borderRadius: isMaximized
                 ? BorderRadius.zero
                 : BorderRadius.circular(10),

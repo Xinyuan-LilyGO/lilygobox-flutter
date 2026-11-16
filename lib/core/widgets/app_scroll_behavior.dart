@@ -5,10 +5,10 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 公共滚动在启动位移动画前通知用户意图，便于聊天取消底部跟随。
 class AppUserScrollNotification extends Notification {
@@ -91,7 +91,11 @@ class _WheelRegionState extends State<_WheelRegion>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!TickerMode.of(context)) _stopAutoScroll();
+    if (!TickerMode.valuesOf(context).enabled) {
+      _stopAutoScroll();
+      _stopWheelScroll();
+    }
+    if (!widget.smoothWheel) _stopWheelScroll();
   }
 
   @override
@@ -100,23 +104,29 @@ class _WheelRegionState extends State<_WheelRegion>
     if (oldWidget.controller != widget.controller ||
         oldWidget.direction != widget.direction) {
       _stopAutoScroll();
+      _stopWheelScroll();
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) _stopAutoScroll();
+    if (state != AppLifecycleState.resumed) {
+      _stopAutoScroll();
+      _stopWheelScroll();
+    }
   }
 
   @override
   void deactivate() {
     _stopAutoScroll();
+    _stopWheelScroll();
     super.deactivate();
   }
 
   @override
   void dispose() {
     _stopAutoScroll();
+    _stopWheelScroll();
     _autoTicker.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -275,6 +285,16 @@ class _WheelRegionState extends State<_WheelRegion>
 
   double? _target;
   ScrollPosition? _position;
+  _WheelScrollActivity? _wheelActivity;
+  _WheelSimulation? _wheelSimulation;
+
+  void _stopWheelScroll() {
+    _wheelActivity?.stop();
+    _wheelActivity = null;
+    _wheelSimulation = null;
+    _target = null;
+    _position = null;
+  }
 
   /// 按实际轴向及 Shift 修饰键换算滚轮位移。
   double _delta(PointerScrollEvent event) {
@@ -321,28 +341,130 @@ class _WheelRegionState extends State<_WheelRegion>
       position: position,
       delta: delta,
     ).dispatch(context);
-    if (_position != position ||
-        !position.isScrollingNotifier.value ||
-        (_target != null && (_target! - position.pixels) * delta < 0)) {
-      _target = position.pixels;
-    }
+    final reversing =
+        _target != null && (_target! - position.pixels) * delta < 0;
+    final continuing =
+        _position == position && (_wheelActivity?.active ?? false);
+    if (!continuing || reversing) _target = position.pixels;
     _position = position;
     final target = (_target! + delta)
         .clamp(position.minScrollExtent, position.maxScrollExtent)
         .toDouble();
     _target = target;
-    unawaited(
-      position.animateTo(
-        target,
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-      ),
-    );
+    if (position is ScrollPositionWithSingleContext) {
+      if (continuing) {
+        _wheelSimulation!.retarget(target, reverse: reversing);
+      } else {
+        final simulation = _WheelSimulation(position.pixels, target);
+        final activity = _WheelScrollActivity(
+          position,
+          simulation,
+          vsync: position.context.vsync,
+        );
+        _wheelSimulation = simulation;
+        _wheelActivity = activity;
+        position.beginActivity(activity);
+      }
+    } else {
+      // 自定义滚动位置可以自行管理滚动活动的生命周期。
+      unawaited(
+        position.animateTo(
+          target,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) =>
       _WheelHitRegion(state: this, child: widget.child);
+}
+
+/// 一组连续滚轮输入共用一个原生滚动活动，更新目标不会重置
+/// 其计时器；触摸或滚动条交互仍由 Flutter 正常释放该活动。
+class _WheelScrollActivity extends DrivenScrollActivity {
+  _WheelScrollActivity(super.delegate, super.simulation, {required super.vsync})
+    : super.simulation();
+
+  bool active = true;
+
+  @override
+  bool applyMoveTo(double value) {
+    final position = delegate as ScrollPosition;
+    final bounded = value
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+    final applied = super.applyMoveTo(bounded);
+    // 连续滚轮输入期间内容可能缩短，应停在新的边界，
+    // 避免旧的模拟过程恢复已失效的滚动位置。
+    return applied && bounded == value;
+  }
+
+  void stop() {
+    if (active) delegate.goIdle();
+  }
+
+  @override
+  void dispose() {
+    active = false;
+    super.dispose();
+  }
+}
+
+/// 新增滚轮输入时，三次 Hermite 曲线段保持当前速度。
+/// 各曲线段共用动画时钟，反向输入会丢弃尚未完成的正向尾段。
+class _WheelSimulation extends Simulation {
+  _WheelSimulation(this._from, this._target)
+    : _startVelocity = 3 * (_target - _from) / _duration;
+
+  static const _duration = .180;
+  double _from;
+  double _target;
+  double _startVelocity;
+  double _startTime = 0;
+  double _time = 0;
+
+  void retarget(double target, {required bool reverse}) {
+    final current = x(_time);
+    final velocity = dx(_time);
+    _from = current;
+    _target = target;
+    _startTime = _time;
+    final distance = target - current;
+    // 此斜率范围可确保曲线段在受限边界附近保持单调。
+    _startVelocity = reverse || velocity * distance < 0
+        ? 0
+        : velocity.sign *
+              math.min(velocity.abs(), 3 * distance.abs() / _duration);
+  }
+
+  double _progress(double time) =>
+      ((time - _startTime) / _duration).clamp(0, 1);
+
+  @override
+  double x(double time) {
+    _time = time;
+    final t = _progress(time);
+    final t2 = t * t;
+    final t3 = t2 * t;
+    return (2 * t3 - 3 * t2 + 1) * _from +
+        (t3 - 2 * t2 + t) * _duration * _startVelocity +
+        (-2 * t3 + 3 * t2) * _target;
+  }
+
+  @override
+  double dx(double time) {
+    final t = _progress(time);
+    return ((6 * t * t - 6 * t) * _from +
+            (3 * t * t - 4 * t + 1) * _duration * _startVelocity +
+            (-6 * t * t + 6 * t) * _target) /
+        _duration;
+  }
+
+  @override
+  bool isDone(double time) => time - _startTime >= _duration;
 }
 
 class _WheelHitRegion extends SingleChildRenderObjectWidget {

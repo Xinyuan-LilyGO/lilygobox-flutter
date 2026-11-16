@@ -7,13 +7,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/material_palette.dart';
@@ -27,6 +27,7 @@ import 'package:lilygobox/features/assistant/presentation/widgets/service_settin
 import 'package:lilygobox/features/assistant/state/provider.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import 'assistant_test_scope.dart';
@@ -124,12 +125,11 @@ void main() {
             colorScheme: theme.themeData.materialColors,
           ),
           locale: Locale(locale),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: TextScaler.linear(scale)),
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(scale)),
             child: RepaintBoundary(key: boundaryKey, child: child!),
           ),
           home: Scaffold(
@@ -680,7 +680,7 @@ void main() {
                   find.byKey(ValueKey('ai-service-card-$serviceId')),
                 )
                 .color,
-            theme.themeData.settingsControlBackgroundColor,
+            theme.themeData.primary,
           );
           final serviceButtons = tester.widgetList<AppActionButton>(
             find.descendant(
@@ -689,7 +689,7 @@ void main() {
             ),
           );
           expect(serviceButtons, hasLength(2));
-          expect(serviceButtons.first.tertiaryBackground, isTrue);
+          expect(serviceButtons.first.tertiaryBackground, isFalse);
           expect(serviceButtons.last.destructive, isTrue);
           expect(
             serviceButtons.last.padding,
@@ -734,7 +734,9 @@ void main() {
           );
           expect(
             (buttonDecoration.decoration as BoxDecoration).color,
-            theme.themeData.tertiarySurfaceButtonHoverColor,
+            theme.themeData.hoverColorForBackground(
+              theme.themeData.settingsControlBackgroundColor,
+            ),
           );
           await mouse.removePointer();
           if (type == ThemeType.light) {
@@ -840,85 +842,86 @@ void main() {
     },
   );
 
-  testWidgets('service form headings and descriptions stay above shared inputs', (
-    tester,
-  ) async {
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-    await open(tester);
-    final dialogRect = tester.getRect(
-      find
-          .descendant(
-            of: find.byType(AlertDialog),
-            matching: find.byType(Material),
-          )
-          .first,
-    );
-    final nameRect = tester.getRect(field('name'));
-    expect(nameRect.left - dialogRect.left, closeTo(24, .1));
-    expect(dialogRect.right - nameRect.right, closeTo(24, .1));
-    final formScroll = find.byKey(const ValueKey('ai-service-form-scroll'));
-    expect(ScrollbarTheme.of(tester.element(formScroll)).crossAxisMargin, 6);
-    expect(tester.getRect(formScroll).right, closeTo(dialogRect.right, .1));
+  testWidgets(
+    'service form headings and descriptions stay above shared inputs',
+    (tester) async {
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      await open(tester);
+      final dialogRect = tester.getRect(
+        find
+            .descendant(
+              of: find.byType(AlertDialog),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      final nameRect = tester.getRect(field('name'));
+      expect(nameRect.left - dialogRect.left, closeTo(24, .1));
+      expect(dialogRect.right - nameRect.right, closeTo(24, .1));
+      final formScroll = find.byKey(const ValueKey('ai-service-form-scroll'));
+      expect(ScrollbarTheme.of(tester.element(formScroll)).crossAxisMargin, 6);
+      expect(tester.getRect(formScroll).right, closeTo(dialogRect.right, .1));
 
-    for (final (title, description, key) in [
-      (
-        'Service name',
-        'Identifies this service in the home model selector.',
-        'name',
-      ),
-      (
-        'API URL',
-        'Enter the API URL. The client adds the path required by the selected protocol.',
-        'address',
-      ),
-      (
-        'API key',
-        'The key is saved locally using the operating system secure storage.',
-        'key',
-      ),
-      (
-        'Model',
-        'Enter one model ID per line, or separate with commas. You can enter IDs manually if fetching fails.',
-        'models',
-      ),
-    ]) {
-      final titleText = tester.widget<Text>(find.text(title));
-      expect(titleText.style?.fontSize, 13);
-      expect(titleText.style?.fontWeight, FontWeight.w500);
+      for (final (title, description, key) in [
+        (
+          'Service name',
+          'Identifies this service in the home model selector.',
+          'name',
+        ),
+        (
+          'API URL',
+          'Enter the API URL. The client adds the path required by the selected protocol.',
+          'address',
+        ),
+        (
+          'API key',
+          'The key is saved locally using the operating system secure storage.',
+          'key',
+        ),
+        (
+          'Model',
+          'Enter one model ID per line, or separate with commas. You can enter IDs manually if fetching fails.',
+          'models',
+        ),
+      ]) {
+        final titleText = tester.widget<Text>(find.text(title));
+        expect(titleText.style?.fontSize, 13);
+        expect(titleText.style?.fontWeight, FontWeight.w500);
+        expect(
+          tester.getTopLeft(find.text(title)).dy,
+          lessThan(tester.getTopLeft(find.text(description)).dy),
+        );
+        expect(
+          tester.getTopLeft(find.text(description)).dy,
+          lessThan(tester.getTopLeft(field(key)).dy),
+        );
+        expect(
+          tester.widget<TextField>(input(key)).decoration!.labelText,
+          isNull,
+        );
+      }
+      expect(find.text('API protocol'), findsOneWidget);
       expect(
-        tester.getTopLeft(find.text(title)).dy,
-        lessThan(tester.getTopLeft(find.text(description)).dy),
+        find.text('Choose the API protocol supported by your provider.'),
+        findsOneWidget,
       );
+      expect(find.text('Anthropic Messages'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('ai-service-protocol')));
+      await tester.pumpAndSettle();
+      expect(find.text('OpenAI Chat Completions'), findsWidgets);
+      expect(find.text('OpenAI Responses'), findsOneWidget);
+      expect(find.text('Anthropic Messages'), findsNothing);
+      expect(tester.widget<TextField>(input('models')).maxLines, 5);
+      final decoration = tester.widget<TextField>(input('name')).decoration!;
       expect(
-        tester.getTopLeft(find.text(description)).dy,
-        lessThan(tester.getTopLeft(field(key)).dy),
+        decoration.contentPadding,
+        const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
       );
-      expect(
-        tester.widget<TextField>(input(key)).decoration!.labelText,
-        isNull,
-      );
-    }
-    expect(find.text('API protocol'), findsOneWidget);
-    expect(
-      find.text('Choose the API protocol supported by your provider.'),
-      findsOneWidget,
-    );
-    expect(find.text('Anthropic Messages'), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('ai-service-protocol')));
-    await tester.pumpAndSettle();
-    expect(find.text('OpenAI Chat Completions'), findsWidgets);
-    expect(find.text('OpenAI Responses'), findsOneWidget);
-    expect(find.text('Anthropic Messages'), findsNothing);
-    expect(tester.widget<TextField>(input('models')).maxLines, 5);
-    final decoration = tester.widget<TextField>(input('name')).decoration!;
-    expect(
-      decoration.contentPadding,
-      const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-    );
-    expect(decoration.enabledBorder!.borderSide.style, BorderStyle.none);
-    expect(decoration.focusedBorder!.borderSide.style, BorderStyle.solid);
-  });
+      expect(decoration.enabledBorder!.borderSide.style, BorderStyle.none);
+      expect(decoration.focusedBorder!.borderSide.style, BorderStyle.solid);
+    },
+  );
 
   testWidgets(
     'add dialog scrolls without overflow in narrow windows and translated large text',

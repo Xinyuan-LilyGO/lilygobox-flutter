@@ -7,7 +7,7 @@ import '../domain/command_policy.dart';
 
 /// 只读取应用配置目录内的用户规则，不从项目或模型参数加载可执行规则。
 class AiCommandPolicyStore {
-  AiCommandPolicyStore({File? file}) : _file = file;
+  AiCommandPolicyStore({this._file});
   final File? _file;
   static const maxBytes = 65536;
 
@@ -20,7 +20,7 @@ class AiCommandPolicyStore {
       if (directory == null && env['USERPROFILE'] != null) {
         directory = '${env['USERPROFILE']!}/AppData/Local';
       }
-      if (directory != null) directory += '/LILYGO/lilygobox';
+      if (directory != null) directory += '/LILYGO/LilygoBox';
     } else if (Platform.isMacOS) {
       if (env['HOME'] != null) {
         directory = '${env['HOME']!}/Library/Application Support/lilygobox';

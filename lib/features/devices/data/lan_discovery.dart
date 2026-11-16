@@ -17,8 +17,8 @@ class LanDevice extends DiscoveredDevice {
     required this.model,
     this.modelVersion = '',
     this.localAddress,
-    String? protocolId,
-  }) : _protocolId = protocolId;
+    this._protocolId,
+  });
 
   final String address;
   final int port;

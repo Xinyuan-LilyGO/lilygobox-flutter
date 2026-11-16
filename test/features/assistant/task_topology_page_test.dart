@@ -8,7 +8,6 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +15,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lilygobox/app/navigation/provider.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/material_palette.dart';
@@ -24,6 +24,7 @@ import 'package:lilygobox/core/widgets/action_button.dart';
 import 'package:lilygobox/core/widgets/card_shadow.dart';
 import 'package:lilygobox/core/widgets/interaction_decoration.dart';
 import 'package:lilygobox/core/widgets/menu_item_surface.dart';
+import 'package:lilygobox/core/widgets/popup_menu_surface.dart';
 import 'package:lilygobox/core/widgets/settings/select.dart';
 import 'package:lilygobox/core/widgets/tilt_card.dart';
 import 'package:lilygobox/core/widgets/title_bar_icon_button.dart';
@@ -33,11 +34,14 @@ import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 import 'package:lilygobox/features/assistant/domain/task_canvas_style.dart';
 import 'package:lilygobox/features/assistant/presentation/pages/page.dart';
 import 'package:lilygobox/features/assistant/presentation/pages/task_topology_page.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/agent_transfer_error.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/storage_content.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/task_topology_connection.dart';
 import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
 import 'package:lilygobox/features/assistant/state/provider.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import 'assistant_test_scope.dart';
@@ -101,9 +105,8 @@ void main() {
     workspaces = AiWorkspaceProvider(scope.provider);
     if (const bool.fromEnvironment('CAPTURE_ASSISTANT_UI')) {
       final chinese = await File('C:/Windows/Fonts/msyh.ttc').readAsBytes();
-      final chineseBold = await File(
-        'C:/Windows/Fonts/msyhbd.ttc',
-      ).readAsBytes();
+      final chineseBold = await File('C:/Windows/Fonts/msyhbd.ttc')
+          .readAsBytes();
       await (FontLoader(
         'Ahem',
       )..addFont(Future.value(ByteData.sublistView(chineseBold)))).load();
@@ -194,7 +197,7 @@ void main() {
               ? 'WorkspaceChinese'
               : null,
         ),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: RepaintBoundary(key: boundary, child: const TaskTopologyPage()),
@@ -211,9 +214,8 @@ void main() {
                   as RenderRepaintBoundary)
               .toImage();
       final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-      await File(
-        '${Directory.systemTemp.path}/$name.png',
-      ).writeAsBytes(bytes!.buffer.asUint8List());
+      await File('${Directory.systemTemp.path}/$name.png')
+          .writeAsBytes(bytes!.buffer.asUint8List());
       image.dispose();
     });
   }
@@ -484,8 +486,7 @@ void main() {
           expect(
             await pixel(samples[i]),
             isNot(before[i]),
-            reason:
-                'The selection fill must paint beyond the original scene boundary',
+            reason: 'The selection fill must paint beyond the original scene boundary',
           );
         }
         await drag.up();
@@ -896,8 +897,9 @@ void main() {
         (connection) => !connection.isHierarchy,
       );
       expect({peer.fromId, peer.toId}, {first.id, second.id});
-      for (final task in [root, first, second])
+      for (final task in [root, first, second]) {
         expect(position(task.id), before[task.id]);
+      }
       await connect(second.id, first.id);
       expect(workspaces.connections, hasLength(3));
       await connect(root.id, first.id);
@@ -1141,7 +1143,9 @@ void main() {
             .widgetList<CustomPaint>(find.byType(CustomPaint))
             .map((widget) => widget.painter)
             .firstWhere(
-              (painter) => painter.runtimeType.toString() == '_TopologyPainter',
+              (painter) =>
+                  painter.runtimeType.toString() ==
+                  'TaskTopologyConnectionsPainter',
             );
         return Set<String>.of(painter.selectedEdges as Set<String>);
       }
@@ -1225,7 +1229,9 @@ void main() {
             .widgetList<CustomPaint>(find.byType(CustomPaint))
             .map((widget) => widget.painter)
             .firstWhere(
-              (painter) => painter.runtimeType.toString() == '_TopologyPainter',
+              (painter) =>
+                  painter.runtimeType.toString() ==
+                  'TaskTopologyConnectionsPainter',
             );
         return Set<String>.of(painter.selectedEdges as Set<String>);
       }
@@ -1333,7 +1339,9 @@ void main() {
             .widgetList<CustomPaint>(find.byType(CustomPaint))
             .map((widget) => widget.painter)
             .firstWhere(
-              (painter) => painter.runtimeType.toString() == '_TopologyPainter',
+              (painter) =>
+                  painter.runtimeType.toString() ==
+                  'TaskTopologyConnectionsPainter',
             );
         return Set<String>.of(painter.selectedEdges as Set<String>);
       }
@@ -1630,10 +1638,11 @@ void main() {
       expect(position(), original);
       await tester.pumpAndSettle();
       final canvas = tester.getRect(canvasFinder);
-      final footer = tester.getRect(
-        find.byKey(const ValueKey('topology-footer')),
+      expect(find.byKey(const ValueKey('topology-footer')), findsNothing);
+      final toolbar = tester.getRect(
+        find.byKey(const ValueKey('topology-view-toolbar')),
       );
-      expect(footer.top, greaterThanOrEqualTo(canvas.bottom));
+      expect(toolbar.bottom, closeTo(canvas.bottom - 8, 1));
       expect(tester.takeException(), isNull);
       await finish(tester);
     },
@@ -1759,13 +1768,14 @@ void main() {
       await mouse.removePointer();
       await tester.binding.setSurfaceSize(const Size(320, 500));
       await tester.pumpAndSettle();
-      final footer = tester.getRect(
-        find.byKey(const ValueKey('topology-footer')),
+      expect(find.byKey(const ValueKey('topology-footer')), findsNothing);
+      final toolbar = tester.getRect(
+        find.byKey(const ValueKey('topology-view-toolbar')),
       );
       final canvas = tester.getRect(
         find.byKey(const ValueKey('task-topology-canvas')),
       );
-      expect(footer.top, greaterThanOrEqualTo(canvas.bottom));
+      expect(toolbar.bottom, closeTo(canvas.bottom - 8, 1));
       expect(
         find.byKey(const ValueKey('topology-auto-layout')),
         findsOneWidget,
@@ -1810,6 +1820,16 @@ void main() {
       await tester.tap(otherNode);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
       await tester.pump();
+      await tester.tap(rootNode, buttons: kSecondaryMouseButton);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('topology-context-make-child')),
+        findsNothing,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.tap(rootNode);
+      await tester.pumpAndSettle();
       await tester.tap(rootNode, buttons: kSecondaryMouseButton);
       await tester.pumpAndSettle();
       await tester.tap(
@@ -2016,9 +2036,34 @@ void main() {
         buttons: kSecondaryMouseButton,
       );
       await tester.pumpAndSettle();
+      String? clipboard;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            clipboard = (call.arguments as Map)['text'] as String;
+          }
+          if (call.method == 'Clipboard.getData') return {'text': clipboard};
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
       await tester.tap(
         find.byKey(const ValueKey('topology-context-duplicate')),
       );
+      await tick(tester);
+      expect(workspaces.sessions, hasLength(1));
+      await tester.tap(
+        find.byKey(ValueKey('topology-node-${original.id}')),
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topology-context-paste')));
       await tick(tester);
       final copy = workspaces.sessions.singleWhere(
         (task) => task.id != original.id,
@@ -2030,7 +2075,7 @@ void main() {
       await shortcut(LogicalKeyboardKey.keyY);
       expect(workspaces.find(copyId), isNotNull);
       expect(workspaces.find(copyId)!.title, 'History task (2)');
-      await tester.tap(find.byKey(ValueKey('topology-node-${copyId}')));
+      await tester.tap(find.byKey(ValueKey('topology-node-$copyId')));
       await tester.sendKeyEvent(LogicalKeyboardKey.delete);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('confirm-topology-delete')));
@@ -2056,7 +2101,7 @@ void main() {
   );
 
   testWidgets(
-    'duplicate card is offset selected and idle with no tilt effect',
+    'pasted agent starts at the context click and stays selected and idle',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1180, 850));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -2076,9 +2121,34 @@ void main() {
         buttons: kSecondaryMouseButton,
       );
       await tester.pumpAndSettle();
+      String? clipboard;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            clipboard = (call.arguments as Map)['text'] as String;
+          }
+          if (call.method == 'Clipboard.getData') return {'text': clipboard};
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
       await tester.tap(
         find.byKey(const ValueKey('topology-context-duplicate')),
       );
+      await tick(tester);
+      expect(workspaces.sessions, hasLength(1));
+      await tester.tap(
+        find.byKey(ValueKey('topology-node-${original.id}')),
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topology-context-paste')));
       await tick(tester);
       expect(workspaces.sessions, hasLength(2));
       final copy = workspaces.sessions.firstWhere(
@@ -2087,8 +2157,14 @@ void main() {
       final copiedPosition = tester.widget<Positioned>(
         find.byKey(ValueKey('topology-position-${copy.id}')),
       );
-      expect(copiedPosition.left, originalPosition.left! + 40);
-      expect(copiedPosition.top, originalPosition.top! + 40);
+      expect(
+        copiedPosition.left,
+        originalPosition.left! + originalPosition.width! / 2,
+      );
+      expect(
+        copiedPosition.top,
+        originalPosition.top! + originalPosition.height! / 2,
+      );
       expect(selected(tester, copy.id), isTrue);
       expect(selected(tester, original.id), isFalse);
       expect(find.byKey(const ValueKey('ai-message-input')), findsNothing);
@@ -2195,6 +2271,151 @@ void main() {
             .text,
         contains('ordinary text'),
       );
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'context menus copy and paste a selected workflow with its links',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1180, 850));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      String? clipboard;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            clipboard = (call.arguments as Map)['text'] as String;
+          }
+          if (call.method == 'Clipboard.getData') return {'text': clipboard};
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      final root = (await tester.runAsync(
+        () => workspaces.createPrimary(
+          title: 'Workflow root',
+          task: 'Coordinate',
+        ),
+      ))!;
+      final child = (await tester.runAsync(
+        () => workspaces.create(
+          title: 'Workflow child',
+          task: 'Help',
+          parentId: root.id,
+          startImmediately: false,
+        ),
+      ))!;
+      await tester.pumpWidget(app());
+      await tick(tester);
+      await tester.tap(find.byKey(ValueKey('topology-node-${root.id}')));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.tap(find.byKey(ValueKey('topology-node-${child.id}')));
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(ValueKey('topology-node-${root.id}')),
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      final l = AppLocalizations.of(
+        tester.element(find.byType(TaskTopologyPage)),
+      );
+      expect(find.text(l.aiTopologyCopyWorkflow), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('topology-context-duplicate')),
+      );
+      await tick(tester);
+      expect(workspaces.sessions, hasLength(2));
+      await tester.tapAt(
+        const Offset(1000, 700),
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(l.aiTopologyPasteWorkflow), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('topology-canvas-paste')));
+      for (var attempt = 0; attempt < 10; attempt++) {
+        await tick(tester);
+        if (workspaces.sessions.length == 4 &&
+            selected(tester, workspaces.sessions.last.id)) {
+          break;
+        }
+      }
+      expect(workspaces.sessions, hasLength(4));
+      final copies = workspaces.sessions
+          .where((s) => s.id != root.id && s.id != child.id)
+          .toList();
+      final copiedRoot = copies.singleWhere(
+        (s) => s.kind == AiWorkspaceKind.primary,
+      );
+      final copiedChild = copies.singleWhere(
+        (s) => s.parentId == copiedRoot.id,
+      );
+      expect(workspaces.isConnected(copiedRoot.id, copiedChild.id), isTrue);
+      expect(copies.every((s) => !s.busy), isTrue);
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'imported nodes with remote saved coordinates land at the pointer after pan and zoom',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1180, 850));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final source = (await tester.runAsync(
+        () => workspaces.createPrimary(
+          title: 'Imported far away',
+          task: 'Keep layout',
+        ),
+      ))!;
+      await tester.pumpWidget(app());
+      await tick(tester);
+      final canvas = find.byKey(const ValueKey('task-topology-canvas'));
+      final transform = tester
+          .widget<InteractiveViewer>(canvas)
+          .transformationController!;
+      transform.value =
+          Matrix4.translationValues(400, 250, 0) *
+          Matrix4.diagonal3Values(.6, .6, 1);
+      await tester.pumpAndSettle();
+      final existingBefore = tester.getTopLeft(
+        find.byKey(ValueKey('topology-node-${source.id}')),
+      );
+      final data = workspaces.exportData();
+      data['canvas'] = {
+        source.id: [12000.0, 9000.0],
+      };
+      final pointer = tester.getTopLeft(canvas) + const Offset(160, 130);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: pointer);
+      await mouse.moveTo(pointer);
+      await tester.pump();
+      late Map<String, String> imported;
+      await tester.runAsync(() async {
+        imported = await workspaces.importData(data);
+      });
+      await tick(tester);
+      final id = imported[source.id]!;
+      final actual = tester.getTopLeft(
+        find.byKey(ValueKey('topology-node-$id')),
+      );
+      expect(actual.dx, closeTo(pointer.dx, 1));
+      expect(actual.dy, closeTo(pointer.dy, 1));
+      final existingAfter = tester.getTopLeft(
+        find.byKey(ValueKey('topology-node-${source.id}')),
+      );
+      expect(existingAfter.dx, closeTo(existingBefore.dx, 1));
+      expect(existingAfter.dy, closeTo(existingBefore.dy, 1));
+      expect(selected(tester, id), isTrue);
+      expect(workspaces.canvasPositions[id], isNot([12000.0, 9000.0]));
+      await mouse.removePointer();
+      expect(tester.takeException(), isNull);
       await finish(tester);
     },
   );
@@ -2391,6 +2612,7 @@ void main() {
       expect(workspaces.selectedId, isNull);
       expect(find.byKey(const ValueKey('topology-context-open')), findsNothing);
       for (final key in [
+        'import-agents',
         'zoom-out',
         'zoom-in',
         'auto-layout',
@@ -2427,6 +2649,568 @@ void main() {
         findsNothing,
       );
       await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'canvas import opens the native picker directly and cancellation leaves no manager dialog',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1180, 850));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      var openCalls = 0;
+      const picker = MethodChannel('plugins.flutter.io/file_selector');
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(picker, (
+        call,
+      ) async {
+        if (call.method == 'openFile') openCalls++;
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          picker,
+          null,
+        ),
+      );
+      await tester.pumpWidget(app());
+      await tick(tester);
+      final canvas = find.byKey(const ValueKey('task-topology-canvas'));
+      await tester.tapAt(
+        tester.getTopLeft(canvas) + const Offset(20, 20),
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('topology-canvas-import-agents')),
+      );
+      await tester.pumpAndSettle();
+      expect(openCalls, 1);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(
+        find.byKey(const ValueKey('storage-transfer-action')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('topology-canvas-import-agents')),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'multiple selected cards offer workflow export and single selection restores agent actions',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1600, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final first = (await tester.runAsync(
+        () => workspaces.createPrimary(
+          title: 'First selected agent',
+          task: 'one',
+        ),
+      ))!;
+      final second = (await tester.runAsync(
+        () => workspaces.createPrimary(
+          title: 'Second selected agent',
+          task: 'two',
+        ),
+      ))!;
+      await tester.pumpWidget(app());
+      await tick(tester);
+      final firstCard = find.byKey(ValueKey('topology-node-${first.id}'));
+      final secondCard = find.byKey(ValueKey('topology-node-${second.id}'));
+      final l = AppLocalizations.of(
+        tester.element(find.byType(TaskTopologyPage)),
+      );
+      final singleActions = [
+        l.agentStorageManage,
+        l.agentStorageManageContext,
+        l.aiTopologyOpen,
+        l.aiTopologyCopyId,
+        l.aiTopologyRename,
+        l.aiTopologyBringToFront,
+        l.aiTopologyMakeChild,
+        l.agentStorageImportMemory,
+        l.agentStorageExportMemory,
+        l.agentStorageExportChat,
+        l.agentStorageExportAgent,
+      ];
+      final workflow = find.byKey(
+        const ValueKey('topology-context-export-workflow'),
+      );
+
+      await tester.tap(firstCard);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.tap(secondCard);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      expect(selected(tester, first.id), isTrue);
+      expect(selected(tester, second.id), isTrue);
+      await tester.tap(secondCard, buttons: kSecondaryMouseButton);
+      await tester.pumpAndSettle();
+      for (final key in [
+        'open',
+        'paste',
+        'copy-id',
+        'rename',
+        'bring-front',
+        'create',
+        'make-root',
+        'make-child',
+        'manage-chat',
+      ]) {
+        expect(find.byKey(ValueKey('topology-context-$key')), findsNothing);
+      }
+      for (final key in ['duplicate', 'export-workflow', 'connect', 'delete']) {
+        expect(find.byKey(ValueKey('topology-context-$key')), findsOneWidget);
+      }
+      expect(workflow, findsOneWidget);
+      expect(find.text(l.agentStorageExportWorkflow), findsOneWidget);
+      for (final label in singleActions) {
+        expect(find.text(label), findsNothing);
+      }
+      expect(
+        find.byKey(const ValueKey('topology-context-export-chat')),
+        findsNothing,
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.tap(firstCard);
+      await tester.pumpAndSettle();
+      await tester.tap(firstCard, buttons: kSecondaryMouseButton);
+      await tester.pumpAndSettle();
+      expect(workflow, findsNothing);
+      for (final key in [
+        'open',
+        'paste',
+        'copy-id',
+        'rename',
+        'bring-front',
+        'create',
+        'make-child',
+        'manage-chat',
+      ]) {
+        expect(find.byKey(ValueKey('topology-context-$key')), findsOneWidget);
+      }
+      for (final label in singleActions) {
+        expect(find.text(label), findsOneWidget);
+      }
+      expect(
+        find.byKey(const ValueKey('topology-context-export-chat')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await finish(tester);
+    },
+  );
+
+  testWidgets('card chat export opens the save picker without a manager', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1180, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final agent = (await tester.runAsync(
+      () => workspaces.createPrimary(title: 'Chat export', task: 'one'),
+    ))!;
+    var saveCalls = 0;
+    Object? saveArguments;
+    const picker = MethodChannel('plugins.flutter.io/file_selector');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(picker, (
+      call,
+    ) async {
+      if (call.method == 'getSavePath') {
+        saveCalls++;
+        saveArguments = call.arguments;
+      }
+      return null;
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        picker,
+        null,
+      ),
+    );
+    await tester.pumpWidget(app());
+    await tick(tester);
+    await tester.tap(
+      find.byKey(ValueKey('topology-node-${agent.id}')),
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('topology-context-export-chat')),
+    );
+    await tester.pumpAndSettle();
+    expect(saveCalls, 1);
+    expect(saveArguments.toString(), contains(agent.id));
+    expect(saveArguments.toString(), contains('chat'));
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byKey(const ValueKey('storage-transfer-action')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets(
+    'card exports skip the manager and failed imports retain a visible reason with retry',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1180, 850));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final agent = (await tester.runAsync(
+        () => workspaces.createPrimary(
+          title: 'Direct transfer',
+          task: 'Keep data',
+        ),
+      ))!;
+      await tester.pumpWidget(app());
+      await tick(tester);
+      final context = tester.element(find.byType(TaskTopologyPage));
+      final l = AppLocalizations.of(context);
+      const picker = MethodChannel('plugins.flutter.io/file_selector');
+      final save = Completer<Object?>();
+      var openCalls = 0;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(picker, (
+        call,
+      ) async {
+        if (call.method == 'getSavePath') return save.future;
+        if (call.method == 'openFile') {
+          openCalls++;
+          if (openCalls == 1) {
+            throw PlatformException(
+              code: 'test-selector',
+              message: 'Cannot read archive',
+            );
+          }
+          return null;
+        }
+        throw UnsupportedError(call.method);
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          picker,
+          null,
+        ),
+      );
+      final exporting = showAgentStorage(
+        context,
+        theme.themeData,
+        agent.id,
+        action: 'memory',
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(
+        find.byKey(const ValueKey('storage-transfer-action')),
+        findsNothing,
+      );
+      save.complete(null);
+      await exporting;
+      final importing = showAgentStorage(
+        context,
+        theme.themeData,
+        agent.id,
+        action: 'import',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(l.agentStorageTransferFailedTitle), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('storage-transfer-action')),
+        findsNothing,
+      );
+      final notice = find.descendant(
+        of: find.byType(SnackBar),
+        matching: find.byType(Text),
+      );
+      expect(tester.widget<Text>(notice).data, contains('Cannot read archive'));
+      expect(tester.widget<Text>(notice).data, isNot(endsWith('详情：')));
+      expect(
+        agentTransferFailureMessage(
+          context,
+          const FormatException('Invalid package structure'),
+        ),
+        l.agentStorageInvalidPackage,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('confirm-storage-transfer-retry')),
+      );
+      await tester.pumpAndSettle();
+      await importing;
+      expect(openCalls, 2);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(workspaces.find(agent.id), same(agent));
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'card chat deletion confirms in red and clears only the clicked agent',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1180, 850));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      late AiAgentWorkspace root;
+      late AiAgentWorkspace child;
+      await tester.runAsync(() async {
+        root = await workspaces.createPrimary(
+          title: 'Keep root',
+          task: 'Coordinate',
+        );
+        child = await workspaces.create(
+          title: 'Clear child chat',
+          task: 'Keep agent',
+          parentId: root.id,
+          startImmediately: false,
+        );
+        await root.assistant.sendMessage('Keep root history');
+        await child.assistant.sendMessage('Clear child history');
+      });
+      await tester.pumpWidget(app());
+      await tick(tester);
+      final rootMessages = root.assistant.messages.toList();
+      final childMessages = child.assistant.messages.toList();
+      expect(childMessages, isNotEmpty);
+      await tester.tap(
+        find.byKey(ValueKey('topology-node-${child.id}')),
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      final l = AppLocalizations.of(
+        tester.element(find.byType(TaskTopologyPage)),
+      );
+      expect(
+        find.byKey(const ValueKey('topology-context-delete-chat')),
+        findsNothing,
+      );
+      expect(
+        tester.getTopLeft(find.text(l.agentStorageManageContext)).dy,
+        greaterThan(tester.getTopLeft(find.text(l.agentStorageManage)).dy),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('topology-context-manage-chat')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('storage-context-budget')),
+        findsOneWidget,
+      );
+      Future<void> openDeletion() async {
+        final deleteButton = find.widgetWithText(AppActionButton, l.delete);
+        await tester.ensureVisible(deleteButton);
+        await tester.tap(deleteButton);
+        await tester.pumpAndSettle();
+      }
+
+      await openDeletion();
+      expect(
+        tester
+            .widget<AppActionButton>(
+              find.byKey(const ValueKey('confirm-delete-chat')),
+            )
+            .destructive,
+        isTrue,
+      );
+      await tester.tap(find.byKey(const ValueKey('cancel-delete-chat')));
+      await tester.pumpAndSettle();
+      expect(child.assistant.messages, orderedEquals(childMessages));
+      await openDeletion();
+      await tester.tap(find.byKey(const ValueKey('confirm-delete-chat')));
+      await tick(tester);
+      expect(child.assistant.messages, isEmpty);
+      expect(root.assistant.messages, orderedEquals(rootMessages));
+      expect(workspaces.find(child.id), same(child));
+      expect(child.parentId, root.id);
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'modifier keys preview available canvas shortcuts before an operation',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1180, 850));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.runAsync(
+        () => workspaces.createPrimary(title: 'Shortcut preview', task: 'one'),
+      );
+      await tester.pumpWidget(app());
+      await tick(tester);
+      final canvas = find.byKey(const ValueKey('task-topology-canvas'));
+      final hints = find.byKey(const ValueKey('topology-shortcut-hints'));
+      final toolbar = find.byKey(const ValueKey('topology-view-toolbar'));
+      await tester.tapAt(tester.getTopLeft(canvas) + const Offset(30, 100));
+      await tester.pumpAndSettle();
+      expect(hints, findsNothing);
+      expect(find.byKey(const ValueKey('topology-footer')), findsNothing);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      expect(hints, findsOneWidget);
+      expect(
+        find.descendant(of: hints, matching: find.textContaining('Ctrl')),
+        findsWidgets,
+      );
+      expect(
+        find.descendant(of: hints, matching: find.textContaining('全选')),
+        findsWidgets,
+      );
+      expect(
+        find.descendant(of: hints, matching: find.textContaining('缩放')),
+        findsWidgets,
+      );
+      expect(
+        tester.getRect(hints).bottom,
+        closeTo(tester.getRect(toolbar).bottom, 1),
+      );
+      // Held modifiers continue to help even without another key or operation.
+      await tester.pump(const Duration(seconds: 3));
+      expect(hints, findsOneWidget);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      expect(hints, findsNothing);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(hints, findsOneWidget);
+      expect(
+        find.descendant(of: hints, matching: find.textContaining('Shift')),
+        findsWidgets,
+      );
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(hints, findsNothing);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.space);
+      await tester.pumpAndSettle();
+      expect(hints, findsOneWidget);
+      expect(
+        find.descendant(of: hints, matching: find.textContaining('空格')),
+        findsWidgets,
+      );
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.space);
+      await tester.pumpAndSettle();
+      expect(hints, findsNothing);
+      // Editing zoom text owns modifiers; canvas help must not appear over it.
+      await tester.tap(find.byKey(const ValueKey('topology-zoom-percentage')));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      expect(hints, findsNothing);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'editable zoom percentage follows the viewport and owns text shortcuts',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1180, 850));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.runAsync(
+        () => workspaces.createPrimary(title: 'Zoom editor', task: 'one'),
+      );
+      await tester.pumpWidget(app());
+      await tick(tester);
+      final canvas = find.byKey(const ValueKey('task-topology-canvas'));
+      final transform = tester
+          .widget<InteractiveViewer>(canvas)
+          .transformationController!;
+      final editor = find.byKey(const ValueKey('topology-zoom-percentage'));
+      String shown() => tester.widget<TextField>(editor).controller!.text;
+      expect(shown(), (transform.value.entry(0, 0) * 100).round().toString());
+      final center = tester.getSize(canvas).center(Offset.zero);
+      final sceneCenter = transform.toScene(center);
+      final frame = find.byKey(const ValueKey('topology-zoom-field-frame'));
+      Color frameColor() =>
+          ((tester
+                              .widget<DecoratedBox>(
+                                find
+                                    .descendant(
+                                      of: frame,
+                                      matching: find.byType(DecoratedBox),
+                                    )
+                                    .first,
+                              )
+                              .decoration
+                          as BoxDecoration)
+                      .border!
+                  as Border)
+              .top
+              .color;
+      expect(frameColor(), Colors.transparent);
+      await tester.tap(editor);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 75));
+      expect(frameColor(), isNot(Colors.transparent));
+      expect(frameColor(), isNot(theme.themeData.basePrimary));
+      await tester.pumpAndSettle();
+      final frameRect = tester.getRect(frame);
+      final toolbarRect = tester.getRect(
+        find.byKey(const ValueKey('topology-view-toolbar')),
+      );
+      expect(frameRect.height, 24);
+      expect(frameRect.center.dy, closeTo(toolbarRect.center.dy, .01));
+      expect(
+        tester.getRect(editor).center.dy,
+        closeTo(frameRect.center.dy, .01),
+      );
+      final focusBorder =
+          tester
+                  .widget<DecoratedBox>(
+                    find
+                        .descendant(
+                          of: frame,
+                          matching: find.byType(DecoratedBox),
+                        )
+                        .first,
+                  )
+                  .decoration
+              as BoxDecoration;
+      expect(
+        (focusBorder.border! as Border).top.color,
+        theme.themeData.basePrimary,
+      );
+      await captureOverlay(tester, 'zoom-field-focused-alignment');
+      await tester.enterText(editor, '125');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(transform.value.entry(0, 0), isNot(closeTo(1.25, .001)));
+      await tester.pumpAndSettle();
+      expect(transform.value.entry(0, 0), closeTo(1.25, .001));
+      expect((transform.toScene(center) - sceneCenter).distance, lessThan(.01));
+      expect(shown(), '125');
+
+      await tester.tap(editor);
+      await tester.enterText(editor, '77');
+      // Ongoing viewport updates must not overwrite the draft being edited.
+      transform.value = transform.value.clone()
+        ..setEntry(0, 0, 1.1)
+        ..setEntry(1, 1, 1.1);
+      await tester.pump();
+      expect(shown(), '77');
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      expect(
+        tester.widget<TextField>(editor).controller!.selection,
+        const TextSelection(baseOffset: 0, extentOffset: 2),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(transform.value.entry(0, 0), closeTo(1.1, .001));
+      expect(shown(), '110');
+
+      await tester.tap(editor);
+      await tester.enterText(editor, '500');
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      expect(transform.value.entry(0, 0), closeTo(1.8, .001));
+      expect(shown(), '180');
+      await tester.tap(editor);
+      await tester.enterText(editor, '');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      expect(shown(), '180');
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -2830,6 +3614,10 @@ void main() {
         final header = find.byKey(
           ValueKey('topology-conversation-title-scroll-${root.id}'),
         );
+        final conversation = tester.widget<Column>(
+          find.ancestor(of: header, matching: find.byType(Column)).first,
+        );
+        expect(conversation.children.whereType<Divider>(), isEmpty);
         final headerScroll = tester
             .widget<SingleChildScrollView>(
               find.descendant(
@@ -2928,8 +3716,7 @@ void main() {
                       ],
                     }
                   : {
-                      'path':
-                          'C:/Users/XK/AppData/Local/Temp/lilygobox-readonly-approval-test.txt',
+                      'path': 'C:/Users/XK/AppData/Local/Temp/lilygobox-readonly-approval-test.txt',
                       'content': 'Never approved in this test.',
                       'expected_content': null,
                     },
@@ -2950,7 +3737,7 @@ void main() {
             ],
             child: MaterialApp(
               locale: const Locale('zh'),
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              localizationsDelegates: appLocalizationDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               home: const Scaffold(body: AssistantPage(readOnly: true)),
             ),
@@ -3097,7 +3884,7 @@ void main() {
   });
 
   testWidgets(
-    'node context menu stays unscaled and deletes the clicked subtree only',
+    'node context menu stays unscaled and deletes the clicked agent only',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1180, 850));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -3161,14 +3948,28 @@ void main() {
         find.byKey(const ValueKey('topology-context-open')),
       );
       expect(firstItemRect.left, closeTo(clickPosition.dx + 5, 1));
-      expect(firstItemRect.top, closeTo(clickPosition.dy - 8 + 5, 1));
+      // 菜单较高时允许贴近窗口边缘，始终保持在可用区域内。
+      final menuSurface = tester.getRect(
+        find
+            .ancestor(
+              of: find.byKey(const ValueKey('topology-context-open')),
+              matching: find.byType(PopupMenuSurface),
+            )
+            .first,
+      );
+      expect(menuSurface.top, greaterThanOrEqualTo(0));
+      expect(menuSurface.bottom, lessThanOrEqualTo(850));
       final duplicateRect = tester.getRect(
         find.byKey(const ValueKey('topology-context-duplicate')),
       );
       final copyIdRect = tester.getRect(
         find.byKey(const ValueKey('topology-context-copy-id')),
       );
-      expect(copyIdRect.top - duplicateRect.bottom, closeTo(4, 1));
+      final pasteRect = tester.getRect(
+        find.byKey(const ValueKey('topology-context-paste')),
+      );
+      expect(pasteRect.top - duplicateRect.bottom, closeTo(4, 1));
+      expect(copyIdRect.top - pasteRect.bottom, closeTo(4, 1));
       expect(rect.width, greaterThan(100));
       expect(rect.left, greaterThanOrEqualTo(0));
       expect(rect.right, lessThanOrEqualTo(1180));
@@ -3277,6 +4078,62 @@ void main() {
   });
 
   testWidgets(
+    'deleting an intermediate child preserves its branch and previews promotion without forced newlines',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1600, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final root = (await tester.runAsync(
+        () => workspaces.createPrimary(title: 'Keep root', task: 'Coordinate'),
+      ))!;
+      final middle = (await tester.runAsync(
+        () => workspaces.create(
+          title: 'Delete middle',
+          task: 'Work',
+          parentId: root.id,
+        ),
+      ))!;
+      final leaf = (await tester.runAsync(
+        () => workspaces.create(
+          title: 'Keep descendant',
+          task: 'Continue',
+          parentId: middle.id,
+        ),
+      ))!;
+      await tester.pumpWidget(app());
+      await tick(tester);
+      await tester.tap(
+        find.byKey(ValueKey('topology-node-${middle.id}')),
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topology-context-delete')));
+      await tester.pumpAndSettle();
+      final l10n = AppLocalizations.of(
+        tester.element(find.byType(TaskTopologyPage)),
+      );
+      final notice = find.textContaining(
+        l10n.aiTopologyRootPromotionNotice(leaf.title),
+      );
+      expect(notice, findsOneWidget);
+      expect(tester.widget<Text>(notice).data, isNot(contains('\n')));
+      final confirmButton = tester.widget<AppActionButton>(
+        find.byKey(const ValueKey('confirm-topology-delete')),
+      );
+      expect(confirmButton.destructive, isTrue);
+      expect(confirmButton.primary, isFalse);
+      await tester.tap(find.byKey(const ValueKey('confirm-topology-delete')));
+      await tick(tester);
+      expect(workspaces.find(middle.id), isNull);
+      expect(workspaces.find(root.id), same(root));
+      expect(workspaces.find(leaf.id), same(leaf));
+      expect(leaf.kind, AiWorkspaceKind.primary);
+      expect(leaf.parentId, isNull);
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
     'deleting a root promotes its latest long task and retains its conversation draft',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1180, 850));
@@ -3331,9 +4188,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.textContaining(
-          AppLocalizations.of(
-            tester.element(find.byType(TaskTopologyPage)),
-          ).aiTopologyRootPromotionNotice(latest.title),
+          AppLocalizations.of(tester.element(find.byType(TaskTopologyPage)))
+              .aiTopologyRootPromotionNotice(latest.title),
         ),
         findsOneWidget,
       );
@@ -3550,6 +4406,128 @@ void main() {
     },
   );
 
+  testWidgets(
+    'creation context settings remain usable in a compact dialog and cancel independently',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(420, 620));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      scope.provider.contextBudgetTokens = 180000;
+      scope.provider.contextCompactionPercent = 85;
+      await tester.pumpWidget(app(textScale: 1.5));
+      await tick(tester);
+      await tester.tap(find.byKey(const ValueKey('topology-empty-create')));
+      await tick(tester);
+      final budget = find.byKey(const ValueKey('topology-context-budget'));
+      await tester.ensureVisible(budget);
+      await tick(tester);
+      await tester.enterText(budget, '64000');
+      final percent = find.byKey(const ValueKey('topology-context-percent'));
+      await tester.enterText(percent, '95');
+      await tick(tester);
+      expect(tester.takeException(), isNull);
+      expect(
+        find.byKey(const ValueKey('topology-create-confirm')).hitTestable(),
+        findsOneWidget,
+      );
+      final l10n = AppLocalizations.of(
+        tester.element(find.byType(TaskTopologyPage)),
+      );
+      await tester.tap(find.text(l10n.settingsCancel));
+      await tick(tester);
+      expect(workspaces.sessions, isEmpty);
+      expect(scope.provider.contextBudgetTokens, 180000);
+      expect(scope.provider.contextCompactionPercent, 85);
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'creation context settings validate and apply to primary and child',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1180, 950));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      scope.provider.contextBudgetTokens = 180000;
+      scope.provider.contextCompactionPercent = 85;
+      await tester.pumpWidget(app());
+      await tick(tester);
+      await tester.tap(find.byKey(const ValueKey('topology-empty-create')));
+      await tick(tester);
+      Finder input(String key) => find.descendant(
+        of: find.byKey(ValueKey(key)),
+        matching: find.byType(TextField),
+      );
+      expect(
+        tester
+            .widget<TextField>(input('topology-context-budget'))
+            .controller!
+            .text,
+        '180000',
+      );
+      expect(
+        tester
+            .widget<TextField>(input('topology-context-percent'))
+            .controller!
+            .text,
+        '85',
+      );
+      await tester.enterText(input('topology-context-budget'), '0');
+      await tester.enterText(input('topology-context-percent'), '101');
+      await tester.tap(find.byKey(const ValueKey('topology-create-confirm')));
+      await tick(tester);
+      expect(workspaces.sessions, isEmpty);
+      await tester.enterText(input('topology-context-budget'), '64000');
+      await tester.enterText(input('topology-context-percent'), '80');
+      await tester.enterText(
+        find.byKey(const ValueKey('topology-task-input')),
+        'Context parent task',
+      );
+      await tester.tap(find.byKey(const ValueKey('topology-create-confirm')));
+      await tick(tester);
+      final root = workspaces.sessions.single;
+      expect(root.assistant.contextBudgetTokens, 64000);
+      expect(root.assistant.contextCompactionPercent, 80);
+      expect(scope.provider.contextBudgetTokens, 180000);
+      await tester.tap(find.byKey(const ValueKey('topology-back')));
+      await tick(tester);
+      await tester.tap(find.byKey(ValueKey('topology-node-${root.id}')));
+      await tester.tap(find.byKey(const ValueKey('topology-new-child')));
+      await tick(tester);
+      expect(
+        tester
+            .widget<TextField>(input('topology-context-budget'))
+            .controller!
+            .text,
+        '64000',
+      );
+      expect(
+        tester
+            .widget<TextField>(input('topology-context-percent'))
+            .controller!
+            .text,
+        '80',
+      );
+      await tester.enterText(input('topology-context-budget'), '32000');
+      await tester.enterText(input('topology-context-percent'), '70');
+      await tester.enterText(
+        find.byKey(const ValueKey('topology-task-input')),
+        'Context child task',
+      );
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('topology-create-confirm')),
+      );
+      await tester.tap(find.byKey(const ValueKey('topology-create-confirm')));
+      await tick(tester);
+      final child = workspaces.sessions.last;
+      expect(child.parentId, root.id);
+      expect(child.assistant.contextBudgetTokens, 32000);
+      expect(child.assistant.contextCompactionPercent, 70);
+      expect(root.assistant.contextBudgetTokens, 64000);
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    },
+  );
+
   testWidgets('creation accepts an empty name but requires task content', (
     tester,
   ) async {
@@ -3602,9 +4580,8 @@ void main() {
                       as RenderRepaintBoundary)
                   .toImage();
           final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-          await File(
-            '${Directory.systemTemp.path}/$name.png',
-          ).writeAsBytes(bytes!.buffer.asUint8List());
+          await File('${Directory.systemTemp.path}/$name.png')
+              .writeAsBytes(bytes!.buffer.asUint8List());
           image.dispose();
         });
       }
@@ -3817,9 +4794,8 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(
           find.text(
-            AppLocalizations.of(
-              tester.element(find.byType(TaskTopologyPage)),
-            ).settingsCancel,
+            AppLocalizations.of(tester.element(find.byType(TaskTopologyPage)))
+                .settingsCancel,
           ),
         );
         await tester.pumpAndSettle();
@@ -4006,17 +4982,35 @@ void main() {
       expect(position(nested.id).left, greaterThan(position(child.id).left!));
       final canvas = find.byKey(const ValueKey('task-topology-canvas'));
       final customPaint = tester.widget<CustomPaint>(
-        find.descendant(of: canvas, matching: find.byType(CustomPaint)).first,
+        find.descendant(
+          of: canvas,
+          matching: find.byKey(const ValueKey('topology-connections-paint')),
+        ),
       );
       final dynamic painter = customPaint.painter;
-      expect(
-        (painter.sessions as List<AiAgentWorkspace>)
-            .singleWhere((item) => item.id == nested.id)
-            .parentId,
-        child.id,
+      final edge = workspaces.connections.singleWhere(
+        (edge) => edge.fromId == child.id && edge.toId == nested.id,
       );
-      final positions = painter.positions as Map<String, Offset>;
-      expect(positions[nested.id]!.dx, position(nested.id).left);
+      final routes = painter.routes as Map<String, TaskTopologyConnection>;
+      final route = routes[edge.id]!;
+      final parentPosition = position(child.id);
+      final nestedPosition = position(nested.id);
+      final expected = TaskTopologyConnection.between(
+        Rect.fromLTWH(
+          parentPosition.left!,
+          parentPosition.top!,
+          parentPosition.width!,
+          parentPosition.height!,
+        ),
+        Rect.fromLTWH(
+          nestedPosition.left!,
+          nestedPosition.top!,
+          nestedPosition.width!,
+          nestedPosition.height!,
+        ),
+      );
+      expect(route.start, expected.start);
+      expect(route.end, expected.end);
       await tester.tap(find.byIcon(Symbols.fit_screen_rounded));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(ValueKey('topology-open-${nested.id}')));

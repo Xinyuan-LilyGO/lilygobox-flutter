@@ -2,7 +2,7 @@
  * @Description: 维护深浅主题配色，统一驱动主题渐变并支持减少动画。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../storage/preferences.dart';
 import 'definition.dart';

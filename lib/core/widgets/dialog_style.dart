@@ -2,7 +2,7 @@
  * @Description: 统一标准提示框及嵌入式批准面板的文字、背景和普通按钮配色。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../theme/definition.dart';
 import '../theme/material_palette.dart';

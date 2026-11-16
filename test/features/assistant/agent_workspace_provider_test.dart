@@ -8,19 +8,19 @@ import 'package:lilygobox/app/shell/state/provider.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/features/assistant/data/agent_storage.dart';
 import 'package:lilygobox/features/assistant/domain/agent_link.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
-import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 import 'package:lilygobox/features/assistant/domain/permissions.dart';
 import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 import 'package:lilygobox/features/assistant/domain/task_canvas_style.dart';
-import 'package:lilygobox/features/assistant/state/agent_workspace.dart';
 import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
 
 import 'assistant_test_scope.dart';
 
 void main() {
   late AssistantTestScope scope;
+  late AgentStorage storage;
   late AiWorkspaceProvider workspaces;
   late ThemeProvider theme;
   late LanguageProvider language;
@@ -57,6 +57,7 @@ void main() {
       expect(source.assistant.processingSpeed, AiProcessingSpeed.fast);
     },
   );
+  void Function()? observeRequest;
   var spawnFromMain = false;
   Map<String, Object?> spawnSelection = {};
   var askApproval = false;
@@ -70,12 +71,16 @@ void main() {
     requests = [];
     gate = null;
     namingGate = null;
+    observeRequest = null;
     spawnFromMain = false;
     spawnSelection = {};
     askApproval = false;
     failNaming = false;
     parentResponseCount = 0;
+    storage = AgentStorage(path: ':memory:');
+    await storage.ready;
     scope = await createAssistantTestScope(
+      storage: storage,
       theme: theme,
       language: language,
       shell: shell,
@@ -84,6 +89,7 @@ void main() {
         final body = jsonDecode(request.body) as Map<String, dynamic>;
         body['_testAuthorization'] = request.headers['authorization'];
         body['_testUrl'] = request.url.toString();
+        observeRequest?.call();
         requests.add(body);
         final messages = body['messages'] as List;
         if (messages.first['content'].toString().startsWith(
@@ -163,12 +169,22 @@ void main() {
       models: ['gpt-6.1-sol', 'deepseek-flash'],
       apiKey: 'key',
     );
+    // These fixtures isolate workflow/messaging requests. Automatic memory
+    // extraction has its own integration suite and makes additional API calls.
+    scope.provider.autoSaveMemory = false;
     workspaces = AiWorkspaceProvider(scope.provider);
+    workspaces.addListener(() {
+      for (final session in workspaces.sessions) {
+        session.assistant.autoSaveMemory = false;
+      }
+    });
   });
-  tearDown(() {
+  tearDown(() async {
     if (gate?.isCompleted == false) gate!.complete();
     if (namingGate?.isCompleted == false) namingGate!.complete();
+    await workspaces.flush().catchError((_) {});
     workspaces.dispose();
+    await storage.close();
     scope.dispose();
     theme.dispose();
     language.dispose();
@@ -181,6 +197,71 @@ void main() {
       'wait_ms': 100,
     });
   }
+
+  test(
+    'creation validates and applies context settings before work starts',
+    () async {
+      scope.provider.contextBudgetTokens = 180000;
+      scope.provider.contextCompactionPercent = 85;
+      final root = await workspaces.create(
+        title: 'Root context',
+        task: 'Wait',
+        startImmediately: false,
+      );
+      expect(root.assistant.contextBudgetTokens, 180000);
+      expect(root.assistant.contextCompactionPercent, 85);
+      final child = await workspaces.create(
+        title: 'Child context',
+        task: 'Wait',
+        parentId: root.id,
+        contextBudgetTokens: 64000,
+        contextCompactionPercent: 75,
+        startImmediately: false,
+      );
+      expect(child.assistant.contextBudgetTokens, 64000);
+      expect(child.assistant.contextCompactionThresholdTokens, 48000);
+      expect(root.assistant.contextBudgetTokens, 180000);
+      final snapshot = child.assistant.snapshotWorkspaceConversation();
+      expect(snapshot['contextBudgetTokens'], 64000);
+      expect(snapshot['contextCompactionPercent'], 75);
+      final before = workspaces.sessions.length;
+      await expectLater(
+        workspaces.create(
+          title: 'Invalid',
+          task: 'Never run',
+          contextBudgetTokens: 0,
+        ),
+        throwsRangeError,
+      );
+      await expectLater(
+        workspaces.createPrimary(
+          title: 'Invalid percent',
+          task: 'Never run',
+          contextCompactionPercent: 101,
+        ),
+        throwsRangeError,
+      );
+      expect(workspaces.sessions, hasLength(before));
+    },
+  );
+
+  test('first model request sees the requested context settings', () async {
+    var observed = false;
+    observeRequest = () {
+      final assistant = workspaces.sessions.single.assistant;
+      expect(assistant.contextBudgetTokens, 96000);
+      expect(assistant.contextCompactionPercent, 75);
+      observed = true;
+    };
+    final root = await workspaces.createPrimary(
+      title: 'First request',
+      task: 'Answer briefly',
+      contextBudgetTokens: 96000,
+      contextCompactionPercent: 75,
+    );
+    await finish(root.id);
+    expect(observed, isTrue);
+  });
 
   test('wait_agents accepts more than 16 connected agents', () async {
     final root = await workspaces.create(
@@ -249,33 +330,30 @@ void main() {
     },
   );
 
-  test(
-    'service updates refresh live agent credentials and deletion clears its selection',
-    () async {
-      final agent = await workspaces.create(
-        title: 'Agent',
-        task: 'Work',
-        startImmediately: false,
-      );
-      final service = agent.assistant.selectedService!;
-      await scope.provider.saveService(
-        id: service.id,
-        name: 'Renamed',
-        protocol: service.protocol,
-        baseUrl: service.baseUrl,
-        models: service.models,
-        apiKey: 'rotated-key',
-      );
-      expect(agent.assistant.selectedService!.name, 'Renamed');
-      await workspaces.send(agent.id, 'Use current key');
-      await finish(agent.id);
-      expect(requests.last['_testAuthorization'], 'Bearer rotated-key');
-      await scope.provider.removeService(service.id);
-      expect(agent.assistant.selectedModel, isNull);
-      expect(agent.assistant.hasServiceKey(service.id), isFalse);
-      expect(agent.assistant.canSendMessage, isFalse);
-    },
-  );
+  test('service updates refresh live agent credentials and deletion clears its selection', () async {
+    final agent = await workspaces.create(
+      title: 'Agent',
+      task: 'Work',
+      startImmediately: false,
+    );
+    final service = agent.assistant.selectedService!;
+    await scope.provider.saveService(
+      id: service.id,
+      name: 'Renamed',
+      protocol: service.protocol,
+      baseUrl: service.baseUrl,
+      models: service.models,
+      apiKey: 'rotated-key',
+    );
+    expect(agent.assistant.selectedService!.name, 'Renamed');
+    await workspaces.send(agent.id, 'Use current key');
+    await finish(agent.id);
+    expect(requests.last['_testAuthorization'], 'Bearer rotated-key');
+    await scope.provider.removeService(service.id);
+    expect(agent.assistant.selectedModel, isNull);
+    expect(agent.assistant.hasServiceKey(service.id), isFalse);
+    expect(agent.assistant.canSendMessage, isFalse);
+  });
 
   group('Task links and navigation', () {
     test('task URLs round trip exact IDs and reject malformed app links', () {
@@ -306,103 +384,84 @@ void main() {
       expect(isAgentLink('https://example.com'), isFalse);
     });
 
-    test(
-      'open tool emits exact target and source once per request without executing target',
-      () async {
-        final root = await workspaces.createPrimary(
-          title: 'Root',
-          task: 'Plan',
-        );
-        await finish(root.id);
-        final child = await workspaces.create(
-          title: 'Same name',
-          task: 'Review',
-          parentId: root.id,
-          startImmediately: false,
-        );
-        final sibling = await workspaces.create(
-          title: 'Same name',
-          task: 'Other review',
-          parentId: root.id,
-          startImmediately: false,
-        );
-        final schema =
-            root.assistant.workspaceToolDefinitions.singleWhere(
-                  (item) => (item['function'] as Map)['name'] == 'open_agent',
-                )['function']
-                as Map;
-        expect((schema['parameters'] as Map)['required'], ['agent_id']);
-        final requestCount = requests.length;
-        workspaces.activeConversationId = root.id;
-        final result = await root.assistant.workspaceToolHandler!(
-          'open_agent',
-          {'agent_id': child.id},
-        );
-        expect(result['navigation_requested'], isTrue);
-        expect(result['url'], agentLink(child.id));
-        expect(
-          agentIdFromLink(child.toToolResult()['url'] as String),
-          child.id,
-        );
-        expect(workspaces.navigationRequest!.sourceId, root.id);
-        expect(workspaces.navigationRequest!.targetId, child.id);
-        final revision = workspaces.navigationRequest!.revision;
-        await root.assistant.workspaceToolHandler!('open_agent', {
-          'agent_id': sibling.id,
-        });
-        expect(workspaces.navigationRequest!.revision, greaterThan(revision));
-        expect(workspaces.navigationRequest!.targetId, sibling.id);
-        expect(child.assistant.messages, isEmpty);
-        expect(sibling.assistant.messages, isEmpty);
-        expect(requests.length, requestCount);
-      },
-    );
+    test('open tool emits exact target and source once per request without executing target', () async {
+      final root = await workspaces.createPrimary(title: 'Root', task: 'Plan');
+      await finish(root.id);
+      final child = await workspaces.create(
+        title: 'Same name',
+        task: 'Review',
+        parentId: root.id,
+        startImmediately: false,
+      );
+      final sibling = await workspaces.create(
+        title: 'Same name',
+        task: 'Other review',
+        parentId: root.id,
+        startImmediately: false,
+      );
+      final schema =
+          root.assistant.workspaceToolDefinitions.singleWhere(
+                (item) => (item['function'] as Map)['name'] == 'open_agent',
+              )['function']
+              as Map;
+      expect((schema['parameters'] as Map)['required'], ['agent_id']);
+      final requestCount = requests.length;
+      workspaces.activeConversationId = root.id;
+      final result = await root.assistant.workspaceToolHandler!('open_agent', {
+        'agent_id': child.id,
+      });
+      expect(result['navigation_requested'], isTrue);
+      expect(result['url'], agentLink(child.id));
+      expect(agentIdFromLink(child.toToolResult()['url'] as String), child.id);
+      expect(workspaces.navigationRequest!.sourceId, root.id);
+      expect(workspaces.navigationRequest!.targetId, child.id);
+      final revision = workspaces.navigationRequest!.revision;
+      await root.assistant.workspaceToolHandler!('open_agent', {
+        'agent_id': sibling.id,
+      });
+      expect(workspaces.navigationRequest!.revision, greaterThan(revision));
+      expect(workspaces.navigationRequest!.targetId, sibling.id);
+      expect(child.assistant.messages, isEmpty);
+      expect(sibling.assistant.messages, isEmpty);
+      expect(requests.length, requestCount);
+    });
 
-    test(
-      'background open returns link without stealing focus and rejects unavailable targets',
-      () async {
-        final root = await workspaces.createPrimary(
-          title: 'Root',
-          task: 'Plan',
-        );
-        await finish(root.id);
-        final child = await workspaces.create(
-          title: 'Child',
-          task: 'Review',
-          parentId: root.id,
-          startImmediately: false,
-        );
-        final unrelated = await workspaces.createPrimary(
-          title: 'Other root',
-          task: 'Other plan',
-        );
-        await finish(unrelated.id);
-        workspaces.activeConversationId = unrelated.id;
-        final result = await root.assistant.workspaceToolHandler!(
-          'open_agent',
-          {'agent_id': child.id},
-        );
-        expect(result['navigation_requested'], isFalse);
-        expect(result['url'], agentLink(child.id));
-        expect(workspaces.navigationRequest, isNull);
-        for (final id in [unrelated.id, 'missing', root.title]) {
-          await expectLater(
-            root.assistant.workspaceToolHandler!('open_agent', {
-              'agent_id': id,
-            }),
-            throwsStateError,
-          );
-        }
-        workspaces.remove(child.id);
+    test('background open returns link without stealing focus and rejects unavailable targets', () async {
+      final root = await workspaces.createPrimary(title: 'Root', task: 'Plan');
+      await finish(root.id);
+      final child = await workspaces.create(
+        title: 'Child',
+        task: 'Review',
+        parentId: root.id,
+        startImmediately: false,
+      );
+      final unrelated = await workspaces.createPrimary(
+        title: 'Other root',
+        task: 'Other plan',
+      );
+      await finish(unrelated.id);
+      workspaces.activeConversationId = unrelated.id;
+      final result = await root.assistant.workspaceToolHandler!('open_agent', {
+        'agent_id': child.id,
+      });
+      expect(result['navigation_requested'], isFalse);
+      expect(result['url'], agentLink(child.id));
+      expect(workspaces.navigationRequest, isNull);
+      for (final id in [unrelated.id, 'missing', root.title]) {
         await expectLater(
-          root.assistant.workspaceToolHandler!('open_agent', {
-            'agent_id': child.id,
-          }),
+          root.assistant.workspaceToolHandler!('open_agent', {'agent_id': id}),
           throwsStateError,
         );
-        expect(workspaces.navigationRequest, isNull);
-      },
-    );
+      }
+      workspaces.remove(child.id);
+      await expectLater(
+        root.assistant.workspaceToolHandler!('open_agent', {
+          'agent_id': child.id,
+        }),
+        throwsStateError,
+      );
+      expect(workspaces.navigationRequest, isNull);
+    });
   });
 
   group('Automatic task names', () {
@@ -446,318 +505,292 @@ void main() {
       expect(task.title, 'Inspect configuration');
     });
 
-    test(
-      'should name an unnamed task with its selected model without polluting execution history',
-      () async {
-        final task = await workspaces.createPrimary(
-          title: '',
-          task: 'Inspect the build configuration',
-          model: 'deepseek-flash',
-        );
-        await finish(task.id);
-        expect(task.title, 'Generated task name');
-        expect(requests.first['model'], 'deepseek-flash');
-        expect(requests.first['tools'] ?? [], isEmpty);
-        expect(
-          task.assistant.messages.any(
-            (m) => m.content.contains('Generated task name'),
-          ),
-          isFalse,
-        );
-        expect(
-          task.assistant.messages.first.content,
-          'Inspect the build configuration',
-        );
-        expect(
-          requests.last['messages'].toString(),
-          isNot(contains('Generate a concise task title')),
-        );
-        await workspaces.flush();
-        workspaces.dispose();
-        workspaces = AiWorkspaceProvider(scope.provider);
-        await workspaces.initialized;
-        expect(workspaces.find(task.id)!.title, 'Generated task name');
-      },
-    );
+    test('should name an unnamed task with its selected model without polluting execution history', () async {
+      final task = await workspaces.createPrimary(
+        title: '',
+        task: 'Inspect the build configuration',
+        model: 'deepseek-flash',
+      );
+      await finish(task.id);
+      expect(task.title, 'Generated task name');
+      expect(requests.first['model'], 'deepseek-flash');
+      expect(requests.first['tools'] ?? [], isEmpty);
+      expect(
+        task.assistant.messages.any(
+          (m) => m.content.contains('Generated task name'),
+        ),
+        isFalse,
+      );
+      expect(
+        task.assistant.messages.first.content,
+        'Inspect the build configuration',
+      );
+      expect(
+        requests.last['messages'].toString(),
+        isNot(contains('Generate a concise task title')),
+      );
+      await workspaces.flush();
+      workspaces.dispose();
+      workspaces = AiWorkspaceProvider(scope.provider);
+      await workspaces.initialized;
+      expect(workspaces.find(task.id)!.title, 'Generated task name');
+    });
 
-    test(
-      'should keep task creation working when naming fails and preserve explicit names',
-      () async {
-        failNaming = true;
-        final unnamed = await workspaces.createPrimary(
-          title: '  ',
-          task: 'Inspect configuration now',
-        );
-        await finish(unnamed.id);
-        expect(unnamed.title, 'Inspect configuration now');
-        final count = requests.length;
-        final named = await workspaces.createPrimary(
-          title: 'My name',
-          task: 'Execute this',
-        );
-        await finish(named.id);
-        expect(named.title, 'My name');
-        expect(requests.length, count + 1);
-      },
-    );
+    test('should keep task creation working when naming fails and preserve explicit names', () async {
+      failNaming = true;
+      final unnamed = await workspaces.createPrimary(
+        title: '  ',
+        task: 'Inspect configuration now',
+      );
+      await finish(unnamed.id);
+      expect(unnamed.title, 'Inspect configuration now');
+      final count = requests.length;
+      final named = await workspaces.createPrimary(
+        title: 'My name',
+        task: 'Execute this',
+      );
+      await finish(named.id);
+      expect(named.title, 'My name');
+      expect(requests.length, count + 1);
+    });
   });
 
   group('Task duplication', () {
-    test(
-      'should fork conversation and configuration into an idle independent sibling without descendants',
-      () async {
-        final parent = await workspaces.createPrimary(
-          title: 'Root',
-          task: 'Coordinate',
-        );
-        await finish(parent.id);
-        final source = await workspaces.create(
-          title: 'Original',
-          task: 'Original instructions',
-          parentId: parent.id,
-        );
-        await finish(source.id);
-        await source.assistant.setReasoningEffort(AiReasoningEffort.high);
-        final descendant = await workspaces.create(
-          title: 'Descendant',
-          task: 'Own instructions',
-          parentId: source.id,
-        );
-        await finish(descendant.id);
-        final requestCount = requests.length;
-        final copy = await workspaces.duplicate(
-          source.id,
-          title: 'Original copy',
-        );
-        expect(copy.id, isNot(source.id));
-        expect(copy.title, 'Original copy');
-        expect(copy.task, source.task);
-        expect(copy.kind, source.kind);
-        expect(copy.parentId, parent.id);
-        expect(copy.assistant, isNot(same(source.assistant)));
-        expect(copy.assistant.permissions, same(source.assistant.permissions));
-        expect(copy.assistant.reasoningEffort, AiReasoningEffort.high);
-        expect(copy.model, source.model);
-        expect(copy.serviceId, source.serviceId);
-        expect(copy.busy, isFalse);
-        expect(
-          copy.assistant.messages.map((m) => m.content),
-          source.assistant.messages.map((m) => m.content),
-        );
-        expect(copy.assistant.messages, isNotEmpty);
-        expect(
-          copy.assistant.messages.first,
-          isNot(same(source.assistant.messages.first)),
-        );
-        expect(workspaces.childrenOf(copy.id), isEmpty);
-        expect(workspaces.find(descendant.id)!.parentId, source.id);
-        expect(requests.length, requestCount);
-        await workspaces.flush();
-        workspaces.dispose();
-        workspaces = AiWorkspaceProvider(scope.provider);
-        await workspaces.initialized;
-        final restored = workspaces.find(copy.id)!;
-        expect(restored.task, 'Original instructions');
-        expect(
-          restored.assistant.messages.map((m) => m.content),
-          contains('Original instructions'),
-        );
-        expect(restored.busy, isFalse);
-        expect(requests.length, requestCount);
-      },
-    );
+    test('should fork conversation and configuration into an idle independent sibling without descendants', () async {
+      final parent = await workspaces.createPrimary(
+        title: 'Root',
+        task: 'Coordinate',
+      );
+      await finish(parent.id);
+      final source = await workspaces.create(
+        title: 'Original',
+        task: 'Original instructions',
+        parentId: parent.id,
+      );
+      await finish(source.id);
+      await source.assistant.setReasoningEffort(AiReasoningEffort.high);
+      final descendant = await workspaces.create(
+        title: 'Descendant',
+        task: 'Own instructions',
+        parentId: source.id,
+      );
+      await finish(descendant.id);
+      final requestCount = requests.length;
+      final copy = await workspaces.duplicate(
+        source.id,
+        title: 'Original copy',
+      );
+      expect(copy.id, isNot(source.id));
+      expect(copy.title, 'Original copy');
+      expect(copy.task, source.task);
+      expect(copy.kind, source.kind);
+      expect(copy.parentId, parent.id);
+      expect(copy.assistant, isNot(same(source.assistant)));
+      expect(copy.assistant.permissions, same(source.assistant.permissions));
+      expect(copy.assistant.reasoningEffort, AiReasoningEffort.high);
+      expect(copy.model, source.model);
+      expect(copy.serviceId, source.serviceId);
+      expect(copy.busy, isFalse);
+      expect(
+        copy.assistant.messages.map((m) => m.content),
+        source.assistant.messages.map((m) => m.content),
+      );
+      expect(copy.assistant.messages, isNotEmpty);
+      expect(
+        copy.assistant.messages.first,
+        isNot(same(source.assistant.messages.first)),
+      );
+      expect(workspaces.childrenOf(copy.id), isEmpty);
+      expect(workspaces.find(descendant.id)!.parentId, source.id);
+      expect(requests.length, requestCount);
+      await workspaces.flush();
+      workspaces.dispose();
+      workspaces = AiWorkspaceProvider(scope.provider);
+      await workspaces.initialized;
+      final restored = workspaces.find(copy.id)!;
+      expect(restored.task, 'Original instructions');
+      expect(
+        restored.assistant.messages.map((m) => m.content),
+        contains('Original instructions'),
+      );
+      expect(restored.busy, isFalse);
+      expect(requests.length, requestCount);
+    });
   });
 
-  test(
-    'fork continues with inherited context and leaves original history unchanged',
-    () async {
-      final source = await workspaces.createPrimary(
-        title: 'Source',
-        task: 'Remember the initial context',
-      );
-      await finish(source.id);
-      final snapshot = workspaces.copyCards([source.id]);
-      final oldContents = source.assistant.messages
-          .map((m) => m.content)
-          .toList();
-      await source.assistant.sendMessage('Only the original sees this');
-      final copies = await workspaces.pasteCards(
-        snapshot,
-        titleForCopy: (title) => title,
-      );
-      final copy = copies.single;
-      expect(copy.assistant.messages.map((m) => m.content), oldContents);
-      await copy.assistant.sendMessage('Continue the branch');
-      final history = requests.last['messages'] as List;
-      expect(
-        history.where((m) => m['role'] == 'user').map((m) => m['content']),
-        ['Remember the initial context', 'Continue the branch'],
-      );
-      expect(history.any((m) => m['role'] == 'assistant'), isTrue);
-      expect(
-        source.assistant.messages.map((m) => m.content),
-        isNot(contains('Continue the branch')),
-      );
-      final ids = copy.assistant.messages.map((m) => m.id).toList();
-      expect(ids.toSet(), hasLength(ids.length));
-    },
-  );
+  test('fork continues with inherited context and leaves original history unchanged', () async {
+    final source = await workspaces.createPrimary(
+      title: 'Source',
+      task: 'Remember the initial context',
+    );
+    await finish(source.id);
+    final snapshot = workspaces.copyCards([source.id]);
+    final oldContents = source.assistant.messages
+        .map((m) => m.content)
+        .toList();
+    await source.assistant.sendMessage('Only the original sees this');
+    final copies = await workspaces.pasteCards(
+      snapshot,
+      titleForCopy: (title) => title,
+    );
+    final copy = copies.single;
+    expect(copy.assistant.messages.map((m) => m.content), oldContents);
+    await copy.assistant.sendMessage('Continue the branch');
+    final history = requests.last['messages'] as List;
+    expect(history.where((m) => m['role'] == 'user').map((m) => m['content']), [
+      'Remember the initial context',
+      'Continue the branch',
+    ]);
+    expect(history.any((m) => m['role'] == 'assistant'), isTrue);
+    expect(
+      source.assistant.messages.map((m) => m.content),
+      isNot(contains('Continue the branch')),
+    );
+    final ids = copy.assistant.messages.map((m) => m.id).toList();
+    expect(ids.toSet(), hasLength(ids.length));
+  });
 
-  test(
-    'fork waiting on approval closes pending tool context without copying approval',
-    () async {
-      askApproval = true;
-      final source = await workspaces.createPrimary(
-        title: 'Source',
-        task: 'Inspect a folder',
+  test('fork waiting on approval closes pending tool context without copying approval', () async {
+    askApproval = true;
+    final source = await workspaces.createPrimary(
+      title: 'Source',
+      task: 'Inspect a folder',
+    );
+    for (var i = 0; i < 30 && source.assistant.pendingApproval == null; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(source.assistant.pendingApproval, isNotNull);
+    final count = requests.length;
+    final copy = await workspaces.duplicate(source.id, title: 'Branch');
+    expect(requests, hasLength(count));
+    expect(copy.busy, isFalse);
+    expect(copy.assistant.pendingApproval, isNull);
+    expect(copy.assistant.pendingUserInput, isNull);
+    expect(copy.assistant.messages.last.status, AiResponseStatus.stopped);
+    expect(copy.assistant.messages.last.processEvents, isNotEmpty);
+    askApproval = false;
+    await copy.assistant.sendMessage('Continue after branching');
+    final history = requests.last['messages'] as List;
+    final calls = history
+        .where((m) => m['tool_calls'] != null)
+        .expand((m) => m['tool_calls'] as List);
+    final outputs = history.where((m) => m['role'] == 'tool').toList();
+    expect(calls, isNotEmpty);
+    for (final call in calls) {
+      expect(
+        outputs.where((m) => m['tool_call_id'] == call['id']),
+        hasLength(1),
       );
-      for (var i = 0; i < 30 && source.assistant.pendingApproval == null; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 5));
-      }
-      expect(source.assistant.pendingApproval, isNotNull);
-      final count = requests.length;
-      final copy = await workspaces.duplicate(source.id, title: 'Branch');
-      expect(requests, hasLength(count));
-      expect(copy.busy, isFalse);
-      expect(copy.assistant.pendingApproval, isNull);
-      expect(copy.assistant.pendingUserInput, isNull);
-      expect(copy.assistant.messages.last.status, AiResponseStatus.stopped);
-      expect(copy.assistant.messages.last.processEvents, isNotEmpty);
-      askApproval = false;
-      await copy.assistant.sendMessage('Continue after branching');
-      final history = requests.last['messages'] as List;
-      final calls = history
-          .where((m) => m['tool_calls'] != null)
-          .expand((m) => m['tool_calls'] as List);
-      final outputs = history.where((m) => m['role'] == 'tool').toList();
-      expect(calls, isNotEmpty);
-      for (final call in calls) {
-        expect(
-          outputs.where((m) => m['tool_call_id'] == call['id']),
-          hasLength(1),
-        );
-      }
-      expect(source.assistant.pendingApproval, isNotNull);
-      await source.assistant.resolveTool(
-        source.assistant.pendingApproval!.id,
-        approve: false,
-      );
-      await finish(source.id);
-    },
-  );
+    }
+    expect(source.assistant.pendingApproval, isNotNull);
+    await source.assistant.resolveTool(
+      source.assistant.pendingApproval!.id,
+      approve: false,
+    );
+    await finish(source.id);
+  });
 
-  test(
-    'disconnect preserves child type through persistence and permits explicit root conversion',
-    () async {
-      final root = await workspaces.createPrimary(
+  test('disconnect preserves child type through persistence and permits explicit root conversion', () async {
+    final root = await workspaces.createPrimary(
+      title: 'Root',
+      task: 'Root task',
+    );
+    await finish(root.id);
+    final child = await workspaces.create(
+      title: 'Child',
+      task: 'Child task',
+      parentId: root.id,
+    );
+    await finish(child.id);
+    workspaces.reparent(child.id, null, preserveKind: true);
+    expect(child.kind, AiWorkspaceKind.permanent);
+    await workspaces.flush();
+    workspaces.dispose();
+    workspaces = AiWorkspaceProvider(scope.provider);
+    await workspaces.initialized;
+    final restored = workspaces.find(child.id)!;
+    expect(restored.parentId, isNull);
+    expect(restored.kind, AiWorkspaceKind.permanent);
+    workspaces.reparent(restored.id, null);
+    expect(restored.kind, AiWorkspaceKind.primary);
+  });
+
+  test('card clipboard snapshots survive edits and deletion and preserve selected parent links', () async {
+    final parent = await workspaces.createPrimary(
+      title: 'Clipboard root',
+      task: 'Complete root instructions',
+    );
+    await finish(parent.id);
+    final child = await workspaces.create(
+      title: 'Clipboard child',
+      task: 'Complete child instructions',
+      parentId: parent.id,
+    );
+    await finish(child.id);
+    final permissions = child.assistant.permissions;
+    final snapshot = workspaces.copyCards([child.id, parent.id]);
+    workspaces.rename(parent.id, 'Changed');
+    workspaces.removeMany([parent.id, child.id]);
+    final count = requests.length;
+    final copies = await workspaces.pasteCards(
+      snapshot,
+      titleForCopy: (title) => title,
+    );
+    expect(copies, hasLength(2));
+    expect(copies[0].title, 'Clipboard child');
+    expect(copies[1].title, 'Clipboard root');
+    expect(copies[0].parentId, copies[1].id);
+    expect(copies[1].kind, AiWorkspaceKind.primary);
+    expect(copies[0].task, 'Complete child instructions');
+    expect(copies[0].assistant.permissions, same(permissions));
+    expect(
+      copies.every((copy) => copy.assistant.messages.isNotEmpty && !copy.busy),
+      isTrue,
+    );
+    expect(requests.length, count);
+  });
+
+  group('Task names', () {
+    test('should persist renamed display titles without changing task identity or conversation', () async {
+      final rootTask = await workspaces.createPrimary(
         title: 'Root',
-        task: 'Root task',
+        task: 'Coordinate',
       );
-      await finish(root.id);
+      await finish(rootTask.id);
       final child = await workspaces.create(
-        title: 'Child',
-        task: 'Child task',
-        parentId: root.id,
+        title: 'Old name',
+        task: 'Keep history',
+        parentId: rootTask.id,
       );
       await finish(child.id);
-      workspaces.reparent(child.id, null, preserveKind: true);
-      expect(child.kind, AiWorkspaceKind.permanent);
+      final assistant = child.assistant;
+      final permissions = assistant.permissions;
+      final requestCount = requests.length;
+      workspaces.rename(child.id, '  New name  ');
+      expect(child.title, 'New name');
+      expect(child.assistant, same(assistant));
+      expect(child.assistant.permissions, same(permissions));
+      expect(child.parentId, rootTask.id);
+      expect(child.result, 'Done: Keep history');
+      expect(child.toToolResult()['title'], 'New name');
+      for (final invalid in ['', '   ', List.filled(201, 'x').join()]) {
+        expect(
+          () => workspaces.rename(child.id, invalid),
+          throwsFormatException,
+        );
+        expect(child.title, 'New name');
+      }
+      expect(() => workspaces.rename('missing', 'Name'), throwsStateError);
       await workspaces.flush();
       workspaces.dispose();
       workspaces = AiWorkspaceProvider(scope.provider);
       await workspaces.initialized;
       final restored = workspaces.find(child.id)!;
-      expect(restored.parentId, isNull);
-      expect(restored.kind, AiWorkspaceKind.permanent);
-      workspaces.reparent(restored.id, null);
-      expect(restored.kind, AiWorkspaceKind.primary);
-    },
-  );
-
-  test(
-    'card clipboard snapshots survive edits and deletion and preserve selected parent links',
-    () async {
-      final parent = await workspaces.createPrimary(
-        title: 'Clipboard root',
-        task: 'Complete root instructions',
-      );
-      await finish(parent.id);
-      final child = await workspaces.create(
-        title: 'Clipboard child',
-        task: 'Complete child instructions',
-        parentId: parent.id,
-      );
-      await finish(child.id);
-      final permissions = child.assistant.permissions;
-      final snapshot = workspaces.copyCards([child.id, parent.id]);
-      workspaces.rename(parent.id, 'Changed');
-      workspaces.removeMany([parent.id, child.id]);
-      final count = requests.length;
-      final copies = await workspaces.pasteCards(
-        snapshot,
-        titleForCopy: (title) => title,
-      );
-      expect(copies, hasLength(2));
-      expect(copies[0].title, 'Clipboard child');
-      expect(copies[1].title, 'Clipboard root');
-      expect(copies[0].parentId, copies[1].id);
-      expect(copies[1].kind, AiWorkspaceKind.primary);
-      expect(copies[0].task, 'Complete child instructions');
-      expect(copies[0].assistant.permissions, same(permissions));
-      expect(
-        copies.every(
-          (copy) => copy.assistant.messages.isNotEmpty && !copy.busy,
-        ),
-        isTrue,
-      );
-      expect(requests.length, count);
-    },
-  );
-
-  group('Task names', () {
-    test(
-      'should persist renamed display titles without changing task identity or conversation',
-      () async {
-        final rootTask = await workspaces.createPrimary(
-          title: 'Root',
-          task: 'Coordinate',
-        );
-        await finish(rootTask.id);
-        final child = await workspaces.create(
-          title: 'Old name',
-          task: 'Keep history',
-          parentId: rootTask.id,
-        );
-        await finish(child.id);
-        final assistant = child.assistant;
-        final permissions = assistant.permissions;
-        final requestCount = requests.length;
-        workspaces.rename(child.id, '  New name  ');
-        expect(child.title, 'New name');
-        expect(child.assistant, same(assistant));
-        expect(child.assistant.permissions, same(permissions));
-        expect(child.parentId, rootTask.id);
-        expect(child.result, 'Done: Keep history');
-        expect(child.toToolResult()['title'], 'New name');
-        for (final invalid in ['', '   ', List.filled(201, 'x').join()]) {
-          expect(
-            () => workspaces.rename(child.id, invalid),
-            throwsFormatException,
-          );
-          expect(child.title, 'New name');
-        }
-        expect(() => workspaces.rename('missing', 'Name'), throwsStateError);
-        await workspaces.flush();
-        workspaces.dispose();
-        workspaces = AiWorkspaceProvider(scope.provider);
-        await workspaces.initialized;
-        final restored = workspaces.find(child.id)!;
-        expect(restored.title, 'New name');
-        expect(restored.parentId, rootTask.id);
-        expect(restored.result, 'Done: Keep history');
-        expect(requests.length, requestCount);
-      },
-    );
+      expect(restored.title, 'New name');
+      expect(restored.parentId, rootTask.id);
+      expect(restored.result, 'Done: Keep history');
+      expect(requests.length, requestCount);
+    });
   });
 
   group('Child model selection', () {
@@ -791,76 +824,69 @@ void main() {
       },
     );
 
-    test(
-      'should use the exact external service for both child kinds on the first request',
-      () async {
-        final original = scope.provider.selectedService!.id;
-        await scope.provider.saveService(
-          name: 'External provider',
-          protocol: AiApiProtocol.openAiChatCompletions,
-          baseUrl: 'https://other.test/v1',
-          models: ['external-deepseek'],
-          apiKey: 'external-secret',
+    test('should use the exact external service for both child kinds on the first request', () async {
+      final original = scope.provider.selectedService!.id;
+      await scope.provider.saveService(
+        name: 'External provider',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://other.test/v1',
+        models: ['external-deepseek'],
+        apiKey: 'external-secret',
+      );
+      final external = scope.provider.services.last.id;
+      await scope.provider.selectModel(original, 'gpt-6.1-sol');
+      final parent = await workspaces.createPrimary(
+        title: 'Parent',
+        task: 'Coordinate',
+      );
+      await finish(parent.id);
+      for (final kind in ['first', 'second']) {
+        final result = await parent.assistant.workspaceToolHandler!(
+          'spawn_agent',
+          {
+            'title': 'External $kind',
+            'task': 'External $kind',
+            'service_id': external,
+            'model': 'external-deepseek',
+          },
         );
-        final external = scope.provider.services.last.id;
-        await scope.provider.selectModel(original, 'gpt-6.1-sol');
-        final parent = await workspaces.createPrimary(
-          title: 'Parent',
-          task: 'Coordinate',
-        );
-        await finish(parent.id);
-        for (final kind in ['first', 'second']) {
-          final result =
-              await parent.assistant.workspaceToolHandler!('spawn_agent', {
-                'title': 'External $kind',
-                'task': 'External $kind',
-                'service_id': external,
-                'model': 'external-deepseek',
-              });
-          final child = workspaces.find(result['agent_id'] as String)!;
-          await finish(child.id);
-          expect(result['service_id'], external);
-          expect(result['service_name'], 'External provider');
-          expect(result['model'], 'external-deepseek');
-          expect(
-            child.assistant.permissions,
-            same(parent.assistant.permissions),
-          );
-          final request = requests.last;
-          expect(request['model'], 'external-deepseek');
-          expect(request['_testUrl'], startsWith('https://other.test/'));
-          expect(request['_testAuthorization'], 'Bearer external-secret');
-          expect(parent.model, 'gpt-6.1-sol');
-          expect(scope.provider.selectedService!.id, original);
-        }
-      },
-    );
+        final child = workspaces.find(result['agent_id'] as String)!;
+        await finish(child.id);
+        expect(result['service_id'], external);
+        expect(result['service_name'], 'External provider');
+        expect(result['model'], 'external-deepseek');
+        expect(child.assistant.permissions, same(parent.assistant.permissions));
+        final request = requests.last;
+        expect(request['model'], 'external-deepseek');
+        expect(request['_testUrl'], startsWith('https://other.test/'));
+        expect(request['_testAuthorization'], 'Bearer external-secret');
+        expect(parent.model, 'gpt-6.1-sol');
+        expect(scope.provider.selectedService!.id, original);
+      }
+    });
 
-    test(
-      'should reject incomplete, unknown or mismatched selections without spawning or fallback',
-      () async {
-        final service = scope.provider.selectedService!.id;
-        final count = workspaces.sessions.length;
-        for (final selection in <Map<String, Object?>>[
-          {'service_id': service},
-          {'model': 'deepseek-flash'},
-          {'service_id': 'missing', 'model': 'deepseek-flash'},
-          {'service_id': service, 'model': 'missing'},
-          {'service_id': service, 'model': 'DeepSeek'},
-        ]) {
-          await expectLater(
-            workspaces.executeTool('spawn_agent', {
-              'title': 'Invalid',
-              'task': 'Must not run',
-              ...selection,
-            }),
-            throwsA(anyOf(isA<StateError>(), isA<FormatException>())),
-          );
-          expect(workspaces.sessions, hasLength(count));
-        }
-        expect(requests, isEmpty);
-      },
-    );
+    test('should reject incomplete, unknown or mismatched selections without spawning or fallback', () async {
+      final service = scope.provider.selectedService!.id;
+      final count = workspaces.sessions.length;
+      for (final selection in <Map<String, Object?>>[
+        {'service_id': service},
+        {'model': 'deepseek-flash'},
+        {'service_id': 'missing', 'model': 'deepseek-flash'},
+        {'service_id': service, 'model': 'missing'},
+        {'service_id': service, 'model': 'DeepSeek'},
+      ]) {
+        await expectLater(
+          workspaces.executeTool('spawn_agent', {
+            'title': 'Invalid',
+            'task': 'Must not run',
+            ...selection,
+          }),
+          throwsA(anyOf(isA<StateError>(), isA<FormatException>())),
+        );
+        expect(workspaces.sessions, hasLength(count));
+      }
+      expect(requests, isEmpty);
+    });
 
     test(
       'should execute model selection through a real parent tool-call response',
@@ -1005,11 +1031,7 @@ void main() {
       await workspaces.flush();
       expect(workspaces.persistenceError, isNull);
       expect(
-        utf8
-            .encode(
-              scope.preferences.stringValue(AiWorkspaceProvider.storageKey, ''),
-            )
-            .length,
+        utf8.encode((await storage.request('readWorkflow')) as String).length,
         greaterThan(2 * 1024 * 1024),
       );
       workspaces.dispose();
@@ -1316,366 +1338,375 @@ void main() {
       expect(requests.last['_testAuthorization'], 'Bearer new-origin-key');
     },
   );
-  test(
-    'visible child tools permit owned stop and deletion but reject unrelated tasks',
-    () async {
-      final first = await workspaces.createPrimary(
-        title: 'First primary',
-        task: 'Plan one',
-      );
-      final second = await workspaces.createPrimary(
-        title: 'Second primary',
-        task: 'Plan two',
-      );
-      await finish(first.id);
-      await finish(second.id);
-      final spawnTool =
-          first.assistant.workspaceToolDefinitions.singleWhere(
-                (spec) => (spec['function'] as Map)['name'] == 'spawn_agent',
-              )['function']
-              as Map;
-      expect(
-        ((spawnTool['parameters'] as Map)['properties'] as Map).containsKey(
-          'kind',
-        ),
-        isFalse,
-      );
-      final advertised = first.assistant.workspaceToolDefinitions.map(
-        (spec) => (spec['function'] as Map)['name'],
-      );
-      expect(advertised, contains('delete_agent'));
-      expect(advertised, isNot(contains('close_agent')));
-      final spawned = await first.assistant.workspaceToolHandler!(
-        'spawn_agent',
-        {'title': 'Visible child', 'task': 'Work once'},
-      );
-      final child = workspaces.find(spawned['agent_id'] as String)!;
-      await finish(child.id);
-      expect(child.kind, AiWorkspaceKind.permanent);
-      expect(child.parentId, first.id);
-      final nested = await child.assistant.workspaceToolHandler!(
-        'spawn_agent',
-        {'title': 'Nested', 'task': 'Nested work'},
-      );
-      final nestedId = nested['agent_id'] as String;
-      await finish(nestedId);
-      for (final action in ['stop_agent', 'delete_agent']) {
-        for (final target in [first.id, second.id]) {
-          await expectLater(
-            first.assistant.workspaceToolHandler!(action, {'agent_id': target}),
-            throwsStateError,
-          );
-        }
+  test('visible child tools permit owned stop and deletion but reject unrelated tasks', () async {
+    final first = await workspaces.createPrimary(
+      title: 'First primary',
+      task: 'Plan one',
+    );
+    final second = await workspaces.createPrimary(
+      title: 'Second primary',
+      task: 'Plan two',
+    );
+    await finish(first.id);
+    await finish(second.id);
+    final spawnTool =
+        first.assistant.workspaceToolDefinitions.singleWhere(
+              (spec) => (spec['function'] as Map)['name'] == 'spawn_agent',
+            )['function']
+            as Map;
+    expect(
+      ((spawnTool['parameters'] as Map)['properties'] as Map).containsKey(
+        'kind',
+      ),
+      isFalse,
+    );
+    final advertised = first.assistant.workspaceToolDefinitions.map(
+      (spec) => (spec['function'] as Map)['name'],
+    );
+    expect(advertised, contains('delete_agent'));
+    expect(advertised, isNot(contains('close_agent')));
+    final spawned = await first.assistant.workspaceToolHandler!('spawn_agent', {
+      'title': 'Visible child',
+      'task': 'Work once',
+    });
+    final child = workspaces.find(spawned['agent_id'] as String)!;
+    await finish(child.id);
+    expect(child.kind, AiWorkspaceKind.permanent);
+    expect(child.parentId, first.id);
+    final nested = await child.assistant.workspaceToolHandler!('spawn_agent', {
+      'title': 'Nested',
+      'task': 'Nested work',
+    });
+    final nestedId = nested['agent_id'] as String;
+    await finish(nestedId);
+    for (final action in ['stop_agent', 'delete_agent']) {
+      for (final target in [first.id, second.id]) {
         await expectLater(
-          second.assistant.workspaceToolHandler!(action, {
-            'agent_id': child.id,
-          }),
+          first.assistant.workspaceToolHandler!(action, {'agent_id': target}),
           throwsStateError,
         );
       }
-      final visible = await second.assistant.workspaceToolHandler!(
-        'list_agents',
-        {},
-      );
-      expect(visible['agents'], isEmpty);
-      gate = Completer<void>();
-      final running = child.assistant.sendMessage('Long child operation');
-      await Future<void>.delayed(Duration.zero);
-      expect(child.busy, isTrue);
-      await first.assistant.workspaceToolHandler!('stop_agent', {
-        'agent_id': child.id,
-      });
-      expect(workspaces.find(child.id), same(child));
-      expect(child.assistant.stopRequested, isTrue);
-      gate!.complete();
-      await running;
-      gate = null;
-      final retained = workspaces.captureTopologyEdit();
-      gate = Completer<void>();
-      final nestedTask = workspaces.find(nestedId)!;
-      final nestedRunning = nestedTask.assistant.sendMessage(
-        'Nested running during deletion',
-      );
-      await Future<void>.delayed(Duration.zero);
-      expect(nestedTask.busy, isTrue);
-      await first.assistant.workspaceToolHandler!('delete_agent', {
-        'agent_id': child.id,
-      });
-      expect(workspaces.find(child.id), isNull);
-      expect(workspaces.find(nestedId), isNull);
-      expect(nestedTask.assistant.stopRequested, isTrue);
-      gate!.complete();
-      await nestedRunning;
-      gate = null;
-      workspaces.releaseTopologyEdit(retained);
-      expect(workspaces.find(first.id), same(first));
-      expect(workspaces.find(second.id), same(second));
       await expectLater(
-        first.assistant.workspaceToolHandler!('spawn_agent', {
-          'title': 'Unsupported temporary agent',
-          'task': 'Rejected',
-          'kind': 'temporary',
+        second.assistant.workspaceToolHandler!(action, {'agent_id': child.id}),
+        throwsStateError,
+      );
+    }
+    final visible = await second.assistant.workspaceToolHandler!(
+      'list_agents',
+      {},
+    );
+    expect(visible['agents'], isEmpty);
+    gate = Completer<void>();
+    final running = child.assistant.sendMessage('Long child operation');
+    await Future<void>.delayed(Duration.zero);
+    expect(child.busy, isTrue);
+    await first.assistant.workspaceToolHandler!('stop_agent', {
+      'agent_id': child.id,
+    });
+    expect(workspaces.find(child.id), same(child));
+    expect(child.assistant.stopRequested, isTrue);
+    gate!.complete();
+    await running;
+    gate = null;
+    final retained = workspaces.captureTopologyEdit();
+    gate = Completer<void>();
+    final nestedTask = workspaces.find(nestedId)!;
+    final nestedRunning = nestedTask.assistant.sendMessage(
+      'Nested running during deletion',
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(nestedTask.busy, isTrue);
+    await first.assistant.workspaceToolHandler!('delete_agent', {
+      'agent_id': child.id,
+    });
+    expect(workspaces.find(child.id), isNull);
+    expect(workspaces.find(nestedId), same(nestedTask));
+    expect(nestedTask.kind, AiWorkspaceKind.primary);
+    expect(nestedTask.parentId, isNull);
+    expect(nestedTask.assistant.stopRequested, isFalse);
+    gate!.complete();
+    await nestedRunning;
+    gate = null;
+    workspaces.releaseTopologyEdit(retained);
+    expect(workspaces.find(first.id), same(first));
+    expect(workspaces.find(second.id), same(second));
+    await expectLater(
+      first.assistant.workspaceToolHandler!('spawn_agent', {
+        'title': 'Unsupported temporary agent',
+        'task': 'Rejected',
+        'kind': 'temporary',
+      }),
+      throwsFormatException,
+    );
+    await expectLater(
+      first.assistant.workspaceToolHandler!('close_agent', {
+        'agent_id': second.id,
+      }),
+      throwsStateError,
+    );
+  });
+
+  test('format starts at 1 and rejects obsolete versions IDs and temporary records', () async {
+    final root = await workspaces.createPrimary(title: 'Main', task: 'Plan');
+    await finish(root.id);
+    expect(root.id, matches(RegExp(r'^\d+-\d+$')));
+    await workspaces.flush();
+    final snapshot = (await storage.request('readWorkflow')) as String;
+    expect((jsonDecode(snapshot) as Map)['version'], 1);
+    workspaces.dispose();
+    scope.preferences.setValue('ai.taskTopology.v1', snapshot);
+    scope.preferences.setValue('ai.agentWorkflow.v2', snapshot);
+    await storage.saveWorkflow({
+      'version': 1,
+      'sessions': [],
+      'connections': [],
+    });
+    workspaces = AiWorkspaceProvider(scope.provider);
+    await workspaces.initialized;
+    expect(workspaces.sessions, isEmpty);
+    expect(scope.provider.services, isNotEmpty);
+    workspaces.dispose();
+    for (final corruption in ['version', 'id', 'kind']) {
+      final saved = jsonDecode(snapshot) as Map;
+      if (corruption == 'version') saved['version'] = 2;
+      final record = (saved['sessions'] as List).single as Map;
+      if (corruption == 'id') record['id'] = 'agent-123-0';
+      if (corruption == 'kind') record['kind'] = 'temporary';
+      await storage.saveWorkflow(saved);
+      workspaces = AiWorkspaceProvider(scope.provider);
+      await workspaces.initialized;
+      expect(workspaces.sessions, isEmpty, reason: corruption);
+      expect(workspaces.persistenceError, isNotNull, reason: corruption);
+      workspaces.dispose();
+    }
+    await storage.saveWorkflow({
+      'version': 1,
+      'sessions': [],
+      'connections': [],
+    });
+    workspaces = AiWorkspaceProvider(scope.provider);
+    await workspaces.initialized;
+  });
+
+  test(
+    'old conversation snapshots are rejected without inventing IDs or history',
+    () async {
+      final agent = await workspaces.create(
+        title: 'New',
+        task: 'New',
+        startImmediately: false,
+      );
+      final snapshot = agent.assistant.snapshotWorkspaceConversation();
+      expect(
+        () => agent.assistant.restoreWorkspaceConversation({
+          ...snapshot,
+          'history': null,
         }),
         throwsFormatException,
       );
-      await expectLater(
-        first.assistant.workspaceToolHandler!('close_agent', {
-          'agent_id': second.id,
-        }),
-        throwsStateError,
-      );
-    },
-  );
-
-  test(
-    'v1 data is ignored and v2 rejects legacy IDs and temporary records',
-    () async {
-      final root = await workspaces.createPrimary(title: 'Main', task: 'Plan');
-      await finish(root.id);
-      expect(root.id, matches(RegExp(r'^\d+-\d+$')));
-      await workspaces.flush();
-      final snapshot = scope.preferences.stringValue(
-        AiWorkspaceProvider.storageKey,
-        '',
-      );
-      expect((jsonDecode(snapshot) as Map)['version'], 2);
-      workspaces.dispose();
-      scope.preferences.setValue('ai.taskTopology.v1', snapshot);
-      scope.preferences.setValue(AiWorkspaceProvider.storageKey, '');
-      workspaces = AiWorkspaceProvider(scope.provider);
-      await workspaces.initialized;
-      expect(workspaces.sessions, isEmpty);
-      expect(scope.provider.services, isNotEmpty);
-      workspaces.dispose();
-      for (final corruption in ['version', 'id', 'kind']) {
-        final saved = jsonDecode(snapshot) as Map;
-        if (corruption == 'version') saved['version'] = 1;
-        final record = (saved['sessions'] as List).single as Map;
-        if (corruption == 'id') record['id'] = 'agent-123-0';
-        if (corruption == 'kind') record['kind'] = 'temporary';
-        scope.preferences.setValue(
-          AiWorkspaceProvider.storageKey,
-          jsonEncode(saved),
-        );
-        workspaces = AiWorkspaceProvider(scope.provider);
-        await workspaces.initialized;
-        expect(workspaces.sessions, isEmpty, reason: corruption);
-        expect(workspaces.persistenceError, isNotNull, reason: corruption);
-        workspaces.dispose();
-      }
-      scope.preferences.setValue(AiWorkspaceProvider.storageKey, '');
-      workspaces = AiWorkspaceProvider(scope.provider);
-      await workspaces.initialized;
-    },
-  );
-
-  test(
-    'manual model selection applies before the first turn and primary turns do not consume child slots',
-    () async {
-      final child = await workspaces.create(
-        title: 'Other model',
-        task: 'First on DeepSeek',
-        model: 'deepseek-flash',
-      );
-      await finish(child.id);
-      expect(requests.last['model'], 'deepseek-flash');
-      final chosenPrimary = await workspaces.createPrimary(
-        title: 'Chosen primary',
-        task: 'First primary on DeepSeek',
-        model: 'deepseek-flash',
-      );
-      await finish(chosenPrimary.id);
-      expect(requests.last['model'], 'deepseek-flash');
-      expect(scope.provider.selectedModel, 'gpt-6.1-sol');
-      gate = Completer<void>();
-      for (var i = 0; i < 3; i++) {
-        await workspaces.create(title: 'Busy $i', task: 'Busy $i');
-      }
-      final primary = await workspaces.createPrimary(
-        title: 'Primary with busy children',
-        task: 'Independent primary',
-      );
-      expect(primary.busy, isTrue);
-      expect(workspaces.runningCount, 3);
-      expect(primary.assistant.canSendMessage, isTrue);
-      gate!.complete();
-      gate = null;
-      for (final item in workspaces.sessions) {
-        await finish(item.id);
-      }
-    },
-  );
-  test(
-    'missing saved services preserve nodes and text until an explicit local reselection',
-    () async {
-      final primary = await workspaces.createPrimary(
-        title: 'Unavailable saved task',
-        task: 'Keep my context',
-      );
-      await finish(primary.id);
-      final originalId = primary.serviceId;
-      await workspaces.flush();
-      workspaces.dispose();
-      await scope.provider.removeService(originalId);
-      workspaces = AiWorkspaceProvider(scope.provider);
-      await workspaces.initialized;
-      final restored = workspaces.find(primary.id)!;
-      expect(restored.status, 'unavailable');
-      expect(restored.serviceId, originalId);
-      expect(restored.result, 'Done: Keep my context');
-      expect(restored.assistant.canSendMessage, isFalse);
-      expect(restored.assistant.hasApiKey, isFalse);
-      await workspaces.flush();
-      final retained =
-          jsonDecode(
-                scope.preferences.stringValue(
-                  AiWorkspaceProvider.storageKey,
-                  '',
-                ),
-              )
-              as Map;
-      expect((retained['sessions'] as List).single['id'], primary.id);
-      final replacement = await scope.provider.saveService(
-        name: 'Replacement',
-        protocol: AiApiProtocol.openAiChatCompletions,
-        baseUrl: 'https://replacement.test/v1',
-        models: ['deepseek-flash'],
-        apiKey: 'replacement-key',
-      );
-      await restored.assistant.selectModel(replacement, 'deepseek-flash');
-      expect(restored.assistant.canSendMessage, isTrue);
-      await workspaces.send(restored.id, 'Continue with explicit replacement');
-      await finish(restored.id);
       expect(
-        requests.last['_testUrl'],
-        startsWith('https://replacement.test/'),
+        () => agent.assistant.restoreWorkspaceConversation({
+          ...snapshot,
+          'messages': [
+            {'role': 'user', 'content': 'Old text snapshot'},
+          ],
+        }),
+        throwsFormatException,
       );
-      expect(requests.last['_testAuthorization'], 'Bearer replacement-key');
+      expect(agent.assistant.messages, isEmpty);
+      expect(
+        agent.assistant.snapshotWorkspaceConversation()['history'],
+        isEmpty,
+      );
     },
   );
-  test(
-    'connected tasks can message in both directions with explicit source identities',
-    () async {
-      final primary = await workspaces.createPrimary(
-        title: 'Coordinator',
-        task: 'Coordinate',
-      );
-      await finish(primary.id);
-      final child = await workspaces.create(
-        title: 'Worker',
-        task: 'Work',
-        parentId: primary.id,
-      );
-      await finish(child.id);
-      final sent = await primary.assistant.workspaceToolHandler!(
-        'send_agent_message',
-        {'agent_id': child.id, 'message': 'Check details'},
-      );
-      expect(sent['delivered'], isTrue);
-      await finish(child.id);
-      final received = child.assistant.messages
-          .where((m) => m.content == 'Check details')
-          .single;
-      expect(received.toolName, 'agent_message');
-      expect(received.toolArguments!['source_agent_id'], primary.id);
-      final historyContent =
-          (requests.last['messages'] as List)
-                  .where((m) => m['role'] == 'user')
-                  .last['content']
-              as String;
-      expect(jsonDecode(historyContent)['type'], 'connected_task_message');
-      expect(jsonDecode(historyContent)['source_id'], primary.id);
-      await child.assistant.workspaceToolHandler!('send_agent_message', {
-        'agent_id': primary.id,
-        'message': 'Details checked',
+
+  test('manual model selection applies before the first turn and primary turns do not consume child slots', () async {
+    final child = await workspaces.create(
+      title: 'Other model',
+      task: 'First on DeepSeek',
+      model: 'deepseek-flash',
+    );
+    await finish(child.id);
+    expect(requests.last['model'], 'deepseek-flash');
+    final chosenPrimary = await workspaces.createPrimary(
+      title: 'Chosen primary',
+      task: 'First primary on DeepSeek',
+      model: 'deepseek-flash',
+    );
+    await finish(chosenPrimary.id);
+    expect(requests.last['model'], 'deepseek-flash');
+    expect(scope.provider.selectedModel, 'gpt-6.1-sol');
+    gate = Completer<void>();
+    for (var i = 0; i < 3; i++) {
+      await workspaces.create(title: 'Busy $i', task: 'Busy $i');
+    }
+    final primary = await workspaces.createPrimary(
+      title: 'Primary with busy children',
+      task: 'Independent primary',
+    );
+    expect(primary.busy, isTrue);
+    expect(workspaces.runningCount, 3);
+    expect(primary.assistant.canSendMessage, isTrue);
+    gate!.complete();
+    gate = null;
+    for (final item in workspaces.sessions) {
+      await finish(item.id);
+    }
+  });
+  test('missing saved services preserve nodes and text until an explicit local reselection', () async {
+    final primary = await workspaces.createPrimary(
+      title: 'Unavailable saved task',
+      task: 'Keep my context',
+    );
+    await finish(primary.id);
+    final originalId = primary.serviceId;
+    await workspaces.flush();
+    workspaces.dispose();
+    await scope.provider.removeService(originalId);
+    workspaces = AiWorkspaceProvider(scope.provider);
+    await workspaces.initialized;
+    final restored = workspaces.find(primary.id)!;
+    expect(restored.status, 'unavailable');
+    expect(restored.serviceId, originalId);
+    expect(restored.result, 'Done: Keep my context');
+    expect(restored.assistant.canSendMessage, isFalse);
+    expect(restored.assistant.hasApiKey, isFalse);
+    await workspaces.flush();
+    final retained =
+        jsonDecode((await storage.request('readWorkflow')) as String) as Map;
+    expect((retained['sessions'] as List).single['id'], primary.id);
+    final replacement = await scope.provider.saveService(
+      name: 'Replacement',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://replacement.test/v1',
+      models: ['deepseek-flash'],
+      apiKey: 'replacement-key',
+    );
+    await restored.assistant.selectModel(replacement, 'deepseek-flash');
+    expect(restored.assistant.canSendMessage, isTrue);
+    await workspaces.send(restored.id, 'Continue with explicit replacement');
+    await finish(restored.id);
+    expect(requests.last['_testUrl'], startsWith('https://replacement.test/'));
+    expect(requests.last['_testAuthorization'], 'Bearer replacement-key');
+  });
+  test('connected tasks can message in both directions with explicit source identities', () async {
+    final primary = await workspaces.createPrimary(
+      title: 'Coordinator',
+      task: 'Coordinate',
+    );
+    await finish(primary.id);
+    final child = await workspaces.create(
+      title: 'Worker',
+      task: 'Work',
+      parentId: primary.id,
+    );
+    await finish(child.id);
+    final sent = await primary.assistant.workspaceToolHandler!(
+      'send_agent_message',
+      {'agent_id': child.id, 'message': 'Check details'},
+    );
+    expect(sent['delivered'], isTrue);
+    await finish(child.id);
+    final received = child.assistant.messages
+        .where((m) => m.content == 'Check details')
+        .single;
+    expect(received.toolName, 'agent_message');
+    expect(received.toolArguments!['source_agent_id'], primary.id);
+    final historyContent =
+        (requests.last['messages'] as List)
+                .where((m) => m['role'] == 'user')
+                .last['content']
+            as String;
+    expect(jsonDecode(historyContent)['type'], 'connected_task_message');
+    expect(jsonDecode(historyContent)['source_id'], primary.id);
+    await child.assistant.workspaceToolHandler!('send_agent_message', {
+      'agent_id': primary.id,
+      'message': 'Details checked',
+    });
+    await finish(primary.id);
+    expect(
+      primary.assistant.messages
+          .where((m) => m.content == 'Details checked')
+          .single
+          .toolArguments!['source_agent_id'],
+      child.id,
+    );
+    final unrelated = await workspaces.createPrimary(
+      title: 'Other graph',
+      task: 'Unrelated',
+    );
+    await finish(unrelated.id);
+    await expectLater(
+      child.assistant.workspaceToolHandler!('send_agent_message', {
+        'agent_id': unrelated.id,
+        'message': 'Not connected',
+      }),
+      throwsStateError,
+    );
+  });
+
+  test('automatic messages continue beyond 12 deliveries while suppressing duplicates', () async {
+    final primary = await workspaces.createPrimary(
+      title: 'Coordinator',
+      task: 'Coordinate',
+    );
+    await finish(primary.id);
+    final child = await workspaces.create(
+      title: 'Worker',
+      task: 'Work',
+      parentId: primary.id,
+    );
+    await finish(child.id);
+    for (var index = 0; index < 50; index++) {
+      final source = index.isEven ? primary : child;
+      final target = index.isEven ? child : primary;
+      await source.assistant.workspaceToolHandler!('send_agent_message', {
+        'agent_id': target.id,
+        'message': 'Exchange $index',
       });
-      await finish(primary.id);
-      expect(
-        primary.assistant.messages
-            .where((m) => m.content == 'Details checked')
-            .single
-            .toolArguments!['source_agent_id'],
-        child.id,
-      );
-      final unrelated = await workspaces.createPrimary(
-        title: 'Other graph',
-        task: 'Unrelated',
-      );
-      await finish(unrelated.id);
-      await expectLater(
-        child.assistant.workspaceToolHandler!('send_agent_message', {
-          'agent_id': unrelated.id,
-          'message': 'Not connected',
-        }),
-        throwsStateError,
-      );
-    },
-  );
-
-  test(
-    'automatic messages continue beyond 12 deliveries while suppressing duplicates',
-    () async {
-      final primary = await workspaces.createPrimary(
-        title: 'Coordinator',
-        task: 'Coordinate',
-      );
-      await finish(primary.id);
-      final child = await workspaces.create(
-        title: 'Worker',
-        task: 'Work',
-        parentId: primary.id,
-      );
-      await finish(child.id);
-      for (var index = 0; index < 50; index++) {
-        final source = index.isEven ? primary : child;
-        final target = index.isEven ? child : primary;
-        await source.assistant.workspaceToolHandler!('send_agent_message', {
-          'agent_id': target.id,
-          'message': 'Exchange $index',
-        });
-        await finish(target.id);
-      }
-      final duplicate = await primary.assistant.workspaceToolHandler!(
-        'send_agent_message',
-        {'agent_id': child.id, 'message': 'Exchange 0'},
-      );
-      expect(duplicate['delivered'], isFalse);
-      expect(duplicate['duplicate'], isTrue);
-      expect(
-        (await primary.assistant.workspaceToolHandler!('send_agent_message', {
-          'agent_id': child.id,
-          'message': 'Over budget',
-        }))['delivered'],
-        isTrue,
-      );
-      final spawned = await primary.assistant.workspaceToolHandler!(
-        'spawn_agent',
-        {'title': 'New worker', 'task': 'Continue collaboration'},
-      );
-      final temporary = workspaces.find(spawned['agent_id'] as String)!;
-      await finish(temporary.id);
-      expect(temporary.assistant.messages.first.toolName, 'agent_message');
-      expect(
-        temporary.assistant.messages.first.toolArguments!['source_agent_id'],
-        primary.id,
-      );
-      expect(
-        (await primary.assistant.workspaceToolHandler!('send_agent_message', {
-          'agent_id': temporary.id,
-          'message': 'Still over budget after spawning',
-        }))['delivered'],
-        isTrue,
-      );
-      await workspaces.send(primary.id, 'Human adds instructions');
-      await finish(primary.id);
-      final resumed = await primary.assistant.workspaceToolHandler!(
-        'send_agent_message',
-        {'agent_id': child.id, 'message': 'New collaboration'},
-      );
-      expect(resumed['delivered'], isTrue);
-      await finish(child.id);
-    },
-  );
+      await finish(target.id);
+    }
+    final duplicate = await primary.assistant.workspaceToolHandler!(
+      'send_agent_message',
+      {'agent_id': child.id, 'message': 'Exchange 0'},
+    );
+    expect(duplicate['delivered'], isFalse);
+    expect(duplicate['duplicate'], isTrue);
+    expect(
+      (await primary.assistant.workspaceToolHandler!('send_agent_message', {
+        'agent_id': child.id,
+        'message': 'Over budget',
+      }))['delivered'],
+      isTrue,
+    );
+    final spawned = await primary.assistant.workspaceToolHandler!(
+      'spawn_agent',
+      {'title': 'New worker', 'task': 'Continue collaboration'},
+    );
+    final temporary = workspaces.find(spawned['agent_id'] as String)!;
+    await finish(temporary.id);
+    expect(temporary.assistant.messages.first.toolName, 'agent_message');
+    expect(
+      temporary.assistant.messages.first.toolArguments!['source_agent_id'],
+      primary.id,
+    );
+    expect(
+      (await primary.assistant.workspaceToolHandler!('send_agent_message', {
+        'agent_id': temporary.id,
+        'message': 'Still over budget after spawning',
+      }))['delivered'],
+      isTrue,
+    );
+    await workspaces.send(primary.id, 'Human adds instructions');
+    await finish(primary.id);
+    final resumed = await primary.assistant.workspaceToolHandler!(
+      'send_agent_message',
+      {'agent_id': child.id, 'message': 'New collaboration'},
+    );
+    expect(resumed['delivered'], isTrue);
+    await finish(child.id);
+  });
 
   test('agent messages queue without dismissing target approval', () async {
     askApproval = true;
@@ -1718,137 +1749,127 @@ void main() {
       hasLength(1),
     );
   });
-  test(
-    'long-term descendants delegate with direct-edge isolation and recursive removal',
-    () async {
-      final root = await workspaces.createPrimary(
-        title: 'Root',
-        task: 'Root task',
-      );
-      await finish(root.id);
-      final middleResult = await root.assistant.workspaceToolHandler!(
-        'spawn_agent',
-        {'title': 'Middle', 'task': 'Middle task'},
-      );
-      final middle = workspaces.find(middleResult['agent_id'] as String)!;
-      await finish(middle.id);
-      final leafResult = await middle.assistant.workspaceToolHandler!(
-        'spawn_agent',
-        {'title': 'Leaf', 'task': 'Leaf task'},
-      );
-      final leaf = workspaces.find(leafResult['agent_id'] as String)!;
-      await finish(leaf.id);
-      expect(
-        middle.assistant.messages.first.toolArguments!['source_agent_id'],
-        root.id,
-      );
-      expect(
-        leaf.assistant.messages.first.toolArguments!['source_agent_id'],
-        middle.id,
-      );
-      await expectLater(
-        root.assistant.workspaceToolHandler!('send_agent_message', {
-          'agent_id': leaf.id,
-          'message': 'Skip parent',
-        }),
-        throwsStateError,
-      );
-      await expectLater(
-        leaf.assistant.workspaceToolHandler!('send_agent_message', {
-          'agent_id': root.id,
-          'message': 'Skip parent',
-        }),
-        throwsStateError,
-      );
-      await leaf.assistant.workspaceToolHandler!('send_agent_message', {
-        'agent_id': middle.id,
-        'message': 'Report to parent',
-      });
-      await finish(middle.id);
-      final temporaryResult = await leaf.assistant.workspaceToolHandler!(
-        'spawn_agent',
-        {'title': 'Temporary', 'task': 'Temporary task'},
-      );
-      final temporary = workspaces.find(temporaryResult['agent_id'] as String)!;
-      await finish(temporary.id);
-      final further = await temporary.assistant.workspaceToolHandler!(
-        'spawn_agent',
-        {'title': 'Recursive visible child', 'task': 'Continue delegation'},
-      );
-      final furtherId = further['agent_id'] as String;
-      await finish(furtherId);
-      expect(workspaces.find(furtherId)!.parentId, temporary.id);
-      workspaces.remove(middle.id);
-      expect(workspaces.sessions.map((s) => s.id), [root.id]);
-      expect(workspaces.find(leaf.id), isNull);
-      expect(workspaces.find(temporary.id), isNull);
-      expect(workspaces.find(furtherId), isNull);
-    },
-  );
+  test('long-term descendants delegate with direct-edge isolation and survive parent removal', () async {
+    final root = await workspaces.createPrimary(
+      title: 'Root',
+      task: 'Root task',
+    );
+    await finish(root.id);
+    final middleResult = await root.assistant.workspaceToolHandler!(
+      'spawn_agent',
+      {'title': 'Middle', 'task': 'Middle task'},
+    );
+    final middle = workspaces.find(middleResult['agent_id'] as String)!;
+    await finish(middle.id);
+    final leafResult = await middle.assistant.workspaceToolHandler!(
+      'spawn_agent',
+      {'title': 'Leaf', 'task': 'Leaf task'},
+    );
+    final leaf = workspaces.find(leafResult['agent_id'] as String)!;
+    await finish(leaf.id);
+    expect(
+      middle.assistant.messages.first.toolArguments!['source_agent_id'],
+      root.id,
+    );
+    expect(
+      leaf.assistant.messages.first.toolArguments!['source_agent_id'],
+      middle.id,
+    );
+    await expectLater(
+      root.assistant.workspaceToolHandler!('send_agent_message', {
+        'agent_id': leaf.id,
+        'message': 'Skip parent',
+      }),
+      throwsStateError,
+    );
+    await expectLater(
+      leaf.assistant.workspaceToolHandler!('send_agent_message', {
+        'agent_id': root.id,
+        'message': 'Skip parent',
+      }),
+      throwsStateError,
+    );
+    await leaf.assistant.workspaceToolHandler!('send_agent_message', {
+      'agent_id': middle.id,
+      'message': 'Report to parent',
+    });
+    await finish(middle.id);
+    final temporaryResult = await leaf.assistant.workspaceToolHandler!(
+      'spawn_agent',
+      {'title': 'Temporary', 'task': 'Temporary task'},
+    );
+    final temporary = workspaces.find(temporaryResult['agent_id'] as String)!;
+    await finish(temporary.id);
+    final further = await temporary.assistant.workspaceToolHandler!(
+      'spawn_agent',
+      {'title': 'Recursive visible child', 'task': 'Continue delegation'},
+    );
+    final furtherId = further['agent_id'] as String;
+    await finish(furtherId);
+    expect(workspaces.find(furtherId)!.parentId, temporary.id);
+    workspaces.remove(middle.id);
+    expect(workspaces.find(middle.id), isNull);
+    expect(workspaces.find(leaf.id), same(leaf));
+    expect(leaf.kind, AiWorkspaceKind.primary);
+    expect(leaf.parentId, isNull);
+    expect(workspaces.find(temporary.id), same(temporary));
+    expect(temporary.parentId, leaf.id);
+    expect(workspaces.find(furtherId)!.parentId, temporary.id);
+  });
 
-  test(
-    'restore sorts arbitrary nested records and rejects invalid graphs without rewriting',
-    () async {
-      final root = await workspaces.createPrimary(
-        title: 'Root',
-        task: 'Root task',
-      );
-      await finish(root.id);
-      final middle = await workspaces.create(
-        title: 'Middle',
-        task: 'Middle task',
-        parentId: root.id,
-      );
-      await finish(middle.id);
-      final leaf = await workspaces.create(
-        title: 'Leaf',
-        task: 'Leaf task',
-        parentId: middle.id,
-      );
-      await finish(leaf.id);
-      await workspaces.flush();
-      workspaces.dispose();
-      final data =
-          jsonDecode(
-                scope.preferences.stringValue(
-                  AiWorkspaceProvider.storageKey,
-                  '',
-                ),
-              )
-              as Map<String, dynamic>;
-      data['sessions'] = (data['sessions'] as List).reversed.toList();
-      scope.preferences.setValue(
-        AiWorkspaceProvider.storageKey,
-        jsonEncode(data),
-      );
+  test('restore sorts arbitrary nested records and rejects invalid graphs without rewriting', () async {
+    final root = await workspaces.createPrimary(
+      title: 'Root',
+      task: 'Root task',
+    );
+    await finish(root.id);
+    final middle = await workspaces.create(
+      title: 'Middle',
+      task: 'Middle task',
+      parentId: root.id,
+    );
+    await finish(middle.id);
+    final leaf = await workspaces.create(
+      title: 'Leaf',
+      task: 'Leaf task',
+      parentId: middle.id,
+    );
+    await finish(leaf.id);
+    await workspaces.flush();
+    workspaces.dispose();
+    final data = jsonDecode(
+      (await storage.request('readWorkflow')) as String,
+    ) as Map<String, dynamic>;
+    data['sessions'] = (data['sessions'] as List).reversed.toList();
+    await storage.saveWorkflow(data);
+    workspaces = AiWorkspaceProvider(scope.provider);
+    await workspaces.initialized;
+    expect(workspaces.persistenceError, isNull);
+    expect(workspaces.find(leaf.id)!.parentId, middle.id);
+    expect(workspaces.sessions, hasLength(3));
+    workspaces.dispose();
+    for (final invalidParent in [leaf.id, 'missing-parent']) {
+      (data['sessions'] as List).firstWhere(
+        (r) => r['id'] == middle.id,
+      )['parentId'] = invalidParent;
+      final invalid = jsonEncode(data);
+      await storage.saveWorkflow(invalid);
       workspaces = AiWorkspaceProvider(scope.provider);
       await workspaces.initialized;
-      expect(workspaces.persistenceError, isNull);
-      expect(workspaces.find(leaf.id)!.parentId, middle.id);
-      expect(workspaces.sessions, hasLength(3));
+      expect(workspaces.persistenceError, isNotNull);
+      expect(workspaces.sessions, isEmpty);
+      await expectLater(workspaces.flush(), throwsStateError);
+      expect((await storage.request('readWorkflow')) as String, invalid);
       workspaces.dispose();
-      for (final invalidParent in [leaf.id, 'missing-parent']) {
-        (data['sessions'] as List).firstWhere(
-          (r) => r['id'] == middle.id,
-        )['parentId'] = invalidParent;
-        final invalid = jsonEncode(data);
-        scope.preferences.setValue(AiWorkspaceProvider.storageKey, invalid);
-        workspaces = AiWorkspaceProvider(scope.provider);
-        await workspaces.initialized;
-        expect(workspaces.persistenceError, isNotNull);
-        expect(workspaces.sessions, isEmpty);
-        await workspaces.flush();
-        expect(
-          scope.preferences.stringValue(AiWorkspaceProvider.storageKey, ''),
-          invalid,
-        );
-        workspaces.dispose();
-      }
-      scope.preferences.setValue(AiWorkspaceProvider.storageKey, '');
-      workspaces = AiWorkspaceProvider(scope.provider);
-      await workspaces.initialized;
-    },
-  );
+    }
+    await storage.saveWorkflow({
+      'version': 1,
+      'sessions': [],
+      'connections': [],
+    });
+    workspaces = AiWorkspaceProvider(scope.provider);
+    await workspaces.initialized;
+  });
 
   test(
     'nested automatic deliveries and newly spawned agents remain available',
@@ -1907,44 +1928,41 @@ void main() {
       await finish(middle.id);
     },
   );
-  test(
-    'explicit task permissions apply to root and long-term first turns without changing the parent',
-    () async {
-      final original = scope.provider.permissions;
-      final selected = AiPermissions(
-        mode: AiApprovalMode.custom,
-        fullFiles: true,
-      );
-      askApproval = true;
-      final root = await workspaces.createPrimary(
-        title: 'Authorized root',
-        task: 'Inspect with selected permissions',
-        permissions: selected,
-      );
-      await finish(root.id);
-      expect(root.assistant.permissions, same(selected));
-      expect(root.assistant.pendingApproval, isNull);
-      expect(root.result, 'Done: Inspect with selected permissions');
-      expect(
-        (requests.last['messages'] as List).where((m) => m['role'] == 'tool'),
-        isNotEmpty,
-      );
-      expect(scope.provider.permissions, same(original));
-      root.assistant.setPermissions(original);
-      final child = await workspaces.create(
-        title: 'Authorized long-term',
-        task: 'Inspect long-term',
-        parentId: root.id,
-        permissions: selected,
-      );
-      await finish(child.id);
-      expect(child.assistant.permissions, same(selected));
-      expect(child.assistant.pendingApproval, isNull);
-      expect(child.result, 'Done: Inspect long-term');
-      expect(root.assistant.permissions, same(original));
-      expect(scope.provider.permissions, same(original));
-    },
-  );
+  test('explicit task permissions apply to root and long-term first turns without changing the parent', () async {
+    final original = scope.provider.permissions;
+    final selected = AiPermissions(
+      mode: AiApprovalMode.custom,
+      fullFiles: true,
+    );
+    askApproval = true;
+    final root = await workspaces.createPrimary(
+      title: 'Authorized root',
+      task: 'Inspect with selected permissions',
+      permissions: selected,
+    );
+    await finish(root.id);
+    expect(root.assistant.permissions, same(selected));
+    expect(root.assistant.pendingApproval, isNull);
+    expect(root.result, 'Done: Inspect with selected permissions');
+    expect(
+      (requests.last['messages'] as List).where((m) => m['role'] == 'tool'),
+      isNotEmpty,
+    );
+    expect(scope.provider.permissions, same(original));
+    root.assistant.setPermissions(original);
+    final child = await workspaces.create(
+      title: 'Authorized long-term',
+      task: 'Inspect long-term',
+      parentId: root.id,
+      permissions: selected,
+    );
+    await finish(child.id);
+    expect(child.assistant.permissions, same(selected));
+    expect(child.assistant.pendingApproval, isNull);
+    expect(child.result, 'Done: Inspect long-term');
+    expect(root.assistant.permissions, same(original));
+    expect(scope.provider.permissions, same(original));
+  });
 
   test(
     'model-spawned tasks inherit permissions and reject explicit override',
@@ -2005,158 +2023,144 @@ void main() {
       expect(root.assistant.permissions, same(inherited));
     },
   );
-  test(
-    'canvas style persists independently while restored tasks have no authorization',
-    () async {
-      await workspaces.initialized;
-      expect(workspaces.canvasStyle, AiTaskCanvasStyle.dots);
-      var changes = 0;
-      workspaces.addListener(() => changes++);
-      workspaces.setCanvasStyle(AiTaskCanvasStyle.grid);
-      expect(workspaces.canvasStyle, AiTaskCanvasStyle.grid);
-      expect(changes, 1);
-      workspaces.setCanvasStyle(AiTaskCanvasStyle.grid);
-      expect(changes, 1);
-      final root = await workspaces.createPrimary(
-        title: 'Saved task',
-        task: 'Keep text only',
-        permissions: AiPermissions(
-          mode: AiApprovalMode.custom,
-          fullFiles: true,
-          execution: true,
-          commandNoApproval: true,
-        ),
-      );
-      await finish(root.id);
-      await workspaces.flush();
-      final topology =
-          jsonDecode(
-                scope.preferences.stringValue(
-                  AiWorkspaceProvider.storageKey,
-                  '',
-                ),
-              )
-              as Map;
-      expect(topology, isNot(contains('canvasStyle')));
-      expect(
-        scope.preferences.stringValue(
-          AiWorkspaceProvider.canvasStyleStorageKey,
-          '',
-        ),
-        'grid',
-      );
-      workspaces.dispose();
-      workspaces = AiWorkspaceProvider(scope.provider);
-      await workspaces.initialized;
-      expect(workspaces.canvasStyle, AiTaskCanvasStyle.grid);
-      final restored = workspaces.find(root.id)!;
-      expect(restored.assistant.permissions.mode, AiApprovalMode.onRequest);
-      expect(restored.assistant.permissions.fullFiles, isFalse);
-      expect(restored.assistant.permissions.execution, isFalse);
-      expect(restored.assistant.permissions.commandNoApproval, isFalse);
-      workspaces.setCanvasStyle(AiTaskCanvasStyle.plain);
-      await workspaces.flush();
-      workspaces.dispose();
-      workspaces = AiWorkspaceProvider(scope.provider);
-      await workspaces.initialized;
-      expect(workspaces.canvasStyle, AiTaskCanvasStyle.plain);
-    },
-  );
-
-  test(
-    'unknown saved canvas style falls back to dots without changing task storage',
-    () async {
-      await workspaces.initialized;
-      scope.preferences.setValue(
-        AiWorkspaceProvider.canvasStyleStorageKey,
-        'future-style',
-      );
-      expect(workspaces.canvasStyle, AiTaskCanvasStyle.dots);
-      workspaces.dispose();
-      workspaces = AiWorkspaceProvider(scope.provider);
-      await workspaces.initialized;
-      expect(workspaces.canvasStyle, AiTaskCanvasStyle.dots);
-      expect(workspaces.persistenceError, isNull);
-    },
-  );
-  test(
-    'root removal promotes latest direct long-term child and preserves other branches intact',
-    () async {
-      final permissions = AiPermissions(
+  test('canvas style persists independently while restored tasks have no authorization', () async {
+    await workspaces.initialized;
+    expect(workspaces.canvasStyle, AiTaskCanvasStyle.dots);
+    var changes = 0;
+    workspaces.addListener(() => changes++);
+    workspaces.setCanvasStyle(AiTaskCanvasStyle.grid);
+    expect(workspaces.canvasStyle, AiTaskCanvasStyle.grid);
+    expect(changes, 1);
+    workspaces.setCanvasStyle(AiTaskCanvasStyle.grid);
+    expect(changes, 1);
+    final root = await workspaces.createPrimary(
+      title: 'Saved task',
+      task: 'Keep text only',
+      permissions: AiPermissions(
         mode: AiApprovalMode.custom,
+        fullFiles: true,
         execution: true,
-      );
-      final root = await workspaces.createPrimary(
-        title: 'Old root',
-        task: 'Coordinate',
-      );
-      await finish(root.id);
-      final first = await workspaces.create(
-        title: 'First branch',
-        task: 'First',
-        parentId: root.id,
-      );
-      await finish(first.id);
-      final nested = await workspaces.create(
-        title: 'Nested permanent',
-        task: 'Nested',
-        parentId: first.id,
-      );
-      await finish(nested.id);
-      final replacement = await workspaces.create(
-        title: 'Latest branch',
-        task: 'Latest',
-        parentId: root.id,
-        permissions: permissions,
-      );
-      await finish(replacement.id);
-      final keptTemp = await workspaces.create(
-        title: 'Branch temporary',
-        task: 'Keep',
-        parentId: replacement.id,
-        kind: AiWorkspaceKind.permanent,
-      );
-      await finish(keptTemp.id);
-      final removedTemp = await workspaces.create(
-        title: 'Sibling branch',
-        task: 'Remove',
-        parentId: root.id,
-        kind: AiWorkspaceKind.permanent,
-      );
-      await finish(removedTemp.id);
-      final assistant = replacement.assistant;
-      final history = [...assistant.messages];
-      final model = replacement.model;
-      workspaces.remove(removedTemp.id);
-      expect(workspaces.replacementRootFor(root.id), same(replacement));
-      workspaces.select(root.id);
-      workspaces.remove(root.id);
-      expect(workspaces.find(root.id), isNull);
-      expect(workspaces.find(removedTemp.id), isNull);
-      expect(replacement.kind, AiWorkspaceKind.primary);
-      expect(replacement.parentId, isNull);
-      expect(first.parentId, replacement.id);
-      expect(nested.parentId, first.id);
-      expect(keptTemp.parentId, replacement.id);
-      expect(workspaces.selected, same(replacement));
-      expect(replacement.assistant, same(assistant));
-      expect(replacement.assistant.messages, history);
-      expect(replacement.assistant.permissions, same(permissions));
-      expect(replacement.model, model);
-      expect(workspaces.primaries, [replacement]);
-      await workspaces.flush();
-      workspaces.dispose();
-      workspaces = AiWorkspaceProvider(scope.provider);
-      await workspaces.initialized;
-      expect(workspaces.persistenceError, isNull);
-      expect(workspaces.find(replacement.id)!.kind, AiWorkspaceKind.primary);
-      expect(workspaces.find(first.id)!.parentId, replacement.id);
-      workspaces.remove(first.id);
-      expect(workspaces.find(nested.id), isNull);
-      expect(workspaces.find(replacement.id), isNotNull);
-      expect(workspaces.find(keptTemp.id), isNotNull);
-    },
-  );
+        commandNoApproval: true,
+      ),
+    );
+    await finish(root.id);
+    await workspaces.flush();
+    final topology =
+        jsonDecode((await storage.request('readWorkflow')) as String) as Map;
+    expect(topology, isNot(contains('canvasStyle')));
+    expect(
+      scope.preferences.stringValue(
+        AiWorkspaceProvider.canvasStyleStorageKey,
+        '',
+      ),
+      'grid',
+    );
+    workspaces.dispose();
+    workspaces = AiWorkspaceProvider(scope.provider);
+    await workspaces.initialized;
+    expect(workspaces.canvasStyle, AiTaskCanvasStyle.grid);
+    final restored = workspaces.find(root.id)!;
+    expect(restored.assistant.permissions.mode, AiApprovalMode.onRequest);
+    expect(restored.assistant.permissions.fullFiles, isFalse);
+    expect(restored.assistant.permissions.execution, isFalse);
+    expect(restored.assistant.permissions.commandNoApproval, isFalse);
+    workspaces.setCanvasStyle(AiTaskCanvasStyle.plain);
+    await workspaces.flush();
+    workspaces.dispose();
+    workspaces = AiWorkspaceProvider(scope.provider);
+    await workspaces.initialized;
+    expect(workspaces.canvasStyle, AiTaskCanvasStyle.plain);
+  });
+
+  test('unknown saved canvas style falls back to dots without changing task storage', () async {
+    await workspaces.initialized;
+    scope.preferences.setValue(
+      AiWorkspaceProvider.canvasStyleStorageKey,
+      'future-style',
+    );
+    expect(workspaces.canvasStyle, AiTaskCanvasStyle.dots);
+    workspaces.dispose();
+    workspaces = AiWorkspaceProvider(scope.provider);
+    await workspaces.initialized;
+    expect(workspaces.canvasStyle, AiTaskCanvasStyle.dots);
+    expect(workspaces.persistenceError, isNull);
+  });
+  test('root removal promotes latest direct long-term child and preserves other branches intact', () async {
+    final permissions = AiPermissions(
+      mode: AiApprovalMode.custom,
+      execution: true,
+    );
+    final root = await workspaces.createPrimary(
+      title: 'Old root',
+      task: 'Coordinate',
+    );
+    await finish(root.id);
+    final first = await workspaces.create(
+      title: 'First branch',
+      task: 'First',
+      parentId: root.id,
+    );
+    await finish(first.id);
+    final nested = await workspaces.create(
+      title: 'Nested permanent',
+      task: 'Nested',
+      parentId: first.id,
+    );
+    await finish(nested.id);
+    final replacement = await workspaces.create(
+      title: 'Latest branch',
+      task: 'Latest',
+      parentId: root.id,
+      permissions: permissions,
+    );
+    await finish(replacement.id);
+    final keptTemp = await workspaces.create(
+      title: 'Branch temporary',
+      task: 'Keep',
+      parentId: replacement.id,
+      kind: AiWorkspaceKind.permanent,
+    );
+    await finish(keptTemp.id);
+    final removedTemp = await workspaces.create(
+      title: 'Sibling branch',
+      task: 'Remove',
+      parentId: root.id,
+      kind: AiWorkspaceKind.permanent,
+    );
+    await finish(removedTemp.id);
+    final assistant = replacement.assistant;
+    final history = [...assistant.messages];
+    final model = replacement.model;
+    workspaces.remove(removedTemp.id);
+    expect(workspaces.replacementRootFor(root.id), same(replacement));
+    workspaces.select(root.id);
+    workspaces.remove(root.id);
+    expect(workspaces.find(root.id), isNull);
+    expect(workspaces.find(removedTemp.id), isNull);
+    expect(replacement.kind, AiWorkspaceKind.primary);
+    expect(replacement.parentId, isNull);
+    expect(first.parentId, replacement.id);
+    expect(nested.parentId, first.id);
+    expect(keptTemp.parentId, replacement.id);
+    expect(workspaces.selected, same(replacement));
+    expect(replacement.assistant, same(assistant));
+    expect(replacement.assistant.messages, history);
+    expect(replacement.assistant.permissions, same(permissions));
+    expect(replacement.model, model);
+    expect(workspaces.primaries, [replacement]);
+    await workspaces.flush();
+    workspaces.dispose();
+    workspaces = AiWorkspaceProvider(scope.provider);
+    await workspaces.initialized;
+    expect(workspaces.persistenceError, isNull);
+    expect(workspaces.find(replacement.id)!.kind, AiWorkspaceKind.primary);
+    expect(workspaces.find(first.id)!.parentId, replacement.id);
+    workspaces.remove(first.id);
+    expect(workspaces.find(nested.id)!.kind, AiWorkspaceKind.primary);
+    expect(workspaces.find(nested.id)!.parentId, isNull);
+    expect(workspaces.find(replacement.id), isNotNull);
+    expect(workspaces.find(keptTemp.id), isNotNull);
+  });
 
   test(
     'promoted task keeps message dedupe and supports continued collaboration',
@@ -2267,133 +2271,121 @@ void main() {
     expect(temp.kind, AiWorkspaceKind.primary);
     expect(temp.parentId, isNull);
   });
-  test(
-    'manual reconnect preserves task state, enforces one parent and persists acyclic roles',
-    () async {
-      final root = await workspaces.createPrimary(title: 'Root', task: 'Root');
-      await finish(root.id);
-      final other = await workspaces.createPrimary(
-        title: 'Other root',
-        task: 'Other',
-      );
-      await finish(other.id);
-      final child = await workspaces.create(
-        title: 'Long-term',
-        task: 'Work',
-        parentId: root.id,
-      );
-      await finish(child.id);
-      final temporary = await workspaces.create(
-        title: 'Temporary',
-        task: 'Work',
-        parentId: child.id,
-        kind: AiWorkspaceKind.permanent,
-      );
-      await finish(temporary.id);
-      final assistant = child.assistant;
-      final permissions = assistant.permissions;
-      final history = [...assistant.messages];
-      workspaces.reparent(child.id, other.id);
-      expect(workspaces.childrenOf(root.id), isEmpty);
-      expect(workspaces.childrenOf(other.id), [child]);
-      expect(child.assistant, same(assistant));
-      expect(child.assistant.permissions, same(permissions));
-      expect(child.assistant.messages, history);
-      expect(temporary.parentId, child.id);
-      expect(() => workspaces.reparent(child.id, child.id), throwsStateError);
-      expect(() => workspaces.reparent(other.id, child.id), throwsStateError);
-      workspaces.reparent(temporary.id, null);
-      expect(temporary.kind, AiWorkspaceKind.primary);
-      workspaces.reparent(temporary.id, child.id);
-      expect(
-        () => workspaces.reparent(child.id, temporary.id),
-        throwsStateError,
-      );
-      expect(() => workspaces.reparent(child.id, 'missing'), throwsStateError);
-      workspaces.reparent(child.id, null);
-      expect(child.kind, AiWorkspaceKind.primary);
-      expect(child.parentId, isNull);
-      workspaces.reparent(other.id, child.id);
-      expect(other.kind, AiWorkspaceKind.permanent);
-      expect(other.parentId, child.id);
-      await workspaces.flush();
-      workspaces.dispose();
-      workspaces = AiWorkspaceProvider(scope.provider);
-      await workspaces.initialized;
-      expect(workspaces.persistenceError, isNull);
-      expect(workspaces.find(child.id)!.kind, AiWorkspaceKind.primary);
-      expect(workspaces.find(other.id)!.parentId, child.id);
-      expect(workspaces.find(temporary.id)!.parentId, child.id);
-      final toolNames = workspaces
-          .find(child.id)!
-          .assistant
-          .workspaceToolDefinitions
-          .map((spec) => (spec['function'] as Map)['name']);
-      expect(toolNames, isNot(contains('reparent')));
-      expect(toolNames, isNot(contains('removeMany')));
-    },
-  );
+  test('manual reconnect preserves task state, enforces one parent and persists acyclic roles', () async {
+    final root = await workspaces.createPrimary(title: 'Root', task: 'Root');
+    await finish(root.id);
+    final other = await workspaces.createPrimary(
+      title: 'Other root',
+      task: 'Other',
+    );
+    await finish(other.id);
+    final child = await workspaces.create(
+      title: 'Long-term',
+      task: 'Work',
+      parentId: root.id,
+    );
+    await finish(child.id);
+    final temporary = await workspaces.create(
+      title: 'Temporary',
+      task: 'Work',
+      parentId: child.id,
+      kind: AiWorkspaceKind.permanent,
+    );
+    await finish(temporary.id);
+    final assistant = child.assistant;
+    final permissions = assistant.permissions;
+    final history = [...assistant.messages];
+    workspaces.reparent(child.id, other.id);
+    expect(workspaces.childrenOf(root.id), isEmpty);
+    expect(workspaces.childrenOf(other.id), [child]);
+    expect(child.assistant, same(assistant));
+    expect(child.assistant.permissions, same(permissions));
+    expect(child.assistant.messages, history);
+    expect(temporary.parentId, child.id);
+    expect(() => workspaces.reparent(child.id, child.id), throwsStateError);
+    expect(() => workspaces.reparent(other.id, child.id), throwsStateError);
+    workspaces.reparent(temporary.id, null);
+    expect(temporary.kind, AiWorkspaceKind.primary);
+    workspaces.reparent(temporary.id, child.id);
+    expect(() => workspaces.reparent(child.id, temporary.id), throwsStateError);
+    expect(() => workspaces.reparent(child.id, 'missing'), throwsStateError);
+    workspaces.reparent(child.id, null);
+    expect(child.kind, AiWorkspaceKind.primary);
+    expect(child.parentId, isNull);
+    workspaces.reparent(other.id, child.id);
+    expect(other.kind, AiWorkspaceKind.permanent);
+    expect(other.parentId, child.id);
+    await workspaces.flush();
+    workspaces.dispose();
+    workspaces = AiWorkspaceProvider(scope.provider);
+    await workspaces.initialized;
+    expect(workspaces.persistenceError, isNull);
+    expect(workspaces.find(child.id)!.kind, AiWorkspaceKind.primary);
+    expect(workspaces.find(other.id)!.parentId, child.id);
+    expect(workspaces.find(temporary.id)!.parentId, child.id);
+    final toolNames = workspaces
+        .find(child.id)!
+        .assistant
+        .workspaceToolDefinitions
+        .map((spec) => (spec['function'] as Map)['name']);
+    expect(toolNames, isNot(contains('reparent')));
+    expect(toolNames, isNot(contains('removeMany')));
+  });
 
-  test(
-    'detaching and merging trees preserves dedupe without blocking fresh messages',
-    () async {
-      final root = await workspaces.createPrimary(title: 'Root', task: 'Root');
-      await finish(root.id);
-      final child = await workspaces.create(
-        title: 'Child',
-        task: 'Child',
-        parentId: root.id,
-      );
+  test('detaching and merging trees preserves dedupe without blocking fresh messages', () async {
+    final root = await workspaces.createPrimary(title: 'Root', task: 'Root');
+    await finish(root.id);
+    final child = await workspaces.create(
+      title: 'Child',
+      task: 'Child',
+      parentId: root.id,
+    );
+    await finish(child.id);
+    final grandchild = await workspaces.create(
+      title: 'Grandchild',
+      task: 'Grandchild',
+      parentId: child.id,
+    );
+    await finish(grandchild.id);
+    final other = await workspaces.createPrimary(title: 'Other', task: 'Other');
+    await finish(other.id);
+    for (var index = 0; index < 50; index++) {
+      await grandchild.assistant.workspaceToolHandler!('send_agent_message', {
+        'agent_id': child.id,
+        'message': 'Budget $index',
+      });
       await finish(child.id);
-      final grandchild = await workspaces.create(
-        title: 'Grandchild',
-        task: 'Grandchild',
-        parentId: child.id,
-      );
-      await finish(grandchild.id);
-      final other = await workspaces.createPrimary(
-        title: 'Other',
-        task: 'Other',
-      );
-      await finish(other.id);
-      for (var index = 0; index < 50; index++) {
-        await grandchild.assistant.workspaceToolHandler!('send_agent_message', {
-          'agent_id': child.id,
-          'message': 'Budget $index',
-        });
-        await finish(child.id);
-      }
-      workspaces.reparent(child.id, null);
-      final duplicate = await grandchild.assistant.workspaceToolHandler!(
-        'send_agent_message',
-        {'agent_id': child.id, 'message': 'Budget 0'},
-      );
-      expect(duplicate['duplicate'], isTrue);
-      expect(
-        (await grandchild.assistant.workspaceToolHandler!(
-          'send_agent_message',
-          {'agent_id': child.id, 'message': 'After detach'},
-        ))['delivered'],
-        isTrue,
-      );
-      workspaces.reparent(child.id, other.id);
-      expect(
-        (await other.assistant.workspaceToolHandler!('send_agent_message', {
-          'agent_id': child.id,
-          'message': 'After merge',
-        }))['delivered'],
-        isTrue,
-      );
-      workspaces.reparent(child.id, root.id);
-      expect(
-        (await root.assistant.workspaceToolHandler!('send_agent_message', {
-          'agent_id': child.id,
-          'message': 'Original branch retained',
-        }))['delivered'],
-        isTrue,
-      );
-    },
-  );
+    }
+    workspaces.reparent(child.id, null);
+    final duplicate = await grandchild.assistant.workspaceToolHandler!(
+      'send_agent_message',
+      {'agent_id': child.id, 'message': 'Budget 0'},
+    );
+    expect(duplicate['duplicate'], isTrue);
+    expect(
+      (await grandchild.assistant.workspaceToolHandler!('send_agent_message', {
+        'agent_id': child.id,
+        'message': 'After detach',
+      }))['delivered'],
+      isTrue,
+    );
+    workspaces.reparent(child.id, other.id);
+    expect(
+      (await other.assistant.workspaceToolHandler!('send_agent_message', {
+        'agent_id': child.id,
+        'message': 'After merge',
+      }))['delivered'],
+      isTrue,
+    );
+    workspaces.reparent(child.id, root.id);
+    expect(
+      (await root.assistant.workspaceToolHandler!('send_agent_message', {
+        'agent_id': child.id,
+        'message': 'Original branch retained',
+      }))['delivered'],
+      isTrue,
+    );
+  });
 
   test('same-tree reconnect allows continued automatic deliveries', () async {
     final root = await workspaces.createPrimary(title: 'Root', task: 'Root');
@@ -2435,50 +2427,47 @@ void main() {
     );
   });
 
-  test(
-    'batch deletion excludes selected branches from promotion and deduplicates descendants',
-    () async {
-      final root = await workspaces.createPrimary(title: 'Root', task: 'Root');
-      await finish(root.id);
-      final kept = await workspaces.create(
-        title: 'Kept',
-        task: 'Kept',
-        parentId: root.id,
-      );
-      await finish(kept.id);
-      final selected = await workspaces.create(
-        title: 'Selected latest',
-        task: 'Delete',
-        parentId: root.id,
-      );
-      await finish(selected.id);
-      final descendant = await workspaces.create(
-        title: 'Selected descendant',
-        task: 'Delete too',
-        parentId: selected.id,
-      );
-      await finish(descendant.id);
-      final nestedSelected = await workspaces.create(
-        title: 'Selected below survivor',
-        task: 'Delete',
-        parentId: kept.id,
-      );
-      await finish(nestedSelected.id);
-      workspaces.removeMany([
-        root.id,
-        selected.id,
-        descendant.id,
-        nestedSelected.id,
-        selected.id,
-        'missing',
-      ]);
-      expect(workspaces.sessions, [kept]);
-      expect(kept.kind, AiWorkspaceKind.primary);
-      expect(kept.parentId, isNull);
-      workspaces.removeMany([kept.id, kept.id]);
-      expect(workspaces.sessions, isEmpty);
-    },
-  );
+  test('batch deletion excludes selected branches from promotion and deduplicates descendants', () async {
+    final root = await workspaces.createPrimary(title: 'Root', task: 'Root');
+    await finish(root.id);
+    final kept = await workspaces.create(
+      title: 'Kept',
+      task: 'Kept',
+      parentId: root.id,
+    );
+    await finish(kept.id);
+    final selected = await workspaces.create(
+      title: 'Selected latest',
+      task: 'Delete',
+      parentId: root.id,
+    );
+    await finish(selected.id);
+    final descendant = await workspaces.create(
+      title: 'Selected descendant',
+      task: 'Delete too',
+      parentId: selected.id,
+    );
+    await finish(descendant.id);
+    final nestedSelected = await workspaces.create(
+      title: 'Selected below survivor',
+      task: 'Delete',
+      parentId: kept.id,
+    );
+    await finish(nestedSelected.id);
+    workspaces.removeMany([
+      root.id,
+      selected.id,
+      descendant.id,
+      nestedSelected.id,
+      selected.id,
+      'missing',
+    ]);
+    expect(workspaces.sessions, [kept]);
+    expect(kept.kind, AiWorkspaceKind.primary);
+    expect(kept.parentId, isNull);
+    workspaces.removeMany([kept.id, kept.id]);
+    expect(workspaces.sessions, isEmpty);
+  });
   test(
     'whole-tree merge preserves dedupe until human input after a later detach',
     () async {

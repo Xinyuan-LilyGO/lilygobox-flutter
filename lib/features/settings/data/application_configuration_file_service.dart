@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
 
+import '../../../core/files/export_file_name.dart';
+
 import 'application_configuration.dart';
 
 class ApplicationConfigurationFileService {
@@ -16,7 +18,7 @@ class ApplicationConfigurationFileService {
     required String fileTypeLabel,
   }) async {
     final destination = await getSaveLocation(
-      suggestedName: fileName,
+      suggestedName: datedExportFileName(fileName),
       acceptedTypeGroups: [
         XTypeGroup(label: fileTypeLabel, extensions: const ['json']),
       ],

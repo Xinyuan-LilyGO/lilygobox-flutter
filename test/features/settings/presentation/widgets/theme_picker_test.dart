@@ -2,7 +2,8 @@
  * @Description: 验证主题卡片切换、重复选中限制及窄窗口布局。
  */
 
-import 'package:flutter/material.dart';
+import 'package:lilygobox/core/l10n/delegates.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/widgets/settings/widgets.dart';
@@ -16,7 +17,7 @@ void main() {
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(360, 640));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      final themes = ThemeProvider();
+      final themes = ThemeProvider()..setTheme(ThemeType.dark);
       addTearDown(themes.dispose);
       var changes = 0;
       themes.addListener(() => changes++);
@@ -26,7 +27,7 @@ void main() {
           value: themes,
           child: MaterialApp(
             locale: const Locale('zh'),
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               body: Consumer<ThemeProvider>(

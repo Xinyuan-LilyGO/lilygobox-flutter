@@ -2,7 +2,7 @@
  * @Description: 为尚未适配设置页的设备显示说明，并提供返回入口。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/l10n/language_provider.dart';

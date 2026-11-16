@@ -42,8 +42,9 @@ void main() {
                 jsonDecode(utf8.decode(await body.toBytes()))
                     as Map<String, dynamic>,
               );
-              if (requests.length == 1)
+              if (requests.length == 1) {
                 return http.StreamedResponse(stream.stream, 200);
+              }
               final result = protocol == AiApiProtocol.openAiResponses
                   ? {
                       'output': [
@@ -115,8 +116,9 @@ void main() {
             await Future<void>.delayed(const Duration(milliseconds: 1));
           }
           expect(scope.provider.messages.last.content, partial);
-          if (withGuidance)
+          if (withGuidance) {
             await scope.provider.sendMessage('Keep this guidance');
+          }
           scope.provider.stopGeneration();
           scope.provider.stopGeneration();
           await send;
@@ -164,25 +166,25 @@ void main() {
           expect(
             history
                 .where((item) => item['role'] == 'assistant')
-                .single['content'],
+                .first['content'],
             partial,
           );
           expect(
             history.last['content'],
             withGuidance ? 'Keep this guidance' : contains('next character'),
           );
-          expect(scope.provider.messages.last.id, stopped.id);
-          expect(scope.provider.messages.last.createdAt, stopped.createdAt);
-          expect(scope.provider.messages, hasLength(2));
-          expect(scope.provider.canContinue, isFalse);
-          final notes = scope.provider.messages.last.processEvents.where(
-            (event) => event.type == AiProcessEventType.assistant,
-          );
           if (withGuidance) {
-            expect(notes.single.text, partial);
+            expect(scope.provider.messages[1].id, stopped.id);
+            expect(scope.provider.messages[1].content, 'New answer');
+            expect(scope.provider.messages[2].content, 'Keep this guidance');
+            expect(scope.provider.messages.last.id, isNot(stopped.id));
+            expect(scope.provider.messages, hasLength(4));
           } else {
-            expect(notes, isEmpty);
+            expect(scope.provider.messages.last.id, stopped.id);
+            expect(scope.provider.messages.last.createdAt, stopped.createdAt);
+            expect(scope.provider.messages, hasLength(2));
           }
+          expect(scope.provider.canContinue, isFalse);
         },
       );
     }
@@ -206,8 +208,9 @@ void main() {
         client: MockClient.streaming((request, body) async {
           final bytes = await body.toBytes();
           requests.add(jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>);
-          if (requests.length == 1)
+          if (requests.length == 1) {
             return http.StreamedResponse(stream.stream, 200);
+          }
           await followup.future;
           return http.StreamedResponse(
             Stream.value(
@@ -811,7 +814,8 @@ void main() {
       models: ['model-updated'],
       apiKey: 'key-updated',
     );
-    expect(scope.provider.selectedModel, 'model-updated');
+    expect(scope.provider.selectedModel, isNull);
+    await scope.provider.selectModel(serviceId, 'model-updated');
 
     releaseFirstResponse.complete();
     await send;

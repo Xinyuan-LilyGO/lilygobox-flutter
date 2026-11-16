@@ -1,13 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../core/storage/preferences.dart';
 import '../../core/theme/material_palette.dart';
 import '../../core/theme/provider.dart';
+import '../../core/window/desktop_window.dart';
 import '../lilygobox_app.dart';
 import '../providers.dart';
 import '../widgets/window_frame.dart';
@@ -61,7 +62,7 @@ class _AppStartupState extends State<AppStartup>
   Future<void> _focusWindowAfterStartup() async {
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
-    await windowManager.focus();
+    currentDesktopWindow()?.focus();
   }
 
   void _tryFade() {
@@ -173,8 +174,10 @@ class StartupScreen extends StatefulWidget {
   State<StartupScreen> createState() => _StartupScreenState();
 }
 
-class _StartupScreenState extends State<StartupScreen> with WindowListener {
+class _StartupScreenState extends State<StartupScreen> {
   bool _maximized = false;
+  Window? _window;
+  ListenerId? _windowListener;
 
   bool get _desktop =>
       !kIsWeb &&
@@ -186,25 +189,25 @@ class _StartupScreenState extends State<StartupScreen> with WindowListener {
   void initState() {
     super.initState();
     if (_desktop) {
-      windowManager.addListener(this);
+      _window = currentDesktopWindow();
+      _windowListener = _window?.addListener((event) {
+        if (mounted &&
+            (event is WindowMaximizedEvent || event is WindowRestoredEvent)) {
+          setState(() => _maximized = _window!.isMaximized);
+        }
+      });
       unawaited(_readWindowState());
     }
   }
 
   Future<void> _readWindowState() async {
-    final maximized = await windowManager.isMaximized();
+    final maximized = _window?.isMaximized ?? false;
     if (mounted) setState(() => _maximized = maximized);
   }
 
   @override
-  void onWindowMaximize() => setState(() => _maximized = true);
-
-  @override
-  void onWindowUnmaximize() => setState(() => _maximized = false);
-
-  @override
   void dispose() {
-    if (_desktop) windowManager.removeListener(this);
+    if (_windowListener case final listener?) _window?.removeListener(listener);
     super.dispose();
   }
 

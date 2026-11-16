@@ -6,8 +6,8 @@ import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
@@ -410,9 +410,8 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                       children: [
                         Text(
                           title,
-                          style: AppDialogStyle.fieldTitleStyle(
-                            theme,
-                          ).copyWith(color: foreground),
+                          style: AppDialogStyle.fieldTitleStyle(theme)
+                              .copyWith(color: foreground),
                         ),
                         if (description != null) ...[
                           const SizedBox(height: 4),
@@ -495,7 +494,9 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
           color: theme.permissionWarningColor,
         ),
         constraints: const BoxConstraints(maxWidth: 480),
+        contentPadding: const EdgeInsets.fromLTRB(0, 20, 0, 24),
         content: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -688,7 +689,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
             key: ValueKey(_custom),
             padding: _custom
                 ? const EdgeInsets.fromLTRB(8, 8, 4, 12)
-                : const EdgeInsets.all(8),
+                : const EdgeInsets.fromLTRB(8, 8, 4, 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -736,9 +737,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                   child: ScrollbarTheme(
                     data: ScrollbarTheme.of(context).copyWith(
                       // 菜单右侧已有 4 px 留白，与选择模型保持相同的靠边距离。
-                      crossAxisMargin: _custom
-                          ? AppScrollBehavior.scrollbarEdgeInset - 4
-                          : 0,
+                      crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset - 4,
                     ),
                     child: Scrollbar(
                       key: const ValueKey('ai-permissions-scrollbar'),
@@ -752,7 +751,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                           controller: _scroll,
                           padding: _custom
                               ? const EdgeInsets.only(left: 4, right: 16)
-                              : EdgeInsets.zero,
+                              : const EdgeInsets.only(right: 16),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -886,9 +885,9 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                                               'ai-permission-folders-scrollbar',
                                             ),
                                             controller: _foldersScroll,
-                                            notificationPredicate:
-                                                (notification) =>
-                                                    notification.depth == 0,
+                                            notificationPredicate: (
+                                              notification,
+                                            ) => notification.depth == 0,
                                             child: SingleChildScrollView(
                                               key: const ValueKey(
                                                 'ai-permission-folders-scroll',
@@ -979,39 +978,37 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                                                                     },
                                                                   );
                                                                 },
-                                                                triggerBuilder:
-                                                                    (
-                                                                      context,
-                                                                      onPressed,
-                                                                    ) => AppTooltip(
-                                                                      message: _fileAccessLabel(
-                                                                        permissions.accessForFolder(
+                                                                triggerBuilder: (context, onPressed) => AppTooltip(
+                                                                  message: _fileAccessLabel(
+                                                                    permissions
+                                                                        .accessForFolder(
                                                                           folder,
                                                                         ),
-                                                                      ),
-                                                                      child: TitleBarIconButton(
-                                                                        key: ValueKey(
-                                                                          'ai-permission-folder-access-$folder',
-                                                                        ),
-                                                                        size:
-                                                                            22,
-                                                                        onPressed:
-                                                                            onPressed,
-                                                                        isFocused:
-                                                                            true,
-                                                                        theme:
-                                                                            theme,
-                                                                        icon: Symbols
-                                                                            .shield_rounded,
-                                                                        iconColor: _fileAccessColor(
-                                                                          permissions.accessForFolder(
+                                                                  ),
+                                                                  child: TitleBarIconButton(
+                                                                    key: ValueKey(
+                                                                      'ai-permission-folder-access-$folder',
+                                                                    ),
+                                                                    size: 22,
+                                                                    onPressed:
+                                                                        onPressed,
+                                                                    isFocused:
+                                                                        true,
+                                                                    theme:
+                                                                        theme,
+                                                                    icon: Symbols
+                                                                        .shield_rounded,
+                                                                    iconColor: _fileAccessColor(
+                                                                      permissions
+                                                                          .accessForFolder(
                                                                             folder,
                                                                           ),
-                                                                        ),
-                                                                        backgroundColor:
-                                                                            theme.popupSurfaceColor,
-                                                                      ),
                                                                     ),
+                                                                    backgroundColor:
+                                                                        theme
+                                                                            .popupSurfaceColor,
+                                                                  ),
+                                                                ),
                                                               ),
                                                               AppTooltip(
                                                                 message: l10n

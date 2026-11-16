@@ -4,8 +4,8 @@
 
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../context_menu/text_selection_menu.dart';
 import '../../theme/definition.dart';
@@ -74,6 +74,8 @@ class SettingControlledTextField extends StatelessWidget {
     required this.theme,
     required this.controller,
     this.onChanged,
+    this.onSubmitted,
+    this.hintText,
     this.enabled = true,
     this.obscureText = false,
     this.autofocus = false,
@@ -82,6 +84,8 @@ class SettingControlledTextField extends StatelessWidget {
     this.maxLines = 1,
     this.contentPadding,
     this.suffixIcon,
+    this.prefixIcon,
+    this.borderRadius,
     this.maxLength,
     this.inputFormatters,
   });
@@ -89,6 +93,8 @@ class SettingControlledTextField extends StatelessWidget {
   final AppTheme theme;
   final TextEditingController controller;
   final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+  final String? hintText;
   final bool enabled;
   final bool obscureText;
   final bool autofocus;
@@ -97,6 +103,8 @@ class SettingControlledTextField extends StatelessWidget {
   final int maxLines;
   final EdgeInsetsGeometry? contentPadding;
   final Widget? suffixIcon;
+  final Widget? prefixIcon;
+  final BorderRadius? borderRadius;
   final int? maxLength;
   final List<TextInputFormatter>? inputFormatters;
 
@@ -119,6 +127,7 @@ class SettingControlledTextField extends StatelessWidget {
       autocorrect: false,
       enableSuggestions: false,
       onChanged: onChanged,
+      onSubmitted: onSubmitted,
       cursorColor: theme.dividerColorNormal,
       style: TextStyle(
         color: theme.textColorPrimary,
@@ -133,7 +142,13 @@ class SettingControlledTextField extends StatelessWidget {
                 ? _multilinePadding(contentPadding)
                 : contentPadding,
             disableHover: true,
+            borderRadius: borderRadius,
           ).copyWith(
+            hintText: hintText,
+            prefixIcon: prefixIcon,
+            prefixIconConstraints: prefixIcon == null
+                ? null
+                : const BoxConstraints(minWidth: 32),
             suffixIcon: suffixIcon,
             suffixIconConstraints: suffixIcon == null
                 ? null
@@ -190,6 +205,7 @@ InputDecoration _inputDecoration(
   AppTheme theme, {
   EdgeInsetsGeometry? contentPadding,
   bool disableHover = false,
+  BorderRadius? borderRadius,
 }) {
   final dialog = context.findAncestorWidgetOfExactType<Dialog>();
   final surface =
@@ -208,21 +224,21 @@ InputDecoration _inputDecoration(
         const EdgeInsets.symmetric(horizontal: 6.0, vertical: 8.0),
     // 明确禁用边框，避免保存期间回退为 Material 默认下划线。
     border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(4.0),
+      borderRadius: borderRadius ?? BorderRadius.circular(4.0),
       borderSide: BorderSide.none,
     ),
     disabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(4.0),
+      borderRadius: borderRadius ?? BorderRadius.circular(4.0),
       borderSide: BorderSide.none,
     ),
     enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(4.0),
+      borderRadius: borderRadius ?? BorderRadius.circular(4.0),
       borderSide: disableHover
           ? BorderSide.none
           : BorderSide(color: theme.dividerColor),
     ),
     focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(4.0),
+      borderRadius: borderRadius ?? BorderRadius.circular(4.0),
       borderSide: BorderSide(
         color: disableHover ? theme.basePrimary : theme.dividerColorNormal,
       ),

@@ -8,6 +8,7 @@ import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/storage/preferences.dart';
 import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/features/assistant/data/agent_storage.dart';
 import 'package:lilygobox/features/assistant/data/assistant_tools.dart';
 import 'package:lilygobox/features/assistant/data/chat_completion_client.dart';
 import 'package:lilygobox/features/assistant/data/credential_store.dart';
@@ -33,12 +34,14 @@ Future<AssistantTestScope> createAssistantTestScope({
   required SplitViewProvider splitView,
   http.Client? client,
   AssistantTools? tools,
+  AgentStorage? storage,
 }) async {
   final preferences = await AppPreferences.load(
     storage: _MemoryPreferencesStorage(),
   );
   final provider = AiAssistantProvider(
     preferences: preferences,
+    storage: storage,
     tools: tools,
     credentialStore: MemoryAiCredentialStore(),
     client: client == null ? null : ChatCompletionClient(client: client),
@@ -66,12 +69,11 @@ class _MemoryPreferencesStorage implements PreferencesStorage {
 class MemoryAiCredentialStore implements AiCredentialStore {
   final Map<String, String> values = {};
   @override
-  Future<String?> read({String? serviceId}) async =>
-      values[serviceId ?? 'legacy'];
+  Future<String?> read({required String serviceId}) async => values[serviceId];
   @override
-  Future<void> write(String value, {String? serviceId}) async =>
-      values[serviceId ?? 'legacy'] = value;
+  Future<void> write(String value, {required String serviceId}) async =>
+      values[serviceId] = value;
   @override
-  Future<void> clear({String? serviceId}) async =>
-      values.remove(serviceId ?? 'legacy');
+  Future<void> clear({required String serviceId}) async =>
+      values.remove(serviceId);
 }

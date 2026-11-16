@@ -1,9 +1,10 @@
 /*
  * @Description: 验证设备详情导航、旋转确认、真实会话操作及窄窗口和大字体布局。
  */
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/navigation/provider.dart';
@@ -125,7 +126,7 @@ void main() {
     ],
     child: MaterialApp(
       locale: Locale(language),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: appLocalizationDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(

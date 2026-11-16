@@ -4,9 +4,9 @@
 
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../core/context_menu/right_click_menu.dart';
 import '../../core/theme/material_palette.dart';
@@ -73,6 +73,11 @@ class _TrayMenuAppState extends State<TrayMenuApp>
         final generation = _generation;
         // 首帧完成后再显示原生窗口，避免首次展开闪白或显示旧的语言。
         await WidgetsBinding.instance.endOfFrame;
+        if (mounted && !presenting && generation == _generation) {
+          await TrayMenuApp.channel.invokeMethod<void>('prepared', {
+            'requestId': requestId,
+          });
+        }
         if (mounted && presenting && _visible && generation == _generation) {
           await TrayMenuApp.channel.invokeMethod<void>('painted', {
             'requestId': requestId,

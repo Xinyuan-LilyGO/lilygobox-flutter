@@ -2,10 +2,11 @@
  * @Description: 提供无边框窗口四边及四角的拖动缩放命中区域。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../core/window/desktop_window.dart';
 import '../../core/window/provider.dart';
 
 class WindowResizeOverlay extends StatelessWidget {
@@ -126,7 +127,7 @@ class _ResizeArea extends StatelessWidget {
         cursor: cursor,
         child: GestureDetector(
           behavior: HitTestBehavior.translucent,
-          onPanStart: (_) => windowManager.startResizing(edge),
+          onPanStart: (_) => currentDesktopWindow()?.startResizing(edge),
           child: Container(
             width: width,
             height: height,

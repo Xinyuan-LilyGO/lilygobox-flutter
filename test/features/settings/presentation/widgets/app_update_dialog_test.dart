@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:lilygobox/core/l10n/delegates.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/app_info/app_update_service.dart';
 import 'package:lilygobox/core/theme/provider.dart';
@@ -21,7 +22,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           locale: const Locale('zh'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: AppUpdateDialog(
             theme: theme.themeData,

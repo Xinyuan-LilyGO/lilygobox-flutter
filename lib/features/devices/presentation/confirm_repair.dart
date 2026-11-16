@@ -1,7 +1,7 @@
 /*
  * @Description: 复用公共确认弹窗处理设备证书变化后的重新配对。
  */
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/l10n/language_provider.dart';
@@ -20,6 +20,7 @@ Future<bool> confirmDeviceRepair(
     context: context,
     theme: context.read<ThemeProvider>().themeData,
     actionKey: 'device-repair',
+    destructive: true,
     title: l10n.lanRepair,
     description: l10n.lanRepairDescription,
     confirmLabel: l10n.lanRepair,

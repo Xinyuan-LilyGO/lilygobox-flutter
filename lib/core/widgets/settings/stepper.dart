@@ -2,7 +2,7 @@
  * @Description: 提供数值设置的增减按钮及数值显示。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/language_provider.dart';
 import '../../theme/definition.dart';

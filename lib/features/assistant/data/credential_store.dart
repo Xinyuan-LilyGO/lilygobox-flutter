@@ -5,30 +5,27 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 abstract interface class AiCredentialStore {
-  Future<String?> read({String? serviceId});
-  Future<void> write(String value, {String? serviceId});
-  Future<void> clear({String? serviceId});
+  Future<String?> read({required String serviceId});
+  Future<void> write(String value, {required String serviceId});
+  Future<void> clear({required String serviceId});
 }
 
 class SecureAiCredentialStore implements AiCredentialStore {
-  const SecureAiCredentialStore({
-    FlutterSecureStorage storage = const FlutterSecureStorage(),
-  }) : _storage = storage;
+  const SecureAiCredentialStore({this._storage = const FlutterSecureStorage()});
 
-  static const _key = 'lilygobox.ai.api_key';
   final FlutterSecureStorage _storage;
 
   @override
-  Future<String?> read({String? serviceId}) =>
+  Future<String?> read({required String serviceId}) =>
       _storage.read(key: _storageKey(serviceId));
 
   @override
-  Future<void> write(String value, {String? serviceId}) =>
+  Future<void> write(String value, {required String serviceId}) =>
       _storage.write(key: _storageKey(serviceId), value: value);
 
   @override
-  Future<void> clear({String? serviceId}) =>
+  Future<void> clear({required String serviceId}) =>
       _storage.delete(key: _storageKey(serviceId));
 
-  String _storageKey(String? id) => id == null ? _key : '$_key.service.$id';
+  String _storageKey(String id) => 'lilygobox.ai.api_key.service.$id';
 }

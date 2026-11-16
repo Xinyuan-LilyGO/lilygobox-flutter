@@ -2,7 +2,7 @@
  * @Description: 窗口控制按钮复用公共交互表面，统一悬停渐变、按下高亮和点击波纹。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../core/theme/definition.dart';
 import '../../core/widgets/menu_item_surface.dart';

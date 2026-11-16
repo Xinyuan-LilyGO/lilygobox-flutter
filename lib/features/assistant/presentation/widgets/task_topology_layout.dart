@@ -3,7 +3,7 @@ import 'dart:ui';
 
 import '../../state/agent_workspace.dart';
 
-/// Automatic positions only; the page applies any manual positions afterwards.
+/// 仅计算自动布局位置，页面随后应用手动位置。
 Map<String, Offset> layoutTaskTopology({
   required List<AiAgentWorkspace> sessions,
   required Map<String, Size> nodeSizes,
@@ -55,7 +55,7 @@ Map<String, Offset> layoutTaskTopology({
           ? 0.0
           : height -
                 (measure(children.first, {}) + measure(children.last, {})) / 2;
-      // Give tall fans enough horizontal runway without stretching small trees.
+      // 为纵向跨度大的分支增加水平空间，不拉伸小型树。
       final childX =
           x + math.max(columnWidth, size(id).width + math.max(218, span / 4));
       var childTop = top;
@@ -77,8 +77,8 @@ Map<String, Offset> layoutTaskTopology({
     return positions;
   }
 
-  // Ownership is directed, whereas communication edges are undirected. Lay out
-  // each complete connected component once, including legacy orphan/root links.
+  // 归属关系有方向，沟通连接无方向。布局时
+  // 每个完整连通分量只处理一次，包括独立的根节点。
   final adjacent = {for (final task in visible) task.id: <String>{}};
   void link(String a, String b) {
     adjacent[a]!.add(b);
@@ -121,8 +121,8 @@ Map<String, Offset> layoutTaskTopology({
         queue.add(neighbor);
       }
     }
-    // Keep children to the right of their actual parent even when a peer edge
-    // supplied a shorter route. Bounded passes also tolerate malformed cycles.
+    // 即使沟通连接提供更短路径，也让下级保持在其实际
+    // 上级右侧。限制迭代次数，避免异常环导致无限循环。
     for (var pass = 0; pass < component.length; pass++) {
       var changed = false;
       for (final id in component) {
@@ -139,7 +139,7 @@ Map<String, Offset> layoutTaskTopology({
       columns.putIfAbsent(rank[id]!, () => []).add(id);
     }
     final ranks = columns.keys.toList()..sort();
-    // Stable ownership preorder keeps siblings and their descendants adjacent.
+    // 稳定的归属先序遍历让同级及各自下级保持相邻。
     final preorder = <String, int>{};
     void visit(String id) {
       if (preorder.containsKey(id)) return;

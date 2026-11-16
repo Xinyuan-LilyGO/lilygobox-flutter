@@ -1,7 +1,7 @@
 /*
  * @Description: 主页与设备概览共用连接状态徽标及悬停说明。
  */
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 

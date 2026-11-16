@@ -1,7 +1,8 @@
 /*
  * @Description: 验证控制状态解析与设备能力对真实数据和滑条交互的约束。
  */
-import 'package:flutter/material.dart';
+import 'package:lilygobox/core/l10n/delegates.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/features/devices/domain/device_control.dart';
@@ -97,7 +98,7 @@ void main() {
   ) async {
     Widget app(bool charging) => MaterialApp(
       locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: appLocalizationDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: SizedBox(
@@ -262,7 +263,7 @@ void main() {
       int? selectedTimeout;
       Widget app({bool online = true}) => MaterialApp(
         locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SingleChildScrollView(

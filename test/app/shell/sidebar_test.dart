@@ -2,9 +2,10 @@
  * @Description: 验证侧栏连续拖动、折叠展开、导航布局与账号入口行为。
  */
 
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -140,7 +141,7 @@ void main() {
               ),
             ],
             child: MaterialApp(
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              localizationsDelegates: appLocalizationDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               home: RepaintBoundary(
                 key: boundaryKey,
@@ -430,7 +431,7 @@ void main() {
           ],
           child: MaterialApp(
             locale: const Locale('zh'),
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: const Scaffold(body: AppShell()),
           ),

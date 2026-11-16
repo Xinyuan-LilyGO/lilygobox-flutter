@@ -4,7 +4,7 @@
 
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../core/storage/preferences.dart';
 import '../data/lan_discovery.dart';
@@ -12,10 +12,7 @@ import '../data/lan_discovery.dart';
 class DeviceManagerProvider extends ChangeNotifier {
   DeviceManagerProvider({AppPreferences? preferences})
     : _preferences = preferences,
-      _addedDevices = (preferences?.stringList('devices') ?? [])
-          .map(LanDevice.normalizeId)
-          .toSet()
-          .toList() {
+      _addedDevices = List.of(preferences?.stringList('devices') ?? []) {
     try {
       final records = jsonDecode(
         preferences?.stringValue('devices.lan.v1', '[]') ?? '[]',
@@ -25,22 +22,9 @@ class DeviceManagerProvider extends ChangeNotifier {
           final device = LanDevice.fromJson(record);
           if (device != null) _lanDevices[device.id] = device;
         }
-        if (records.any(
-          (record) =>
-              record is Map &&
-              record['id'] is String &&
-              LanDevice.normalizeId(record['id'] as String) != record['id'],
-        )) {
-          _saveLanDevices();
-        }
       }
     } on FormatException {
-      // 保留旧设备列表，损坏的新增记录不影响其他配置。
-    }
-    final oldIds = preferences?.stringList('devices') ?? <String>[];
-    if (oldIds.length != _addedDevices.length ||
-        oldIds.any((id) => LanDevice.normalizeId(id) != id)) {
-      preferences?.setValue('devices', _addedDevices);
+      // 损坏的局域网记录不影响设备列表和其他配置。
     }
   }
 

@@ -3,7 +3,7 @@
  */
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../theme/definition.dart';
 import '../theme/material_palette.dart';
@@ -72,8 +72,8 @@ class RightClickMenuBuilder {
     ValueChanged<PointerEvent>? onMenuPointerEvent,
     bool openAbove = false,
     Offset alignmentOffset = Offset.zero,
+    double menuWidth = 150,
   }) {
-    const double menuWidth = 150; // 设置菜单宽度
     const double menuPadding = 5.0; // 菜单内边距
     // 高度与下方菜单项、间距和分隔线保持一致，向上展开时留出 8 像素间隙。
     final menuHeight =
@@ -86,6 +86,12 @@ class RightClickMenuBuilder {
               (height, item) => height + (item.showDivider ? 9 : 4),
             );
 
+    // 菜单超出窗口时，MenuAnchor 会自行添加滚动视图。
+    // 为滚动条留出空间，避免遮挡菜单项的点击区域和文字。
+    final scrollGutter = menuHeight > MediaQuery.sizeOf(context).height - 48
+        ? 20.0
+        : 0.0;
+    final panelWidth = menuWidth + scrollGutter;
     return MenuAnchor(
       controller: controller._menuController,
       clipBehavior: Clip.none,
@@ -126,7 +132,8 @@ class RightClickMenuBuilder {
           child: buildMenuPanel(
             menuItems: menuItems,
             theme: theme,
-            width: menuWidth,
+            width: panelWidth,
+            trailingInset: scrollGutter,
           ),
         ),
       ],
@@ -175,18 +182,16 @@ class RightClickMenuBuilder {
                           pointerPosition.dy + edgeInset - menuHeight,
                         );
                       }
-                      if (menuOrigin.dx + menuWidth >
+                      if (menuOrigin.dx + panelWidth >
                           overlayBox.size.width - edgeInset) {
                         menuOrigin = Offset(
-                          pointerPosition.dx - menuWidth,
+                          pointerPosition.dx - panelWidth,
                           menuOrigin.dy,
                         );
                       }
                       final maxX =
-                          (overlayBox.size.width - menuWidth - edgeInset).clamp(
-                            edgeInset,
-                            double.infinity,
-                          );
+                          (overlayBox.size.width - panelWidth - edgeInset)
+                              .clamp(edgeInset, double.infinity);
                       final maxY =
                           (overlayBox.size.height - menuHeight - edgeInset)
                               .clamp(edgeInset, double.infinity);
@@ -213,6 +218,7 @@ class RightClickMenuBuilder {
     required List<RightClickMenuItem> menuItems,
     required AppTheme theme,
     double width = 150,
+    double trailingInset = 0,
     List<BoxShadow>? shadows,
     Color? surfaceColor,
     Color? itemColor,
@@ -231,16 +237,19 @@ class RightClickMenuBuilder {
         shadows: shadows,
         backgroundColor: surfaceColor,
         borderRadius: borderRadius,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: _buildMenuItemsWithDividers(
-            menuItems: menuItems,
-            theme: theme,
-            menuWidth: width - 10,
-            itemColor: itemColor,
-            selectedColor: selectedColor,
-            selectedForegroundColor: selectedForegroundColor,
-            hoverColor: hoverColor,
+        child: Padding(
+          padding: EdgeInsetsDirectional.only(end: trailingInset),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: _buildMenuItemsWithDividers(
+              menuItems: menuItems,
+              theme: theme,
+              menuWidth: width - 10 - trailingInset,
+              itemColor: itemColor,
+              selectedColor: selectedColor,
+              selectedForegroundColor: selectedForegroundColor,
+              hoverColor: hoverColor,
+            ),
           ),
         ),
       ),

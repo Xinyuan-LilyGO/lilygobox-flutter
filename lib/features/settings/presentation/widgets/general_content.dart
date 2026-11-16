@@ -2,7 +2,7 @@
  * @Description: 提供通用设置分类的页面布局。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../app/shell/state/provider.dart';
@@ -30,7 +30,7 @@ class GeneralSettingsContent extends StatelessWidget {
       title: context.l10n.general,
       description: context.l10n.generalSettingsDescription,
       children: [
-        SettingsField(
+        SettingsSection(
           theme: theme,
           title: context.l10n.configurationTitle,
           description: context.l10n.configurationDescription,
@@ -53,8 +53,8 @@ class GeneralSettingsContent extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 24),
-        SettingsField(
+        const SizedBox(height: 12),
+        SettingsSection(
           theme: theme,
           title: context.l10n.restoreDefaults,
           description: context.l10n.restoreDefaultsDescription,
@@ -185,6 +185,7 @@ class GeneralSettingsContent extends StatelessWidget {
       context: context,
       theme: theme,
       actionKey: 'restore-defaults',
+      destructive: true,
       title: l10n.restoreDefaultsConfirmTitle,
       description: l10n.restoreDefaultsConfirmDescription,
       confirmLabel: l10n.restoreDefaults,

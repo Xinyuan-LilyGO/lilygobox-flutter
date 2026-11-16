@@ -2,9 +2,9 @@
  * @Description: 为主页进入的设备详情提供统一返回入口，保留后台连接和页面状态。
  */
 
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../app/navigation/provider.dart';

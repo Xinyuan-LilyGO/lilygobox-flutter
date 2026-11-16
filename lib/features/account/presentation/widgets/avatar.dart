@@ -2,8 +2,8 @@
  * @Description: 统一账号头像展示，加载失败时回退到本地人物图标。
  */
 
-import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/theme/definition.dart';
 import '../../domain/models.dart';

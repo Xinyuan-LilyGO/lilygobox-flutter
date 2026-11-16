@@ -4,8 +4,8 @@
 
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
@@ -18,6 +18,7 @@ import '../../../../core/widgets/interaction_decoration.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/popup_menu_surface.dart';
 import '../../../../core/widgets/popup_menu_transition.dart';
+import '../../../../core/widgets/search_clear_button.dart';
 import '../../domain/models.dart';
 import '../../domain/reasoning.dart';
 import '../../state/provider.dart';
@@ -151,7 +152,7 @@ class _ModelSelectorState extends State<ModelSelector> {
             header is RenderBox &&
             header.hasSize) {
           _revealSelected = false;
-          // Leave room for the pinned service heading above the selected row.
+          // 在选中行上方为固定的服务标题预留空间。
           final offset =
               _scroll.offset +
               selected.localToGlobal(Offset.zero).dy -
@@ -490,23 +491,9 @@ class _ModelSelectorState extends State<ModelSelector> {
             ? null
             : Padding(
                 padding: const EdgeInsets.all(6),
-                child: IconButton(
-                  constraints: const BoxConstraints.tightFor(
-                    width: 24,
-                    height: 24,
-                  ),
-                  padding: const EdgeInsets.all(4),
-                  style: IconButton.styleFrom(
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: const CircleBorder(),
-                  ),
-                  tooltip: l10n.homeClearSearch,
+                child: SearchClearButton(
+                  theme: theme,
                   onPressed: () => setState(_search.clear),
-                  icon: Icon(
-                    Symbols.close,
-                    size: 14,
-                    color: theme.textColorSecondary,
-                  ),
                 ),
               ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

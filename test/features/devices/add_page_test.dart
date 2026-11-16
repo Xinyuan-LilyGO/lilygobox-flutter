@@ -2,7 +2,6 @@
  * @Description: 验证整页添加导航、真实结果驱动的连接界面及响应式布局。
  */
 
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/device_connection_coordinator.dart';
@@ -10,6 +9,7 @@ import 'package:lilygobox/app/navigation/provider.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
 import 'package:lilygobox/app/shell/widgets/sidebar_account_button.dart';
 import 'package:lilygobox/app/widgets/window_page_stack.dart';
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/features/devices/data/lan_discovery.dart';
 import 'package:lilygobox/features/devices/domain/discovery_service.dart';
@@ -18,6 +18,7 @@ import 'package:lilygobox/features/devices/presentation/widgets/home_device_card
 import 'package:lilygobox/features/devices/state/lan_connection.dart';
 import 'package:lilygobox/features/devices/state/manager_provider.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import 'discovery_test.dart' show TestDiscoveryService, device;
@@ -55,7 +56,7 @@ void main() {
   setUp(() {
     theme = ThemeProvider();
     navigation = AppNavigationProvider();
-    shell = AppShellProvider();
+    shell = AppShellProvider()..openDeviceManagement();
     devices = DeviceManagerProvider();
   });
 
@@ -76,12 +77,11 @@ void main() {
         ],
         child: MaterialApp(
           locale: Locale(locale),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(textScale)),
             child: child!,
           ),
           home: Scaffold(
@@ -91,7 +91,7 @@ void main() {
       );
 
   testWidgets(
-    'add page stays inside shell and supports sidebar, Escape and back',
+    'add page keeps the device section selected and supports Escape and back',
     (tester) async {
       await tester.pumpWidget(app());
       await tester.pumpAndSettle();
@@ -109,7 +109,8 @@ void main() {
       expect(find.text('自动发现暂不可用'), findsOneWidget);
       expect(find.text('USB'), findsNothing);
       expect(devices.addedDevices, isEmpty);
-      await tester.tap(find.text('首页'));
+      expect(shell.deviceManagementSelected, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(navigation.currentPage, AppPage.home);
       await tester.tap(find.text('添加设备'));
@@ -262,35 +263,32 @@ void main() {
     },
   );
 
-  test(
-    'connection beneath settings preserves the completion result when settings closes',
-    () {
-      const target = LanDevice(
-        id: '001122334455',
-        name: 'T-Display-P4',
-        address: '192.168.1.8',
-        port: 18464,
-        model: 'T-Display-P4',
-      );
-      final session = _Session();
-      final coordinator = DeviceConnectionCoordinator(
-        connection: session,
-        devices: devices,
-        navigation: navigation,
-      );
-      navigation.setPage(AppPage.addDevice);
-      navigation.setPage(AppPage.settings);
-      session.publish(target, LanConnectionPhase.connected);
-      expect(navigation.currentPage, AppPage.settings);
-      expect(navigation.contentPage, AppPage.addDevice);
-      navigation.closeSettings();
-      expect(navigation.currentPage, AppPage.addDevice);
-      expect(navigation.addedDeviceId, target.id);
-      expect(devices.addedDevices, [target.id]);
-      coordinator.dispose();
-      session.dispose();
-    },
-  );
+  test('connection beneath settings preserves the completion result when settings closes', () {
+    const target = LanDevice(
+      id: '001122334455',
+      name: 'T-Display-P4',
+      address: '192.168.1.8',
+      port: 18464,
+      model: 'T-Display-P4',
+    );
+    final session = _Session();
+    final coordinator = DeviceConnectionCoordinator(
+      connection: session,
+      devices: devices,
+      navigation: navigation,
+    );
+    navigation.setPage(AppPage.addDevice);
+    navigation.setPage(AppPage.settings);
+    session.publish(target, LanConnectionPhase.connected);
+    expect(navigation.currentPage, AppPage.settings);
+    expect(navigation.contentPage, AppPage.addDevice);
+    navigation.closeSettings();
+    expect(navigation.currentPage, AppPage.addDevice);
+    expect(navigation.addedDeviceId, target.id);
+    expect(devices.addedDevices, [target.id]);
+    coordinator.dispose();
+    session.dispose();
+  });
 
   testWidgets(
     'manual approval shows device details until the user returns home',

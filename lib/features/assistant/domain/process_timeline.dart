@@ -40,7 +40,7 @@ List<AiProcessEntry> buildAiProcessTimeline(List<AiProcessEvent> events) {
         entries[previous] = entry;
       }
     } else {
-      // 旧记录没有调用标识时保留原顺序，不根据工具名称猜测归属。
+      // 没有调用标识的独立事件保持原顺序，不根据工具名称猜测归属。
       entries.add(AiProcessEntry('event-$index', event));
     }
   }

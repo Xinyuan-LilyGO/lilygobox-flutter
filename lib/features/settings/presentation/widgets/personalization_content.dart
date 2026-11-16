@@ -2,7 +2,7 @@
  * @Description: 展示外观设置，支持紧凑主题预览卡片切换。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/l10n/language_provider.dart';
@@ -32,8 +32,9 @@ class _PersonalizationContentState extends State<PersonalizationContent> {
       title: context.l10n.personalization,
       description: context.l10n.appearanceSettingsDescription,
       children: [
-        SettingsField(
+        SettingsSection(
           theme: theme,
+          stacked: true,
           title: context.l10n.theme,
           description: context.l10n.themeDescription,
           child: ThemePicker(
@@ -43,8 +44,8 @@ class _PersonalizationContentState extends State<PersonalizationContent> {
             onChanged: themeProvider.setTheme,
           ),
         ),
-        const SizedBox(height: 24),
-        SettingsField(
+        const SizedBox(height: 12),
+        SettingsSection(
           theme: theme,
           title: context.l10n.font,
           description: context.l10n.fontDescription,
@@ -52,7 +53,7 @@ class _PersonalizationContentState extends State<PersonalizationContent> {
             width: 220,
             child: SettingSelect<String>(
               theme: theme,
-              surfaceColor: theme.secondary,
+              surfaceColor: theme.primary,
               value: themeProvider.fontChoice,
               items: [
                 DropdownMenuItem(

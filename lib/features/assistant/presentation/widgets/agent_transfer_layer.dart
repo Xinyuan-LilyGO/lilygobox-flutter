@@ -1,11 +1,11 @@
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../state/agent_workspace_provider.dart';
 import 'task_topology_connection.dart';
 
-/// Only this overlay ticks; cards, routes and grid stay outside its repaint.
+/// 仅此浮层播放动画，卡片、路由和网格不参与逐帧重绘。
 class AgentTransferLayer extends StatefulWidget {
   const AgentTransferLayer({
     super.key,
@@ -57,7 +57,7 @@ class _AgentTransferLayerState extends State<AgentTransferLayer>
   void _sync() {
     if (widget.transfers.value.isNotEmpty &&
         !MediaQuery.disableAnimationsOf(context) &&
-        TickerMode.of(context)) {
+        TickerMode.valuesOf(context).enabled) {
       final latest = widget.transfers.value.last.id;
       if (latest != _lastTransfer) {
         _lastTransfer = latest;

@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
@@ -27,6 +27,11 @@ String? aiResponseStatusLabel(
     AiResponseStatus.streaming => l10n.aiStreaming,
     AiResponseStatus.preparingTools => l10n.aiPreparingTools,
     AiResponseStatus.executingTools => switch (toolName) {
+      'search_memory' => l10n.agentStorageRetrieving,
+      'save_memory' => l10n.agentStorageSaving,
+      'delete_memory' => l10n.agentStorageDeleting,
+      'compact_context' => l10n.agentStorageCompact,
+      'consolidate_memory' => l10n.agentStorageAutoMemoryAction,
       'list_directory' => l10n.aiExecutingListDirectory,
       'read_file' => l10n.aiExecutingReadFile,
       'write_file' => l10n.aiExecutingWriteFile,
@@ -68,7 +73,7 @@ String? aiResponseStatusLabel(
   };
 }
 
-/// Shared presentation for timeline entries, response headers and task cards.
+/// 时间线条目、回复标题与任务卡片共用的展示逻辑。
 ({String label, IconData icon, double fill}) aiProcessEventSummary(
   BuildContext context,
   AiProcessEvent event, {
@@ -95,8 +100,6 @@ String? aiResponseStatusLabel(
     AiProcessEventType.action => _operationResultLabel(context, action!),
     AiProcessEventType.retry =>
       '${l10n.aiRequestRetryRecord(retry!.attempt)}: ${aiErrorText(l10n, retry.error)}',
-    // 兼容旧数据；新回合不会再生成这两类过程事件。
-    AiProcessEventType.assistant || AiProcessEventType.guidance => '',
   };
   final modelNote = event.type == AiProcessEventType.reasoning;
   final statusIcon = switch (event.status) {
@@ -162,13 +165,7 @@ String? aiResponseStatusLabel(
       message.status == AiResponseStatus.completed ||
       message.status == AiResponseStatus.failed ||
       message.status == AiResponseStatus.stopped;
-  final latest = message.processEvents
-      .where(
-        (event) =>
-            event.type != AiProcessEventType.assistant &&
-            event.type != AiProcessEventType.guidance,
-      )
-      .lastOrNull;
+  final latest = message.processEvents.lastOrNull;
   final event = terminal || latest == null
       ? (message.status == null
             ? null
@@ -413,7 +410,7 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
               switchOutCurve: Curves.easeIn,
               transitionBuilder: (child, animation) => SizeTransition(
                 sizeFactor: animation,
-                axisAlignment: -1,
+                alignment: Alignment.topCenter,
                 child: FadeTransition(opacity: animation, child: child),
               ),
               layoutBuilder: (currentChild, previousChildren) => Stack(
@@ -499,6 +496,11 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
 
 /// 以实际操作选择图标，执行阶段和完成记录使用同一套映射。
 IconData _toolIcon(String name) => switch (name) {
+  'search_memory' ||
+  'save_memory' ||
+  'delete_memory' ||
+  'consolidate_memory' => Symbols.memory,
+  'compact_context' => Symbols.compress,
   'open_agent' => Symbols.arrow_outward_rounded,
   'spawn_agent' || 'list_agents' => Symbols.account_tree_rounded,
   'send_agent_message' => Symbols.chat_rounded,
@@ -548,6 +550,11 @@ String _aiActionSummary(
 ) {
   final l10n = context.l10n;
   return switch (name) {
+    'search_memory' => l10n.agentStorageRetrieving,
+    'save_memory' => l10n.agentStorageSaving,
+    'delete_memory' => l10n.agentStorageDeleting,
+    'compact_context' => l10n.agentStorageCompact,
+    'consolidate_memory' => l10n.agentStorageAutoMemoryAction,
     'get_current_time' => l10n.aiToolTime,
     'open_agent' => l10n.aiWorkspaceOpenAction,
     'spawn_agent' => '${l10n.aiWorkspaceSpawnAction}: ${args['title']}',
@@ -681,7 +688,7 @@ Map<String, dynamic>? _processResult(AiProcessingStep action) {
       return value;
     }
   } on FormatException {
-    // 兼容旧版本的纯文本结果，仍保留原始错误说明。
+    // 工具失败时可能直接返回错误文本，保留实际结果而不要求 JSON。
   }
   return null;
 }
@@ -702,6 +709,21 @@ String? _operationSummary(BuildContext context, AiProcessingStep action) {
     return null;
   }
   if (!action.succeeded) return null;
+  if (action.name == 'consolidate_memory') {
+    try {
+      final counts = jsonDecode(action.output);
+      if (counts is Map &&
+          counts['saved'] is int &&
+          counts['duplicates'] is int) {
+        return l10n.agentStorageAutoMemoryResult(
+          counts['saved'] as int,
+          counts['duplicates'] as int,
+        );
+      }
+    } on FormatException {
+      // 失败或中断的操作可能没有结构化结果。
+    }
+  }
   return switch (action.name) {
     'run_command' ||
     'read_process' ||

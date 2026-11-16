@@ -2,7 +2,7 @@
  * @Description: 为设置页和侧栏菜单统一提供退出登录确认，仅确认后清除当前会话。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/l10n/language_provider.dart';

@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
-/// Opens an existing task inside the retained workflow conversation stack.
+/// 在保留状态的工作流对话栈中打开已有任务。
 class TaskNavigationScope extends InheritedWidget {
   const TaskNavigationScope({
     super.key,

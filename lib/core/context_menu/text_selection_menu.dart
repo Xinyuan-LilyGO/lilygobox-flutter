@@ -2,8 +2,8 @@
  * @Description: 让文本编辑和选中文字复用应用右键菜单，保留系统剪贴板及选择行为。
  */
 
-import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../theme/provider.dart';

@@ -2,13 +2,14 @@
  * @Description: 提供带展开收起动画、选中状态和悬停渐变的设置下拉框。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../context_menu/right_click_menu.dart';
 import '../../theme/definition.dart';
 import '../../theme/material_palette.dart';
 import '../menu_item_surface.dart';
 import '../popup_menu_transition.dart';
+import '../popup_scroll_dismiss.dart';
 
 class SettingSelect<T> extends StatefulWidget {
   const SettingSelect({
@@ -57,6 +58,7 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
   Size _overlaySize = Size.zero;
   OverlayEntry? _overlayEntry;
   late final AnimationController _dropdownController;
+  late final _scrollDismiss = PopupScrollDismiss(onScroll: _removeDropdown);
 
   @override
   void initState() {
@@ -71,6 +73,7 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
   @override
   void dispose() {
     _disposed = true;
+    _scrollDismiss.detach();
     _overlayEntry?.remove();
     _overlayEntry = null;
     _expanded = false;
@@ -145,6 +148,7 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
     _isRemoving = false;
     _overlayEntry = OverlayEntry(builder: _buildDropdownOverlay);
     Overlay.of(context).insert(_overlayEntry!);
+    _scrollDismiss.attach(context);
     if (MediaQuery.disableAnimationsOf(context)) {
       _dropdownController.value = 1;
     } else {
@@ -159,6 +163,7 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
     }
 
     _isRemoving = true;
+    _scrollDismiss.detach();
 
     void completeRemoval() {
       if (_disposed) {

@@ -2,7 +2,7 @@
  * @Description: 展示 GitHub 个人资料、设备授权验证码和本地登录会话操作。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/l10n/language_provider.dart';
@@ -54,108 +54,131 @@ class _ProfileContentState extends State<ProfileContent> {
       title: l10n.profile,
       description: l10n.githubAccountDescription,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AccountAvatar(
-              theme: theme,
-              user: user,
-              backgroundColor: theme.primary,
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        SettingsPanel(
+          theme: theme,
+          padding: SettingsSection.contentPadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    user?.displayName ?? l10n.notSignedIn,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: theme.textColorPrimary,
+                  AccountAvatar(
+                    theme: theme,
+                    user: user,
+                    backgroundColor: theme.secondary,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user?.displayName ?? l10n.notSignedIn,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: theme.textColorPrimary,
+                          ),
+                        ),
+                        if (user != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            '@${user.login}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: theme.textColorTertiary,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  if (user != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      '@${user.login}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: theme.textColorTertiary,
-                      ),
+                  if (user == null) ...[
+                    const SizedBox(width: 16),
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        _action(
+                          'profile-sign-in',
+                          l10n.githubSignIn,
+                          account.busy || _signInOpen
+                              ? null
+                              : () => _signIn(account),
+                          primary: true,
+                        ),
+                        if (account.canRetryRestore)
+                          _action(
+                            'github-retry-restore',
+                            l10n.githubRetryRestore,
+                            account.busy || _signInOpen
+                                ? null
+                                : account.restore,
+                          ),
+                      ],
                     ),
                   ],
                 ],
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        if (!_signInOpen && phaseLabel != null) ...[
-          Semantics(
-            liveRegion: true,
-            child: Text(
-              phaseLabel,
-              style: TextStyle(fontSize: 12, color: theme.textColorSecondary),
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-        if (!_signInOpen && account.error != null) ...[
-          Semantics(
-            liveRegion: true,
-            child: Text(
-              accountErrorText(l10n, account.error!),
-              key: const ValueKey('github-error'),
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.5,
-                color: theme.textColorSecondary,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-        if (user != null) ...[
-          Text(
-            l10n.githubSignOutDescription,
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.5,
-              color: theme.textColorTertiary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: _action(
-              'github-sign-out',
-              l10n.githubSignOut,
-              account.busy
-                  ? null
-                  : () => confirmAccountSignOut(context, theme: theme),
-            ),
-          ),
-        ] else
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _action(
-                'profile-sign-in',
-                l10n.githubSignIn,
-                account.busy || _signInOpen ? null : () => _signIn(account),
-                primary: true,
-              ),
-              if (account.canRetryRestore)
-                _action(
-                  'github-retry-restore',
-                  l10n.githubRetryRestore,
-                  account.busy || _signInOpen ? null : account.restore,
+              if (user != null ||
+                  (!_signInOpen &&
+                      (phaseLabel != null || account.error != null)))
+                const SizedBox(height: 20),
+              if (!_signInOpen && phaseLabel != null) ...[
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    phaseLabel,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.textColorSecondary,
+                    ),
+                  ),
                 ),
+                const SizedBox(height: 12),
+              ],
+              if (!_signInOpen && account.error != null) ...[
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    accountErrorText(l10n, account.error!),
+                    key: const ValueKey('github-error'),
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.5,
+                      color: theme.textColorSecondary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (user != null) ...[
+                Text(
+                  l10n.githubSignOutDescription,
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.5,
+                    color: theme.textColorTertiary,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: _action(
+                    'github-sign-out',
+                    l10n.githubSignOut,
+                    account.busy
+                        ? null
+                        : () => confirmAccountSignOut(context, theme: theme),
+                  ),
+                ),
+              ],
             ],
           ),
+        ),
       ],
     );
   }

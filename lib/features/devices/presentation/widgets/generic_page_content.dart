@@ -2,9 +2,8 @@
  * @Description: 为尚未适配专属界面的设备提供通用占位页面。
  */
 
-import 'package:flutter/material.dart';
-
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 
 // 通用板子页面内容（用于其他板子类型）
 class GenericDevicePageContent extends StatelessWidget {

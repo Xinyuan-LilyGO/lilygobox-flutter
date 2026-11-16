@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 按 RSSI 显示连续扇形 Wi-Fi 图标，保持 Signal Wifi 的视觉风格。
 /// network_wifi 分级同为连续扇形，不使用 wifi 或 android_wifi 的分段弧线。

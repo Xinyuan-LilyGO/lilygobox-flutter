@@ -423,8 +423,8 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
       return false;
     }
     _localFirmwareFiles = [
-      if (firmware != null) firmware,
-      if (wirelessFirmware != null) wirelessFirmware,
+      ?firmware,
+      ?wirelessFirmware,
     ];
     _localFirmwareServer = server;
     server?.listen((request) async {
@@ -860,7 +860,7 @@ class LanConnection extends ChangeNotifier implements DeviceDiscoveryService {
         'type': 'hello',
         'firmwareTaskVersion': 1,
         'pairingVersion': 2,
-        if (clientId != null) 'clientId': clientId,
+        'clientId': ?clientId,
         'deviceId': target.protocolId,
         'automatic': automatic,
         if (token != null) 'resume': true,

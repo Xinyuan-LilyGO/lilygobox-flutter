@@ -1,8 +1,9 @@
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'dart:async';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:lilygobox/core/theme/provider.dart';
@@ -258,7 +259,7 @@ void main() {
     addTearDown(theme.dispose);
     Widget app(String language) => MaterialApp(
       locale: Locale(language),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: appLocalizationDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: FirmwareUpdateFlowDialog(
         connection: connection,
@@ -532,7 +533,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: Locale(language),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Builder(
           builder: (context) {

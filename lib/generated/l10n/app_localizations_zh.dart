@@ -4,6 +4,7 @@
 
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -1694,7 +1695,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get aiSettingsGroup => 'AI';
+  String get aiSettingsGroup => '智能体';
 
   @override
   String get aiProtocolLabel => 'API 协议';
@@ -2295,7 +2296,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiTopologyBack => '返回智能体工作流';
 
   @override
-  String get aiTopologyDuplicate => '复制卡片';
+  String get aiTopologyCopyWorkflow => '复制智能体工作流';
+
+  @override
+  String get aiTopologyPasteAgent => '粘贴智能体';
+
+  @override
+  String get aiTopologyPasteWorkflow => '粘贴智能体工作流';
+
+  @override
+  String get aiTopologyDuplicate => '复制智能体';
 
   @override
   String get aiTopologyRenameHelp => '用于在画布和对话中识别智能体，支持换行。';
@@ -2400,7 +2410,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiTopologyDeleteTitle => '删除这个智能体？';
 
   @override
-  String get aiTopologyDeleteHelp => '该智能体及其所有下级智能体将停止并移除。';
+  String get aiTopologyDeleteHelp =>
+      '只删除此智能体，未选中的直属子智能体将各自成为主智能体，其余下级继续保留。已删除的智能体会移入回收站，可在设置 → 智能体 → 存储中还原。';
 
   @override
   String get aiTopologyNoParent => '请先选择一个主智能体或子智能体。';
@@ -2449,7 +2460,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiTopologyDeleteRootHelp =>
-      '删除此主智能体；最后创建的直属子智能体将成为主智能体，其余子智能体分支保留。';
+      '删除此主智能体；最后创建的直属子智能体将成为主智能体，其余子智能体分支保留。 已删除的智能体会移入回收站，可在设置 → 智能体 → 存储中还原。';
 
   @override
   String get aiTopologyStopSelected => '停止所选智能体';
@@ -2480,7 +2491,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiTopologyDeleteSelectedHelp =>
-      '所选智能体将停止并移除。子智能体的下级将一并移除；删除主智能体时保留未选中的子智能体分支。';
+      '只删除所选智能体，保留未选中的下级分支；删除子智能体后，其未选中的直属子智能体将各自成为主智能体；删除主智能体时由最后创建的未选中直属子智能体接任。已删除的智能体会移入回收站，可在设置 → 智能体 → 存储中还原。';
 
   @override
   String aiTopologySelectedCount(int count) {
@@ -2488,7 +2499,12 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get aiTopologySelectionHelp => '左键框选 · 右键拖动平移 · Ctrl＋滚轮缩放';
+  String get aiTopologySelectionHelp =>
+      '左键框选 · Ctrl／Shift＋单击多选 · 右键拖动平移 · 滚轮上下移动 · Shift＋滚轮左右移动 · Ctrl＋滚轮缩放';
+
+  @override
+  String get aiTopologyShortcutsHelp =>
+      '左键单击：选中卡片或连线\n左键拖动空白：框选卡片与连线\nCtrl／Shift＋单击或框选：追加选择\n双击卡片：打开对话\n拖动卡片：调整位置\n拖动连接点：连接智能体\n右键拖动／中键拖动／空格＋左键拖动：平移画布\n滚轮：上下移动画布\nShift＋滚轮：左右移动画布\nCtrl＋滚轮：缩放画布\nCtrl＋A：全选\nCtrl＋C／Ctrl＋V：复制／粘贴卡片\nCtrl＋Z：撤销\nCtrl＋Y 或 Ctrl＋Shift＋Z：重做\nDelete／Backspace：删除选中卡片或断开选中连线\nEsc：取消选择或连接';
 
   @override
   String get aiTopologyDisconnectTitle => '断开连接？';
@@ -2516,4 +2532,609 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiProcessingSpeedCost => '快速与超快速通常费用更高';
+
+  @override
+  String get agentStorageScopeHint => '按完整 ID 区分智能体；下方显示完整名称和 ID。';
+
+  @override
+  String get agentStorageBackupTitle => '导入与导出';
+
+  @override
+  String get agentStorageManageHint => '搜索、添加和编辑当前范围内的长期记忆。';
+
+  @override
+  String get agentStorageDevice => '此设备';
+
+  @override
+  String get agentStorageDeviceHint => '管理保存在此设备上的聊天、记忆与智能体工作流。';
+
+  @override
+  String get agentStorageManageAction => '管理';
+
+  @override
+  String get agentStorageCleanAction => '立即清理';
+
+  @override
+  String get agentStorageBackupHint => '导入或导出工作流、智能体、聊天记录与长期记忆数据。';
+
+  @override
+  String get agentStorageMemoryCategory => '长期记忆';
+
+  @override
+  String get agentStorageOtherCategory => '索引与数据库空间';
+
+  @override
+  String get agentStorageTitle => '存储';
+
+  @override
+  String get agentStorageDescription => '管理聊天记录、长期记忆和可迁移的数据备份。';
+
+  @override
+  String get agentStorageMemoryScopeHint =>
+      '选择要管理长期记忆的智能体，下方记忆与自动记忆设置仅对该智能体生效。';
+
+  @override
+  String get agentStorageScope => '长期记忆归属';
+
+  @override
+  String get agentStorageMemories => '长期记忆';
+
+  @override
+  String get agentStorageContextTitle => '聊天记录与上下文';
+
+  @override
+  String get agentStorageContextManageHint => '管理聊天上下文、压缩摘要和上下文缓存。';
+
+  @override
+  String get agentStorageRecords => '聊天与工作流';
+
+  @override
+  String get agentStorageAdd => '添加记忆';
+
+  @override
+  String get agentStorageManageContext => '管理聊天记录与上下文';
+
+  @override
+  String get agentStorageManage => '管理记忆';
+
+  @override
+  String get agentStorageImport => '导入数据包';
+
+  @override
+  String get agentStorageExportMemory => '导出长期记忆';
+
+  @override
+  String get agentStorageImportMemory => '导入长期记忆';
+
+  @override
+  String get agentStorageExportAgent => '导出智能体';
+
+  @override
+  String get agentStorageExportBranch => '导出智能体分支';
+
+  @override
+  String get agentStorageExportChat => '导出聊天记录';
+
+  @override
+  String get agentStorageExportWorkflow => '导出智能体工作流';
+
+  @override
+  String get agentStorageExportAll => '备份全部智能体数据';
+
+  @override
+  String get agentStorageDeleteChat => '删除聊天记录与上下文';
+
+  @override
+  String get agentStorageDeleteChatHint => '删除此智能体的聊天记录和上下文摘要？已保存的长期记忆会保留。';
+
+  @override
+  String get agentStorageDeleteMemoryHint => '删除这条记忆？原始聊天记录不会被删除。';
+
+  @override
+  String get agentStorageEmpty => '暂无已保存的记忆。';
+
+  @override
+  String get agentStorageContent => '记忆内容';
+
+  @override
+  String get agentStorageSource => '来源';
+
+  @override
+  String get agentStorageImportPreview => '导入预览';
+
+  @override
+  String get agentStorageImportHint =>
+      '智能体会使用新 ID。长期记忆将合并到选定范围，完全重复的条目跳过。导入权限重置，不恢复任何运行操作。';
+
+  @override
+  String get agentStorageSuccess => '操作完成';
+
+  @override
+  String agentStorageCompactResult(int before, int after) {
+    return '上下文压缩完成：$before → $after token（估算）。';
+  }
+
+  @override
+  String get agentStorageCompactTooShort => '当前聊天记录较少，暂无需要压缩的上下文。';
+
+  @override
+  String get agentStorageCompactUnavailable => '请先配置可用的模型服务后再压缩。';
+
+  @override
+  String get agentStorageCompactCancelled => '上下文压缩已取消。';
+
+  @override
+  String get agentStorageCompactUnchanged => '本次未生成有效摘要，上下文保持不变。';
+
+  @override
+  String get agentStorageCompactFailed => '上下文压缩失败，请检查模型服务后重试。';
+
+  @override
+  String get agentStorageCleanFailed => '清理失败，请稍后重试。';
+
+  @override
+  String get agentStorageCleanNothing => '暂无需要清理的数据。';
+
+  @override
+  String agentStorageCleanResult(int count, String size) {
+    return '已清理 $count 项残留数据，释放 $size 空间。';
+  }
+
+  @override
+  String agentStorageCleanSpaceResult(String size) {
+    return '整理完成，释放 $size 空间。';
+  }
+
+  @override
+  String get agentStoragePackageType => 'LilygoBox 数据包（7z）';
+
+  @override
+  String get agentStorageCompact => '压缩上下文';
+
+  @override
+  String get agentStorageRetrieving => '检索记忆';
+
+  @override
+  String get agentStorageSaving => '保存记忆';
+
+  @override
+  String get agentStorageDeleting => '删除记忆';
+
+  @override
+  String get agentStorageMemoryEnabled => '自动使用长期记忆';
+
+  @override
+  String get agentStorageMemoryHint => '每轮对话前读取相关记忆辅助回答，并允许智能体搜索、保存或删除记忆。';
+
+  @override
+  String get agentStorageUsage => '本地存储占用';
+
+  @override
+  String get agentStorageSearch => '搜索记忆';
+
+  @override
+  String get agentStorageNoAgent => '请先选择智能体。';
+
+  @override
+  String get agentStorageBusy => '导入或删除数据前，请先停止相关智能体。';
+
+  @override
+  String get agentMemoryDuplicate => '内容相同，跳过';
+
+  @override
+  String get agentMemoryConflict => '同一记忆存在不同版本';
+
+  @override
+  String get agentMemoryNew => '新增记忆';
+
+  @override
+  String get agentMemorySkip => '跳过';
+
+  @override
+  String get agentMemoryBoth => '保留两份';
+
+  @override
+  String get agentMemoryReplace => '替换已有';
+
+  @override
+  String get agentMemoryIncoming => '导入内容（可编辑）';
+
+  @override
+  String get agentMemoryExisting => '已有内容';
+
+  @override
+  String get agentMemoryReview => '检查记忆条目';
+
+  @override
+  String get agentStorageMore => '加载更多';
+
+  @override
+  String get agentStorageEditMemory => '编辑';
+
+  @override
+  String get agentStorageClean => '清理存储空间';
+
+  @override
+  String get agentStorageCleanHint => '立即清理残留文件，释放存储空间。聊天、记忆和回收站内容会保留。';
+
+  @override
+  String get agentStorageContextBudget => '上下文预算';
+
+  @override
+  String get agentStorageContextHint =>
+      '预算 × 百分比 = 自动压缩阈值。回车或离开输入框后保存；预算需参考服务商模型容量，并为完整请求预留空间。';
+
+  @override
+  String get agentStorageArchived => '已归档范围';
+
+  @override
+  String get agentStorageFailure => '操作失败，请检查文件或存储权限。';
+
+  @override
+  String get agentStorageSensitiveHint =>
+      '数据包包含所选聊天记录、上下文或长期记忆原文，不包含 API 密钥。请妥善保管。';
+
+  @override
+  String agentStorageTokens(int count) {
+    return '$count token（估算）';
+  }
+
+  @override
+  String get agentStorageExportTab => '导出数据';
+
+  @override
+  String get agentStorageImportAgents => '导入数据';
+
+  @override
+  String get agentStorageImportTab => '导入数据';
+
+  @override
+  String get agentStoragePackageKind => '导出内容';
+
+  @override
+  String get agentStoragePackageKindHint => '选择要包含的内容，导出为一个 .7z 文件。';
+
+  @override
+  String get agentStorageMemoryPackage => '长期记忆包';
+
+  @override
+  String get agentStorageChatPackage => '聊天记录与上下文包';
+
+  @override
+  String get agentStorageAgentPackage => '智能体包';
+
+  @override
+  String get agentStorageWorkflowPackage => '工作流包';
+
+  @override
+  String get agentStorageBackupPackage => '完整数据包';
+
+  @override
+  String get agentStorageMemoryPackageHint => '只导出所选智能体的长期记忆，可导入另一个智能体。';
+
+  @override
+  String get agentStorageChatPackageHint =>
+      '导出所选智能体的完整聊天记录、上下文历史与压缩摘要，以及正文、思考内容、工具调用、用时记录、图片和附件，不包含长期记忆。';
+
+  @override
+  String get agentStorageAgentPackageHint =>
+      '导出一个智能体的名称、模型引用、聊天、上下文摘要、长期记忆和附件。可选择包含下级智能体。';
+
+  @override
+  String get agentStorageWorkflowPackageHint =>
+      '导出整个工作流的智能体、连接、画布布局、聊天记录、上下文历史与压缩摘要、长期记忆和附件。';
+
+  @override
+  String get agentStorageBackupPackageHint => '包含智能体工作流和回收站中的聊天记录、附件及记忆。';
+
+  @override
+  String get agentStorageIncludeChildren => '同时包含下级智能体';
+
+  @override
+  String get agentStorageChooseAgent => '请选择要导出的智能体';
+
+  @override
+  String get agentStorageMemoryDestination => '长期记忆导入到哪里';
+
+  @override
+  String get agentStorageMemoryDestinationHint => '选择已有智能体，或新建主智能体来保存这些长期记忆。';
+
+  @override
+  String get agentStorageExportTarget => '导出对象';
+
+  @override
+  String get agentStorageExportTargetHint => '先选择智能体或智能体工作流，再设置导出内容。';
+
+  @override
+  String get agentStorageChooseExportTarget => '请选择导出对象';
+
+  @override
+  String get agentStorageAgentTarget => '智能体';
+
+  @override
+  String get agentStorageIncludeArchived => '包含回收站中的智能体';
+
+  @override
+  String get agentRecycleSearch => '搜索智能体';
+
+  @override
+  String get agentRecycleBin => '回收站';
+
+  @override
+  String get agentRecycleHint => '已删除的智能体可在这里还原或永久删除。';
+
+  @override
+  String get agentRecycleRetention => '自动删除';
+
+  @override
+  String get agentRecycleDays7 => '删除 7 天后';
+
+  @override
+  String get agentRecycleDays30 => '删除 30 天后';
+
+  @override
+  String get agentRecycleDays90 => '删除 90 天后';
+
+  @override
+  String get agentRecycleNever => '不自动删除';
+
+  @override
+  String get agentRecycleEmpty => '回收站为空';
+
+  @override
+  String get agentRecycleRestore => '还原';
+
+  @override
+  String get agentRecycleDelete => '永久删除';
+
+  @override
+  String get agentRecycleEmptyAction => '清空回收站';
+
+  @override
+  String get agentRecycleDeleteHint => '聊天记录、附件和记忆将被永久删除，此操作无法撤销。';
+
+  @override
+  String get agentRecycleRestoreHint =>
+      '保留原来的 ID、聊天记录和记忆。若原上级已不存在，将还原为主智能体；权限需重新确认。软件关闭期间到期的数据会在下次启动时清理。';
+
+  @override
+  String get agentRecycleDeletedAt => '删除时间';
+
+  @override
+  String get agentRecycleExpiresAt => '自动删除时间';
+
+  @override
+  String get agentRecycleRetentionConfirm => '更改保留时间后，已到期的智能体会被永久删除。是否继续？';
+
+  @override
+  String get agentTopologyHintSelectAll => 'Ctrl + A · 全选智能体和连接';
+
+  @override
+  String get agentTopologyHintCopy => 'Ctrl + C · 复制智能体或工作流';
+
+  @override
+  String get agentTopologyHintPaste => 'Ctrl + V · 粘贴智能体或工作流';
+
+  @override
+  String get agentTopologyHintUndo => 'Ctrl + Z · 撤销';
+
+  @override
+  String get agentTopologyHintRedo => 'Ctrl + Y · 重做';
+
+  @override
+  String get agentTopologyHintDelete => 'Delete · 删除选中内容';
+
+  @override
+  String get agentTopologyHintEscape => 'Esc · 取消选择或连接';
+
+  @override
+  String get agentTopologyHintBoxSelect => '左键拖动 · 框选智能体和连接';
+
+  @override
+  String get agentTopologyHintPan => '滚轮 / Shift + 滚轮 · 移动画布';
+
+  @override
+  String get agentTopologyHintZoom => 'Ctrl + 滚轮 · 缩放画布';
+
+  @override
+  String get agentStorageWorkflowCategory => '工作流';
+
+  @override
+  String get agentStorageContextUsage => '当前上下文';
+
+  @override
+  String get agentStorageContextUsageHint =>
+      '当前聊天历史的本地估算，不含完整请求中的系统指令、工具定义和检索记忆。';
+
+  @override
+  String get agentStorageContextInvalid => '请输入大于 0 的整数。';
+
+  @override
+  String get agentStorageCompactHint => '总结较早的对话供后续请求使用，原始聊天记录和附件保留。';
+
+  @override
+  String get agentStorageCompactNow => '立即压缩';
+
+  @override
+  String get agentStorageChatDataTitle => '聊天记录与上下文';
+
+  @override
+  String get agentStorageContextPercent => '压缩触发百分比';
+
+  @override
+  String agentStorageContextTriggerTokens(int count) {
+    return '自动压缩阈值：$count token（估算）';
+  }
+
+  @override
+  String get agentStorageContextPercentInvalid => '百分比请输入 1–100 的整数。';
+
+  @override
+  String get agentStorageContextPercentWarning =>
+      '百分比过高可能没有足够余量处理新消息、工具和回复；不建议等到窗口填满才压缩。';
+
+  @override
+  String get agentTopologyZoomPercentage => '缩放百分比';
+
+  @override
+  String get agentTopologyControlHints =>
+      'Ctrl + A 全选 · Ctrl + C 复制 · Ctrl + V 粘贴 · Ctrl + Z 撤销 · Ctrl + Y 重做 · Ctrl + 滚轮 缩放';
+
+  @override
+  String get agentTopologyShiftHints =>
+      'Shift + 滚轮 横向移动 · Shift + 单击 / 框选 增选 · Ctrl + Shift + Z 重做';
+
+  @override
+  String get agentTopologySpaceHints => '空格 + 左键拖动 移动画布';
+
+  @override
+  String get agentStorageDatabaseLocation => '智能体数据目录（聊天记录、上下文与长期记忆）';
+
+  @override
+  String get agentStorageChoosePackage => '选择数据包';
+
+  @override
+  String get agentStorageImportAutoHint =>
+      '选择 .7z 数据包后自动识别类型，查看内容后确认导入。数据包不包含 API 密钥，请妥善保管。';
+
+  @override
+  String get agentStorageImportCreatesAgents => '将创建新的智能体并分配新 ID，不会覆盖已有智能体。';
+
+  @override
+  String get agentStorageImportMemoryCreatesAgent =>
+      '将新建一个智能体并导入这些长期记忆，不会修改已有智能体。新智能体不会自动运行，请选择模型后使用。';
+
+  @override
+  String get agentStorageImportedMemoryAgent => '导入的智能体';
+
+  @override
+  String get agentStorageImportMemoryMergeHint =>
+      '长期记忆将合并到所选智能体，完全重复的条目会跳过；冲突内容可在导入前确认。';
+
+  @override
+  String get agentStorageImportSuccess => '数据导入完成。';
+
+  @override
+  String get agentStorageExportSuccess => '数据导出完成。';
+
+  @override
+  String get agentStorageTransferCancelled => '操作已取消。';
+
+  @override
+  String get agentStorageTransferTitle => '处理数据包';
+
+  @override
+  String get agentStorageTransferPreparing => '正在整理数据';
+
+  @override
+  String get agentStorageTransferReading => '正在读取数据包';
+
+  @override
+  String get agentStorageTransferCompressing => '正在压缩数据';
+
+  @override
+  String get agentStorageTransferDecompressing => '正在解压数据';
+
+  @override
+  String get agentStorageTransferVerifying => '正在校验数据包';
+
+  @override
+  String get agentStorageTransferAnalyzing => '正在分析数据';
+
+  @override
+  String get agentStorageTransferWriting => '正在保存文件';
+
+  @override
+  String get agentStorageTransferCommitting => '正在完成导入';
+
+  @override
+  String get agentStorageTransferCancelling => '正在取消';
+
+  @override
+  String agentStorageTransferElapsed(String duration) {
+    return '已用时 $duration';
+  }
+
+  @override
+  String get agentStorageImportFile => '数据包';
+
+  @override
+  String get agentStorageChangePackage => '重新选择';
+
+  @override
+  String get agentStorageAutoMemoryTitle => '自动整理长期记忆';
+
+  @override
+  String get agentStorageAutoMemoryHint =>
+      '每轮对话完成后，自动筛选值得长期保留的信息，对照已有记忆去重后保存。会额外调用当前模型。';
+
+  @override
+  String get agentStorageAutoMemoryAction => '整理长期记忆';
+
+  @override
+  String agentStorageAutoMemoryResult(int saved, int duplicates) {
+    return '新增 $saved 条长期记忆，跳过 $duplicates 条重复内容。';
+  }
+
+  @override
+  String get agentStorageImportInvalidKind =>
+      '所选数据包不适用于此入口，请选择相应的长期记忆包、智能体包或工作流包。';
+
+  @override
+  String get agentStorageTransferFailedTitle => '导入导出失败';
+
+  @override
+  String get agentStorageInvalidPackage => '数据包无效、已损坏或格式不受支持，请重新选择有效的数据包。';
+
+  @override
+  String agentStorageDeleteSelected(int count) {
+    return '删除所选（$count）';
+  }
+
+  @override
+  String agentStorageRestoreSelected(int count) {
+    return '还原所选（$count）';
+  }
+
+  @override
+  String agentStorageDeleteSelectedHint(int count) {
+    return '将永久删除所选的 $count 条长期记忆，此操作无法撤销。';
+  }
+
+  @override
+  String agentRecycleDeleteSelectedHint(int count) {
+    return '将永久删除所选的 $count 个智能体及其聊天记录、上下文和长期记忆，此操作无法撤销。';
+  }
+
+  @override
+  String agentRecycleDeleteSelected(int count) {
+    return '永久删除所选（$count）';
+  }
+
+  @override
+  String agentRecycleRemainingDays(int count) {
+    return '剩余 $count 天后自动删除';
+  }
+
+  @override
+  String agentRecycleRemainingHours(int count) {
+    return '剩余 $count 小时后自动删除';
+  }
+
+  @override
+  String agentRecycleRemainingMinutes(int count) {
+    return '剩余 $count 分钟后自动删除';
+  }
+
+  @override
+  String get agentRecyclePendingDeletion => '等待自动删除';
+
+  @override
+  String get agentMemoryAdd => '导入';
+
+  @override
+  String get agentMemoryEmptyContent => '记忆内容不能为空。';
+
+  @override
+  String get agentStorageNewAgent => '新建智能体';
 }

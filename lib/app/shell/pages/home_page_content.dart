@@ -6,8 +6,8 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/context_menu/text_selection_menu.dart';
@@ -17,6 +17,7 @@ import '../../../core/widgets/action_button.dart';
 import '../../../core/widgets/app_notice.dart';
 import '../../../core/widgets/app_tooltip.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
+import '../../../core/widgets/search_clear_button.dart';
 import '../../../features/devices/presentation/widgets/home_device_card.dart';
 import '../../../features/devices/state/lan_connection.dart';
 import '../../../features/devices/state/manager_provider.dart';
@@ -67,6 +68,7 @@ class _HomePageContentState extends State<HomePageContent> {
         context: context,
         theme: context.read<ThemeProvider>().themeData,
         actionKey: 'delete-device',
+        destructive: true,
         title: l10n.deleteDeviceConfirmTitle,
         description: l10n.deleteDeviceConfirmDescription(
           manager.displayName(id),
@@ -288,27 +290,10 @@ class _HomePageContentState extends State<HomePageContent> {
                                         ? null
                                         : Padding(
                                             padding: const EdgeInsets.all(6),
-                                            child: IconButton(
-                                              constraints:
-                                                  const BoxConstraints.tightFor(
-                                                    width: 24,
-                                                    height: 24,
-                                                  ),
-                                              padding: const EdgeInsets.all(4),
-                                              style: IconButton.styleFrom(
-                                                tapTargetSize:
-                                                    MaterialTapTargetSize
-                                                        .shrinkWrap,
-                                                shape: const CircleBorder(),
-                                              ),
-                                              tooltip: l10n.homeClearSearch,
+                                            child: SearchClearButton(
+                                              theme: theme,
                                               onPressed: () =>
                                                   setState(_search.clear),
-                                              icon: Icon(
-                                                Symbols.close,
-                                                size: 14,
-                                                color: theme.textColorSecondary,
-                                              ),
                                             ),
                                           ),
                                     contentPadding: const EdgeInsets.symmetric(

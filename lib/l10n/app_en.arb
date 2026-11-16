@@ -1,429 +1,589 @@
 {
-    "githubSignInDialogDescription": "Authorize this app in your browser, then return here to finish signing in. Closing this dialog cancels this sign-in attempt.",
-    "@@locale": "en",
-    "theme": "Theme",
-    "themeDescription": "Choose your current theme",
-    "font": "Font",
-    "fontDescription": "Choose the application font. System follows the operating system default.",
-    "fontSystem": "System default",
-    "fontInter": "Inter",
-    "fontGoogleSansFlex": "Google Sans Flex",
-    "fontRoboto": "Roboto",
-    "themeDark": "Dark",
-    "themeLight": "Light",
-    "settings": "Settings",
-    "moreActions": "More actions",
-    "basic": "Basic",
-    "general": "General",
-    "application": "Application",
-    "languageAndRegion": "Language And Region",
-    "personalization": "Personalization",
-    "about": "About",
-    "version": "Version",
-    "copyright": "Copyright",
-    "allRightsReserved": ". All rights reserved.",
-    "addDevice": "Add Device",
-    "addDeviceDescription": "You can add development devices here, please select the method to add a development device",
-    "addByDeviceType": "Add by device type",
-    "selectDevice": "Select Device",
-    "selectDeviceDescription": "Click below to select the device you want to add",
-    "searchForDeviceModel": "Search for device model",
-    "home": "Home",
-    "start": "Start",
-    "homePageContentStartTitle": "Welcome to LilygoBox",
-    "homePageContentStartDescription": "LilygoBox is an integrated development and control center built specifically for Lilygo hardware.",
-    "language": "Language",
-    "languageAutoDetect": "Automatic",
-    "languageEnglish": "English",
-    "languageChinese": "Chinese",
-    "languageDescription": "Automatically follow your system language or choose an application interface language.",
-    "deviceSettings": "Device Settings",
-    "homeDeviceCardLabel": "Device",
-    "deviceBatteryPageTitle": "Battery status",
-    "deviceDetails": "Device overview",
-    "deviceControlTab": "Device controls",
-    "deviceConnectionTab": "Device connection",
-    "deviceInfoTab": "Device information",
-    "deviceNameLabel": "Device name",
-    "deviceScreenControls": "Screen controls",
-    "deviceScreenDisplay": "Screen display",
-    "deviceBrightness": "Brightness",
-    "deviceSound": "Device sounds",
-    "deviceDisplaySettings": "Display settings",
-    "deviceControlUnavailable": "Not supported yet",
-    "deviceControlsUnavailable": "These controls are not available for this device yet.",
-    "deviceConnectionStatus": "Connection status",
-    "deviceConnectionMethod": "Connection method",
-    "deviceSettingsUnavailable": "Settings are not available for this device yet.",
-    "refresh": "Refresh",
-    "delete": "Delete",
-    "resetThisSetting": "Reset this setting",
-    "controlCenter": "Control Center",
-    "sidebarHome": "Agents",
-    "deviceManagement": "Devices",
-    "assistantTitle": "Assistant",
-    "assistantGreeting": "What can I help you with today?",
-    "assistantDescription": "Share an idea, or ask the assistant to adjust LilygoBox.",
-    "aiPromptDevices": "Show my devices",
-    "aiPromptAppearance": "Change the app theme",
-    "aiPromptLanguage": "Change the app language",
-    "aiInputHint": "Ask a question, or describe a setting to change…",
-    "aiAttachFile": "Attach files",
-    "aiStop": "Stop generating",
-    "aiContinue": "Continue generating",
-    "aiGuideTurn": "Add to queue",
-    "aiGuidanceHint": "Add a follow-up message…",
-    "aiGuidancePending": "Queued messages",
-    "aiRemoveGuidance": "Remove queued message",
-    "aiSendPendingGuidance": "Send now",
-    "aiEditQueuedMessage": "Edit queued message",
-    "aiSaveQueuedMessage": "Save changes",
-    "aiRemoveImage": "Remove image",
-    "aiViewOriginal": "View original image",
-    "aiImagePreviewFailed": "Could not load the image.",
-    "aiSaveImageAs": "Save image as",
-    "aiSaveImageFailed": "Failed to save image. Please try again.",
-    "aiCopyImage": "Copy image",
-    "aiImageUnsupported": "This model is declared text-only. Switch models to send images or continue a conversation containing images. Your draft has been kept.",
-    "aiCopyImageFailed": "Could not copy the image. Please try again.",
-    "aiPasteImageFailed": "Could not read clipboard images. Please try again.",
-    "aiSend": "Send message",
-    "aiClearConversation": "Clear conversation",
-    "aiConfigureMessage": "Configure an AI service in Settings to start chatting.",
-    "aiSetupAction": "Configure AI service",
-    "aiAssistantThinking": "Thinking…",
-    "aiConnecting": "Connecting",
-    "aiAwaitingReply": "Waiting for the model response",
-    "aiProcessCompleted": "Completed",
-    "aiProcessReasoning": "Model reasoning",
-    "aiProcessActionSucceeded": "Executed: {action}",
-    "@aiProcessActionSucceeded": {"placeholders": {"action": {"type": "String"}}},
-    "aiProcessActionFailed": "Failed: {action}",
-    "@aiProcessActionFailed": {"placeholders": {"action": {"type": "String"}}},
-    "aiStreaming": "Responding",
-    "aiPreparingTools": "Preparing tool calls",
-    "aiRequestRetryRecord": "Model request retry {attempt}",
-    "@aiRequestRetryRecord": {"placeholders": {"attempt": {"type": "int"}}},
-    "aiWebInvalidUrl": "Invalid webpage address. Check the complete URL.",
-    "aiWebUnsupportedScheme": "Only HTTPS webpages are supported. Provide an HTTPS URL.",
-    "aiWebUnsupportedPort": "Only the default HTTPS port 443 is supported.",
-    "aiWebCredentialsNotAllowed": "Webpage URLs cannot contain a username or password.",
-    "aiWebBlockedAddress": "Local, private, or reserved addresses are blocked. Use a public webpage URL.",
-    "aiWebDns": "Could not resolve the website hostname. Check the URL or try again later.",
-    "aiWebConnection": "The connection failed or was interrupted. Check the network and try again.",
-    "aiWebTimeout": "Reading the webpage timed out. Try again later.",
-    "aiWebTls": "Could not establish a secure connection. Check the website certificate and system time.",
-    "aiWebUnauthorized": "The website requires authentication (HTTP 401). Signed-in access is not supported.",
-    "aiWebForbidden": "The website refused access (HTTP 403). Check whether the page allows public access.",
-    "aiWebNotFound": "The webpage was not found (HTTP 404). Check the URL.",
-    "aiWebRateLimited": "The website rate limit was reached (HTTP 429). Try again later.",
-    "aiWebServerError": "The website returned a server error (HTTP {status}). Try again later.",
-    "@aiWebServerError": {"placeholders":{"status":{"type":"int"}}},
-    "aiWebHttpStatus": "The website returned HTTP {status}. The page could not be read.",
-    "@aiWebHttpStatus": {"placeholders":{"status":{"type":"int"}}},
-    "aiWebInvalidRedirect": "The website returned a missing or invalid redirect URL. No further request was made.",
-    "aiWebRedirectLoop": "A redirect loop was detected. Webpage access was stopped.",
-    "aiWebTooManyRedirects": "The webpage exceeded the limit of 5 redirects. Access was stopped.",
-    "aiWebContentType": "This URL did not return supported text content. Images and PDFs are not supported.",
-    "aiWebEncoding": "The webpage uses an unsupported encoding or could not be decoded.",
-    "aiWebTooLarge": "The webpage exceeds the 1 MiB limit. No partial content was returned.",
-    "aiWebEmptyContent": "The website returned empty content. No page text was received.",
-    "aiWebCancelled": "Webpage access was cancelled.",
-    "aiAccessingWeb": "Accessing webpage",
-    "aiWebSucceeded": "Accessed webpage {url}",
-    "@aiWebSucceeded": {"placeholders":{"url":{"type":"String"}}},
-    "aiWebFailed": "Failed to access webpage {url}",
-    "@aiWebFailed": {"placeholders":{"url":{"type":"String"}}},
-    "aiExecutingTools": "Executing tools",
-    "aiOperationError": "Error details",
-    "aiOperationTarget": "Target",
-    "aiOperationSummary": "Outcome",
-    "aiDirectoryListed": "Listed directory · {target}",
-    "@aiDirectoryListed": {"placeholders":{"target":{"type":"String"}}},
-    "aiFileReadCompleted": "Read file · {target}",
-    "@aiFileReadCompleted": {"placeholders":{"target":{"type":"String"}}},
-    "aiFileWriteCompleted": "Wrote file · {target}",
-    "@aiFileWriteCompleted": {"placeholders":{"target":{"type":"String"}}},
-    "aiTimeReadCompleted": "Read current time",
-    "aiWebReadSummary": "Read the webpage content.",
-    "aiDirectoryReadSummary": "Listed the directory entries.",
-    "aiFileReadSummary": "Read the file content.",
-    "aiFileWriteSummary": "Wrote the content to the target file.",
-    "aiExecutingListDirectory": "Listing directory",
-    "aiExecutingReadFile": "Reading file",
-    "aiExecutingWriteFile": "Writing file",
-    "aiExecutingReadTime": "Reading current time",
-    "aiExecutingSetTheme": "Changing theme",
-    "aiExecutingSetLanguage": "Changing language",
-    "aiExecutingSetFont": "Changing font",
-    "aiExecutingSetSidebarVisibility": "Changing sidebar visibility",
-    "aiExecutingSetSidebarWidth": "Adjusting sidebar width",
-    "aiExecutingSetContentSplitWidth": "Adjusting content split width",
-    "aiExecutingNamedTool": "Executing {name}",
-    "@aiExecutingNamedTool": {"placeholders":{"name":{"type":"String"}}},
-    "aiResponseFailed": "Processing failed",
-    "aiResponseStopped": "Stopped",
-    "aiTurnFailed": "This turn failed",
-    "aiRetryingRequest": "Retrying model request ({attempt}/{total})",
-    "@aiRetryingRequest": {"placeholders": {"attempt": {"type": "int"}, "total": {"type": "int"}}},
-    "aiStatusElapsed": "{status} · {duration}",
-    "@aiStatusElapsed": {"placeholders": {"status": {"type": "String"}, "duration": {"type": "String"}}},
-    "aiResponseElapsed": "Worked for {duration}",
-    "@aiResponseElapsed": {"placeholders": {"duration": {"type": "String"}}},
-    "aiResponseModel": "Model: {model}",
-    "@aiResponseModel": {"placeholders": {"model": {"type": "String"}}},
-    "aiThinkingElapsed": "Thinking… {duration}",
-    "@aiThinkingElapsed": {"placeholders": {"duration": {"type": "String"}}},
-    "aiApprovalTitle": "Approval required",
-    "aiApprove": "Allow once",
-    "aiReject": "Deny",
-    "aiActionApproved": "Approved",
-    "aiActionRejected": "Denied",
-    "aiActionTheme": "Change theme to {value}",
-    "@aiActionTheme": {"placeholders": {"value": {"type": "String"}}},
-    "aiActionLanguage": "Change language to {value}",
-    "@aiActionLanguage": {"placeholders": {"value": {"type": "String"}}},
-    "aiActionFont": "Change font to {value}",
-    "@aiActionFont": {"placeholders": {"value": {"type": "String"}}},
-    "aiActionShowSidebar": "Show the main sidebar",
-    "aiActionHideSidebar": "Hide the main sidebar",
-    "aiActionSidebarWidth": "Set main sidebar width to {value} px",
-    "@aiActionSidebarWidth": {"placeholders": {"value": {"type": "String"}}},
-    "aiActionSplitWidth": "Set device split width to {value} px",
-    "@aiActionSplitWidth": {"placeholders": {"value": {"type": "String"}}},
-    "aiActionSettingsWidth": "Set settings sidebar width to {value} px",
-    "@aiActionSettingsWidth": {"placeholders": {"value": {"type": "String"}}},
-    "aiActionUnknown": "Change an application setting",
-    "aiServiceTitle": "Model services",
-    "aiServiceDescription": "Add model services and configure endpoints, keys and models. Keys use this device’s system secure storage.",
-    "aiProviderLabel": "Provider",
-    "aiProviderDescription": "Official providers set the API URL and protocol automatically. Choose Custom to configure them yourself. Switching providers clears the entered key and model list.",
-    "aiProviderDeepseek": "DeepSeek (official)",
-    "aiProviderOpenAi": "OpenAI (official)",
-    "aiProviderCustom": "Custom",
-    "aiProviderCompatible": "OpenAI-compatible API",
-    "aiBaseUrlLabel": "API URL",
-    "aiBaseUrlDescription": "Enter the API URL. The client adds the path required by the selected protocol.",
-    "aiDragService": "Drag to reorder services",
-    "aiModelLabel": "Model",
-    "aiModelDescription": "Model identifier used by the selected service.",
-    "aiApiKeyLabel": "API key",
-    "aiApiKeyDescription": "The key is saved locally using the operating system secure storage.",
-    "aiApiKeyStored": "A key is saved securely. Enter a new key to replace it.",
-    "aiRemoveApiKey": "Remove saved API key",
-    "aiSaveAndTest": "Save and test connection",
-    "profile": "Profile",
-    "notSignedIn": "Not signed in",
-    "accountUnavailable": "Accounts are not available yet. You can still use local device features.",
-    "showSidebar": "Show sidebar",
-    "hideSidebar": "Hide sidebar",
-    "minimizeWindow": "Minimize",
-    "maximizeWindow": "Maximize",
-    "restoreWindow": "Restore",
-    "closeWindow": "Close",
-    "closeSettings": "Close settings",
-    "decreaseValue": "Decrease value",
-    "increaseValue": "Increase value",
-    "homeDevicesSubtitle": "Your LILYGO devices, all in one place",
-    "homeDevicesEmpty": "No devices yet",
-    "homeDevicesEmptyDescription": "Add your first device\nand bring it into LilygoBox.",
-    "homeDeviceSearch": "Search by name or model",
-    "homeClearSearch": "Clear search",
-    "homeDeviceOnline": "Online",
-    "homeDeviceOffline": "Offline",
-    "homeDeviceConnecting": "Connecting…",
-    "homeDevicesNoResults": "No matching devices",
-    "back": "Back",
-    "connectYourDevice": "Connect your device",
-    "discoveryDescription": "Make sure your device is powered on and allows LilygoBox connections, then select the device to connect.",
-    "discoveredDevices": "Discovered devices",
-    "searchingDevices": "Looking for devices…",
-    "deleteDevice": "Delete device",
-    "deleteDeviceConfirmTitle": "Delete device?",
-    "deleteDeviceConfirmDescription": "This will disconnect from “{deviceName}” and remove its settings and pairing information from this computer. Adding it again will require new approval.",
-    "@deleteDeviceConfirmDescription": {
-        "placeholders": {"deviceName": {"type": "String"}}
-    },
-    "deleteDeviceSucceeded": "Device deleted.",
-    "deleteDeviceFailed": "Unable to delete this device. Please try again.",
-    "discoveryEmpty": "No devices found",
-    "discoveryEmptyDescription": "Make sure your device is powered on and allows app connections.\nFor local network connections, make sure both devices are on the same network.",
-    "discoveryUnavailable": "Device discovery unavailable",
-    "discoveryUnavailableDescription": "Device connections are not available in this version yet.",
-    "discoveryFailed": "Unable to find devices",
-    "discoveryFailedDescription": "The search could not finish. Check your network connection and network access permissions, then try again.",
-    "searchAgain": "Search again",
-    "deviceConnecting": "Connecting to your device…",
-    "lanConnectingDescription": "Establishing the connection. Please wait.",
-    "deviceConnected": "Device connected",
-    "deviceConnectionComplete": "Connection complete",
-    "backToHome": "Back to home",
-    "deviceConnectionFailed": "Could not connect",
-    "deviceConnectionFailedDescription": "Could not establish a connection. Make sure the device is online and allows LilygoBox connections, then try again.",
-    "retryConnection": "Try again",
-    "cancelConnection": "Cancel connection",
-    "openDevice": "Open device",
-    "deviceConnectionHelp": "Connection help",
-    "deviceConnectionTroubleshooting": "Troubleshoot connection",
-    "closeHelp": "Close help",
-    "deviceHelpPreparation": "Prepare your device",
-    "deviceHelpPreparationDescription": "Make sure your device is powered on and allows LilygoBox connections. Refer to the instructions for your device.",
-    "deviceHelpNetwork": "Check the network",
-    "deviceHelpNetworkDescription": "For local network connections, connect your computer or phone and the device to the same network. If the device is still not found, check firewall permissions for the app and whether your router blocks communication between devices.",
-    "deviceHelpApproval": "Approve the connection",
-    "deviceHelpApprovalDescription": "Follow the device prompts to approve the first connection. Previously authorized devices usually do not require confirmation again. Adding a deleted device requires new approval.",
-    "tapToConnect": "Select to connect",
-    "resizeSettingsSidebar": "Resize settings sidebar",
-    "appearanceSettingsDescription": "Customize the interface with your preferred theme.",
-    "languageSettingsDescription": "Choose the display language for LilygoBox.",
-    "generalSettingsDescription": "Manage application preferences and defaults.",
-    "aboutSettingsDescription": "Application information and version.",
-    "checkForUpdates": "Check for updates",
-    "checkForAppUpdates": "Check for app updates",
-    "appUpdateTitle": "App update",
-    "appVersion": "App version",
-    "downloadAppUpdate": "Download update",
-    "cancelDownload": "Cancel download",
-    "installAppUpdate": "Install update",
-    "preparingAppUpdate": "Preparing installer…",
-    "downloadingAppUpdate": "Downloading update…",
-    "appUpdateDownloadProgress": "{received} MB / {total} MB",
-    "appUpdateDownloaded": "Download complete. The installer passed integrity verification.",
-    "appUpdateDownloadFailure": "Update download failed. Check your network and free disk space, then retry.",
-    "appUpdateIntegrityFailure": "The installer size or SHA-256 does not match. Installation was stopped.",
-    "appUpdateInstallerLaunchFailure": "Could not start the update installer. Try again, or open the downloaded installer manually.",
-    "checkingForUpdates": "Checking for updates…",
-    "upToDate": "You are up to date",
-    "updateAvailable": "Update available: {version}",
-    "updateCheckFailed": "Unable to check for updates",
-    "updateCheckNetworkFailure": "Could not connect to GitHub. Check your network connection or proxy settings.",
-    "updateCheckTimeout": "The connection to GitHub timed out. Try again later.",
-    "updateCheckManifestMissing": "The {channel} update manifest has not been published on GitHub yet.",
-    "updateChannelAlpha": "Alpha",
-    "updateChannelBeta": "Beta",
-    "updateChannelStable": "Stable",
-    "updateCheckServerFailure": "GitHub returned a server error. Try again later.",
-    "updateCheckHttpFailure": "GitHub rejected the update request. Check that the release is public.",
-    "updateCheckInvalidManifest": "GitHub returned an invalid update manifest.",
-    "updateCheckUnknownFailure": "An unexpected error occurred while checking for updates.",
-    "close": "Close",
-    "retry": "Retry",
-    "configurationTitle": "Configuration",
-    "configurationDescription": "Export or import appearance and layout preferences. Account data, devices, and firmware cache are excluded.",
-    "configurationExport": "Export configuration",
-    "configurationImport": "Import configuration",
-    "configurationExportSucceeded": "Configuration exported successfully.",
-    "configurationImportSucceeded": "Configuration imported successfully.",
-    "configurationExportFailed": "Could not export the configuration file.",
-    "configurationImportFailed": "Could not import the configuration file.",
-    "configurationImportInvalid": "This file is invalid or uses an unsupported configuration version.",
-    "configurationImportConfirmTitle": "Import configuration?",
-    "configurationImportConfirmDescription": "Importing this file will overwrite the current configuration.",
-    "configurationMainSidebar": "Main sidebar",
-    "configurationSettingsSidebar": "Settings sidebar",
-    "configurationContentPane": "Content pane",
-    "configurationVisible": "Visible",
-    "configurationCollapsed": "Collapsed",
-    "configurationFileType": "LilygoBox configuration (JSON)",
-    "restoreDefaults": "Restore defaults",
-    "restoreDefaultsDescription": "Reset application preferences while keeping your account and added devices.",
-    "restoreDefaultsConfirmTitle": "Restore default settings?",
-    "restoreDefaultsConfirmDescription": "The theme will reset to Dark, the language to English, and sidebar layouts to their defaults. Your account and added devices will be kept.",
-    "settingsCancel": "Cancel",
-    "profileDescription": "View and manage your personal profile.",
-    "signIn": "Sign in",
-    "createAccount": "Create account",
-    "githubSignIn": "Sign in with GitHub",
-    "githubAccountDescription": "Link your public GitHub profile. Devices and app settings stay on this device.",
-    "githubRequesting": "Requesting an authorization code…",
-    "githubRestoring": "Checking your session…",
-    "githubCompleting": "Finishing sign-in…",
-    "githubSigningOut": "Signing out…",
-    "githubCodeInstructions": "Copy the code below, enter it on GitHub, and approve access. Then return to the app.",
-    "githubWaiting": "Waiting for GitHub authorization…",
-    "githubCopyCode": "Copy code",
-    "githubCodeCopied": "Code copied",
-    "githubOpenBrowser": "Open GitHub authorization",
-    "githubSignOut": "Sign out",
-    "githubSignOutConfirmTitle": "Sign out?",
-    "githubSignOutDescription": "Signing out removes the saved session on this device. Your GitHub account and local devices are kept. Revoke app access in GitHub authorized application settings.",
-    "githubNotConfigured": "GitHub sign-in is not configured yet. Local device features are available.",
-    "githubUnsupported": "GitHub sign-in is not available on this platform yet.",
-    "githubNetworkError": "Cannot connect to GitHub. Check your connection and try again.",
-    "githubDenied": "Authorization was declined. You can start sign-in again.",
-    "githubExpired": "The authorization code or session has expired. Please sign in again.",
-    "githubConfigurationError": "GitHub sign-in is misconfigured. Please contact the app maintainer.",
-    "githubRateLimited": "GitHub has limited requests. Please try again later.",
-    "githubInvalidResponse": "Could not complete GitHub authorization. Please try again later.",
-    "githubStorageError": "Cannot access secure storage. Check system permissions and try again.",
-    "githubBrowserError": "Cannot open the browser. Visit https://github.com/login/device and enter the code above.",
-    "githubRetryRestore": "Retry session verification",
-    "githubRetry": "Retry",
-    "preferencesReadError": "Local settings could not be read. Defaults are in use and the original settings have not been overwritten. Check folder permissions and retry.",
-    "preferencesWriteError": "Local settings could not be saved. Changes may be lost after restarting. Check disk space and folder permissions, then retry.",
-    "preferencesRetry": "Retry",
-    "preferencesExitWithoutSaving": "Exit without saving",
-    "trayShowWindow": "Show window",
-    "trayExit": "Exit",
-    "lanOffline": "Not connected",
-    "lanModel": "Model",
-    "lanModelVersion": "Model version",
-    "lanMacAddress": "MAC address",
-    "lanIdentityChanged": "The device identity has changed. Connection stopped. If you reset this device, pair it again.",
-    "lanRepair": "Pair again",
-    "lanRepairDescription": "Continue only if you reset this device. This clears its local pairing information. You will need to approve the connection on the device again.",
-    "lanDeviceId": "Device ID",
-    "lanAddress": "IP address",
-    "lanFirmware": "Firmware",
-    "lanUptime": "Device uptime",
-    "uptimeDaySingular": "day",
-    "uptimeDayPlural": "days",
-    "@uptimeDayPlural": {"placeholders": {"days": {"type": "int"}}},
-    "lanDisconnect": "Disconnect",
-    "lanDisconnectConfirmTitle": "Disconnect device?",
-    "lanDisconnectDescription": "Your pairing information will be kept. Automatic connection will pause for this session. You can reconnect manually or restart the app to resume automatic connection.",
-    "lanConnectedDescription": "Connected to the device. Device information is refreshed automatically.",
-    "lanConfirmOnDevice": "Please allow the connection on your device.",
-    "lanReconnectDescription": "Make sure your device is online and allows LilygoBox connections, then try again. If you still cannot connect, search for the device again.",
-    "deviceDashboardSubtitle": "Screen, sound and device connection",
-    "deviceDashboardMyDevice": "Device information",
-    "deviceDashboardIdentity": "Model and firmware",
-    "deviceDashboardViewInfo": "View device information",
-    "deviceDashboardBattery": "Battery",
-    "deviceDashboardCharging": "Charging",
-    "deviceDashboardViewBattery": "View charge and battery status",
-    "deviceDashboardSound": "Sound",
-    "deviceDisableVibration": "Disable vibration",
-    "deviceEnableVibration": "Enable vibration",
-    "deviceMute": "Mute",
-    "deviceSoundAndHaptics": "Sound and haptics",
-    "deviceVibrationIntensity": "Vibration intensity",
-    "deviceUnmute": "Unmute",
-    "deviceScreenTurnOff": "Turn screen off",
-    "deviceScreenTurnOn": "Turn screen on",
-    "deviceDashboardScreenOn": "Screen is on",
-    "deviceDashboardScreenOff": "Screen is off",
-    "deviceDashboardRotation": "Screen rotation",
-    "deviceAutoLock": "Auto lock",
-    "deviceAutoLockNever": "Never",
-    "deviceAutoLockSeconds": "{seconds} sec",
-    "@deviceAutoLockSeconds": {"placeholders": {"seconds": {"type": "int"}}},
-    "deviceAutoLockMinutes": "{minutes} min",
-    "@deviceAutoLockMinutes": {"placeholders": {"minutes": {"type": "int"}}},
-    "deviceDashboardConnection": "Device connection",
-    "deviceInformationTitle": "Device information",
-    "deviceInformationIdentity": "LilygoBox device",
-    "deviceInformationConnection": "Device connection",
-    "deviceInformationView": "View",
-    "connectionReady": "Connection ready",
-    "connectionThisComputer": "This computer",
-    "connectionInformation": "Connection information",
-    "connectionStatus": "Connection status",
-    "connectionMethod": "Connection method",
-    "connectionManage": "Manage connection",
-    "connectionManualRecovery": "After disconnecting manually, select Reconnect to restore the connection.",
-    "connectionCredentialTitle": "Connection credentials",
-    "connectionCredentialDescription": "Credentials are saved after initial authorization, so reconnecting does not require approval again. Disconnecting keeps them; deleting the device removes its locally saved credentials.",
+  "githubSignInDialogDescription": "Authorize this app in your browser, then return here to finish signing in. Closing this dialog cancels this sign-in attempt.",
+  "@@locale": "en",
+  "theme": "Theme",
+  "themeDescription": "Choose your current theme",
+  "font": "Font",
+  "fontDescription": "Choose the application font. System follows the operating system default.",
+  "fontSystem": "System default",
+  "fontInter": "Inter",
+  "fontGoogleSansFlex": "Google Sans Flex",
+  "fontRoboto": "Roboto",
+  "themeDark": "Dark",
+  "themeLight": "Light",
+  "settings": "Settings",
+  "moreActions": "More actions",
+  "basic": "Basic",
+  "general": "General",
+  "application": "Application",
+  "languageAndRegion": "Language And Region",
+  "personalization": "Personalization",
+  "about": "About",
+  "version": "Version",
+  "copyright": "Copyright",
+  "allRightsReserved": ". All rights reserved.",
+  "addDevice": "Add Device",
+  "addDeviceDescription": "You can add development devices here, please select the method to add a development device",
+  "addByDeviceType": "Add by device type",
+  "selectDevice": "Select Device",
+  "selectDeviceDescription": "Click below to select the device you want to add",
+  "searchForDeviceModel": "Search for device model",
+  "home": "Home",
+  "start": "Start",
+  "homePageContentStartTitle": "Welcome to LilygoBox",
+  "homePageContentStartDescription": "LilygoBox is an integrated development and control center built specifically for Lilygo hardware.",
+  "language": "Language",
+  "languageAutoDetect": "Automatic",
+  "languageEnglish": "English",
+  "languageChinese": "Chinese",
+  "languageDescription": "Automatically follow your system language or choose an application interface language.",
+  "deviceSettings": "Device Settings",
+  "homeDeviceCardLabel": "Device",
+  "deviceBatteryPageTitle": "Battery status",
+  "deviceDetails": "Device overview",
+  "deviceControlTab": "Device controls",
+  "deviceConnectionTab": "Device connection",
+  "deviceInfoTab": "Device information",
+  "deviceNameLabel": "Device name",
+  "deviceScreenControls": "Screen controls",
+  "deviceScreenDisplay": "Screen display",
+  "deviceBrightness": "Brightness",
+  "deviceSound": "Device sounds",
+  "deviceDisplaySettings": "Display settings",
+  "deviceControlUnavailable": "Not supported yet",
+  "deviceControlsUnavailable": "These controls are not available for this device yet.",
+  "deviceConnectionStatus": "Connection status",
+  "deviceConnectionMethod": "Connection method",
+  "deviceSettingsUnavailable": "Settings are not available for this device yet.",
+  "refresh": "Refresh",
+  "delete": "Delete",
+  "resetThisSetting": "Reset this setting",
+  "controlCenter": "Control Center",
+  "sidebarHome": "Agents",
+  "deviceManagement": "Devices",
+  "assistantTitle": "Assistant",
+  "assistantGreeting": "What can I help you with today?",
+  "assistantDescription": "Share an idea, or ask the assistant to adjust LilygoBox.",
+  "aiPromptDevices": "Show my devices",
+  "aiPromptAppearance": "Change the app theme",
+  "aiPromptLanguage": "Change the app language",
+  "aiInputHint": "Ask a question, or describe a setting to change…",
+  "aiAttachFile": "Attach files",
+  "aiStop": "Stop generating",
+  "aiContinue": "Continue generating",
+  "aiGuideTurn": "Add to queue",
+  "aiGuidanceHint": "Add a follow-up message…",
+  "aiGuidancePending": "Queued messages",
+  "aiRemoveGuidance": "Remove queued message",
+  "aiSendPendingGuidance": "Send now",
+  "aiEditQueuedMessage": "Edit queued message",
+  "aiSaveQueuedMessage": "Save changes",
+  "aiRemoveImage": "Remove image",
+  "aiViewOriginal": "View original image",
+  "aiImagePreviewFailed": "Could not load the image.",
+  "aiSaveImageAs": "Save image as",
+  "aiSaveImageFailed": "Failed to save image. Please try again.",
+  "aiCopyImage": "Copy image",
+  "aiImageUnsupported": "This model is declared text-only. Switch models to send images or continue a conversation containing images. Your draft has been kept.",
+  "aiCopyImageFailed": "Could not copy the image. Please try again.",
+  "aiPasteImageFailed": "Could not read clipboard images. Please try again.",
+  "aiSend": "Send message",
+  "aiClearConversation": "Clear conversation",
+  "aiConfigureMessage": "Configure an AI service in Settings to start chatting.",
+  "aiSetupAction": "Configure AI service",
+  "aiAssistantThinking": "Thinking…",
+  "aiConnecting": "Connecting",
+  "aiAwaitingReply": "Waiting for the model response",
+  "aiProcessCompleted": "Completed",
+  "aiProcessReasoning": "Model reasoning",
+  "aiProcessActionSucceeded": "Executed: {action}",
+  "@aiProcessActionSucceeded": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "aiProcessActionFailed": "Failed: {action}",
+  "@aiProcessActionFailed": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "aiStreaming": "Responding",
+  "aiPreparingTools": "Preparing tool calls",
+  "aiRequestRetryRecord": "Model request retry {attempt}",
+  "@aiRequestRetryRecord": {
+    "placeholders": {
+      "attempt": {
+        "type": "int"
+      }
+    }
+  },
+  "aiWebInvalidUrl": "Invalid webpage address. Check the complete URL.",
+  "aiWebUnsupportedScheme": "Only HTTPS webpages are supported. Provide an HTTPS URL.",
+  "aiWebUnsupportedPort": "Only the default HTTPS port 443 is supported.",
+  "aiWebCredentialsNotAllowed": "Webpage URLs cannot contain a username or password.",
+  "aiWebBlockedAddress": "Local, private, or reserved addresses are blocked. Use a public webpage URL.",
+  "aiWebDns": "Could not resolve the website hostname. Check the URL or try again later.",
+  "aiWebConnection": "The connection failed or was interrupted. Check the network and try again.",
+  "aiWebTimeout": "Reading the webpage timed out. Try again later.",
+  "aiWebTls": "Could not establish a secure connection. Check the website certificate and system time.",
+  "aiWebUnauthorized": "The website requires authentication (HTTP 401). Signed-in access is not supported.",
+  "aiWebForbidden": "The website refused access (HTTP 403). Check whether the page allows public access.",
+  "aiWebNotFound": "The webpage was not found (HTTP 404). Check the URL.",
+  "aiWebRateLimited": "The website rate limit was reached (HTTP 429). Try again later.",
+  "aiWebServerError": "The website returned a server error (HTTP {status}). Try again later.",
+  "@aiWebServerError": {
+    "placeholders": {
+      "status": {
+        "type": "int"
+      }
+    }
+  },
+  "aiWebHttpStatus": "The website returned HTTP {status}. The page could not be read.",
+  "@aiWebHttpStatus": {
+    "placeholders": {
+      "status": {
+        "type": "int"
+      }
+    }
+  },
+  "aiWebInvalidRedirect": "The website returned a missing or invalid redirect URL. No further request was made.",
+  "aiWebRedirectLoop": "A redirect loop was detected. Webpage access was stopped.",
+  "aiWebTooManyRedirects": "The webpage exceeded the limit of 5 redirects. Access was stopped.",
+  "aiWebContentType": "This URL did not return supported text content. Images and PDFs are not supported.",
+  "aiWebEncoding": "The webpage uses an unsupported encoding or could not be decoded.",
+  "aiWebTooLarge": "The webpage exceeds the 1 MiB limit. No partial content was returned.",
+  "aiWebEmptyContent": "The website returned empty content. No page text was received.",
+  "aiWebCancelled": "Webpage access was cancelled.",
+  "aiAccessingWeb": "Accessing webpage",
+  "aiWebSucceeded": "Accessed webpage {url}",
+  "@aiWebSucceeded": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "aiWebFailed": "Failed to access webpage {url}",
+  "@aiWebFailed": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "aiExecutingTools": "Executing tools",
+  "aiOperationError": "Error details",
+  "aiOperationTarget": "Target",
+  "aiOperationSummary": "Outcome",
+  "aiDirectoryListed": "Listed directory · {target}",
+  "@aiDirectoryListed": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "aiFileReadCompleted": "Read file · {target}",
+  "@aiFileReadCompleted": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "aiFileWriteCompleted": "Wrote file · {target}",
+  "@aiFileWriteCompleted": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "aiTimeReadCompleted": "Read current time",
+  "aiWebReadSummary": "Read the webpage content.",
+  "aiDirectoryReadSummary": "Listed the directory entries.",
+  "aiFileReadSummary": "Read the file content.",
+  "aiFileWriteSummary": "Wrote the content to the target file.",
+  "aiExecutingListDirectory": "Listing directory",
+  "aiExecutingReadFile": "Reading file",
+  "aiExecutingWriteFile": "Writing file",
+  "aiExecutingReadTime": "Reading current time",
+  "aiExecutingSetTheme": "Changing theme",
+  "aiExecutingSetLanguage": "Changing language",
+  "aiExecutingSetFont": "Changing font",
+  "aiExecutingSetSidebarVisibility": "Changing sidebar visibility",
+  "aiExecutingSetSidebarWidth": "Adjusting sidebar width",
+  "aiExecutingSetContentSplitWidth": "Adjusting content split width",
+  "aiExecutingNamedTool": "Executing {name}",
+  "@aiExecutingNamedTool": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "aiResponseFailed": "Processing failed",
+  "aiResponseStopped": "Stopped",
+  "aiTurnFailed": "This turn failed",
+  "aiRetryingRequest": "Retrying model request ({attempt}/{total})",
+  "@aiRetryingRequest": {
+    "placeholders": {
+      "attempt": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "aiStatusElapsed": "{status} · {duration}",
+  "@aiStatusElapsed": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "aiResponseElapsed": "Worked for {duration}",
+  "@aiResponseElapsed": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "aiResponseModel": "Model: {model}",
+  "@aiResponseModel": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "aiThinkingElapsed": "Thinking… {duration}",
+  "@aiThinkingElapsed": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "aiApprovalTitle": "Approval required",
+  "aiApprove": "Allow once",
+  "aiReject": "Deny",
+  "aiActionApproved": "Approved",
+  "aiActionRejected": "Denied",
+  "aiActionTheme": "Change theme to {value}",
+  "@aiActionTheme": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "aiActionLanguage": "Change language to {value}",
+  "@aiActionLanguage": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "aiActionFont": "Change font to {value}",
+  "@aiActionFont": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "aiActionShowSidebar": "Show the main sidebar",
+  "aiActionHideSidebar": "Hide the main sidebar",
+  "aiActionSidebarWidth": "Set main sidebar width to {value} px",
+  "@aiActionSidebarWidth": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "aiActionSplitWidth": "Set device split width to {value} px",
+  "@aiActionSplitWidth": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "aiActionSettingsWidth": "Set settings sidebar width to {value} px",
+  "@aiActionSettingsWidth": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "aiActionUnknown": "Change an application setting",
+  "aiServiceTitle": "Model services",
+  "aiServiceDescription": "Add model services and configure endpoints, keys and models. Keys use this device’s system secure storage.",
+  "aiProviderLabel": "Provider",
+  "aiProviderDescription": "Official providers set the API URL and protocol automatically. Choose Custom to configure them yourself. Switching providers clears the entered key and model list.",
+  "aiProviderDeepseek": "DeepSeek (official)",
+  "aiProviderOpenAi": "OpenAI (official)",
+  "aiProviderCustom": "Custom",
+  "aiProviderCompatible": "OpenAI-compatible API",
+  "aiBaseUrlLabel": "API URL",
+  "aiBaseUrlDescription": "Enter the API URL. The client adds the path required by the selected protocol.",
+  "aiDragService": "Drag to reorder services",
+  "aiModelLabel": "Model",
+  "aiModelDescription": "Model identifier used by the selected service.",
+  "aiApiKeyLabel": "API key",
+  "aiApiKeyDescription": "The key is saved locally using the operating system secure storage.",
+  "aiApiKeyStored": "A key is saved securely. Enter a new key to replace it.",
+  "aiRemoveApiKey": "Remove saved API key",
+  "aiSaveAndTest": "Save and test connection",
+  "profile": "Profile",
+  "notSignedIn": "Not signed in",
+  "accountUnavailable": "Accounts are not available yet. You can still use local device features.",
+  "showSidebar": "Show sidebar",
+  "hideSidebar": "Hide sidebar",
+  "minimizeWindow": "Minimize",
+  "maximizeWindow": "Maximize",
+  "restoreWindow": "Restore",
+  "closeWindow": "Close",
+  "closeSettings": "Close settings",
+  "decreaseValue": "Decrease value",
+  "increaseValue": "Increase value",
+  "homeDevicesSubtitle": "Your LILYGO devices, all in one place",
+  "homeDevicesEmpty": "No devices yet",
+  "homeDevicesEmptyDescription": "Add your first device\nand bring it into LilygoBox.",
+  "homeDeviceSearch": "Search by name or model",
+  "homeClearSearch": "Clear search",
+  "homeDeviceOnline": "Online",
+  "homeDeviceOffline": "Offline",
+  "homeDeviceConnecting": "Connecting…",
+  "homeDevicesNoResults": "No matching devices",
+  "back": "Back",
+  "connectYourDevice": "Connect your device",
+  "discoveryDescription": "Make sure your device is powered on and allows LilygoBox connections, then select the device to connect.",
+  "discoveredDevices": "Discovered devices",
+  "searchingDevices": "Looking for devices…",
+  "deleteDevice": "Delete device",
+  "deleteDeviceConfirmTitle": "Delete device?",
+  "deleteDeviceConfirmDescription": "This will disconnect from “{deviceName}” and remove its settings and pairing information from this computer. Adding it again will require new approval.",
+  "@deleteDeviceConfirmDescription": {
+    "placeholders": {
+      "deviceName": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteDeviceSucceeded": "Device deleted.",
+  "deleteDeviceFailed": "Unable to delete this device. Please try again.",
+  "discoveryEmpty": "No devices found",
+  "discoveryEmptyDescription": "Make sure your device is powered on and allows app connections.\nFor local network connections, make sure both devices are on the same network.",
+  "discoveryUnavailable": "Device discovery unavailable",
+  "discoveryUnavailableDescription": "Device connections are not available in this version yet.",
+  "discoveryFailed": "Unable to find devices",
+  "discoveryFailedDescription": "The search could not finish. Check your network connection and network access permissions, then try again.",
+  "searchAgain": "Search again",
+  "deviceConnecting": "Connecting to your device…",
+  "lanConnectingDescription": "Establishing the connection. Please wait.",
+  "deviceConnected": "Device connected",
+  "deviceConnectionComplete": "Connection complete",
+  "backToHome": "Back to home",
+  "deviceConnectionFailed": "Could not connect",
+  "deviceConnectionFailedDescription": "Could not establish a connection. Make sure the device is online and allows LilygoBox connections, then try again.",
+  "retryConnection": "Try again",
+  "cancelConnection": "Cancel connection",
+  "openDevice": "Open device",
+  "deviceConnectionHelp": "Connection help",
+  "deviceConnectionTroubleshooting": "Troubleshoot connection",
+  "closeHelp": "Close help",
+  "deviceHelpPreparation": "Prepare your device",
+  "deviceHelpPreparationDescription": "Make sure your device is powered on and allows LilygoBox connections. Refer to the instructions for your device.",
+  "deviceHelpNetwork": "Check the network",
+  "deviceHelpNetworkDescription": "For local network connections, connect your computer or phone and the device to the same network. If the device is still not found, check firewall permissions for the app and whether your router blocks communication between devices.",
+  "deviceHelpApproval": "Approve the connection",
+  "deviceHelpApprovalDescription": "Follow the device prompts to approve the first connection. Previously authorized devices usually do not require confirmation again. Adding a deleted device requires new approval.",
+  "tapToConnect": "Select to connect",
+  "resizeSettingsSidebar": "Resize settings sidebar",
+  "appearanceSettingsDescription": "Customize the interface with your preferred theme.",
+  "languageSettingsDescription": "Choose the display language for LilygoBox.",
+  "generalSettingsDescription": "Manage application preferences and defaults.",
+  "aboutSettingsDescription": "Application information and version.",
+  "checkForUpdates": "Check for updates",
+  "checkForAppUpdates": "Check for app updates",
+  "appUpdateTitle": "App update",
+  "appVersion": "App version",
+  "downloadAppUpdate": "Download update",
+  "cancelDownload": "Cancel download",
+  "installAppUpdate": "Install update",
+  "preparingAppUpdate": "Preparing installer…",
+  "downloadingAppUpdate": "Downloading update…",
+  "appUpdateDownloadProgress": "{received} MB / {total} MB",
+  "appUpdateDownloaded": "Download complete. The installer passed integrity verification.",
+  "appUpdateDownloadFailure": "Update download failed. Check your network and free disk space, then retry.",
+  "appUpdateIntegrityFailure": "The installer size or SHA-256 does not match. Installation was stopped.",
+  "appUpdateInstallerLaunchFailure": "Could not start the update installer. Try again, or open the downloaded installer manually.",
+  "checkingForUpdates": "Checking for updates…",
+  "upToDate": "You are up to date",
+  "updateAvailable": "Update available: {version}",
+  "updateCheckFailed": "Unable to check for updates",
+  "updateCheckNetworkFailure": "Could not connect to GitHub. Check your network connection or proxy settings.",
+  "updateCheckTimeout": "The connection to GitHub timed out. Try again later.",
+  "updateCheckManifestMissing": "The {channel} update manifest has not been published on GitHub yet.",
+  "updateChannelAlpha": "Alpha",
+  "updateChannelBeta": "Beta",
+  "updateChannelStable": "Stable",
+  "updateCheckServerFailure": "GitHub returned a server error. Try again later.",
+  "updateCheckHttpFailure": "GitHub rejected the update request. Check that the release is public.",
+  "updateCheckInvalidManifest": "GitHub returned an invalid update manifest.",
+  "updateCheckUnknownFailure": "An unexpected error occurred while checking for updates.",
+  "close": "Close",
+  "retry": "Retry",
+  "configurationTitle": "Configuration",
+  "configurationDescription": "Export or import appearance and layout preferences. Account data, devices, and firmware cache are excluded.",
+  "configurationExport": "Export configuration",
+  "configurationImport": "Import configuration",
+  "configurationExportSucceeded": "Configuration exported successfully.",
+  "configurationImportSucceeded": "Configuration imported successfully.",
+  "configurationExportFailed": "Could not export the configuration file.",
+  "configurationImportFailed": "Could not import the configuration file.",
+  "configurationImportInvalid": "This file is invalid or uses an unsupported configuration version.",
+  "configurationImportConfirmTitle": "Import configuration?",
+  "configurationImportConfirmDescription": "Importing this file will overwrite the current configuration.",
+  "configurationMainSidebar": "Main sidebar",
+  "configurationSettingsSidebar": "Settings sidebar",
+  "configurationContentPane": "Content pane",
+  "configurationVisible": "Visible",
+  "configurationCollapsed": "Collapsed",
+  "configurationFileType": "LilygoBox configuration (JSON)",
+  "restoreDefaults": "Restore defaults",
+  "restoreDefaultsDescription": "Reset application preferences while keeping your account and added devices.",
+  "restoreDefaultsConfirmTitle": "Restore default settings?",
+  "restoreDefaultsConfirmDescription": "The theme will reset to Dark, the language to English, and sidebar layouts to their defaults. Your account and added devices will be kept.",
+  "settingsCancel": "Cancel",
+  "profileDescription": "View and manage your personal profile.",
+  "signIn": "Sign in",
+  "createAccount": "Create account",
+  "githubSignIn": "Sign in with GitHub",
+  "githubAccountDescription": "Link your public GitHub profile. Devices and app settings stay on this device.",
+  "githubRequesting": "Requesting an authorization code…",
+  "githubRestoring": "Checking your session…",
+  "githubCompleting": "Finishing sign-in…",
+  "githubSigningOut": "Signing out…",
+  "githubCodeInstructions": "Copy the code below, enter it on GitHub, and approve access. Then return to the app.",
+  "githubWaiting": "Waiting for GitHub authorization…",
+  "githubCopyCode": "Copy code",
+  "githubCodeCopied": "Code copied",
+  "githubOpenBrowser": "Open GitHub authorization",
+  "githubSignOut": "Sign out",
+  "githubSignOutConfirmTitle": "Sign out?",
+  "githubSignOutDescription": "Signing out removes the saved session on this device. Your GitHub account and local devices are kept. Revoke app access in GitHub authorized application settings.",
+  "githubNotConfigured": "GitHub sign-in is not configured yet. Local device features are available.",
+  "githubUnsupported": "GitHub sign-in is not available on this platform yet.",
+  "githubNetworkError": "Cannot connect to GitHub. Check your connection and try again.",
+  "githubDenied": "Authorization was declined. You can start sign-in again.",
+  "githubExpired": "The authorization code or session has expired. Please sign in again.",
+  "githubConfigurationError": "GitHub sign-in is misconfigured. Please contact the app maintainer.",
+  "githubRateLimited": "GitHub has limited requests. Please try again later.",
+  "githubInvalidResponse": "Could not complete GitHub authorization. Please try again later.",
+  "githubStorageError": "Cannot access secure storage. Check system permissions and try again.",
+  "githubBrowserError": "Cannot open the browser. Visit https://github.com/login/device and enter the code above.",
+  "githubRetryRestore": "Retry session verification",
+  "githubRetry": "Retry",
+  "preferencesReadError": "Local settings could not be read. Defaults are in use and the original settings have not been overwritten. Check folder permissions and retry.",
+  "preferencesWriteError": "Local settings could not be saved. Changes may be lost after restarting. Check disk space and folder permissions, then retry.",
+  "preferencesRetry": "Retry",
+  "preferencesExitWithoutSaving": "Exit without saving",
+  "trayShowWindow": "Show window",
+  "trayExit": "Exit",
+  "lanOffline": "Not connected",
+  "lanModel": "Model",
+  "lanModelVersion": "Model version",
+  "lanMacAddress": "MAC address",
+  "lanIdentityChanged": "The device identity has changed. Connection stopped. If you reset this device, pair it again.",
+  "lanRepair": "Pair again",
+  "lanRepairDescription": "Continue only if you reset this device. This clears its local pairing information. You will need to approve the connection on the device again.",
+  "lanDeviceId": "Device ID",
+  "lanAddress": "IP address",
+  "lanFirmware": "Firmware",
+  "lanUptime": "Device uptime",
+  "uptimeDaySingular": "day",
+  "uptimeDayPlural": "days",
+  "@uptimeDayPlural": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "lanDisconnect": "Disconnect",
+  "lanDisconnectConfirmTitle": "Disconnect device?",
+  "lanDisconnectDescription": "Your pairing information will be kept. Automatic connection will pause for this session. You can reconnect manually or restart the app to resume automatic connection.",
+  "lanConnectedDescription": "Connected to the device. Device information is refreshed automatically.",
+  "lanConfirmOnDevice": "Please allow the connection on your device.",
+  "lanReconnectDescription": "Make sure your device is online and allows LilygoBox connections, then try again. If you still cannot connect, search for the device again.",
+  "deviceDashboardSubtitle": "Screen, sound and device connection",
+  "deviceDashboardMyDevice": "Device information",
+  "deviceDashboardIdentity": "Model and firmware",
+  "deviceDashboardViewInfo": "View device information",
+  "deviceDashboardBattery": "Battery",
+  "deviceDashboardCharging": "Charging",
+  "deviceDashboardViewBattery": "View charge and battery status",
+  "deviceDashboardSound": "Sound",
+  "deviceDisableVibration": "Disable vibration",
+  "deviceEnableVibration": "Enable vibration",
+  "deviceMute": "Mute",
+  "deviceSoundAndHaptics": "Sound and haptics",
+  "deviceVibrationIntensity": "Vibration intensity",
+  "deviceUnmute": "Unmute",
+  "deviceScreenTurnOff": "Turn screen off",
+  "deviceScreenTurnOn": "Turn screen on",
+  "deviceDashboardScreenOn": "Screen is on",
+  "deviceDashboardScreenOff": "Screen is off",
+  "deviceDashboardRotation": "Screen rotation",
+  "deviceAutoLock": "Auto lock",
+  "deviceAutoLockNever": "Never",
+  "deviceAutoLockSeconds": "{seconds} sec",
+  "@deviceAutoLockSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "deviceAutoLockMinutes": "{minutes} min",
+  "@deviceAutoLockMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "deviceDashboardConnection": "Device connection",
+  "deviceInformationTitle": "Device information",
+  "deviceInformationIdentity": "LilygoBox device",
+  "deviceInformationConnection": "Device connection",
+  "deviceInformationView": "View",
+  "connectionReady": "Connection ready",
+  "connectionThisComputer": "This computer",
+  "connectionInformation": "Connection information",
+  "connectionStatus": "Connection status",
+  "connectionMethod": "Connection method",
+  "connectionManage": "Manage connection",
+  "connectionManualRecovery": "After disconnecting manually, select Reconnect to restore the connection.",
+  "connectionCredentialTitle": "Connection credentials",
+  "connectionCredentialDescription": "Credentials are saved after initial authorization, so reconnecting does not require approval again. Disconnecting keeps them; deleting the device removes its locally saved credentials.",
   "deviceConnectionStatusTitle": "Device status",
   "deviceBatteryUnknown": "Unknown",
   "deviceBatteryFull": "Fully charged",
@@ -437,773 +597,1200 @@
   "deviceBatteryTemperature": "Temperature",
   "deviceBatteryChargingStatus": "Charging status",
   "deviceBatteryCurrent": "Current",
-    "deviceRotationConfirmTitle": "Change display orientation?",
-    "deviceRotationConfirmDescription": "Rotating will close the current page on the device and return to its home screen. Unsaved changes will be discarded. If the device is locked, it will stay locked.",
-    "deviceRotationConfirmAction": "Rotate",
-    "deviceBatteryHealth": "Battery health",
-    "deviceBatteryTimeToFull": "Estimated time to full",
-    "deviceBatteryTimeToEmpty": "Estimated battery runtime",
-    "deviceBatteryDuration": "{hours} hr {minutes} min",
-    "deviceBatteryCapacity": "Rated battery capacity",
-    "deviceBatteryCapacityEdit": "Edit",
-    "deviceBatteryCapacityDescription": "Enter the rated capacity in mAh. This setting is saved on the device and used for battery and runtime estimates; it is not the remaining capacity.",
-    "deviceBatteryCapacityRange": "Range: {minimum}–{maximum} mAh",
-    "deviceBatteryCapacityInvalid": "Enter a whole-number capacity within the range.",
-    "deviceBatteryCapacitySaveFailed": "Could not save. Check the device connection and try again.",
-    "deviceBatteryCapacitySaving": "Saving…",
-    "deviceBatteryCapacitySave": "Save",
-    "@deviceBatteryDuration": {
-        "placeholders": {
-            "hours": {
-                "type": "int"
-            },
-            "minutes": {
-                "type": "int"
-            }
-        }
-    },
-    "@deviceBatteryCapacityRange": {
-        "placeholders": {
-            "minimum": {
-                "type": "int"
-            },
-            "maximum": {
-                "type": "int"
-            }
-        }
-    },
-    "deviceBatteryEstimateMinutes": "{minutes} min",
-    "deviceBatteryEstimateToFull": "{duration} to full",
-    "deviceBatteryEstimateRemaining": "{duration} remaining",
-    "@deviceBatteryEstimateToFull": {
-        "placeholders": {
-            "duration": { "type": "String" }
-        }
-    },
-    "@deviceBatteryEstimateMinutes": {
-        "placeholders": {
-            "minutes": {
-                "type": "int"
-            }
-        }
-    },
-    "deviceBatteryLevel": "Battery level",
-    "deviceWifiSignal": "Wi-Fi signal",
+  "deviceRotationConfirmTitle": "Change display orientation?",
+  "deviceRotationConfirmDescription": "Rotating will close the current page on the device and return to its home screen. Unsaved changes will be discarded. If the device is locked, it will stay locked.",
+  "deviceRotationConfirmAction": "Rotate",
+  "deviceBatteryHealth": "Battery health",
+  "deviceBatteryTimeToFull": "Estimated time to full",
+  "deviceBatteryTimeToEmpty": "Estimated battery runtime",
+  "deviceBatteryDuration": "{hours} hr {minutes} min",
+  "deviceBatteryCapacity": "Rated battery capacity",
+  "deviceBatteryCapacityEdit": "Edit",
+  "deviceBatteryCapacityDescription": "Enter the rated capacity in mAh. This setting is saved on the device and used for battery and runtime estimates; it is not the remaining capacity.",
+  "deviceBatteryCapacityRange": "Range: {minimum}–{maximum} mAh",
+  "deviceBatteryCapacityInvalid": "Enter a whole-number capacity within the range.",
+  "deviceBatteryCapacitySaveFailed": "Could not save. Check the device connection and try again.",
+  "deviceBatteryCapacitySaving": "Saving…",
+  "deviceBatteryCapacitySave": "Save",
+  "@deviceBatteryDuration": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "@deviceBatteryCapacityRange": {
+    "placeholders": {
+      "minimum": {
+        "type": "int"
+      },
+      "maximum": {
+        "type": "int"
+      }
+    }
+  },
+  "deviceBatteryEstimateMinutes": "{minutes} min",
+  "deviceBatteryEstimateToFull": "{duration} to full",
+  "deviceBatteryEstimateRemaining": "{duration} remaining",
+  "@deviceBatteryEstimateToFull": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "@deviceBatteryEstimateMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "deviceBatteryLevel": "Battery level",
+  "deviceWifiSignal": "Wi-Fi signal",
   "deviceNameEditDescription": "Enter a device name (up to 64 UTF-8 bytes). The name is saved on the device.",
   "deviceNameInvalid": "Enter a non-empty name within 64 UTF-8 bytes, without control characters.",
   "deviceNameSaveFailed": "Could not save the name. Check the device connection and try again.",
   "deviceNameStorageFailed": "The device could not save the name to storage. Your input has been kept; please try again.",
-    "otaUpdating": "Updating",
-    "@otaUpdating": {
-        "description": "Firmware update interface: otaUpdating"
-    },
-    "otaCheck": "Check for updates",
-    "@otaCheck": {
-        "description": "Firmware update interface: otaCheck"
-    },
-    "otaNewVersion": "Update available",
-    "@otaNewVersion": {
-        "description": "Firmware update interface: otaNewVersion"
-    },
-    "otaViewStatus": "View device update status",
-    "@otaViewStatus": {
-        "description": "Firmware update interface: otaViewStatus"
-    },
-    "otaCheckTitle": "Check for device updates",
-    "@otaCheckTitle": {
-        "description": "Firmware update interface: otaCheckTitle"
-    },
-    "otaUpdateTo": "Update to {version}",
-    "@otaUpdateTo": {
-        "description": "Firmware update interface: otaUpdateTo",
-        "placeholders": {
-            "version": {
-                "type": "String"
-            }
-        }
-    },
-    "otaUpdateFirmware": "Device update",
-    "@otaUpdateFirmware": {
-        "description": "Firmware update interface: otaUpdateFirmware"
-    },
-    "otaWirelessVersion": "Wireless firmware version",
-    "@otaWirelessVersion": {
-        "description": "Firmware update interface: otaWirelessVersion"
-    },
-    "otaMainVersion": "Main firmware version",
-    "@otaMainVersion": {
-        "description": "Firmware update interface: otaMainVersion"
-    },
-    "otaUnknown": "Unknown",
-    "@otaUnknown": {
-        "description": "Firmware update interface: otaUnknown"
-    },
-    "otaCheckDisconnected": "The device disconnected or changed. Reconnect before checking for updates.",
-    "@otaCheckDisconnected": {
-        "description": "Firmware update interface: otaCheckDisconnected"
-    },
-    "otaCheckTimeout": "The update check timed out. Check your network and try again.",
-    "@otaCheckTimeout": {
-        "description": "Firmware update interface: otaCheckTimeout"
-    },
-    "otaManifestMissing": "No OTA manifest was found for this device (HTTP 404).",
-    "@otaManifestMissing": {
-        "description": "Firmware update interface: otaManifestMissing"
-    },
-    "otaManifestTimeout": "The OTA manifest request timed out. Check your network and try again.",
-    "@otaManifestTimeout": {
-        "description": "Firmware update interface: otaManifestTimeout"
-    },
-    "otaManifestIncompatible": "The OTA manifest does not match this device model, hardware version, or chip.",
-    "@otaManifestIncompatible": {
-        "description": "Firmware update interface: otaManifestIncompatible"
-    },
-    "otaManifestNetwork": "Could not retrieve the OTA manifest. Check your network and try again.",
-    "@otaManifestNetwork": {
-        "description": "Firmware update interface: otaManifestNetwork"
-    },
-    "otaCheckError": "Could not check for updates: {detail}",
-    "@otaCheckError": {
-        "description": "Firmware update interface: otaCheckError",
-        "placeholders": {
-            "detail": {
-                "type": "String"
-            }
-        }
-    },
-    "otaCheckFailed": "Update check failed",
-    "@otaCheckFailed": {
-        "description": "Firmware update interface: otaCheckFailed"
-    },
-    "otaChecking": "Checking for updates…",
-    "@otaChecking": {
-        "description": "Firmware update interface: otaChecking"
-    },
-    "otaLatest": "You are up to date",
-    "@otaLatest": {
-        "description": "Firmware update interface: otaLatest"
-    },
-    "otaCancel": "Cancel",
-    "@otaCancel": {
-        "description": "Firmware update interface: otaCancel"
-    },
-    "otaClose": "Close",
-    "@otaClose": {
-        "description": "Firmware update interface: otaClose"
-    },
-    "otaRetry": "Retry",
-    "@otaRetry": {
-        "description": "Firmware update interface: otaRetry"
-    },
-    "otaFound": "Firmware update available",
-    "@otaFound": {
-        "description": "Firmware update interface: otaFound"
-    },
-    "otaDeviceTitle": "Device update",
-    "@otaDeviceTitle": {
-        "description": "Firmware update interface: otaDeviceTitle"
-    },
-    "otaTitle": "Device update",
-    "@otaTitle": {
-        "description": "Firmware update interface: otaTitle"
-    },
-    "otaRemoteSource": "Device online update · Closing this window does not stop the device task",
-    "@otaRemoteSource": {
-        "description": "Firmware update interface: otaRemoteSource"
-    },
-    "otaLocalSource": "LAN update · Firmware is provided by the app that started the update",
-    "@otaLocalSource": {
-        "description": "Firmware update interface: otaLocalSource"
-    },
-    "otaDeviceCacheHint": "The device already has all firmware required for this update. It can verify the files again and prepare installation.",
-    "@otaDeviceCacheHint": {
-        "description": "Firmware update interface: otaDeviceCacheHint"
-    },
-    "otaCacheChecking": "Verifying firmware downloaded on this computer…",
-    "@otaCacheChecking": {
-        "description": "Firmware update interface: otaCacheChecking"
-    },
-    "otaAppCacheHint": "Downloaded and verified: {components}. Use these files and download any missing components.",
-    "@otaAppCacheHint": {
-        "description": "Firmware update interface: otaAppCacheHint",
-        "placeholders": {
-            "components": {
-                "type": "String"
-            }
-        }
-    },
-    "otaMainComponent": "Main firmware",
-    "@otaMainComponent": {
-        "description": "Firmware update interface: otaMainComponent"
-    },
-    "otaWirelessComponent": "Wireless firmware",
-    "@otaWirelessComponent": {
-        "description": "Firmware update interface: otaWirelessComponent"
-    },
-    "otaComponentsSeparator": ", ",
-    "@otaComponentsSeparator": {
-        "description": "Firmware update interface: otaComponentsSeparator"
-    },
-    "otaCancelling": "Cancelling update…",
-    "@otaCancelling": {
-        "description": "Firmware update interface: otaCancelling"
-    },
-    "otaCancelUpdate": "Cancel update",
-    "@otaCancelUpdate": {
-        "description": "Firmware update interface: otaCancelUpdate"
-    },
-    "otaRedownload": "Download again",
-    "@otaRedownload": {
-        "description": "Firmware update interface: otaRedownload"
-    },
-    "otaUseDeviceCache": "Use device firmware",
-    "@otaUseDeviceCache": {
-        "description": "Firmware update interface: otaUseDeviceCache"
-    },
-    "otaUseCache": "Use downloaded firmware",
-    "@otaUseCache": {
-        "description": "Firmware update interface: otaUseCache"
-    },
-    "otaDownloadUpdate": "Download update",
-    "@otaDownloadUpdate": {
-        "description": "Firmware update interface: otaDownloadUpdate"
-    },
-    "otaInstall": "Restart and install",
-    "@otaInstall": {
-        "description": "Firmware update interface: otaInstall"
-    },
-    "otaDownloadingMain": "Downloading main firmware",
-    "@otaDownloadingMain": {
-        "description": "Firmware update interface: otaDownloadingMain"
-    },
-    "otaDownloadingWireless": "Downloading wireless firmware",
-    "@otaDownloadingWireless": {
-        "description": "Firmware update interface: otaDownloadingWireless"
-    },
-    "otaRequestCache": "Requesting verification of firmware already on the device…",
-    "@otaRequestCache": {
-        "description": "Firmware update interface: otaRequestCache"
-    },
-    "otaCacheTimeout": "Device firmware cache verification timed out.",
-    "@otaCacheTimeout": {
-        "description": "Firmware update interface: otaCacheTimeout"
-    },
-    "otaCacheRejected": "The device did not accept the cached firmware. Try again or download the files again.",
-    "@otaCacheRejected": {
-        "description": "Firmware update interface: otaCacheRejected"
-    },
-    "otaCacheFailed": "Could not use the device firmware cache: {detail}",
-    "@otaCacheFailed": {
-        "description": "Firmware update interface: otaCacheFailed",
-        "placeholders": {
-            "detail": {
-                "type": "String"
-            }
-        }
-    },
-    "otaDownloadTimeout": "The download timed out. Please try again.",
-    "@otaDownloadTimeout": {
-        "description": "Firmware update interface: otaDownloadTimeout"
-    },
-    "otaDownloadFailed": "Firmware download or verification failed: {detail}",
-    "@otaDownloadFailed": {
-        "description": "Firmware update interface: otaDownloadFailed",
-        "placeholders": {
-            "detail": {
-                "type": "String"
-            }
-        }
-    },
-    "otaWaitingTransfer": "Waiting for the device to accept the transfer…",
-    "@otaWaitingTransfer": {
-        "description": "Firmware update interface: otaWaitingTransfer"
-    },
-    "otaTransferTimeout": "Firmware transfer to the device timed out.",
-    "@otaTransferTimeout": {
-        "description": "Firmware update interface: otaTransferTimeout"
-    },
-    "otaTransferRejected": "The device did not accept the transfer. Make sure its firmware supports staged updates.",
-    "@otaTransferRejected": {
-        "description": "Firmware update interface: otaTransferRejected"
-    },
-    "otaTransferFailed": "Could not transfer firmware: {detail}",
-    "@otaTransferFailed": {
-        "description": "Firmware update interface: otaTransferFailed",
-        "placeholders": {
-            "detail": {
-                "type": "String"
-            }
-        }
-    },
-    "otaRequestInstall": "Requesting restart and installation…\nYou may close this window. Do not turn off the device.",
-    "@otaRequestInstall": {
-        "description": "Firmware update interface: otaRequestInstall"
-    },
-    "otaInstallRejected": "The device did not confirm restart and installation.",
-    "@otaInstallRejected": {
-        "description": "Firmware update interface: otaInstallRejected"
-    },
-    "otaInstallConfirmed": "Restart and installation confirmed. The device will install automatically and restart. Do not turn it off.",
-    "@otaInstallConfirmed": {
-        "description": "Firmware update interface: otaInstallConfirmed"
-    },
-    "otaDeviceChanged": "The selected device changed. This update has stopped.",
-    "@otaDeviceChanged": {
-        "description": "Firmware update interface: otaDeviceChanged"
-    },
-    "otaInstallDisconnected": "The device disconnected. Waiting for confirmation of restart and installation…",
-    "@otaInstallDisconnected": {
-        "description": "Firmware update interface: otaInstallDisconnected"
-    },
-    "otaObserverDisconnected": "The device disconnected. Reconnect to view its update status.",
-    "@otaObserverDisconnected": {
-        "description": "Firmware update interface: otaObserverDisconnected"
-    },
-    "otaDisconnected": "The device disconnected. The update has stopped.",
-    "@otaDisconnected": {
-        "description": "Firmware update interface: otaDisconnected"
-    },
-    "otaTaskChanged": "The device update task changed. Reopen the update window.",
-    "@otaTaskChanged": {
-        "description": "Firmware update interface: otaTaskChanged"
-    },
-    "otaOtherTask": "The device is already updating. Close this window to view its current task.",
-    "@otaOtherTask": {
-        "description": "Firmware update interface: otaOtherTask"
-    },
-    "otaLatestComplete": "You are up to date.",
-    "@otaLatestComplete": {
-        "description": "Firmware update interface: otaLatestComplete"
-    },
-    "otaCheckAvailable": "An update is available. Start the download on the device or close this window to choose it in the app.",
-    "@otaCheckAvailable": {
-        "description": "Firmware update interface: otaCheckAvailable"
-    },
-    "otaNoTask": "The device has no update task in progress.",
-    "@otaNoTask": {
-        "description": "Firmware update interface: otaNoTask"
-    },
-    "otaDeviceFailed": "The device update failed: {detail}",
-    "@otaDeviceFailed": {
-        "description": "Firmware update interface: otaDeviceFailed",
-        "placeholders": {
-            "detail": {
-                "type": "String"
-            }
-        }
-    },
-    "otaDeviceCancelled": "The device cancelled the update and kept its current firmware.",
-    "@otaDeviceCancelled": {
-        "description": "Firmware update interface: otaDeviceCancelled"
-    },
-    "otaPrepared": "Firmware received and verified. Select Restart and install to turn off the device screen, install the update, and restart automatically.",
-    "@otaPrepared": {
-        "description": "Firmware update interface: otaPrepared"
-    },
-    "otaPreparedOtherApp": "Firmware is ready. Confirm restart and installation in the app that started the update.",
-    "@otaPreparedOtherApp": {
-        "description": "Firmware update interface: otaPreparedOtherApp"
-    },
-    "otaInstalling": "The device is installing and restarting. Do not turn it off.\nClosing this window does not stop installation.",
-    "@otaInstalling": {
-        "description": "Firmware update interface: otaInstalling"
-    },
-    "otaDeviceChecking": "The device is checking for firmware updates online…",
-    "@otaDeviceChecking": {
-        "description": "Firmware update interface: otaDeviceChecking"
-    },
-    "otaPaused": "The device paused the download. Resume it on the device or cancel this update.",
-    "@otaPaused": {
-        "description": "Firmware update interface: otaPaused"
-    },
-    "otaVerifyingMain": "The device is verifying the main firmware image and SHA-256…",
-    "@otaVerifyingMain": {
-        "description": "Firmware update interface: otaVerifyingMain"
-    },
-    "otaVerifyingWireless": "The device is verifying the wireless firmware image and SHA-256…",
-    "@otaVerifyingWireless": {
-        "description": "Firmware update interface: otaVerifyingWireless"
-    },
-    "otaPreparing": "The device is preparing firmware for installation…",
-    "@otaPreparing": {
-        "description": "Firmware update interface: otaPreparing"
-    },
-    "otaCancelled": "Update cancelled. The current firmware has been kept.",
-    "@otaCancelled": {
-        "description": "Firmware update interface: otaCancelled"
-    },
-    "otaCancelRejected": "The device rejected cancellation of this task.",
-    "@otaCancelRejected": {
-        "description": "Firmware update interface: otaCancelRejected"
-    },
-    "otaCancelUnconfirmed": "The device did not confirm cancellation: {detail}",
-    "@otaCancelUnconfirmed": {
-        "description": "Firmware update interface: otaCancelUnconfirmed",
-        "placeholders": {
-            "detail": {
-                "type": "String"
-            }
-        }
-    },
-    "otaProgress": "{action} · {received} / {total}",
-    "@otaProgress": {
-        "description": "Firmware update interface: otaProgress",
-        "placeholders": {
-            "action": {
-                "type": "String"
-            },
-            "received": {
-                "type": "String"
-            },
-            "total": {
-                "type": "String"
-            }
-        }
-    },
-    "otaDownloadMain": "Download main firmware",
-    "@otaDownloadMain": {
-        "description": "Firmware update interface: otaDownloadMain"
-    },
-    "otaDownloadWireless": "Download wireless firmware",
-    "@otaDownloadWireless": {
-        "description": "Firmware update interface: otaDownloadWireless"
-    },
-    "otaDeviceDownloadMain": "Device downloading main firmware",
-    "@otaDeviceDownloadMain": {
-        "description": "Firmware update interface: otaDeviceDownloadMain"
-    },
-    "otaDeviceDownloadWireless": "Device downloading wireless firmware",
-    "@otaDeviceDownloadWireless": {
-        "description": "Firmware update interface: otaDeviceDownloadWireless"
-    },
-    "otaTransferMain": "Transfer main firmware",
-    "@otaTransferMain": {
-        "description": "Firmware update interface: otaTransferMain"
-    },
-    "otaTransferWireless": "Transfer wireless firmware",
-    "@otaTransferWireless": {
-        "description": "Firmware update interface: otaTransferWireless"
-    },
-    "otaAwaitingProgress": "{action} · Waiting for device progress",
-    "@otaAwaitingProgress": {
-        "description": "Firmware update interface: otaAwaitingProgress",
-        "placeholders": {
-            "action": {
-                "type": "String"
-            }
-        }
-    },
-    "otaDownloadComplete": "{component} downloaded. Waiting for device verification…",
-    "@otaDownloadComplete": {
-        "description": "Firmware update interface: otaDownloadComplete",
-        "placeholders": {
-            "component": {
-                "type": "String"
-            }
-        }
-    },
-    "redownloadUpdate": "Download again",
-    "otaIntegrityFailed": "{component} failed verification. Download it again to continue. Other verified components will be kept.",
-    "@otaIntegrityFailed": {
-        "placeholders": {"component": {"type": "String"}}
-    },
-    "otaTransferComplete": "{component} transferred. Waiting for device verification…",
-    "@otaTransferComplete": {
-        "description": "Firmware update interface: otaTransferComplete",
-        "placeholders": {
-            "component": {
-                "type": "String"
-            }
-        }
-    },
-    "aiSettingsGroup": "AI",
-    "aiProtocolLabel": "API protocol",
-    "aiProtocolDescription": "Choose the API protocol supported by your provider.",
-    "aiProtocolChatCompletions": "OpenAI Chat Completions",
-    "aiProtocolResponses": "OpenAI Responses",
-    "aiCurrentService": "Current service",
-    "aiResetEdits": "Revert",
-    "aiAvailableActions": "Available settings actions",
-    "aiPermissionTheme": "Switch application theme",
-    "aiPermissionLanguage": "Change interface language",
-    "aiPermissionFont": "Change application font",
-    "aiPermissionSidebar": "Show, hide or resize the main sidebar",
-    "aiPermissionLayout": "Resize device panes and the settings sidebar",
-    "aiAddModelService": "Add model service",
-    "aiAddedServices": "Added services",
-    "aiMoveServiceUp": "Move service up",
-    "aiMoveServiceDown": "Move service down",
-    "aiNoServices": "No model services yet. Add a service to get started.",
-    "aiServiceName": "Service name",
-    "aiServiceNameDescription": "Identifies this service in the home model selector.",
-    "aiEditService": "Edit service",
-    "aiSaveService": "Save",
-    "aiDeleteService": "Delete service",
-    "aiDeleteServiceMessage": "Delete “{name}” and its local key? Existing chat messages will be kept.",
-    "aiModelsHint": "Enter one model ID per line, or separate with commas. You can enter IDs manually if fetching fails.",
-    "aiFetchModels": "Fetch models",
-    "aiSelectModel": "Select model",
-    "aiSearchModels": "Search models or providers",
-    "aiSearchModelsDescription": "Filter by model name or service name.",
-    "aiForNextMessages": "For next messages",
-    "aiNoMatchingModels": "No matching models",
-    "aiInvalidAddress": "Enter a valid HTTP or HTTPS endpoint without query parameters or credentials.",
-    "aiNameRequired": "Enter a service name.",
-    "aiModelsRequired": "Enter at least one model ID, or fetch the model list.",
-    "aiKeyRequired": "Enter an API key. A new key is required when changing the service provider or host.",
-    "aiStorageError": "Unable to load or save service settings. Check local storage and try again.",
-    "aiServiceBusy": "Wait for the current request or resolve pending approvals before changing services.",
-    "aiInvalidResponse": "The service returned an invalid response. Check its endpoint.",
-    "aiRequestFailed": "Unable to connect to the model service. Check the endpoint, network and API key.",
-    "aiRequestTimeout": "The service timed out. Try again later.",
-    "@aiDeleteServiceMessage": {"placeholders": {"name": {"type": "String"}}},
-    "aiCopyMessage": "Copy message",
-    "aiMessageCopied": "Copied",
-    "aiTaskLinkUnavailable": "This agent has been deleted or cannot be opened here.",
-    "aiOpenLinkFailed": "Unable to open this link.",
-    "aiCopyCode": "Copy code",
-    "aiEnableCodeWrap": "Enable word wrap",
-    "aiDisableCodeWrap": "Disable word wrap",
-    "aiPlainText": "Plain text",
-    "aiScrollToLatest": "Scroll to latest message",
-    "aiResponseReasoningEffort": "Reasoning effort: {effort}",
-    "@aiResponseReasoningEffort": {"placeholders": {"effort": {"type": "String"}}},
-    "aiReasoningEffort": "Reasoning effort",
-    "aiReasoningNone": "Off",
-    "aiReasoningMinimal": "Minimal",
-    "aiReasoningLow": "Low",
-    "aiReasoningMedium": "Medium",
-    "aiReasoningHigh": "High",
-    "aiReasoningXhigh": "Extra high",
-    "aiReasoningMax": "Maximum",
-    "aiReasoningUltra": "Ultra",
-    "aiPermissions": "Permissions",
-    "aiPermissionRequest": "Request approval",
-    "aiPermissionCustom": "Custom permissions",
-    "aiPermissionRequestSummary": "Ask before restricted actions.",
-    "aiPermissionCustomSummary": "Set permissions for commands, files and web access.",
-    "aiPermissionRequestHelp": "App settings and public HTTPS pages can be accessed directly. Local file operations require approval unless granted in Custom permissions. Each approval applies only to the displayed operation.",
-    "aiPermissionNetwork": "Allow network access",
-    "aiPermissionNetworkHelp": "Allow web access. Ask for approval when disabled.",
-    "aiPermissionFiles": "Default access for newly added folders",
-    "aiPermissionFolderAccess": "Folder permissions",
-    "aiPermissionNone": "Require approval every time",
-    "aiPermissionReadOnly": "Allow reading only",
-    "aiPermissionReadWrite": "Allow reading and editing",
-    "aiPermissionFoldersHelp": "Access is limited to authorized folders and their subfolders. Operations outside this scope still require approval.",
-    "aiPermissionFolders": "Authorized folders",
-    "aiPermissionNoFolders": "No folders added. Every file operation requires approval.",
-    "aiPermissionAddFolder": "Add folder",
-    "aiPermissionRemoveFolder": "Remove authorization",
-    "aiPermissionSessionHelp": "Permissions reset when the conversation is cleared or the app restarts. File contents and command output may be sent to the configured model service. Local commands are not sandboxed and can access files, networks and devices.",
-    "aiAwaitingApproval": "Waiting for approval",
-    "aiToolTime": "Read current time",
-    "aiToolWeb": "Access webpage",
-    "aiToolList": "List directory",
-    "aiToolRead": "Read file",
-    "aiToolWrite": "Write file",
-    "aiWritePreview": "Review the file content before approving",
-    "aiBefore": "Before",
-    "aiAfter": "After",
-    "aiPermissionResolvedPath": "Actual target",
-    "aiPermissionFolderFailed": "Unable to open the folder picker. Please try again.",
-    "aiPermissionCommandNoApproval": "Command approval bypass",
-    "aiPermissionCommandNoApprovalHelp": "Run commands without requesting approval.",
-    "aiPermissionFullFilesWarningTitle": "Allow access to all files?",
-    "aiPermissionFullFilesWarningDescription": "Within system permissions, this allows reading, creating, modifying or deleting any local file, without folder restrictions.\n\nThis may cause loss of important files or disclosure of sensitive information.",
-    "aiPermissionCommandNoApprovalWarningTitle": "Run commands without approval?",
-    "aiPermissionCommandNoApprovalWarningDescription": "Complex scripts and commands flagged as risky will run without approval. Explicitly forbidden commands remain blocked.\n\nCommands and their child processes may modify or delete files, access the network and change system settings, causing data loss or disclosure.",
-    "aiPermissionWarningFooter": "Enable this only for agents you trust. You can turn it off at any time.",
-    "aiPermissionWarningConfirm": "Confirm and enable",
-    "aiShowApiKey": "Show API key",
+  "otaUpdating": "Updating",
+  "@otaUpdating": {
+    "description": "Firmware update interface: otaUpdating"
+  },
+  "otaCheck": "Check for updates",
+  "@otaCheck": {
+    "description": "Firmware update interface: otaCheck"
+  },
+  "otaNewVersion": "Update available",
+  "@otaNewVersion": {
+    "description": "Firmware update interface: otaNewVersion"
+  },
+  "otaViewStatus": "View device update status",
+  "@otaViewStatus": {
+    "description": "Firmware update interface: otaViewStatus"
+  },
+  "otaCheckTitle": "Check for device updates",
+  "@otaCheckTitle": {
+    "description": "Firmware update interface: otaCheckTitle"
+  },
+  "otaUpdateTo": "Update to {version}",
+  "@otaUpdateTo": {
+    "description": "Firmware update interface: otaUpdateTo",
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "otaUpdateFirmware": "Device update",
+  "@otaUpdateFirmware": {
+    "description": "Firmware update interface: otaUpdateFirmware"
+  },
+  "otaWirelessVersion": "Wireless firmware version",
+  "@otaWirelessVersion": {
+    "description": "Firmware update interface: otaWirelessVersion"
+  },
+  "otaMainVersion": "Main firmware version",
+  "@otaMainVersion": {
+    "description": "Firmware update interface: otaMainVersion"
+  },
+  "otaUnknown": "Unknown",
+  "@otaUnknown": {
+    "description": "Firmware update interface: otaUnknown"
+  },
+  "otaCheckDisconnected": "The device disconnected or changed. Reconnect before checking for updates.",
+  "@otaCheckDisconnected": {
+    "description": "Firmware update interface: otaCheckDisconnected"
+  },
+  "otaCheckTimeout": "The update check timed out. Check your network and try again.",
+  "@otaCheckTimeout": {
+    "description": "Firmware update interface: otaCheckTimeout"
+  },
+  "otaManifestMissing": "No OTA manifest was found for this device (HTTP 404).",
+  "@otaManifestMissing": {
+    "description": "Firmware update interface: otaManifestMissing"
+  },
+  "otaManifestTimeout": "The OTA manifest request timed out. Check your network and try again.",
+  "@otaManifestTimeout": {
+    "description": "Firmware update interface: otaManifestTimeout"
+  },
+  "otaManifestIncompatible": "The OTA manifest does not match this device model, hardware version, or chip.",
+  "@otaManifestIncompatible": {
+    "description": "Firmware update interface: otaManifestIncompatible"
+  },
+  "otaManifestNetwork": "Could not retrieve the OTA manifest. Check your network and try again.",
+  "@otaManifestNetwork": {
+    "description": "Firmware update interface: otaManifestNetwork"
+  },
+  "otaCheckError": "Could not check for updates: {detail}",
+  "@otaCheckError": {
+    "description": "Firmware update interface: otaCheckError",
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "otaCheckFailed": "Update check failed",
+  "@otaCheckFailed": {
+    "description": "Firmware update interface: otaCheckFailed"
+  },
+  "otaChecking": "Checking for updates…",
+  "@otaChecking": {
+    "description": "Firmware update interface: otaChecking"
+  },
+  "otaLatest": "You are up to date",
+  "@otaLatest": {
+    "description": "Firmware update interface: otaLatest"
+  },
+  "otaCancel": "Cancel",
+  "@otaCancel": {
+    "description": "Firmware update interface: otaCancel"
+  },
+  "otaClose": "Close",
+  "@otaClose": {
+    "description": "Firmware update interface: otaClose"
+  },
+  "otaRetry": "Retry",
+  "@otaRetry": {
+    "description": "Firmware update interface: otaRetry"
+  },
+  "otaFound": "Firmware update available",
+  "@otaFound": {
+    "description": "Firmware update interface: otaFound"
+  },
+  "otaDeviceTitle": "Device update",
+  "@otaDeviceTitle": {
+    "description": "Firmware update interface: otaDeviceTitle"
+  },
+  "otaTitle": "Device update",
+  "@otaTitle": {
+    "description": "Firmware update interface: otaTitle"
+  },
+  "otaRemoteSource": "Device online update · Closing this window does not stop the device task",
+  "@otaRemoteSource": {
+    "description": "Firmware update interface: otaRemoteSource"
+  },
+  "otaLocalSource": "LAN update · Firmware is provided by the app that started the update",
+  "@otaLocalSource": {
+    "description": "Firmware update interface: otaLocalSource"
+  },
+  "otaDeviceCacheHint": "The device already has all firmware required for this update. It can verify the files again and prepare installation.",
+  "@otaDeviceCacheHint": {
+    "description": "Firmware update interface: otaDeviceCacheHint"
+  },
+  "otaCacheChecking": "Verifying firmware downloaded on this computer…",
+  "@otaCacheChecking": {
+    "description": "Firmware update interface: otaCacheChecking"
+  },
+  "otaAppCacheHint": "Downloaded and verified: {components}. Use these files and download any missing components.",
+  "@otaAppCacheHint": {
+    "description": "Firmware update interface: otaAppCacheHint",
+    "placeholders": {
+      "components": {
+        "type": "String"
+      }
+    }
+  },
+  "otaMainComponent": "Main firmware",
+  "@otaMainComponent": {
+    "description": "Firmware update interface: otaMainComponent"
+  },
+  "otaWirelessComponent": "Wireless firmware",
+  "@otaWirelessComponent": {
+    "description": "Firmware update interface: otaWirelessComponent"
+  },
+  "otaComponentsSeparator": ", ",
+  "@otaComponentsSeparator": {
+    "description": "Firmware update interface: otaComponentsSeparator"
+  },
+  "otaCancelling": "Cancelling update…",
+  "@otaCancelling": {
+    "description": "Firmware update interface: otaCancelling"
+  },
+  "otaCancelUpdate": "Cancel update",
+  "@otaCancelUpdate": {
+    "description": "Firmware update interface: otaCancelUpdate"
+  },
+  "otaRedownload": "Download again",
+  "@otaRedownload": {
+    "description": "Firmware update interface: otaRedownload"
+  },
+  "otaUseDeviceCache": "Use device firmware",
+  "@otaUseDeviceCache": {
+    "description": "Firmware update interface: otaUseDeviceCache"
+  },
+  "otaUseCache": "Use downloaded firmware",
+  "@otaUseCache": {
+    "description": "Firmware update interface: otaUseCache"
+  },
+  "otaDownloadUpdate": "Download update",
+  "@otaDownloadUpdate": {
+    "description": "Firmware update interface: otaDownloadUpdate"
+  },
+  "otaInstall": "Restart and install",
+  "@otaInstall": {
+    "description": "Firmware update interface: otaInstall"
+  },
+  "otaDownloadingMain": "Downloading main firmware",
+  "@otaDownloadingMain": {
+    "description": "Firmware update interface: otaDownloadingMain"
+  },
+  "otaDownloadingWireless": "Downloading wireless firmware",
+  "@otaDownloadingWireless": {
+    "description": "Firmware update interface: otaDownloadingWireless"
+  },
+  "otaRequestCache": "Requesting verification of firmware already on the device…",
+  "@otaRequestCache": {
+    "description": "Firmware update interface: otaRequestCache"
+  },
+  "otaCacheTimeout": "Device firmware cache verification timed out.",
+  "@otaCacheTimeout": {
+    "description": "Firmware update interface: otaCacheTimeout"
+  },
+  "otaCacheRejected": "The device did not accept the cached firmware. Try again or download the files again.",
+  "@otaCacheRejected": {
+    "description": "Firmware update interface: otaCacheRejected"
+  },
+  "otaCacheFailed": "Could not use the device firmware cache: {detail}",
+  "@otaCacheFailed": {
+    "description": "Firmware update interface: otaCacheFailed",
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "otaDownloadTimeout": "The download timed out. Please try again.",
+  "@otaDownloadTimeout": {
+    "description": "Firmware update interface: otaDownloadTimeout"
+  },
+  "otaDownloadFailed": "Firmware download or verification failed: {detail}",
+  "@otaDownloadFailed": {
+    "description": "Firmware update interface: otaDownloadFailed",
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "otaWaitingTransfer": "Waiting for the device to accept the transfer…",
+  "@otaWaitingTransfer": {
+    "description": "Firmware update interface: otaWaitingTransfer"
+  },
+  "otaTransferTimeout": "Firmware transfer to the device timed out.",
+  "@otaTransferTimeout": {
+    "description": "Firmware update interface: otaTransferTimeout"
+  },
+  "otaTransferRejected": "The device did not accept the transfer. Make sure its firmware supports staged updates.",
+  "@otaTransferRejected": {
+    "description": "Firmware update interface: otaTransferRejected"
+  },
+  "otaTransferFailed": "Could not transfer firmware: {detail}",
+  "@otaTransferFailed": {
+    "description": "Firmware update interface: otaTransferFailed",
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "otaRequestInstall": "Requesting restart and installation…\nYou may close this window. Do not turn off the device.",
+  "@otaRequestInstall": {
+    "description": "Firmware update interface: otaRequestInstall"
+  },
+  "otaInstallRejected": "The device did not confirm restart and installation.",
+  "@otaInstallRejected": {
+    "description": "Firmware update interface: otaInstallRejected"
+  },
+  "otaInstallConfirmed": "Restart and installation confirmed. The device will install automatically and restart. Do not turn it off.",
+  "@otaInstallConfirmed": {
+    "description": "Firmware update interface: otaInstallConfirmed"
+  },
+  "otaDeviceChanged": "The selected device changed. This update has stopped.",
+  "@otaDeviceChanged": {
+    "description": "Firmware update interface: otaDeviceChanged"
+  },
+  "otaInstallDisconnected": "The device disconnected. Waiting for confirmation of restart and installation…",
+  "@otaInstallDisconnected": {
+    "description": "Firmware update interface: otaInstallDisconnected"
+  },
+  "otaObserverDisconnected": "The device disconnected. Reconnect to view its update status.",
+  "@otaObserverDisconnected": {
+    "description": "Firmware update interface: otaObserverDisconnected"
+  },
+  "otaDisconnected": "The device disconnected. The update has stopped.",
+  "@otaDisconnected": {
+    "description": "Firmware update interface: otaDisconnected"
+  },
+  "otaTaskChanged": "The device update task changed. Reopen the update window.",
+  "@otaTaskChanged": {
+    "description": "Firmware update interface: otaTaskChanged"
+  },
+  "otaOtherTask": "The device is already updating. Close this window to view its current task.",
+  "@otaOtherTask": {
+    "description": "Firmware update interface: otaOtherTask"
+  },
+  "otaLatestComplete": "You are up to date.",
+  "@otaLatestComplete": {
+    "description": "Firmware update interface: otaLatestComplete"
+  },
+  "otaCheckAvailable": "An update is available. Start the download on the device or close this window to choose it in the app.",
+  "@otaCheckAvailable": {
+    "description": "Firmware update interface: otaCheckAvailable"
+  },
+  "otaNoTask": "The device has no update task in progress.",
+  "@otaNoTask": {
+    "description": "Firmware update interface: otaNoTask"
+  },
+  "otaDeviceFailed": "The device update failed: {detail}",
+  "@otaDeviceFailed": {
+    "description": "Firmware update interface: otaDeviceFailed",
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "otaDeviceCancelled": "The device cancelled the update and kept its current firmware.",
+  "@otaDeviceCancelled": {
+    "description": "Firmware update interface: otaDeviceCancelled"
+  },
+  "otaPrepared": "Firmware received and verified. Select Restart and install to turn off the device screen, install the update, and restart automatically.",
+  "@otaPrepared": {
+    "description": "Firmware update interface: otaPrepared"
+  },
+  "otaPreparedOtherApp": "Firmware is ready. Confirm restart and installation in the app that started the update.",
+  "@otaPreparedOtherApp": {
+    "description": "Firmware update interface: otaPreparedOtherApp"
+  },
+  "otaInstalling": "The device is installing and restarting. Do not turn it off.\nClosing this window does not stop installation.",
+  "@otaInstalling": {
+    "description": "Firmware update interface: otaInstalling"
+  },
+  "otaDeviceChecking": "The device is checking for firmware updates online…",
+  "@otaDeviceChecking": {
+    "description": "Firmware update interface: otaDeviceChecking"
+  },
+  "otaPaused": "The device paused the download. Resume it on the device or cancel this update.",
+  "@otaPaused": {
+    "description": "Firmware update interface: otaPaused"
+  },
+  "otaVerifyingMain": "The device is verifying the main firmware image and SHA-256…",
+  "@otaVerifyingMain": {
+    "description": "Firmware update interface: otaVerifyingMain"
+  },
+  "otaVerifyingWireless": "The device is verifying the wireless firmware image and SHA-256…",
+  "@otaVerifyingWireless": {
+    "description": "Firmware update interface: otaVerifyingWireless"
+  },
+  "otaPreparing": "The device is preparing firmware for installation…",
+  "@otaPreparing": {
+    "description": "Firmware update interface: otaPreparing"
+  },
+  "otaCancelled": "Update cancelled. The current firmware has been kept.",
+  "@otaCancelled": {
+    "description": "Firmware update interface: otaCancelled"
+  },
+  "otaCancelRejected": "The device rejected cancellation of this task.",
+  "@otaCancelRejected": {
+    "description": "Firmware update interface: otaCancelRejected"
+  },
+  "otaCancelUnconfirmed": "The device did not confirm cancellation: {detail}",
+  "@otaCancelUnconfirmed": {
+    "description": "Firmware update interface: otaCancelUnconfirmed",
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "otaProgress": "{action} · {received} / {total}",
+  "@otaProgress": {
+    "description": "Firmware update interface: otaProgress",
+    "placeholders": {
+      "action": {
+        "type": "String"
+      },
+      "received": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "otaDownloadMain": "Download main firmware",
+  "@otaDownloadMain": {
+    "description": "Firmware update interface: otaDownloadMain"
+  },
+  "otaDownloadWireless": "Download wireless firmware",
+  "@otaDownloadWireless": {
+    "description": "Firmware update interface: otaDownloadWireless"
+  },
+  "otaDeviceDownloadMain": "Device downloading main firmware",
+  "@otaDeviceDownloadMain": {
+    "description": "Firmware update interface: otaDeviceDownloadMain"
+  },
+  "otaDeviceDownloadWireless": "Device downloading wireless firmware",
+  "@otaDeviceDownloadWireless": {
+    "description": "Firmware update interface: otaDeviceDownloadWireless"
+  },
+  "otaTransferMain": "Transfer main firmware",
+  "@otaTransferMain": {
+    "description": "Firmware update interface: otaTransferMain"
+  },
+  "otaTransferWireless": "Transfer wireless firmware",
+  "@otaTransferWireless": {
+    "description": "Firmware update interface: otaTransferWireless"
+  },
+  "otaAwaitingProgress": "{action} · Waiting for device progress",
+  "@otaAwaitingProgress": {
+    "description": "Firmware update interface: otaAwaitingProgress",
+    "placeholders": {
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "otaDownloadComplete": "{component} downloaded. Waiting for device verification…",
+  "@otaDownloadComplete": {
+    "description": "Firmware update interface: otaDownloadComplete",
+    "placeholders": {
+      "component": {
+        "type": "String"
+      }
+    }
+  },
+  "redownloadUpdate": "Download again",
+  "otaIntegrityFailed": "{component} failed verification. Download it again to continue. Other verified components will be kept.",
+  "@otaIntegrityFailed": {
+    "placeholders": {
+      "component": {
+        "type": "String"
+      }
+    }
+  },
+  "otaTransferComplete": "{component} transferred. Waiting for device verification…",
+  "@otaTransferComplete": {
+    "description": "Firmware update interface: otaTransferComplete",
+    "placeholders": {
+      "component": {
+        "type": "String"
+      }
+    }
+  },
+  "aiSettingsGroup": "Agents",
+  "aiProtocolLabel": "API protocol",
+  "aiProtocolDescription": "Choose the API protocol supported by your provider.",
+  "aiProtocolChatCompletions": "OpenAI Chat Completions",
+  "aiProtocolResponses": "OpenAI Responses",
+  "aiCurrentService": "Current service",
+  "aiResetEdits": "Revert",
+  "aiAvailableActions": "Available settings actions",
+  "aiPermissionTheme": "Switch application theme",
+  "aiPermissionLanguage": "Change interface language",
+  "aiPermissionFont": "Change application font",
+  "aiPermissionSidebar": "Show, hide or resize the main sidebar",
+  "aiPermissionLayout": "Resize device panes and the settings sidebar",
+  "aiAddModelService": "Add model service",
+  "aiAddedServices": "Added services",
+  "aiMoveServiceUp": "Move service up",
+  "aiMoveServiceDown": "Move service down",
+  "aiNoServices": "No model services yet. Add a service to get started.",
+  "aiServiceName": "Service name",
+  "aiServiceNameDescription": "Identifies this service in the home model selector.",
+  "aiEditService": "Edit service",
+  "aiSaveService": "Save",
+  "aiDeleteService": "Delete service",
+  "aiDeleteServiceMessage": "Delete “{name}” and its local key? Existing chat messages will be kept.",
+  "aiModelsHint": "Enter one model ID per line, or separate with commas. You can enter IDs manually if fetching fails.",
+  "aiFetchModels": "Fetch models",
+  "aiSelectModel": "Select model",
+  "aiSearchModels": "Search models or providers",
+  "aiSearchModelsDescription": "Filter by model name or service name.",
+  "aiForNextMessages": "For next messages",
+  "aiNoMatchingModels": "No matching models",
+  "aiInvalidAddress": "Enter a valid HTTP or HTTPS endpoint without query parameters or credentials.",
+  "aiNameRequired": "Enter a service name.",
+  "aiModelsRequired": "Enter at least one model ID, or fetch the model list.",
+  "aiKeyRequired": "Enter an API key. A new key is required when changing the service provider or host.",
+  "aiStorageError": "Unable to load or save service settings. Check local storage and try again.",
+  "aiServiceBusy": "Wait for the current request or resolve pending approvals before changing services.",
+  "aiInvalidResponse": "The service returned an invalid response. Check its endpoint.",
+  "aiRequestFailed": "Unable to connect to the model service. Check the endpoint, network and API key.",
+  "aiRequestTimeout": "The service timed out. Try again later.",
+  "@aiDeleteServiceMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "aiCopyMessage": "Copy message",
+  "aiMessageCopied": "Copied",
+  "aiTaskLinkUnavailable": "This agent has been deleted or cannot be opened here.",
+  "aiOpenLinkFailed": "Unable to open this link.",
+  "aiCopyCode": "Copy code",
+  "aiEnableCodeWrap": "Enable word wrap",
+  "aiDisableCodeWrap": "Disable word wrap",
+  "aiPlainText": "Plain text",
+  "aiScrollToLatest": "Scroll to latest message",
+  "aiResponseReasoningEffort": "Reasoning effort: {effort}",
+  "@aiResponseReasoningEffort": {
+    "placeholders": {
+      "effort": {
+        "type": "String"
+      }
+    }
+  },
+  "aiReasoningEffort": "Reasoning effort",
+  "aiReasoningNone": "Off",
+  "aiReasoningMinimal": "Minimal",
+  "aiReasoningLow": "Low",
+  "aiReasoningMedium": "Medium",
+  "aiReasoningHigh": "High",
+  "aiReasoningXhigh": "Extra high",
+  "aiReasoningMax": "Maximum",
+  "aiReasoningUltra": "Ultra",
+  "aiPermissions": "Permissions",
+  "aiPermissionRequest": "Request approval",
+  "aiPermissionCustom": "Custom permissions",
+  "aiPermissionRequestSummary": "Ask before restricted actions.",
+  "aiPermissionCustomSummary": "Set permissions for commands, files and web access.",
+  "aiPermissionRequestHelp": "App settings and public HTTPS pages can be accessed directly. Local file operations require approval unless granted in Custom permissions. Each approval applies only to the displayed operation.",
+  "aiPermissionNetwork": "Allow network access",
+  "aiPermissionNetworkHelp": "Allow web access. Ask for approval when disabled.",
+  "aiPermissionFiles": "Default access for newly added folders",
+  "aiPermissionFolderAccess": "Folder permissions",
+  "aiPermissionNone": "Require approval every time",
+  "aiPermissionReadOnly": "Allow reading only",
+  "aiPermissionReadWrite": "Allow reading and editing",
+  "aiPermissionFoldersHelp": "Access is limited to authorized folders and their subfolders. Operations outside this scope still require approval.",
+  "aiPermissionFolders": "Authorized folders",
+  "aiPermissionNoFolders": "No folders added. Every file operation requires approval.",
+  "aiPermissionAddFolder": "Add folder",
+  "aiPermissionRemoveFolder": "Remove authorization",
+  "aiPermissionSessionHelp": "Permissions reset when the conversation is cleared or the app restarts. File contents and command output may be sent to the configured model service. Local commands are not sandboxed and can access files, networks and devices.",
+  "aiAwaitingApproval": "Waiting for approval",
+  "aiToolTime": "Read current time",
+  "aiToolWeb": "Access webpage",
+  "aiToolList": "List directory",
+  "aiToolRead": "Read file",
+  "aiToolWrite": "Write file",
+  "aiWritePreview": "Review the file content before approving",
+  "aiBefore": "Before",
+  "aiAfter": "After",
+  "aiPermissionResolvedPath": "Actual target",
+  "aiPermissionFolderFailed": "Unable to open the folder picker. Please try again.",
+  "aiPermissionCommandNoApproval": "Command approval bypass",
+  "aiPermissionCommandNoApprovalHelp": "Run commands without requesting approval.",
+  "aiPermissionFullFilesWarningTitle": "Allow access to all files?",
+  "aiPermissionFullFilesWarningDescription": "Within system permissions, this allows reading, creating, modifying or deleting any local file, without folder restrictions.\n\nThis may cause loss of important files or disclosure of sensitive information.",
+  "aiPermissionCommandNoApprovalWarningTitle": "Run commands without approval?",
+  "aiPermissionCommandNoApprovalWarningDescription": "Complex scripts and commands flagged as risky will run without approval. Explicitly forbidden commands remain blocked.\n\nCommands and their child processes may modify or delete files, access the network and change system settings, causing data loss or disclosure.",
+  "aiPermissionWarningFooter": "Enable this only for agents you trust. You can turn it off at any time.",
+  "aiPermissionWarningConfirm": "Confirm and enable",
+  "aiShowApiKey": "Show API key",
   "aiHideApiKey": "Hide API key",
   "aiQuestionTitle": "Input needed",
-    "aiAwaitingUserInput": "Waiting for your answer",
-    "aiAskUser": "Ask a question",
-    "aiQuestionAnswered": "Answers received",
-    "aiQuestionCancelled": "Question cancelled",
-    "aiQuestionAnswerDetails": "Questions and answers",
-    "aiQuestionAnswerLabel": "Answer",
-    "aiQuestionNote": "Add details or enter your own answer",
-    "aiQuestionSubmit": "Submit answers",
-    "aiQuestionCancel": "Cancel",
-    "aiQuestionChoose": "Choose an option or enter an answer.",
-    "aiPermissionExecution": "Allow running local commands",
-    "aiPermissionExecutionHelp": "Allow commands and programs to run on this computer.",
-    "aiPermissionFullFiles": "Allow access to all files",
-    "aiPermissionFullFilesHelp": "Allow access to local files without folder grants, within system permissions.",
-    "aiCommandNoticeTitle": "Risk notice",
-    "aiCommandApprovalNotice": "Commands are not sandboxed. Approval covers only this command and its child processes.",
-    "aiCommandReason": "Purpose",
-    "aiCommandArguments": "Arguments",
-    "aiCommandDirectory": "Working directory",
-    "aiToolCommand": "Run local command",
-    "aiToolProcessRead": "Read process output",
-    "aiToolProcessInput": "Send process input",
-    "aiToolProcessStop": "Stop process",
-    "aiToolEnvironment": "Inspect execution environment",
-    "aiCommandSafetyTitle": "Command needs confirmation",
-    "aiCommandRiskForceDelete": "This command includes forced or recursive deletion and may permanently delete files.",
-    "aiCommandRiskDiscardChanges": "This command may discard local file changes.",
-    "aiCommandRiskDiskWrite": "This command may modify disks or partitions and cause data loss.",
-    "aiCommandRiskOpaqueScript": "Contains a script or dynamic expressions whose behavior cannot be fully predicted.",
-    "aiCommandRulePrompt": "A command rule requires approval for this call.",
-    "aiCommandMatchedRules": "Matched rules",
-    "aiCommandPolicyForbidden": "A forbidden rule blocked this command. It was not executed.",
-    "aiCommandPolicyInvalidRules": "Command rules could not be read or validated. The command was not executed. Check command-rules.json.",
-    "aiCommandPolicyApprovalRequired": "This command requires approval and was not executed.",
-    "aiCommandPolicyChanged": "Command rules changed while this call was pending. The command was not executed; submit it again for review.",
-    "aiCommandRan": "Ran command · {target}",
-    "@aiCommandRan": {"placeholders":{"target":{"type":"String"}}},
-    "aiCommandStarted": "Process started · {target}",
-    "@aiCommandStarted": {"placeholders":{"target":{"type":"String"}}},
-    "aiCommandFinished": "Command completed · {target}",
-    "@aiCommandFinished": {"placeholders":{"target":{"type":"String"}}},
-    "aiCommandFailed": "Command failed · {target}",
-    "@aiCommandFailed": {"placeholders":{"target":{"type":"String"}}},
-    "aiCommandTimedOut": "Command timed out · {target}",
-    "@aiCommandTimedOut": {"placeholders":{"target":{"type":"String"}}},
-    "aiProcessStoppedLabel": "Process stopped · {target}",
-    "@aiProcessStoppedLabel": {"placeholders":{"target":{"type":"String"}}},
-    "aiProcessOutputRead": "Read process output · {target}",
-    "@aiProcessOutputRead": {"placeholders":{"target":{"type":"String"}}},
-    "aiProcessRunningSummary": "The process is still running.",
-    "aiProcessExitedSummary": "The process exited with code {code}.",
-    "@aiProcessExitedSummary": {"placeholders":{"code":{"type":"int"}}},
-    "aiProcessTimedOutSummary": "Execution timed out. Process termination was requested.",
-    "aiProcessStoppedSummary": "The process has stopped.",
-    "aiProcessStoppingSummary": "Stop requested. Waiting for the process to exit.",
-    "aiProcessInputSentSummary": "Input was sent to the process.",
-    "aiCommandStopping": "Stopping process · {target}",
-    "@aiCommandStopping": {"placeholders": {"target": {"type": "String"}}},
-    "aiCommandFull": "Full command",
-    "aiServiceConfiguration": "Model service configuration",
-    "aiServiceConfigurationHelp": "Back up services and models separately. Exported files contain plaintext API keys; keep them secure.",
-    "aiServiceConfigurationFileType": "LilygoBox model service configuration (JSON)",
-    "aiServiceConfigurationImportTitle": "Import model service configuration?",
-    "aiServiceConfigurationImportHelp": "Matching service IDs and their keys will be updated. New services will be added; other existing services will be kept.",
-    "aiServiceConfigurationInvalid": "This file is invalid or is not a supported model service configuration.",
-    "aiAddedServicesHelp": "Add, edit or delete model services.",
-    "aiWorkspaceTitle": "Agents",
-    "aiWorkspaceDescription": "Create independent agents, follow their progress, or continue a conversation.",
-    "aiWorkspaceCreate": "New agent",
-    "aiWorkspaceEmptyTitle": "No child agents yet",
-    "aiWorkspaceEmptyDescription": "Create an agent here or ask the main agent to create a child.",
-    "aiWorkspaceTaskTitle": "Agent name",
-    "aiWorkspaceTaskPrompt": "Work instructions",
-    "aiWorkspaceCreateDescription": "Work independently using the current service and model.",
-    "aiWorkspaceRunning": "Running",
-    "aiWorkspaceCompleted": "Completed",
-    "aiWorkspaceNeedsApproval": "Awaiting approval",
-    "aiWorkspaceNeedsAnswer": "Awaiting answer",
-    "aiWorkspaceFailed": "Failed",
-    "aiWorkspaceStopped": "Stopped",
-    "aiWorkspaceIdle": "Not started",
-    "aiWorkspaceOpenMain": "Back to main agent",
-    "aiWorkspaceStop": "Stop agent",
-    "aiWorkspaceTaskRequired": "Enter the work instructions.",
-    "aiWorkspaceOpenAction": "Open agent",
+  "aiAwaitingUserInput": "Waiting for your answer",
+  "aiAskUser": "Ask a question",
+  "aiQuestionAnswered": "Answers received",
+  "aiQuestionCancelled": "Question cancelled",
+  "aiQuestionAnswerDetails": "Questions and answers",
+  "aiQuestionAnswerLabel": "Answer",
+  "aiQuestionNote": "Add details or enter your own answer",
+  "aiQuestionSubmit": "Submit answers",
+  "aiQuestionCancel": "Cancel",
+  "aiQuestionChoose": "Choose an option or enter an answer.",
+  "aiPermissionExecution": "Allow running local commands",
+  "aiPermissionExecutionHelp": "Allow commands and programs to run on this computer.",
+  "aiPermissionFullFiles": "Allow access to all files",
+  "aiPermissionFullFilesHelp": "Allow access to local files without folder grants, within system permissions.",
+  "aiCommandNoticeTitle": "Risk notice",
+  "aiCommandApprovalNotice": "Commands are not sandboxed. Approval covers only this command and its child processes.",
+  "aiCommandReason": "Purpose",
+  "aiCommandArguments": "Arguments",
+  "aiCommandDirectory": "Working directory",
+  "aiToolCommand": "Run local command",
+  "aiToolProcessRead": "Read process output",
+  "aiToolProcessInput": "Send process input",
+  "aiToolProcessStop": "Stop process",
+  "aiToolEnvironment": "Inspect execution environment",
+  "aiCommandSafetyTitle": "Command needs confirmation",
+  "aiCommandRiskForceDelete": "This command includes forced or recursive deletion and may permanently delete files.",
+  "aiCommandRiskDiscardChanges": "This command may discard local file changes.",
+  "aiCommandRiskDiskWrite": "This command may modify disks or partitions and cause data loss.",
+  "aiCommandRiskOpaqueScript": "Contains a script or dynamic expressions whose behavior cannot be fully predicted.",
+  "aiCommandRulePrompt": "A command rule requires approval for this call.",
+  "aiCommandMatchedRules": "Matched rules",
+  "aiCommandPolicyForbidden": "A forbidden rule blocked this command. It was not executed.",
+  "aiCommandPolicyInvalidRules": "Command rules could not be read or validated. The command was not executed. Check command-rules.json.",
+  "aiCommandPolicyApprovalRequired": "This command requires approval and was not executed.",
+  "aiCommandPolicyChanged": "Command rules changed while this call was pending. The command was not executed; submit it again for review.",
+  "aiCommandRan": "Ran command · {target}",
+  "@aiCommandRan": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "aiCommandStarted": "Process started · {target}",
+  "@aiCommandStarted": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "aiCommandFinished": "Command completed · {target}",
+  "@aiCommandFinished": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "aiCommandFailed": "Command failed · {target}",
+  "@aiCommandFailed": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "aiCommandTimedOut": "Command timed out · {target}",
+  "@aiCommandTimedOut": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "aiProcessStoppedLabel": "Process stopped · {target}",
+  "@aiProcessStoppedLabel": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "aiProcessOutputRead": "Read process output · {target}",
+  "@aiProcessOutputRead": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "aiProcessRunningSummary": "The process is still running.",
+  "aiProcessExitedSummary": "The process exited with code {code}.",
+  "@aiProcessExitedSummary": {
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "aiProcessTimedOutSummary": "Execution timed out. Process termination was requested.",
+  "aiProcessStoppedSummary": "The process has stopped.",
+  "aiProcessStoppingSummary": "Stop requested. Waiting for the process to exit.",
+  "aiProcessInputSentSummary": "Input was sent to the process.",
+  "aiCommandStopping": "Stopping process · {target}",
+  "@aiCommandStopping": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "aiCommandFull": "Full command",
+  "aiServiceConfiguration": "Model service configuration",
+  "aiServiceConfigurationHelp": "Back up services and models separately. Exported files contain plaintext API keys; keep them secure.",
+  "aiServiceConfigurationFileType": "LilygoBox model service configuration (JSON)",
+  "aiServiceConfigurationImportTitle": "Import model service configuration?",
+  "aiServiceConfigurationImportHelp": "Matching service IDs and their keys will be updated. New services will be added; other existing services will be kept.",
+  "aiServiceConfigurationInvalid": "This file is invalid or is not a supported model service configuration.",
+  "aiAddedServicesHelp": "Add, edit or delete model services.",
+  "aiWorkspaceTitle": "Agents",
+  "aiWorkspaceDescription": "Create independent agents, follow their progress, or continue a conversation.",
+  "aiWorkspaceCreate": "New agent",
+  "aiWorkspaceEmptyTitle": "No child agents yet",
+  "aiWorkspaceEmptyDescription": "Create an agent here or ask the main agent to create a child.",
+  "aiWorkspaceTaskTitle": "Agent name",
+  "aiWorkspaceTaskPrompt": "Work instructions",
+  "aiWorkspaceCreateDescription": "Work independently using the current service and model.",
+  "aiWorkspaceRunning": "Running",
+  "aiWorkspaceCompleted": "Completed",
+  "aiWorkspaceNeedsApproval": "Awaiting approval",
+  "aiWorkspaceNeedsAnswer": "Awaiting answer",
+  "aiWorkspaceFailed": "Failed",
+  "aiWorkspaceStopped": "Stopped",
+  "aiWorkspaceIdle": "Not started",
+  "aiWorkspaceOpenMain": "Back to main agent",
+  "aiWorkspaceStop": "Stop agent",
+  "aiWorkspaceTaskRequired": "Enter the work instructions.",
+  "aiWorkspaceOpenAction": "Open agent",
   "aiWorkspaceSpawnAction": "Create child agent",
-    "aiWorkspaceSendAction": "Send agent message",
-    "aiWorkspaceWaitAction": "Wait for child agents",
-    "aiWorkspaceListAction": "List child agents",
-    "aiWorkspaceStopAction": "Stop child agent",
-    "aiTopologyTitle": "Agent workflow",
-    "aiTopologyDescription": "Connect agents at every level and collaborate.",
-    "aiTopologyCreatePrimary": "Create main agent",
-    "aiTopologyCreateChild": "Add child agent",
-    "aiTopologyPrimary": "Main agent",
-    "aiTopologyPermanent": "Child agent",
-    "aiTopologyClosed": "Closed",
-    "aiTopologyOpen": "Open conversation",
-    "aiTopologyInspect": "Inspect activity",
-    "aiTopologyBack": "Back to agent workflow",
-    "aiTopologyDuplicate": "Duplicate card",
-    "aiTopologyRenameHelp": "Identify this agent on the canvas and in conversations. Line breaks are supported.",
-    "aiTopologyNameOptional": "Agent name (optional)",
-    "aiTopologyTaskContentRequired": "Enter the work instructions.",
-    "aiTopologyNameHelp": "Leave blank to generate a name from the work instructions.",
-    "aiTopologyModelHelp": "Choose the service and model for this agent.",
-    "aiTopologyPermissionsHelp": "Set the operations this agent is allowed to perform.",
-    "aiTopologyTaskHelp": "Describe the goal and necessary context. Execution starts after creation.",
-    "aiTopologyParentLabel": "Parent agent",
-    "aiTopologyBringToFront": "Bring to front",
-    "aiTopologyRename": "Rename",
-    "aiTopologyMakeRootTitle": "Make this agent a main agent?",
-    "aiTopologyMakeRootHelp": "“{task}” will become a main agent and disconnect from its previous agent group. Its conversation, descendants, and connections within its subtree will remain.",
-    "@aiTopologyMakeRootHelp": {"placeholders": {"task": {"type": "String"}}},
-    "aiTopologyRootPromotionNotice": "After deletion, “{task}” will change from a child agent to a main agent.",
-    "@aiTopologyRootPromotionNotice": {"placeholders": {"task": {"type": "String"}}},
-    "aiTopologyMergeTitle": "Change agent ownership?",
-    "aiTopologyMergeRootHelp": "Main agent “{task}” will become a child of “{parent}”. Descendants, conversations, and internal connections remain; communication links across the branch boundary will be disconnected.",
-    "@aiTopologyMergeRootHelp": {"placeholders": {"task": {"type": "String"}, "parent": {"type": "String"}}},
-    "aiTopologyMergeChildHelp": "“{task}” and its descendants will disconnect from the current parent and move under “{parent}”. Other agents in the original group stay in place. Conversations and internal connections remain; communication links across the branch boundary will be disconnected.",
-    "@aiTopologyMergeChildHelp": {"placeholders": {"task": {"type": "String"}, "parent": {"type": "String"}}},
-    "aiTopologyMergeConfirm": "Confirm and connect",
-    "aiTopologyConnectSelected": "Connect selected agents",
-    "aiTopologyMakeRoot": "Make main agent",
-    "aiTopologyMakeChild": "Make child agent",
-    "aiTopologyChooseParent": "Choose parent agent",
-    "aiTopologyChooseParentHelp": "Change this main agent to a child agent and choose its parent. Existing descendants, conversation, and other connections will remain.",
-    "aiTopologyAutoLayout": "Auto layout",
-    "aiTopologyReset": "Reset view",
-    "aiTopologyZoomIn": "Zoom in",
-    "aiTopologyZoomOut": "Zoom out",
-    "aiTopologyNewPrimaryHelp": "Create the starting point of an independent agent tree. Child agents can delegate further.",
-    "aiTopologyNewChildHelp": "Keep an independent conversation and delegate further agents.",
-    "aiTopologyEmptyHelp": "Create a main agent, then add child agents at any level.",
-    "aiTopologyDelete": "Delete agent",
-    "aiTopologyDeleteTitle": "Delete this agent?",
-    "aiTopologyDeleteHelp": "This agent and all its descendants will be stopped and removed.",
-    "aiTopologyNoParent": "Select a main agent or child agent first.",
-    "aiTopologyModel": "Execution model",
-    "aiTopologyInherit": "Inherit parent model",
+  "aiWorkspaceSendAction": "Send agent message",
+  "aiWorkspaceWaitAction": "Wait for child agents",
+  "aiWorkspaceListAction": "List child agents",
+  "aiWorkspaceStopAction": "Stop child agent",
+  "aiTopologyTitle": "Agent workflow",
+  "aiTopologyDescription": "Connect agents at every level and collaborate.",
+  "aiTopologyCreatePrimary": "Create main agent",
+  "aiTopologyCreateChild": "Add child agent",
+  "aiTopologyPrimary": "Main agent",
+  "aiTopologyPermanent": "Child agent",
+  "aiTopologyClosed": "Closed",
+  "aiTopologyOpen": "Open conversation",
+  "aiTopologyInspect": "Inspect activity",
+  "aiTopologyBack": "Back to agent workflow",
+  "aiTopologyCopyWorkflow": "Copy agent workflow",
+  "aiTopologyPasteAgent": "Paste agent",
+  "aiTopologyPasteWorkflow": "Paste agent workflow",
+  "aiTopologyDuplicate": "Copy agent",
+  "aiTopologyRenameHelp": "Identify this agent on the canvas and in conversations. Line breaks are supported.",
+  "aiTopologyNameOptional": "Agent name (optional)",
+  "aiTopologyTaskContentRequired": "Enter the work instructions.",
+  "aiTopologyNameHelp": "Leave blank to generate a name from the work instructions.",
+  "aiTopologyModelHelp": "Choose the service and model for this agent.",
+  "aiTopologyPermissionsHelp": "Set the operations this agent is allowed to perform.",
+  "aiTopologyTaskHelp": "Describe the goal and necessary context. Execution starts after creation.",
+  "aiTopologyParentLabel": "Parent agent",
+  "aiTopologyBringToFront": "Bring to front",
+  "aiTopologyRename": "Rename",
+  "aiTopologyMakeRootTitle": "Make this agent a main agent?",
+  "aiTopologyMakeRootHelp": "“{task}” will become a main agent and disconnect from its previous agent group. Its conversation, descendants, and connections within its subtree will remain.",
+  "@aiTopologyMakeRootHelp": {
+    "placeholders": {
+      "task": {
+        "type": "String"
+      }
+    }
+  },
+  "aiTopologyRootPromotionNotice": "After deletion, “{task}” will change from a child agent to a main agent.",
+  "@aiTopologyRootPromotionNotice": {
+    "placeholders": {
+      "task": {
+        "type": "String"
+      }
+    }
+  },
+  "aiTopologyMergeTitle": "Change agent ownership?",
+  "aiTopologyMergeRootHelp": "Main agent “{task}” will become a child of “{parent}”. Descendants, conversations, and internal connections remain; communication links across the branch boundary will be disconnected.",
+  "@aiTopologyMergeRootHelp": {
+    "placeholders": {
+      "task": {
+        "type": "String"
+      },
+      "parent": {
+        "type": "String"
+      }
+    }
+  },
+  "aiTopologyMergeChildHelp": "“{task}” and its descendants will disconnect from the current parent and move under “{parent}”. Other agents in the original group stay in place. Conversations and internal connections remain; communication links across the branch boundary will be disconnected.",
+  "@aiTopologyMergeChildHelp": {
+    "placeholders": {
+      "task": {
+        "type": "String"
+      },
+      "parent": {
+        "type": "String"
+      }
+    }
+  },
+  "aiTopologyMergeConfirm": "Confirm and connect",
+  "aiTopologyConnectSelected": "Connect selected agents",
+  "aiTopologyMakeRoot": "Make main agent",
+  "aiTopologyMakeChild": "Make child agent",
+  "aiTopologyChooseParent": "Choose parent agent",
+  "aiTopologyChooseParentHelp": "Change this main agent to a child agent and choose its parent. Existing descendants, conversation, and other connections will remain.",
+  "aiTopologyAutoLayout": "Auto layout",
+  "aiTopologyReset": "Reset view",
+  "aiTopologyZoomIn": "Zoom in",
+  "aiTopologyZoomOut": "Zoom out",
+  "aiTopologyNewPrimaryHelp": "Create the starting point of an independent agent tree. Child agents can delegate further.",
+  "aiTopologyNewChildHelp": "Keep an independent conversation and delegate further agents.",
+  "aiTopologyEmptyHelp": "Create a main agent, then add child agents at any level.",
+  "aiTopologyDelete": "Delete agent",
+  "aiTopologyDeleteTitle": "Delete this agent?",
+  "aiTopologyDeleteHelp": "Delete only this agent. Its unselected direct children become main agents, with their descendants preserved. Removed agents go to the recycle bin and can be restored in Settings → Agents → Storage.",
+  "aiTopologyNoParent": "Select a main agent or child agent first.",
+  "aiTopologyModel": "Execution model",
+  "aiTopologyInherit": "Inherit parent model",
   "aiWorkspaceDeleteAction": "Delete child agent",
   "aiTopologyMessageFrom": "From agent: {title}",
   "@aiTopologyMessageFrom": {
-    "placeholders": {"title": {"type": "String"}}
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
   },
-    "aiAgentIdValue": "Agent ID: {id}",
-    "@aiAgentIdValue": {"placeholders":{"id":{"type":"String"}}},
-    "aiAgentModelServiceValue": "Model service: {value}",
-    "@aiAgentModelServiceValue": {"placeholders":{"value":{"type":"String"}}},
-    "aiTopologyTaskId": "Agent ID",
-    "aiTopologyCopyId": "Copy agent ID",
-    "aiTopologyCanvasBackground": "Canvas background",
-    "aiTopologyCanvasDots": "Dots",
-    "aiTopologyCanvasGrid": "Grid",
-    "aiTopologyCanvasPlain": "Plain",
-    "aiTopologyDeleteRootHelp": "Delete this main agent. The most recently created direct child becomes the main agent; other child branches are preserved.",
-    "aiTopologyStopSelected": "Stop selected agents",
-    "aiTopologyDeleteSelected": "Delete selected agents",
-    "aiTopologyDisconnect": "Disconnect",
-    "aiTopologyDisconnectSelected": "Disconnect selected links",
-    "aiTopologySelectAll": "Select all agents",
-    "aiTopologyClearSelection": "Clear selection",
-    "aiTopologyConnectHint": "Drag between agent handles to connect them. Joining different agent trees requires confirmation.",
-    "aiTopologyInvalidConnection": "Cannot connect: choose a valid agent without creating a cycle.",
-    "aiTopologyDeleteSelectedTitle": "Delete selected agents?",
-    "aiTopologyDeleteSelectedHelp": "Selected agents will stop and be removed. Descendants of selected child agents are removed; unselected child branches of deleted main agents are preserved.",
-    "aiTopologySelectedCount": "{count} selected",
-    "aiTopologySelectionHelp": "Left-drag to select · Right-drag to pan · Ctrl + wheel to zoom",
-    "@aiTopologySelectedCount": {"placeholders": {"count": {"type": "int"}}}
-,
-    "aiTopologyDisconnectTitle": "Disconnect agents?",
-    "aiTopologyDisconnectHelp": "Disconnect the selected links and update main agent and child roles to match the remaining connections. work instructions and conversation history will be retained.",
-    "aiTopologyRoleChangeNotice": "“{task}” will become a {role}.",
-    "@aiTopologyRoleChangeNotice": {
-        "placeholders": {
-            "task": {
-                "type": "String"
-            },
-            "role": {
-                "type": "String"
-            }
-        }
-    },
-    "aiProcessingSpeed": "Processing speed",
-    "aiProcessingSpeedStandard": "Standard",
-    "aiProcessingSpeedFast": "Fast",
-    "aiProcessingSpeedUltra": "Ultrafast",
-    "aiProcessingSpeedCost": "Fast and Ultrafast usually cost more"
+  "aiAgentIdValue": "Agent ID: {id}",
+  "@aiAgentIdValue": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "aiAgentModelServiceValue": "Model service: {value}",
+  "@aiAgentModelServiceValue": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "aiTopologyTaskId": "Agent ID",
+  "aiTopologyCopyId": "Copy agent ID",
+  "aiTopologyCanvasBackground": "Canvas background",
+  "aiTopologyCanvasDots": "Dots",
+  "aiTopologyCanvasGrid": "Grid",
+  "aiTopologyCanvasPlain": "Plain",
+  "aiTopologyDeleteRootHelp": "Delete this main agent. The most recently created direct child becomes the main agent; other child branches are preserved. Removed agents go to the recycle bin and can be restored in Settings → Agents → Storage.",
+  "aiTopologyStopSelected": "Stop selected agents",
+  "aiTopologyDeleteSelected": "Delete selected agents",
+  "aiTopologyDisconnect": "Disconnect",
+  "aiTopologyDisconnectSelected": "Disconnect selected links",
+  "aiTopologySelectAll": "Select all agents",
+  "aiTopologyClearSelection": "Clear selection",
+  "aiTopologyConnectHint": "Drag between agent handles to connect them. Joining different agent trees requires confirmation.",
+  "aiTopologyInvalidConnection": "Cannot connect: choose a valid agent without creating a cycle.",
+  "aiTopologyDeleteSelectedTitle": "Delete selected agents?",
+  "aiTopologyDeleteSelectedHelp": "Delete only the selected agents and preserve unselected descendant branches. Unselected direct children of deleted child agents become main agents. A deleted main agent is replaced by its most recently created unselected direct child. Removed agents go to the recycle bin and can be restored in Settings → Agents → Storage.",
+  "aiTopologySelectedCount": "{count} selected",
+  "aiTopologySelectionHelp": "Left-drag to select · Ctrl/Shift + click to multi-select · Right-drag to pan · Wheel to pan vertically · Shift + wheel to pan horizontally · Ctrl + wheel to zoom",
+  "aiTopologyShortcutsHelp": "Left-click: select a card or link\nLeft-drag empty canvas: box-select cards and links\nCtrl/Shift + click or box-select: extend selection\nDouble-click a card: open conversation\nDrag a card: move it\nDrag a connection port: connect agents\nRight-drag / middle-drag / Space + left-drag: pan canvas\nWheel: pan vertically\nShift + wheel: pan horizontally\nCtrl + wheel: zoom\nCtrl + A: select all\nCtrl + C / Ctrl + V: copy / paste cards\nCtrl + Z: undo\nCtrl + Y or Ctrl + Shift + Z: redo\nDelete / Backspace: delete selected cards or disconnect selected links\nEsc: cancel selection or connection",
+  "@aiTopologySelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiTopologyDisconnectTitle": "Disconnect agents?",
+  "aiTopologyDisconnectHelp": "Disconnect the selected links and update main agent and child roles to match the remaining connections. work instructions and conversation history will be retained.",
+  "aiTopologyRoleChangeNotice": "“{task}” will become a {role}.",
+  "@aiTopologyRoleChangeNotice": {
+    "placeholders": {
+      "task": {
+        "type": "String"
+      },
+      "role": {
+        "type": "String"
+      }
+    }
+  },
+  "aiProcessingSpeed": "Processing speed",
+  "aiProcessingSpeedStandard": "Standard",
+  "aiProcessingSpeedFast": "Fast",
+  "aiProcessingSpeedUltra": "Ultrafast",
+  "aiProcessingSpeedCost": "Fast and Ultrafast usually cost more",
+  "agentStorageScopeHint": "Identify agents by their full ID; the full name and ID appear below.",
+  "agentStorageBackupTitle": "Import and export",
+  "agentStorageManageHint": "Search, add and edit memories in the selected scope.",
+  "agentStorageDevice": "This device",
+  "agentStorageDeviceHint": "Local conversations, memories and workflow data.",
+  "agentStorageManageAction": "Manage",
+  "agentStorageCleanAction": "Clean up now",
+  "agentStorageBackupHint": "Import or export workflows, agents, conversations and long-term memories.",
+  "agentStorageMemoryCategory": "Long-term memory",
+  "agentStorageOtherCategory": "Indexes and database space",
+  "agentStorageTitle": "Storage",
+  "agentStorageDescription": "Manage conversations, memories and portable backups.",
+  "agentStorageMemoryScopeHint": "Choose the agent whose long-term memories you want to manage. The memories and automatic memory settings below apply only to that agent.",
+  "agentStorageScope": "Long-term memory owner",
+  "agentStorageMemories": "Long-term memories",
+  "agentStorageContextTitle": "Chat history and context",
+  "agentStorageContextManageHint": "Manage chat context, compacted summaries and the context cache.",
+  "agentStorageRecords": "Conversations and workflow",
+  "agentStorageAdd": "Add memory",
+  "agentStorageManageContext": "Manage chat history and context",
+  "agentStorageManage": "Manage memories",
+  "agentStorageImport": "Import package",
+  "agentStorageExportMemory": "Export long-term memories",
+  "agentStorageImportMemory": "Import long-term memories",
+  "agentStorageExportAgent": "Export agent",
+  "agentStorageExportBranch": "Export agent branch",
+  "agentStorageExportChat": "Export conversations",
+  "agentStorageExportWorkflow": "Export agent workflow",
+  "agentStorageExportAll": "Back up all agent data",
+  "agentStorageDeleteChat": "Delete conversation and context",
+  "agentStorageDeleteChatHint": "Delete this agent’s chat history and context summary? Its saved memories remain.",
+  "agentStorageDeleteMemoryHint": "Delete this memory? This does not delete the original conversation.",
+  "agentStorageEmpty": "No saved memories.",
+  "agentStorageContent": "Memory content",
+  "agentStorageSource": "Source",
+  "agentStorageImportPreview": "Import preview",
+  "agentStorageImportHint": "New agents receive new IDs. Memories are merged into the selected scope; exact duplicates are skipped. Imported permissions are reset and no operations resume.",
+  "agentStorageSuccess": "Completed",
+  "agentStorageCompactResult": "Context compacted: {before} → {after} tokens (estimated).",
+  "@agentStorageCompactResult": {
+    "placeholders": {
+      "before": {
+        "type": "int"
+      },
+      "after": {
+        "type": "int"
+      }
+    }
+  },
+  "agentStorageCompactTooShort": "There is not enough conversation history to compact yet.",
+  "agentStorageCompactUnavailable": "Configure an available model service before compacting context.",
+  "agentStorageCompactCancelled": "Context compaction cancelled.",
+  "agentStorageCompactUnchanged": "No usable summary was generated. Context is unchanged.",
+  "agentStorageCompactFailed": "Context compaction failed. Check the model service and try again.",
+  "agentStorageCleanFailed": "Clean-up failed. Please try again later.",
+  "agentStorageCleanNothing": "Nothing to clean up.",
+  "agentStorageCleanResult": "Removed {count} leftover items and freed {size}.",
+  "@agentStorageCleanResult": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "agentStorageCleanSpaceResult": "Storage organized. Freed {size}.",
+  "@agentStorageCleanSpaceResult": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "agentStoragePackageType": "LilygoBox data package (7z)",
+  "agentStorageCompact": "Compact context",
+  "agentStorageRetrieving": "Retrieve memories",
+  "agentStorageSaving": "Save memory",
+  "agentStorageDeleting": "Delete memory",
+  "agentStorageMemoryEnabled": "Automatically use long-term memories",
+  "agentStorageMemoryHint": "Retrieve relevant memories before each turn to inform replies, and allow the agent to search, save or delete memories.",
+  "agentStorageUsage": "Local storage usage",
+  "agentStorageSearch": "Search memories",
+  "agentStorageNoAgent": "Select an agent first.",
+  "agentStorageBusy": "Stop the selected agents before importing or deleting their data.",
+  "agentMemoryDuplicate": "Identical — skip",
+  "agentMemoryConflict": "Different versions of the same memory",
+  "agentMemoryNew": "New memory",
+  "agentMemorySkip": "Skip",
+  "agentMemoryBoth": "Keep both",
+  "agentMemoryReplace": "Replace existing",
+  "agentMemoryIncoming": "Incoming content (editable)",
+  "agentMemoryExisting": "Existing content",
+  "agentMemoryReview": "Review memories",
+  "agentStorageMore": "Load more",
+  "agentStorageEditMemory": "Edit",
+  "agentStorageClean": "Free up storage space",
+  "agentStorageCleanHint": "Remove leftover files now to free up storage space. Chats, memories and recycle bin contents are kept.",
+  "agentStorageContextBudget": "Context budget",
+  "agentStorageContextHint": "Budget × percentage = automatic compaction threshold. Press Enter or leave the field to save. Refer to the provider’s model capacity and leave room for the full request.",
+  "agentStorageArchived": "Archived scope",
+  "agentStorageFailure": "Operation failed. Check the file or storage permissions.",
+  "agentStorageSensitiveHint": "Packages contain the selected conversations, context or long-term memory text, but no API keys. Keep them private.",
+  "agentStorageTokens": "{count} tokens (estimated)",
+  "@agentStorageTokens": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentStorageExportTab": "Export data",
+  "agentStorageImportAgents": "Import data",
+  "agentStorageImportTab": "Import data",
+  "agentStoragePackageKind": "Export contents",
+  "agentStoragePackageKindHint": "Choose the contents to export as one .7z file.",
+  "agentStorageMemoryPackage": "Long-term memory package",
+  "agentStorageChatPackage": "Conversation and context package",
+  "agentStorageAgentPackage": "Agent package",
+  "agentStorageWorkflowPackage": "Workflow package",
+  "agentStorageBackupPackage": "Complete data package",
+  "agentStorageMemoryPackageHint": "Export the selected agent’s long-term memories. Import them into another agent.",
+  "agentStorageChatPackageHint": "Export the selected agent’s complete conversation, context history and compaction summary, message bodies, reasoning, tool calls, activity records, images and attachments, without long-term memories.",
+  "agentStorageAgentPackageHint": "Export one agent’s name, model reference, conversation, context summary, long-term memories and attachments. Optionally include its children.",
+  "agentStorageWorkflowPackageHint": "Export all workflow agents, connections, canvas layout, conversations, context history and compaction summaries, long-term memories and attachments.",
+  "agentStorageBackupPackageHint": "Includes the workflow and the conversations, attachments and memories in the recycle bin.",
+  "agentStorageIncludeChildren": "Include child agents",
+  "agentStorageChooseAgent": "Choose an agent to export",
+  "agentStorageMemoryDestination": "Where to import long-term memories",
+  "agentStorageMemoryDestinationHint": "Choose an existing agent, or create a main agent for these long-term memories.",
+  "agentStorageExportTarget": "Export target",
+  "agentStorageExportTargetHint": "Choose an agent or the agent workflow, then select what to export.",
+  "agentStorageChooseExportTarget": "Choose what to export",
+  "agentStorageAgentTarget": "Agent",
+  "agentStorageIncludeArchived": "Include agents in the recycle bin",
+  "agentRecycleSearch": "Search agents",
+  "agentRecycleBin": "Recycle bin",
+  "agentRecycleHint": "Restore or permanently delete removed agents.",
+  "agentRecycleRetention": "Automatically delete",
+  "agentRecycleDays7": "After 7 days",
+  "agentRecycleDays30": "After 30 days",
+  "agentRecycleDays90": "After 90 days",
+  "agentRecycleNever": "Never",
+  "agentRecycleEmpty": "The recycle bin is empty",
+  "agentRecycleRestore": "Restore",
+  "agentRecycleDelete": "Delete permanently",
+  "agentRecycleEmptyAction": "Empty recycle bin",
+  "agentRecycleDeleteHint": "Conversations, attachments and memories will be permanently deleted. This cannot be undone.",
+  "agentRecycleRestoreHint": "The original ID, conversation and memory are preserved. If the parent no longer exists, the agent is restored as a main agent. Permissions must be granted again. Expired items are removed at the next startup if the app is closed.",
+  "agentRecycleDeletedAt": "Deleted",
+  "agentRecycleExpiresAt": "Expires",
+  "agentRecycleRetentionConfirm": "Changing retention permanently deletes any agents that have already expired. Continue?",
+  "agentTopologyHintSelectAll": "Ctrl + A · Select all agents and connections",
+  "agentTopologyHintCopy": "Ctrl + C · Copy agents or workflow",
+  "agentTopologyHintPaste": "Ctrl + V · Paste agents or workflow",
+  "agentTopologyHintUndo": "Ctrl + Z · Undo",
+  "agentTopologyHintRedo": "Ctrl + Y · Redo",
+  "agentTopologyHintDelete": "Delete · Delete selected content",
+  "agentTopologyHintEscape": "Esc · Clear selection or connection",
+  "agentTopologyHintBoxSelect": "Left-drag · Select agents and connections",
+  "agentTopologyHintPan": "Wheel / Shift + wheel · Pan canvas",
+  "agentTopologyHintZoom": "Ctrl + wheel · Zoom canvas",
+  "agentStorageWorkflowCategory": "Workflow",
+  "agentStorageContextUsage": "Current context",
+  "agentStorageContextUsageHint": "Local estimate of chat history, excluding the full request’s system instructions, tool definitions and retrieved memories.",
+  "agentStorageContextInvalid": "Enter a whole number greater than 0.",
+  "agentStorageCompactHint": "Summarize older conversation for future requests. Original conversations and attachments are retained.",
+  "agentStorageCompactNow": "Compact now",
+  "agentStorageChatDataTitle": "Conversation and context",
+  "agentStorageContextPercent": "Compaction trigger",
+  "agentStorageContextTriggerTokens": "Automatic compaction threshold: {count} tokens (estimated)",
+  "agentStorageContextPercentInvalid": "Enter a whole percentage from 1 to 100.",
+  "agentStorageContextPercentWarning": "A high percentage may leave too little room for new messages, tools and responses. Compact before the context window is full.",
+  "@agentStorageContextTriggerTokens": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentTopologyZoomPercentage": "Zoom percentage",
+  "agentTopologyControlHints": "Ctrl + A Select all · Ctrl + C Copy · Ctrl + V Paste · Ctrl + Z Undo · Ctrl + Y Redo · Ctrl + Wheel Zoom",
+  "agentTopologyShiftHints": "Shift + Wheel Pan horizontally · Shift + Click / Drag Add to selection · Ctrl + Shift + Z Redo",
+  "agentTopologySpaceHints": "Space + Left drag Pan canvas",
+  "agentStorageDatabaseLocation": "Agent data directory (conversations, context and long-term memories)",
+  "agentStorageChoosePackage": "Choose data package",
+  "agentStorageImportAutoHint": "Choose a .7z package to detect its type, then review its contents before importing. Packages contain no API keys; keep them private.",
+  "agentStorageImportCreatesAgents": "New agents will receive new IDs. Existing agents will not be overwritten.",
+  "agentStorageImportMemoryCreatesAgent": "A new agent will be created with these long-term memories. Existing agents stay unchanged. The new agent will not run automatically; select a model to use it.",
+  "agentStorageImportedMemoryAgent": "Imported agent",
+  "agentStorageImportMemoryMergeHint": "Long-term memories will be merged into the selected agent. Exact duplicates are skipped; conflicts can be reviewed before importing.",
+  "agentStorageImportSuccess": "Data imported.",
+  "agentStorageExportSuccess": "Data exported.",
+  "agentStorageTransferCancelled": "Operation cancelled.",
+  "agentStorageTransferTitle": "Processing data package",
+  "agentStorageTransferPreparing": "Preparing data",
+  "agentStorageTransferReading": "Reading package",
+  "agentStorageTransferCompressing": "Compressing data",
+  "agentStorageTransferDecompressing": "Decompressing data",
+  "agentStorageTransferVerifying": "Verifying package",
+  "agentStorageTransferAnalyzing": "Analyzing data",
+  "agentStorageTransferWriting": "Saving file",
+  "agentStorageTransferCommitting": "Completing import",
+  "agentStorageTransferCancelling": "Cancelling",
+  "agentStorageTransferElapsed": "Elapsed {duration}",
+  "@agentStorageTransferElapsed": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "agentStorageImportFile": "Data package",
+  "agentStorageChangePackage": "Choose another package",
+  "agentStorageAutoMemoryTitle": "Automatically organize long-term memories",
+  "agentStorageAutoMemoryHint": "After each completed turn, select useful lasting information, compare it with existing memories and save new items. Makes an additional request to the current model.",
+  "agentStorageAutoMemoryAction": "Organize long-term memories",
+  "agentStorageAutoMemoryResult": "Saved {saved} long-term memories; skipped {duplicates} duplicates.",
+  "@agentStorageAutoMemoryResult": {
+    "placeholders": {
+      "saved": {
+        "type": "int"
+      },
+      "duplicates": {
+        "type": "int"
+      }
+    }
+  },
+  "agentStorageImportInvalidKind": "This package is not supported by this entry. Choose the appropriate long-term memory, agent or workflow package.",
+  "agentStorageTransferFailedTitle": "Import or export failed",
+  "agentStorageInvalidPackage": "The package is invalid, damaged or unsupported. Select a valid data package.",
+  "agentStorageDeleteSelected": "Delete selected ({count})",
+  "@agentStorageDeleteSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentStorageRestoreSelected": "Restore selected ({count})",
+  "@agentStorageRestoreSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentStorageDeleteSelectedHint": "Permanently delete the {count} selected long-term memories? This cannot be undone.",
+  "@agentStorageDeleteSelectedHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentRecycleDeleteSelectedHint": "Permanently delete the {count} selected agents and their chat history, context, and long-term memories? This cannot be undone.",
+  "@agentRecycleDeleteSelectedHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentRecycleDeleteSelected": "Permanently delete selected ({count})",
+  "@agentRecycleDeleteSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentRecycleRemainingDays": "Automatically deletes in {count} days",
+  "@agentRecycleRemainingDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentRecycleRemainingHours": "Automatically deletes in {count} hours",
+  "@agentRecycleRemainingHours": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentRecycleRemainingMinutes": "Automatically deletes in {count} minutes",
+  "@agentRecycleRemainingMinutes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentRecyclePendingDeletion": "Pending automatic deletion",
+  "agentMemoryAdd": "Import",
+  "agentMemoryEmptyContent": "Memory content cannot be empty.",
+  "agentStorageNewAgent": "New agent"
 }

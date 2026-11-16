@@ -2,7 +2,7 @@
  * @Description: 跟踪内容区弹出路由，在弹窗及退出动画期间锁定标题栏页面切换。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class AppDialogObserver extends NavigatorObserver {
   final hasDialog = ValueNotifier(false);

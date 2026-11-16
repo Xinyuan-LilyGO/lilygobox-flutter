@@ -198,11 +198,15 @@ Win32Window::MessageHandler(HWND hwnd,
       return 0;
     }
     case WM_SIZE: {
+      // 最小化窗口可能报告图标大小的客户区，此时保留 Flutter 渲染表面
+      // 直到窗口恢复，避免按该尺寸重新布局应用。
+      if (wparam == SIZE_MINIMIZED) return 0;
       RECT rect = GetClientArea();
-      if (child_content_ != nullptr) {
+      const LONG width = rect.right - rect.left;
+      const LONG height = rect.bottom - rect.top;
+      if (child_content_ != nullptr && width > 0 && height > 0) {
         // Size and position the child window.
-        MoveWindow(child_content_, rect.left, rect.top, rect.right - rect.left,
-                   rect.bottom - rect.top, TRUE);
+        MoveWindow(child_content_, rect.left, rect.top, width, height, TRUE);
       }
       return 0;
     }

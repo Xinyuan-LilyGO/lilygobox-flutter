@@ -143,12 +143,9 @@ class AiModelService {
 
   factory AiModelService.fromJson(Map<String, dynamic> json) {
     final protocolName = json['protocol'] as String?;
-    final legacyProvider = json['provider'] as String?;
-    final protocol = switch (protocolName ?? legacyProvider) {
+    final protocol = switch (protocolName) {
       'openAiResponses' => AiApiProtocol.openAiResponses,
-      'openAiChatCompletions' ||
-      'deepSeek' ||
-      'openAiCompatible' => AiApiProtocol.openAiChatCompletions,
+      'openAiChatCompletions' => AiApiProtocol.openAiChatCompletions,
       _ => throw const FormatException('Unknown AI API protocol.'),
     };
     return AiModelService(
@@ -166,7 +163,6 @@ class AiModelService {
               entry.key as String: (entry.value as List).cast<String>(),
       },
       imageInputs: {
-        // 旧 imageInputs 可能来自手动设置，不用作自动能力判断。
         if (json['discoveredImageInputs'] case final Map entries)
           for (final entry in entries.entries)
             if (entry.key is String)
@@ -224,14 +220,7 @@ class AiRequestRetry {
   final Object error;
 }
 
-enum AiProcessEventType {
-  status,
-  reasoning,
-  assistant,
-  action,
-  retry,
-  guidance,
-}
+enum AiProcessEventType { status, reasoning, action, retry }
 
 class AiProcessEvent {
   const AiProcessEvent({
@@ -244,7 +233,6 @@ class AiProcessEvent {
     this.text = '',
     this.action,
     this.retry,
-    this.guidance,
   });
 
   final AiProcessEventType type;
@@ -256,7 +244,6 @@ class AiProcessEvent {
   final String text;
   final AiProcessingStep? action;
   final AiRequestRetry? retry;
-  final AiMessage? guidance;
 }
 
 class AiMessage {

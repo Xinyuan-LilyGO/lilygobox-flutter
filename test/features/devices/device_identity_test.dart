@@ -1,5 +1,5 @@
 /*
- * @Description: 验证 MAC 标识格式、旧设备记录去重和安全存储授权迁移。
+ * @Description: 验证 MAC 协议标识、当前设备记录恢复和安全存储授权。
  */
 import 'dart:convert';
 
@@ -75,12 +75,14 @@ void main() {
   });
 
   test(
-    'migration deduplicates IDs and retains unrelated preferences',
+    'current device records restore without rewriting unrelated preferences',
     () async {
       final storage = MemoryPreferencesStorage()
         ..value = jsonEncode({
-          'devices': [legacyId, id],
-          'devices.lan.v1': jsonEncode([record]),
+          'devices': [id],
+          'devices.lan.v1': jsonEncode([
+            {...record, 'id': id, 'protocolId': legacyId},
+          ]),
           'language': 'zh',
         });
       final preferences = await AppPreferences.load(storage: storage);
@@ -110,7 +112,7 @@ void main() {
   );
 
   test(
-    'secure token migrates without re-pairing and deletion removes aliases',
+    'pairing uses only the current key and leaves obsolete keys untouched',
     () async {
       const oldKey = 'lilygobox.device.$legacyId.pairing.v1';
       const newKey = 'lilygobox.device.$id.pairing.v1';
@@ -122,14 +124,15 @@ void main() {
         await SecureDevicePairingStore().readFingerprint(id),
         'certificate-fingerprint',
       );
-      expect(await store.read(id), 'existing-token');
-      expect(await storage.read(key: newKey), 'existing-token');
-      expect(await storage.read(key: oldKey), isNull);
-      await storage.write(key: oldKey, value: 'stale-token');
-      expect(await store.read(id), 'existing-token');
+      expect(await store.read(id), isNull);
+      expect(await storage.read(key: newKey), isNull);
+      expect(await storage.read(key: oldKey), 'existing-token');
+      await store.write(id, 'current-token');
+      expect(await store.read(id), 'current-token');
+      expect(await storage.read(key: oldKey), 'existing-token');
       await store.delete(id);
       expect(await store.read(id), isNull);
-      expect(await storage.read(key: oldKey), isNull);
+      expect(await storage.read(key: oldKey), 'existing-token');
       expect(await storage.read(key: newKey), isNull);
       // 撤销授权保留设备身份，重新配对时才单独清除。
       expect(await store.readFingerprint(id), 'certificate-fingerprint');

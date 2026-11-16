@@ -2,7 +2,7 @@
  * @Description: 组合设置说明、控件和重置入口，支持窄窗口布局。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../theme/definition.dart';
 import '../interaction_decoration.dart';

@@ -6,9 +6,25 @@
 #include "flutter_window.h"
 #include "single_instance.h"
 #include "utils.h"
+#include "tray_icon.h"
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
+  const auto launch_arguments = GetCommandLineArguments();
+  for (const auto& argument : launch_arguments) {
+    const std::string prefix = "--lilygobox-tray-host=";
+    if (argument.rfind(prefix, 0) == 0) {
+      const HWND owner = reinterpret_cast<HWND>(static_cast<uintptr_t>(
+          _strtoui64(argument.c_str() + prefix.size(), nullptr, 10)));
+      if (!IsWindow(owner)) return EXIT_FAILURE;
+      const HRESULT initialized = OleInitialize(nullptr);
+      if (FAILED(initialized)) return EXIT_FAILURE;
+      flutter::DartProject menu_project(L"data");
+      const int result = TrayIcon::RunMenuHost(menu_project, owner);
+      OleUninitialize();
+      return result;
+    }
+  }
   // 重复启动只唤起已有主窗口，不重复加载 Flutter、配置与设备连接。
   lilygobox::SingleInstance single_instance;
   if (!single_instance.AcquireOrActivate()) return EXIT_SUCCESS;

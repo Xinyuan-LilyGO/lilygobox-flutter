@@ -2,9 +2,11 @@
  * @Description: 验证设置下拉控件取色并保持交互流程。
  */
 
+import 'package:lilygobox/core/l10n/delegates.dart';
+
 import 'dart:ui' show PointerDeviceKind;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/theme/material_palette.dart';
@@ -31,6 +33,25 @@ Color background(WidgetTester tester, Finder surface) {
 }
 
 void main() {
+  test('popup surfaces mirror light and dark contrast and interpolate', () {
+    final dark = MaterialPalette.create(ThemeType.dark);
+    final light = MaterialPalette.create(ThemeType.light);
+    expect(dark.popupSurfaceColor, const Color(0xFF191919));
+    expect(light.popupSurfaceColor, Colors.white);
+    expect(
+      dark.popupSurfaceColor.computeLuminance(),
+      lessThan(dark.secondary.computeLuminance()),
+    );
+    expect(
+      dark.primaryTextHoverColor.computeLuminance(),
+      greaterThan(dark.popupSurfaceColor.computeLuminance()),
+    );
+    expect(
+      AppTheme.lerp(dark, light, .5).popupSurfaceColor,
+      Color.lerp(dark.popupSurfaceColor, light.popupSurfaceColor, .5),
+    );
+  });
+
   testWidgets('select control uses its hosting surface color', (tester) async {
     final themes = ThemeProvider();
     addTearDown(themes.dispose);
@@ -182,7 +203,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('zh'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SettingsRow(
@@ -197,9 +218,8 @@ void main() {
     );
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
-    final label = AppLocalizations.of(
-      tester.element(find.byType(SettingsRow)),
-    ).resetThisSetting;
+    final label = AppLocalizations.of(tester.element(find.byType(SettingsRow)))
+        .resetThisSetting;
     final reset = find.ancestor(
       of: find.text(label),
       matching: find.byType(MenuItemSurface),

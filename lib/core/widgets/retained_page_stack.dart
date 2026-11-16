@@ -2,7 +2,9 @@
  * @Description: 按需创建并保留已访问页面，切换时暂停隐藏页面动画并隔离键盘焦点。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+
+import '../theme/update_scope.dart';
 
 class RetainedPageStack extends StatefulWidget {
   const RetainedPageStack({
@@ -56,7 +58,10 @@ class _RetainedPageStackState extends State<RetainedPageStack>
               child: ExcludeFocus(
                 excluding: key != widget.activeKey,
                 child: _visited.contains(key)
-                    ? widget.pages[key]!
+                    ? ThemeUpdateScope(
+                        active: key == widget.activeKey,
+                        child: widget.pages[key]!,
+                      )
                     : const SizedBox.shrink(),
               ),
             ),

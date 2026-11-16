@@ -38,9 +38,8 @@ String appReleaseVersion(
   if (override.isNotEmpty) return override;
   final releaseChannel = channel ?? appReleaseChannel;
   if (releaseChannel == AppReleaseChannel.stable) return packageVersion;
-  final match = RegExp(
-    r'^v?(\d+\.\d+\.\d+)(?:-(?:alpha|beta)\.\d+)?$',
-  ).firstMatch(packageVersion);
+  final match = RegExp(r'^v?(\d+\.\d+\.\d+)(?:-(?:alpha|beta)\.\d+)?$')
+      .firstMatch(packageVersion);
   if (match == null) return packageVersion;
   return '${match.group(1)}-${releaseChannel.value}.1';
 }
@@ -82,9 +81,8 @@ class AppUpdate {
 }
 
 class AppUpdateService {
-  const AppUpdateService({http.Client? client, Directory? updateDirectory})
-    : _client = client,
-      _customUpdateDirectory = updateDirectory;
+  const AppUpdateService({this._client, Directory? updateDirectory})
+    : _customUpdateDirectory = updateDirectory;
 
   final http.Client? _client;
   final Directory? _customUpdateDirectory;
@@ -600,9 +598,8 @@ WScript.Quit 0
   }
 
   static List<int> _versionParts(String value) {
-    final match = RegExp(
-      r'^v?(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta)\.(\d+))?$',
-    ).firstMatch(value);
+    final match = RegExp(r'^v?(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta)\.(\d+))?$')
+        .firstMatch(value);
     if (match == null) {
       throw FormatException('Invalid application version: $value');
     }

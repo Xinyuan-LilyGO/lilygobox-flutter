@@ -2,10 +2,10 @@
  * @Description: 验证全局平滑滚轮、中键连续滚动、嵌套仲裁与退出清理。
  */
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/widgets/app_scroll_behavior.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 模拟鼠标滚轮输入，直接验证全局事件仲裁后的滚动结果。
 Future<void> wheel(WidgetTester tester, Offset point, double delta) =>
@@ -40,6 +40,184 @@ void main() {
       await tester.pumpAndSettle();
       expect(controller.offset, closeTo(240, .1));
     });
+
+    testWidgets(
+      'continuous wheel input advances during every frame without restarting the activity',
+      (tester) async {
+        final controller = ScrollController();
+        addTearDown(controller.dispose);
+        var starts = 0;
+        var ends = 0;
+        var intentions = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            scrollBehavior: const AppScrollBehavior(),
+            home: NotificationListener<AppUserScrollNotification>(
+              onNotification: (_) {
+                intentions++;
+                return false;
+              },
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification is ScrollStartNotification) starts++;
+                  if (notification is ScrollEndNotification) ends++;
+                  return false;
+                },
+                child: ListView(
+                  controller: controller,
+                  children: const [SizedBox(height: 10000)],
+                ),
+              ),
+            ),
+          ),
+        );
+        var previous = 0.0;
+        for (var i = 0; i < 8; i++) {
+          await wheel(tester, const Offset(200, 200), 120);
+          await tester.pump(const Duration(milliseconds: 16));
+          if (i > 0) expect(controller.offset, greaterThan(previous));
+          previous = controller.offset;
+        }
+        expect(controller.offset, greaterThan(120));
+        expect(controller.offset, lessThan(960));
+        expect(starts, 1);
+        expect(ends, 0);
+        expect(intentions, 8);
+        await tester.pumpAndSettle();
+        expect(controller.offset, closeTo(960, .1));
+        expect(starts, 1);
+        expect(ends, 1);
+      },
+    );
+
+    testWidgets(
+      'rapid multi-event bursts advance each frame and preserve all distance',
+      (tester) async {
+        final controller = ScrollController();
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            scrollBehavior: const AppScrollBehavior(),
+            home: ListView(
+              controller: controller,
+              children: const [SizedBox(height: 40000)],
+            ),
+          ),
+        );
+        var previous = 0.0;
+        for (var frame = 0; frame < 32; frame++) {
+          // Four wheel events arrive before the next rendered frame.
+          for (var event = 0; event < 4; event++) {
+            await wheel(tester, const Offset(200, 200), 120);
+          }
+          await tester.pump(const Duration(milliseconds: 16));
+          if (frame > 0) expect(controller.offset, greaterThan(previous));
+          previous = controller.offset;
+        }
+        expect(controller.offset, lessThan(15360));
+        await tester.pumpAndSettle();
+        expect(controller.offset, closeTo(15360, .1));
+        await wheel(tester, const Offset(200, 200), -120);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(controller.offset, lessThan(15360));
+        await tester.pumpAndSettle();
+        expect(controller.offset, closeTo(15240, .1));
+      },
+    );
+
+    testWidgets(
+      'same-frame wheel bursts accumulate and reverse without a forward tail',
+      (tester) async {
+        final controller = ScrollController(initialScrollOffset: 600);
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            scrollBehavior: const AppScrollBehavior(),
+            home: ListView(
+              controller: controller,
+              children: const [SizedBox(height: 10000)],
+            ),
+          ),
+        );
+        for (var i = 0; i < 5; i++) {
+          await wheel(tester, const Offset(200, 200), 120);
+        }
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 32));
+        final beforeReverse = controller.offset;
+        expect(beforeReverse, greaterThan(600));
+        await wheel(tester, const Offset(200, 200), -120);
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(controller.offset, lessThan(beforeReverse));
+        await tester.pumpAndSettle();
+        expect(controller.offset, closeTo(beforeReverse - 120, .1));
+        for (var i = 0; i < 5; i++) {
+          await wheel(tester, const Offset(200, 200), 120);
+        }
+        final beforeBurst = controller.offset;
+        await tester.pumpAndSettle();
+        expect(controller.offset, closeTo(beforeBurst + 600, .1));
+      },
+    );
+
+    testWidgets('external scrolling cancels a pending wheel target', (
+      tester,
+    ) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          scrollBehavior: const AppScrollBehavior(),
+          home: ListView(
+            controller: controller,
+            children: const [SizedBox(height: 10000)],
+          ),
+        ),
+      );
+      await wheel(tester, const Offset(200, 200), 960);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 32));
+      controller.jumpTo(300);
+      await wheel(tester, const Offset(200, 200), 120);
+      await tester.pumpAndSettle();
+      expect(controller.offset, closeTo(420, .1));
+    });
+
+    testWidgets(
+      'wheel target remains bounded when content shrinks during animation',
+      (tester) async {
+        final controller = ScrollController();
+        final extent = ValueNotifier<double>(10000);
+        addTearDown(controller.dispose);
+        addTearDown(extent.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            scrollBehavior: const AppScrollBehavior(),
+            home: ValueListenableBuilder<double>(
+              valueListenable: extent,
+              builder: (_, height, child) => ListView(
+                controller: controller,
+                children: [SizedBox(height: height)],
+              ),
+            ),
+          ),
+        );
+        await wheel(tester, const Offset(200, 200), 3000);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 32));
+        extent.value = 800;
+        await tester.pumpAndSettle();
+        expect(
+          controller.offset,
+          inInclusiveRange(
+            controller.position.minScrollExtent,
+            controller.position.maxScrollExtent,
+          ),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     testWidgets('should scroll the inner list and hand off at its boundary', (
       tester,

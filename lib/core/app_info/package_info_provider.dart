@@ -2,13 +2,24 @@
  * @Description: 加载并缓存应用名称、版本和软件包信息，管理加载状态。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 class PackageInfoProvider with ChangeNotifier {
   PackageInfo? _packageInfo;
   bool _isLoading = false;
   String? _error;
+  bool _disposed = false;
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   PackageInfo? get packageInfo => _packageInfo;
   bool get isLoading => _isLoading;

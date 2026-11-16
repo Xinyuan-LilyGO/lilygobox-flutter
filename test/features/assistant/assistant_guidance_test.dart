@@ -190,53 +190,44 @@ void main() {
       expect(replies.map((item) => item.id).toSet(), hasLength(4));
       for (final response in replies) {
         expect(response.status, AiResponseStatus.completed);
-        expect(
-          response.processEvents.where(
-            (event) => event.type == AiProcessEventType.guidance,
-          ),
-          isEmpty,
-        );
       }
     },
   );
 
-  test(
-    'Responses preserves previous output and replays image guidance as input_image',
-    () async {
-      await scope.provider.saveService(
-        id: scope.provider.selectedService!.id,
-        name: 'Responses',
-        protocol: AiApiProtocol.openAiResponses,
-        baseUrl: 'https://example.test/v1',
-        models: ['vision-model'],
-        apiKey: 'key',
-      );
-      final send = scope.provider.sendMessage('Start');
-      await started.future;
-      await scope.provider.sendMessage(
-        'Look here',
-        attachments: [
-          AiImageAttachment(
-            name: 'test.png',
-            bytes: Uint8List.fromList([1]),
-            mimeType: 'image/png',
-          ),
-        ],
-      );
-      release.complete();
-      await send;
-      expect(requests, hasLength(2));
-      final input = requests.last['input'] as List;
-      expect(input.map((item) => item['role']), ['user', 'assistant', 'user']);
-      expect(input.last['content'], [
-        {'type': 'input_text', 'text': 'Look here'},
-        {'type': 'input_image', 'image_url': 'data:image/png;base64,AQ=='},
-      ]);
-      expect(scope.provider.messages.last.content, 'Updated answer.');
-      expect(scope.provider.messages.last.status, AiResponseStatus.completed);
-      expect(scope.provider.pendingGuidance, isEmpty);
-    },
-  );
+  test('Responses preserves previous output and replays image guidance as input_image', () async {
+    await scope.provider.saveService(
+      id: scope.provider.selectedService!.id,
+      name: 'Responses',
+      protocol: AiApiProtocol.openAiResponses,
+      baseUrl: 'https://example.test/v1',
+      models: ['vision-model'],
+      apiKey: 'key',
+    );
+    final send = scope.provider.sendMessage('Start');
+    await started.future;
+    await scope.provider.sendMessage(
+      'Look here',
+      attachments: [
+        AiImageAttachment(
+          name: 'test.png',
+          bytes: Uint8List.fromList([1]),
+          mimeType: 'image/png',
+        ),
+      ],
+    );
+    release.complete();
+    await send;
+    expect(requests, hasLength(2));
+    final input = requests.last['input'] as List;
+    expect(input.map((item) => item['role']), ['user', 'assistant', 'user']);
+    expect(input.last['content'], [
+      {'type': 'input_text', 'text': 'Look here'},
+      {'type': 'input_image', 'image_url': 'data:image/png;base64,AQ=='},
+    ]);
+    expect(scope.provider.messages.last.content, 'Updated answer.');
+    expect(scope.provider.messages.last.status, AiResponseStatus.completed);
+    expect(scope.provider.pendingGuidance, isEmpty);
+  });
 
   test(
     'stop between tools skips later actions and closes their history entries',
@@ -280,79 +271,73 @@ void main() {
     await send;
     expect(requests, hasLength(1));
     expect(
-      scope.provider.messages.last.processEvents.where(
-        (event) => event.type == AiProcessEventType.guidance,
-      ),
-      isEmpty,
+      scope.provider.messages
+          .where((m) => m.role == 'user')
+          .any((m) => m.content == 'Discard this'),
+      isFalse,
     );
   });
 
-  test(
-    'continue after stopping before output reuses the turn and requests continuation',
-    () async {
-      final send = scope.provider.sendMessage('Start');
-      await started.future;
-      scope.provider.stopGeneration();
-      release.complete();
-      await send;
-      expect(scope.provider.canContinue, isTrue);
-      final requestCount = requests.length;
-      final continuation = scope.provider.continueGeneration();
-      await scope.provider.continueGeneration();
-      await continuation;
-      expect(requests, hasLength(requestCount + 1));
-      expect(
-        (requests.last['messages'] as List).last['content'],
-        contains('Continue the previous response'),
-      );
-      expect(
-        scope.provider.messages.where((item) => item.role == 'user'),
-        hasLength(1),
-      );
-      expect(scope.provider.messages.last.content, 'Updated answer.');
-      expect(
-        scope.provider.messages.last.processEvents.any(
-          (event) => event.status == AiResponseStatus.stopped,
-        ),
-        isTrue,
-      );
-      expect(scope.provider.canContinue, isFalse);
-    },
-  );
+  test('continue after stopping before output reuses the turn and requests continuation', () async {
+    final send = scope.provider.sendMessage('Start');
+    await started.future;
+    scope.provider.stopGeneration();
+    release.complete();
+    await send;
+    expect(scope.provider.canContinue, isTrue);
+    final requestCount = requests.length;
+    final continuation = scope.provider.continueGeneration();
+    await scope.provider.continueGeneration();
+    await continuation;
+    expect(requests, hasLength(requestCount + 1));
+    expect(
+      (requests.last['messages'] as List).last['content'],
+      contains('Continue the previous response'),
+    );
+    expect(
+      scope.provider.messages.where((item) => item.role == 'user'),
+      hasLength(1),
+    );
+    expect(scope.provider.messages.last.content, 'Updated answer.');
+    expect(
+      scope.provider.messages.last.processEvents.any(
+        (event) => event.status == AiResponseStatus.stopped,
+      ),
+      isTrue,
+    );
+    expect(scope.provider.canContinue, isFalse);
+  });
 
-  test(
-    'tool replies precede guidance and the original request configuration is retained',
-    () async {
-      tool = true;
-      final send = scope.provider.sendMessage('Change theme');
-      await started.future;
-      await scope.provider.sendMessage('Then explain it');
-      await scope.provider.saveService(
-        name: 'Other',
-        protocol: AiApiProtocol.openAiChatCompletions,
-        baseUrl: 'https://other.test/v1',
-        models: ['other'],
-        apiKey: 'other',
-      );
-      release.complete();
-      await send;
-      expect(requests, hasLength(3));
-      expect((requests[1]['messages'] as List).last['role'], 'tool');
-      final history = requests.last['messages'] as List;
-      expect(history.map((item) => item['role']), [
-        'system',
-        'user',
-        'assistant',
-        'tool',
-        'assistant',
-        'user',
-      ]);
-      expect(history.last['content'], 'Then explain it');
-      expect(requests.last['model'], 'vision-model');
-      expect(theme.currentTheme, ThemeType.dark);
-      expect(scope.provider.messages.last.status, AiResponseStatus.completed);
-    },
-  );
+  test('tool replies precede guidance and the original request configuration is retained', () async {
+    tool = true;
+    final send = scope.provider.sendMessage('Change theme');
+    await started.future;
+    await scope.provider.sendMessage('Then explain it');
+    await scope.provider.saveService(
+      name: 'Other',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://other.test/v1',
+      models: ['other'],
+      apiKey: 'other',
+    );
+    release.complete();
+    await send;
+    expect(requests, hasLength(3));
+    expect((requests[1]['messages'] as List).last['role'], 'tool');
+    final history = requests.last['messages'] as List;
+    expect(history.map((item) => item['role']), [
+      'system',
+      'user',
+      'assistant',
+      'tool',
+      'assistant',
+      'user',
+    ]);
+    expect(history.last['content'], 'Then explain it');
+    expect(requests.last['model'], 'vision-model');
+    expect(theme.currentTheme, ThemeType.dark);
+    expect(scope.provider.messages.last.status, AiResponseStatus.completed);
+  });
 
   test(
     'taking a queued message returns text and images without sending it',
@@ -421,8 +406,9 @@ void main() {
               jsonDecode(utf8.decode(await body.toBytes()))
                   as Map<String, dynamic>,
             );
-            if (payloads.length == 1)
+            if (payloads.length == 1) {
               return http.StreamedResponse(stream.stream, 200);
+            }
             if (payloads.length == 2) {
               expect(cancelled.isCompleted, isTrue);
               secondStarted.complete();
@@ -505,17 +491,12 @@ void main() {
         expect(payloads, hasLength(3));
         expect(running.provider.pendingGuidance, isEmpty);
         expect(
-          running.provider.messages[1].processEvents
-              .where((event) => event.type == AiProcessEventType.guidance)
-              .map((event) => event.guidance!.content),
-          ['Guide now'],
+          running.provider.messages
+              .where((message) => message.role == 'user')
+              .map((message) => message.content),
+          ['Start', 'Guide now', 'Wait for later'],
         );
-        expect(
-          running.provider.messages[1].processEvents.any(
-            (event) => event.text == 'Partial',
-          ),
-          isTrue,
-        );
+        expect(running.provider.messages[1].content, 'Partial');
         expect(
           running.provider.messages.last.status,
           AiResponseStatus.completed,
@@ -537,7 +518,7 @@ void main() {
             scope.provider.busy &&
             scope.provider.messages.last.processingSteps.length == 1) {
           guided = true;
-          unawaited(scope.provider.guidePendingMessage(queuedId!));
+          unawaited(scope.provider.guidePendingMessage(queuedId));
         }
       }
 
@@ -562,7 +543,19 @@ void main() {
       ]);
       expect(history[4]['content'], contains('Cancelled'));
       expect(history.last['content'], 'Keep the dark theme');
-      expect(scope.provider.messages.last.processingSteps, hasLength(1));
+      final toolReplies = scope.provider.messages.where(
+        (message) => message.processingSteps.isNotEmpty,
+      );
+      expect(toolReplies, hasLength(1));
+      expect(toolReplies.single.processingSteps, hasLength(1));
+      expect(toolReplies.single.processingSteps.single.name, 'set_theme');
+      expect(
+        scope.provider.messages
+            .where((message) => message.role == 'user')
+            .map((message) => message.content),
+        ['Change theme', 'Keep the dark theme'],
+      );
+      expect(scope.provider.messages.last.processingSteps, isEmpty);
       expect(scope.provider.error, isNull);
       expect(scope.provider.canContinue, isFalse);
     },
@@ -584,10 +577,10 @@ void main() {
     expect((requests.last['messages'] as List).last['content'], 'Still needed');
     expect(scope.provider.messages[2].content, 'Still needed');
     expect(
-      scope.provider.messages.last.processEvents.where(
-        (event) => event.type == AiProcessEventType.guidance,
+      scope.provider.messages.where(
+        (m) => m.role == 'user' && m.content == 'Still needed',
       ),
-      isEmpty,
+      hasLength(1),
     );
   });
 
@@ -608,43 +601,40 @@ void main() {
     },
   );
 
-  test(
-    'image guidance checks the running model instead of the next selected model',
-    () async {
-      final serviceId = scope.provider.selectedService!.id;
-      await scope.provider.saveService(
-        id: serviceId,
-        name: 'Text only',
-        protocol: AiApiProtocol.openAiChatCompletions,
-        baseUrl: 'https://example.test/v1',
-        models: ['vision-model'],
-        apiKey: 'key',
-        imageInputs: {'vision-model': AiImageInput.unsupported},
-      );
-      final send = scope.provider.sendMessage('Start');
-      await started.future;
-      await scope.provider.saveService(
-        name: 'Vision',
-        protocol: AiApiProtocol.openAiChatCompletions,
-        baseUrl: 'https://other.test/v1',
-        models: ['other'],
-        apiKey: 'other',
-      );
-      await scope.provider.sendMessage(
-        'Look',
-        attachments: [
-          AiImageAttachment(
-            name: 'test.png',
-            bytes: Uint8List(1),
-            mimeType: 'image/png',
-          ),
-        ],
-      );
-      expect(scope.provider.pendingGuidance, isEmpty);
-      expect(scope.provider.error, isA<AiConfigurationException>());
-      release.complete();
-      await send;
-      expect(requests, hasLength(1));
-    },
-  );
+  test('image guidance checks the running model instead of the next selected model', () async {
+    final serviceId = scope.provider.selectedService!.id;
+    await scope.provider.saveService(
+      id: serviceId,
+      name: 'Text only',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://example.test/v1',
+      models: ['vision-model'],
+      apiKey: 'key',
+      imageInputs: {'vision-model': AiImageInput.unsupported},
+    );
+    final send = scope.provider.sendMessage('Start');
+    await started.future;
+    await scope.provider.saveService(
+      name: 'Vision',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://other.test/v1',
+      models: ['other'],
+      apiKey: 'other',
+    );
+    await scope.provider.sendMessage(
+      'Look',
+      attachments: [
+        AiImageAttachment(
+          name: 'test.png',
+          bytes: Uint8List(1),
+          mimeType: 'image/png',
+        ),
+      ],
+    );
+    expect(scope.provider.pendingGuidance, isEmpty);
+    expect(scope.provider.error, isA<AiConfigurationException>());
+    release.complete();
+    await send;
+    expect(requests, hasLength(1));
+  });
 }

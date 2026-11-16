@@ -5,10 +5,13 @@ import 'dart:io';
 import '../domain/web_failure.dart';
 import 'pinned_https_connection.dart';
 
-typedef WebAddressResolver =
-    Future<List<InternetAddress>> Function(String host);
-typedef WebConnector =
-    Future<ConnectionTask<Socket>> Function(Uri uri, InternetAddress address);
+typedef WebAddressResolver = Future<List<InternetAddress>> Function(
+  String host,
+);
+typedef WebConnector = Future<ConnectionTask<Socket>> Function(
+  Uri uri,
+  InternetAddress address,
+);
 
 /// 读取公开静态文本；逐跳检查地址，禁止代理、凭据与私网连接。
 class WebpageReader {
@@ -99,9 +102,8 @@ class WebpageReader {
         }
         List<InternetAddress> addresses;
         try {
-          addresses = await _resolveHost(
-            current.host,
-          ).timeout(const Duration(seconds: 10));
+          addresses = await _resolveHost(current.host)
+              .timeout(const Duration(seconds: 10));
         } on SocketException {
           checkCancelled();
           throw AiWebFailure(AiWebProblem.dns, url: current);

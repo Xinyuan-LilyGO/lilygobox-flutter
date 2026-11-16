@@ -4,6 +4,8 @@
 
 ## 开发规范
 
+- [Flutter 升级与性能验证](flutter-upgrade-performance.md)：稳定版迁移、真实窗口性能基准与点阵批量绘制。
+
 - [标准提示框与操作按钮](dialog-style.md)：公共窗口模板、统一字体、按钮尺寸与浅色背景上的 6% 灰色按钮规则。
 
 - [提交说明约定](commit_messages.md)：英文标题、可选范围和改动列表的格式。
@@ -18,6 +20,8 @@
 - [AI 回复耗时与详情](assistant-response-details.md)：回复状态与用时、请求重试、错误记录、设置操作详情、Markdown 渲染、复制与消息时间。
 
 ## 功能说明
+
+- [智能体记忆与存储](agent-memory-storage.md)：聊天持久化、长期记忆、上下文压缩、单文件数据包和冲突处理。
 
 - [主页智能体工作流](assistant-workspaces.md)：多层智能体树、主智能体与可视化子智能体、双向消息、独立会话和本地恢复。
 - [AI 工具权限与批准](assistant-permissions.md)

@@ -5,8 +5,8 @@
 import 'dart:developer' as developer;
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../clipboard/image_clipboard.dart';
 import '../context_menu/right_click_menu.dart';

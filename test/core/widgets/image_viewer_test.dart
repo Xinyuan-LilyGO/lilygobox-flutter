@@ -1,9 +1,10 @@
 /*
  * @Description: 验证原图查看入口、遮罩关闭和 Ctrl 滚轮缩放。
  */
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'dart:convert';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/theme/provider.dart';
@@ -15,7 +16,7 @@ void main() {
     'iVBORw0KGgoAAAANSUhEUgAAACAAAAAYCAYAAACbU/80AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABFSURBVEhLxcghAQAwDASx+jf9MxB8AyG5u+0vZolZYpaYJWaJWWKWmCVmiVlilpglZolZYpaYJWaJWWKWmCVmiVliVrYH5+n6TNVuN3kAAAAASUVORK5CYII=',
   );
   Widget app({bool reduced = false}) => MaterialApp(
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: appLocalizationDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     locale: const Locale('en'),
     home: MediaQuery(

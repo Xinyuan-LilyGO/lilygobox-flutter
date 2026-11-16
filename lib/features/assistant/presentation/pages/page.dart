@@ -3,10 +3,10 @@
  */
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../app/navigation/provider.dart';
@@ -25,7 +25,10 @@ import '../../domain/models.dart';
 import '../../domain/process_timeline.dart';
 import '../../state/agent_workspace_provider.dart';
 import '../../state/provider.dart';
+import '../widgets/chat_bottom_fade.dart';
 import '../widgets/chat_composer.dart';
+import '../widgets/chat_message_paint_region.dart';
+import '../widgets/conversation_scroll_controller.dart';
 import '../widgets/error_text.dart';
 import '../widgets/message_content.dart';
 import '../widgets/process_details_scroll_view.dart';
@@ -49,13 +52,14 @@ class AssistantPage extends StatefulWidget {
 
 class _AssistantPageState extends State<AssistantPage> {
   final _input = TextEditingController();
-  final _scroll = ScrollController();
+  final _scroll = ConversationScrollController();
   final _inputFocus = FocusNode();
   final _conversationSelectionFocus = FocusNode(skipTraversal: true);
   final _inputScroll = ScrollController();
   bool _showLatest = false;
   // 仅在用户仍停留在底部时跟随流式内容；手动向上滚动后暂停跟随。
   bool _followLatest = true;
+  bool _initialScrollPositionApplied = false;
   bool _scrollToEndPending = false;
   int _scrollToEndVersion = 0;
   List<AiImageAttachment> _attachments = const [];
@@ -115,10 +119,12 @@ class _AssistantPageState extends State<AssistantPage> {
       _followLatest = true;
     }
     if (notification is ScrollMetricsNotification && notification.depth == 0) {
+      if (!_initialScrollPositionApplied) {
+        _initialScrollPositionApplied = true;
+        _followLatest = _scroll.initiallyFollowsLatest;
+      }
       _updateLatestButton();
-      if (_followLatest &&
-          notification.metrics.extentAfter > 1 &&
-          context.read<AiAssistantProvider>().busy) {
+      if (_followLatest && notification.metrics.extentAfter > 1) {
         _scrollToEnd();
       }
     }
@@ -244,23 +250,6 @@ class _AssistantPageState extends State<AssistantPage> {
         color: theme.secondary,
         child: Column(
           children: [
-            if (messages.isNotEmpty && !widget.readOnly)
-              Align(
-                alignment: Alignment.centerRight,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                  child: AppTooltip(
-                    message: l10n.aiClearConversation,
-                    child: IconButton(
-                      onPressed: assistant.busy
-                          ? null
-                          : assistant.clearConversation,
-                      icon: const Icon(Symbols.delete_sweep_rounded),
-                      tooltip: l10n.aiClearConversation,
-                    ),
-                  ),
-                ),
-              ),
             Expanded(
               child: CustomMultiChildLayout(
                 delegate: _ConversationLayout(hasMessages: messages.isNotEmpty),
@@ -281,28 +270,16 @@ class _AssistantPageState extends State<AssistantPage> {
                               contextMenuBuilder:
                                   AppTextSelectionMenu.buildRegion,
                               child: NotificationListener<Notification>(
+                                key: PageStorageKey(
+                                  'assistant-history-${assistant.memoryOwner}',
+                                ),
                                 onNotification: _handleScrollNotification,
                                 child: Scrollbar(
                                   controller: _scroll,
-                                  child: ShaderMask(
-                                    blendMode: BlendMode.dstIn,
-                                    shaderCallback: (bounds) =>
-                                        const LinearGradient(
-                                          begin: Alignment.topCenter,
-                                          end: Alignment.bottomCenter,
-                                          colors: [
-                                            Colors.white,
-                                            Colors.transparent,
-                                          ],
-                                          stops: [0, 1],
-                                        ).createShader(
-                                          Rect.fromLTWH(
-                                            0,
-                                            bounds.height - 64,
-                                            bounds.width,
-                                            64,
-                                          ),
-                                        ),
+                                  child: ChatBottomFade(
+                                    backgroundColor: theme.secondary,
+                                    topFadeHeight: 64,
+                                    scrollController: _scroll,
                                     child: ScrollConfiguration(
                                       behavior: const AppScrollBehavior(
                                         scrollbars: false,
@@ -328,10 +305,20 @@ class _AssistantPageState extends State<AssistantPage> {
                                                       const BoxConstraints(
                                                         maxWidth: 772,
                                                       ),
-                                                  child: _MessageView(
-                                                    key: ValueKey(message.id),
-                                                    message: message,
-                                                    theme: theme,
+                                                  // 保留完整高度与选区，只提交视口内消息的绘制层。
+                                                  child: ChatMessagePaintRegion(
+                                                    child: RepaintBoundary(
+                                                      key: ValueKey(
+                                                        'ai-message-paint-${message.id}',
+                                                      ),
+                                                      child: _MessageView(
+                                                        key: ValueKey(
+                                                          message.id,
+                                                        ),
+                                                        message: message,
+                                                        theme: theme,
+                                                      ),
+                                                    ),
                                                   ),
                                                 ),
                                               ),
@@ -450,8 +437,8 @@ class _AssistantPageState extends State<AssistantPage> {
 
 enum _ConversationSlot { messages, composer, latest }
 
-/// Lay out the composer first so the fade follows its actual, variable height.
-/// Messages extend behind its top edge rather than ending at a separate seam.
+/// 先布局输入区，使渐变范围跟随输入区的实际可变高度。
+/// 消息延伸到输入区上缘后方，避免产生单独的接缝。
 class _ConversationLayout extends MultiChildLayoutDelegate {
   _ConversationLayout({required this.hasMessages});
 
@@ -634,9 +621,9 @@ class _MessageViewState extends State<_MessageView> {
                         sourceId == null ||
                             TaskNavigationScope.maybeOf(context) == null
                         ? null
-                        : () => TaskNavigationScope.maybeOf(
-                            context,
-                          )!.openTask(sourceId),
+                        : () =>
+                              TaskNavigationScope.maybeOf(context)!
+                                  .openTask(sourceId),
                     borderRadius: BorderRadius.circular(4),
                     child: Text(
                       context.l10n.aiTopologyMessageFrom(sourceTitle),
@@ -781,7 +768,7 @@ class _MessageViewState extends State<_MessageView> {
           switchOutCurve: Curves.easeIn,
           transitionBuilder: (child, animation) => SizeTransition(
             sizeFactor: animation,
-            axisAlignment: -1,
+            alignment: Alignment.topCenter,
             child: FadeTransition(opacity: animation, child: child),
           ),
           child: _detailsExpanded
@@ -822,15 +809,11 @@ class _MessageViewState extends State<_MessageView> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 for (final entry in timeline)
-                                  if (entry.event.type !=
-                                          AiProcessEventType.assistant &&
-                                      entry.event.type !=
-                                          AiProcessEventType.guidance &&
-                                      !(turnFinished &&
-                                          entry.event.type ==
-                                              AiProcessEventType.status &&
-                                          entry.event.status ==
-                                              AiResponseStatus.thinking))
+                                  if (!(turnFinished &&
+                                      entry.event.type ==
+                                          AiProcessEventType.status &&
+                                      entry.event.status ==
+                                          AiResponseStatus.thinking))
                                     _processEvent(
                                       entry.event,
                                       entry.events,

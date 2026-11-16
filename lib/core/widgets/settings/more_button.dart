@@ -2,7 +2,7 @@
  * @Description: 提供设置项更多操作入口及重置菜单，管理菜单动画和生命周期。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../generated/l10n/app_localizations.dart';
 import '../../context_menu/right_click_menu.dart';
@@ -10,6 +10,7 @@ import '../../theme/definition.dart';
 import '../app_tooltip.dart';
 import '../menu_item_surface.dart';
 import '../popup_menu_transition.dart';
+import '../popup_scroll_dismiss.dart';
 
 class SettingMoreButton extends StatefulWidget {
   const SettingMoreButton({
@@ -36,6 +37,7 @@ class _SettingMoreButtonState extends State<SettingMoreButton>
   OverlayEntry? _overlayEntry;
   Offset _menuPosition = Offset.zero;
   late final AnimationController _menuController;
+  late final _scrollDismiss = PopupScrollDismiss(onScroll: _removeMenu);
 
   @override
   void initState() {
@@ -50,6 +52,7 @@ class _SettingMoreButtonState extends State<SettingMoreButton>
   @override
   void dispose() {
     _disposed = true;
+    _scrollDismiss.detach();
     _overlayEntry?.remove();
     _overlayEntry = null;
     _isRemoving = false;
@@ -97,6 +100,7 @@ class _SettingMoreButtonState extends State<SettingMoreButton>
     _isRemoving = false;
     _overlayEntry = OverlayEntry(builder: _buildMenuOverlay);
     Overlay.of(context).insert(_overlayEntry!);
+    _scrollDismiss.attach(context);
     if (MediaQuery.disableAnimationsOf(context)) {
       _menuController.value = 1;
     } else {
@@ -110,6 +114,7 @@ class _SettingMoreButtonState extends State<SettingMoreButton>
     }
 
     _isRemoving = true;
+    _scrollDismiss.detach();
 
     void completeRemoval() {
       if (_disposed) {

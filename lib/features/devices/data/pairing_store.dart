@@ -61,30 +61,14 @@ class SecureDevicePairingStore implements DevicePairingStore {
       _storage.delete(key: _fingerprintKey(deviceId));
 
   @override
-  Future<String?> read(String deviceId) async {
-    final id = LanDevice.normalizeId(deviceId);
-    final token = await _storage.read(key: _key(id));
-    if (token != null) return token;
-    final legacy = await _storage.read(key: _key('lgb-$id'));
-    if (legacy != null) {
-      // 新键保存成功后才移除旧键，避免迁移失败导致授权丢失。
-      await write(id, legacy);
-    }
-    return legacy;
-  }
+  Future<String?> read(String deviceId) =>
+      _storage.read(key: _key(LanDevice.normalizeId(deviceId)));
 
   @override
-  Future<void> write(String deviceId, String token) async {
-    final id = LanDevice.normalizeId(deviceId);
-    await _storage.write(key: _key(id), value: token);
-    await _storage.delete(key: _key('lgb-$id'));
-  }
+  Future<void> write(String deviceId, String token) =>
+      _storage.write(key: _key(LanDevice.normalizeId(deviceId)), value: token);
 
   @override
-  Future<void> delete(String deviceId) async {
-    final id = LanDevice.normalizeId(deviceId);
-    // 先删除旧键，避免撤销授权后旧令牌被再次迁移。
-    await _storage.delete(key: _key('lgb-$id'));
-    await _storage.delete(key: _key(id));
-  }
+  Future<void> delete(String deviceId) =>
+      _storage.delete(key: _key(LanDevice.normalizeId(deviceId)));
 }

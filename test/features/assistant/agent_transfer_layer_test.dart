@@ -1,7 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/agent_transfer_layer.dart';

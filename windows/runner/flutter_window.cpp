@@ -9,6 +9,9 @@
 
 namespace {
 
+constexpr UINT kLayoutChangedMessage = WM_APP + 76;
+constexpr UINT kToggleMaximizeMessage = WM_APP + 78;
+
 bool IsSystemSnapped(HWND window) {
   using IsArranged = BOOL(WINAPI*)(HWND);
   const auto is_arranged = reinterpret_cast<IsArranged>(
@@ -59,6 +62,23 @@ bool FlutterWindow::OnCreate() {
           &flutter::StandardMethodCodec::GetInstance());
   layout_channel_->SetMethodCallHandler(
       [this](const auto& call, auto result) {
+        if (call.method_name() == "getWindowHandle") {
+          // Dart 热重启前后，此 HWND 始终由 runner 持有，不应依赖
+          // 仅作用于调用线程的 GetActiveWindow()。
+          result->Success(flutter::EncodableValue(
+              static_cast<int64_t>(reinterpret_cast<intptr_t>(GetHandle()))));
+          return;
+        }
+        if (call.method_name() == "toggleMaximize") {
+          // Windows 执行窗口动画或调整大小时，避免 nativeapi 的
+          // ShowWindow 调用同步阻塞 Dart isolate。
+          if (PostMessageW(GetHandle(), kToggleMaximizeMessage, 0, 0)) {
+            result->Success();
+          } else {
+            result->Error("window_action_failed", "Unable to queue window action");
+          }
+          return;
+        }
         if (call.method_name() != "isSnapped") {
           result->NotImplemented();
           return;
@@ -106,6 +126,12 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  // IFileDialog 会禁用所属窗口，禁用时即使 lParam=-1，DefWindowProc
+  // 仍可能在 WM_NCACTIVATE 时绘制经典标题栏，而本应用使用全自定义边框。
+  // 保留 WS_CAPTION 以支持 Windows 贴靠，但不让系统绘制标题栏。
+  if (message == WM_NCACTIVATE) return TRUE;
+  if (message == WM_NCPAINT || message == 0x00AE || message == 0x00AF) return 0;
+
   // 拖动中的贴靠预览保留普通外框，松开鼠标提交贴靠后再切换铺满外观。
   if (message == WM_ENTERSIZEMOVE) {
     interactive_move_ = true;
@@ -119,6 +145,31 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   } else if (message == WM_EXITSIZEMOVE) {
     interactive_move_ = false;
     interactive_resize_ = false;
+  }
+  if (message == kToggleMaximizeMessage) {
+    // 每个排队操作执行时读取实际状态，确保快速点击时仍能正确切换，
+    // 无需等待 nativeapi 的异步状态事件。
+    ShowWindow(hwnd, IsZoomed(hwnd) ? SW_RESTORE : SW_MAXIMIZE);
+    return 0;
+  }
+  // 贴靠状态在最后一次移动或尺寸通知后才提交，因此在下一轮消息中
+  // 读取并通知 Flutter，即使之后没有再次触发尺寸变化。
+  if (message == kLayoutChangedMessage) {
+    layout_notification_pending_ = false;
+    if (layout_channel_) {
+      layout_channel_->InvokeMethod(
+          "layoutChanged", std::make_unique<flutter::EncodableValue>(
+              interactive_move_
+                  ? interactive_resize_ && snapped_before_interaction_
+                  : IsSystemSnapped(hwnd)));
+    }
+    return 0;
+  }
+  if (layout_channel_ && !layout_notification_pending_ &&
+      (message == WM_EXITSIZEMOVE || message == WM_SIZE ||
+       message == WM_MOVE)) {
+    layout_notification_pending_ =
+        PostMessageW(hwnd, kLayoutChangedMessage, 0, 0) != FALSE;
   }
   // 已有窗口响应重复启动：从托盘显示或恢复最小化，并保留最大化状态。
   if (message == lilygobox::ActivateWindowMessage()) {

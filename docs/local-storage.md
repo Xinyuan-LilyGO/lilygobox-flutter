@@ -34,8 +34,8 @@ Windows 使用当前用户的应用数据目录，由 `shared_preferences` 和�
 Windows 的下载缓存统一位于本机用户目录，不放在软件安装目录或漫游配置目录：
 
 ```text
-%LOCALAPPDATA%\LILYGO\lilygobox\cache\firmware
-%LOCALAPPDATA%\LILYGO\lilygobox\cache\updates
+%LOCALAPPDATA%\LILYGO\LilygoBox\cache\firmware
+%LOCALAPPDATA%\LILYGO\LilygoBox\cache\updates
 ```
 
 应用安装包按更新清单中的软件版本分目录保存，例如 `cache\updates\1.0.0-beta.1\LilygoBox-windows-x64-setup-1.0.0-beta.1.exe`。因此多个发布的安装包可以共用固定文件名，同时不会覆盖不同版本的缓存。
@@ -51,3 +51,9 @@ Windows 的下载缓存统一位于本机用户目录，不放在软件安装目
 打开应用设置或设备设置时，原页面保留在覆盖页下方，关闭设置返回进入前的页面。已访问的设备页面和设备子页面在本次运行中保留状态；隐藏页面不接收键盘焦点，并暂停界面动画。正在进行的发现与连接异步任务可以继续更新其页面状态。
 
 明确离开添加设备流程时，会释放该页面并取消未完成的操作。关闭整个应用后，运行中的页面和连接任务不会从磁盘复活；下次启动进入主页并加载普通配置。
+
+## 智能体数据
+
+应用尚未发布，持久化和导入导出仅以当前格式为基线，不提供旧版数据、配置字段、密钥键名或路径的迁移、别名读取及启动清理。旧版残留文件和键值不参与当前运行，也不自动整理或删除。当前格式的版本校验、损坏数据错误处理、缓存维护和回收站业务清理继续保留；这些不属于旧格式兼容。Windows、macOS、Linux 等平台适配以及当前设备/API 协议支持按实际功能需要保留。
+
+聊天、用时、上下文和长期记忆使用独立 SQLite 数据库，见[智能体记忆与存储](agent-memory-storage.md)。普通配置与模型服务配置文件不承担聊天数据备份。

@@ -3,7 +3,7 @@
  */
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 共用悬停提示，文案由调用处提供本地化文本。
 class AppTooltip extends StatefulWidget {
@@ -42,23 +42,28 @@ class _AppTooltipState extends State<AppTooltip> {
   @override
   Widget build(BuildContext context) {
     final active =
-        TickerMode.of(context) &&
+        TickerMode.valuesOf(context).enabled &&
         (ModalRoute.isCurrentOf(context) ?? true) &&
         TooltipVisibility.of(context);
     return MouseRegion(
       onEnter: _updateTargetHeight,
-      child: Tooltip(
-        // 隐藏页面会停止 Ticker，不能等待 Tooltip 淡出后再移除浮层。
-        // 更换提示状态可立即释放浮层和待显示计时器，返回页面时重新计时。
-        key: ValueKey(active),
-        message: active ? widget.message : '',
-        waitDuration: AppTooltip.waitDuration,
-        ignorePointer: true,
-        // Flutter 从控件中心定位，而规范的间距从控件边缘计算。
-        verticalOffset:
-            _targetHeight / 2 +
-            (widget.verticalOffset ?? AppTooltip.defaultVerticalOffset),
-        child: KeyedSubtree(key: _childKey, child: widget.child),
+      // 将悬停提示浮层的遍历锚点与外层的
+      // MenuAnchor/OverlayPortal 分开，避免无障碍锚点被合并。
+      child: Semantics(
+        container: true,
+        child: Tooltip(
+          // 隐藏页面会停止 Ticker，不能等待 Tooltip 淡出后再移除浮层。
+          // 更换提示状态可立即释放浮层和待显示计时器，返回页面时重新计时。
+          key: ValueKey(active),
+          message: active ? widget.message : '',
+          waitDuration: AppTooltip.waitDuration,
+          ignorePointer: true,
+          // Flutter 从控件中心定位，而规范的间距从控件边缘计算。
+          verticalOffset:
+              _targetHeight / 2 +
+              (widget.verticalOffset ?? AppTooltip.defaultVerticalOffset),
+          child: KeyedSubtree(key: _childKey, child: widget.child),
+        ),
       ),
     );
   }

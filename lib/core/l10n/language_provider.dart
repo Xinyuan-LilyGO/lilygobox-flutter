@@ -2,7 +2,7 @@
  * @Description: 管理中英文界面语言、语言切换及本地化文本访问。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../generated/l10n/app_localizations.dart';
 import '../storage/preferences.dart';

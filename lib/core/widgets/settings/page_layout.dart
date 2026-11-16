@@ -2,7 +2,7 @@
  * @Description: 提供设置页面的标题、分隔线与滚动内容布局。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../theme/definition.dart';
 
@@ -23,8 +23,8 @@ class SettingsPageLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       alignment: Alignment.topLeft,
-      padding: const EdgeInsets.fromLTRB(20.0, 28.0, 20.0, 24.0),
       child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20.0, 28.0, 20.0, 24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

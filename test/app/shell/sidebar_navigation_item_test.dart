@@ -1,7 +1,7 @@
 /*
  * @Description: 验证导航灯条上下移动、连续切换和减少动画模式。
  */
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/shell/widgets/sidebar_navigation_item.dart';
 import 'package:lilygobox/core/theme/provider.dart';

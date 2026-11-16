@@ -4,9 +4,9 @@
 
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
@@ -81,7 +81,7 @@ class _AssistantUserInputPanelState extends State<AssistantUserInputPanel> {
     final answers = {
       for (final question in widget.request.questions)
         question.id: [
-          if (_selected[question.id] case final choice?) choice,
+          ?_selected[question.id],
           if (_notes[question.id]!.text.trim().isNotEmpty)
             _notes[question.id]!.text.trim(),
         ],

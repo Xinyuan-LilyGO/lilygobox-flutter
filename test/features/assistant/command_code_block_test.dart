@@ -1,5 +1,6 @@
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'dart:ui' show PointerDeviceKind;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,7 +24,7 @@ Widget host(
       thumbVisibility: WidgetStatePropertyAll(visibleScrollbars),
     ),
   ),
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: appLocalizationDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   home: Scaffold(
     body: Align(

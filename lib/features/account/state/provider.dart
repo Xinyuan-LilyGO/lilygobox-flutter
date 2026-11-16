@@ -25,13 +25,11 @@ enum AccountPhase {
 class AccountProvider extends ChangeNotifier {
   AccountProvider({
     required this.clientId,
-    required GithubAuthorizationApi api,
-    required AccountTokenStore store,
+    required this._api,
+    required this._store,
     Future<bool> Function(Uri)? openBrowser,
     this.supported = true,
-  }) : _api = api,
-       _store = store,
-       _openBrowser =
+  }) : _openBrowser =
            openBrowser ??
            ((uri) => launchUrl(uri, mode: LaunchMode.externalApplication));
 

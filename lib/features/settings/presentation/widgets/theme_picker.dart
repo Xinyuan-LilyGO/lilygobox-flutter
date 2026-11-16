@@ -2,7 +2,7 @@
  * @Description: 使用浅色和深色预览卡片直接选择主题，并展示选中状态。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';

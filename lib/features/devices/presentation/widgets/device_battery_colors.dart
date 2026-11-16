@@ -1,7 +1,7 @@
 /*
  * @Description: 集中管理设备特色卡片及电池图形的亮暗主题配色，随全局主题平滑过渡。
  */
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/theme/definition.dart';
 import '../../../../core/theme/material_palette.dart';

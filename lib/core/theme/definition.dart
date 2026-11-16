@@ -2,7 +2,7 @@
  * @Description: 定义应用主题类型、配色字段及主题名称的本地化映射。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../generated/l10n/app_localizations.dart';
 
@@ -63,7 +63,7 @@ class AppTheme {
   final Color baseTertiary;
 
   const AppTheme({
-    double? lightProgress,
+    this._lightProgress,
     required this.type,
     required this.nameKey,
     required this.primary,
@@ -105,7 +105,7 @@ class AppTheme {
     required this.basePrimary,
     required this.baseSecondary,
     required this.baseTertiary,
-  }) : _lightProgress = lightProgress;
+  });
 
   static AppTheme lerp(AppTheme begin, AppTheme end, double progress) {
     if (progress <= 0) return begin;

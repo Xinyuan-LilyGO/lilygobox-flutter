@@ -5,7 +5,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 内容随卡片整体倾斜，布局和点击区域保持稳定。
 class TiltCard extends StatefulWidget {

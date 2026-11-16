@@ -2,10 +2,11 @@
  * @Description: 验证公共文本右键菜单的剪切复制粘贴、只读限制和窗口边界。
  */
 
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -52,7 +53,7 @@ void main() {
     value: theme,
     child: MaterialApp(
       locale: Locale(locale),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: appLocalizationDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       builder: windowFrame
           ? (context, navigator) => Padding(

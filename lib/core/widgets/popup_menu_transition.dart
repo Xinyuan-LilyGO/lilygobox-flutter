@@ -2,7 +2,7 @@
  * @Description: 统一菜单的淡入和轻微展开动画，支持外部进度及系统减少动画设置。
  */
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'interaction_decoration.dart';
 
@@ -102,7 +102,7 @@ class PopupMenuPageTransition extends StatelessWidget {
               child: ExcludeFocus(child: ExcludeSemantics(child: child)),
             ),
           ),
-        if (current != null) current,
+        ?current,
       ],
     ),
     child: child,

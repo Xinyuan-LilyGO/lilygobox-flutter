@@ -2,9 +2,9 @@
  * @Description: 构建可拖动且不折叠的设置导航、移动端分类导航。
  */
 
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../app/navigation/provider.dart';
@@ -17,6 +17,7 @@ import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../../account/presentation/widgets/avatar.dart';
 import '../../../account/state/provider.dart';
 import '../../../assistant/presentation/widgets/service_settings_content.dart';
+import '../../../assistant/presentation/widgets/storage_content.dart';
 import 'about_content.dart';
 import 'content_layout.dart';
 import 'general_content.dart';
@@ -24,7 +25,7 @@ import 'language_and_region_content.dart';
 import 'personalization_content.dart';
 import 'profile_content.dart';
 
-enum _SettingsCategory { appearance, language, general, aiService }
+enum _SettingsCategory { appearance, language, general, aiService, storage }
 
 class SettingsSplitView extends StatefulWidget {
   const SettingsSplitView({super.key});
@@ -283,7 +284,7 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
           Divider(height: 1, color: colors.divider),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(10, 18, 10, 12),
+              padding: const EdgeInsets.fromLTRB(10, 18, 20, 12),
               children: [
                 _sectionTitle(theme, l10n.basic),
                 _navigationItem(
@@ -331,6 +332,10 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
                   _SettingsCategory.aiService: (
                     l10n.aiServiceTitle,
                     Symbols.dns_rounded,
+                  ),
+                  _SettingsCategory.storage: (
+                    l10n.agentStorageTitle,
+                    Symbols.storage_rounded,
                   ),
                 }.entries)
                   Padding(
@@ -437,6 +442,7 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
       _SettingsCategory.language: l10n.languageAndRegion,
       _SettingsCategory.general: l10n.general,
       _SettingsCategory.aiService: l10n.aiServiceTitle,
+      _SettingsCategory.storage: l10n.agentStorageTitle,
     };
     final page = _profile
         ? ProfileContent(theme: theme)
@@ -450,6 +456,7 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
               theme: theme,
             ),
             _SettingsCategory.general => GeneralSettingsContent(theme: theme),
+            _SettingsCategory.storage => AgentStorageContent(theme: theme),
             _SettingsCategory.aiService => AiServiceSettingsContent(
               theme: theme,
             ),

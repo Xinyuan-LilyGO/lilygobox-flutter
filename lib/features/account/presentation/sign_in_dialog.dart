@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../core/context_menu/text_selection_menu.dart';
 import '../../../core/l10n/language_provider.dart';
@@ -132,9 +132,11 @@ class _AccountSignInDialogState extends State<_AccountSignInDialog>
           theme: theme,
           title: l10n.githubSignIn,
           constraints: const BoxConstraints(maxWidth: 408),
+          contentPadding: const EdgeInsets.fromLTRB(0, 20, 0, 24),
           content: SizedBox(
-            width: 360,
+            width: 408,
             child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: DefaultTextStyle(
                 style: TextStyle(
                   fontSize: 13,

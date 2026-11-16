@@ -2,8 +2,8 @@
  * @Description: 展示主页设备卡片与真实连接状态，预留产品图片并以灰色 Blur On 图标占位。
  */
 
-import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/context_menu/right_click_menu.dart';
