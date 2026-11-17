@@ -361,9 +361,17 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
     final l = context.l10n;
     final theme = widget.theme;
     final selected = workspaces.find(controller.owner);
+    final title = forMemory
+        ? l.agentStorageScope
+        : forContext
+        ? l.agentStorageContextScope
+        : l.agentStorageAgentTarget;
+    final emptyLabel = forMemory || forContext
+        ? l.agentStorageNoManagedAgents
+        : l.agentStorageNoExportAgents;
     return SettingsField(
       theme: theme,
-      title: forContext ? l.agentStorageAgentTarget : l.agentStorageScope,
+      title: title,
       description: forMemory ? l.agentStorageMemoryScopeHint : '',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -377,7 +385,11 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                 DropdownMenuItem(
                   value: '',
                   enabled: false,
-                  child: Text(l.agentStorageChooseAgent),
+                  child: Text(
+                    workspaces.sessions.isEmpty
+                        ? emptyLabel
+                        : l.agentStorageChooseAgent,
+                  ),
                 ),
               for (final session in workspaces.sessions)
                 DropdownMenuItem(
@@ -415,6 +427,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
   Widget _exportFields(AiWorkspaceProvider workspaces) {
     final l = context.l10n;
     final theme = widget.theme;
+    final hasWorkflow = workspaces.sessions.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -435,7 +448,12 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
               ),
               DropdownMenuItem(
                 value: 'workflow',
-                child: Text(l.aiTopologyTitle),
+                enabled: hasWorkflow,
+                child: Text(
+                  hasWorkflow
+                      ? l.aiTopologyTitle
+                      : l.agentStorageNoExportWorkflow,
+                ),
               ),
             ],
             onChanged: controller.busy
@@ -1138,6 +1156,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
     final workspaces = context.watch<AiWorkspaceProvider>();
     final theme = widget.theme;
     final selected = workspaces.find(controller.owner);
+    final hasWorkflow = workspaces.sessions.isNotEmpty;
     if (widget._manager case final manager?) {
       return AppDialog(
         constraints: const BoxConstraints(maxWidth: 440),
@@ -1318,6 +1337,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                   controller.busy ||
                       (!_importMode &&
                           (_exportTarget == null ||
+                              _exportTarget == 'workflow' && !hasWorkflow ||
                               ['chat', 'agent'].contains(_packageType) &&
                                   selected == null ||
                               _packageType == 'memory' &&

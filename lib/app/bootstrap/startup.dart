@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:window_manager/window_manager.dart';
@@ -62,7 +63,13 @@ class _AppStartupState extends State<AppStartup>
   Future<void> _focusWindowAfterStartup() async {
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
-    currentDesktopWindow()?.focus();
+    try {
+      // 在启动遮罩移除后，由拥有 HWND 的线程激活窗口和 Flutter 子视图。
+      await const MethodChannel('lilygobox/window_focus')
+          .invokeMethod<bool>('focus');
+    } on MissingPluginException {
+      currentDesktopWindow()?.focus();
+    }
   }
 
   void _tryFade() {

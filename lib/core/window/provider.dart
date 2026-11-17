@@ -34,6 +34,15 @@ class WindowProvider with ChangeNotifier {
     if (_desktop) {
       _window = window ?? currentDesktopWindow();
       _listener = _window?.addListener(_onWindowEvent);
+      if (_useNativeFocus) {
+        _focusChannel.setMethodCallHandler((call) async {
+          if (call.method == 'focusChanged' && call.arguments is bool) {
+            _focusRevision++;
+            _nativeFocusAvailable = true;
+            _setFocused(call.arguments as bool);
+          }
+        });
+      }
       unawaited(_init());
     }
   }
@@ -41,6 +50,18 @@ class WindowProvider with ChangeNotifier {
   final Future<bool> Function()? beforeClose;
   final bool _useNativeMaximize;
   static const _layoutChannel = MethodChannel('lilygobox/window_layout');
+  static const _focusChannel = MethodChannel('lilygobox/window_focus');
+  int _focusRevision = 0;
+  bool _nativeFocusAvailable = false;
+  bool get _useNativeFocus =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+
+  void _setFocused(bool focused) {
+    if (_disposed || _isFocused == focused) return;
+    _isFocused = focused;
+    notifyListeners();
+  }
+
   bool _closing = false;
   bool _nativeCloseAllowed = false;
   WindowTray? _tray;
@@ -66,6 +87,7 @@ class WindowProvider with ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    if (_useNativeFocus) _focusChannel.setMethodCallHandler(null);
     _tray?.dispose();
     if (_listener case final listener?) _window?.removeListener(listener);
     super.dispose();
@@ -75,6 +97,18 @@ class WindowProvider with ChangeNotifier {
     _isMaximized = _window?.isMaximized ?? false;
     _isFocused = _window?.isFocused ?? true;
     if (!_disposed) notifyListeners();
+    if (_useNativeFocus) {
+      final revision = _focusRevision;
+      try {
+        final focused = await _focusChannel.invokeMethod<bool>('isFocused');
+        _nativeFocusAvailable = true;
+        if (revision == _focusRevision && focused != null) _setFocused(focused);
+      } on MissingPluginException {
+        // 组件测试或其他宿主仍使用窗口库事件。
+      } on PlatformException catch (error) {
+        debugPrint('Cannot read window focus: ${error.code}');
+      }
+    }
   }
 
   void _onWindowEvent(WindowEvent event) {
@@ -82,10 +116,13 @@ class WindowProvider with ChangeNotifier {
       case WindowMaximizedEvent():
         _isMaximized = true;
       case WindowRestoredEvent():
-        _isMaximized = false;
+        // 从最小化恢复也会发送此事件，读取窗口实际状态以保留最大化外观。
+        _isMaximized = _window?.isMaximized ?? false;
       case WindowFocusedEvent():
+        if (_nativeFocusAvailable) return;
         _isFocused = true;
       case WindowBlurredEvent():
+        if (_nativeFocusAvailable) return;
         _isFocused = false;
       case WindowCloseRequestedEvent():
         if (!_nativeCloseAllowed) {

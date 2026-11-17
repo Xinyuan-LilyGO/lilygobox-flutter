@@ -83,10 +83,12 @@ Future<bool> showAppConfirmation({
   BoxConstraints? constraints,
 }) async {
   final cancelLabel = context.l10n.settingsCancel;
+  // 确认说明需要按可读行宽换行，避免长文案把弹窗撑满整个窗口。
+  final dialogConstraints = constraints ?? const BoxConstraints(maxWidth: 440);
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AppDialog(
-      constraints: constraints,
+      constraints: dialogConstraints,
       theme: theme,
       title: title,
       content: Text(

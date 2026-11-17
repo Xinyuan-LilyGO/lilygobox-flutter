@@ -1083,6 +1083,16 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
           workspaces.main.hasServiceKey(service.id) &&
           service.models.isNotEmpty,
     )) {
+      final configure = await showAppConfirmation(
+        context: context,
+        theme: context.read<ThemeProvider>().themeData,
+        actionKey: 'topology-model-service-required',
+        title: context.l10n.aiCreateRequiresServiceTitle,
+        description: context.l10n.aiCreateRequiresServiceDescription,
+        confirmLabel: context.l10n.aiGoToModelSettings,
+        constraints: const BoxConstraints(maxWidth: 420),
+      );
+      if (!mounted || !configure) return;
       context.read<AppNavigationProvider>().openAiSettings();
       return;
     }
@@ -2669,7 +2679,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     AiAgentWorkspace? parent,
   ) {
     final l10n = context.l10n;
-    const titleStyle = TextStyle(fontSize: 15, fontWeight: FontWeight.w600);
+    const titleStyle = TextStyle(fontSize: 16, fontWeight: FontWeight.w600);
     double textWidth(String text, TextStyle style) {
       final painter = TextPainter(
         text: TextSpan(text: text, style: style),
@@ -2691,7 +2701,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       (width, label) =>
           width + textWidth(label, const TextStyle(fontSize: 12)) + 49,
     );
-    final titleWidth = textWidth(l10n.aiTopologyTitle, titleStyle) + 40;
+    final titleWidth = textWidth(l10n.aiTopologyTitle, titleStyle) + 48;
     final title = IgnorePointer(
       child: DecoratedBox(
         key: const ValueKey('topology-canvas-title'),
@@ -2700,7 +2710,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
           borderRadius: BorderRadius.circular(10),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

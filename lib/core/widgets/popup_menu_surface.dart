@@ -32,12 +32,13 @@ class PopupMenuSurface extends StatelessWidget {
   /// 菜单与需要同等浮层效果的控件共用，随主题进度平滑过渡。
   static List<BoxShadow> shadowsFor(AppTheme theme) => [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.32 - 0.2 * theme.lightProgress),
+      // 深色背景上的阴影降低透明度，保持与亮色菜单相近的柔和层次。
+      color: Colors.black.withValues(alpha: 0.18 - 0.06 * theme.lightProgress),
       blurRadius: 24,
       offset: const Offset(0, 8),
     ),
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.08),
+      color: Colors.black.withValues(alpha: 0.06),
       blurRadius: 4,
       offset: const Offset(0, 1),
     ),

@@ -83,28 +83,32 @@ class _AppShellState extends State<AppShell> {
           color: theme.secondary,
           borderRadius: const BorderRadius.only(topLeft: Radius.circular(10)),
         ),
-        child: RetainedPageStack(
-          activeKey: addingDevice
-              ? AppPage.addDevice
-              : deviceManagementSelected
-              ? 'deviceManagement'
-              : selectedIndex > 0 &&
-                    selectedIndex <= deviceManager.addedDevices.length
-              ? deviceManager.addedDevices[selectedIndex - 1]
-              : AppPage.home,
-          pages: {
-            AppPage.home: const TaskTopologyPage(),
-            'deviceManagement': const HomePageContent(),
-            for (final name in deviceManager.addedDevices)
-              name: _buildDevicePage(
-                name,
-                active:
-                    !addingDevice &&
-                    selectedIndex ==
-                        deviceManager.addedDevices.indexOf(name) + 1,
-              ),
-            if (addingDevice) AppPage.addDevice: const AddDevicePage(),
-          },
+        child: ClipRRect(
+          borderRadius: const BorderRadius.only(topLeft: Radius.circular(10)),
+          clipBehavior: Clip.antiAlias,
+          child: RetainedPageStack(
+            activeKey: addingDevice
+                ? AppPage.addDevice
+                : deviceManagementSelected
+                ? 'deviceManagement'
+                : selectedIndex > 0 &&
+                      selectedIndex <= deviceManager.addedDevices.length
+                ? deviceManager.addedDevices[selectedIndex - 1]
+                : AppPage.home,
+            pages: {
+              AppPage.home: const TaskTopologyPage(),
+              'deviceManagement': const HomePageContent(),
+              for (final name in deviceManager.addedDevices)
+                name: _buildDevicePage(
+                  name,
+                  active:
+                      !addingDevice &&
+                      selectedIndex ==
+                          deviceManager.addedDevices.indexOf(name) + 1,
+                ),
+              if (addingDevice) AppPage.addDevice: const AddDevicePage(),
+            },
+          ),
         ),
       ),
     );

@@ -1749,6 +1749,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiNoServices => '尚未添加模型服务，请先添加一个服务。';
 
   @override
+  String get aiCreateRequiresServiceTitle => '请先配置模型服务';
+
+  @override
+  String get aiCreateRequiresServiceDescription =>
+      '创建智能体需要可用的模型服务，请先添加服务、填写密钥并配置至少一个模型。';
+
+  @override
+  String get aiGoToModelSettings => '前往设置';
+
+  @override
   String get aiServiceName => '服务名称';
 
   @override
@@ -2577,6 +2587,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStorageScope => '长期记忆归属';
 
   @override
+  String get agentStorageContextScope => '聊天记录与上下文归属';
+
+  @override
   String get agentStorageMemories => '长期记忆';
 
   @override
@@ -2832,6 +2845,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agentStorageChooseAgent => '请选择要导出的智能体';
+
+  @override
+  String get agentStorageNoExportAgents => '暂无可导出的智能体';
+
+  @override
+  String get agentStorageNoManagedAgents => '暂无可管理的智能体';
+
+  @override
+  String get agentStorageNoExportWorkflow => '暂无可导出的智能体工作流';
 
   @override
   String get agentStorageMemoryDestination => '长期记忆导入到哪里';

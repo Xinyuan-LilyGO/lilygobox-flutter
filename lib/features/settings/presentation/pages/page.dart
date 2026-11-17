@@ -15,9 +15,14 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeProvider>(context).themeData;
 
-    return Container(
-      color: theme.primary, // 整体背景色
-      child: const SettingsSplitView(),
+    return ColoredBox(
+      color: theme.primary,
+      child: ClipRRect(
+        // 设置页覆盖在主窗口内容区内，左上角要与其他页面保持同样的圆角。
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(10)),
+        clipBehavior: Clip.antiAlias,
+        child: const SettingsSplitView(),
+      ),
     );
   }
 }

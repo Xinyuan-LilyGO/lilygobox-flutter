@@ -42,6 +42,28 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  // runner 拥有主 HWND，直接同步激活状态，不依赖包装窗口的全局焦点事件。
+  focus_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(), "lilygobox/window_focus",
+          &flutter::StandardMethodCodec::GetInstance());
+  focus_channel_->SetMethodCallHandler([this](const auto& call, auto result) {
+    if (call.method_name() == "focus") {
+      SetForegroundWindow(GetHandle());
+      if (GetForegroundWindow() == GetHandle()) {
+        SetFocus(flutter_controller_->view()->GetNativeWindow());
+      }
+      // 已处于前台时不会再收到 WM_ACTIVATE，也要校正启动阶段的界面状态。
+      focus_channel_->InvokeMethod("focusChanged",
+          std::make_unique<flutter::EncodableValue>(
+              GetForegroundWindow() == GetHandle()));
+    } else if (call.method_name() != "isFocused") {
+      result->NotImplemented();
+      return;
+    }
+    result->Success(flutter::EncodableValue(
+        GetForegroundWindow() == GetHandle()));
+  });
   image_clipboard_channel_ =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
           flutter_controller_->engine()->messenger(), "lilygobox/image_clipboard",
@@ -113,6 +135,7 @@ bool FlutterWindow::OnCreate() {
 void FlutterWindow::OnDestroy() {
   RemovePropW(GetHandle(), lilygobox::kWindowMarker);
   tray_.reset();
+  focus_channel_.reset();
   layout_channel_.reset();
   image_clipboard_channel_.reset();
   if (flutter_controller_) {
@@ -126,6 +149,11 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  if (message == WM_ACTIVATE && focus_channel_) {
+    focus_channel_->InvokeMethod("focusChanged",
+        std::make_unique<flutter::EncodableValue>(
+            LOWORD(wparam) != WA_INACTIVE));
+  }
   // IFileDialog 会禁用所属窗口，禁用时即使 lParam=-1，DefWindowProc
   // 仍可能在 WM_NCACTIVATE 时绘制经典标题栏，而本应用使用全自定义边框。
   // 保留 WS_CAPTION 以支持 Windows 贴靠，但不让系统绘制标题栏。

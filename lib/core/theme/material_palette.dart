@@ -11,21 +11,22 @@ class MaterialPalette {
     ThemeType.dark: AppTheme(
       type: ThemeType.dark,
       nameKey: 'theme_dark',
-      primary: const Color.fromARGB(255, 25, 25, 25),
-      secondary: const Color.fromARGB(255, 55, 55, 55),
-      tertiary: const Color.fromARGB(255, 65, 65, 65),
+      // 暗色主背景微幅提亮，让全局侧栏与顶部栏更清晰地区分于窗口外层。
+      primary: const Color.fromARGB(255, 35, 35, 35),
+      secondary: const Color.fromARGB(255, 60, 60, 60),
+      tertiary: const Color.fromARGB(255, 70, 70, 70),
       textColorPrimary: const Color.fromARGB(255, 230, 230, 230),
       textColorSecondary: const Color.fromARGB(255, 220, 220, 220),
       textColorTertiary: const Color.fromARGB(255, 150, 150, 150),
       // 悬停保持较弱的灰阶反馈，选中使用更明确的实色层级。
-      primaryTextHoverColor: const Color.fromARGB(255, 38, 38, 38),
-      primaryTextSelectedColor: const Color.fromARGB(255, 50, 50, 50),
+      primaryTextHoverColor: const Color.fromARGB(255, 52, 52, 52),
+      primaryTextSelectedColor: const Color.fromARGB(255, 64, 64, 64),
       secondaryTextBackgroundColor: const Color.fromARGB(255, 60, 60, 60),
-      secondaryTextHoverColor: const Color.fromARGB(255, 56, 56, 56),
-      secondaryTextHoverColorAlt: const Color.fromARGB(255, 80, 80, 80),
-      secondaryTextSelectedColor: const Color.fromARGB(255, 94, 94, 94),
+      secondaryTextHoverColor: const Color.fromARGB(255, 72, 72, 72),
+      secondaryTextHoverColorAlt: const Color.fromARGB(255, 98, 98, 98),
+      secondaryTextSelectedColor: const Color.fromARGB(255, 112, 112, 112),
       tertiaryTextBackgroundColor: const Color.fromARGB(255, 40, 40, 40),
-      tertiaryTextHoverColor: const Color.fromARGB(255, 50, 50, 50),
+      tertiaryTextHoverColor: const Color.fromARGB(255, 66, 66, 66),
       tertiaryTextHighlightColor: const Color.fromARGB(255, 80, 80, 80),
       tertiaryTextSplashColor: const Color.fromARGB(255, 60, 60, 60),
       tertiarySurfaceButtonBackgroundColor: const Color(0xFF363636),
@@ -203,17 +204,29 @@ extension MaterialThemeRoles on AppTheme {
   /// 颜色随背景明暗反向偏移，避免每个组件重复维护一套灰阶。
   Color interactionHoverColor(Color background) {
     final isLight = background.computeLuminance() > .5;
-    return Color.lerp(background, isLight ? Colors.black : Colors.white, .1)!;
+    return Color.lerp(
+      background,
+      isLight ? Colors.black : Colors.white,
+      isLight ? .1 : .18,
+    )!;
   }
 
   Color interactionPressedColor(Color background) {
     final isLight = background.computeLuminance() > .5;
-    return Color.lerp(background, isLight ? Colors.black : Colors.white, .18)!;
+    return Color.lerp(
+      background,
+      isLight ? Colors.black : Colors.white,
+      isLight ? .18 : .28,
+    )!;
   }
 
   Color interactionSelectedColor(Color background) {
     final isLight = background.computeLuminance() > .5;
-    return Color.lerp(background, isLight ? Colors.black : Colors.white, .14)!;
+    return Color.lerp(
+      background,
+      isLight ? Colors.black : Colors.white,
+      isLight ? .14 : .24,
+    )!;
   }
 
   /// 按控件实际底色选择悬停层级，避免主背景的悬停灰色融入二级背景。
@@ -245,14 +258,17 @@ extension MaterialThemeRoles on AppTheme {
   /// 设置侧栏与主界面导航和窗口顶部栏使用一致的主题背景色。
   Color get settingsSidebarColor => primary;
 
+  /// 设置页搜索框在暗色背景上使用略亮的控件底色，亮色保持主背景白色。
+  Color get settingsSearchBackgroundColor => adaptiveColor(
+    dark: const Color(0xFF2A2A2A),
+    light: primary,
+  );
+
   /// 悬停提示和应用通知共用的反色背景颜色。
   Color get noticeBackgroundColor => materialColors.inverseSurface;
 
-  /// 悬停弱于选中：深色用更暗的灰，浅色用更浅的灰，避免两种状态混淆。
-  Color get settingsHoverColor => adaptiveColor(
-    dark: const Color(0xFF262626),
-    light: const Color(0xFFE5E5E5),
-  );
+  /// 设置导航复用全局主表面的悬停色，避免独立灰阶低于侧栏底色。
+  Color get settingsHoverColor => buttonColorsForSurface(primary).hover;
 
   /// 浮层使用亮色白底与暗色近黑底，不混入承载层灰色或种子色。
   Color get popupSurfaceColor =>
@@ -290,9 +306,11 @@ class ButtonStateColors {
     final contrast = light ? Colors.black : Colors.white;
     return ButtonStateColors(
       background: Color.lerp(surface, contrast, light ? .1 : .2)!,
-      hover: light ? const Color(0xFFE5E5E5) : const Color(0xFF262626),
-      pressed: Color.lerp(surface, contrast, light ? .28 : .42)!,
-      selected: Color.lerp(surface, contrast, light ? .19 : .20)!,
+      hover: light
+          ? const Color(0xFFE5E5E5)
+          : Color.lerp(surface, contrast, .10)!,
+      pressed: Color.lerp(surface, contrast, light ? .28 : .25)!,
+      selected: Color.lerp(surface, contrast, light ? .19 : .18)!,
     );
   }
 }

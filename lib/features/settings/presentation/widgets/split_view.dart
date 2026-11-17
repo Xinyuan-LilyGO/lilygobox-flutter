@@ -132,11 +132,17 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
                               child: _sidebar(theme, colors),
                             ),
                             Expanded(
-                              child: _content(
-                                theme,
-                                colors,
-                                mobile: false,
-                                onBack: back,
+                              child: ClipRRect(
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(10),
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: _content(
+                                  theme,
+                                  colors,
+                                  mobile: false,
+                                  onBack: back,
+                                ),
                               ),
                             ),
                           ],

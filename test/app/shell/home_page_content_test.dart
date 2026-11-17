@@ -2,9 +2,7 @@
  * @Description: 验证首页添加入口、设备状态及窄窗口和大字体布局。
  */
 
-import 'package:lilygobox/core/l10n/delegates.dart';
 import 'package:flutter/gestures.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/navigation/provider.dart';
@@ -12,6 +10,7 @@ import 'package:lilygobox/app/shell/pages/home_page_content.dart';
 import 'package:lilygobox/app/shell/pages/page.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
 import 'package:lilygobox/app/shell/widgets/sidebar_navigation_item.dart';
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
@@ -24,6 +23,7 @@ import 'package:lilygobox/features/devices/presentation/widgets/home_device_card
 import 'package:lilygobox/features/devices/state/lan_connection.dart';
 import 'package:lilygobox/features/devices/state/manager_provider.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../features/assistant/assistant_test_scope.dart';
@@ -114,9 +114,8 @@ void main() {
         localizationsDelegates: appLocalizationDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
           child: child!,
         ),
         home: Scaffold(
@@ -133,6 +132,15 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1000, 650));
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
+    void expectNoScroll() {
+      final positions = tester
+          .stateList<ScrollableState>(find.byType(Scrollable))
+          .map((state) => state.position);
+      expect(positions, hasLength(1));
+      expect(positions.single.maxScrollExtent, 0);
+    }
+
+    expectNoScroll();
     final content = find
         .ancestor(
           of: find.text('No devices yet'),
@@ -142,6 +150,7 @@ void main() {
     final initialCenter = tester.getCenter(content);
     await tester.binding.setSurfaceSize(const Size(1000, 1100));
     await tester.pumpAndSettle();
+    expectNoScroll();
     final resizedCenter = tester.getCenter(content);
     expect(resizedCenter.dx, closeTo(500, 1));
     expect(resizedCenter.dy - initialCenter.dy, closeTo(225, 1));
@@ -170,56 +179,52 @@ void main() {
     expect(find.text('No devices yet'), findsOneWidget);
   });
 
-  testWidgets(
-    'device heartbeats keep the open search menu mounted',
-    (tester) async {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-            if (call.method == 'Clipboard.hasStrings') return {'value': true};
-            return null;
-          });
-      addTearDown(
-        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-            .setMockMethodCallHandler(SystemChannels.platform, null),
-      );
-      devices.addLanDevice(_device);
+  testWidgets('device heartbeats keep the open search menu mounted', (
+    tester,
+  ) async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'Clipboard.hasStrings') return {'value': true};
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    devices.addLanDevice(_device);
+    connection.showStatus(_device, LanConnectionPhase.connected);
+    await tester.pumpWidget(app());
+    await tester.enterText(find.byType(TextField), 'Desk');
+    final editable = tester.state<EditableTextState>(find.byType(EditableText));
+    editable.widget.controller.selection = const TextSelection(
+      baseOffset: 0,
+      extentOffset: 4,
+    );
+    await tester.tap(find.byType(TextField), buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+    final panel = find.byType(PopupMenuSurface);
+    final element = tester.element(panel);
+    final overlay = editable.selectionOverlay;
+    for (var i = 0; i < 3; i++) {
+      await tester.pump(const Duration(seconds: 5));
       connection.showStatus(_device, LanConnectionPhase.connected);
-      await tester.pumpWidget(app());
-      await tester.enterText(find.byType(TextField), 'Desk');
-      final editable = tester.state<EditableTextState>(
-        find.byType(EditableText),
-      );
-      editable.widget.controller.selection = const TextSelection(
-        baseOffset: 0,
-        extentOffset: 4,
-      );
-      await tester.tap(find.byType(TextField), buttons: kSecondaryMouseButton);
-      await tester.pumpAndSettle();
-      final panel = find.byType(PopupMenuSurface);
-      final element = tester.element(panel);
-      final overlay = editable.selectionOverlay;
-      for (var i = 0; i < 3; i++) {
-        await tester.pump(const Duration(seconds: 5));
-        connection.showStatus(_device, LanConnectionPhase.connected);
-        await tester.pump();
-        expect(editable.selectionOverlay, same(overlay));
-        expect(tester.element(panel), same(element));
-        await tester.pump(const Duration(milliseconds: 16));
-        expect(tester.element(panel), same(element));
-      }
-      theme.setTheme(ThemeType.light);
       await tester.pump();
       expect(editable.selectionOverlay, same(overlay));
-      await tester.pumpAndSettle();
       expect(tester.element(panel), same(element));
-      expect(tester.widget<PopupMenuSurface>(panel).theme, theme.themeData);
-      await tester.tap(find.text('Copy'));
-      await tester.pumpAndSettle();
-      expect(panel, findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.windows),
-  );
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(tester.element(panel), same(element));
+    }
+    theme.setTheme(ThemeType.light);
+    await tester.pump();
+    expect(editable.selectionOverlay, same(overlay));
+    await tester.pumpAndSettle();
+    expect(tester.element(panel), same(element));
+    expect(tester.widget<PopupMenuSurface>(panel).theme, theme.themeData);
+    await tester.tap(find.text('Copy'));
+    await tester.pumpAndSettle();
+    expect(panel, findsNothing);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
   testWidgets('right-click deletes an online device and restores empty home', (
     tester,
@@ -414,8 +419,7 @@ void main() {
       devices.addLanDevice(
         const LanDevice(
           id: 'aabbccddeeff',
-          name:
-              'A very long device name that must wrap without overlapping buttons',
+          name: 'A very long device name that must wrap without overlapping buttons',
           address: '192.168.1.8',
           port: 18464,
           model: 'T-Display-P4',

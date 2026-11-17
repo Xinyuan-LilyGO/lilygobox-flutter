@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../context_menu/text_selection_menu.dart';
 import '../../theme/definition.dart';
+import '../../theme/material_palette.dart';
 import '../search_clear_button.dart';
 
 /// 与紧凑模型选择器的搜索框保持一致，包括清空按钮的反馈。
@@ -42,7 +43,7 @@ class SettingSearchField extends StatelessWidget {
       hintText: hintText,
       hintStyle: TextStyle(color: theme.textColorTertiary),
       filled: true,
-      fillColor: theme.primary,
+      fillColor: theme.settingsSearchBackgroundColor,
       hoverColor: Colors.transparent,
       prefixIcon: Padding(
         padding: const EdgeInsetsDirectional.only(start: 6, top: 6, bottom: 6),

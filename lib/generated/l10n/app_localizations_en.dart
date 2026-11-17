@@ -1872,6 +1872,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'No model services yet. Add a service to get started.';
 
   @override
+  String get aiCreateRequiresServiceTitle => 'Configure a model service first';
+
+  @override
+  String get aiCreateRequiresServiceDescription =>
+      'Creating an agent requires an available model service. Add a service, enter its API key, and configure at least one model.';
+
+  @override
+  String get aiGoToModelSettings => 'Go to settings';
+
+  @override
   String get aiServiceName => 'Service name';
 
   @override
@@ -2755,6 +2765,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentStorageScope => 'Long-term memory owner';
 
   @override
+  String get agentStorageContextScope => 'Conversation and context owner';
+
+  @override
   String get agentStorageMemories => 'Long-term memories';
 
   @override
@@ -3026,6 +3039,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentStorageChooseAgent => 'Choose an agent to export';
+
+  @override
+  String get agentStorageNoExportAgents => 'No agents available to export';
+
+  @override
+  String get agentStorageNoManagedAgents => 'No agents available to manage';
+
+  @override
+  String get agentStorageNoExportWorkflow =>
+      'No agent workflow available to export';
 
   @override
   String get agentStorageMemoryDestination =>

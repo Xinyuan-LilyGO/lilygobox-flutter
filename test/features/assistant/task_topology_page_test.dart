@@ -229,6 +229,40 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
   }
 
+  testWidgets('creation without a model service asks before opening settings', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(() async {
+      for (final service in scope.provider.services.toList()) {
+        await scope.provider.removeService(service.id);
+      }
+    });
+    await tester.pumpWidget(app());
+    await tick(tester);
+    await tester.tap(find.byKey(const ValueKey('topology-empty-create')));
+    await tick(tester);
+    expect(find.text('请先配置模型服务'), findsOneWidget);
+    expect(navigation.currentPage, AppPage.home);
+    expect(find.byKey(const ValueKey('topology-create-confirm')), findsNothing);
+    await tester.tap(
+      find.byKey(const ValueKey('cancel-topology-model-service-required')),
+    );
+    await tick(tester);
+    expect(find.text('请先配置模型服务'), findsNothing);
+    expect(navigation.currentPage, AppPage.home);
+    await tester.tap(find.byKey(const ValueKey('topology-empty-create')));
+    await tick(tester);
+    await tester.tap(
+      find.byKey(const ValueKey('confirm-topology-model-service-required')),
+    );
+    await tick(tester);
+    expect(navigation.currentPage, AppPage.settings);
+    expect(navigation.settingsSection, AppSettingsSection.aiServices);
+    expect(tester.takeException(), isNull);
+  });
+
   Future<void> finish(WidgetTester tester) async {
     workspaces.stopAll();
     for (final gate in requestGates.values) {

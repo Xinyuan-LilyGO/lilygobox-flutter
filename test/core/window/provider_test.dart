@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:window_manager/window_manager.dart';
 import 'package:lilygobox/core/window/provider.dart';
 import 'package:lilygobox/core/window/tray.dart';
+import 'package:window_manager/window_manager.dart';
 
 class _Request implements EventRequest {
   bool cancelled = false;
@@ -121,6 +121,63 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
+  testWidgets('taskbar restore retains the actual maximized state', (
+    tester,
+  ) async {
+    final provider = WindowProvider(window: window);
+    addTearDown(provider.dispose);
+    window.maximized = true;
+    await window.listener!(WindowMaximizedEvent(windowId: 1));
+    expect(provider.isMaximized, isTrue);
+    // 任务栏从最小化恢复到最大化也会发送 restored，不能据此切回普通外框。
+    await window.listener!(WindowRestoredEvent(windowId: 1));
+    expect(provider.isMaximized, isTrue);
+    expect(window.calls, isEmpty);
+    window.maximized = false;
+    await window.listener!(WindowRestoredEvent(windowId: 1));
+    expect(provider.isMaximized, isFalse);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+  testWidgets('native activation wins over a stale initial focus query', (
+    tester,
+  ) async {
+    const channel = MethodChannel('lilygobox/window_focus');
+    final initial = Completer<bool>();
+    binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      (_) => initial.future,
+    );
+    addTearDown(
+      () => binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+    final provider = WindowProvider(window: window);
+    addTearDown(provider.dispose);
+    await tester.pump();
+    Future<void> activate(bool value) async {
+      final done = Completer<void>();
+      await binding.defaultBinaryMessenger.handlePlatformMessage(
+        channel.name,
+        const StandardMethodCodec().encodeMethodCall(
+          MethodCall('focusChanged', value),
+        ),
+        (_) => done.complete(),
+      );
+      await done.future;
+    }
+
+    await activate(true);
+    initial.complete(false);
+    await tester.pump();
+    expect(provider.isFocused, isTrue);
+    await window.listener!(WindowBlurredEvent(windowId: 1));
+    expect(provider.isFocused, isTrue);
+    await activate(false);
+    expect(provider.isFocused, isFalse);
+    await activate(true);
+    expect(provider.isFocused, isTrue);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
   testWidgets('saving blocks system close until the save finishes', (
     tester,
   ) async {

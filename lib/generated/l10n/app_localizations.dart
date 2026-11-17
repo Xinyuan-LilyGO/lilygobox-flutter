@@ -3348,6 +3348,24 @@ abstract class AppLocalizations {
   /// **'No model services yet. Add a service to get started.'**
   String get aiNoServices;
 
+  /// No description provided for @aiCreateRequiresServiceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure a model service first'**
+  String get aiCreateRequiresServiceTitle;
+
+  /// No description provided for @aiCreateRequiresServiceDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating an agent requires an available model service. Add a service, enter its API key, and configure at least one model.'**
+  String get aiCreateRequiresServiceDescription;
+
+  /// No description provided for @aiGoToModelSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to settings'**
+  String get aiGoToModelSettings;
+
   /// No description provided for @aiServiceName.
   ///
   /// In en, this message translates to:
@@ -4896,6 +4914,12 @@ abstract class AppLocalizations {
   /// **'Long-term memory owner'**
   String get agentStorageScope;
 
+  /// No description provided for @agentStorageContextScope.
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation and context owner'**
+  String get agentStorageContextScope;
+
   /// No description provided for @agentStorageMemories.
   ///
   /// In en, this message translates to:
@@ -5381,6 +5405,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Choose an agent to export'**
   String get agentStorageChooseAgent;
+
+  /// No description provided for @agentStorageNoExportAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'No agents available to export'**
+  String get agentStorageNoExportAgents;
+
+  /// No description provided for @agentStorageNoManagedAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'No agents available to manage'**
+  String get agentStorageNoManagedAgents;
+
+  /// No description provided for @agentStorageNoExportWorkflow.
+  ///
+  /// In en, this message translates to:
+  /// **'No agent workflow available to export'**
+  String get agentStorageNoExportWorkflow;
 
   /// No description provided for @agentStorageMemoryDestination.
   ///

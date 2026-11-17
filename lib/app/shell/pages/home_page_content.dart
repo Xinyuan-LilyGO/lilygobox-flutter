@@ -173,18 +173,23 @@ class _HomePageContentState extends State<HomePageContent> {
                       ),
                     ),
                     if (!hasDevices)
-                      SliverFillRemaining(
-                        hasScrollBody: true,
-                        child: LayoutBuilder(
-                          builder: (context, viewport) => SingleChildScrollView(
-                            padding: EdgeInsets.fromLTRB(inset, 24, inset, 110),
-                            child: ConstrainedBox(
-                              // 保留可视区域高度供居中；小窗口则按内容高度滚动。
-                              constraints: BoxConstraints(
-                                minHeight: math.max(
-                                  0,
-                                  viewport.maxHeight - 134,
-                                ),
+                      SliverLayoutBuilder(
+                        // 空状态仅由外层滚动容器管理；内容放得下时填满剩余空间。
+                        builder: (context, viewport) => SliverToBoxAdapter(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: math.max(
+                                0,
+                                viewport.viewportMainAxisExtent -
+                                    viewport.precedingScrollExtent,
+                              ),
+                            ),
+                            child: Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                inset,
+                                24,
+                                inset,
+                                110,
                               ),
                               child: Center(
                                 child: ConstrainedBox(
