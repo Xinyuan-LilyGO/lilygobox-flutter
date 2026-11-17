@@ -110,7 +110,13 @@ void main() {
         );
         await tester.tap(find.text('Open bin'));
         await tester.pumpAndSettle();
-        final list = find.byKey(const ValueKey('recycle-agent-list-scroll'));
+        final list = find.byKey(
+          ValueKey(
+            compact
+                ? 'recycle-agent-compact-scroll'
+                : 'recycle-agent-list-scroll',
+          ),
+        );
         final search = find.byType(SettingSearchField);
         final close = find.text('Close');
         final dialogSurface = find
@@ -125,7 +131,7 @@ void main() {
         final listSize = tester.getSize(list);
         if (!compact) expect(listSize.height, closeTo(270, .01));
         expect(dialogSize.height, lessThan(compact ? 620 : 800));
-        expect(tester.widget<ListView>(list).primary, isFalse);
+        if (!compact) expect(tester.widget<ListView>(list).primary, isFalse);
         expect(
           find.descendant(
             of: find.byType(AppDialog),
@@ -136,16 +142,9 @@ void main() {
 
         final last = workspace.recycledAgents.last;
         final lastCard = find.byKey(ValueKey('recycle-agent-card-${last.id}'));
-        final scrollable = compact
-            ? find
-                  .descendant(
-                    of: find.byType(SingleChildScrollView),
-                    matching: find.byType(Scrollable),
-                  )
-                  .first
-            : find
-                  .descendant(of: list, matching: find.byType(Scrollable))
-                  .first;
+        final scrollable = find
+            .descendant(of: list, matching: find.byType(Scrollable))
+            .first;
         await tester.scrollUntilVisible(lastCard, 220, scrollable: scrollable);
         await tester.pumpAndSettle();
         expect(lastCard.hitTestable(), findsOneWidget);
@@ -282,6 +281,7 @@ void main() {
           await tester.ensureVisible(
             find.byKey(const ValueKey('recycle-restore-selected')),
           );
+          await tester.pumpAndSettle();
         }
         await tester.tap(
           find.byKey(const ValueKey('recycle-restore-selected')),
@@ -318,6 +318,7 @@ void main() {
           await tester.ensureVisible(
             find.byKey(const ValueKey('recycle-delete-selected')),
           );
+          await tester.pumpAndSettle();
         }
         await tester.tap(find.byKey(const ValueKey('recycle-delete-selected')));
         await tester.pumpAndSettle();

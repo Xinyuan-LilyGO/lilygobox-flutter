@@ -33,6 +33,7 @@ import 'package:lilygobox/features/assistant/data/conversation_codec.dart';
 import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 import 'package:lilygobox/features/assistant/presentation/pages/page.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_composer.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/message_content.dart';
 import 'package:lilygobox/features/assistant/state/provider.dart';
 import 'package:lilygobox/features/settings/presentation/widgets/split_view.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
@@ -758,6 +759,61 @@ void main() {
     expect(scope.provider.messages.length, messageCount);
     expect(requests, 1);
   });
+
+  testWidgets('hidden conversation defers provider rebuilds until shown', (
+    tester,
+  ) async {
+    await tester.runAsync(() => scope.provider.initialized);
+    await tester.pumpWidget(app(tickerEnabled: false));
+    await tester.pumpAndSettle();
+    final before = tester.widget<ChatComposer>(find.byType(ChatComposer));
+    scope.provider.contextBudgetTokens = 64000;
+    await tester.pump();
+    expect(
+      tester.widget<ChatComposer>(find.byType(ChatComposer)),
+      same(before),
+    );
+    await tester.pumpWidget(app(tickerEnabled: true));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<ChatComposer>(find.byType(ChatComposer)),
+      isNot(same(before)),
+    );
+    expect(scope.provider.contextBudgetTokens, 64000);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'unchanged messages retain their content across provider updates',
+    (tester) async {
+      await tester.runAsync(() => scope.provider.initialized);
+      await scope.provider.saveService(
+        name: 'Test',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['test'],
+        apiKey: 'key',
+      );
+      await tester.runAsync(
+        () => scope.provider.sendMessage('Keep this history'),
+      );
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      final bodies = tester
+          .widgetList<ChatMessageBody>(find.byType(ChatMessageBody))
+          .toList();
+      scope.provider.contextBudgetTokens = 64000;
+      await tester.pump();
+      final updated = tester
+          .widgetList<ChatMessageBody>(find.byType(ChatMessageBody))
+          .toList();
+      expect(updated, hasLength(bodies.length));
+      for (var index = 0; index < bodies.length; index++) {
+        expect(updated[index], same(bodies[index]));
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('composer theme background updates while its ticker is paused', (
     tester,

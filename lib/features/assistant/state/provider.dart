@@ -869,6 +869,8 @@ class AiAssistantProvider extends ChangeNotifier {
   String? _steeringGuidanceId;
   bool _saving = false;
   bool _disposed = false;
+  int _revision = 0;
+  int get revision => _revision;
   Completer<void>? _abortRequest;
   _AssistantTextOutput? _activeOutput;
   String _forkStreamingContent = '';
@@ -973,7 +975,9 @@ class AiAssistantProvider extends ChangeNotifier {
   Future<void> get initialized => _initializing;
 
   void _notify() {
-    if (!_disposed) notifyListeners();
+    if (_disposed) return;
+    _revision++;
+    notifyListeners();
   }
 
   Future<void> _restoreServices() async {

@@ -63,6 +63,34 @@ class _AssistantPageState extends State<AssistantPage> {
   bool _scrollToEndPending = false;
   int _scrollToEndVersion = 0;
   List<AiImageAttachment> _attachments = const [];
+  final _messageViews = <String, (AiMessage, AppTheme, Widget)>{};
+
+  Widget _messageView(AiMessage message, AppTheme theme) {
+    final cached = _messageViews[message.id];
+    if (cached != null &&
+        identical(cached.$1, message) &&
+        identical(cached.$2, theme)) {
+      return cached.$3;
+    }
+    final view = Center(
+      key: ValueKey(message.id),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 772),
+        child: ChatMessagePaintRegion(
+          child: RepaintBoundary(
+            key: ValueKey('ai-message-paint-${message.id}'),
+            child: _MessageView(
+              key: ValueKey(message.id),
+              message: message,
+              theme: theme,
+            ),
+          ),
+        ),
+      ),
+    );
+    _messageViews[message.id] = (message, theme, view);
+    return view;
+  }
 
   @override
   void initState() {
@@ -206,7 +234,7 @@ class _AssistantPageState extends State<AssistantPage> {
           } else {
             await _scroll.animateTo(
               target,
-              duration: const Duration(milliseconds: 180),
+              duration: const Duration(milliseconds: 200),
               curve: Curves.easeOut,
             );
           }
@@ -235,12 +263,18 @@ class _AssistantPageState extends State<AssistantPage> {
   @override
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeProvider>().themeData;
-    final assistant = context.watch<AiAssistantProvider>();
+    final active = TickerMode.valuesOf(context).enabled;
+    final assistant = context.read<AiAssistantProvider>();
+    context.select<AiAssistantProvider, int>(
+      (value) => active ? value.revision : -1,
+    );
     // 其他子智能体占用或释放运行槽后，同步刷新当前会话的发送可用状态。
     context.select<AiWorkspaceProvider?, int>(
-      (workspaces) => workspaces?.runningCount ?? 0,
+      (workspaces) => active ? workspaces?.runningCount ?? 0 : -1,
     );
     final messages = assistant.messages;
+    final messageIds = messages.map((message) => message.id).toSet();
+    _messageViews.removeWhere((id, _) => !messageIds.contains(id));
     final l10n = context.l10n;
     final ready = assistant.credentialLoaded && assistant.hasApiKey;
 
@@ -299,29 +333,7 @@ class _AssistantPageState extends State<AssistantPage> {
                                         child: Column(
                                           children: [
                                             for (final message in messages)
-                                              Center(
-                                                child: ConstrainedBox(
-                                                  constraints:
-                                                      const BoxConstraints(
-                                                        maxWidth: 772,
-                                                      ),
-                                                  // 保留完整高度与选区，只提交视口内消息的绘制层。
-                                                  child: ChatMessagePaintRegion(
-                                                    child: RepaintBoundary(
-                                                      key: ValueKey(
-                                                        'ai-message-paint-${message.id}',
-                                                      ),
-                                                      child: _MessageView(
-                                                        key: ValueKey(
-                                                          message.id,
-                                                        ),
-                                                        message: message,
-                                                        theme: theme,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
+                                              _messageView(message, theme),
                                           ],
                                         ),
                                       ),

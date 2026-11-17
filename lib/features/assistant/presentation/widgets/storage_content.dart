@@ -54,6 +54,10 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
   final _memorySelection = DesktopCardSelection();
   final _memoryListFocus = FocusNode(debugLabel: 'memory card selection');
   String? _memorySelectionOwner;
+  List<Map<String, Object?>>? _memorySource;
+  List<String> _memoryIds = const [];
+  Object? _memoryEnvironment;
+  final _memoryViews = <String, ({bool selected, Widget view})>{};
   final _contextBudget = TextEditingController();
   final _contextPercent = TextEditingController();
   int? _savedPercent;
@@ -901,13 +905,23 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
   Widget _memoryCards(AiWorkspaceProvider workspaces) {
     final theme = widget.theme;
     final l = context.l10n;
-    final ids = controller.memories.map((m) => m['id'] as String).toList();
+    if (!identical(_memorySource, controller.memories)) {
+      _memorySource = controller.memories;
+      _memoryIds = controller.memories.map((m) => m['id'] as String).toList();
+      _memoryViews.clear();
+    }
+    final ids = _memoryIds;
     if (_memorySelectionOwner != controller.owner) {
       _memorySelectionOwner = controller.owner;
       _memorySelection.clear();
     }
     final enabled =
         !controller.busy && workspaces.find(controller.owner) != null;
+    final environment = (theme, l, enabled, controller.owner);
+    if (_memoryEnvironment != environment) {
+      _memoryEnvironment = environment;
+      _memoryViews.clear();
+    }
     return DesktopCardSelectionRegion(
       focusNode: _memoryListFocus,
       selection: _memorySelection,
@@ -1031,14 +1045,17 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                 240.0,
               ),
             ),
-            child: ListView(
+            child: ListView.builder(
               key: const ValueKey('storage-memory-list-scroll'),
               primary: false,
               shrinkWrap: true,
               padding: const EdgeInsets.only(right: 20),
-              children: [
-                if (controller.memories.isEmpty)
-                  Padding(
+              itemCount: controller.memories.isEmpty
+                  ? 1
+                  : controller.memories.length + (controller.hasMore ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (controller.memories.isEmpty) {
+                  return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Text(
                       l.agentStorageEmpty,
@@ -1047,16 +1064,26 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                         color: theme.textColorSecondary,
                       ),
                     ),
-                  ),
-                for (final memory in controller.memories)
-                  _memoryCard(memory, ids, enabled),
-                if (controller.hasMore)
-                  _button(
+                  );
+                }
+                if (index == controller.memories.length) {
+                  return _button(
                     l.agentStorageMore,
                     Symbols.expand_more,
                     () => _run(controller.loadMore),
-                  ),
-              ],
+                  );
+                }
+                final memory = controller.memories[index];
+                final id = memory['id'] as String;
+                final selected = _memorySelection.selected.contains(id);
+                final cached = _memoryViews[id];
+                if (cached != null && cached.selected == selected) {
+                  return cached.view;
+                }
+                final view = _memoryCard(memory, ids, enabled);
+                _memoryViews[id] = (selected: selected, view: view);
+                return view;
+              },
             ),
           ),
         ],
@@ -1080,7 +1107,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
           selected: selected,
           child: Material(
             animationDuration: const Duration(milliseconds: 167),
-            color: theme.primary,
+            color: theme.secondary,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
               side: BorderSide(

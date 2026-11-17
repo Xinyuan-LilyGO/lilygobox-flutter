@@ -278,7 +278,7 @@ void main() {
         );
         expect(
           (recycledCard.decoration as BoxDecoration).color,
-          palette.primary,
+          palette.secondary,
         );
         final recycleList = find.byKey(
           const ValueKey('recycle-agent-list-scroll'),

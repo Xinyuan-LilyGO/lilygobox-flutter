@@ -109,7 +109,7 @@ class _ProcessDetailsScrollViewState extends State<ProcessDetailsScrollView> {
           } else {
             await _scroll.animateTo(
               target,
-              duration: const Duration(milliseconds: 180),
+              duration: const Duration(milliseconds: 200),
               curve: Curves.easeOut,
             );
           }

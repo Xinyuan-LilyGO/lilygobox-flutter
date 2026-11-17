@@ -8,17 +8,261 @@ import 'package:lilygobox/core/widgets/app_scroll_behavior.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 模拟鼠标滚轮输入，直接验证全局事件仲裁后的滚动结果。
-Future<void> wheel(WidgetTester tester, Offset point, double delta) =>
-    tester.sendEventToBinding(
-      PointerScrollEvent(
-        position: point,
-        scrollDelta: Offset(0, delta),
-        kind: PointerDeviceKind.mouse,
-      ),
-    );
+Future<void> wheel(
+  WidgetTester tester,
+  Offset point,
+  double delta, {
+  Duration timeStamp = Duration.zero,
+}) => tester.sendEventToBinding(
+  PointerScrollEvent(
+    timeStamp: timeStamp,
+    position: point,
+    scrollDelta: Offset(0, delta),
+    kind: PointerDeviceKind.mouse,
+  ),
+);
 
 void main() {
+  group('WheelScrollAcceleration', () {
+    test('input intervals map linearly to the multiplier with a 3x cap', () {
+      final acceleration = WheelScrollAcceleration();
+      var time = const Duration(seconds: 1);
+      double sample(int milliseconds) {
+        time += Duration(milliseconds: milliseconds);
+        return acceleration.apply(const Offset(0, 120), time).dy / 120;
+      }
+
+      expect(sample(0), 1);
+      for (final (interval, multiplier) in [
+        (100, 1.0),
+        (75, 5 / 3),
+        (50, 7 / 3),
+        (25, 3.0),
+        (10, 3.0),
+      ]) {
+        expect(sample(interval), closeTo(multiplier, .0001));
+      }
+      expect(sample(100), 1);
+    });
+
+    test('speed changes take effect immediately without a ramp or history', () {
+      final acceleration = WheelScrollAcceleration();
+      for (var index = 0; index <= 6; index++) {
+        acceleration.apply(
+          const Offset(0, 120),
+          Duration(milliseconds: 1000 + index * 25),
+        );
+      }
+      final multiplier =
+          acceleration
+              .apply(const Offset(0, 120), const Duration(milliseconds: 1225))
+              .dy /
+          120;
+      expect(multiplier, closeTo(5 / 3, .0001));
+      expect(
+        acceleration
+            .apply(const Offset(0, 120), const Duration(milliseconds: 1250))
+            .dy,
+        360,
+      );
+    });
+
+    for (final resetCase in ['reverse', 'axis', 'pause', 'activity', 'reset']) {
+      test('$resetCase clears accumulated acceleration', () {
+        final acceleration = WheelScrollAcceleration();
+        for (var index = 0; index <= 6; index++) {
+          acceleration.apply(
+            const Offset(0, 120),
+            Duration(milliseconds: 1000 + index * 25),
+          );
+        }
+        if (resetCase == 'reset') acceleration.reset();
+        final delta = switch (resetCase) {
+          'reverse' => const Offset(0, -120),
+          'axis' => const Offset(120, 0),
+          _ => const Offset(0, 120),
+        };
+        expect(
+          acceleration.apply(
+            delta,
+            Duration(milliseconds: resetCase == 'pause' ? 1400 : 1175),
+            continuing: resetCase != 'activity',
+          ),
+          delta,
+        );
+      });
+    }
+  });
+
   group('AppScrollBehavior', () {
+    testWidgets(
+      'copied menu behavior preserves wheel acceleration and options',
+      (tester) async {
+        final controller = ScrollController();
+        addTearDown(controller.dispose);
+        final behavior = const AppScrollBehavior()
+            .copyWith(
+              scrollbars: false,
+              physics: const ClampingScrollPhysics(),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              pointerAxisModifiers: {LogicalKeyboardKey.altLeft},
+              platform: TargetPlatform.windows,
+            )
+            .copyWith(overscroll: false);
+        await tester.pumpWidget(
+          MaterialApp(
+            scrollBehavior: behavior,
+            home: ListView(
+              controller: controller,
+              children: const [SizedBox(height: 10000)],
+            ),
+          ),
+        );
+        final context = tester.element(find.byType(ListView));
+        expect(
+          behavior.getScrollPhysics(context),
+          isA<ClampingScrollPhysics>(),
+        );
+        expect(
+          behavior.getKeyboardDismissBehavior(context),
+          ScrollViewKeyboardDismissBehavior.onDrag,
+        );
+        expect(behavior.pointerAxisModifiers, {LogicalKeyboardKey.altLeft});
+        expect(behavior.shouldNotify(behavior.copyWith()), isFalse);
+        expect(
+          behavior.shouldNotify(behavior.copyWith(scrollbars: true)),
+          isTrue,
+        );
+        expect(find.byType(Scrollbar), findsNothing);
+        for (var eventIndex = 0; eventIndex < 2; eventIndex++) {
+          await wheel(
+            tester,
+            const Offset(200, 200),
+            120,
+            timeStamp: Duration(milliseconds: 1000 + eventIndex * 25),
+          );
+        }
+        await tester.pumpAndSettle();
+        expect(controller.offset, closeTo(480, .1));
+      },
+    );
+
+    for (final direction in [1, -1]) {
+      for (final (interval, distance) in [
+        (250, 360),
+        (100, 360),
+        (75, 520),
+        (50, 680),
+        (25, 840),
+        (10, 840),
+        (0, 360),
+      ]) {
+        testWidgets(
+          'wheel direction=$direction interval=${interval}ms scales distance with input speed',
+          (tester) async {
+            final controller = ScrollController(initialScrollOffset: 5000);
+            addTearDown(controller.dispose);
+            await tester.pumpWidget(
+              MaterialApp(
+                scrollBehavior: const AppScrollBehavior(),
+                home: ListView(
+                  controller: controller,
+                  children: const [SizedBox(height: 20000)],
+                ),
+              ),
+            );
+            for (var eventIndex = 0; eventIndex < 3; eventIndex++) {
+              await wheel(
+                tester,
+                const Offset(200, 200),
+                120.0 * direction,
+                timeStamp: Duration(milliseconds: 1000 + eventIndex * interval),
+              );
+              await tester.pump();
+              await tester.pump(Duration(milliseconds: interval));
+            }
+            await tester.pumpAndSettle();
+            expect(controller.offset, closeTo(5000 + direction * distance, .1));
+          },
+        );
+      }
+    }
+
+    testWidgets('wheel multiplier follows acceleration and deceleration', (
+      tester,
+    ) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          scrollBehavior: const AppScrollBehavior(),
+          home: ListView(
+            controller: controller,
+            children: const [SizedBox(height: 10000)],
+          ),
+        ),
+      );
+      var eventTime = 1000;
+      for (final interval in [0, 50, 25, 75]) {
+        await tester.pump(Duration(milliseconds: interval));
+        eventTime += interval;
+        await wheel(
+          tester,
+          const Offset(200, 200),
+          120,
+          timeStamp: Duration(milliseconds: eventTime),
+        );
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+      expect(controller.offset, closeTo(960, .1));
+    });
+
+    testWidgets(
+      'rapid wheel acceleration resets on reversal and after a pause',
+      (tester) async {
+        final controller = ScrollController(initialScrollOffset: 1000);
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            scrollBehavior: const AppScrollBehavior(),
+            home: ListView(
+              controller: controller,
+              children: const [SizedBox(height: 10000)],
+            ),
+          ),
+        );
+        for (var eventIndex = 0; eventIndex < 2; eventIndex++) {
+          await wheel(
+            tester,
+            const Offset(200, 200),
+            120,
+            timeStamp: Duration(milliseconds: 1000 + eventIndex * 50),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        final beforeReverse = controller.offset;
+        await wheel(
+          tester,
+          const Offset(200, 200),
+          -120,
+          timeStamp: const Duration(milliseconds: 1100),
+        );
+        await tester.pumpAndSettle();
+        expect(controller.offset, closeTo(beforeReverse - 120, .1));
+        final beforePause = controller.offset;
+        await wheel(
+          tester,
+          const Offset(200, 200),
+          -120,
+          timeStamp: const Duration(milliseconds: 1500),
+        );
+        await tester.pumpAndSettle();
+        expect(controller.offset, closeTo(beforePause - 120, .1));
+      },
+    );
+
     testWidgets('should animate and accumulate wheel input', (tester) async {
       final controller = ScrollController();
       addTearDown(controller.dispose);

@@ -7,16 +7,19 @@ class AiRecycledAgent {
     required this.deletedAt,
     this.position,
     this.connections = const [],
-  }) : _record = jsonEncode(record);
+  }) : id = record['id'] as String,
+       title = record['title'] as String,
+       task = record['task'] as String,
+       _record = jsonEncode(record);
   final String _record;
   Map<String, dynamic> get record =>
       jsonDecode(_record) as Map<String, dynamic>;
   final DateTime deletedAt;
   final List<double>? position;
   final List<Map<String, dynamic>> connections;
-  String get id => record['id'] as String;
-  String get title => record['title'] as String;
-  String get task => record['task'] as String;
+  final String id;
+  final String title;
+  final String task;
   Map<String, Object?> toJson() => {
     'record': record,
     'deletedAt': deletedAt.toIso8601String(),
@@ -46,9 +49,11 @@ class AiRecycledAgent {
 }
 
 extension AiAgentRecycleBin on AiWorkspaceProvider {
-  List<AiRecycledAgent> get recycledAgents => List.unmodifiable(
-    [..._recycledAgents]..sort((a, b) => b.deletedAt.compareTo(a.deletedAt)),
-  );
+  List<AiRecycledAgent> get recycledAgents =>
+      _recycledAgentsCache ??= List.unmodifiable(
+        [..._recycledAgents]
+          ..sort((a, b) => b.deletedAt.compareTo(a.deletedAt)),
+      );
   int get recycleRetentionDays => _recycleRetentionDays;
   bool get recycleBusy => _recycleOperation;
   DateTime? recycleExpiry(AiRecycledAgent entry) => _recycleRetentionDays == 0
@@ -56,6 +61,7 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
       : entry.deletedAt.add(Duration(days: _recycleRetentionDays));
 
   void _restoreRecycleState(Map data) {
+    _recycledAgentsCache = null;
     _recycleRetentionDays = switch (data['recycleRetentionDays']) {
       0 => 0,
       7 => 7,
@@ -73,6 +79,7 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
   }
 
   void _moveToRecycleBin(List<AiAgentWorkspace> removing, Map snapshot) {
+    _recycledAgentsCache = null;
     final ids = removing.map((s) => s.id).toSet();
     final now = DateTime.now();
     _recycledAgents.removeWhere((e) => ids.contains(e.id));
@@ -199,6 +206,7 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
       );
       _register(restored);
       _recycledAgents.remove(entry);
+      _recycledAgentsCache = null;
       if (entry.position != null) {
         canvasPositions[id] = List.of(entry.position!);
       }
@@ -232,6 +240,7 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
         if (listener != null) assistant.removeListener(listener);
         restored = null;
         _recycledAgents.add(entry);
+        _recycledAgentsCache = null;
         canvasPositions.remove(id);
         for (final key in added) {
           _supplementalConnections.remove(key);
@@ -273,6 +282,7 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
         'owners': removing.map((e) => e.id).toList(),
       });
       _recycledAgents.removeWhere((e) => ids.contains(e.id));
+      _recycledAgentsCache = null;
       _purgedAgentIds.addAll(removing.map((e) => e.id));
       _invalidateRecycleHistory();
     } finally {

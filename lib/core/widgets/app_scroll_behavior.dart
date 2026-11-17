@@ -21,15 +21,121 @@ class AppUserScrollNotification extends Notification {
   final double delta;
 }
 
+class WheelScrollAcceleration {
+  static const _interval = Duration(milliseconds: 100);
+  static const _fastInterval = Duration(milliseconds: 25);
+  Duration? _lastTime;
+  Offset _lastDelta = Offset.zero;
+
+  Offset apply(Offset delta, Duration timeStamp, {bool continuing = true}) {
+    final elapsed = _lastTime == null ? null : timeStamp - _lastTime!;
+    final fast =
+        continuing &&
+        timeStamp > Duration.zero &&
+        elapsed != null &&
+        elapsed > Duration.zero &&
+        elapsed <= _interval &&
+        delta.dx * _lastDelta.dx + delta.dy * _lastDelta.dy > 0;
+    final multiplier = fast
+        ? (1 +
+                  2 *
+                      (_interval.inMicroseconds - elapsed.inMicroseconds) /
+                      (_interval - _fastInterval).inMicroseconds)
+              .clamp(1.0, 3.0)
+        : 1.0;
+    _lastTime = timeStamp;
+    _lastDelta = delta;
+    return delta * multiplier;
+  }
+
+  void reset() {
+    _lastTime = null;
+    _lastDelta = Offset.zero;
+  }
+}
+
 class AppScrollBehavior extends MaterialScrollBehavior {
-  const AppScrollBehavior({this.scrollbars = true});
+  const AppScrollBehavior({this.scrollbars = true}) : _configuration = null;
+
+  const AppScrollBehavior._({
+    required this.scrollbars,
+    required this._configuration,
+  });
+
+  final ScrollBehavior? _configuration;
 
   /// 滚动条外缘到所属承载区边缘的统一距离；已有外层留白时须扣除。
   static const scrollbarEdgeInset = 6.0;
 
   /// 自绘滚动条时只关闭装饰，保留平滑滚轮与嵌套事件仲裁。
-  /// 不使用 copyWith(scrollbars: false)，它会跳过整个 buildScrollbar。
   final bool scrollbars;
+
+  @override
+  AppScrollBehavior copyWith({
+    bool? scrollbars,
+    bool? overscroll,
+    Set<PointerDeviceKind>? dragDevices,
+    MultitouchDragStrategy? multitouchDragStrategy,
+    Set<LogicalKeyboardKey>? pointerAxisModifiers,
+    ScrollPhysics? physics,
+    TargetPlatform? platform,
+    ScrollViewKeyboardDismissBehavior? keyboardDismissBehavior,
+  }) => AppScrollBehavior._(
+    scrollbars: scrollbars ?? this.scrollbars,
+    configuration: (_configuration ?? const MaterialScrollBehavior()).copyWith(
+      overscroll: overscroll,
+      dragDevices: dragDevices,
+      multitouchDragStrategy: multitouchDragStrategy,
+      pointerAxisModifiers: pointerAxisModifiers,
+      physics: physics,
+      platform: platform,
+      keyboardDismissBehavior: keyboardDismissBehavior,
+    ),
+  );
+
+  @override
+  TargetPlatform getPlatform(BuildContext context) =>
+      _configuration?.getPlatform(context) ?? super.getPlatform(context);
+
+  @override
+  Set<PointerDeviceKind> get dragDevices =>
+      _configuration?.dragDevices ?? super.dragDevices;
+
+  @override
+  Set<LogicalKeyboardKey> get pointerAxisModifiers =>
+      _configuration?.pointerAxisModifiers ?? super.pointerAxisModifiers;
+
+  @override
+  MultitouchDragStrategy getMultitouchDragStrategy(BuildContext context) =>
+      _configuration?.getMultitouchDragStrategy(context) ??
+      super.getMultitouchDragStrategy(context);
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) =>
+      _configuration?.getScrollPhysics(context) ??
+      super.getScrollPhysics(context);
+
+  @override
+  ScrollViewKeyboardDismissBehavior getKeyboardDismissBehavior(
+    BuildContext context,
+  ) =>
+      _configuration?.getKeyboardDismissBehavior(context) ??
+      super.getKeyboardDismissBehavior(context);
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) =>
+      _configuration?.buildOverscrollIndicator(context, child, details) ??
+      super.buildOverscrollIndicator(context, child, details);
+
+  @override
+  bool shouldNotify(covariant AppScrollBehavior oldDelegate) =>
+      scrollbars != oldDelegate.scrollbars ||
+      _configuration.runtimeType != oldDelegate._configuration.runtimeType ||
+      (_configuration?.shouldNotify(oldDelegate._configuration!) ?? false);
 
   @override
   Widget buildScrollbar(
@@ -287,6 +393,7 @@ class _WheelRegionState extends State<_WheelRegion>
   ScrollPosition? _position;
   _WheelScrollActivity? _wheelActivity;
   _WheelSimulation? _wheelSimulation;
+  final _wheelAcceleration = WheelScrollAcceleration();
 
   void _stopWheelScroll() {
     _wheelActivity?.stop();
@@ -294,6 +401,7 @@ class _WheelRegionState extends State<_WheelRegion>
     _wheelSimulation = null;
     _target = null;
     _position = null;
+    _wheelAcceleration.reset();
   }
 
   /// 按实际轴向及 Shift 修饰键换算滚轮位移。
@@ -336,15 +444,18 @@ class _WheelRegionState extends State<_WheelRegion>
     final event = signal as PointerScrollEvent;
     if (!accepts(event)) return;
     final position = widget.controller.position;
-    final delta = _delta(event);
+    final rawDelta = _delta(event);
     AppUserScrollNotification(
       position: position,
-      delta: delta,
+      delta: rawDelta,
     ).dispatch(context);
-    final reversing =
-        _target != null && (_target! - position.pixels) * delta < 0;
     final continuing =
         _position == position && (_wheelActivity?.active ?? false);
+    final delta = _wheelAcceleration
+        .apply(Offset(rawDelta, 0), event.timeStamp, continuing: continuing)
+        .dx;
+    final reversing =
+        _target != null && (_target! - position.pixels) * delta < 0;
     if (!continuing || reversing) _target = position.pixels;
     _position = position;
     final target = (_target! + delta)
@@ -370,7 +481,7 @@ class _WheelRegionState extends State<_WheelRegion>
       unawaited(
         position.animateTo(
           target,
-          duration: const Duration(milliseconds: 180),
+          duration: const Duration(milliseconds: 200),
           curve: Curves.easeOutCubic,
         ),
       );
@@ -419,7 +530,7 @@ class _WheelSimulation extends Simulation {
   _WheelSimulation(this._from, this._target)
     : _startVelocity = 3 * (_target - _from) / _duration;
 
-  static const _duration = .180;
+  static const _duration = .200;
   double _from;
   double _target;
   double _startVelocity;

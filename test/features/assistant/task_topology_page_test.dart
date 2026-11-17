@@ -415,6 +415,73 @@ void main() {
     await finish(tester);
   });
 
+  testWidgets('dragging a card reuses all unchanged card contents', (
+    tester,
+  ) async {
+    final tasks = (await tester.runAsync(() async {
+      return [
+        for (var index = 0; index < 20; index++)
+          await workspaces.create(
+            title: 'Task $index',
+            task: 'Coordinate',
+            kind: AiWorkspaceKind.primary,
+            startImmediately: false,
+          ),
+      ];
+    }))!;
+    await tester.pumpWidget(app());
+    await tick(tester);
+    final viewport = tester.getRect(find.byType(TaskTopologyPage));
+    final visibleTask = tasks.firstWhere(
+      (task) => viewport
+          .deflate(60)
+          .contains(
+            tester.getCenter(find.byKey(ValueKey('topology-node-${task.id}'))),
+          ),
+    );
+    final node = find.byKey(ValueKey('topology-node-${visibleTask.id}'));
+    await tester.tap(node);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    final start = tester.getCenter(node);
+    final drag = await tester.startGesture(start);
+    await drag.moveTo(start + const Offset(25, 20));
+    await tester.pumpAndSettle();
+    await drag.moveTo(start + const Offset(50, 40));
+    await tester.pumpAndSettle();
+    final cards = {
+      for (final task in tasks)
+        task.id: tester.widget<AnimatedContainer>(
+          find.byKey(ValueKey('topology-node-${task.id}')),
+        ),
+    };
+    for (final card in cards.values) {
+      final border =
+          (card.foregroundDecoration as BoxDecoration).border as Border;
+      expect(border.top.color, theme.themeData.basePrimary);
+    }
+    final before = tester.getTopLeft(node);
+    for (var step = 1; step <= 5; step++) {
+      await drag.moveTo(start + Offset(50 + step * 8, 40 + step * 6));
+      await tester.pump();
+      for (final task in tasks) {
+        expect(
+          tester.widget<AnimatedContainer>(
+            find.byKey(ValueKey('topology-node-${task.id}')),
+          ),
+          same(cards[task.id]),
+        );
+      }
+    }
+    expect(tester.getTopLeft(node), isNot(before));
+    await drag.up();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
   testWidgets(
     'connection preview moves without rebuilding cards or the background',
     (tester) async {
@@ -3328,6 +3395,66 @@ void main() {
       await finish(tester);
     },
   );
+
+  for (final (axis, input, shift) in [
+    ('vertical', const Offset(0, 120), false),
+    ('horizontal', const Offset(120, 0), false),
+    ('shift', const Offset(0, 120), true),
+  ]) {
+    for (final direction in [1, -1]) {
+      testWidgets(
+        'canvas wheel $axis direction=$direction accelerates immediately up to 3x',
+        (tester) async {
+          await tester.binding.setSurfaceSize(const Size(1180, 850));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          await tester.runAsync(
+            () => workspaces.createPrimary(
+              title: 'Pan acceleration',
+              task: 'one',
+            ),
+          );
+          await tester.pumpWidget(app());
+          await tick(tester);
+          final canvas = find.byKey(const ValueKey('task-topology-canvas'));
+          final controller = tester
+              .widget<InteractiveViewer>(canvas)
+              .transformationController!;
+          final point = tester.getTopLeft(canvas) + const Offset(20, 20);
+          final initial = controller.value.clone();
+          if (shift)
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+          for (var eventIndex = 0; eventIndex < 3; eventIndex++) {
+            tester.binding.handlePointerEvent(
+              PointerScrollEvent(
+                timeStamp: Duration(milliseconds: 1000 + eventIndex * 25),
+                position: point,
+                scrollDelta: input * direction.toDouble(),
+                kind: PointerDeviceKind.mouse,
+              ),
+            );
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 25));
+          }
+          await tester.pumpAndSettle();
+          if (shift) await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+          final horizontal = shift || input.dx != 0;
+          expect(
+            controller.value.entry(horizontal ? 0 : 1, 3),
+            closeTo(
+              initial.entry(horizontal ? 0 : 1, 3) - direction * 840,
+              .01,
+            ),
+          );
+          expect(
+            controller.value.entry(horizontal ? 1 : 0, 3),
+            closeTo(initial.entry(horizontal ? 1 : 0, 3), .01),
+          );
+          expect(controller.value.entry(0, 0), initial.entry(0, 0));
+          await finish(tester);
+        },
+      );
+    }
+  }
 
   testWidgets(
     'wheel pans vertically and Shift pans horizontally with cumulative smooth motion',

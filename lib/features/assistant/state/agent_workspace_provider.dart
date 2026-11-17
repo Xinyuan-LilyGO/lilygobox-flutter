@@ -151,6 +151,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
   }
 
   final List<AiRecycledAgent> _recycledAgents = [];
+  List<AiRecycledAgent>? _recycledAgentsCache;
   final Set<String> _purgedAgentIds = {};
   int _recycleRetentionDays = 30;
   Timer? _recycleTimer;
@@ -241,6 +242,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
       ...?previous?._tasks.map((task) => task.id),
     };
     _recycledAgents.removeWhere((entry) => affected.contains(entry.id));
+    _recycledAgentsCache = null;
     _recycledAgents.addAll(
       snapshot._recycled.where((entry) => affected.contains(entry.id)),
     );
@@ -738,6 +740,10 @@ class AiWorkspaceProvider extends ChangeNotifier {
   void _notify() {
     if (_disposed) return;
     notifyListeners();
+    _scheduleSave();
+  }
+
+  void _scheduleSave() {
     if (!_restoring) {
       _saveTimer ??= Timer(const Duration(milliseconds: 500), () {
         _saveTimer = null;
@@ -1242,6 +1248,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
       }
       committed = true;
       _recycledAgents.addAll(importedRecycle);
+      _recycledAgentsCache = null;
       for (final session in staged) {
         _register(session);
       }
@@ -1285,14 +1292,45 @@ class AiWorkspaceProvider extends ChangeNotifier {
     assistant.workspaceToolHandler = (name, args) =>
         _executeTool(session.id, name, args);
     _dirtyConversations.add(session.id);
+    var presentation = _sessionPresentation(session);
     void listener() {
       _dirtyConversations.add(session.id);
-      _notify();
+      _scheduleSave();
+      final next = _sessionPresentation(session);
+      if (presentation != next) {
+        presentation = next;
+        _notify();
+      }
     }
 
     _sessionListeners[assistant] = listener;
     assistant.addListener(listener);
     _sessions.add(session);
+  }
+
+  Object _sessionPresentation(AiAgentWorkspace session) {
+    final assistant = session.assistant;
+    final response = assistant.messages.reversed
+        .where(
+          (message) => message.role == 'assistant' && message.status != null,
+        )
+        .firstOrNull;
+    final event = response?.processEvents.lastOrNull;
+    return (
+      session.status,
+      session.model,
+      session.serviceId,
+      assistant.selectedService?.name,
+      assistant.pendingApproval,
+      assistant.pendingUserInput,
+      response?.status,
+      event?.type,
+      event?.status,
+      event?.toolName,
+      event?.toolArguments,
+      event?.action,
+      event?.retry,
+    );
   }
 
   Future<AiAgentWorkspace> createPrimary({

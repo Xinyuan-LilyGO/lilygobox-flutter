@@ -82,6 +82,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   int _wheelZoomDirection = 0;
   Offset? _wheelPanTarget;
   Offset _wheelPanDirection = Offset.zero;
+  final _wheelPanAcceleration = WheelScrollAcceleration();
 
   void _animateView() {
     if (_viewFrames case final frames?) _transform.value = frames.value;
@@ -301,8 +302,21 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
 
   Size _size(String? id) => _nodeSizes[id] ?? _nodeSize;
 
+  final _measuredNodes = <String, (Object, Size)>{};
+  final _nodeCards = <String, (Object, Widget)>{};
+
   Size _measureNode(AiAgentWorkspace session) {
     final scaler = MediaQuery.textScalerOf(context);
+    final signature = (
+      session.title,
+      context.l10n.aiAgentIdValue(session.id),
+      scaler,
+      DefaultTextStyle.of(context).style,
+      Directionality.of(context),
+      Localizations.maybeLocaleOf(context),
+    );
+    final cached = _measuredNodes[session.id];
+    if (cached != null && cached.$1 == signature) return cached.$2;
     double height(String text, TextStyle style) {
       final painter = TextPainter(
         text: TextSpan(
@@ -339,10 +353,12 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         7 +
         math.max(22, status) +
         6;
-    return Size(
+    final size = Size(
       _nodeSize.width,
       math.max(minimum + math.max(0, title - twoLines), content).ceilToDouble(),
     );
+    _measuredNodes[session.id] = (signature, size);
+    return size;
   }
 
   int _lastCount = -1;
@@ -1780,14 +1796,28 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     );
   }
 
+  List<Object> _layoutSignature = const [];
+  Map<String, Offset> _automaticPositions = const {};
+
   Map<String, Offset> _layout(List<AiAgentWorkspace> sessions) {
-    final result = layoutTaskTopology(
-      sessions: sessions,
-      nodeSizes: {
-        for (final session in sessions) session.id: _size(session.id),
-      },
-      connections: context.read<AiWorkspaceProvider>().connections,
-    );
+    final connections = context.read<AiWorkspaceProvider>().connections;
+    final signature = <Object>[
+      for (final session in sessions)
+        (session.id, session.parentId, session.kind, _size(session.id)),
+      for (final edge in connections)
+        (edge.id, edge.fromId, edge.toId, edge.isHierarchy),
+    ];
+    if (!listEquals(signature, _layoutSignature)) {
+      _layoutSignature = signature;
+      _automaticPositions = layoutTaskTopology(
+        sessions: sessions,
+        nodeSizes: {
+          for (final session in sessions) session.id: _size(session.id),
+        },
+        connections: connections,
+      );
+    }
+    final result = _automaticPositions;
     final saved = context.read<AiWorkspaceProvider>().canvasPositions;
     for (final id in result.keys) {
       if (_restoredPositionIds.add(id)) {
@@ -1804,6 +1834,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
 
   void _fit({bool animate = false}) {
     if (_viewport.isEmpty) return;
+    _wheelPanAcceleration.reset();
     _wheelZoomTargetScale = null;
     _wheelPanTarget = null;
     _viewMotion.stop();
@@ -1855,6 +1886,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     bool accumulateWheel = false,
   }) {
     if (_viewport.isEmpty || factor == 1) return;
+    _wheelPanAcceleration.reset();
     final currentScale = _transform.value.entry(0, 0).abs();
     final direction = factor.compareTo(1);
     final baseScale =
@@ -1952,6 +1984,9 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       }
     }
     final sessions = workspaces.sessions;
+    final sessionIds = sessions.map((session) => session.id).toSet();
+    _measuredNodes.removeWhere((id, _) => !sessionIds.contains(id));
+    _nodeCards.removeWhere((id, _) => !sessionIds.contains(id));
     _selectedIds.removeWhere((id) => workspaces.find(id) == null);
     final connectionIds = workspaces.connections
         .map((connection) => connection.id)
@@ -2217,15 +2252,26 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
                 );
               } else {
                 _panByWheel(
-                  keyboard.isShiftPressed
-                      ? Offset(-event.scrollDelta.dy - event.scrollDelta.dx, 0)
-                      : -event.scrollDelta,
+                  _wheelPanAcceleration.apply(
+                    keyboard.isShiftPressed
+                        ? Offset(
+                            -event.scrollDelta.dy - event.scrollDelta.dx,
+                            0,
+                          )
+                        : -event.scrollDelta,
+                    event.timeStamp,
+                    continuing:
+                        event.kind == PointerDeviceKind.mouse &&
+                        _viewMotion.isAnimating &&
+                        _wheelPanTarget != null,
+                  ),
                 );
               }
             });
           }
         },
         onPointerDown: (event) {
+          _wheelPanAcceleration.reset();
           _canvasPointer = event.localPosition;
           if (event.buttons & kSecondaryMouseButton != 0) {
             _menuPlacement = _transform.toScene(event.localPosition);
@@ -2365,12 +2411,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
                   _dragStarts.clear();
                   if (before != null) _finishEdit(workspaces, before);
                 },
-                child: _TaskNode(
-                  session: session,
-                  selected: _selectedIds.contains(session.id),
-                  onOpen: () => _open(workspaces, session),
-                  theme: theme,
-                ),
+                child: _nodeCard(theme, workspaces, session),
               ),
             ),
           ),
@@ -2381,20 +2422,51 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     ),
   );
 
+  Widget _nodeCard(
+    AppTheme theme,
+    AiWorkspaceProvider workspaces,
+    AiAgentWorkspace session,
+  ) {
+    final selected = _selectedIds.contains(session.id);
+    final signature = (
+      session,
+      session.title,
+      session.kind,
+      session.model,
+      session.serviceId,
+      session.assistant.selectedService?.name,
+      session.status,
+      session.busy,
+      session.needsAttention,
+      _taskStatus(context, session),
+      selected,
+      theme,
+    );
+    final cached = _nodeCards[session.id];
+    if (cached != null && cached.$1 == signature) return cached.$2;
+    final card = RepaintBoundary(
+      child: _TaskNode(
+        session: session,
+        selected: selected,
+        onOpen: () => _open(workspaces, session),
+        theme: theme,
+      ),
+    );
+    _nodeCards[session.id] = (signature, card);
+    return card;
+  }
+
   Widget _graph(AppTheme theme, AiWorkspaceProvider workspaces) {
     final l10n = context.l10n;
     final parent = _selectedIds.length == 1 ? _parentFor(workspaces) : null;
-    final visibleSessions = workspaces.sessions.toList()
-      ..sort((a, b) {
-        int layer(AiAgentWorkspace task) {
-          final front = _frontOrder.indexOf(task.id);
-          return front < 0
-              ? workspaces.sessions.indexOf(task)
-              : workspaces.sessions.length + front;
-        }
-
-        return layer(a).compareTo(layer(b));
-      });
+    final sessions = workspaces.sessions;
+    final layers = {
+      for (final (index, session) in sessions.indexed) session.id: index,
+      for (final (index, id) in _frontOrder.indexed)
+        id: sessions.length + index,
+    };
+    final visibleSessions = sessions.toList()
+      ..sort((a, b) => layers[a.id]!.compareTo(layers[b.id]!));
     final sceneSize = Size(
       _positions.entries.fold(
         _sceneSize.width,
