@@ -557,6 +557,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiApprovalTitle => 'Approval required';
 
   @override
+  String aiRequestCountdown(int seconds) {
+    return '${seconds}s';
+  }
+
+  @override
+  String get aiRequestCountdownHint =>
+      'Click anywhere on this card to keep it open without a time limit.';
+
+  @override
+  String get aiApprovalTimedOut => 'Approval timed out and was denied';
+
+  @override
+  String get aiQuestionTimedOut => 'Question timed out and was cancelled';
+
+  @override
   String get aiApprove => 'Allow once';
 
   @override

@@ -270,6 +270,42 @@ void main() {
       expect(scope.provider.busy, isFalse);
     });
 
+    testWidgets('an unanswered question times out without submitting answers', (
+      tester,
+    ) async {
+      final send = scope.provider.sendMessage('Ask me');
+      for (
+        var attempt = 0;
+        scope.provider.pendingUserInput == null && attempt < 100;
+        attempt++
+      ) {
+        await tester.pump(const Duration(milliseconds: 20));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+      }
+      final pending = scope.provider.pendingUserInput;
+      expect(pending, isNotNull);
+      expect(scope.provider.requestCountdown.value?.seconds, 30);
+      await tester.pump(const Duration(seconds: 29));
+      expect(scope.provider.pendingUserInput, same(pending));
+      await tester.pump(const Duration(seconds: 1));
+      expect(scope.provider.pendingUserInput, isNull);
+      expect(scope.provider.requestCountdown.value, isNull);
+      for (var attempt = 0; scope.provider.busy && attempt < 100; attempt++) {
+        await tester.pump(const Duration(milliseconds: 20));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+      }
+      expect(scope.provider.busy, isFalse);
+      await send;
+      final result = jsonDecode(toolResult()['content'] as String) as Map;
+      expect(result['timed_out'], isTrue);
+      expect(result['cancelled'], isTrue);
+      expect(result['answers'], isEmpty);
+    });
+
     test(
       'should unblock stopping without starting another model request',
       () async {

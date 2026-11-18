@@ -28,6 +28,7 @@ class AssistantUserInputPanel extends StatefulWidget {
     required this.inputFocus,
     required this.onSubmit,
     required this.onCancel,
+    this.countdown,
   });
 
   final AiUserInputRequest request;
@@ -35,6 +36,7 @@ class AssistantUserInputPanel extends StatefulWidget {
   final FocusNode inputFocus;
   final ValueChanged<Map<String, List<String>>> onSubmit;
   final VoidCallback onCancel;
+  final Widget? countdown;
 
   @override
   State<AssistantUserInputPanel> createState() =>
@@ -288,6 +290,7 @@ class _AssistantUserInputPanelState extends State<AssistantUserInputPanel> {
                               ),
                             ),
                           ),
+                          ?widget.countdown,
                         ],
                       ),
                     ),

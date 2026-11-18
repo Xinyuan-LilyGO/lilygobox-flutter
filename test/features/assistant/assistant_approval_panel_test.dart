@@ -20,9 +20,13 @@ import 'assistant_test_scope.dart';
 
 void main() {
   for (final dark in [false, true]) {
-    for (final locale in ['en', 'zh']) {
+    for (final (locale, timedOut) in [
+      ('en', false),
+      ('zh', false),
+      if (!dark) ('en', true),
+    ]) {
       testWidgets(
-        'approval replaces composer and preserves draft ($dark/$locale)',
+        'approval preserves composer state ($dark/$locale, timeout=$timedOut)',
         (tester) async {
           final root = (await tester.runAsync(
             () => Directory.systemTemp.createTemp('approval-panel-'),
@@ -35,14 +39,18 @@ void main() {
           final awaiting = Completer<void>();
           final finalResponse = Completer<http.Response>();
           final written = List.generate(100, (i) => 'line $i').join('\n');
+          Map<String, dynamic>? responseRequest;
           var calls = 0;
           final scope = await createAssistantTestScope(
             theme: theme,
             language: language,
             shell: shell,
             splitView: split,
-            client: MockClient((_) async {
-              if (++calls > 1) return finalResponse.future;
+            client: MockClient((request) async {
+              if (++calls > 1) {
+                responseRequest = jsonDecode(request.body) as Map<String, dynamic>;
+                return finalResponse.future;
+              }
               return http.Response(
                 jsonEncode({
                   'choices': [
@@ -179,7 +187,16 @@ void main() {
           final deny = find.byKey(const ValueKey('ai-approval-deny'));
           expect(tester.getRect(allow).bottom, lessThanOrEqualTo(600));
           expect(tester.getRect(deny).bottom, lessThanOrEqualTo(600));
-          await tester.tap(dark ? allow : deny);
+          final countdown = find.byKey(const ValueKey('ai-request-countdown'));
+          expect(countdown, findsOneWidget);
+          if (timedOut) {
+            await tester.pump(const Duration(seconds: 29));
+            expect(scope.provider.pendingApproval, isNotNull);
+            expect(tester.widget<Text>(countdown).data, '1s');
+            await tester.pump(const Duration(seconds: 1));
+          } else {
+            await tester.tap(dark ? allow : deny);
+          }
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 50));
           final inputFade = tester.widget<FadeTransition>(
@@ -200,6 +217,13 @@ void main() {
             );
           }
           expect(calls, 2);
+          if (timedOut) {
+            final messages = responseRequest!['messages'] as List;
+            final tool = messages.lastWhere((message) => message['role'] == 'tool');
+            final result = jsonDecode(tool['content'] as String) as Map;
+            expect(result['denied'], isTrue);
+            expect(result['timed_out'], isTrue);
+          }
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 400));
           expect(find.byKey(const ValueKey('ai-approval-panel')), findsNothing);

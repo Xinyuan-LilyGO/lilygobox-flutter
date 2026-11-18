@@ -17,7 +17,7 @@
 }
 ```
 
-答案按问题 ID 回传，关联本次工具调用的 ID，再由模型继续回复。取消返回 `cancelled: true` 和空答案；等待期间不猜测答案、不超时自动提交。无效问题结构不创建卡片，将工具错误回传模型。提问不授予文件、网络或命令权限，也不能代替请求批准。
+答案按问题 ID 回传，关联本次工具调用的 ID，再由模型继续回复。取消返回 `cancelled: true` 和空答案。提问卡片右上角从 30 秒倒计时；点击卡片任意位置或用键盘聚焦内部控件会取消本次倒计时，不自动选项或提交。切换页面不暂停或重置倒计时。到期自动取消本次提问并额外返回 `timed_out: true`，不提交部分答案。无效问题结构不创建卡片，将工具错误回传模型。提问不授予文件、网络或命令权限，也不能代替请求批准。
 
 参考本地 Codex：`codex-rs/core/src/tools/handlers/request_user_input_spec.rs`（工具格式）、`request_user_input.rs`（处理器）、`codex-rs/protocol/src/request_user_input.rs`（问题与答案结构）、`codex-rs/core/src/session/mod.rs`（等待及继续执行）。这里复用交互协议，不照搬 Codex 的计划模式限制。
 

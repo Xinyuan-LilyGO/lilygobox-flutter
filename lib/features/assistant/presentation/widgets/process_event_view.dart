@@ -261,6 +261,7 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
         ? '$label · ${_shortOperationTarget(target, web: toolName == "read_webpage")}'
         : label;
     final failure = action?.webFailure;
+    final requestTimedOut = action != null && _requestTimedOut(action);
     final resultSummary = action == null
         ? null
         : _operationSummary(context, action);
@@ -288,6 +289,7 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
         (title: l10n.aiOperationError, text: aiErrorText(l10n, failure))
       else if (action != null &&
           !questionCancelled &&
+          !requestTimedOut &&
           !action.succeeded &&
           (processResult == null
               ? action.output.isNotEmpty
@@ -645,6 +647,11 @@ String _shortOperationTarget(String target, {required bool web}) {
 
 String _operationResultLabel(BuildContext context, AiProcessingStep action) {
   final l10n = context.l10n;
+  if (_requestTimedOut(action)) {
+    return action.name == 'request_user_input'
+        ? l10n.aiQuestionTimedOut
+        : l10n.aiApprovalTimedOut;
+  }
   final args = action.arguments;
   final rawTarget =
       args['path'] ?? args['url'] ?? args['executable'] ?? args['process_id'];
@@ -791,7 +798,9 @@ String? _questionAnswerDetails(BuildContext context, AiProcessingStep action) {
         value['question'] as String,
         if (text.isNotEmpty) '${context.l10n.aiQuestionAnswerLabel}: $text',
         if (text.isEmpty && _questionWasCancelled(action))
-          context.l10n.aiQuestionCancelled,
+          _requestTimedOut(action)
+              ? context.l10n.aiQuestionTimedOut
+              : context.l10n.aiQuestionCancelled,
       ].join('\n'),
     );
   }
@@ -803,6 +812,20 @@ bool _questionWasCancelled(AiProcessingStep action) {
   try {
     final result = jsonDecode(action.output);
     return result is Map && result['cancelled'] == true;
+  } on FormatException {
+    return false;
+  }
+}
+
+bool _requestTimedOut(AiProcessingStep action) {
+  if (action.succeeded || !action.output.contains('user_response_timeout')) {
+    return false;
+  }
+  try {
+    final result = jsonDecode(action.output);
+    return result is Map &&
+        result['timed_out'] == true &&
+        result['reason'] == 'user_response_timeout';
   } on FormatException {
     return false;
   }

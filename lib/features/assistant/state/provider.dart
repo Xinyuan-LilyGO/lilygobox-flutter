@@ -847,6 +847,33 @@ class AiAssistantProvider extends ChangeNotifier {
   AiUserInputRequest? _pendingUserInput;
   Completer<Map<String, List<String>>?>? _userInputWaiter;
   AiUserInputRequest? get pendingUserInput => _pendingUserInput;
+  static const _requestTimeoutSeconds = 30;
+  final _requestCountdown = ValueNotifier<({String id, int seconds})?>(null);
+  Timer? _requestCountdownTimer;
+
+  ValueListenable<({String id, int seconds})?> get requestCountdown =>
+      _requestCountdown;
+
+  void keepPendingRequest(String id) {
+    if (_requestCountdown.value?.id != id) return;
+    _requestCountdownTimer?.cancel();
+    _requestCountdownTimer = null;
+    _requestCountdown.value = null;
+  }
+
+  void _startRequestCountdown(String id, VoidCallback expire) {
+    _requestCountdownTimer?.cancel();
+    _requestCountdown.value = (id: id, seconds: _requestTimeoutSeconds);
+    _requestCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      final remaining = _requestTimeoutSeconds - timer.tick;
+      if (remaining > 0) {
+        _requestCountdown.value = (id: id, seconds: remaining);
+        return;
+      }
+      expire();
+      _notify();
+    });
+  }
 
   void resolveUserInput(String id, Map<String, List<String>> answers) {
     final request = _pendingUserInput;
@@ -861,11 +888,20 @@ class AiAssistantProvider extends ChangeNotifier {
     _notify();
   }
 
-  void _finishUserInput(Map<String, List<String>>? answers) {
+  void _finishUserInput(
+    Map<String, List<String>>? answers, {
+    bool timedOut = false,
+  }) {
     final waiter = _userInputWaiter;
+    if (_pendingUserInput case final request?) keepPendingRequest(request.id);
     _pendingUserInput = null;
     _userInputWaiter = null;
-    if (waiter != null && !waiter.isCompleted) waiter.complete(answers);
+    if (waiter == null || waiter.isCompleted) return;
+    if (timedOut) {
+      waiter.completeError(const _PendingRequestTimedOut());
+    } else {
+      waiter.complete(answers);
+    }
   }
 
   Future<Map<String, List<String>>?> _requestUserInput(
@@ -875,6 +911,10 @@ class AiAssistantProvider extends ChangeNotifier {
     final waiter = Completer<Map<String, List<String>>?>();
     _userInputWaiter = waiter;
     _pendingUserInput = request;
+    _startRequestCountdown(
+      request.id,
+      () => _finishUserInput(null, timedOut: true),
+    );
     _recordStatus(
       AiResponseStatus.awaitingUserInput,
       toolName: 'request_user_input',
@@ -896,11 +936,16 @@ class AiAssistantProvider extends ChangeNotifier {
     }
   }
 
-  void _decideApproval(String id, bool approve) {
+  void _decideApproval(String id, bool approve, {bool timedOut = false}) {
     final waiter = _approvals.remove(id);
     if (waiter == null) return;
+    keepPendingRequest(id);
     if (_pendingApproval?.id == id) _pendingApproval = null;
-    waiter.complete(approve);
+    if (timedOut) {
+      waiter.completeError(const _PendingRequestTimedOut());
+    } else {
+      waiter.complete(approve);
+    }
   }
 
   Future<bool> _requestApproval(
@@ -931,6 +976,7 @@ class AiAssistantProvider extends ChangeNotifier {
         },
       }),
     );
+    _startRequestCountdown(id, () => _decideApproval(id, false, timedOut: true));
     _recordStatus(
       AiResponseStatus.awaitingApproval,
       toolName: tool.name,
@@ -1581,6 +1627,7 @@ class AiAssistantProvider extends ChangeNotifier {
     if (_isWorkspace) _repository.removeListener(_serviceCatalogChanged);
     _cancelTaskNaming();
     stopGeneration();
+    _requestCountdown.dispose();
     _processNotifyTimer?.cancel();
     _elapsedTimer?.cancel();
     _activeOutput?.stop();
@@ -2056,7 +2103,20 @@ class AiAssistantProvider extends ChangeNotifier {
           }
         } catch (error) {
           succeeded = false;
-          if (error is AiCommandPolicyFailure) {
+          if (error is _PendingRequestTimedOut) {
+            final question = call.name == 'request_user_input';
+            result = jsonEncode({
+              'timed_out': true,
+              'reason': 'user_response_timeout',
+              if (question) ...{
+                'cancelled': true,
+                'answers': <String, Object?>{},
+              } else
+                'denied': true,
+              'instruction':
+                  'No user response was received. Continue only with work that does not depend on this response. Do not retry the same request without a new user message.',
+            });
+          } else if (error is AiCommandPolicyFailure) {
             result = jsonEncode(error.toJson());
           } else if (error is AiWebFailure) {
             webFailure = error;
@@ -2379,6 +2439,10 @@ class AiAssistantProvider extends ChangeNotifier {
 
   String _newId() =>
       'assistant-${DateTime.now().microsecondsSinceEpoch}-${_nextMessageId++}';
+}
+
+class _PendingRequestTimedOut implements Exception {
+  const _PendingRequestTimedOut();
 }
 
 class _AssistantTextOutput {

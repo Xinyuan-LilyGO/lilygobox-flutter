@@ -1062,6 +1062,30 @@ abstract class AppLocalizations {
   /// **'Approval required'**
   String get aiApprovalTitle;
 
+  /// No description provided for @aiRequestCountdown.
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds}s'**
+  String aiRequestCountdown(int seconds);
+
+  /// No description provided for @aiRequestCountdownHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Click anywhere on this card to keep it open without a time limit.'**
+  String get aiRequestCountdownHint;
+
+  /// No description provided for @aiApprovalTimedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Approval timed out and was denied'**
+  String get aiApprovalTimedOut;
+
+  /// No description provided for @aiQuestionTimedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Question timed out and was cancelled'**
+  String get aiQuestionTimedOut;
+
   /// No description provided for @aiApprove.
   ///
   /// In en, this message translates to:

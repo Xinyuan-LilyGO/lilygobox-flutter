@@ -529,6 +529,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiApprovalTitle => '需要批准';
 
   @override
+  String aiRequestCountdown(int seconds) {
+    return '$seconds 秒';
+  }
+
+  @override
+  String get aiRequestCountdownHint => '点击卡片任意位置，取消倒计时并保留本卡片。';
+
+  @override
+  String get aiApprovalTimedOut => '等待超时，已拒绝本次授权';
+
+  @override
+  String get aiQuestionTimedOut => '等待超时，已取消本次提问';
+
+  @override
   String get aiApprove => '允许一次';
 
   @override

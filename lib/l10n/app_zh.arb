@@ -278,6 +278,10 @@
     }
   },
   "aiApprovalTitle": "需要批准",
+  "aiRequestCountdown": "{seconds} 秒",
+  "aiRequestCountdownHint": "点击卡片任意位置，取消倒计时并保留本卡片。",
+  "aiApprovalTimedOut": "等待超时，已拒绝本次授权",
+  "aiQuestionTimedOut": "等待超时，已取消本次提问",
   "aiApprove": "允许一次",
   "aiReject": "拒绝",
   "aiActionApproved": "已批准",

@@ -347,7 +347,7 @@ void main() {
   });
 
   testWidgets(
-    'question replaces composer and restores draft, attachment and queue after cancellation',
+    'clicking a question keeps it open and cancellation restores composer state',
     (tester) async {
       final theme = ThemeProvider();
       final language = LanguageProvider();
@@ -472,6 +472,15 @@ void main() {
       );
       expect(find.byKey(const ValueKey('ai-user-input-panel')), findsOneWidget);
       expect(focus.hasFocus, isFalse);
+      final countdown = find.byKey(const ValueKey('ai-request-countdown'));
+      expect(tester.widget<Text>(countdown).data, '30 秒');
+      final pending = scope.provider.pendingUserInput;
+      await tester.tap(find.text('需要你的回答'));
+      await tester.pump();
+      expect(countdown, findsNothing);
+      await tester.pump(const Duration(seconds: 31));
+      expect(scope.provider.pendingUserInput, same(pending));
+      expect(calls, 1);
       await tester.tap(find.byKey(const ValueKey('ai-user-input-cancel')));
       for (var i = 0; calls < 2 && i < 100; i++) {
         await tester.pump(const Duration(milliseconds: 20));

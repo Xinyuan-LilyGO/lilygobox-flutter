@@ -278,6 +278,11 @@
     }
   },
   "aiApprovalTitle": "Approval required",
+  "aiRequestCountdown": "{seconds}s",
+  "@aiRequestCountdown": { "placeholders": { "seconds": { "type": "int" } } },
+  "aiRequestCountdownHint": "Click anywhere on this card to keep it open without a time limit.",
+  "aiApprovalTimedOut": "Approval timed out and was denied",
+  "aiQuestionTimedOut": "Question timed out and was cancelled",
   "aiApprove": "Allow once",
   "aiReject": "Deny",
   "aiActionApproved": "Approved",

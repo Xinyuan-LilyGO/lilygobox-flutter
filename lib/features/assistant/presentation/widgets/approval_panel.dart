@@ -28,12 +28,14 @@ class AssistantApprovalPanel extends StatefulWidget {
     required this.theme,
     required this.inputFocus,
     required this.onResolve,
+    this.countdown,
   });
 
   final AiMessage request;
   final AppTheme theme;
   final FocusNode inputFocus;
   final ValueChanged<bool> onResolve;
+  final Widget? countdown;
 
   @override
   State<AssistantApprovalPanel> createState() => _AssistantApprovalPanelState();
@@ -155,6 +157,7 @@ class _AssistantApprovalPanelState extends State<AssistantApprovalPanel> {
                             ),
                           ),
                         ),
+                        ?widget.countdown,
                       ],
                     ),
                   ),

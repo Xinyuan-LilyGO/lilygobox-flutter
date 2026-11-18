@@ -232,27 +232,67 @@ class ChatComposer extends StatelessWidget {
     final question = assistant.pendingUserInput;
     return PopupMenuPageTransition(
       child: request != null
-          ? AssistantApprovalPanel(
-              key: ValueKey(request.id),
-              request: request,
-              theme: theme,
-              inputFocus: focusNode,
-              onResolve: (approve) =>
-                  assistant.resolveTool(request.id, approve: approve),
+          ? _pendingCard(
+              request.id,
+              (countdown) => AssistantApprovalPanel(
+                request: request,
+                theme: theme,
+                inputFocus: focusNode,
+                countdown: countdown,
+                onResolve: (approve) =>
+                    assistant.resolveTool(request.id, approve: approve),
+              ),
             )
           : question != null
-          ? AssistantUserInputPanel(
-              key: ValueKey(question.id),
-              request: question,
-              theme: theme,
-              inputFocus: focusNode,
-              onSubmit: (answers) =>
-                  assistant.resolveUserInput(question.id, answers),
-              onCancel: () => assistant.cancelUserInput(question.id),
+          ? _pendingCard(
+              question.id,
+              (countdown) => AssistantUserInputPanel(
+                request: question,
+                theme: theme,
+                inputFocus: focusNode,
+                countdown: countdown,
+                onSubmit: (answers) =>
+                    assistant.resolveUserInput(question.id, answers),
+                onCancel: () => assistant.cancelUserInput(question.id),
+              ),
             )
           : EmptyLineSelection(child: _buildInput(context)),
     );
   }
+
+  Widget _pendingCard(String id, Widget Function(Widget) panel) => Listener(
+    key: ValueKey(id),
+    behavior: HitTestBehavior.opaque,
+    onPointerDown: (_) => assistant.keepPendingRequest(id),
+    child: Focus(
+      canRequestFocus: false,
+      onFocusChange: (focused) {
+        if (focused) assistant.keepPendingRequest(id);
+      },
+      child: panel(
+        ValueListenableBuilder(
+          valueListenable: assistant.requestCountdown,
+          builder: (context, countdown, _) {
+            if (countdown == null || countdown.id != id) {
+              return const SizedBox.shrink();
+            }
+            final l10n = context.l10n;
+            return Padding(
+              padding: const EdgeInsetsDirectional.only(start: 8),
+              child: AppTooltip(
+                message: l10n.aiRequestCountdownHint,
+                child: Text(
+                  l10n.aiRequestCountdown(countdown.seconds),
+                  key: const ValueKey('ai-request-countdown'),
+                  style: TextStyle(color: theme.textColorSecondary, fontSize: 12),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    ),
+  );
 
   Widget _buildInput(BuildContext context) {
     final l10n = context.l10n;
