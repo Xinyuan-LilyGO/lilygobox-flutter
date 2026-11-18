@@ -81,18 +81,26 @@ void main() {
     expect(result[3].event, same(retry));
   });
 
-  test('legacy records without call IDs are not merged by tool name', () {
-    const old = AiProcessEvent(
-      type: AiProcessEventType.status,
-      elapsed: Duration.zero,
-      status: AiResponseStatus.executingTools,
-      toolName: 'read_file',
-    );
-    expect(
-      buildAiProcessTimeline([old, completed(null), old, completed(null)]),
-      hasLength(4),
-    );
-  });
+  test(
+    'independent events without operation IDs are not merged by tool name',
+    () {
+      const independent = AiProcessEvent(
+        type: AiProcessEventType.status,
+        elapsed: Duration.zero,
+        status: AiResponseStatus.executingTools,
+        toolName: 'read_file',
+      );
+      expect(
+        buildAiProcessTimeline([
+          independent,
+          completed(null),
+          independent,
+          completed(null),
+        ]),
+        hasLength(4),
+      );
+    },
+  );
 
   test('an interrupted operation and its stop record remain visible', () {
     const stop = AiProcessEvent(
@@ -127,37 +135,34 @@ void main() {
     expect(buildAiProcessTimeline([start, result]).single.event, same(result));
   });
 
-  test(
-    'preparation and approval belong to the same operation, retries stay outside',
-    () {
-      const prepare = AiProcessEvent(
-        type: AiProcessEventType.status,
-        elapsed: Duration.zero,
-        operationId: 'one',
-        toolName: 'read_file',
-        status: AiResponseStatus.preparingTools,
-      );
-      const approval = AiProcessEvent(
-        type: AiProcessEventType.status,
-        elapsed: Duration.zero,
-        operationId: 'one',
-        toolName: 'read_file',
-        status: AiResponseStatus.awaitingApproval,
-      );
-      const retry = AiProcessEvent(
-        type: AiProcessEventType.retry,
-        elapsed: Duration(seconds: 3),
-        retry: AiRequestRetry(1, 'failure'),
-      );
-      final start = running('one');
-      final finish = completed('one');
-      final original = [prepare, approval, start, finish, retry];
-      final result = buildAiProcessTimeline(original);
-      expect(result, hasLength(2));
-      expect(result.first.events, [prepare, approval, start, finish]);
-      expect(result.first.event, same(finish));
-      expect(result.last.event, same(retry));
-      expect(original, hasLength(5));
-    },
-  );
+  test('preparation and approval belong to the same operation, retries stay outside', () {
+    const prepare = AiProcessEvent(
+      type: AiProcessEventType.status,
+      elapsed: Duration.zero,
+      operationId: 'one',
+      toolName: 'read_file',
+      status: AiResponseStatus.preparingTools,
+    );
+    const approval = AiProcessEvent(
+      type: AiProcessEventType.status,
+      elapsed: Duration.zero,
+      operationId: 'one',
+      toolName: 'read_file',
+      status: AiResponseStatus.awaitingApproval,
+    );
+    const retry = AiProcessEvent(
+      type: AiProcessEventType.retry,
+      elapsed: Duration(seconds: 3),
+      retry: AiRequestRetry(1, 'failure'),
+    );
+    final start = running('one');
+    final finish = completed('one');
+    final original = [prepare, approval, start, finish, retry];
+    final result = buildAiProcessTimeline(original);
+    expect(result, hasLength(2));
+    expect(result.first.events, [prepare, approval, start, finish]);
+    expect(result.first.event, same(finish));
+    expect(result.last.event, same(retry));
+    expect(original, hasLength(5));
+  });
 }

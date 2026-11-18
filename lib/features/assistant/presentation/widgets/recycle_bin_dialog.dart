@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/widgets/action_button.dart';
+import '../../../../core/widgets/app_scroll_behavior.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
 import '../../../../core/widgets/desktop_card_selection.dart';
 import '../../../../core/widgets/settings/search_field.dart';
@@ -199,33 +200,43 @@ class _RecycleBinState extends State<_RecycleBin> {
         viewport.height < 700 ||
         (viewport.width < 500 &&
             MediaQuery.textScalerOf(context).scale(14) > 16);
+    const contentInset = EdgeInsets.symmetric(horizontal: 24);
     Widget fitContent(
       List<Widget> header, {
       required Widget list,
       Widget? footer,
-    }) => compact
-        ? DesktopCardSelectionTarget(
-            child: CustomScrollView(
-              key: const ValueKey('recycle-agent-compact-scroll'),
-              shrinkWrap: true,
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: header,
-                  ),
-                ),
-                list,
-                if (footer != null) SliverToBoxAdapter(child: footer),
-              ],
-            ),
-          )
-        : Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [...header, list, ?footer],
-          );
+    }) {
+      final paddedHeader = Padding(
+        padding: contentInset,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: header,
+        ),
+      );
+      final paddedFooter = footer == null
+          ? null
+          : Padding(padding: contentInset, child: footer);
+      return compact
+          ? DesktopCardSelectionTarget(
+              child: CustomScrollView(
+                key: const ValueKey('recycle-agent-compact-scroll'),
+                shrinkWrap: true,
+                slivers: [
+                  SliverToBoxAdapter(child: paddedHeader),
+                  list,
+                  if (paddedFooter != null)
+                    SliverToBoxAdapter(child: paddedFooter),
+                ],
+              ),
+            )
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [paddedHeader, list, ?paddedFooter],
+            );
+    }
+
     Widget fitList(ListView list) => compact
         ? SliverPadding(
             padding: list.padding ?? EdgeInsets.zero,
@@ -311,8 +322,11 @@ class _RecycleBinState extends State<_RecycleBin> {
               640.0,
             ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: ScrollbarTheme(
+            data: ScrollbarTheme.of(context).copyWith(
+              crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
+              mainAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
+            ),
             child: fitContent(
               [
                 if (compact) ...[
@@ -410,9 +424,7 @@ class _RecycleBinState extends State<_RecycleBin> {
                   key: const ValueKey('recycle-agent-list-scroll'),
                   primary: false,
                   shrinkWrap: true,
-                  padding: entries.isEmpty
-                      ? EdgeInsets.zero
-                      : const EdgeInsets.only(right: 20),
+                  padding: contentInset,
                   itemCount: entries.isEmpty ? 1 : entries.length,
                   itemBuilder: (context, index) {
                     if (entries.isEmpty) {
@@ -439,7 +451,10 @@ class _RecycleBinState extends State<_RecycleBin> {
                     }
                     final card = Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: DesktopCardSelectionTarget(
+                      child: DesktopCardSelectionMenu(
+                        key: ValueKey(entry.id),
+                        id: entry.id,
+                        theme: theme,
                         child: Semantics(
                           selected: selection.selected.contains(entry.id),
                           child: GestureDetector(
@@ -480,7 +495,12 @@ class _RecycleBinState extends State<_RecycleBin> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Padding(
-                                padding: const EdgeInsets.all(12),
+                                padding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  12,
+                                  18,
+                                  12,
+                                ),
                                 child: Column(
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,

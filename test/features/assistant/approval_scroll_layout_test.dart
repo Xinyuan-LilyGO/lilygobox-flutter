@@ -11,6 +11,76 @@ import 'package:lilygobox/features/assistant/presentation/widgets/command_displa
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
 
 void main() {
+  for (final height in [500.0, 800.0]) {
+    testWidgets('short approval fits without scrolling at height $height', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = Size(1000, height);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final theme = ThemeProvider();
+      final focus = FocusNode();
+      addTearDown(theme.dispose);
+      addTearDown(focus.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: appLocalizationDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.bottomCenter,
+              child: SizedBox(
+                width: 800,
+                child: AssistantApprovalPanel(
+                  request: AiMessage(
+                    id: 'short-command',
+                    role: 'tool',
+                    content: '',
+                    toolName: 'run_command',
+                    toolArguments: {
+                      'executable': 'pwd',
+                      'reason': 'Inspect the project directory',
+                      'working_directory': 'C:/project',
+                      'permission_category': 'execution',
+                    },
+                  ),
+                  theme: theme.themeData,
+                  inputFocus: focus,
+                  onResolve: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final scroll = tester.widget<SingleChildScrollView>(
+        find.byKey(const ValueKey('ai-approval-scroll')),
+      );
+      if (height == 800) {
+        expect(scroll.controller!.position.maxScrollExtent, 0);
+      }
+      expect(
+        tester
+            .getSize(find.byKey(const ValueKey('ai-approval-surface')))
+            .height,
+        lessThanOrEqualTo(height * .65 + 32),
+      );
+      expect(
+        find.byKey(const ValueKey('ai-approval-allow')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('ai-approval-deny')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   for (final locale in ['en', 'zh']) {
     for (final dark in [false, true]) {
       for (final width in [340.0, 800.0]) {
@@ -120,6 +190,20 @@ void main() {
             final fullCommand = find.byKey(
               const ValueKey('ai-approval-full-command'),
             );
+            final l10n = AppLocalizations.of(tester.element(surface));
+            final notice = tester.getRect(
+              find.byKey(const ValueKey('ai-approval-description')),
+            );
+            final purpose = tester.getRect(find.text(l10n.aiCommandReason));
+            final directory = tester.getRect(
+              find.text(l10n.aiCommandDirectory),
+            );
+            final commandHeading = tester.getRect(
+              find.text(l10n.aiCommandFull),
+            );
+            expect(notice.bottom, lessThan(purpose.top));
+            expect(purpose.bottom, lessThan(directory.top));
+            expect(directory.bottom, lessThan(commandHeading.top));
             final commandText = tester.widget<Text>(
               find.descendant(
                 of: fullCommand,
@@ -149,7 +233,11 @@ void main() {
             final controller = tester
                 .widget<SingleChildScrollView>(viewport)
                 .controller!;
-            expect(controller.position.maxScrollExtent, greaterThan(100));
+            expect(controller.position.maxScrollExtent, greaterThan(0));
+            final expectedOffset = controller.position.maxScrollExtent.clamp(
+              0.0,
+              100.0,
+            );
             final initialOffset = controller.offset;
             await tester.sendEventToBinding(
               PointerScrollEvent(
@@ -164,7 +252,10 @@ void main() {
             expect(controller.offset, greaterThan(initialOffset));
             expect(controller.offset, lessThan(initialOffset + 100));
             await tester.pumpAndSettle();
-            expect(controller.offset, closeTo(initialOffset + 100, .01));
+            expect(
+              controller.offset,
+              closeTo(initialOffset + expectedOffset, .01),
+            );
             controller.jumpTo(controller.position.maxScrollExtent);
             await tester.pumpAndSettle();
             expect(
@@ -173,10 +264,7 @@ void main() {
             );
             expect(tester.getRect(allow), initialAllowRect);
             expect(tester.getRect(deny), initialDenyRect);
-            expect(
-              find.textContaining('C:/firmware/project').hitTestable(),
-              findsOneWidget,
-            );
+            expect(fullCommand.hitTestable(), findsOneWidget);
             await tester.tap(allow);
             await tester.tap(deny);
             expect(decisions, [true, false]);

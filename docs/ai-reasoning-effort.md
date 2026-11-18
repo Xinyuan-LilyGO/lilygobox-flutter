@@ -14,11 +14,11 @@
 
 强度面板使用 `lib/core/widgets/app_capsule_slider.dart` 的共享胶囊滑条。设备音量、亮度和振动保持原有连续滑条行为；强度滑条使用 `snapToDivisions`，固定等级点按模型能力生成。拖动时位置连续跟随鼠标，等级文字预览最近档位；松手后以 150ms 动画吸附到最近节点并保存，方向键每次移动一档。不在每个拖动事件中写入磁盘。白色圆形滑块半径从 7 动画放大到 10，松手恢复。保留键盘焦点和离散档位无障碍语义。强度面板与模型列表之间使用 150ms 渐变淡入淡出；系统减少动画时直接切换或定位。
 
-不设置“默认”节点或恢复默认按钮，只显示模型实际支持的等级。初次使用没有强度记录时，有“中”则选择中，否则优先高，再取第一个有效等级，并保存实际值。支持关闭思考的模型才有“关闭”档位。模型的可选等级通过 `AiReasoningCapabilities` 统一管理，UI、持久化校验及请求编码使用同一份定义。
+不设置“默认”节点或恢复默认按钮。初次使用没有强度记录时，统一选择整个滑条从左到右的第二个位置，“关闭”也计入；只有一个位置时选择该位置，没有可选档位时不设置强度。默认值不按“中”等固定名称选择，也不为统一名称增加官方未提供的档位。例如低／中／高默认中，DeepSeek 的关闭／低／高／最大默认低，GPT-5 的极低／低／中／高默认低，GPT-5.1、GPT-5.2、GPT-5.4 的关闭／低／中／高等档位默认低。已有保存的有效选择保持不变。支持关闭思考的模型才有“关闭”档位。模型的可选等级通过 `AiReasoningCapabilities` 统一管理，UI、持久化校验及请求编码使用同一份定义。
 
 ## 能力范围
 
-当前识别 OpenAI 的 o1、o3、o3-mini、o4-mini，以及代码中明确列出的 GPT-5 和 Codex 模型系列；DeepSeek 识别 `deepseek-flash` 和 `deepseek-v4-pro`。OpenAI 不同型号的可用等级不同；DeepSeek 提供关闭、低、高、最大。
+当前识别 OpenAI 的 o1、o3、o3-mini、o4-mini，以及代码中明确列出的 GPT-5 和 Codex 模型系列；DeepSeek 识别 `deepseek-flash` 和 `deepseek-v4-pro`。OpenAI 不同型号的可用等级不同；DeepSeek 提供关闭、低、高、最大，不将服务端接受的 `medium` 等映射别名作为独立档位展示。参见 [DeepSeek 思考模式文档](https://api-docs.deepseek.com/guides/thinking_mode)。
 
 标准模型发现接口不保证返回思考强度能力。软件自行维护已知模型标识及能力表，不依赖 Magpie 等第三方服务的 `reasoning_levels` 或 `supported_reasoning_levels` 扩展字段。统一入口 `AiReasoningCapabilities.forModel` 将名称转为小写后进行连续子字符串搜索：只要完整连续包含已知标识就识别，不限制前后边界。例如 `gpt-6.1-sol`、`auto/gpt-6.1-sol`、`ai-apizn/gpt-6.1-sol` 和 `custom-gpt-6.1-sol-test` 使用相同能力；`gpt-6.1-xxx-sol` 不匹配该标识。
 

@@ -233,13 +233,14 @@ class _ChatMessageActionsState extends State<ChatMessageActions> {
         ),
       ),
     );
-    final timestamp = message.createdAt == null
+    final displayTime = message.role == 'assistant'
+        ? message.finishedAt
+        : message.createdAt;
+    final timestamp = displayTime == null
         ? null
         : Flexible(
             child: Text(
-              DateFormat(
-                'yyyy.MM.dd HH:mm:ss',
-              ).format(message.createdAt!.toLocal()),
+              DateFormat('yyyy.MM.dd HH:mm:ss').format(displayTime.toLocal()),
               key: ValueKey('ai-message-time-${message.id}'),
               style: TextStyle(color: theme.textColorTertiary, fontSize: 12),
             ),

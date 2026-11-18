@@ -11,11 +11,7 @@ class AiReasoningCapabilities {
   final bool deepSeek;
 
   AiReasoningEffort? get initialEffort =>
-      levels.contains(AiReasoningEffort.medium)
-      ? AiReasoningEffort.medium
-      : levels.contains(AiReasoningEffort.high)
-      ? AiReasoningEffort.high
-      : levels.firstOrNull;
+      levels.length > 1 ? levels[1] : levels.firstOrNull;
 
   static const _standard = [
     AiReasoningEffort.low,

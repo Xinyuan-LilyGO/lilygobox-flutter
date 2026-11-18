@@ -75,7 +75,8 @@
   "aiGuidanceHint": "Add a follow-up message…",
   "aiGuidancePending": "Queued messages",
   "aiRemoveGuidance": "Remove queued message",
-  "aiSendPendingGuidance": "Send now",
+  "aiSendPendingGuidance": "Steer current turn",
+  "aiGuidanceAwaitingBoundary": "Waiting to apply guidance…",
   "aiEditQueuedMessage": "Edit queued message",
   "aiSaveQueuedMessage": "Save changes",
   "aiRemoveImage": "Remove image",
@@ -1234,14 +1235,6 @@
   "aiCommandPolicyInvalidRules": "Command rules could not be read or validated. The command was not executed. Check command-rules.json.",
   "aiCommandPolicyApprovalRequired": "This command requires approval and was not executed.",
   "aiCommandPolicyChanged": "Command rules changed while this call was pending. The command was not executed; submit it again for review.",
-  "aiCommandRan": "Ran command · {target}",
-  "@aiCommandRan": {
-    "placeholders": {
-      "target": {
-        "type": "String"
-      }
-    }
-  },
   "aiCommandStarted": "Process started · {target}",
   "@aiCommandStarted": {
     "placeholders": {
@@ -1339,7 +1332,19 @@
   "aiWorkspaceTaskRequired": "Enter the work instructions.",
   "aiWorkspaceOpenAction": "Open agent",
   "aiWorkspaceSpawnAction": "Create child agent",
+  "aiWorkspaceConfigureAction": "Configure child agent model",
   "aiWorkspaceSendAction": "Send agent message",
+  "aiWorkspaceConnectAction": "Connect agents",
+  "aiWorkspaceDisconnectAction": "Disconnect agents",
+  "aiModelDiscoveryLoading": "Reading model list…",
+  "aiModelDiscoveryCancel": "Cancel reading",
+  "aiModelDiscoveryEmpty": "The service returned no available models.",
+  "aiModelDiscoveryUnchanged": "No new models. Your existing list is unchanged.",
+  "aiModelDiscoveryNewModels": "Select new models to add",
+  "aiModelDiscoveryAdd": "Add selected models",
+  "aiModelDiscoveryUpdate": "Update model information",
+  "aiModelDiscoverySummary": "Found {total} models: {added} new, {existing} already listed.",
+  "@aiModelDiscoverySummary": {"placeholders": {"total": {"type": "int"}, "added": {"type": "int"}, "existing": {"type": "int"}}},
   "aiWorkspaceWaitAction": "Wait for child agents",
   "aiWorkspaceListAction": "List child agents",
   "aiWorkspaceStopAction": "Stop child agent",
@@ -1376,14 +1381,6 @@
       }
     }
   },
-  "aiTopologyRootPromotionNotice": "After deletion, “{task}” will change from a child agent to a main agent.",
-  "@aiTopologyRootPromotionNotice": {
-    "placeholders": {
-      "task": {
-        "type": "String"
-      }
-    }
-  },
   "aiTopologyMergeTitle": "Change agent ownership?",
   "aiTopologyMergeRootHelp": "Main agent “{task}” will become a child of “{parent}”. Descendants, conversations, and internal connections remain; communication links across the branch boundary will be disconnected.",
   "@aiTopologyMergeRootHelp": {
@@ -1409,25 +1406,28 @@
   },
   "aiTopologyMergeConfirm": "Confirm and connect",
   "aiTopologyConnectSelected": "Connect selected agents",
-  "aiTopologyMakeRoot": "Make main agent",
-  "aiTopologyMakeChild": "Make child agent",
+  "aiTopologyMakeRoot": "Split into independent workflow",
+  "aiTopologyMakeWorkflowMain": "Make main agent of this workflow",
+  "aiTopologyMakeChild": "Change direct parent",
   "aiTopologyChooseParent": "Choose parent agent",
-  "aiTopologyChooseParentHelp": "Change this main agent to a child agent and choose its parent. Existing descendants, conversation, and other connections will remain.",
+  "aiTopologyChooseParentHelp": "Choose a parent for task delegation and layout. This agent and its descendants become child agents. Conversations and communication links are preserved.",
   "aiTopologyAutoLayout": "Auto layout",
   "aiTopologyReset": "Reset view",
   "aiTopologyZoomIn": "Zoom in",
   "aiTopologyZoomOut": "Zoom out",
   "aiTopologyNewPrimaryHelp": "Create the starting point of an independent agent tree. Child agents can delegate further.",
   "aiTopologyNewChildHelp": "Keep an independent conversation and delegate further agents.",
-  "aiTopologyEmptyHelp": "Create a main agent, then add child agents at any level.",
+  "aiTopologyEmptyHelp": "Create a main agent to start a workflow. Each connected workflow has exactly one main agent.",
   "aiTopologyDelete": "Delete agent",
-  "aiTopologyDeleteTitle": "Delete this agent?",
-  "aiTopologyDeleteHelp": "Delete only this agent. Its unselected direct children become main agents, with their descendants preserved. Removed agents go to the recycle bin and can be restored in Settings → Agents → Storage.",
   "aiTopologyNoParent": "Select a main agent or child agent first.",
   "aiTopologyModel": "Execution model",
   "aiTopologyInherit": "Inherit parent model",
   "aiWorkspaceDeleteAction": "Delete child agent",
   "aiTopologyMessageFrom": "From agent: {title}",
+  "aiTopologyMessageFromMain": "From main agent: {title}",
+  "@aiTopologyMessageFromMain": {"placeholders": {"title": {"type": "String"}}},
+  "aiTopologyMessageFromChild": "From child agent: {title}",
+  "@aiTopologyMessageFromChild": {"placeholders": {"title": {"type": "String"}}},
   "@aiTopologyMessageFrom": {
     "placeholders": {
       "title": {
@@ -1457,7 +1457,6 @@
   "aiTopologyCanvasDots": "Dots",
   "aiTopologyCanvasGrid": "Grid",
   "aiTopologyCanvasPlain": "Plain",
-  "aiTopologyDeleteRootHelp": "Delete this main agent. The most recently created direct child becomes the main agent; other child branches are preserved. Removed agents go to the recycle bin and can be restored in Settings → Agents → Storage.",
   "aiTopologyStopSelected": "Stop selected agents",
   "aiTopologyDeleteSelected": "Delete selected agents",
   "aiTopologyDisconnect": "Disconnect",
@@ -1466,8 +1465,6 @@
   "aiTopologyClearSelection": "Clear selection",
   "aiTopologyConnectHint": "Drag between agent handles to connect them. Joining different agent trees requires confirmation.",
   "aiTopologyInvalidConnection": "Cannot connect: choose a valid agent without creating a cycle.",
-  "aiTopologyDeleteSelectedTitle": "Delete selected agents?",
-  "aiTopologyDeleteSelectedHelp": "Delete only the selected agents and preserve unselected descendant branches. Unselected direct children of deleted child agents become main agents. A deleted main agent is replaced by its most recently created unselected direct child. Removed agents go to the recycle bin and can be restored in Settings → Agents → Storage.",
   "aiTopologySelectedCount": "{count} selected",
   "aiTopologySelectionHelp": "Left-drag to select · Ctrl/Shift + click to multi-select · Right-drag to pan · Wheel to pan vertically · Shift + wheel to pan horizontally · Ctrl + wheel to zoom",
   "aiTopologyShortcutsHelp": "Left-click: select a card or link\nLeft-drag empty canvas: box-select cards and links\nCtrl/Shift + click or box-select: extend selection\nDouble-click a card: open conversation\nDrag a card: move it\nDrag a connection port: connect agents\nRight-drag / middle-drag / Space + left-drag: pan canvas\nWheel: pan vertically\nShift + wheel: pan horizontally\nCtrl + wheel: zoom\nCtrl + A: select all\nCtrl + C / Ctrl + V: copy / paste cards\nCtrl + Z: undo\nCtrl + Y or Ctrl + Shift + Z: redo\nDelete / Backspace: delete selected cards or disconnect selected links\nEsc: cancel selection or connection",
@@ -1479,18 +1476,7 @@
     }
   },
   "aiTopologyDisconnectTitle": "Disconnect agents?",
-  "aiTopologyDisconnectHelp": "Disconnect the selected links and update main agent and child roles to match the remaining connections. work instructions and conversation history will be retained.",
-  "aiTopologyRoleChangeNotice": "“{task}” will become a {role}.",
-  "@aiTopologyRoleChangeNotice": {
-    "placeholders": {
-      "task": {
-        "type": "String"
-      },
-      "role": {
-        "type": "String"
-      }
-    }
-  },
+  "aiTopologyDisconnectHelp": "Disconnect the selected links. Communication links do not change roles. Detaching a delegation branch makes its root a main agent. Work instructions and conversation history are retained.",
   "aiProcessingSpeed": "Processing speed",
   "aiProcessingSpeedStandard": "Standard",
   "aiProcessingSpeedFast": "Fast",
@@ -1594,6 +1580,18 @@
   "agentMemoryReview": "Review memories",
   "agentStorageMore": "Load more",
   "agentStorageEditMemory": "Edit",
+  "agentStorageCopyMemoryId": "Copy memory ID",
+  "cardSelect": "Select",
+  "cardDeselect": "Deselect",
+  "cardSelectAll": "Select all",
+  "agentStorageMemoryIdLabel": "Memory ID:",
+  "@agentStorageMemoryIdLabel": {
+    "description": "Label before the separately selectable memory ID in the editor."
+  },
+  "agentStorageMemoryId": "Memory ID: {id}",
+  "@agentStorageMemoryId": {
+    "placeholders": {"id": {"type": "String"}}
+  },
   "agentStorageClean": "Free up storage space",
   "agentStorageCleanHint": "Remove leftover files now to free up storage space. Chats, memories and recycle bin contents are kept.",
   "agentStorageContextBudget": "Context budget",
@@ -1799,5 +1797,13 @@
   "agentRecyclePendingDeletion": "Pending automatic deletion",
   "agentMemoryAdd": "Import",
   "agentMemoryEmptyContent": "Memory content cannot be empty.",
-  "agentStorageNewAgent": "New agent"
+  "agentStorageNewAgent": "New agent",
+  "aiAgentTopologyQuery": "Read agent topology",
+  "aiLeadershipTransfer": "Transfer leadership",
+  "aiLeadershipUndo": "Undo leadership transfer",
+  "aiTimer": "Timer",
+  "aiTimerStart": "Start timer",
+  "aiTimerQuery": "Check timer status",
+  "aiTimerWait": "Wait for timer",
+  "aiTimerCancel": "Cancel timer"
 }

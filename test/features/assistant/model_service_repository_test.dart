@@ -102,10 +102,10 @@ void main() {
     apiKey: key,
   );
 
-  test('legacy manual declarations are ignored', () {
+  test('untrusted manual declarations do not grant image capability', () {
     final service = AiModelService.fromJson({
-      'id': 'legacy',
-      'name': 'Legacy',
+      'id': 'untrusted',
+      'name': 'Untrusted',
       'protocol': 'openAiChatCompletions',
       'baseUrl': 'https://example.test/v1',
       'models': ['chat'],
@@ -220,7 +220,7 @@ void main() {
       await restored.load();
       expect(restored.selectedModel, 'o3');
       expect(restored.effortFor(id, 'o3'), AiReasoningEffort.medium);
-      expect(restored.effortFor(id, 'deepseek-flash'), AiReasoningEffort.high);
+      expect(restored.effortFor(id, 'deepseek-flash'), AiReasoningEffort.low);
       expect(restored.effortFor(id, 'plain'), isNull);
       final saved = jsonDecode(
         preferences.stringValue(ModelServiceRepository.catalogKey, ''),

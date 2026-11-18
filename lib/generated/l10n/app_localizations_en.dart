@@ -248,7 +248,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiRemoveGuidance => 'Remove queued message';
 
   @override
-  String get aiSendPendingGuidance => 'Send now';
+  String get aiSendPendingGuidance => 'Steer current turn';
+
+  @override
+  String get aiGuidanceAwaitingBoundary => 'Waiting to apply guidance…';
 
   @override
   String get aiEditQueuedMessage => 'Edit queued message';
@@ -2272,11 +2275,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Command rules changed while this call was pending. The command was not executed; submit it again for review.';
 
   @override
-  String aiCommandRan(String target) {
-    return 'Ran command · $target';
-  }
-
-  @override
   String aiCommandStarted(String target) {
     return 'Process started · $target';
   }
@@ -2426,7 +2424,44 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiWorkspaceSpawnAction => 'Create child agent';
 
   @override
+  String get aiWorkspaceConfigureAction => 'Configure child agent model';
+
+  @override
   String get aiWorkspaceSendAction => 'Send agent message';
+
+  @override
+  String get aiWorkspaceConnectAction => 'Connect agents';
+
+  @override
+  String get aiWorkspaceDisconnectAction => 'Disconnect agents';
+
+  @override
+  String get aiModelDiscoveryLoading => 'Reading model list…';
+
+  @override
+  String get aiModelDiscoveryCancel => 'Cancel reading';
+
+  @override
+  String get aiModelDiscoveryEmpty =>
+      'The service returned no available models.';
+
+  @override
+  String get aiModelDiscoveryUnchanged =>
+      'No new models. Your existing list is unchanged.';
+
+  @override
+  String get aiModelDiscoveryNewModels => 'Select new models to add';
+
+  @override
+  String get aiModelDiscoveryAdd => 'Add selected models';
+
+  @override
+  String get aiModelDiscoveryUpdate => 'Update model information';
+
+  @override
+  String aiModelDiscoverySummary(int total, int added, int existing) {
+    return 'Found $total models: $added new, $existing already listed.';
+  }
 
   @override
   String get aiWorkspaceWaitAction => 'Wait for child agents';
@@ -2524,11 +2559,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String aiTopologyRootPromotionNotice(String task) {
-    return 'After deletion, “$task” will change from a child agent to a main agent.';
-  }
-
-  @override
   String get aiTopologyMergeTitle => 'Change agent ownership?';
 
   @override
@@ -2548,17 +2578,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiTopologyConnectSelected => 'Connect selected agents';
 
   @override
-  String get aiTopologyMakeRoot => 'Make main agent';
+  String get aiTopologyMakeRoot => 'Split into independent workflow';
 
   @override
-  String get aiTopologyMakeChild => 'Make child agent';
+  String get aiTopologyMakeWorkflowMain => 'Make main agent of this workflow';
+
+  @override
+  String get aiTopologyMakeChild => 'Change direct parent';
 
   @override
   String get aiTopologyChooseParent => 'Choose parent agent';
 
   @override
   String get aiTopologyChooseParentHelp =>
-      'Change this main agent to a child agent and choose its parent. Existing descendants, conversation, and other connections will remain.';
+      'Choose a parent for task delegation and layout. This agent and its descendants become child agents. Conversations and communication links are preserved.';
 
   @override
   String get aiTopologyAutoLayout => 'Auto layout';
@@ -2582,17 +2615,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiTopologyEmptyHelp =>
-      'Create a main agent, then add child agents at any level.';
+      'Create a main agent to start a workflow. Each connected workflow has exactly one main agent.';
 
   @override
   String get aiTopologyDelete => 'Delete agent';
-
-  @override
-  String get aiTopologyDeleteTitle => 'Delete this agent?';
-
-  @override
-  String get aiTopologyDeleteHelp =>
-      'Delete only this agent. Its unselected direct children become main agents, with their descendants preserved. Removed agents go to the recycle bin and can be restored in Settings → Agents → Storage.';
 
   @override
   String get aiTopologyNoParent => 'Select a main agent or child agent first.';
@@ -2609,6 +2635,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String aiTopologyMessageFrom(String title) {
     return 'From agent: $title';
+  }
+
+  @override
+  String aiTopologyMessageFromMain(String title) {
+    return 'From main agent: $title';
+  }
+
+  @override
+  String aiTopologyMessageFromChild(String title) {
+    return 'From child agent: $title';
   }
 
   @override
@@ -2640,10 +2676,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiTopologyCanvasPlain => 'Plain';
 
   @override
-  String get aiTopologyDeleteRootHelp =>
-      'Delete this main agent. The most recently created direct child becomes the main agent; other child branches are preserved. Removed agents go to the recycle bin and can be restored in Settings → Agents → Storage.';
-
-  @override
   String get aiTopologyStopSelected => 'Stop selected agents';
 
   @override
@@ -2670,13 +2702,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Cannot connect: choose a valid agent without creating a cycle.';
 
   @override
-  String get aiTopologyDeleteSelectedTitle => 'Delete selected agents?';
-
-  @override
-  String get aiTopologyDeleteSelectedHelp =>
-      'Delete only the selected agents and preserve unselected descendant branches. Unselected direct children of deleted child agents become main agents. A deleted main agent is replaced by its most recently created unselected direct child. Removed agents go to the recycle bin and can be restored in Settings → Agents → Storage.';
-
-  @override
   String aiTopologySelectedCount(int count) {
     return '$count selected';
   }
@@ -2694,12 +2719,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiTopologyDisconnectHelp =>
-      'Disconnect the selected links and update main agent and child roles to match the remaining connections. work instructions and conversation history will be retained.';
-
-  @override
-  String aiTopologyRoleChangeNotice(String task, String role) {
-    return '“$task” will become a $role.';
-  }
+      'Disconnect the selected links. Communication links do not change roles. Detaching a delegation branch makes its root a main agent. Work instructions and conversation history are retained.';
 
   @override
   String get aiProcessingSpeed => 'Processing speed';
@@ -2952,6 +2972,26 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentStorageEditMemory => 'Edit';
+
+  @override
+  String get agentStorageCopyMemoryId => 'Copy memory ID';
+
+  @override
+  String get cardSelect => 'Select';
+
+  @override
+  String get cardDeselect => 'Deselect';
+
+  @override
+  String get cardSelectAll => 'Select all';
+
+  @override
+  String get agentStorageMemoryIdLabel => 'Memory ID:';
+
+  @override
+  String agentStorageMemoryId(String id) {
+    return 'Memory ID: $id';
+  }
 
   @override
   String get agentStorageClean => 'Free up storage space';
@@ -3369,4 +3409,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentStorageNewAgent => 'New agent';
+
+  @override
+  String get aiAgentTopologyQuery => 'Read agent topology';
+
+  @override
+  String get aiLeadershipTransfer => 'Transfer leadership';
+
+  @override
+  String get aiLeadershipUndo => 'Undo leadership transfer';
+
+  @override
+  String get aiTimer => 'Timer';
+
+  @override
+  String get aiTimerStart => 'Start timer';
+
+  @override
+  String get aiTimerQuery => 'Check timer status';
+
+  @override
+  String get aiTimerWait => 'Wait for timer';
+
+  @override
+  String get aiTimerCancel => 'Cancel timer';
 }

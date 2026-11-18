@@ -22,6 +22,37 @@ Future<void> waitForStorage(bool Function() condition) async {
 
 void main() {
   test(
+    'complete memory IDs take precedence over content and remain owner-scoped',
+    () async {
+      final store = AgentStorage(path: ':memory:');
+      addTearDown(store.close);
+      const id = '0123456789abcdef0123456789abcdef';
+      await store.putMemory(id: id, owner: 'agent-a', content: 'Exact memory');
+      await store.putMemory(
+        id: 'other',
+        owner: 'agent-a',
+        content: 'Reference $id',
+      );
+      await store.putMemory(
+        id: 'foreign',
+        owner: 'agent-b',
+        content: 'Reference $id',
+      );
+
+      expect(
+        (await store.memories('agent-a', query: ' $id ')).single['id'],
+        id,
+      );
+      expect(await store.memories('agent-b', query: id), isEmpty);
+      expect(await store.memories('agent-a', query: id, offset: 1), isEmpty);
+      expect(
+        (await store.memories('agent-b', query: 'Reference')).single['id'],
+        'foreign',
+      );
+    },
+  );
+
+  test(
     'automatic memory batches append scoped deduplicated facts and source turn',
     () async {
       final store = AgentStorage(path: ':memory:');

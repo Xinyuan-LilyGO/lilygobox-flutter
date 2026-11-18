@@ -252,6 +252,7 @@ class AiMessage {
     required this.role,
     required this.content,
     this.createdAt,
+    this.finishedAt,
     this.toolName,
     this.toolArguments,
     this.toolDecision,
@@ -271,6 +272,7 @@ class AiMessage {
   final String role;
   final String content;
   final DateTime? createdAt;
+  final DateTime? finishedAt;
   final String? toolName;
   final Map<String, Object?>? toolArguments;
   final bool? toolDecision;
@@ -287,6 +289,8 @@ class AiMessage {
 
   AiMessage copyWith({
     DateTime? createdAt,
+    DateTime? finishedAt,
+    bool clearFinishedAt = false,
     String? content,
     bool? toolDecision,
     Duration? elapsed,
@@ -303,6 +307,7 @@ class AiMessage {
     id: id,
     role: role,
     createdAt: createdAt ?? this.createdAt,
+    finishedAt: clearFinishedAt ? null : finishedAt ?? this.finishedAt,
     content: content ?? this.content,
     toolName: toolName,
     toolArguments: toolArguments,

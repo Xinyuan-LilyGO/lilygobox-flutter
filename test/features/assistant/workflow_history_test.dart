@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -8,6 +9,7 @@ import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
+
 import 'assistant_test_scope.dart';
 
 void main() {
@@ -131,47 +133,41 @@ void main() {
     },
   );
 
-  test(
-    'role connection and rename edits restore together and snapshots match values',
-    () async {
-      final root = await workspaces.create(
-        title: 'Root',
-        task: 'one',
-        kind: AiWorkspaceKind.primary,
-        startImmediately: false,
-      );
-      final other = await workspaces.create(
-        title: 'Other',
-        task: 'two',
-        kind: AiWorkspaceKind.primary,
-        startImmediately: false,
-      );
-      final before = workspaces.captureTopologyEdit();
-      final same = workspaces.captureTopologyEdit();
-      expect(before.matches(same), isTrue);
-      workspaces.releaseTopologyEdit(same);
-      final merge = workspaces.connectionMergeFor(root.id, other.id);
-      workspaces.connectTasks(root.id, other.id, confirmedMerge: merge);
-      workspaces.rename(other.id, 'Edited');
-      final after = workspaces.captureTopologyEdit();
-      expect(before.matches(after), isFalse);
-      await workspaces.restoreTopologyEdit(before);
-      expect(other.kind, AiWorkspaceKind.primary);
-      expect(other.parentId, isNull);
-      expect(other.title, 'Other');
-      expect(workspaces.connections, isEmpty);
-      await workspaces.restoreTopologyEdit(after);
-      expect(other.kind, AiWorkspaceKind.permanent);
-      expect(other.parentId, root.id);
-      expect(other.title, 'Edited');
-      workspaces.releaseTopologyEdit(before);
-      workspaces.releaseTopologyEdit(after);
-      await expectLater(
-        workspaces.restoreTopologyEdit(before),
-        throwsStateError,
-      );
-    },
-  );
+  test('role connection and rename edits restore together and snapshots match values', () async {
+    final root = await workspaces.create(
+      title: 'Root',
+      task: 'one',
+      kind: AiWorkspaceKind.primary,
+      startImmediately: false,
+    );
+    final other = await workspaces.create(
+      title: 'Other',
+      task: 'two',
+      kind: AiWorkspaceKind.primary,
+      startImmediately: false,
+    );
+    final before = workspaces.captureTopologyEdit();
+    final same = workspaces.captureTopologyEdit();
+    expect(before.matches(same), isTrue);
+    workspaces.releaseTopologyEdit(same);
+    workspaces.connectTasks(root.id, other.id);
+    workspaces.reparent(other.id, root.id);
+    workspaces.rename(other.id, 'Edited');
+    final after = workspaces.captureTopologyEdit();
+    expect(before.matches(after), isFalse);
+    await workspaces.restoreTopologyEdit(before);
+    expect(other.kind, AiWorkspaceKind.primary);
+    expect(other.parentId, isNull);
+    expect(other.title, 'Other');
+    expect(workspaces.connections, isEmpty);
+    await workspaces.restoreTopologyEdit(after);
+    expect(other.kind, AiWorkspaceKind.permanent);
+    expect(other.parentId, root.id);
+    expect(other.title, 'Edited');
+    workspaces.releaseTopologyEdit(before);
+    workspaces.releaseTopologyEdit(after);
+    await expectLater(workspaces.restoreTopologyEdit(before), throwsStateError);
+  });
   test(
     'delta restore leaves model-created tasks and unrelated live edits intact',
     () async {

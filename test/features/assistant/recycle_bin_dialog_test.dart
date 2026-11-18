@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
@@ -210,6 +211,30 @@ void main() {
         await tester.pumpAndSettle();
         expect(region.selection.selected, isEmpty);
         expect(cardBorder(), Border.all(color: Colors.transparent, width: 1));
+        await tester.ensureVisible(firstCard);
+        await tester.pumpAndSettle();
+        final firstCardRect = tester.getRect(firstCard);
+        final listRect = tester.getRect(list);
+        expect(firstCardRect.left, closeTo(searchRect.left, .01));
+        expect(firstCardRect.right, closeTo(searchRect.right, .01));
+        expect(listRect.right - firstCardRect.right, closeTo(24, .01));
+        await tester.tap(firstCard, buttons: kSecondaryMouseButton);
+        await tester.pumpAndSettle();
+        expect(region.selection.selected, isEmpty);
+        await tester.tap(find.text('Select all'));
+        await tester.pumpAndSettle();
+        expect(
+          region.selection.selected,
+          ordered.map((entry) => entry.id).toSet(),
+        );
+        await tester.tap(firstCard, buttons: kSecondaryMouseButton);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Deselect'));
+        await tester.pumpAndSettle();
+        expect(
+          region.selection.selected,
+          ordered.skip(1).map((entry) => entry.id).toSet(),
+        );
         await tapCard(0);
         await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
         await tapCard(2);

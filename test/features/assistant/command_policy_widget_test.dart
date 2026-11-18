@@ -105,7 +105,7 @@ void main() {
           );
           expect(
             tester.getTopLeft(find.text(l10n.aiCommandReason)).dy,
-            greaterThan(commandTop),
+            lessThan(commandTop),
           );
           expect(find.text(l10n.aiCommandReason), findsOneWidget);
           expect(find.text('test'), findsOneWidget);

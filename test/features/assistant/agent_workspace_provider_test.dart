@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -60,6 +61,7 @@ void main() {
   void Function()? observeRequest;
   var spawnFromMain = false;
   Map<String, Object?> spawnSelection = {};
+  Map<String, Object?>? waitSelection;
   var askApproval = false;
   var failNaming = false;
   var parentResponseCount = 0;
@@ -74,6 +76,7 @@ void main() {
     observeRequest = null;
     spawnFromMain = false;
     spawnSelection = {};
+    waitSelection = null;
     askApproval = false;
     failNaming = false;
     parentResponseCount = 0;
@@ -124,11 +127,15 @@ void main() {
         }
         final isParent = user == 'Delegate this';
         if (!isParent) await gate?.future;
+        final needsWait =
+            isParent &&
+            waitSelection != null &&
+            messages.every((message) => message['role'] != 'tool');
         final needsTool =
             isParent && spawnFromMain && parentResponseCount++ == 0;
         final needsApproval =
             askApproval && messages.every((m) => m['role'] != 'tool');
-        final response = needsTool || needsApproval
+        final response = needsWait || needsTool || needsApproval
             ? {
                 'content': '',
                 'tool_calls': [
@@ -136,15 +143,21 @@ void main() {
                     'id': 'call-1',
                     'type': 'function',
                     'function': {
-                      'name': needsTool ? 'spawn_agent' : 'list_directory',
+                      'name': needsWait
+                          ? 'wait_agents'
+                          : needsTool
+                          ? 'spawn_agent'
+                          : 'list_directory',
                       'arguments': jsonEncode(
-                        needsTool
+                        needsWait
+                            ? waitSelection
+                            : needsTool
                             ? {
                                 'title': 'Review',
                                 'task': 'Check child',
                                 ...spawnSelection,
                               }
-                            : {'path': 'D:/github/lilygobox-flutter'},
+                            : {'path': Directory.current.path},
                       ),
                     },
                   },
@@ -197,6 +210,267 @@ void main() {
       'wait_ms': 100,
     });
   }
+
+  test(
+    'a child report wakes an active wait without starting a new turn',
+    () async {
+      final root = await workspaces.create(
+        title: 'Root',
+        task: 'Plan',
+        startImmediately: false,
+      );
+      final child = await workspaces.create(
+        title: 'Worker',
+        task: 'Collect findings',
+        parentId: root.id,
+        startImmediately: false,
+      );
+      gate = Completer<void>();
+      await workspaces.send(child.id, 'Keep working');
+      waitSelection = {
+        'agent_ids': [child.id],
+        'wait_ms': 5000,
+      };
+      final waiting = Completer<void>();
+      root.assistant.addListener(() {
+        if (waiting.isCompleted) return;
+        if (root.assistant.messages.any(
+          (message) => message.status == AiResponseStatus.executingTools,
+        )) {
+          waiting.complete();
+        }
+      });
+      final turn = root.assistant.sendMessage('Delegate this');
+      await waiting.future.timeout(const Duration(seconds: 2));
+      await child.assistant.workspaceToolHandler!('send_agent_message', {
+        'agent_id': root.id,
+        'message': 'Interim finding',
+      });
+      await turn.timeout(const Duration(seconds: 2));
+      expect(child.busy, isTrue);
+      expect(root.assistant.pendingGuidance, isEmpty);
+      expect(
+        root.assistant.messages.where((message) => message.role == 'user'),
+        hasLength(1),
+      );
+      final outputs = requests
+          .expand((request) => request['messages'] as List)
+          .where((message) => message['tool_call_id'] == 'call-1');
+      final output = jsonDecode(outputs.single['content'] as String) as Map;
+      expect(output['reports'], [
+        {
+          'source_agent_id': child.id,
+          'source_agent_title': 'Worker',
+          'source_agent_kind': child.kind.name,
+          'message': 'Interim finding',
+        },
+      ]);
+    },
+  );
+
+  test('a child can collect reports from its parent and a connected peer only when selected', () async {
+    final root = await workspaces.create(
+      title: 'Root',
+      task: 'Plan',
+      startImmediately: false,
+    );
+    Future<AiAgentWorkspace> child(String title) => workspaces.create(
+      title: title,
+      task: 'Collaborate',
+      parentId: root.id,
+      startImmediately: false,
+    );
+    final caller = await child('Caller');
+    final peer = await child('Peer');
+    final unlinked = await child('Unlinked');
+    workspaces.connectTasks(caller.id, peer.id);
+    gate = Completer<void>();
+    final turn = caller.assistant.sendMessage('Work');
+    Future<Map<String, Object?>> sendReport(AiAgentWorkspace sender) =>
+        sender.assistant.workspaceToolHandler!('send_agent_message', {
+          'agent_id': caller.id,
+          'message': sender.title,
+        });
+    await expectLater(sendReport(unlinked), throwsStateError);
+    await sendReport(root);
+    await sendReport(peer);
+    await caller.assistant.sendMessage('User follow-up');
+    final tool = caller.assistant.workspaceToolHandler!;
+    final peerWait = await tool('wait_agents', {
+      'agent_ids': [peer.id],
+      'wait_ms': 0,
+    });
+    expect((peerWait['reports'] as List).single['message'], peer.title);
+    expect(caller.assistant.pendingGuidance.map((message) => message.content), [
+      root.title,
+      'User follow-up',
+    ]);
+    final parentWait = await tool('wait_agents', {
+      'agent_ids': [root.id],
+      'wait_ms': 0,
+    });
+    expect((parentWait['reports'] as List).single['message'], root.title);
+    expect(caller.assistant.pendingGuidance.single.content, 'User follow-up');
+    final peerTurn = peer.assistant.sendMessage('Keep working');
+    final pending = tool('wait_agents', {
+      'agent_ids': [peer.id],
+      'wait_ms': 5000,
+    });
+    workspaces.stop(caller.id);
+    expect(await pending.timeout(const Duration(seconds: 2)), {
+      'cancelled': true,
+    });
+    expect(caller.assistant.pendingGuidance.single.content, 'User follow-up');
+    gate!.complete();
+    await turn;
+    await peerTurn;
+  });
+
+  test('spawn exposes exact service speed tiers and uses them on the first request', () async {
+    final serviceId = scope.provider.selectedService!.id;
+    final root = await workspaces.create(
+      title: 'Root',
+      task: 'Plan',
+      startImmediately: false,
+    );
+    final parent = await workspaces.create(
+      title: 'Parent',
+      task: 'Delegate',
+      parentId: root.id,
+      startImmediately: false,
+    );
+    final runTool = root.assistant.workspaceToolHandler!;
+    final catalog = await runTool('list_agent_models', {});
+    expect(catalog['inherited_processing_speed'], 'standard');
+    final service = (catalog['services'] as List).single as Map;
+    final speeds = service['processing_speeds'] as Map;
+    expect(speeds['gpt-6.1-sol'], ['standard', 'fast']);
+    expect(speeds['deepseek-flash'], isEmpty);
+
+    final result = await runTool('spawn_agent', {
+      'title': 'Worker',
+      'task': 'Use the requested tier',
+      'parent_agent_id': parent.id,
+      'service_id': serviceId,
+      'model': 'gpt-6.1-sol',
+      'reasoning_effort': 'high',
+      'processing_speed': 'fast',
+    });
+    expect(result['processing_speed'], 'fast');
+    expect(result['reasoning_effort'], 'high');
+    expect(result['parent_id'], parent.id);
+    await finish(result['agent_id'] as String);
+    expect(requests.first['service_tier'], 'priority');
+
+    final count = workspaces.sessions.length;
+    for (final speed in ['ultrafast', 'turbo']) {
+      await expectLater(
+        runTool('spawn_agent', {
+          'title': 'Unsupported',
+          'task': 'Do not create',
+          'service_id': serviceId,
+          'model': 'gpt-6.1-sol',
+          'processing_speed': speed,
+        }),
+        throwsFormatException,
+      );
+    }
+    expect(workspaces.sessions, hasLength(count));
+  });
+
+  test('agent speed changes respect management scope and reject incompatible changes atomically', () async {
+    final serviceId = scope.provider.selectedService!.id;
+    final root = await workspaces.create(
+      title: 'Root',
+      task: 'Plan',
+      startImmediately: false,
+    );
+    Future<AiAgentWorkspace> child(
+      String title,
+      String parentId, {
+      String model = 'gpt-6.1-sol',
+    }) => workspaces.create(
+      title: title,
+      task: title,
+      parentId: parentId,
+      serviceId: serviceId,
+      model: model,
+      startImmediately: false,
+    );
+    final parent = await child('Parent', root.id);
+    final leaf = await child('Leaf', parent.id);
+    final end = await child('End', leaf.id);
+    final incompatible = await child(
+      'Incompatible',
+      parent.id,
+      model: 'deepseek-flash',
+    );
+    final busy = await child('Busy', parent.id);
+    final outside = await workspaces.create(
+      title: 'Outside',
+      task: 'Plan',
+      startImmediately: false,
+    );
+    workspaces.connectTasks(parent.id, end.id);
+    final rootTool = root.assistant.workspaceToolHandler!;
+    final parentTool = parent.assistant.workspaceToolHandler!;
+
+    final single = await rootTool('configure_agent', {
+      'agent_id': end.id,
+      'processing_speed': 'fast',
+    });
+    expect(single['processing_speed'], 'fast');
+    expect(
+      (await parentTool('configure_agent', {
+        'agent_id': leaf.id,
+        'processing_speed': 'fast',
+      }))['configured'],
+      isTrue,
+    );
+    await expectLater(
+      parentTool('configure_agent', {
+        'agent_id': end.id,
+        'processing_speed': 'standard',
+      }),
+      throwsStateError,
+    );
+    await expectLater(
+      rootTool('configure_agents', {
+        'agent_ids': [leaf.id, outside.id],
+        'processing_speed': 'standard',
+      }),
+      throwsStateError,
+    );
+    expect(leaf.assistant.processingSpeed, AiProcessingSpeed.fast);
+
+    await expectLater(
+      rootTool('configure_agent', {
+        'agent_id': leaf.id,
+        'service_id': serviceId,
+        'model': 'deepseek-flash',
+        'reasoning_effort': 'low',
+        'processing_speed': 'fast',
+      }),
+      throwsFormatException,
+    );
+    expect(leaf.assistant.selectedModel, 'gpt-6.1-sol');
+    expect(leaf.assistant.processingSpeed, AiProcessingSpeed.fast);
+
+    gate = Completer<void>();
+    final running = busy.assistant.sendMessage('Keep working');
+    final batch = await rootTool('configure_agents', {
+      'agent_ids': [parent.id, incompatible.id, busy.id],
+      'processing_speed': 'fast',
+    });
+    gate!.complete();
+    await running;
+    final results = (batch['results'] as List).cast<Map<String, Object?>>();
+    expect(results.map((item) => item['configured']), [true, false, false]);
+    expect(results[1]['detail'], contains('Unsupported processing_speed'));
+    expect(results[2]['reason'], 'busy');
+    expect(busy.assistant.processingSpeed, AiProcessingSpeed.standard);
+    expect(root.assistant.processingSpeed, AiProcessingSpeed.standard);
+  });
 
   test(
     'creation validates and applies context settings before work starts',
@@ -690,30 +964,33 @@ void main() {
     await finish(source.id);
   });
 
-  test('disconnect preserves child type through persistence and permits explicit root conversion', () async {
-    final root = await workspaces.createPrimary(
-      title: 'Root',
-      task: 'Root task',
-    );
-    await finish(root.id);
-    final child = await workspaces.create(
-      title: 'Child',
-      task: 'Child task',
-      parentId: root.id,
-    );
-    await finish(child.id);
-    workspaces.reparent(child.id, null, preserveKind: true);
-    expect(child.kind, AiWorkspaceKind.permanent);
-    await workspaces.flush();
-    workspaces.dispose();
-    workspaces = AiWorkspaceProvider(scope.provider);
-    await workspaces.initialized;
-    final restored = workspaces.find(child.id)!;
-    expect(restored.parentId, isNull);
-    expect(restored.kind, AiWorkspaceKind.permanent);
-    workspaces.reparent(restored.id, null);
-    expect(restored.kind, AiWorkspaceKind.primary);
-  });
+  test(
+    'detaching a child promotes it and persists the current role structure',
+    () async {
+      final root = await workspaces.createPrimary(
+        title: 'Root',
+        task: 'Root task',
+      );
+      await finish(root.id);
+      final child = await workspaces.create(
+        title: 'Child',
+        task: 'Child task',
+        parentId: root.id,
+      );
+      await finish(child.id);
+      workspaces.reparent(child.id, null);
+      expect(child.kind, AiWorkspaceKind.primary);
+      await workspaces.flush();
+      workspaces.dispose();
+      workspaces = AiWorkspaceProvider(scope.provider);
+      await workspaces.initialized;
+      final restored = workspaces.find(child.id)!;
+      expect(restored.parentId, isNull);
+      expect(restored.kind, AiWorkspaceKind.primary);
+      workspaces.reparent(restored.id, null);
+      expect(restored.kind, AiWorkspaceKind.primary);
+    },
+  );
 
   test('card clipboard snapshots survive edits and deletion and preserve selected parent links', () async {
     final parent = await workspaces.createPrimary(
@@ -794,6 +1071,624 @@ void main() {
   });
 
   group('Child model selection', () {
+    test(
+      'main manages every descendant without additional communication edges',
+      () async {
+        final root = await workspaces.create(
+          title: 'Root',
+          task: 'Plan',
+          startImmediately: false,
+        );
+        final middle = await workspaces.create(
+          title: 'Middle',
+          task: 'Work',
+          parentId: root.id,
+          startImmediately: false,
+        );
+        final leaf = await workspaces.create(
+          title: 'Leaf',
+          task: 'Work',
+          parentId: middle.id,
+          startImmediately: false,
+        );
+        final end = await workspaces.create(
+          title: 'End',
+          task: 'Work',
+          parentId: leaf.id,
+          startImmediately: false,
+        );
+        expect(workspaces.isConnected(root.id, leaf.id), isFalse);
+        final listed = await root.assistant.workspaceToolHandler!(
+          'list_agents',
+          {},
+        );
+        expect(
+          (listed['agents'] as List).map((agent) => agent['agent_id']),
+          containsAll([middle.id, leaf.id, end.id]),
+        );
+        await root.assistant.workspaceToolHandler!('send_agent_message', {
+          'agent_id': leaf.id,
+          'message': 'Check',
+        });
+        await finish(leaf.id);
+        final waited = await root.assistant.workspaceToolHandler!(
+          'wait_agents',
+          {
+            'agent_ids': [leaf.id],
+            'wait_ms': 0,
+          },
+        );
+        expect((waited['agents'] as List).single['agent_id'], leaf.id);
+        gate = Completer<void>();
+        final running = leaf.assistant.sendMessage('Work');
+        await Future<void>.delayed(Duration.zero);
+        final guided = await root.assistant.workspaceToolHandler!(
+          'send_agent_message',
+          {'agent_id': leaf.id, 'message': 'Correct premise', 'mode': 'guide'},
+        );
+        expect(guided['delivered'], isTrue);
+        gate!.complete();
+        await running;
+        await finish(leaf.id);
+        gate = null;
+        await root.assistant.workspaceToolHandler!('stop_agent', {
+          'agent_id': end.id,
+        });
+        expect(workspaces.find(end.id), same(end));
+        expect(end.busy, isFalse);
+        final deleted = await root.assistant.workspaceToolHandler!(
+          'delete_agent',
+          {'agent_id': leaf.id},
+        );
+        expect(deleted['promoted_agent_ids'], isEmpty);
+        expect(workspaces.find(leaf.id), isNull);
+        expect(end.parentId, middle.id);
+        expect(end.kind, AiWorkspaceKind.permanent);
+        expect(workspaces.isConnected(middle.id, end.id), isTrue);
+      },
+    );
+
+    test('child control remains direct-only and separate workflows grant no authority', () async {
+      final root = await workspaces.create(
+        title: 'Root',
+        task: 'Plan',
+        startImmediately: false,
+      );
+      final middle = await workspaces.create(
+        title: 'Middle',
+        task: 'Work',
+        parentId: root.id,
+        startImmediately: false,
+      );
+      final leaf = await workspaces.create(
+        title: 'Leaf',
+        task: 'Work',
+        parentId: middle.id,
+        startImmediately: false,
+      );
+      final end = await workspaces.create(
+        title: 'End',
+        task: 'Work',
+        parentId: leaf.id,
+        startImmediately: false,
+      );
+      final other = await workspaces.create(
+        title: 'Other',
+        task: 'Plan',
+        startImmediately: false,
+      );
+      final outside = await workspaces.create(
+        title: 'Outside',
+        task: 'Work',
+        parentId: other.id,
+        startImmediately: false,
+      );
+      workspaces.connectTasks(middle.id, end.id);
+      for (final tool in ['stop_agent', 'delete_agent', 'configure_agent']) {
+        for (final (caller, target) in [
+          (middle, end),
+          (root, outside),
+          (middle, root),
+          (root, root),
+        ]) {
+          await expectLater(
+            caller.assistant.workspaceToolHandler!(tool, {
+              'agent_id': target.id,
+              if (tool == 'configure_agent') 'reasoning_effort': 'high',
+            }),
+            throwsStateError,
+          );
+        }
+      }
+      await expectLater(
+        middle.assistant.workspaceToolHandler!('send_agent_message', {
+          'agent_id': end.id,
+          'message': 'Interrupt',
+          'mode': 'guide',
+        }),
+        throwsStateError,
+      );
+      await middle.assistant.workspaceToolHandler!('delete_agent', {
+        'agent_id': leaf.id,
+      });
+      expect(end.parentId, middle.id);
+      expect(end.kind, AiWorkspaceKind.permanent);
+    });
+
+    test('configure_agent rejects image-incompatible models without losing history', () async {
+      final service = await scope.provider.saveService(
+        name: 'Image compatibility',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['gpt-6.1-sol', 'plain-text'],
+        apiKey: 'key',
+        imageInputs: {
+          'gpt-6.1-sol': AiImageInput.supported,
+          'plain-text': AiImageInput.unsupported,
+        },
+      );
+      final root = await workspaces.create(
+        title: 'Root',
+        task: 'Plan',
+        startImmediately: false,
+      );
+      final child = await workspaces.create(
+        title: 'Child',
+        task: 'Work',
+        parentId: root.id,
+        serviceId: service,
+        model: 'gpt-6.1-sol',
+        startImmediately: false,
+      );
+      await child.assistant.sendMessage(
+        'Describe',
+        attachments: [
+          AiImageAttachment(
+            name: 'image.png',
+            mimeType: 'image/png',
+            bytes: base64Decode(
+              'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=',
+            ),
+          ),
+        ],
+      );
+      expect(child.assistant.hasImageHistory, isTrue);
+      final count = child.assistant.messages.length;
+      await expectLater(
+        child.assistant.selectModel(service, 'plain-text'),
+        throwsA(isA<AiConfigurationException>()),
+      );
+      expect(child.model, 'gpt-6.1-sol');
+      await expectLater(
+        root.assistant.workspaceToolHandler!('configure_agent', {
+          'agent_id': child.id,
+          'service_id': service,
+          'model': 'plain-text',
+        }),
+        throwsA(isA<AiConfigurationException>()),
+      );
+      expect(child.model, 'gpt-6.1-sol');
+      expect(child.assistant.messages, hasLength(count));
+      final result = await root.assistant.workspaceToolHandler!(
+        'configure_agent',
+        {'agent_id': child.id, 'reasoning_effort': 'high'},
+      );
+      expect(result['configured'], isTrue);
+      expect(child.assistant.hasImageHistory, isTrue);
+    });
+
+    test(
+      'configure_agent applies atomic local changes and persists them',
+      () async {
+        final root = await workspaces.create(
+          title: 'Root',
+          task: 'Plan',
+          startImmediately: false,
+        );
+        final child = await workspaces.create(
+          title: 'Child',
+          task: 'Work',
+          parentId: root.id,
+          startImmediately: false,
+        );
+        final permissions = child.assistant.permissions;
+        final service = scope.provider.selectedService!.id;
+        final result = await root.assistant.workspaceToolHandler!(
+          'configure_agent',
+          {
+            'agent_id': child.id,
+            'service_id': service,
+            'model': 'deepseek-flash',
+            'reasoning_effort': 'max',
+          },
+        );
+        expect(result['configured'], isTrue);
+        expect(result['reasoning_effort'], 'max');
+        expect(child.model, 'deepseek-flash');
+        expect(child.assistant.permissions, same(permissions));
+        expect(root.model, 'gpt-6.1-sol');
+        expect(scope.provider.selectedModel, 'gpt-6.1-sol');
+        expect(requests, isEmpty);
+        await child.assistant.sendMessage('Check');
+        expect(requests.last['reasoning_effort'], 'max');
+        final history = child.assistant.messages.length;
+        await root.assistant.workspaceToolHandler!('configure_agent', {
+          'agent_id': child.id,
+          'reasoning_effort': 'none',
+        });
+        expect(child.assistant.messages, hasLength(history));
+        await workspaces.flush();
+        workspaces.dispose();
+        workspaces = AiWorkspaceProvider(scope.provider);
+        await workspaces.initialized;
+        expect(workspaces.find(child.id)!.model, 'deepseek-flash');
+        expect(
+          workspaces.find(child.id)!.assistant.reasoningEffort,
+          AiReasoningEffort.none,
+        );
+      },
+    );
+
+    test('configure_agent follows management authority instead of communication links', () async {
+      final root = await workspaces.create(
+        title: 'Root',
+        task: 'Plan',
+        startImmediately: false,
+      );
+      final other = await workspaces.create(
+        title: 'Other',
+        task: 'Plan',
+        startImmediately: false,
+      );
+      final child = await workspaces.create(
+        title: 'Child',
+        task: 'Work',
+        parentId: root.id,
+        startImmediately: false,
+      );
+      final peer = await workspaces.create(
+        title: 'Peer',
+        task: 'Work',
+        parentId: root.id,
+        startImmediately: false,
+      );
+      final grandchild = await workspaces.create(
+        title: 'Grandchild',
+        task: 'Work',
+        parentId: child.id,
+        startImmediately: false,
+      );
+      final descendant = await workspaces.create(
+        title: 'Descendant',
+        task: 'Work',
+        parentId: grandchild.id,
+        startImmediately: false,
+      );
+      workspaces.connectTasks(child.id, peer.id);
+      for (final (caller, target) in [
+        (child, root),
+        (child, peer),
+        (child, child),
+        (child, descendant),
+        (root, other),
+        (other, grandchild),
+      ]) {
+        await expectLater(
+          caller.assistant.workspaceToolHandler!('configure_agent', {
+            'agent_id': target.id,
+            'reasoning_effort': 'high',
+          }),
+          throwsStateError,
+        );
+      }
+      for (final (caller, target) in [
+        (root, descendant),
+        (child, grandchild),
+      ]) {
+        final result = await caller.assistant.workspaceToolHandler!(
+          'configure_agent',
+          {'agent_id': target.id, 'reasoning_effort': 'high'},
+        );
+        expect(result['configured'], isTrue);
+        expect(target.assistant.reasoningEffort, AiReasoningEffort.high);
+      }
+    });
+
+    test('configure_agent rejects invalid changes without partially switching models', () async {
+      final root = await workspaces.create(
+        title: 'Root',
+        task: 'Plan',
+        startImmediately: false,
+      );
+      final child = await workspaces.create(
+        title: 'Child',
+        task: 'Work',
+        parentId: root.id,
+        startImmediately: false,
+      );
+      final service = scope.provider.selectedService!.id;
+      final originalEffort = child.assistant.reasoningEffort;
+      for (final change in <Map<String, Object?>>[
+        {},
+        {'service_id': service},
+        {'model': 'deepseek-flash'},
+        {'reasoning_effort': null},
+        {'reasoning_effort': 'HIGH'},
+        {
+          'service_id': service,
+          'model': 'deepseek-flash',
+          'reasoning_effort': 'medium',
+        },
+        {'service_id': service, 'model': 'missing'},
+        {'service_id': 'missing', 'model': 'deepseek-flash'},
+      ]) {
+        await expectLater(
+          root.assistant.workspaceToolHandler!('configure_agent', {
+            'agent_id': child.id,
+            ...change,
+          }),
+          throwsA(
+            anyOf(
+              isA<FormatException>(),
+              isA<StateError>(),
+              isA<AiConfigurationException>(),
+            ),
+          ),
+        );
+        expect(child.model, 'gpt-6.1-sol');
+        expect(child.assistant.reasoningEffort, originalEffort);
+      }
+      gate = Completer<void>();
+      final running = child.assistant.sendMessage('Wait');
+      await Future<void>.delayed(Duration.zero);
+      expect(child.busy, isTrue);
+      final result = await root.assistant.workspaceToolHandler!(
+        'configure_agent',
+        {
+          'agent_id': child.id,
+          'service_id': service,
+          'model': 'deepseek-flash',
+          'reasoning_effort': 'high',
+        },
+      );
+      expect(result['configured'], isFalse);
+      expect(result['reason'], 'busy');
+      expect(child.model, 'gpt-6.1-sol');
+      await expectLater(
+        child.assistant.selectModel(service, 'deepseek-flash'),
+        throwsA(isA<AiConfigurationException>()),
+      );
+      await expectLater(
+        child.assistant.setReasoningEffort(AiReasoningEffort.high),
+        throwsA(isA<AiConfigurationException>()),
+      );
+      expect(child.model, 'gpt-6.1-sol');
+      expect(child.assistant.reasoningEffort, originalEffort);
+      gate!.complete();
+      await running;
+      expect(child.model, 'gpt-6.1-sol');
+    });
+
+    test(
+      'manual and tool model changes share local configuration rules',
+      () async {
+        final root = await workspaces.create(
+          title: 'Root',
+          task: 'Plan',
+          startImmediately: false,
+        );
+        final manual = await workspaces.create(
+          title: 'Manual',
+          task: 'Work',
+          parentId: root.id,
+          startImmediately: false,
+        );
+        final automated = await workspaces.create(
+          title: 'Automated',
+          task: 'Work',
+          parentId: root.id,
+          startImmediately: false,
+        );
+        final service = scope.provider.selectedService!.id;
+        await manual.assistant.selectModel(service, 'deepseek-flash');
+        await manual.assistant.setReasoningEffort(AiReasoningEffort.high);
+        await root.assistant.workspaceToolHandler!('configure_agent', {
+          'agent_id': automated.id,
+          'service_id': service,
+          'model': 'deepseek-flash',
+          'reasoning_effort': 'high',
+        });
+        expect(manual.model, automated.model);
+        expect(
+          manual.assistant.reasoningEffort,
+          automated.assistant.reasoningEffort,
+        );
+        expect(
+          manual.assistant.processingSpeed,
+          automated.assistant.processingSpeed,
+        );
+        await expectLater(
+          manual.assistant.setReasoningEffort(AiReasoningEffort.medium),
+          throwsFormatException,
+        );
+        expect(manual.assistant.reasoningEffort, AiReasoningEffort.high);
+        await manual.assistant.setReasoningEffort(null);
+        expect(manual.assistant.reasoningEffort, isNull);
+        expect(scope.provider.selectedModel, 'gpt-6.1-sol');
+      },
+    );
+
+    for (final entry in ['canvas', 'chat', 'tool', 'all']) {
+      test(
+        '$entry stop clears approval waits and prevents queued restart',
+        () async {
+          final root = await workspaces.create(
+            title: 'Root',
+            task: 'Plan',
+            startImmediately: false,
+          );
+          final child = await workspaces.create(
+            title: 'Child',
+            task: 'Work',
+            parentId: root.id,
+            startImmediately: false,
+          );
+          askApproval = true;
+          final running = child.assistant.sendMessage('Needs approval');
+          for (
+            var attempt = 0;
+            attempt < 50 && child.assistant.pendingApproval == null;
+            attempt++
+          ) {
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+          expect(child.assistant.pendingApproval, isNotNull);
+          await child.assistant.sendMessage('Queued');
+          switch (entry) {
+            case 'canvas':
+              workspaces.stop(child.id);
+            case 'chat':
+              child.assistant.stopGeneration();
+            case 'tool':
+              await root.assistant.workspaceToolHandler!('stop_agent', {
+                'agent_id': child.id,
+              });
+            case 'all':
+              workspaces.stopAll();
+          }
+          await running.timeout(const Duration(seconds: 2));
+          expect(child.assistant.pendingApproval, isNull);
+          expect(child.assistant.busy, isFalse);
+          expect(child.assistant.manuallyPaused, isTrue);
+          expect(requests, hasLength(1));
+          expect(child.assistant.pendingGuidance.single.content, 'Queued');
+        },
+      );
+    }
+
+    test(
+      'should expose and apply exact reasoning levels on the first request',
+      () async {
+        final service = scope.provider.selectedService!.id;
+        await scope.provider.setReasoningEffort(AiReasoningEffort.high);
+        final choices = await workspaces.executeTool('list_agent_models', {});
+        expect(choices['inherited_reasoning_effort'], 'high');
+        final catalog = (choices['services'] as List).single as Map;
+        expect((catalog['reasoning_efforts'] as Map)['deepseek-flash'], [
+          'none',
+          'low',
+          'high',
+          'max',
+        ]);
+        final definition = scope.provider.workspaceToolDefinitions.singleWhere(
+          (spec) => (spec['function'] as Map)['name'] == 'spawn_agent',
+        );
+        final parameters = (definition['function'] as Map)['parameters'] as Map;
+        expect((parameters['properties'] as Map), contains('reasoning_effort'));
+        for (final effort in ['none', 'low', 'max']) {
+          final result = await workspaces.executeTool('spawn_agent', {
+            'title': 'Explicit $effort',
+            'task': 'Check $effort',
+            'service_id': service,
+            'model': 'deepseek-flash',
+            'reasoning_effort': effort,
+          });
+          final child = workspaces.find(result['agent_id'] as String)!;
+          await finish(child.id);
+          expect(result['reasoning_effort'], effort);
+          expect(child.assistant.reasoningEffort?.name, effort);
+          expect(requests.last['thinking'], {
+            'type': effort == 'none' ? 'disabled' : 'enabled',
+          });
+          if (effort == 'none') {
+            expect(requests.last, isNot(contains('reasoning_effort')));
+          } else {
+            expect(requests.last['reasoning_effort'], effort);
+          }
+        }
+        expect(scope.provider.reasoningEffort, AiReasoningEffort.high);
+        await scope.provider.selectModel(service, 'deepseek-flash');
+        expect(scope.provider.reasoningEffort, AiReasoningEffort.low);
+      },
+    );
+
+    test(
+      'should override inherited reasoning without changing the parent',
+      () async {
+        final parent = await workspaces.create(
+          title: 'Parent',
+          task: 'Coordinate',
+          startImmediately: false,
+        );
+        await parent.assistant.setReasoningEffort(AiReasoningEffort.high);
+        for (final effort in [null, 'low']) {
+          final result = await parent.assistant.workspaceToolHandler!(
+            'spawn_agent',
+            {
+              'title': 'Child',
+              'task': 'Check',
+              if (effort != null) 'reasoning_effort': effort,
+            },
+          );
+          final child = workspaces.find(result['agent_id'] as String)!;
+          await finish(child.id);
+          expect(result['reasoning_effort'], effort ?? 'high');
+          expect(requests.last['reasoning_effort'], effort ?? 'high');
+        }
+        expect(parent.assistant.reasoningEffort, AiReasoningEffort.high);
+      },
+    );
+
+    test(
+      'should reject invalid or unsupported reasoning without spawning',
+      () async {
+        final service = scope.provider.selectedService!.id;
+        await scope.provider.saveService(
+          name: 'No reasoning',
+          protocol: AiApiProtocol.openAiChatCompletions,
+          baseUrl: 'https://other.test/v1',
+          models: ['plain-model'],
+          apiKey: 'key',
+        );
+        final plainService = scope.provider.services.last.id;
+        final count = workspaces.sessions.length;
+        for (final effort in <Object?>[
+          'medium',
+          'minimal',
+          'HIGH',
+          '',
+          'unknown',
+          null,
+          2,
+          true,
+        ]) {
+          await expectLater(
+            workspaces.executeTool('spawn_agent', {
+              'title': 'Invalid',
+              'task': 'Must not run',
+              'service_id': service,
+              'model': 'deepseek-flash',
+              'reasoning_effort': effort,
+            }),
+            throwsFormatException,
+          );
+          expect(workspaces.sessions, hasLength(count));
+        }
+        await expectLater(
+          workspaces.executeTool('spawn_agent', {
+            'title': 'Invalid',
+            'task': 'Must not run',
+            'service_id': plainService,
+            'model': 'plain-model',
+            'reasoning_effort': 'none',
+          }),
+          throwsFormatException,
+        );
+        expect(workspaces.sessions, hasLength(count));
+        expect(requests, isEmpty);
+      },
+    );
+
     test(
       'should list exact configured choices without exposing credentials',
       () async {
@@ -992,10 +1887,14 @@ void main() {
     () async {
       gate = Completer<void>();
       for (var i = 0; i < 3; i++) {
-        await workspaces.create(title: 'Task $i', task: 'Work $i');
+        await workspaces.create(
+          title: 'Task $i',
+          task: 'Work $i',
+          parentId: 'main',
+        );
       }
       expect(workspaces.runningCount, 3);
-      await workspaces.create(title: 'Extra', task: 'Extra');
+      await workspaces.create(title: 'Extra', task: 'Extra', parentId: 'main');
       expect(workspaces.runningCount, 4);
       scope.provider.stopGeneration();
       expect(workspaces.runningCount, 4);
@@ -1047,11 +1946,19 @@ void main() {
   test(
     'model spawning and agent messages can start beyond three running children',
     () async {
-      final idle = await workspaces.create(title: 'Idle', task: 'First');
+      final idle = await workspaces.create(
+        title: 'Idle',
+        task: 'First',
+        parentId: 'main',
+      );
       await finish(idle.id);
       gate = Completer<void>();
       for (var i = 0; i < 3; i++) {
-        await workspaces.create(title: 'Busy $i', task: 'Hold $i');
+        await workspaces.create(
+          title: 'Busy $i',
+          task: 'Hold $i',
+          parentId: 'main',
+        );
       }
       final spawned = await workspaces.executeTool('spawn_agent', {
         'title': 'Fourth',
@@ -1206,11 +2113,19 @@ void main() {
   test(
     'direct child followup starts while more than three children are busy',
     () async {
-      final idle = await workspaces.create(title: 'Idle', task: 'First');
+      final idle = await workspaces.create(
+        title: 'Idle',
+        task: 'First',
+        parentId: 'main',
+      );
       await finish(idle.id);
       gate = Completer<void>();
       for (var i = 0; i < 3; i++) {
-        await workspaces.create(title: 'Busy $i', task: 'Working $i');
+        await workspaces.create(
+          title: 'Busy $i',
+          task: 'Working $i',
+          parentId: 'main',
+        );
       }
       final sending = idle.assistant.sendMessage('Try fourth direct turn');
       expect(workspaces.runningCount, 4);
@@ -1421,8 +2336,8 @@ void main() {
     });
     expect(workspaces.find(child.id), isNull);
     expect(workspaces.find(nestedId), same(nestedTask));
-    expect(nestedTask.kind, AiWorkspaceKind.primary);
-    expect(nestedTask.parentId, isNull);
+    expect(nestedTask.kind, AiWorkspaceKind.permanent);
+    expect(nestedTask.parentId, first.id);
     expect(nestedTask.assistant.stopRequested, isFalse);
     gate!.complete();
     await nestedRunning;
@@ -1539,7 +2454,11 @@ void main() {
     expect(scope.provider.selectedModel, 'gpt-6.1-sol');
     gate = Completer<void>();
     for (var i = 0; i < 3; i++) {
-      await workspaces.create(title: 'Busy $i', task: 'Busy $i');
+      await workspaces.create(
+        title: 'Busy $i',
+        task: 'Busy $i',
+        parentId: 'main',
+      );
     }
     final primary = await workspaces.createPrimary(
       title: 'Primary with busy children',
@@ -1613,6 +2532,7 @@ void main() {
         .single;
     expect(received.toolName, 'agent_message');
     expect(received.toolArguments!['source_agent_id'], primary.id);
+    expect(received.toolArguments!['source_agent_kind'], 'primary');
     final historyContent =
         (requests.last['messages'] as List)
                 .where((m) => m['role'] == 'user')
@@ -1749,7 +2669,7 @@ void main() {
       hasLength(1),
     );
   });
-  test('long-term descendants delegate with direct-edge isolation and survive parent removal', () async {
+  test('long-term descendants retain child edge isolation while mains manage the whole tree', () async {
     final root = await workspaces.createPrimary(
       title: 'Root',
       task: 'Root task',
@@ -1775,13 +2695,12 @@ void main() {
       leaf.assistant.messages.first.toolArguments!['source_agent_id'],
       middle.id,
     );
-    await expectLater(
-      root.assistant.workspaceToolHandler!('send_agent_message', {
-        'agent_id': leaf.id,
-        'message': 'Skip parent',
-      }),
-      throwsStateError,
+    final delivery = await root.assistant.workspaceToolHandler!(
+      'send_agent_message',
+      {'agent_id': leaf.id, 'message': 'Skip parent'},
     );
+    expect(delivery['delivered'], isTrue);
+    await finish(leaf.id);
     await expectLater(
       leaf.assistant.workspaceToolHandler!('send_agent_message', {
         'agent_id': root.id,
@@ -1810,8 +2729,8 @@ void main() {
     workspaces.remove(middle.id);
     expect(workspaces.find(middle.id), isNull);
     expect(workspaces.find(leaf.id), same(leaf));
-    expect(leaf.kind, AiWorkspaceKind.primary);
-    expect(leaf.parentId, isNull);
+    expect(leaf.kind, AiWorkspaceKind.permanent);
+    expect(leaf.parentId, root.id);
     expect(workspaces.find(temporary.id), same(temporary));
     expect(temporary.parentId, leaf.id);
     expect(workspaces.find(furtherId)!.parentId, temporary.id);
@@ -2156,8 +3075,8 @@ void main() {
     expect(workspaces.find(replacement.id)!.kind, AiWorkspaceKind.primary);
     expect(workspaces.find(first.id)!.parentId, replacement.id);
     workspaces.remove(first.id);
-    expect(workspaces.find(nested.id)!.kind, AiWorkspaceKind.primary);
-    expect(workspaces.find(nested.id)!.parentId, isNull);
+    expect(workspaces.find(nested.id)!.kind, AiWorkspaceKind.permanent);
+    expect(workspaces.find(nested.id)!.parentId, replacement.id);
     expect(workspaces.find(replacement.id), isNotNull);
     expect(workspaces.find(keptTemp.id), isNotNull);
   });

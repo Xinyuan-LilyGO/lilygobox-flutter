@@ -235,6 +235,116 @@ void main() {
     });
   }
 
+  for (final locale in ['en', 'zh']) {
+    for (final kind in ['primary', 'permanent']) {
+      testWidgets('agent source shows $kind role and icon in $locale', (
+        tester,
+      ) async {
+        await tester.runAsync(() => scope.provider.initialized);
+        await scope.provider.saveService(
+          name: 'Test',
+          protocol: AiApiProtocol.openAiChatCompletions,
+          baseUrl: 'https://example.test/v1',
+          models: ['test'],
+          apiKey: 'key',
+        );
+        await tester.runAsync(
+          () => scope.provider.receiveAgentMessage(
+            sourceId: '123-1',
+            sourceTitle: 'Writer',
+            sourceKind: kind,
+            content: 'Progress report.',
+          ),
+        );
+        await tester.pumpWidget(app(locale: locale));
+        await tester.pumpAndSettle();
+        final message = scope.provider.messages.firstWhere(
+          (message) => message.toolName == 'agent_message',
+        );
+        final heading = find.byKey(
+          ValueKey('agent-message-source-${message.id}'),
+        );
+        final expectedLabel = locale == 'zh'
+            ? (kind == 'primary' ? '来自主智能体：Writer' : '来自子智能体：Writer')
+            : (kind == 'primary'
+                  ? 'From main agent: Writer'
+                  : 'From child agent: Writer');
+        expect(tester.widget<Text>(heading).data, expectedLabel);
+        final sourceRow = find
+            .ancestor(of: heading, matching: find.byType(Row))
+            .first;
+        final icon = tester.widget<Icon>(
+          find.descendant(of: sourceRow, matching: find.byType(Icon)),
+        );
+        expect(
+          icon.icon,
+          kind == 'primary'
+              ? Symbols.hub_rounded
+              : Symbols.account_tree_rounded,
+        );
+        expect(icon.fill, 1);
+        expect(
+          find.byKey(ValueKey('agent-message-source-id-${message.id}')),
+          findsOneWidget,
+        );
+        expect(message.toolArguments?['source_agent_kind'], kind);
+        final snapshot = scope.provider.snapshotWorkspaceConversation();
+        scope.provider.clearConversation();
+        scope.provider.restoreWorkspaceConversation(snapshot);
+        expect(
+          scope.provider.messages
+              .firstWhere((item) => item.id == message.id)
+              .toolArguments?['source_agent_kind'],
+          kind,
+        );
+      });
+    }
+    testWidgets('timer notification is not labeled as an agent in $locale', (
+      tester,
+    ) async {
+      await tester.runAsync(() => scope.provider.initialized);
+      await scope.provider.saveService(
+        name: 'Test',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['test'],
+        apiKey: 'key',
+      );
+      await tester.runAsync(
+        () => scope.provider.receiveAgentMessage(
+          sourceId: 'timer:123-1',
+          sourceTitle: 'Timer',
+          content: 'Timer expired.',
+        ),
+      );
+      await tester.pumpWidget(app(locale: locale));
+      await tester.pumpAndSettle();
+      final message = scope.provider.messages.firstWhere(
+        (message) => message.toolName == 'agent_message',
+      );
+      final heading = find.byKey(
+        ValueKey('agent-message-source-${message.id}'),
+      );
+      expect(
+        tester.widget<Text>(heading).data,
+        locale == 'zh' ? '计时器' : 'Timer',
+      );
+      expect(
+        find.byKey(ValueKey('agent-message-source-id-${message.id}')),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<InkWell>(
+              find.ancestor(of: heading, matching: find.byType(InkWell)).first,
+            )
+            .onTap,
+        isNull,
+      );
+      expect(message.toolArguments?['source_agent_id'], 'timer:123-1');
+    });
+  }
+
   testWidgets(
     'async restored conversation opens at the latest message and preserves a valid reading position',
     (tester) async {
@@ -450,6 +560,87 @@ void main() {
     );
   }
 
+  testWidgets('queued agent messages show their role, icon and complete ID', (
+    tester,
+  ) async {
+    await tester.runAsync(() => scope.provider.initialized);
+    await scope.provider.saveService(
+      name: 'Test',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://example.test/v1',
+      models: ['test'],
+      apiKey: 'key',
+    );
+    final gate = responseGate = Completer<void>();
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+    });
+    unawaited(scope.provider.sendMessage('Start'));
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    const senders = [
+      ('primary', '1794989955026711-0', 'main', Symbols.hub_rounded),
+      (
+        'permanent',
+        '1794989955026711-1',
+        'child',
+        Symbols.account_tree_rounded,
+      ),
+    ];
+    for (final (kind, id, role, _) in senders) {
+      await scope.provider.receiveAgentMessage(
+        sourceId: id,
+        sourceTitle: 'Writer',
+        sourceKind: kind,
+        content: 'Queued $role report',
+      );
+    }
+    await scope.provider.sendMessage('Human follow-up');
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    final messages = scope.provider.pendingGuidance;
+    expect(messages, hasLength(3));
+    final queue = find.byKey(const ValueKey('ai-pending-guidance'));
+    for (final (index, (_, id, role, icon)) in senders.indexed) {
+      final message = messages[index];
+      final item = find.descendant(
+        of: queue,
+        matching: find.byKey(ValueKey(message.id)),
+      );
+      expect(
+        find.descendant(of: item, matching: find.byIcon(icon)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: item,
+          matching: find.text('From $role agent: Writer'),
+        ),
+        findsOneWidget,
+      );
+      final sourceId = find.descendant(
+        of: item,
+        matching: find.text('Agent ID: $id'),
+      );
+      expect(sourceId, findsOneWidget);
+      expect(
+        tester.getRect(sourceId).bottom,
+        lessThanOrEqualTo(tester.getRect(find.text(message.content)).top),
+      );
+    }
+    expect(find.text('Human follow-up'), findsOneWidget);
+    expect(
+      find.byKey(ValueKey('agent-message-source-${messages.last.id}')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(ValueKey('agent-message-source-id-${messages.last.id}')),
+      findsNothing,
+    );
+    gate.complete();
+    await pumpAssistantUntilIdle(tester);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('queued message heading stays fixed while items scroll', (
     tester,
   ) async {
@@ -554,105 +745,107 @@ void main() {
     await pumpAssistantUntilIdle(tester);
   });
 
-  testWidgets(
-    'running turns queue messages and automatically send them as separate turns',
-    (tester) async {
-      await tester.runAsync(() => scope.provider.initialized);
-      await scope.provider.saveService(
-        name: 'Test',
-        protocol: AiApiProtocol.openAiChatCompletions,
-        baseUrl: 'https://example.test/v1',
-        models: ['test'],
-        apiKey: 'key',
-      );
-      responseGate = Completer<void>();
-      await tester.pumpWidget(app());
-      final field = find.byKey(const ValueKey('ai-message-input'));
-      await tester.enterText(field, 'Start');
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pump();
-      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-      expect(scope.provider.busy, isTrue);
-      await tester.enterText(field, 'Please use Chinese');
-      await tester.pump();
-      final send = find.byKey(const ValueKey('ai-send-button'));
-      expect(send, findsOneWidget);
-      await tester.tap(send);
-      await tester.pumpAndSettle();
-      final pending = find.byKey(const ValueKey('ai-pending-guidance'));
-      expect(pending, findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('ai-composer-context-layer')),
-          matching: pending,
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('ai-composer-input-layer')),
-          matching: pending,
-        ),
-        findsNothing,
-      );
-      expect(find.text('Queued messages (1)'), findsOneWidget);
-      expect(scope.provider.messages, hasLength(2));
-      expect(requests, 1);
-      expect(tester.widget<TextField>(field).controller!.text, isEmpty);
-      expect(tester.widget<TextField>(field).focusNode!.hasFocus, isFalse);
-      expect(find.byKey(const ValueKey('ai-stop-button')), findsOneWidget);
-      await tester.enterText(field, 'Discard this one');
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
-      final discarded = scope.provider.pendingGuidance.last;
-      await tester.tap(
-        find.byKey(ValueKey('ai-remove-guidance-${discarded.id}')),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        scope.provider.pendingGuidance.single.content,
-        'Please use Chinese',
-      );
-      final queued = scope.provider.pendingGuidance.single;
-      await tester.tap(find.byKey(ValueKey('ai-edit-guidance-${queued.id}')));
-      await tester.pumpAndSettle();
-      expect(scope.provider.pendingGuidance, isEmpty);
-      expect(
-        tester.widget<TextField>(field).controller!.text,
-        'Please use Chinese',
-      );
-      expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
-      expect(
-        find.byKey(ValueKey('ai-edit-queue-input-${queued.id}')),
-        findsNothing,
-      );
-      await tester.enterText(field, 'Use Chinese briefly');
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
-      expect(
-        scope.provider.pendingGuidance.single.content,
-        'Use Chinese briefly',
-      );
-      await capture(tester, 'pending-guidance');
-      responseGate!.complete();
-      await pumpAssistantUntilIdle(tester);
-      await tester.pumpAndSettle();
-      expect(requests, 2);
-      expect(pending, findsNothing);
-      expect(find.text('Use Chinese briefly'), findsOneWidget);
-      expect(scope.provider.messages, hasLength(4));
-      expect(scope.provider.messages[2].role, 'user');
-      expect(scope.provider.messages[2].content, 'Use Chinese briefly');
-      final reply = scope.provider.messages.last;
-      await tester.tap(find.byKey(ValueKey('ai-response-details-${reply.id}')));
-      await tester.pumpAndSettle();
-      expect(find.text('User guidance'), findsNothing);
-      expect(
-        (jsonDecode(requestBodies.last)['messages'] as List).last['content'],
-        'Use Chinese briefly',
-      );
-    },
-  );
+  testWidgets('running turns show pending manual guidance until it applies', (
+    tester,
+  ) async {
+    await tester.runAsync(() => scope.provider.initialized);
+    await scope.provider.saveService(
+      name: 'Test',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://example.test/v1',
+      models: ['test'],
+      apiKey: 'key',
+    );
+    responseGate = Completer<void>();
+    await tester.pumpWidget(app());
+    final field = find.byKey(const ValueKey('ai-message-input'));
+    await tester.enterText(field, 'Start');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    expect(scope.provider.busy, isTrue);
+    await tester.enterText(field, 'Please use Chinese');
+    await tester.pump();
+    final send = find.byKey(const ValueKey('ai-send-button'));
+    expect(send, findsOneWidget);
+    await tester.tap(send);
+    await tester.pumpAndSettle();
+    final pending = find.byKey(const ValueKey('ai-pending-guidance'));
+    expect(pending, findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('ai-composer-context-layer')),
+        matching: pending,
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('ai-composer-input-layer')),
+        matching: pending,
+      ),
+      findsNothing,
+    );
+    expect(find.text('Queued messages (1)'), findsOneWidget);
+    expect(scope.provider.messages, hasLength(2));
+    expect(requests, 1);
+    expect(tester.widget<TextField>(field).controller!.text, isEmpty);
+    expect(tester.widget<TextField>(field).focusNode!.hasFocus, isFalse);
+    expect(find.byKey(const ValueKey('ai-stop-button')), findsOneWidget);
+    await tester.enterText(field, 'Discard this one');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    final discarded = scope.provider.pendingGuidance.last;
+    await tester.tap(
+      find.byKey(ValueKey('ai-remove-guidance-${discarded.id}')),
+    );
+    await tester.pumpAndSettle();
+    expect(scope.provider.pendingGuidance.single.content, 'Please use Chinese');
+    final queued = scope.provider.pendingGuidance.single;
+    await tester.tap(find.byKey(ValueKey('ai-edit-guidance-${queued.id}')));
+    await tester.pumpAndSettle();
+    expect(scope.provider.pendingGuidance, isEmpty);
+    expect(
+      tester.widget<TextField>(field).controller!.text,
+      'Please use Chinese',
+    );
+    expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
+    expect(
+      find.byKey(ValueKey('ai-edit-queue-input-${queued.id}')),
+      findsNothing,
+    );
+    await tester.enterText(field, 'Use Chinese briefly');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(
+      scope.provider.pendingGuidance.single.content,
+      'Use Chinese briefly',
+    );
+    await capture(tester, 'pending-guidance');
+    final edited = scope.provider.pendingGuidance.single;
+    await tester.tap(find.byKey(ValueKey('ai-steer-guidance-${edited.id}')));
+    await tester.pumpAndSettle();
+    expect(find.text('Waiting to apply guidance…'), findsOneWidget);
+    expect(requests, 1);
+    responseGate!.complete();
+    await pumpAssistantUntilIdle(tester);
+    await tester.pumpAndSettle();
+    expect(requests, 2);
+    expect(pending, findsNothing);
+    expect(find.text('Waiting to apply guidance…'), findsNothing);
+    expect(find.text('Use Chinese briefly'), findsOneWidget);
+    expect(scope.provider.messages, hasLength(4));
+    expect(scope.provider.messages[2].role, 'user');
+    expect(scope.provider.messages[2].content, 'Use Chinese briefly');
+    final reply = scope.provider.messages.last;
+    await tester.tap(find.byKey(ValueKey('ai-response-details-${reply.id}')));
+    await tester.pumpAndSettle();
+    expect(find.text('User guidance'), findsNothing);
+    expect(
+      (jsonDecode(requestBodies.last)['messages'] as List).last['content'],
+      'Use Chinese briefly',
+    );
+  });
 
   testWidgets('Ctrl+V reaches the image paste action inside the text field', (
     tester,
@@ -1013,6 +1206,10 @@ void main() {
     );
     expect(boxes.single.right - boxes.single.left, lessThan(100));
     final scrollbar = find.byKey(const ValueKey('ai-input-scrollbar'));
+    expect(
+      find.descendant(of: scrollbar, matching: find.byType(Scrollbar)),
+      findsNothing,
+    );
     expect(
       tester.getRect(scrollbar).right - tester.getRect(field).right,
       closeTo(14, .1),

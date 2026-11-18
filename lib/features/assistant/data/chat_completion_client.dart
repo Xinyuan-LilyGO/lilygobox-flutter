@@ -164,10 +164,7 @@ class ChatCompletionClient {
           final waiting = Completer<void>();
           final timer = Timer(delay, () => waiting.complete());
           try {
-            await Future.any<void>([
-              waiting.future,
-              ?abortTrigger,
-            ]);
+            await Future.any<void>([waiting.future, ?abortTrigger]);
           } finally {
             timer.cancel();
           }
@@ -224,9 +221,7 @@ class ChatCompletionClient {
               'max_tokens': ?maxTokens,
             },
           });
-    final response = await _client
-        .send(request)
-        .timeout(const Duration(seconds: 90));
+    final response = await _sendCancellable(request, abortTrigger);
     final successful = response.statusCode >= 200 && response.statusCode < 300;
     if (successful) onStatus?.call(AiResponseStatus.thinking);
     final raw = StringBuffer();
@@ -533,17 +528,32 @@ class ChatCompletionClient {
   Future<AiModelCatalog> discoverModelCatalog({
     required String baseUrl,
     required String apiKey,
+    Future<void>? abortTrigger,
   }) async {
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-    final response = await _client
-        .get(
-          Uri.parse('$base/models'),
-          headers: {
+    final finished = Completer<void>();
+    final abort = Future.any<void>([finished.future, ?abortTrigger]);
+    final request =
+        http.AbortableRequest(
+            'GET',
+            Uri.parse('$base/models'),
+            abortTrigger: abort,
+          )
+          ..headers.addAll({
             'Authorization': 'Bearer $apiKey',
             'Accept': 'application/json',
-          },
-        )
-        .timeout(const Duration(seconds: 30));
+          });
+    late http.Response response;
+    try {
+      response = await Future.any<http.Response>([
+        _sendCancellable(request, abort).then(http.Response.fromStream),
+        abort.then<http.Response>(
+          (_) => throw http.RequestAbortedException(request.url),
+        ),
+      ]).timeout(const Duration(seconds: 30));
+    } finally {
+      finished.complete();
+    }
     final decoded = _decode(utf8.decode(response.bodyBytes));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final error = decoded['error'];
@@ -581,10 +591,34 @@ class ChatCompletionClient {
       imageInputs: {
         for (final item in data.whereType<Map>())
           if (item['id'] case final String id)
-            if (id.trim().isNotEmpty)
-              id.trim(): ?_imageInputDeclaration(item),
+            if (id.trim().isNotEmpty) id.trim(): ?_imageInputDeclaration(item),
       },
     );
+  }
+
+  Future<http.StreamedResponse> _sendCancellable(
+    http.BaseRequest request,
+    Future<void>? abort,
+  ) async {
+    var abandoned = false;
+    final sending = _client.send(request).then((response) {
+      if (abandoned) {
+        unawaited(response.stream.listen(null).cancel());
+        throw http.RequestAbortedException(request.url);
+      }
+      return response;
+    });
+    try {
+      return await Future.any<http.StreamedResponse>([
+        sending,
+        if (abort != null)
+          abort.then<http.StreamedResponse>(
+            (_) => throw http.RequestAbortedException(request.url),
+          ),
+      ]).timeout(const Duration(seconds: 90));
+    } finally {
+      abandoned = true;
+    }
   }
 
   AiImageInput? _imageInputDeclaration(Map model) {

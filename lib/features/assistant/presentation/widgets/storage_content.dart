@@ -6,18 +6,22 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/context_menu/right_click_menu.dart';
+import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/theme/material_palette.dart';
 import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/app_notice.dart';
+import '../../../../core/widgets/app_scroll_behavior.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
 import '../../../../core/widgets/desktop_card_selection.dart';
-import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/settings/fields.dart';
 import '../../../../core/widgets/settings/search_field.dart';
 import '../../../../core/widgets/settings/select.dart';
+import '../../../../core/widgets/title_bar_icon_button.dart';
+import '../../../../generated/l10n/app_localizations.dart';
 import '../../../settings/presentation/widgets/content_layout.dart';
 import '../../domain/agent_package_progress.dart';
 import '../../state/agent_workspace_provider.dart';
@@ -311,6 +315,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
       builder: (_) => _MemoryEditor(
         theme: widget.theme,
         initial: memory?['content'] as String? ?? '',
+        memoryId: memory?['id'] as String?,
       ),
     );
     if (value != null && value.trim().isNotEmpty) {
@@ -932,110 +937,116 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final searchField = DesktopCardSelectionTarget(
-                child: Semantics(
-                  label: l.agentStorageSearch,
-                  child: SettingSearchField(
-                    key: const ValueKey('storage-memory-search'),
-                    theme: theme,
-                    controller: search,
-                    enabled: !controller.busy,
-                    onClear: () {
-                      search.clear();
-                      _run(() => controller.refresh());
-                    },
-                    hintText: l.agentStorageSearch,
-                    onChanged: (_) => setState(() {}),
-                    onSubmitted: (value) {
-                      _run(() => controller.refresh(query: value));
-                    },
-                  ),
-                ),
-              );
-              final addButton = AppActionButton(
-                theme: theme,
-                label: l.agentStorageAdd,
-                icon: Symbols.add_rounded,
-                iconSize: 16,
-                iconSpacing: 6,
-                fontSize: 12,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-                onPressed: enabled ? () => _edit() : null,
-              );
-              final deleteButton = _memorySelection.selected.isEmpty
-                  ? null
-                  : AppActionButton(
-                      key: const ValueKey('storage-memory-delete-selected'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final searchField = DesktopCardSelectionTarget(
+                  child: Semantics(
+                    label: l.agentStorageSearch,
+                    child: SettingSearchField(
+                      key: const ValueKey('storage-memory-search'),
                       theme: theme,
-                      label: l.agentStorageDeleteSelected(
-                        _memorySelection.selected.length,
-                      ),
-                      destructive: true,
-                      fontSize: 12,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 7,
-                      ),
-                      onPressed: enabled
-                          ? () => _deleteSelectedMemories()
-                          : null,
-                    );
-              final actions = DesktopCardSelectionTarget(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.end,
-                  children: [addButton, ?deleteButton],
-                ),
-              );
-              double labelWidth(String label, FontWeight weight) {
-                final painter = TextPainter(
-                  text: TextSpan(
-                    text: label,
-                    style: DefaultTextStyle.of(context).style
-                        .copyWith(fontSize: 12, fontWeight: weight),
+                      controller: search,
+                      enabled: !controller.busy,
+                      onClear: () {
+                        search.clear();
+                        _run(() => controller.refresh());
+                      },
+                      hintText: l.agentStorageSearch,
+                      onChanged: (_) => setState(() {}),
+                      onSubmitted: (value) {
+                        _run(() => controller.refresh(query: value));
+                      },
+                    ),
                   ),
-                  textDirection: Directionality.of(context),
-                  textScaler: MediaQuery.textScalerOf(context),
-                )..layout();
-                final width = painter.width;
-                painter.dispose();
-                return width;
-              }
-
-              final actionsWidth =
-                  labelWidth(l.agentStorageAdd, FontWeight.w400) +
-                  16 +
-                  6 +
-                  16 +
-                  (deleteButton == null
-                      ? 0
-                      : 8 +
-                            16 +
-                            labelWidth(
-                              l.agentStorageDeleteSelected(
-                                _memorySelection.selected.length,
-                              ),
-                              FontWeight.w600,
-                            ));
-              // 为搜索框保留可用宽度；当操作按钮的
-              // 本地化文字和字体无法同排容纳时，将按钮移到下方。
-              if (actionsWidth + 8 + 140 > constraints.maxWidth) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [searchField, const SizedBox(height: 8), actions],
                 );
-              }
-              return Row(
-                children: [
-                  Expanded(child: searchField),
-                  const SizedBox(width: 8),
-                  actions,
-                ],
-              );
-            },
+                final addButton = AppActionButton(
+                  theme: theme,
+                  label: l.agentStorageAdd,
+                  icon: Symbols.add_rounded,
+                  iconSize: 16,
+                  iconSpacing: 6,
+                  fontSize: 12,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 7,
+                  ),
+                  onPressed: enabled ? () => _edit() : null,
+                );
+                final deleteButton = _memorySelection.selected.isEmpty
+                    ? null
+                    : AppActionButton(
+                        key: const ValueKey('storage-memory-delete-selected'),
+                        theme: theme,
+                        label: l.agentStorageDeleteSelected(
+                          _memorySelection.selected.length,
+                        ),
+                        destructive: true,
+                        fontSize: 12,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 7,
+                        ),
+                        onPressed: enabled
+                            ? () => _deleteSelectedMemories()
+                            : null,
+                      );
+                final actions = DesktopCardSelectionTarget(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.end,
+                    children: [addButton, ?deleteButton],
+                  ),
+                );
+                double labelWidth(String label, FontWeight weight) {
+                  final painter = TextPainter(
+                    text: TextSpan(
+                      text: label,
+                      style: DefaultTextStyle.of(context).style
+                          .copyWith(fontSize: 12, fontWeight: weight),
+                    ),
+                    textDirection: Directionality.of(context),
+                    textScaler: MediaQuery.textScalerOf(context),
+                  )..layout();
+                  final width = painter.width;
+                  painter.dispose();
+                  return width;
+                }
+
+                final actionsWidth =
+                    labelWidth(l.agentStorageAdd, FontWeight.w400) +
+                    16 +
+                    6 +
+                    16 +
+                    (deleteButton == null
+                        ? 0
+                        : 8 +
+                              16 +
+                              labelWidth(
+                                l.agentStorageDeleteSelected(
+                                  _memorySelection.selected.length,
+                                ),
+                                FontWeight.w600,
+                              ));
+                // 为搜索框保留可用宽度；当操作按钮的
+                // 本地化文字和字体无法同排容纳时，将按钮移到下方。
+                if (actionsWidth + 8 + 140 > constraints.maxWidth) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [searchField, const SizedBox(height: 8), actions],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: searchField),
+                    const SizedBox(width: 8),
+                    actions,
+                  ],
+                );
+              },
+            ),
           ),
           const SizedBox(height: 8),
           ConstrainedBox(
@@ -1045,45 +1056,56 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                 240.0,
               ),
             ),
-            child: ListView.builder(
-              key: const ValueKey('storage-memory-list-scroll'),
-              primary: false,
-              shrinkWrap: true,
-              padding: const EdgeInsets.only(right: 20),
-              itemCount: controller.memories.isEmpty
-                  ? 1
-                  : controller.memories.length + (controller.hasMore ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (controller.memories.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      l.agentStorageEmpty,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.textColorSecondary,
-                      ),
-                    ),
-                  );
-                }
-                if (index == controller.memories.length) {
-                  return _button(
-                    l.agentStorageMore,
-                    Symbols.expand_more,
-                    () => _run(controller.loadMore),
-                  );
-                }
-                final memory = controller.memories[index];
-                final id = memory['id'] as String;
-                final selected = _memorySelection.selected.contains(id);
-                final cached = _memoryViews[id];
-                if (cached != null && cached.selected == selected) {
-                  return cached.view;
-                }
-                final view = _memoryCard(memory, ids, enabled);
-                _memoryViews[id] = (selected: selected, view: view);
-                return view;
-              },
+            child: Padding(
+              padding: const EdgeInsetsDirectional.only(end: 8),
+              child: ScrollbarTheme(
+                data: ScrollbarTheme.of(context).copyWith(
+                  thickness: const WidgetStatePropertyAll(6),
+                  crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
+                  mainAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
+                ),
+                child: ListView.builder(
+                  key: const ValueKey('storage-memory-list-scroll'),
+                  primary: false,
+                  shrinkWrap: true,
+                  padding: const EdgeInsetsDirectional.only(start: 24, end: 16),
+                  itemCount: controller.memories.isEmpty
+                      ? 1
+                      : controller.memories.length +
+                            (controller.hasMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (controller.memories.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          l.agentStorageEmpty,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.textColorSecondary,
+                          ),
+                        ),
+                      );
+                    }
+                    if (index == controller.memories.length) {
+                      return _button(
+                        l.agentStorageMore,
+                        Symbols.expand_more,
+                        () => _run(controller.loadMore),
+                      );
+                    }
+                    final memory = controller.memories[index];
+                    final id = memory['id'] as String;
+                    final selected = _memorySelection.selected.contains(id);
+                    final cached = _memoryViews[id];
+                    if (cached != null && cached.selected == selected) {
+                      return cached.view;
+                    }
+                    final view = _memoryCard(memory, ids, enabled);
+                    _memoryViews[id] = (selected: selected, view: view);
+                    return view;
+                  },
+                ),
+              ),
             ),
           ),
         ],
@@ -1102,7 +1124,11 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
     final selected = _memorySelection.selected.contains(id);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: DesktopCardSelectionTarget(
+      child: DesktopCardSelectionMenu(
+        key: ValueKey(id),
+        theme: theme,
+        id: id,
+        extraItems: (close) => [_copyMemoryIdItem(l, id, close)],
         child: Semantics(
           selected: selected,
           child: Material(
@@ -1121,17 +1147,35 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
               child: ListTile(
                 key: ValueKey('storage-memory-card-$id'),
                 selected: selected,
-                contentPadding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+                contentPadding: const EdgeInsets.fromLTRB(16, 4, 18, 4),
                 horizontalTitleGap: 8,
                 hoverColor: Colors.transparent,
                 focusColor: Colors.transparent,
                 splashColor: Colors.transparent,
                 selectedTileColor: Colors.transparent,
-                title: Text(
-                  memory['content'] as String,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: theme.textColorPrimary),
+                title: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l.agentStorageMemoryId(id),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.textColorTertiary,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      memory['content'] as String,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: theme.textColorPrimary,
+                      ),
+                    ),
+                  ],
                 ),
                 onTap: !enabled
                     ? null
@@ -1155,14 +1199,14 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                     _MemoryActionButton(
                       theme: theme,
                       tooltip: l.agentStorageEditMemory,
-                      icon: const Icon(Symbols.edit_rounded, size: 18),
+                      icon: Symbols.edit_rounded,
                       onPressed: enabled ? () => _edit(memory) : null,
                     ),
                     const SizedBox(width: 4),
                     _MemoryActionButton(
                       theme: theme,
                       tooltip: l.delete,
-                      icon: const Icon(Symbols.delete, fill: 1, size: 18),
+                      icon: Symbols.delete,
                       onPressed: enabled
                           ? () => _deleteSelectedMemories(id)
                           : null,
@@ -1205,13 +1249,15 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
             width: 440,
             child: SingleChildScrollView(
               key: const ValueKey('storage-manager-scroll'),
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: manager == _StorageManager.memory
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (manager == _StorageManager.memory)
+                  if (manager == _StorageManager.memory) ...[
                     Padding(
-                      padding: EdgeInsets.zero,
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -1288,11 +1334,11 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                             ),
                           ],
                           const SizedBox(height: 16),
-                          _memoryCards(workspaces),
                         ],
                       ),
-                    )
-                  else if (manager == _StorageManager.context)
+                    ),
+                    _memoryCards(workspaces),
+                  ] else if (manager == _StorageManager.context)
                     _contextControls(workspaces, selected)
                   else ...[
                     Row(
@@ -1334,9 +1380,15 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                   ],
                   if (controller.error != null) ...[
                     const SizedBox(height: 12),
-                    SelectableText(
-                      '${l.agentStorageFailure}\n${controller.error}',
-                      style: TextStyle(color: theme.textColorPrimary),
+                    Padding(
+                      padding: manager == _StorageManager.memory
+                          ? const EdgeInsets.symmetric(horizontal: 24)
+                          : EdgeInsets.zero,
+                      child: SelectableText(
+                        '${l.agentStorageFailure}\n${controller.error}',
+                        contextMenuBuilder: AppTextSelectionMenu.build,
+                        style: TextStyle(color: theme.textColorPrimary),
+                      ),
                     ),
                   ],
                 ],
@@ -1479,6 +1531,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                   padding: const EdgeInsets.only(top: 12),
                   child: SelectableText(
                     '${l.agentStorageFailure}\n${controller.error}',
+                    contextMenuBuilder: AppTextSelectionMenu.build,
                     style: TextStyle(color: theme.textColorPrimary),
                   ),
                 ),
@@ -1662,6 +1715,7 @@ class _StorageOverview extends StatelessWidget {
           const SizedBox(height: 3),
           SelectableText(
             File(path!).parent.path,
+            contextMenuBuilder: AppTextSelectionMenu.build,
             style: TextStyle(
               fontSize: 11,
               height: 1.4,
@@ -1793,9 +1847,14 @@ class _MemoryImportDestinationState extends State<_MemoryImportDestination> {
 }
 
 class _MemoryEditor extends StatefulWidget {
-  const _MemoryEditor({required this.theme, required this.initial});
+  const _MemoryEditor({
+    required this.theme,
+    required this.initial,
+    this.memoryId,
+  });
   final AppTheme theme;
   final String initial;
+  final String? memoryId;
   @override
   State<_MemoryEditor> createState() => _MemoryEditorState();
 }
@@ -1817,12 +1876,43 @@ class _MemoryEditorState extends State<_MemoryEditor> {
       title: l.agentStorageContent,
       content: SizedBox(
         width: 392,
-        child: SettingControlledTextField(
-          theme: widget.theme,
-          controller: input,
-          minLines: 3,
-          maxLines: 8,
-          autofocus: true,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (widget.memoryId case final id?) ...[
+              DefaultTextStyle.merge(
+                style: TextStyle(
+                  fontSize: 11,
+                  color: widget.theme.textColorTertiary,
+                  fontWeight: FontWeight.normal,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(l.agentStorageMemoryIdLabel),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: SelectableText(
+                        id,
+                        key: const ValueKey('storage-memory-editor-id'),
+                        contextMenuBuilder: AppTextSelectionMenu.build,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            SettingControlledTextField(
+              theme: widget.theme,
+              controller: input,
+              minLines: 3,
+              maxLines: 8,
+              autofocus: true,
+            ),
+          ],
         ),
       ),
       actions: [
@@ -1842,7 +1932,20 @@ class _MemoryEditorState extends State<_MemoryEditor> {
   }
 }
 
-/// 复用聊天输入区附件按钮的表面颜色和交互配色。
+RightClickMenuItem _copyMemoryIdItem(
+  AppLocalizations l10n,
+  String id,
+  VoidCallback close,
+) => RightClickMenuItem(
+  key: const ValueKey('storage-memory-context-copy-id'),
+  label: l10n.agentStorageCopyMemoryId,
+  icon: Symbols.content_copy_rounded,
+  onTap: () async {
+    close();
+    await Clipboard.setData(ClipboardData(text: id));
+  },
+);
+
 class _MemoryActionButton extends StatelessWidget {
   const _MemoryActionButton({
     required this.theme,
@@ -1852,7 +1955,7 @@ class _MemoryActionButton extends StatelessWidget {
   });
   final AppTheme theme;
   final String tooltip;
-  final Widget icon;
+  final IconData icon;
   final VoidCallback? onPressed;
 
   @override
@@ -1862,25 +1965,17 @@ class _MemoryActionButton extends StatelessWidget {
       label: tooltip,
       button: true,
       enabled: onPressed != null,
-      child: MenuItemSurface(
+      child: TitleBarIconButton(
         theme: theme,
         onPressed: onPressed,
-        borderRadius: BorderRadius.circular(15),
-        child: IgnorePointer(
-          child: IconButton(
-            tooltip: tooltip,
-            icon: icon,
-            onPressed: onPressed,
-            style: IconButton.styleFrom(
-              fixedSize: const Size(30, 30),
-              minimumSize: const Size(30, 30),
-              padding: EdgeInsets.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              foregroundColor: theme.textColorSecondary,
-              shape: const CircleBorder(),
-            ),
-          ),
-        ),
+        isFocused: true,
+        icon: icon,
+        iconSize: 18,
+        size: 30,
+        backgroundColor: Colors.transparent,
+        surfaceColor: theme.secondary,
+        hoverColor: theme.interactionHoverColor(theme.secondary),
+        iconColor: theme.textColorSecondary,
       ),
     ),
   );

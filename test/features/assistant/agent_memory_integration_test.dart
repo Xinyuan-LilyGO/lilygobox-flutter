@@ -10,6 +10,7 @@ import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/features/assistant/data/agent_storage.dart';
+import 'package:lilygobox/features/assistant/data/conversation_codec.dart';
 import 'package:lilygobox/features/assistant/domain/agent_package_progress.dart';
 import 'package:lilygobox/features/assistant/domain/memory_conflict.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
@@ -35,6 +36,7 @@ void main() {
   var consolidationStatus = 200;
   var replyStatus = 200;
   var requestMemoryTool = false;
+  var topologyRounds = 0;
   Completer<void>? consolidationGate;
   Completer<void>? consolidationStarted;
   Completer<void>? summaryGate;
@@ -52,6 +54,7 @@ void main() {
     consolidationStatus = 200;
     replyStatus = 200;
     requestMemoryTool = false;
+    topologyRounds = 0;
     consolidationGate = null;
     consolidationStarted = null;
     summaryGate = null;
@@ -76,6 +79,31 @@ void main() {
         if ((messages.first['content'] as String).startsWith('Summarize')) {
           summaryStarted?.complete();
           await summaryGate?.future;
+        }
+        if (!consolidating && topologyRounds > 0) {
+          topologyRounds--;
+          return http.Response(
+            jsonEncode({
+              'choices': [
+                {
+                  'message': {
+                    'content': '',
+                    'tool_calls': [
+                      {
+                        'id': 'topology-$topologyRounds',
+                        'type': 'function',
+                        'function': {
+                          'name': 'get_agent_topology',
+                          'arguments': '{}',
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+            200,
+          );
         }
         if (!consolidating && requestMemoryTool) {
           requestMemoryTool = false;
@@ -168,6 +196,26 @@ void main() {
         ),
       )
       .toList();
+
+  test(
+    'automatic memory retrieval is reused across tool continuations',
+    () async {
+      final agent = await create('Cached memory');
+      agent.assistant.autoSaveMemory = false;
+      topologyRounds = 3;
+      await agent.assistant.sendMessage('Inspect the task group');
+      int retrievals() => agent.assistant.messages
+          .expand((message) => message.processEvents)
+          .where((event) => event.action?.name == 'search_memory')
+          .length;
+      expect(retrievals(), 1);
+      await agent.assistant.sendMessage('Check again');
+      expect(retrievals(), 2);
+      requestMemoryTool = true;
+      await agent.assistant.sendMessage('Remember filled icons');
+      expect(retrievals(), 4);
+    },
+  );
 
   test('automatic long-term memory is enabled by default and saves only bounded deduplicated candidates', () async {
     final agent = await create('Automatic memory');
@@ -330,6 +378,44 @@ void main() {
     expect(agent.assistant.error, isNotNull);
     expect(consolidationRequests(), isEmpty);
   });
+
+  test(
+    'guidance during memory consolidation waits and then continues',
+    () async {
+      final agent = await create('Guided extraction');
+      consolidation = '{"memories":[]}';
+      final gate = Completer<void>();
+      consolidationGate = gate;
+      consolidationStarted = Completer<void>();
+      final pending = agent.assistant.sendMessage('Initial task');
+      await consolidationStarted!.future;
+      await agent.assistant.receiveAgentMessage(
+        sourceId: 'parent-id',
+        sourceTitle: 'Parent',
+        sourceKind: 'primary',
+        content: 'Use the revised task',
+        steer: true,
+      );
+      expect(agent.assistant.busy, isTrue);
+      expect(
+        agent.assistant.pendingGuidance.single.content,
+        'Use the revised task',
+      );
+      consolidationStarted = null;
+      consolidationGate = null;
+      gate.complete();
+      await pending.timeout(const Duration(seconds: 2));
+      expect(agent.assistant.busy, isFalse);
+      expect(
+        agent.assistant.messages.any(
+          (message) => message.content == 'Use the revised task',
+        ),
+        isTrue,
+      );
+      expect(await storage.memories(agent.id), isEmpty);
+      expect(agent.assistant.error, isNull);
+    },
+  );
 
   test(
     'exports exclude recycled agents and their memory and transcript',
@@ -1117,11 +1203,13 @@ void main() {
     final root = await create('Summary');
     final messages = [
       for (var i = 0; i < 16; i++)
-        {
-          'id': 'restored-$i',
-          'role': i.isEven ? 'user' : 'assistant',
-          'content': 'Original text $i',
-        },
+        ConversationCodec.message(
+          AiMessage(
+            id: 'restored-$i',
+            role: i.isEven ? 'user' : 'assistant',
+            content: 'Original text $i',
+          ),
+        ),
     ];
     root.assistant.restoreWorkspaceConversation({
       'serviceId': service,

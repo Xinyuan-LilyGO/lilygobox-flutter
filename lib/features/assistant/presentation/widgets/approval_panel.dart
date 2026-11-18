@@ -126,8 +126,8 @@ class _AssistantApprovalPanelState extends State<AssistantApprovalPanel> {
             child: ConstrainedBox(
               constraints: BoxConstraints(
                 maxHeight: math.min(
-                  320,
-                  MediaQuery.sizeOf(context).height * .5,
+                  480,
+                  MediaQuery.sizeOf(context).height * .65,
                 ),
               ),
               child: Column(
@@ -195,23 +195,6 @@ class _AssistantApprovalPanelState extends State<AssistantApprovalPanel> {
                                       ),
                                       style: descriptionStyle,
                                     ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      l10n.aiCommandFull,
-                                      style: fieldTitleStyle,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    ChatCodeBlock(
-                                      key: const ValueKey(
-                                        'ai-approval-full-command',
-                                      ),
-                                      text: formatAiCommand(args),
-                                      language: aiCommandDisplayLanguage,
-                                      theme: theme,
-                                      backgroundColor: theme.secondary,
-                                      maxBodyHeight: 160,
-                                      initialSoftWrap: true,
-                                    ),
                                     if (commandReason.isNotEmpty) ...[
                                       const SizedBox(height: 12),
                                       Text(
@@ -236,6 +219,23 @@ class _AssistantApprovalPanelState extends State<AssistantApprovalPanel> {
                                         style: descriptionStyle,
                                       ),
                                     ],
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      l10n.aiCommandFull,
+                                      style: fieldTitleStyle,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    ChatCodeBlock(
+                                      key: const ValueKey(
+                                        'ai-approval-full-command',
+                                      ),
+                                      text: formatAiCommand(args),
+                                      language: aiCommandDisplayLanguage,
+                                      theme: theme,
+                                      backgroundColor: theme.secondary,
+                                      maxBodyHeight: 160,
+                                      initialSoftWrap: true,
+                                    ),
                                   ],
                                   if (!command &&
                                       resolved != null &&

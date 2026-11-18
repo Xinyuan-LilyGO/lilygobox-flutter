@@ -75,7 +75,8 @@
   "aiGuidanceHint": "添加后续消息…",
   "aiGuidancePending": "待发送队列",
   "aiRemoveGuidance": "移除排队消息",
-  "aiSendPendingGuidance": "立即引导",
+  "aiSendPendingGuidance": "引导本轮",
+  "aiGuidanceAwaitingBoundary": "等待引导生效…",
   "aiEditQueuedMessage": "编辑排队消息",
   "aiSaveQueuedMessage": "保存修改",
   "aiRemoveImage": "移除图片",
@@ -897,14 +898,6 @@
   "aiCommandPolicyInvalidRules": "无法读取或校验命令规则，命令未执行。请检查 command-rules.json。",
   "aiCommandPolicyApprovalRequired": "此命令需要批准，尚未执行。",
   "aiCommandPolicyChanged": "等待期间命令规则已变更，本次命令未执行，请重新提交并审核。",
-  "aiCommandRan": "已运行命令 · {target}",
-  "@aiCommandRan": {
-    "placeholders": {
-      "target": {
-        "type": "String"
-      }
-    }
-  },
   "aiCommandStarted": "进程已启动 · {target}",
   "@aiCommandStarted": {
     "placeholders": {
@@ -1002,7 +995,19 @@
   "aiWorkspaceTaskRequired": "请填写工作内容。",
   "aiWorkspaceOpenAction": "打开智能体",
   "aiWorkspaceSpawnAction": "创建子智能体",
+  "aiWorkspaceConfigureAction": "配置子智能体模型",
   "aiWorkspaceSendAction": "发送智能体消息",
+  "aiWorkspaceConnectAction": "连接智能体",
+  "aiWorkspaceDisconnectAction": "断开智能体连接",
+  "aiModelDiscoveryLoading": "正在读取模型列表…",
+  "aiModelDiscoveryCancel": "取消读取",
+  "aiModelDiscoveryEmpty": "服务未返回可用模型。",
+  "aiModelDiscoveryUnchanged": "没有新增模型，现有列表保持不变。",
+  "aiModelDiscoveryNewModels": "选择要添加的新模型",
+  "aiModelDiscoveryAdd": "添加所选模型",
+  "aiModelDiscoveryUpdate": "更新模型信息",
+  "aiModelDiscoverySummary": "共读取 {total} 个模型，新增 {added} 个，已有 {existing} 个。",
+  "@aiModelDiscoverySummary": {"placeholders": {"total": {"type": "int"}, "added": {"type": "int"}, "existing": {"type": "int"}}},
   "aiWorkspaceWaitAction": "等待子智能体",
   "aiWorkspaceListAction": "查看子智能体",
   "aiWorkspaceStopAction": "停止子智能体",
@@ -1039,14 +1044,6 @@
       }
     }
   },
-  "aiTopologyRootPromotionNotice": "删除后，“{task}”将由子智能体变为主智能体。",
-  "@aiTopologyRootPromotionNotice": {
-    "placeholders": {
-      "task": {
-        "type": "String"
-      }
-    }
-  },
   "aiTopologyMergeTitle": "调整智能体归属？",
   "aiTopologyMergeRootHelp": "主智能体“{task}”将变为子智能体，归属到“{parent}”下面。原有下级、聊天和内部连接会保留；与其他分支的沟通连接将断开。",
   "@aiTopologyMergeRootHelp": {
@@ -1072,25 +1069,28 @@
   },
   "aiTopologyMergeConfirm": "确认并连接",
   "aiTopologyConnectSelected": "连接所选智能体",
-  "aiTopologyMakeRoot": "设为主智能体",
-  "aiTopologyMakeChild": "设为子智能体",
+  "aiTopologyMakeRoot": "拆为独立工作流",
+  "aiTopologyMakeWorkflowMain": "设为本工作流的主智能体",
+  "aiTopologyMakeChild": "更换直属上级",
   "aiTopologyChooseParent": "选择上级智能体",
-  "aiTopologyChooseParentHelp": "将此主智能体改为子智能体，并选择上级智能体。现有下级、聊天和其他连接会保留。",
+  "aiTopologyChooseParentHelp": "选择用于任务委派与布局的上级。此智能体及其下级将成为子智能体，聊天和通信连接会保留。",
   "aiTopologyAutoLayout": "自动布局",
   "aiTopologyReset": "重置视图",
   "aiTopologyZoomIn": "放大",
   "aiTopologyZoomOut": "缩小",
   "aiTopologyNewPrimaryHelp": "创建独立智能体树的起点，各级子智能体均可继续分派。",
   "aiTopologyNewChildHelp": "保留独立对话，也可继续分派下一级智能体。",
-  "aiTopologyEmptyHelp": "先创建主智能体，再逐层添加子智能体。",
+  "aiTopologyEmptyHelp": "创建主智能体开始工作流，每条相互连通的工作流只能有一个主智能体。",
   "aiTopologyDelete": "删除智能体",
-  "aiTopologyDeleteTitle": "删除这个智能体？",
-  "aiTopologyDeleteHelp": "只删除此智能体，未选中的直属子智能体将各自成为主智能体，其余下级继续保留。已删除的智能体会移入回收站，可在设置 → 智能体 → 存储中还原。",
   "aiTopologyNoParent": "请先选择一个主智能体或子智能体。",
   "aiTopologyModel": "执行模型",
   "aiTopologyInherit": "继承上级模型",
   "aiWorkspaceDeleteAction": "删除子智能体",
   "aiTopologyMessageFrom": "来自智能体：{title}",
+  "aiTopologyMessageFromMain": "来自主智能体：{title}",
+  "@aiTopologyMessageFromMain": {"placeholders": {"title": {"type": "String"}}},
+  "aiTopologyMessageFromChild": "来自子智能体：{title}",
+  "@aiTopologyMessageFromChild": {"placeholders": {"title": {"type": "String"}}},
   "@aiTopologyMessageFrom": {
     "placeholders": {
       "title": {
@@ -1120,7 +1120,6 @@
   "aiTopologyCanvasDots": "点阵",
   "aiTopologyCanvasGrid": "网格",
   "aiTopologyCanvasPlain": "纯色",
-  "aiTopologyDeleteRootHelp": "删除此主智能体；最后创建的直属子智能体将成为主智能体，其余子智能体分支保留。 已删除的智能体会移入回收站，可在设置 → 智能体 → 存储中还原。",
   "aiTopologyStopSelected": "停止所选智能体",
   "aiTopologyDeleteSelected": "删除所选智能体",
   "aiTopologyDisconnect": "断开连接",
@@ -1129,8 +1128,6 @@
   "aiTopologyClearSelection": "取消选择",
   "aiTopologyConnectHint": "拖动连接点连接智能体；跨智能体树时需先确认合并。",
   "aiTopologyInvalidConnection": "无法连接：请选择有效智能体，且不能形成循环。",
-  "aiTopologyDeleteSelectedTitle": "删除所选智能体？",
-  "aiTopologyDeleteSelectedHelp": "只删除所选智能体，保留未选中的下级分支；删除子智能体后，其未选中的直属子智能体将各自成为主智能体；删除主智能体时由最后创建的未选中直属子智能体接任。已删除的智能体会移入回收站，可在设置 → 智能体 → 存储中还原。",
   "aiTopologySelectedCount": "已选 {count} 项",
   "aiTopologySelectionHelp": "左键框选 · Ctrl／Shift＋单击多选 · 右键拖动平移 · 滚轮上下移动 · Shift＋滚轮左右移动 · Ctrl＋滚轮缩放",
   "aiTopologyShortcutsHelp": "左键单击：选中卡片或连线\n左键拖动空白：框选卡片与连线\nCtrl／Shift＋单击或框选：追加选择\n双击卡片：打开对话\n拖动卡片：调整位置\n拖动连接点：连接智能体\n右键拖动／中键拖动／空格＋左键拖动：平移画布\n滚轮：上下移动画布\nShift＋滚轮：左右移动画布\nCtrl＋滚轮：缩放画布\nCtrl＋A：全选\nCtrl＋C／Ctrl＋V：复制／粘贴卡片\nCtrl＋Z：撤销\nCtrl＋Y 或 Ctrl＋Shift＋Z：重做\nDelete／Backspace：删除选中卡片或断开选中连线\nEsc：取消选择或连接",
@@ -1142,18 +1139,7 @@
     }
   },
   "aiTopologyDisconnectTitle": "断开连接？",
-  "aiTopologyDisconnectHelp": "将断开所选连接，并根据剩余连接自动调整主智能体和子智能体。工作内容与聊天记录会保留。",
-  "aiTopologyRoleChangeNotice": "“{task}”将变为{role}。",
-  "@aiTopologyRoleChangeNotice": {
-    "placeholders": {
-      "task": {
-        "type": "String"
-      },
-      "role": {
-        "type": "String"
-      }
-    }
-  },
+  "aiTopologyDisconnectHelp": "断开所选连接。通信连线不改变身份；断开委派关系后，该分支的起点成为主智能体。工作内容与聊天记录会保留。",
   "aiProcessingSpeed": "处理速度",
   "aiProcessingSpeedStandard": "标准",
   "aiProcessingSpeedFast": "快速",
@@ -1257,6 +1243,12 @@
   "agentMemoryReview": "检查记忆条目",
   "agentStorageMore": "加载更多",
   "agentStorageEditMemory": "编辑",
+  "agentStorageCopyMemoryId": "复制记忆 ID",
+  "cardSelect": "选定",
+  "cardDeselect": "取消选定",
+  "cardSelectAll": "全选",
+  "agentStorageMemoryIdLabel": "记忆 ID：",
+  "agentStorageMemoryId": "记忆 ID：{id}",
   "agentStorageClean": "清理存储空间",
   "agentStorageCleanHint": "立即清理残留文件，释放存储空间。聊天、记忆和回收站内容会保留。",
   "agentStorageContextBudget": "上下文预算",
@@ -1462,5 +1454,13 @@
   "agentRecyclePendingDeletion": "等待自动删除",
   "agentMemoryAdd": "导入",
   "agentMemoryEmptyContent": "记忆内容不能为空。",
-  "agentStorageNewAgent": "新建智能体"
+  "agentStorageNewAgent": "新建智能体",
+  "aiAgentTopologyQuery": "读取智能体拓扑",
+  "aiLeadershipTransfer": "移交管理权",
+  "aiLeadershipUndo": "撤销管理权移交",
+  "aiTimer": "计时器",
+  "aiTimerStart": "开始计时",
+  "aiTimerQuery": "查看计时状态",
+  "aiTimerWait": "等待计时结束",
+  "aiTimerCancel": "取消计时"
 }

@@ -194,6 +194,37 @@ void main() {
     },
   );
 
+  test('manual stop queues agent traffic until a human resumes', () async {
+    scope.provider.stopGeneration();
+    await scope.provider.receiveAgentMessage(
+      sourceId: 'peer',
+      sourceTitle: 'Peer',
+      content: 'New work',
+    );
+    expect(scope.provider.manuallyPaused, isTrue);
+    expect(requests, isEmpty);
+    expect(scope.provider.busy, isFalse);
+    release.complete();
+    await scope.provider.sendMessage('Resume work');
+    expect(scope.provider.manuallyPaused, isFalse);
+    expect(requests, isNotEmpty);
+  });
+
+  test('reply completion records actual time and survives a fork', () async {
+    final pending = scope.provider.sendMessage('Hello');
+    await started.future;
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    release.complete();
+    await pending;
+    final reply = scope.provider.messages.last;
+    expect(reply.finishedAt, isNotNull);
+    expect(reply.finishedAt!.isAfter(reply.createdAt!), isTrue);
+    final fork = scope.provider.forkForWorkspace();
+    fork.restoreConversationFork(scope.provider.snapshotConversationFork());
+    expect(fork.messages.last.finishedAt, reply.finishedAt);
+    fork.dispose();
+  });
+
   test('Responses preserves previous output and replays image guidance as input_image', () async {
     await scope.provider.saveService(
       id: scope.provider.selectedService!.id,
@@ -277,6 +308,24 @@ void main() {
       isFalse,
     );
   });
+
+  test(
+    'stop finishes before a pending server response and ignores late output',
+    () async {
+      final send = scope.provider.sendMessage('Start');
+      await started.future;
+      scope.provider.stopGeneration();
+      await send.timeout(const Duration(seconds: 1));
+      expect(scope.provider.busy, isFalse);
+      expect(scope.provider.messages.last.status, AiResponseStatus.stopped);
+      expect(scope.provider.error, isNull);
+      expect(release.isCompleted, isFalse);
+      release.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(scope.provider.messages.last.content, isEmpty);
+      expect(requests, hasLength(1));
+    },
+  );
 
   test('continue after stopping before output reuses the turn and requests continuation', () async {
     final send = scope.provider.sendMessage('Start');
@@ -366,28 +415,114 @@ void main() {
     },
   );
 
+  test('stop during pending same-turn guidance retains the queue and prevents restart', () async {
+    final send = scope.provider.sendMessage('Start');
+    await started.future;
+    await scope.provider.sendMessage('Keep this');
+    await scope.provider.steerPendingMessage(
+      scope.provider.pendingGuidance.single.id,
+    );
+    scope.provider.stopGeneration();
+    release.complete();
+    await send;
+    expect(requests, hasLength(1));
+    expect(scope.provider.pendingGuidance.single.content, 'Keep this');
+    expect(scope.provider.pendingTurnSteerId, isNull);
+    expect(scope.provider.error, isNull);
+    expect(scope.provider.canContinue, isTrue);
+  });
+
   test(
-    'stop during a pending steer retains the queue and prevents restart',
+    'manual steer lets the active tool batch finish without replaying it',
     () async {
-      final send = scope.provider.sendMessage('Start');
+      tool = true;
+      multipleTools = true;
+      final provider = scope.provider;
+      final toolStarted = Completer<void>();
+      final finishTool = Completer<void>();
+      var toolCount = 0;
+      provider.workspaceToolDefinitions = [
+        {
+          'function': {'name': 'set_theme'},
+        },
+      ];
+      provider.workspaceToolHandler = (_, _) async {
+        if (++toolCount == 1) {
+          toolStarted.complete();
+          await finishTool.future;
+        }
+        return {'ok': true};
+      };
+      final send = provider.sendMessage('Start');
       await started.future;
-      await scope.provider.sendMessage('Keep this');
-      await scope.provider.guidePendingMessage(
-        scope.provider.pendingGuidance.single.id,
-      );
-      scope.provider.stopGeneration();
+      final firstId = provider.messages.last.id;
       release.complete();
-      await send;
+      await toolStarted.future.timeout(const Duration(seconds: 3));
+      final toolSegment = provider.messages.last.id;
+      await provider.sendMessage('Wait for later');
+      await provider.sendMessage('Guide this turn');
+      final selected = provider.pendingGuidance.last;
+      await provider.steerPendingMessage(selected.id);
+      expect(provider.pendingTurnSteerId, selected.id);
+      expect(provider.messages.last.id, toolSegment);
+      expect(provider.messages.last.finishedAt, isNull);
       expect(requests, hasLength(1));
-      expect(scope.provider.pendingGuidance.single.content, 'Keep this');
-      expect(scope.provider.error, isNull);
-      expect(scope.provider.canContinue, isTrue);
+      var wentIdleEarly = false;
+      provider.addListener(() {
+        if (!provider.busy && requests.length < 2) wentIdleEarly = true;
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      finishTool.complete();
+      await send;
+      expect(wentIdleEarly, isFalse);
+      expect(requests, hasLength(3));
+      final history = requests[1]['messages'] as List;
+      expect(history.last['content'], 'Guide this turn');
+      expect(
+        history.any((item) => item['content'] == 'Wait for later'),
+        isFalse,
+      );
+      expect(toolCount, 2);
+      expect(
+        history
+            .where((item) => item['role'] == 'tool')
+            .map((item) => item['tool_call_id']),
+        ['theme', 'second-theme'],
+      );
+      final before = provider.messages.firstWhere(
+        (message) => message.id == firstId,
+      );
+      final guidedIndex = provider.messages.indexWhere(
+        (message) => message.id == selected.id,
+      );
+      final after = provider.messages[guidedIndex + 1];
+      expect(before.status, AiResponseStatus.completed);
+      expect(before.content, 'I will change the theme.');
+      expect(
+        provider.messages
+            .firstWhere((message) => message.id == toolSegment)
+            .elapsed,
+        greaterThanOrEqualTo(const Duration(milliseconds: 50)),
+      );
+      expect(after.id, isNot(before.id));
+      expect(after.processEvents.first.status, AiResponseStatus.awaitingReply);
+      expect(
+        after.processEvents.first.elapsed,
+        lessThan(const Duration(milliseconds: 50)),
+      );
+      expect(provider.pendingTurnSteerId, isNull);
+      expect(provider.pendingGuidance, isEmpty);
     },
   );
 
-  for (final protocol in AiApiProtocol.values) {
+  for (final (protocol, manual) in [
+    for (final protocol in AiApiProtocol.values) ...[
+      (protocol, true),
+      (protocol, false),
+    ],
+  ]) {
     test(
-      'immediate steer cancels streaming and selects only that item: ${protocol.name}',
+      'steer cancels streaming and selects only that item: ${protocol.name}, manual=$manual',
       () async {
         final cancelled = Completer<void>();
         final stream = StreamController<List<int>>(
@@ -449,7 +584,8 @@ void main() {
           models: ['test'],
           apiKey: 'key',
         );
-        final send = running.provider.sendMessage('Start');
+        final provider = running.provider;
+        final send = provider.sendMessage('Start');
         while (payloads.isEmpty) {
           await Future<void>.delayed(const Duration(milliseconds: 1));
         }
@@ -469,10 +605,37 @@ void main() {
         }
         expect(running.provider.messages.last.content, 'Partial');
         await running.provider.sendMessage('Wait for later');
-        await running.provider.sendMessage('Guide now');
-        final chosen = running.provider.pendingGuidance.last;
-        await running.provider.guidePendingMessage(chosen.id);
-        await secondStarted.future;
+        var wentIdleBeforeContinuation = false;
+        provider.addListener(() {
+          if (!provider.busy && payloads.length < 2) {
+            wentIdleBeforeContinuation = true;
+          }
+        });
+        if (manual) {
+          await provider.sendMessage('Guide now');
+          await provider.steerPendingMessage(provider.pendingGuidance.last.id);
+        } else {
+          await provider.receiveAgentMessage(
+            sourceId: 'parent-id',
+            sourceTitle: 'Parent',
+            sourceKind: 'primary',
+            content: 'Guide now',
+            steer: true,
+          );
+        }
+        await secondStarted.future.timeout(const Duration(seconds: 3));
+        expect(wentIdleBeforeContinuation, isFalse);
+        expect(provider.messages[1].status, AiResponseStatus.stopped);
+        expect(provider.messages[1].finishedAt, isNotNull);
+        final continuation = provider.messages.last;
+        expect(
+          continuation.processEvents.first.status,
+          AiResponseStatus.awaitingReply,
+        );
+        expect(
+          continuation.processEvents.first.elapsed,
+          lessThan(const Duration(milliseconds: 50)),
+        );
         expect(
           running.provider.pendingGuidance.single.content,
           'Wait for later',
@@ -484,6 +647,10 @@ void main() {
                     : 'messages']
                 as List);
         expect(jsonEncode(history.last), contains('Guide now'));
+        if (!manual) {
+          expect(jsonEncode(history.last), contains('parent-id'));
+        }
+        expect(jsonEncode(history), contains('Partial'));
         expect(jsonEncode(history), isNot(contains('Wait for later')));
         expect(running.provider.error, isNull);
         secondRelease.complete();
@@ -504,62 +671,6 @@ void main() {
       },
     );
   }
-
-  test(
-    'immediate guidance between tools closes skipped calls before restarting',
-    () async {
-      tool = true;
-      multipleTools = true;
-      String? queuedId;
-      var guided = false;
-      void guideAfterFirstAction() {
-        if (!guided &&
-            queuedId != null &&
-            scope.provider.busy &&
-            scope.provider.messages.last.processingSteps.length == 1) {
-          guided = true;
-          unawaited(scope.provider.guidePendingMessage(queuedId));
-        }
-      }
-
-      scope.provider.addListener(guideAfterFirstAction);
-      final send = scope.provider.sendMessage('Change theme');
-      await started.future;
-      await scope.provider.sendMessage('Keep the dark theme');
-      queuedId = scope.provider.pendingGuidance.single.id;
-      release.complete();
-      await send;
-      scope.provider.removeListener(guideAfterFirstAction);
-      expect(requests, hasLength(2));
-      expect(theme.currentTheme, ThemeType.dark);
-      final history = requests.last['messages'] as List;
-      expect(history.map((item) => item['role']), [
-        'system',
-        'user',
-        'assistant',
-        'tool',
-        'tool',
-        'user',
-      ]);
-      expect(history[4]['content'], contains('Cancelled'));
-      expect(history.last['content'], 'Keep the dark theme');
-      final toolReplies = scope.provider.messages.where(
-        (message) => message.processingSteps.isNotEmpty,
-      );
-      expect(toolReplies, hasLength(1));
-      expect(toolReplies.single.processingSteps, hasLength(1));
-      expect(toolReplies.single.processingSteps.single.name, 'set_theme');
-      expect(
-        scope.provider.messages
-            .where((message) => message.role == 'user')
-            .map((message) => message.content),
-        ['Change theme', 'Keep the dark theme'],
-      );
-      expect(scope.provider.messages.last.processingSteps, isEmpty);
-      expect(scope.provider.error, isNull);
-      expect(scope.provider.canContinue, isFalse);
-    },
-  );
 
   test('failed requests retain pending input for explicit resend', () async {
     fail = true;

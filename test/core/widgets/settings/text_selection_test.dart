@@ -1,4 +1,5 @@
 import 'package:lilygobox/core/l10n/delegates.dart';
+
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
@@ -7,6 +8,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/core/widgets/app_scroll_behavior.dart';
 import 'package:lilygobox/core/widgets/settings/fields.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
@@ -42,6 +44,7 @@ void main() {
   Widget app(Widget field) => ChangeNotifierProvider.value(
     value: theme,
     child: MaterialApp(
+      scrollBehavior: const AppScrollBehavior(),
       locale: const Locale('en'),
       localizationsDelegates: appLocalizationDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -156,6 +159,7 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
 
   testWidgets('uncontrolled setting field also highlights only its text', (

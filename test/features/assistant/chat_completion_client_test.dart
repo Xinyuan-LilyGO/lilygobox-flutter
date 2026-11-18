@@ -13,6 +13,44 @@ import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 
 void main() {
+  test('catalog cancellation finishes before response headers without closing shared transport', () async {
+    final gate = Completer<void>();
+    final started = Completer<void>();
+    final abort = Completer<void>();
+    var requests = 0;
+    final client = ChatCompletionClient(
+      client: MockClient((request) async {
+        requests++;
+        if (requests == 1) {
+          started.complete();
+          await gate.future;
+        }
+        return http.Response('{"data":[{"id":"model-a"}]}', 200);
+      }),
+    );
+    final pending = client.discoverModelCatalog(
+      baseUrl: 'https://example.test/v1',
+      apiKey: 'key',
+      abortTrigger: abort.future,
+    );
+    final cancelled = expectLater(
+      pending,
+      throwsA(isA<http.RequestAbortedException>()),
+    );
+    await started.future;
+    abort.complete();
+    await cancelled.timeout(const Duration(seconds: 1));
+    expect(gate.isCompleted, isFalse);
+    final next = await client.discoverModelCatalog(
+      baseUrl: 'https://example.test/v1',
+      apiKey: 'key',
+    );
+    expect(next.models, ['model-a']);
+    gate.complete();
+    await Future<void>.delayed(Duration.zero);
+    await client.close();
+  });
+
   for (final protocol in AiApiProtocol.values) {
     for (final outputLimit in [null, 128]) {
       test(
@@ -71,64 +109,61 @@ void main() {
     }
   }
 
-  test(
-    'speed tiers respect explicit catalogs and fall back when metadata is absent',
-    () async {
-      final client = ChatCompletionClient(
-        client: MockClient(
-          (_) async => http.Response(
-            jsonEncode({
-              'data': [
-                {
-                  'id': 'gpt-6.1-sol',
-                  'service_tiers': [
-                    {'id': 'priority', 'name': 'Fast'},
-                    {'id': 'ultrafast', 'name': 'Ultra Fast'},
-                  ],
-                },
-                {'id': 'gpt-6-astra', 'service_tiers': []},
-                {
-                  'id': 'custom-gpt-6.1-sol',
-                  'reasoning_levels': ['ultrafast'],
-                },
-              ],
-            }),
-            200,
-          ),
+  test('speed tiers respect explicit catalogs and fall back when metadata is absent', () async {
+    final client = ChatCompletionClient(
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'data': [
+              {
+                'id': 'gpt-6.1-sol',
+                'service_tiers': [
+                  {'id': 'priority', 'name': 'Fast'},
+                  {'id': 'ultrafast', 'name': 'Ultra Fast'},
+                ],
+              },
+              {'id': 'gpt-6-astra', 'service_tiers': []},
+              {
+                'id': 'custom-gpt-6.1-sol',
+                'reasoning_levels': ['ultrafast'],
+              },
+            ],
+          }),
+          200,
         ),
-      );
-      addTearDown(client.close);
-      final catalog = await client.discoverModelCatalog(
-        baseUrl: 'https://example.test/v1',
-        apiKey: 'key',
-      );
-      expect(
-        processingSpeedsForModel(
-          'gpt-6.1-sol',
-          serviceTiers: catalog.serviceTiers['gpt-6.1-sol'],
-        ),
-        AiProcessingSpeed.values,
-      );
-      expect(
-        processingSpeedsForModel(
-          'gpt-6-astra',
-          serviceTiers: catalog.serviceTiers['gpt-6-astra'],
-        ),
-        isEmpty,
-      );
-      expect(
-        processingSpeedsForModel(
-          'custom-gpt-6.1-sol',
-          serviceTiers: catalog.serviceTiers['custom-gpt-6.1-sol'],
-        ),
-        contains(AiProcessingSpeed.ultrafast),
-      );
-      expect(
-        processingSpeedParameters('gpt-6.1-sol', AiProcessingSpeed.ultrafast),
-        {'service_tier': 'ultrafast'},
-      );
-    },
-  );
+      ),
+    );
+    addTearDown(client.close);
+    final catalog = await client.discoverModelCatalog(
+      baseUrl: 'https://example.test/v1',
+      apiKey: 'key',
+    );
+    expect(
+      processingSpeedsForModel(
+        'gpt-6.1-sol',
+        serviceTiers: catalog.serviceTiers['gpt-6.1-sol'],
+      ),
+      AiProcessingSpeed.values,
+    );
+    expect(
+      processingSpeedsForModel(
+        'gpt-6-astra',
+        serviceTiers: catalog.serviceTiers['gpt-6-astra'],
+      ),
+      isEmpty,
+    );
+    expect(
+      processingSpeedsForModel(
+        'custom-gpt-6.1-sol',
+        serviceTiers: catalog.serviceTiers['custom-gpt-6.1-sol'],
+      ),
+      contains(AiProcessingSpeed.ultrafast),
+    );
+    expect(
+      processingSpeedParameters('gpt-6.1-sol', AiProcessingSpeed.ultrafast),
+      {'service_tier': 'ultrafast'},
+    );
+  });
   test('processing speed matches supported model substrings only', () {
     expect(
       processingSpeedsForModel('custom-GPT-6.1-SOL-test'),

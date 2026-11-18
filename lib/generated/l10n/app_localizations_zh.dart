@@ -241,7 +241,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiRemoveGuidance => '移除排队消息';
 
   @override
-  String get aiSendPendingGuidance => '立即引导';
+  String get aiSendPendingGuidance => '引导本轮';
+
+  @override
+  String get aiGuidanceAwaitingBoundary => '等待引导生效…';
 
   @override
   String get aiEditQueuedMessage => '编辑排队消息';
@@ -2119,11 +2122,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiCommandPolicyChanged => '等待期间命令规则已变更，本次命令未执行，请重新提交并审核。';
 
   @override
-  String aiCommandRan(String target) {
-    return '已运行命令 · $target';
-  }
-
-  @override
   String aiCommandStarted(String target) {
     return '进程已启动 · $target';
   }
@@ -2264,7 +2262,42 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiWorkspaceSpawnAction => '创建子智能体';
 
   @override
+  String get aiWorkspaceConfigureAction => '配置子智能体模型';
+
+  @override
   String get aiWorkspaceSendAction => '发送智能体消息';
+
+  @override
+  String get aiWorkspaceConnectAction => '连接智能体';
+
+  @override
+  String get aiWorkspaceDisconnectAction => '断开智能体连接';
+
+  @override
+  String get aiModelDiscoveryLoading => '正在读取模型列表…';
+
+  @override
+  String get aiModelDiscoveryCancel => '取消读取';
+
+  @override
+  String get aiModelDiscoveryEmpty => '服务未返回可用模型。';
+
+  @override
+  String get aiModelDiscoveryUnchanged => '没有新增模型，现有列表保持不变。';
+
+  @override
+  String get aiModelDiscoveryNewModels => '选择要添加的新模型';
+
+  @override
+  String get aiModelDiscoveryAdd => '添加所选模型';
+
+  @override
+  String get aiModelDiscoveryUpdate => '更新模型信息';
+
+  @override
+  String aiModelDiscoverySummary(int total, int added, int existing) {
+    return '共读取 $total 个模型，新增 $added 个，已有 $existing 个。';
+  }
 
   @override
   String get aiWorkspaceWaitAction => '等待子智能体';
@@ -2356,11 +2389,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String aiTopologyRootPromotionNotice(String task) {
-    return '删除后，“$task”将由子智能体变为主智能体。';
-  }
-
-  @override
   String get aiTopologyMergeTitle => '调整智能体归属？';
 
   @override
@@ -2380,17 +2408,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiTopologyConnectSelected => '连接所选智能体';
 
   @override
-  String get aiTopologyMakeRoot => '设为主智能体';
+  String get aiTopologyMakeRoot => '拆为独立工作流';
 
   @override
-  String get aiTopologyMakeChild => '设为子智能体';
+  String get aiTopologyMakeWorkflowMain => '设为本工作流的主智能体';
+
+  @override
+  String get aiTopologyMakeChild => '更换直属上级';
 
   @override
   String get aiTopologyChooseParent => '选择上级智能体';
 
   @override
   String get aiTopologyChooseParentHelp =>
-      '将此主智能体改为子智能体，并选择上级智能体。现有下级、聊天和其他连接会保留。';
+      '选择用于任务委派与布局的上级。此智能体及其下级将成为子智能体，聊天和通信连接会保留。';
 
   @override
   String get aiTopologyAutoLayout => '自动布局';
@@ -2411,17 +2442,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiTopologyNewChildHelp => '保留独立对话，也可继续分派下一级智能体。';
 
   @override
-  String get aiTopologyEmptyHelp => '先创建主智能体，再逐层添加子智能体。';
+  String get aiTopologyEmptyHelp => '创建主智能体开始工作流，每条相互连通的工作流只能有一个主智能体。';
 
   @override
   String get aiTopologyDelete => '删除智能体';
-
-  @override
-  String get aiTopologyDeleteTitle => '删除这个智能体？';
-
-  @override
-  String get aiTopologyDeleteHelp =>
-      '只删除此智能体，未选中的直属子智能体将各自成为主智能体，其余下级继续保留。已删除的智能体会移入回收站，可在设置 → 智能体 → 存储中还原。';
 
   @override
   String get aiTopologyNoParent => '请先选择一个主智能体或子智能体。';
@@ -2438,6 +2462,16 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String aiTopologyMessageFrom(String title) {
     return '来自智能体：$title';
+  }
+
+  @override
+  String aiTopologyMessageFromMain(String title) {
+    return '来自主智能体：$title';
+  }
+
+  @override
+  String aiTopologyMessageFromChild(String title) {
+    return '来自子智能体：$title';
   }
 
   @override
@@ -2469,10 +2503,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiTopologyCanvasPlain => '纯色';
 
   @override
-  String get aiTopologyDeleteRootHelp =>
-      '删除此主智能体；最后创建的直属子智能体将成为主智能体，其余子智能体分支保留。 已删除的智能体会移入回收站，可在设置 → 智能体 → 存储中还原。';
-
-  @override
   String get aiTopologyStopSelected => '停止所选智能体';
 
   @override
@@ -2497,13 +2527,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiTopologyInvalidConnection => '无法连接：请选择有效智能体，且不能形成循环。';
 
   @override
-  String get aiTopologyDeleteSelectedTitle => '删除所选智能体？';
-
-  @override
-  String get aiTopologyDeleteSelectedHelp =>
-      '只删除所选智能体，保留未选中的下级分支；删除子智能体后，其未选中的直属子智能体将各自成为主智能体；删除主智能体时由最后创建的未选中直属子智能体接任。已删除的智能体会移入回收站，可在设置 → 智能体 → 存储中还原。';
-
-  @override
   String aiTopologySelectedCount(int count) {
     return '已选 $count 项';
   }
@@ -2521,12 +2544,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiTopologyDisconnectHelp =>
-      '将断开所选连接，并根据剩余连接自动调整主智能体和子智能体。工作内容与聊天记录会保留。';
-
-  @override
-  String aiTopologyRoleChangeNotice(String task, String role) {
-    return '“$task”将变为$role。';
-  }
+      '断开所选连接。通信连线不改变身份；断开委派关系后，该分支的起点成为主智能体。工作内容与聊天记录会保留。';
 
   @override
   String get aiProcessingSpeed => '处理速度';
@@ -2763,6 +2781,26 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agentStorageEditMemory => '编辑';
+
+  @override
+  String get agentStorageCopyMemoryId => '复制记忆 ID';
+
+  @override
+  String get cardSelect => '选定';
+
+  @override
+  String get cardDeselect => '取消选定';
+
+  @override
+  String get cardSelectAll => '全选';
+
+  @override
+  String get agentStorageMemoryIdLabel => '记忆 ID：';
+
+  @override
+  String agentStorageMemoryId(String id) {
+    return '记忆 ID：$id';
+  }
 
   @override
   String get agentStorageClean => '清理存储空间';
@@ -3159,4 +3197,28 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agentStorageNewAgent => '新建智能体';
+
+  @override
+  String get aiAgentTopologyQuery => '读取智能体拓扑';
+
+  @override
+  String get aiLeadershipTransfer => '移交管理权';
+
+  @override
+  String get aiLeadershipUndo => '撤销管理权移交';
+
+  @override
+  String get aiTimer => '计时器';
+
+  @override
+  String get aiTimerStart => '开始计时';
+
+  @override
+  String get aiTimerQuery => '查看计时状态';
+
+  @override
+  String get aiTimerWait => '等待计时结束';
+
+  @override
+  String get aiTimerCancel => '取消计时';
 }

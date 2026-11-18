@@ -95,6 +95,45 @@ void main() {
   });
 
   group('AppScrollBehavior', () {
+    testWidgets('multiline input respects explicit scrollbar suppression', (
+      tester,
+    ) async {
+      final scroll = ScrollController();
+      final input = TextEditingController(
+        text: List.generate(30, (index) => 'Line $index').join('\n'),
+      );
+      addTearDown(scroll.dispose);
+      addTearDown(input.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          scrollBehavior: const AppScrollBehavior(),
+          home: Scaffold(
+            body: Scrollbar(
+              key: const ValueKey('manual-input-scrollbar'),
+              controller: scroll,
+              child: ScrollConfiguration(
+                behavior: const AppScrollBehavior(scrollbars: false),
+                child: TextField(
+                  controller: input,
+                  scrollController: scroll,
+                  maxLines: 3,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(Scrollbar), findsOneWidget);
+      expect(scroll.position.maxScrollExtent, greaterThan(0));
+      scroll.jumpTo(0);
+      await wheel(tester, tester.getCenter(find.byType(TextField)), 60);
+      await tester.pumpAndSettle();
+      expect(scroll.offset, greaterThan(0));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+
     testWidgets(
       'copied menu behavior preserves wheel acceleration and options',
       (tester) async {

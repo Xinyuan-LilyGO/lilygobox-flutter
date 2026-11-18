@@ -32,6 +32,8 @@ class AgentStorage {
   Future<void>? _opening;
   int _sequence = 0;
   bool _closed = false;
+  int _memoryRevision = 0;
+  int get memoryRevision => _memoryRevision;
   String? databasePath;
   Future<void> get ready => _opening ??= _open();
 
@@ -103,7 +105,18 @@ class AgentStorage {
     final result = Completer<Object?>();
     _pending[id] = result;
     _worker!.send([id, operation, args]);
-    return result.future;
+    final value = await result.future;
+    if (const {
+      'commitImport',
+      'commitRecycle',
+      'copyMemories',
+      'putMemory',
+      'saveAutoMemories',
+      'deleteMemory',
+    }.contains(operation)) {
+      _memoryRevision++;
+    }
+    return value;
   }
 
   Future<String?> readWorkflow() async =>
@@ -552,6 +565,24 @@ void _databaseWorker(List<dynamic> initialization) {
           result = owned.containsAll(ids);
         case 'memories':
           final query = (a['query'] as String).trim();
+          final limit = a['limit'] as int?;
+          if (limit != null && limit < 1) {
+            throw const FormatException('Invalid page size');
+          }
+          final offset = a['offset'] as int? ?? 0;
+          if (query.isNotEmpty) {
+            final exact = db.select(
+              'SELECT * FROM memories WHERE owner=? AND id=?',
+              [a['owner'], query],
+            ).firstOrNull;
+            if (exact != null || RegExp(r'^[0-9a-f]{32}$').hasMatch(query)) {
+              result = <Map<String, Object?>>[
+                if (exact != null && offset <= 0)
+                  Map<String, Object?>.from(exact),
+              ];
+              break;
+            }
+          }
           final words = RegExp(r'[A-Za-z0-9_]+|[一-鿿]+')
               .allMatches(query)
               .map((m) => m.group(0)!)
@@ -585,14 +616,10 @@ void _databaseWorker(List<dynamic> initialization) {
           final filter = conditions.isEmpty
               ? ''
               : ' AND (${conditions.join(' OR ')})';
-          final limit = a['limit'] as int?;
-          if (limit != null && limit < 1) {
-            throw const FormatException('Invalid page size');
-          }
           result = db
               .select(
                 'SELECT * FROM memories WHERE owner=?$filter ORDER BY updated DESC LIMIT ? OFFSET ?',
-                [...args, limit ?? -1, a['offset'] ?? 0],
+                [...args, limit ?? -1, offset],
               )
               .map((r) => Map<String, Object?>.from(r))
               .toList();

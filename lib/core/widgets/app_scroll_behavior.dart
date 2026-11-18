@@ -152,7 +152,10 @@ class AppScrollBehavior extends MaterialScrollBehavior {
             child: child,
           )
         : child;
-    return scrollbars
+    final inherited = ScrollConfiguration.of(context);
+    final showScrollbar =
+        scrollbars && (inherited is! AppScrollBehavior || inherited.scrollbars);
+    return showScrollbar
         ? super.buildScrollbar(context, content, details)
         : content;
   }

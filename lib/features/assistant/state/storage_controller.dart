@@ -249,12 +249,16 @@ class AgentStorageController extends ChangeNotifier {
           'kind': ids.contains(r['parentId'])
               ? r['kind']
               : AiWorkspaceKind.primary.name,
+          'conversation': Map<String, Object?>.from(r['conversation'] as Map)
+            ..remove('workspaceRelationship')
+            ..remove('pendingWorkspaceEvents'),
         },
     ];
     workflow['connections'] = [
       for (final e in workflow['connections'] as List)
         if (ids.contains(e['fromId']) && ids.contains(e['toId'])) e,
     ];
+    workspaces.normalizeWorkflowData(workflow);
     workflow['canvas'] = {
       for (final e in (workflow['canvas'] as Map).entries)
         if (ids.contains(e.key)) e.key: e.value,

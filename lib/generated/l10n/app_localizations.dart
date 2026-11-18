@@ -555,8 +555,14 @@ abstract class AppLocalizations {
   /// No description provided for @aiSendPendingGuidance.
   ///
   /// In en, this message translates to:
-  /// **'Send now'**
+  /// **'Steer current turn'**
   String get aiSendPendingGuidance;
+
+  /// No description provided for @aiGuidanceAwaitingBoundary.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting to apply guidance…'**
+  String get aiGuidanceAwaitingBoundary;
 
   /// No description provided for @aiEditQueuedMessage.
   ///
@@ -4068,12 +4074,6 @@ abstract class AppLocalizations {
   /// **'Command rules changed while this call was pending. The command was not executed; submit it again for review.'**
   String get aiCommandPolicyChanged;
 
-  /// No description provided for @aiCommandRan.
-  ///
-  /// In en, this message translates to:
-  /// **'Ran command · {target}'**
-  String aiCommandRan(String target);
-
   /// No description provided for @aiCommandStarted.
   ///
   /// In en, this message translates to:
@@ -4320,11 +4320,77 @@ abstract class AppLocalizations {
   /// **'Create child agent'**
   String get aiWorkspaceSpawnAction;
 
+  /// No description provided for @aiWorkspaceConfigureAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure child agent model'**
+  String get aiWorkspaceConfigureAction;
+
   /// No description provided for @aiWorkspaceSendAction.
   ///
   /// In en, this message translates to:
   /// **'Send agent message'**
   String get aiWorkspaceSendAction;
+
+  /// No description provided for @aiWorkspaceConnectAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect agents'**
+  String get aiWorkspaceConnectAction;
+
+  /// No description provided for @aiWorkspaceDisconnectAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect agents'**
+  String get aiWorkspaceDisconnectAction;
+
+  /// No description provided for @aiModelDiscoveryLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading model list…'**
+  String get aiModelDiscoveryLoading;
+
+  /// No description provided for @aiModelDiscoveryCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel reading'**
+  String get aiModelDiscoveryCancel;
+
+  /// No description provided for @aiModelDiscoveryEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'The service returned no available models.'**
+  String get aiModelDiscoveryEmpty;
+
+  /// No description provided for @aiModelDiscoveryUnchanged.
+  ///
+  /// In en, this message translates to:
+  /// **'No new models. Your existing list is unchanged.'**
+  String get aiModelDiscoveryUnchanged;
+
+  /// No description provided for @aiModelDiscoveryNewModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Select new models to add'**
+  String get aiModelDiscoveryNewModels;
+
+  /// No description provided for @aiModelDiscoveryAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add selected models'**
+  String get aiModelDiscoveryAdd;
+
+  /// No description provided for @aiModelDiscoveryUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Update model information'**
+  String get aiModelDiscoveryUpdate;
+
+  /// No description provided for @aiModelDiscoverySummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Found {total} models: {added} new, {existing} already listed.'**
+  String aiModelDiscoverySummary(int total, int added, int existing);
 
   /// No description provided for @aiWorkspaceWaitAction.
   ///
@@ -4500,12 +4566,6 @@ abstract class AppLocalizations {
   /// **'“{task}” will become a main agent and disconnect from its previous agent group. Its conversation, descendants, and connections within its subtree will remain.'**
   String aiTopologyMakeRootHelp(String task);
 
-  /// No description provided for @aiTopologyRootPromotionNotice.
-  ///
-  /// In en, this message translates to:
-  /// **'After deletion, “{task}” will change from a child agent to a main agent.'**
-  String aiTopologyRootPromotionNotice(String task);
-
   /// No description provided for @aiTopologyMergeTitle.
   ///
   /// In en, this message translates to:
@@ -4539,13 +4599,19 @@ abstract class AppLocalizations {
   /// No description provided for @aiTopologyMakeRoot.
   ///
   /// In en, this message translates to:
-  /// **'Make main agent'**
+  /// **'Split into independent workflow'**
   String get aiTopologyMakeRoot;
+
+  /// No description provided for @aiTopologyMakeWorkflowMain.
+  ///
+  /// In en, this message translates to:
+  /// **'Make main agent of this workflow'**
+  String get aiTopologyMakeWorkflowMain;
 
   /// No description provided for @aiTopologyMakeChild.
   ///
   /// In en, this message translates to:
-  /// **'Make child agent'**
+  /// **'Change direct parent'**
   String get aiTopologyMakeChild;
 
   /// No description provided for @aiTopologyChooseParent.
@@ -4557,7 +4623,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiTopologyChooseParentHelp.
   ///
   /// In en, this message translates to:
-  /// **'Change this main agent to a child agent and choose its parent. Existing descendants, conversation, and other connections will remain.'**
+  /// **'Choose a parent for task delegation and layout. This agent and its descendants become child agents. Conversations and communication links are preserved.'**
   String get aiTopologyChooseParentHelp;
 
   /// No description provided for @aiTopologyAutoLayout.
@@ -4599,7 +4665,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiTopologyEmptyHelp.
   ///
   /// In en, this message translates to:
-  /// **'Create a main agent, then add child agents at any level.'**
+  /// **'Create a main agent to start a workflow. Each connected workflow has exactly one main agent.'**
   String get aiTopologyEmptyHelp;
 
   /// No description provided for @aiTopologyDelete.
@@ -4607,18 +4673,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete agent'**
   String get aiTopologyDelete;
-
-  /// No description provided for @aiTopologyDeleteTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete this agent?'**
-  String get aiTopologyDeleteTitle;
-
-  /// No description provided for @aiTopologyDeleteHelp.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete only this agent. Its unselected direct children become main agents, with their descendants preserved. Removed agents go to the recycle bin and can be restored in Settings → Agents → Storage.'**
-  String get aiTopologyDeleteHelp;
 
   /// No description provided for @aiTopologyNoParent.
   ///
@@ -4649,6 +4703,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'From agent: {title}'**
   String aiTopologyMessageFrom(String title);
+
+  /// No description provided for @aiTopologyMessageFromMain.
+  ///
+  /// In en, this message translates to:
+  /// **'From main agent: {title}'**
+  String aiTopologyMessageFromMain(String title);
+
+  /// No description provided for @aiTopologyMessageFromChild.
+  ///
+  /// In en, this message translates to:
+  /// **'From child agent: {title}'**
+  String aiTopologyMessageFromChild(String title);
 
   /// No description provided for @aiAgentIdValue.
   ///
@@ -4698,12 +4764,6 @@ abstract class AppLocalizations {
   /// **'Plain'**
   String get aiTopologyCanvasPlain;
 
-  /// No description provided for @aiTopologyDeleteRootHelp.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete this main agent. The most recently created direct child becomes the main agent; other child branches are preserved. Removed agents go to the recycle bin and can be restored in Settings → Agents → Storage.'**
-  String get aiTopologyDeleteRootHelp;
-
   /// No description provided for @aiTopologyStopSelected.
   ///
   /// In en, this message translates to:
@@ -4752,18 +4812,6 @@ abstract class AppLocalizations {
   /// **'Cannot connect: choose a valid agent without creating a cycle.'**
   String get aiTopologyInvalidConnection;
 
-  /// No description provided for @aiTopologyDeleteSelectedTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete selected agents?'**
-  String get aiTopologyDeleteSelectedTitle;
-
-  /// No description provided for @aiTopologyDeleteSelectedHelp.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete only the selected agents and preserve unselected descendant branches. Unselected direct children of deleted child agents become main agents. A deleted main agent is replaced by its most recently created unselected direct child. Removed agents go to the recycle bin and can be restored in Settings → Agents → Storage.'**
-  String get aiTopologyDeleteSelectedHelp;
-
   /// No description provided for @aiTopologySelectedCount.
   ///
   /// In en, this message translates to:
@@ -4791,14 +4839,8 @@ abstract class AppLocalizations {
   /// No description provided for @aiTopologyDisconnectHelp.
   ///
   /// In en, this message translates to:
-  /// **'Disconnect the selected links and update main agent and child roles to match the remaining connections. work instructions and conversation history will be retained.'**
+  /// **'Disconnect the selected links. Communication links do not change roles. Detaching a delegation branch makes its root a main agent. Work instructions and conversation history are retained.'**
   String get aiTopologyDisconnectHelp;
-
-  /// No description provided for @aiTopologyRoleChangeNotice.
-  ///
-  /// In en, this message translates to:
-  /// **'“{task}” will become a {role}.'**
-  String aiTopologyRoleChangeNotice(String task, String role);
 
   /// No description provided for @aiProcessingSpeed.
   ///
@@ -5255,6 +5297,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Edit'**
   String get agentStorageEditMemory;
+
+  /// No description provided for @agentStorageCopyMemoryId.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy memory ID'**
+  String get agentStorageCopyMemoryId;
+
+  /// No description provided for @cardSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get cardSelect;
+
+  /// No description provided for @cardDeselect.
+  ///
+  /// In en, this message translates to:
+  /// **'Deselect'**
+  String get cardDeselect;
+
+  /// No description provided for @cardSelectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all'**
+  String get cardSelectAll;
+
+  /// Label before the separately selectable memory ID in the editor.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory ID:'**
+  String get agentStorageMemoryIdLabel;
+
+  /// No description provided for @agentStorageMemoryId.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory ID: {id}'**
+  String agentStorageMemoryId(String id);
 
   /// No description provided for @agentStorageClean.
   ///
@@ -5969,6 +6047,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'New agent'**
   String get agentStorageNewAgent;
+
+  /// No description provided for @aiAgentTopologyQuery.
+  ///
+  /// In en, this message translates to:
+  /// **'Read agent topology'**
+  String get aiAgentTopologyQuery;
+
+  /// No description provided for @aiLeadershipTransfer.
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer leadership'**
+  String get aiLeadershipTransfer;
+
+  /// No description provided for @aiLeadershipUndo.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo leadership transfer'**
+  String get aiLeadershipUndo;
+
+  /// No description provided for @aiTimer.
+  ///
+  /// In en, this message translates to:
+  /// **'Timer'**
+  String get aiTimer;
+
+  /// No description provided for @aiTimerStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Start timer'**
+  String get aiTimerStart;
+
+  /// No description provided for @aiTimerQuery.
+  ///
+  /// In en, this message translates to:
+  /// **'Check timer status'**
+  String get aiTimerQuery;
+
+  /// No description provided for @aiTimerWait.
+  ///
+  /// In en, this message translates to:
+  /// **'Wait for timer'**
+  String get aiTimerWait;
+
+  /// No description provided for @aiTimerCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel timer'**
+  String get aiTimerCancel;
 }
 
 class _AppLocalizationsDelegate

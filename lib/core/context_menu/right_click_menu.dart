@@ -70,6 +70,7 @@ class RightClickMenuBuilder {
     required Widget child,
     VoidCallback? onSecondaryTap,
     ValueChanged<PointerEvent>? onMenuPointerEvent,
+    Object? menuTapRegionGroupId,
     bool openAbove = false,
     Offset alignmentOffset = Offset.zero,
     double menuWidth = 150,
@@ -110,30 +111,34 @@ class RightClickMenuBuilder {
         padding: WidgetStateProperty.all(EdgeInsets.zero),
       ),
       menuChildren: [
-        ValueListenableBuilder<int>(
-          valueListenable: controller._openRevision,
-          builder: (context, revision, child) => PopupMenuTransition(
-            key: ValueKey(revision),
-            alignment: openAbove ? Alignment.bottomLeft : Alignment.topLeft,
-            // 覆盖层不在原锚点的指针路径中；允许画布接收从菜单上开始的
-            // 原始拖动序列，普通菜单不传此回调时保持原有行为。
-            child: onMenuPointerEvent == null
-                ? child!
-                : Listener(
-                    behavior: HitTestBehavior.translucent,
-                    onPointerSignal: onMenuPointerEvent,
-                    onPointerDown: onMenuPointerEvent,
-                    onPointerMove: onMenuPointerEvent,
-                    onPointerUp: onMenuPointerEvent,
-                    onPointerCancel: onMenuPointerEvent,
-                    child: child!,
-                  ),
-          ),
-          child: buildMenuPanel(
-            menuItems: menuItems,
-            theme: theme,
-            width: panelWidth,
-            trailingInset: scrollGutter,
+        TapRegion(
+          enabled: menuTapRegionGroupId != null,
+          groupId: menuTapRegionGroupId,
+          child: ValueListenableBuilder<int>(
+            valueListenable: controller._openRevision,
+            builder: (context, revision, child) => PopupMenuTransition(
+              key: ValueKey(revision),
+              alignment: openAbove ? Alignment.bottomLeft : Alignment.topLeft,
+              // 覆盖层不在原锚点的指针路径中；允许画布接收从菜单上开始的
+              // 原始拖动序列，普通菜单不传此回调时保持原有行为。
+              child: onMenuPointerEvent == null
+                  ? child!
+                  : Listener(
+                      behavior: HitTestBehavior.translucent,
+                      onPointerSignal: onMenuPointerEvent,
+                      onPointerDown: onMenuPointerEvent,
+                      onPointerMove: onMenuPointerEvent,
+                      onPointerUp: onMenuPointerEvent,
+                      onPointerCancel: onMenuPointerEvent,
+                      child: child!,
+                    ),
+            ),
+            child: buildMenuPanel(
+              menuItems: menuItems,
+              theme: theme,
+              width: panelWidth,
+              trailingInset: scrollGutter,
+            ),
           ),
         ),
       ],

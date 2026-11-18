@@ -32,6 +32,7 @@ abstract final class ConversationCodec {
     'role': m.role,
     'content': m.content,
     'createdAt': m.createdAt?.toIso8601String(),
+    'finishedAt': m.finishedAt?.toIso8601String(),
     'toolName': m.toolName,
     'toolArguments': m.toolArguments,
     'toolDecision': m.toolDecision,
@@ -87,51 +88,66 @@ abstract final class ConversationCodec {
 
   static AiRequestRetry retry(Map r) =>
       AiRequestRetry(r['attempt'] as int, r['error']?.toString() ?? '');
-  static AiMessage read(Map m) => AiMessage(
-    id: m['id'] as String,
-    role: m['role'] as String,
-    content: m['content'] as String,
-    createdAt: DateTime.tryParse(m['createdAt'] as String? ?? ''),
-    toolName: m['toolName'] as String?,
-    toolArguments: m['toolArguments'] == null
-        ? null
-        : Map<String, Object?>.from(m['toolArguments'] as Map),
-    toolDecision: m['toolDecision'] as bool?,
-    elapsed: m['elapsed'] == null
-        ? null
-        : Duration(microseconds: m['elapsed'] as int),
-    model: m['model'] as String?,
-    reasoningEffort: value(AiReasoningEffort.values, m['effort']),
-    protocol: value(AiApiProtocol.values, m['protocol']),
-    status: status(m['status']),
-    requestError: m['error'],
-    processingSteps: [
-      for (final s in m['steps'] as List? ?? []) readStep(s as Map),
-    ],
-    retries: [for (final r in m['retries'] as List? ?? []) retry(r as Map)],
-    attachments: [
-      for (final a in m['attachments'] as List? ?? [])
-        AiImageAttachment(
-          name: a['name'] as String,
-          bytes: base64Decode(a['bytes'] as String),
-          mimeType: a['mime'] as String,
-        ),
-    ],
-    processEvents: [
-      for (final e in m['events'] as List? ?? [])
-        AiProcessEvent(
-          type: value(AiProcessEventType.values, e['type'])!,
-          elapsed: Duration(microseconds: e['elapsed'] as int),
-          status: value(AiResponseStatus.values, e['status']),
-          toolName: e['toolName'] as String?,
-          operationId: e['operationId'] as String?,
-          toolArguments: e['arguments'] == null
-              ? null
-              : Map<String, Object?>.from(e['arguments'] as Map),
-          text: e['text'] as String? ?? '',
-          action: e['action'] == null ? null : readStep(e['action'] as Map),
-          retry: e['retry'] == null ? null : retry(e['retry'] as Map),
-        ),
-    ],
-  );
+  static AiMessage read(Map m) {
+    if (!m.keys.toSet().containsAll({
+          'createdAt',
+          'finishedAt',
+          'steps',
+          'retries',
+          'attachments',
+          'events',
+        }) ||
+        m['steps'] is! List ||
+        m['retries'] is! List ||
+        m['attachments'] is! List ||
+        m['events'] is! List) {
+      throw const FormatException('Invalid current conversation message');
+    }
+    return AiMessage(
+      id: m['id'] as String,
+      role: m['role'] as String,
+      content: m['content'] as String,
+      createdAt: DateTime.tryParse(m['createdAt'] as String? ?? ''),
+      finishedAt: DateTime.tryParse(m['finishedAt'] as String? ?? ''),
+      toolName: m['toolName'] as String?,
+      toolArguments: m['toolArguments'] == null
+          ? null
+          : Map<String, Object?>.from(m['toolArguments'] as Map),
+      toolDecision: m['toolDecision'] as bool?,
+      elapsed: m['elapsed'] == null
+          ? null
+          : Duration(microseconds: m['elapsed'] as int),
+      model: m['model'] as String?,
+      reasoningEffort: value(AiReasoningEffort.values, m['effort']),
+      protocol: value(AiApiProtocol.values, m['protocol']),
+      status: status(m['status']),
+      requestError: m['error'],
+      processingSteps: [for (final s in m['steps'] as List) readStep(s as Map)],
+      retries: [for (final r in m['retries'] as List) retry(r as Map)],
+      attachments: [
+        for (final a in m['attachments'] as List)
+          AiImageAttachment(
+            name: a['name'] as String,
+            bytes: base64Decode(a['bytes'] as String),
+            mimeType: a['mime'] as String,
+          ),
+      ],
+      processEvents: [
+        for (final e in m['events'] as List)
+          AiProcessEvent(
+            type: value(AiProcessEventType.values, e['type'])!,
+            elapsed: Duration(microseconds: e['elapsed'] as int),
+            status: value(AiResponseStatus.values, e['status']),
+            toolName: e['toolName'] as String?,
+            operationId: e['operationId'] as String?,
+            toolArguments: e['arguments'] == null
+                ? null
+                : Map<String, Object?>.from(e['arguments'] as Map),
+            text: e['text'] as String? ?? '',
+            action: e['action'] == null ? null : readStep(e['action'] as Map),
+            retry: e['retry'] == null ? null : retry(e['retry'] as Map),
+          ),
+      ],
+    );
+  }
 }

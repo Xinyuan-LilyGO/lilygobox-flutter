@@ -133,6 +133,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   Offset? _lastTapPosition;
   Offset? _nodePointerDown;
   bool _nodePrimaryDown = false;
+  bool _nodeDragged = false;
   String? _openId;
   final List<String?> _conversationHistory = [];
   int _lastNavigationRevision = 0;
@@ -368,6 +369,9 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     _clearEdits(_undoEdits);
     _clearEdits(_redoEdits);
     if (_dragEdit case final frame?) _releaseFrame(frame);
+    if (_navigationWorkspace?.layoutCanvasGroup == _layoutCanvasGroup) {
+      _navigationWorkspace?.layoutCanvasGroup = null;
+    }
     _navigationWorkspace?.activeConversationId = null;
     _selectionRect.dispose();
     _connectionPointer.dispose();
@@ -518,14 +522,17 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       return;
     }
     if (!_nodePrimaryDown ||
+        _nodeDragged ||
         _nodePointerDown == null ||
         (event.position - _nodePointerDown!).distance > 8) {
+      _lastTapId = null;
       return;
     }
     if (!_extendSelection &&
         _lastTapId == session.id &&
         _lastTapTime != null &&
-        event.timeStamp - _lastTapTime! < const Duration(milliseconds: 300) &&
+        event.timeStamp - _lastTapTime! >= Duration.zero &&
+        event.timeStamp - _lastTapTime! <= const Duration(milliseconds: 500) &&
         _lastTapPosition != null &&
         (event.position - _lastTapPosition!).distance < 18) {
       _lastTapId = null;
@@ -543,6 +550,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   ) {
     _lastTapId = null;
     if (_canvasPanPointer != null) return;
+    _nodeDragged = true;
     _canvasFocus.requestFocus();
     _viewMotion.stop();
     if (!_selectedIds.contains(session.id)) {
@@ -560,6 +568,28 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     };
     _dragDelta = Offset.zero;
     _dragEdit = _captureEdit(workspaces);
+  }
+
+  void _updateNodeDrag(
+    AiWorkspaceProvider workspaces,
+    AiAgentWorkspace session,
+    DragUpdateDetails details,
+  ) {
+    if (_dragStarts.isNotEmpty) {
+      _dragNodes(details);
+      return;
+    }
+    final down = _nodePointerDown;
+    if (!_nodePrimaryDown ||
+        down == null ||
+        (details.globalPosition - down).distance <= 8) {
+      return;
+    }
+    final delta = _scenePoint(details.globalPosition) - _scenePoint(down);
+    _startNodeDrag(workspaces, session);
+    _dragNodes(
+      DragUpdateDetails(delta: delta, globalPosition: details.globalPosition),
+    );
   }
 
   void _dragNodes(DragUpdateDetails details) {
@@ -610,6 +640,58 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       });
       _fit(animate: true);
     });
+  }
+
+  bool _layoutCanvasGroup(Set<String> ids) {
+    final workspaces = _navigationWorkspace;
+    if (!mounted ||
+        workspaces == null ||
+        _restoringHistory ||
+        _dragEdit != null) {
+      return false;
+    }
+    final sessions = workspaces.sessions.toList();
+    final group = sessions
+        .where((session) => ids.contains(session.id))
+        .toList();
+    if (group.isEmpty) return false;
+    final sizes = {
+      for (final session in sessions) session.id: _measureNode(session),
+    };
+    final current = {..._layout(sessions), ..._positions};
+    final next = layoutTaskTopology(
+      sessions: group,
+      nodeSizes: sizes,
+      connections: workspaces.connections,
+    );
+    final leader = group.firstWhere((session) => session.parentId == null);
+    var offset = (current[leader.id] ?? next[leader.id]!) - next[leader.id]!;
+    final bounds = next.entries
+        .map((entry) => entry.value & sizes[entry.key]!)
+        .reduce((first, second) => first.expandToInclude(second));
+    final obstacles = [
+      for (final session in sessions)
+        if (!ids.contains(session.id))
+          (current[session.id]! & sizes[session.id]!).inflate(40),
+    ];
+    while (true) {
+      final overlaps = obstacles.where(bounds.shift(offset).overlaps);
+      if (overlaps.isEmpty) break;
+      final right = overlaps.map((rect) => rect.right).reduce(math.max);
+      offset = Offset(right - bounds.left + 1, offset.dy);
+    }
+    _edit(workspaces, () {
+      setState(() {
+        _movedNodes.addAll(current);
+        for (final entry in next.entries) {
+          _movedNodes[entry.key] = entry.value + offset;
+        }
+        _positions = {
+          for (final session in sessions) session.id: _movedNodes[session.id]!,
+        };
+      });
+    });
+    return true;
   }
 
   TaskTopologyConnection? _route(AiTaskConnection connection) =>
@@ -676,48 +758,9 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     }
     _disconnectingTasks = true;
     try {
-      while (mounted) {
-        final changes = workspaces.disconnectionRoleChanges(targets);
-        if (changes.isEmpty) {
-          _movedNodes.addAll(_positions);
-          _edit(workspaces, () => workspaces.disconnectConnections(targets));
-          setState(() => _selectedEdges.clear());
-          return;
-        }
-        final snapshot = workspaces.connections
-            .map((edge) => (edge.id, edge.fromId, edge.toId))
-            .toList();
-        final l10n = context.l10n;
-        final confirmed = await showAppConfirmation(
-          context: context,
-          theme: context.read<ThemeProvider>().themeData,
-          actionKey: 'topology-disconnect',
-          title: l10n.aiTopologyDisconnectTitle,
-          description: [
-            l10n.aiTopologyDisconnectHelp,
-            for (final entry in changes.entries)
-              l10n.aiTopologyRoleChangeNotice(
-                workspaces.find(entry.key)!.title,
-                entry.value == AiWorkspaceKind.primary
-                    ? l10n.aiTopologyPrimary
-                    : l10n.aiTopologyPermanent,
-              ),
-          ].join('\n\n'),
-          confirmLabel: l10n.aiTopologyDisconnect,
-        );
-        if (!confirmed || !mounted) return;
-        final latest = workspaces.connections
-            .map((edge) => (edge.id, edge.fromId, edge.toId))
-            .toList();
-        if (!listEquals(snapshot, latest) ||
-            !mapEquals(changes, workspaces.disconnectionRoleChanges(targets))) {
-          continue;
-        }
-        _movedNodes.addAll(_positions);
-        _edit(workspaces, () => workspaces.disconnectConnections(targets));
-        setState(() => _selectedEdges.clear());
-        return;
-      }
+      _movedNodes.addAll(_positions);
+      _edit(workspaces, () => workspaces.disconnectConnections(targets));
+      setState(() => _selectedEdges.clear());
     } catch (_) {
       if (mounted) {
         showAppNotice(
@@ -773,6 +816,17 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     });
   }
 
+  void _selectAll(AiWorkspaceProvider workspaces) {
+    setState(() {
+      _selectedEdges
+        ..clear()
+        ..addAll(workspaces.connections.map((connection) => connection.id));
+      _selectedIds
+        ..clear()
+        ..addAll(workspaces.sessions.map((item) => item.id));
+    });
+  }
+
   KeyEventResult _canvasKey(AiWorkspaceProvider workspaces, KeyEvent event) {
     _updateShortcutHints();
     final shortcut =
@@ -806,14 +860,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     if ((HardwareKeyboard.instance.isControlPressed ||
             HardwareKeyboard.instance.isMetaPressed) &&
         event.logicalKey == LogicalKeyboardKey.keyA) {
-      setState(() {
-        _selectedEdges
-          ..clear()
-          ..addAll(workspaces.connections.map((connection) => connection.id));
-        _selectedIds
-          ..clear()
-          ..addAll(workspaces.sessions.map((item) => item.id));
-      });
+      _selectAll(workspaces);
       return KeyEventResult.handled;
     }
     if (HardwareKeyboard.instance.isControlPressed ||
@@ -966,34 +1013,8 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     if (_connectingTasks) return;
     _connectingTasks = true;
     try {
-      while (mounted) {
-        final plan = workspaces.connectionMergeFor(fromId, toId);
-        if (plan != null) {
-          final task = workspaces.find(plan.rootId)!;
-          final parent = workspaces.find(plan.parentId)!;
-          final taskLabel = '${task.title} (${task.id})';
-          final parentLabel = '${parent.title} (${parent.id})';
-          final confirmed = await showAppConfirmation(
-            context: context,
-            theme: context.read<ThemeProvider>().themeData,
-            actionKey: 'topology-merge',
-            title: context.l10n.aiTopologyMergeTitle,
-            description: plan.changesRole
-                ? context.l10n.aiTopologyMergeRootHelp(taskLabel, parentLabel)
-                : context.l10n.aiTopologyMergeChildHelp(taskLabel, parentLabel),
-            confirmLabel: context.l10n.aiTopologyMergeConfirm,
-          );
-          if (!confirmed || !mounted) return;
-          final latest = workspaces.connectionMergeFor(fromId, toId);
-          if (latest == null || !plan.matches(latest)) continue;
-        }
-        _movedNodes.addAll(_positions);
-        _edit(
-          workspaces,
-          () => workspaces.connectTasks(fromId, toId, confirmedMerge: plan),
-        );
-        return;
-      }
+      _movedNodes.addAll(_positions);
+      _edit(workspaces, () => workspaces.connectCanvasTasks(fromId, toId));
     } catch (_) {
       if (mounted) {
         showAppNotice(
@@ -1125,12 +1146,12 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     if (session != null) _open(workspaces, session);
   }
 
-  Future<void> _delete(
+  void _delete(
     AiWorkspaceProvider workspaces, {
     AiAgentWorkspace? target,
     Set<String>? targets,
     Set<String>? edgeTargets,
-  }) async {
+  }) {
     final ids =
         targets ??
         (target == null
@@ -1142,85 +1163,34 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     final edges = edgeTargets ?? Set<String>.of(_selectedEdges);
     final selected = workspaces.find(ids.first);
     if (selected == null) return;
-    final l10n = context.l10n;
-    final replacements = workspaces.rootReplacementsForDeletion(ids);
-    final promotions = workspaces.promotedRootsForDeletion(ids);
-    final roleChanges = workspaces.disconnectionRoleChanges(
-      edges,
-      deletingTaskIds: ids,
-    );
-    final description = ids.length > 1
-        ? l10n.aiTopologyDeleteSelectedHelp
-        : selected.kind == AiWorkspaceKind.primary && replacements.isNotEmpty
-        ? l10n.aiTopologyDeleteRootHelp
-        : l10n.aiTopologyDeleteHelp;
-    final confirmed = await showAppConfirmation(
-      context: context,
-      theme: context.read<ThemeProvider>().themeData,
-      actionKey: 'topology-delete',
-      destructive: true,
-      title: ids.length > 1
-          ? l10n.aiTopologyDeleteSelectedTitle
-          : l10n.aiTopologyDeleteTitle,
-      description: [
-        description,
-        if (edges.isNotEmpty) l10n.aiTopologyDisconnectHelp,
-        for (final promoted in promotions.values)
-          l10n.aiTopologyRootPromotionNotice(promoted.title),
-        for (final entry in roleChanges.entries)
-          if (!promotions.containsKey(entry.key))
-            l10n.aiTopologyRoleChangeNotice(
-              workspaces.find(entry.key)!.title,
-              entry.value == AiWorkspaceKind.primary
-                  ? l10n.aiTopologyPrimary
-                  : l10n.aiTopologyPermanent,
-            ),
-      ].join(' '),
-      confirmLabel: l10n.aiTopologyDelete,
-    );
-    if (confirmed && mounted) {
-      final latest = workspaces.rootReplacementsForDeletion(ids);
-      final latestPromotions = workspaces.promotedRootsForDeletion(ids);
-      if (!mapEquals(
-            replacements.map((id, task) => MapEntry(id, task.id)),
-            latest.map((id, task) => MapEntry(id, task.id)),
-          ) ||
-          !setEquals(promotions.keys.toSet(), latestPromotions.keys.toSet()) ||
-          !mapEquals(
-            roleChanges,
-            workspaces.disconnectionRoleChanges(edges, deletingTaskIds: ids),
-          )) {
-        await _delete(workspaces, targets: ids, edgeTargets: edges);
-        return;
-      }
-      _edit(workspaces, () {
-        workspaces.removeMany(ids);
-        workspaces.disconnectConnections(edges);
-      });
-      setState(() {
-        _selectedIds.removeAll(ids);
-        _selectedEdges.clear();
-      });
-    }
+    _edit(workspaces, () {
+      workspaces.removeMany(ids);
+      workspaces.disconnectConnections(edges);
+    });
+    setState(() {
+      _selectedIds.removeAll(ids);
+      _selectedEdges.clear();
+    });
   }
 
   Future<void> _makeRoot(
     AiWorkspaceProvider workspaces,
     AiAgentWorkspace session,
   ) async {
-    final confirmed = await showAppConfirmation(
-      context: context,
-      theme: context.read<ThemeProvider>().themeData,
-      actionKey: 'topology-make-root',
-      title: context.l10n.aiTopologyMakeRootTitle,
-      description: context.l10n.aiTopologyMakeRootHelp(session.title),
-      confirmLabel: context.l10n.aiTopologyMakeRoot,
-    );
-    if (!confirmed || !mounted || workspaces.find(session.id) != session) {
+    if (!mounted || workspaces.find(session.id) != session) {
       return;
     }
     _movedNodes.addAll(_positions);
     _edit(workspaces, () => workspaces.promoteToRoot(session.id));
+  }
+
+  void _makeWorkflowMain(
+    AiWorkspaceProvider workspaces,
+    AiAgentWorkspace session,
+  ) {
+    if (!mounted || !workspaces.canMakeWorkflowMain(session.id)) return;
+    _movedNodes.addAll(_positions);
+    _edit(workspaces, () => workspaces.makeWorkflowMain(session.id));
   }
 
   List<AiAgentWorkspace> _parentCandidates(
@@ -1284,7 +1254,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
                         DropdownMenuItem(
                           value: candidate.id,
                           child: Text(
-                            candidate.title,
+                            '${candidate.id} · ${candidate.title}',
                             key: ValueKey(
                               'topology-parent-option-${candidate.id}',
                             ),
@@ -1473,6 +1443,9 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     Widget child,
   ) {
     final l10n = context.l10n;
+    final canMakeMain =
+        session.kind != AiWorkspaceKind.primary &&
+        workspaces.canMakeWorkflowMain(session.id);
     final menuLabel = TextPainter(
       text: TextSpan(
         text: l10n.agentStorageManageContext,
@@ -1481,7 +1454,16 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
     )..layout();
-    final menuWidth = math.max(190.0, menuLabel.width + 48);
+    var menuWidth = math.max(190.0, menuLabel.width + 48);
+    if (canMakeMain) {
+      menuLabel
+        ..text = TextSpan(
+          text: l10n.aiTopologyMakeWorkflowMain,
+          style: const TextStyle(fontSize: 13),
+        )
+        ..layout();
+      menuWidth = math.max(menuWidth, menuLabel.width + 48);
+    }
     menuLabel.dispose();
     final targetIds = _selectedIds.contains(session.id)
         ? _selectedIds
@@ -1679,6 +1661,16 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
               _create(workspaces, parent: session);
             },
           ),
+        if (!multipleTargets && canMakeMain)
+          RightClickMenuItem(
+            key: const ValueKey('topology-context-make-workflow-main'),
+            label: l10n.aiTopologyMakeWorkflowMain,
+            icon: Symbols.hub_rounded,
+            onTap: () {
+              closeMenu();
+              _makeWorkflowMain(workspaces, session);
+            },
+          ),
         if (!multipleTargets && session.kind != AiWorkspaceKind.primary)
           RightClickMenuItem(
             key: const ValueKey('topology-context-make-root'),
@@ -1689,8 +1681,8 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
               closeMenu();
               _makeRoot(workspaces, session);
             },
-          )
-        else if (!multipleTargets &&
+          ),
+        if (!multipleTargets &&
             _parentCandidates(workspaces, session).isNotEmpty)
           RightClickMenuItem(
             key: const ValueKey('topology-context-make-child'),
@@ -1963,7 +1955,11 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       _clearEdits(_redoEdits);
     }
     if (!identical(_navigationWorkspace, workspaces)) {
+      if (_navigationWorkspace?.layoutCanvasGroup == _layoutCanvasGroup) {
+        _navigationWorkspace?.layoutCanvasGroup = null;
+      }
       _navigationWorkspace = workspaces;
+      workspaces.layoutCanvasGroup = _layoutCanvasGroup;
       _lastNavigationRevision = workspaces.navigationRequest?.revision ?? 0;
     }
     final active =
@@ -2184,8 +2180,16 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
             l10n.agentStorageImportAgents,
             Symbols.file_open_rounded,
             () => _importAtPointer(workspaces, theme),
-            divider: true,
+            divider: sessions.isEmpty,
           ),
+          if (sessions.isNotEmpty)
+            action(
+              'topology-canvas-select-all',
+              l10n.cardSelectAll,
+              Symbols.select_all,
+              () => _selectAll(workspaces),
+              divider: true,
+            ),
           action(
             'topology-canvas-zoom-out',
             l10n.aiTopologyZoomOut,
@@ -2382,7 +2386,13 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
             child: Listener(
               onPointerDown: (event) {
                 _nodePointerDown = event.position;
+                _nodeDragged = false;
                 _nodePrimaryDown = event.buttons & kPrimaryMouseButton != 0;
+              },
+              onPointerCancel: (_) {
+                _nodePrimaryDown = false;
+                _nodePointerDown = null;
+                _lastTapId = null;
               },
               onPointerUp: (event) =>
                   _nodePointerUp(workspaces, session, event),
@@ -2397,8 +2407,13 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
                   }
                 },
                 onPanDown: (_) => _viewMotion.stop(),
-                onPanStart: (_) => _startNodeDrag(workspaces, session),
-                onPanUpdate: _dragNodes,
+                onPanStart: (details) => _updateNodeDrag(
+                  workspaces,
+                  session,
+                  DragUpdateDetails(globalPosition: details.globalPosition),
+                ),
+                onPanUpdate: (details) =>
+                    _updateNodeDrag(workspaces, session, details),
                 onPanEnd: (_) {
                   final before = _dragEdit;
                   _dragEdit = null;
@@ -3273,9 +3288,7 @@ class _TaskNode extends StatelessWidget {
                   Row(
                     children: [
                       Icon(
-                        session.kind == AiWorkspaceKind.primary
-                            ? Symbols.hub_rounded
-                            : Symbols.account_tree_rounded,
+                        _kindIcon(session.kind),
                         fill: 1,
                         size: _taskKindIconSize,
                         color: theme.textColorTertiary,
@@ -3393,6 +3406,11 @@ class _TaskNode extends StatelessWidget {
 String _kind(AppLocalizations l10n, AiWorkspaceKind kind) => switch (kind) {
   AiWorkspaceKind.primary => l10n.aiTopologyPrimary,
   AiWorkspaceKind.permanent => l10n.aiTopologyPermanent,
+};
+
+IconData _kindIcon(AiWorkspaceKind kind) => switch (kind) {
+  AiWorkspaceKind.primary => Symbols.hub_rounded,
+  AiWorkspaceKind.permanent => Symbols.account_tree_rounded,
 };
 
 ({String label, IconData icon, double fill}) _taskStatus(
@@ -3658,11 +3676,7 @@ class _TopologyConversation extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          switch (session.kind) {
-                            AiWorkspaceKind.primary => Symbols.hub_rounded,
-                            AiWorkspaceKind.permanent =>
-                              Symbols.account_tree_rounded,
-                          },
+                          _kindIcon(session.kind),
                           fill: 1,
                           size: _taskKindIconSize,
                           color: theme.textColorTertiary,
@@ -3826,7 +3840,6 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
               contextBudgetTokens: budget,
               contextCompactionPercent: percent,
               parentId: widget.parent!.id,
-              kind: AiWorkspaceKind.permanent,
             );
       if (mounted) {
         Navigator.pop(context, session.id);

@@ -274,6 +274,12 @@ void main() {
     expect(find.byType(SettingSelect<AiImageInput>), findsNothing);
     await tester.tap(find.byKey(const ValueKey('ai-discover-models')));
     await tester.pumpAndSettle();
+    expect(
+      find.text('No new models. Your existing list is unchanged.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('ai-apply-model-discovery')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('ai-confirm-service')));
     await tester.pumpAndSettle();
     final service = scope.provider.services.single;
@@ -285,6 +291,8 @@ void main() {
     await tester.tap(find.text('Edit service'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('ai-discover-models')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('ai-apply-model-discovery')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('ai-confirm-service')));
     await tester.pumpAndSettle();
@@ -473,6 +481,8 @@ void main() {
       expect(field('address'), findsNothing);
       await tester.enterText(field('key'), 'test-key');
       await tester.tap(find.byKey(const ValueKey('ai-discover-models')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ai-apply-model-discovery')));
       await tester.pumpAndSettle();
       expect(
         tester.widget<TextField>(input('models')).controller!.text,
@@ -762,48 +772,50 @@ void main() {
     },
   );
 
-  testWidgets('fetching models reveals progress without manual scrolling', (
-    tester,
-  ) async {
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-    await open(tester);
-    await tester.enterText(field('address'), 'https://example.test/v1');
-    await tester.enterText(field('key'), 'test-key');
-    final fetch = find.byKey(const ValueKey('ai-discover-models'));
-    await tester.ensureVisible(fetch);
-    modelRequestGate = Completer<void>();
-    await tester.tap(fetch);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 16));
-    await tester.pump(const Duration(milliseconds: 250));
-    final progress = find.byType(LinearProgressIndicator);
-    expect(progress, findsOneWidget);
-    final viewport = find
-        .ancestor(
-          of: field('models'),
-          matching: find.byType(SingleChildScrollView),
-        )
-        .first;
-    expect(
-      tester.getRect(viewport).contains(tester.getCenter(progress)),
-      isTrue,
-    );
-    modelRequestGate!.complete();
-    await tester.pumpAndSettle();
-    expect(progress, findsNothing);
-    expect(
-      tester.widget<TextField>(input('models')).controller!.text,
-      'model-a\nmodel-b',
-    );
-    expect(
-      tester.getBottomLeft(field('models')).dy,
-      lessThanOrEqualTo(tester.getBottomLeft(viewport).dy + 1),
-    );
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'fetching models previews additions and preserves manual entries',
+    (tester) async {
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      await open(tester);
+      await tester.enterText(field('address'), 'https://example.test/v1');
+      await tester.enterText(field('key'), 'test-key');
+      await tester.enterText(field('models'), 'manual-model\nmodel-a');
+      final fetch = find.byKey(const ValueKey('ai-discover-models'));
+      await tester.ensureVisible(fetch);
+      modelRequestGate = Completer<void>();
+      await tester.tap(fetch);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 250));
+      final progress = find.byType(LinearProgressIndicator);
+      expect(progress, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('ai-model-discovery-dialog')),
+        findsOneWidget,
+      );
+      modelRequestGate!.complete();
+      await tester.pumpAndSettle();
+      expect(progress, findsNothing);
+      expect(
+        find.text('Found 2 models: 1 new, 1 already listed.'),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<TextField>(input('models')).controller!.text,
+        'manual-model\nmodel-a',
+      );
+      await tester.tap(find.byKey(const ValueKey('ai-apply-model-discovery')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(input('models')).controller!.text,
+        'manual-model\nmodel-a\nmodel-b',
+      );
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'validation keeps dialog open; fetching models never adds a service',
@@ -829,6 +841,8 @@ void main() {
         find.byKey(const ValueKey('ai-discover-models')),
       );
       await tester.tap(find.byKey(const ValueKey('ai-discover-models')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ai-apply-model-discovery')));
       await tester.pumpAndSettle();
       expect(
         tester.widget<TextField>(input('models')).controller!.text,

@@ -25,6 +25,7 @@ import '../../domain/models.dart';
 import '../../domain/process_timeline.dart';
 import '../../state/agent_workspace_provider.dart';
 import '../../state/provider.dart';
+import '../widgets/agent_message_source.dart';
 import '../widgets/chat_bottom_fade.dart';
 import '../widgets/chat_composer.dart';
 import '../widgets/chat_message_paint_region.dart';
@@ -34,7 +35,6 @@ import '../widgets/message_content.dart';
 import '../widgets/process_details_scroll_view.dart';
 import '../widgets/process_event_view.dart';
 import '../widgets/reasoning_effort_label.dart';
-import '../widgets/task_navigation_scope.dart';
 
 class AssistantPage extends StatefulWidget {
   const AssistantPage({
@@ -594,13 +594,6 @@ class _MessageViewState extends State<_MessageView> {
   Widget build(BuildContext context) {
     final message = widget.message;
     final isUser = message.role == 'user';
-    final sourceTitle = message.toolName == 'agent_message'
-        ? (message.toolArguments?['source_agent_title'] as String? ??
-              message.toolArguments?['source_agent_id'] as String?)
-        : null;
-    final sourceId = message.toolName == 'agent_message'
-        ? (message.toolArguments?['source_agent_id'] as String?)
-        : null;
     final timeline = buildAiProcessTimeline(message.processEvents);
     final turnFinished = switch (message.status) {
       AiResponseStatus.completed ||
@@ -627,38 +620,12 @@ class _MessageViewState extends State<_MessageView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (sourceTitle != null) ...[
-                  InkWell(
-                    onTap:
-                        sourceId == null ||
-                            TaskNavigationScope.maybeOf(context) == null
-                        ? null
-                        : () =>
-                              TaskNavigationScope.maybeOf(context)!
-                                  .openTask(sourceId),
-                    borderRadius: BorderRadius.circular(4),
-                    child: Text(
-                      context.l10n.aiTopologyMessageFrom(sourceTitle),
-                      key: ValueKey('agent-message-source-${message.id}'),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: widget.theme.textColorTertiary,
-                        fontWeight: FontWeight.normal,
-                      ),
-                    ),
+                if (message.toolName == 'agent_message')
+                  AgentMessageSource(
+                    message: message,
+                    theme: widget.theme,
+                    linkToAgent: true,
                   ),
-                  if (sourceId != null && sourceId.isNotEmpty)
-                    Text(
-                      context.l10n.aiAgentIdValue(sourceId),
-                      key: ValueKey('agent-message-source-id-${message.id}'),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: widget.theme.textColorTertiary,
-                        fontWeight: FontWeight.normal,
-                      ),
-                    ),
-                  const SizedBox(height: 4),
-                ],
                 if (message.attachments.isNotEmpty)
                   Wrap(
                     spacing: 8,

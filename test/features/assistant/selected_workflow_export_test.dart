@@ -7,6 +7,7 @@ import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/features/assistant/data/agent_storage.dart';
+import 'package:lilygobox/features/assistant/data/conversation_codec.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
 import 'package:lilygobox/features/assistant/state/storage_controller.dart';
@@ -76,11 +77,13 @@ void main() {
     );
     session.assistant.restoreWorkspaceConversation({
       'messages': [
-        {
-          'id': 'message-${session.id}',
-          'role': 'user',
-          'content': 'Chat for $title',
-        },
+        ConversationCodec.message(
+          AiMessage(
+            id: 'message-${session.id}',
+            role: 'user',
+            content: 'Chat for $title',
+          ),
+        ),
       ],
       'history': [
         {'role': 'user', 'content': 'Context for $title'},
@@ -134,14 +137,12 @@ void main() {
       final peerRecord = records.singleWhere((r) => r['id'] == peer.id);
       expect(firstRecord['kind'], 'primary');
       expect(firstRecord['parentId'], isNull);
-      expect(peerRecord['kind'], 'primary');
-      expect(peerRecord['parentId'], isNull);
+      expect(peerRecord['kind'], 'permanent');
+      expect(peerRecord['parentId'], child.id);
       expect(childRecord['parentId'], first.id);
       expect(childRecord['kind'], 'permanent');
       expect((workflow['canvas'] as Map).keys.toSet(), selected);
-      expect(workflow['connections'], [
-        {'fromId': child.id, 'toId': peer.id},
-      ]);
+      expect(workflow['connections'], isEmpty);
       expect(
         (package['memories'] as List).map((m) => m['owner']).toSet(),
         selected,
@@ -156,11 +157,11 @@ void main() {
       expect(importedFirst.parentId, isNull);
       expect(importedFirst.kind, AiWorkspaceKind.primary);
       expect(importedChild.parentId, importedFirst.id);
-      expect(importedPeer.parentId, isNull);
+      expect(importedPeer.parentId, importedChild.id);
       expect(
         workspaces.connections.any(
           (e) =>
-              !e.isHierarchy &&
+              e.isHierarchy &&
               e.fromId == importedChild.id &&
               e.toId == importedPeer.id,
         ),

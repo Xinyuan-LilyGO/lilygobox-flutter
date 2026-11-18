@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -144,81 +145,78 @@ void main() {
         );
       }
 
-      test(
-        'busy streaming fork keeps snapshot partial and excludes later source changes',
-        () async {
-          final stream = StreamController<List<int>>();
-          addTearDown(stream.close);
-          await initialize(
-            MockClient.streaming((request, body) async {
-              requests.add(
-                jsonDecode(utf8.decode(await body.toBytes()))
-                    as Map<String, dynamic>,
-              );
-              if (requests.length == 1)
-                return http.StreamedResponse(stream.stream, 200);
-              return http.StreamedResponse(
-                Stream.value(utf8.encode(jsonEncode(answer(protocol, 'Done')))),
-                200,
-              );
-            }),
-          );
-          final source = scope.provider;
-          final running = source.sendMessage('Original prompt');
-          await waitUntil(() => requests.isNotEmpty);
-          stream.add(utf8.encode(textDelta(protocol, 'Snapshot partial')));
-          await waitUntil(
-            () => source.messages.last.content == 'Snapshot partial',
-          );
-          expect(source.busy, isTrue);
-          final snapshot = source.snapshotConversationFork();
-          stream.add(
-            utf8.encode(textDelta(protocol, ' plus later source output')),
-          );
-          if (protocol == AiApiProtocol.openAiResponses) {
-            stream.add(
-              utf8.encode(
-                'event: response.completed\ndata: ${jsonEncode({'type': 'response.completed', 'response': answer(protocol, 'Snapshot partial plus later source output')})}\n\n',
-              ),
+      test('busy streaming fork keeps snapshot partial and excludes later source changes', () async {
+        final stream = StreamController<List<int>>();
+        addTearDown(stream.close);
+        await initialize(
+          MockClient.streaming((request, body) async {
+            requests.add(
+              jsonDecode(utf8.decode(await body.toBytes()))
+                  as Map<String, dynamic>,
             );
-          } else {
-            stream.add(utf8.encode('data: [DONE]\n\n'));
-          }
-          await stream.close();
-          await running;
-          await source.sendMessage('Later source-only prompt');
-          final fork = source.forkForWorkspace();
-          addTearDown(fork.dispose);
-          final beforeRestore = requests.length;
-          fork.restoreConversationFork(snapshot);
-          expect(fork.busy, isFalse);
-          expect(fork.pendingApproval, isNull);
-          expect(fork.pendingUserInput, isNull);
-          expect(fork.messages.last.content, 'Snapshot partial');
-          expect(fork.messages.last.status, AiResponseStatus.stopped);
-          expect(requests, hasLength(beforeRestore));
-          await fork.sendMessage('Continue branch');
-          final history = contextOf(requests.last, protocol);
-          final assistants = history
-              .where((m) => m['role'] == 'assistant')
-              .toList();
-          expect(assistants, hasLength(1));
-          expect(assistants.single['content'], 'Snapshot partial');
-          expect(
-            jsonEncode(history),
-            isNot(contains('plus later source output')),
+            if (requests.length == 1)
+              return http.StreamedResponse(stream.stream, 200);
+            return http.StreamedResponse(
+              Stream.value(utf8.encode(jsonEncode(answer(protocol, 'Done')))),
+              200,
+            );
+          }),
+        );
+        final source = scope.provider;
+        final running = source.sendMessage('Original prompt');
+        await waitUntil(() => requests.isNotEmpty);
+        stream.add(utf8.encode(textDelta(protocol, 'Snapshot partial')));
+        await waitUntil(
+          () => source.messages.last.content == 'Snapshot partial',
+        );
+        expect(source.busy, isTrue);
+        final snapshot = source.snapshotConversationFork();
+        stream.add(
+          utf8.encode(textDelta(protocol, ' plus later source output')),
+        );
+        if (protocol == AiApiProtocol.openAiResponses) {
+          stream.add(
+            utf8.encode(
+              'event: response.completed\ndata: ${jsonEncode({'type': 'response.completed', 'response': answer(protocol, 'Snapshot partial plus later source output')})}\n\n',
+            ),
           );
-          expect(
-            jsonEncode(history),
-            isNot(contains('Later source-only prompt')),
-          );
-          expect(source.messages.last.content, 'Done');
-          expect(
-            source.messages.where((m) => m.content == 'Continue branch'),
-            isEmpty,
-          );
-        },
-      );
+        } else {
+          stream.add(utf8.encode('data: [DONE]\n\n'));
+        }
+        await stream.close();
+        await running;
+        await source.sendMessage('Later source-only prompt');
+        final fork = source.forkForWorkspace();
+        addTearDown(fork.dispose);
+        final beforeRestore = requests.length;
+        fork.restoreConversationFork(snapshot);
+        expect(fork.busy, isFalse);
+        expect(fork.pendingApproval, isNull);
+        expect(fork.pendingUserInput, isNull);
+        expect(fork.messages.last.content, 'Snapshot partial');
+        expect(fork.messages.last.status, AiResponseStatus.stopped);
+        expect(requests, hasLength(beforeRestore));
+        await fork.sendMessage('Continue branch');
+        final history = contextOf(requests.last, protocol);
+        final assistants = history
+            .where((m) => m['role'] == 'assistant')
+            .toList();
+        expect(assistants, hasLength(1));
+        expect(assistants.single['content'], 'Snapshot partial');
+        expect(
+          jsonEncode(history),
+          isNot(contains('plus later source output')),
+        );
+        expect(
+          jsonEncode(history),
+          isNot(contains('Later source-only prompt')),
+        );
+        expect(source.messages.last.content, 'Done');
+        expect(
+          source.messages.where((m) => m.content == 'Continue branch'),
+          isEmpty,
+        );
+      });
 
       test(
         'image bytes and model history are independent at both copy boundaries',
@@ -268,109 +266,103 @@ void main() {
         },
       );
 
-      test(
-        'completed tool details and Responses replay items survive without re-execution',
-        () async {
-          await initialize(
-            MockClient((request) async {
-              requests.add(jsonDecode(request.body) as Map<String, dynamic>);
-              final result = requests.length == 1
-                  ? toolAnswer(protocol, 'get_current_time', {})
-                  : answer(protocol, 'Clock checked');
-              return http.Response(jsonEncode(result), 200);
-            }),
-          );
-          await scope.provider.sendMessage('Check time');
-          final original = scope.provider.messages
-              .expand((m) => m.processingSteps)
-              .single;
-          final snapshot = scope.provider.snapshotConversationFork();
-          final fork = scope.provider.forkForWorkspace();
-          addTearDown(fork.dispose);
-          fork.restoreConversationFork(snapshot);
-          expect(requests, hasLength(2));
-          final copied = fork.messages.expand((m) => m.processingSteps).single;
-          expect(copied.name, original.name);
-          expect(copied.output, original.output);
-          expect(copied.succeeded, isTrue);
+      test('completed tool details and Responses replay items survive without re-execution', () async {
+        await initialize(
+          MockClient((request) async {
+            requests.add(jsonDecode(request.body) as Map<String, dynamic>);
+            final result = requests.length == 1
+                ? toolAnswer(protocol, 'get_current_time', {})
+                : answer(protocol, 'Clock checked');
+            return http.Response(jsonEncode(result), 200);
+          }),
+        );
+        await scope.provider.sendMessage('Check time');
+        final original = scope.provider.messages
+            .expand((m) => m.processingSteps)
+            .single;
+        final snapshot = scope.provider.snapshotConversationFork();
+        final fork = scope.provider.forkForWorkspace();
+        addTearDown(fork.dispose);
+        fork.restoreConversationFork(snapshot);
+        expect(requests, hasLength(2));
+        final copied = fork.messages.expand((m) => m.processingSteps).single;
+        expect(copied.name, original.name);
+        expect(copied.output, original.output);
+        expect(copied.succeeded, isTrue);
+        expect(
+          fork.messages
+              .expand((m) => m.processEvents)
+              .where((e) => e.action != null),
+          isNotEmpty,
+        );
+        await fork.sendMessage('Use earlier result');
+        final history = contextOf(requests.last, protocol);
+        if (protocol == AiApiProtocol.openAiResponses) {
           expect(
-            fork.messages
-                .expand((m) => m.processEvents)
-                .where((e) => e.action != null),
-            isNotEmpty,
+            history
+                .where((m) => m['type'] == 'reasoning')
+                .single['encrypted_content'],
+            'opaque-reasoning',
           );
-          await fork.sendMessage('Use earlier result');
-          final history = contextOf(requests.last, protocol);
-          if (protocol == AiApiProtocol.openAiResponses) {
-            expect(
-              history
-                  .where((m) => m['type'] == 'reasoning')
-                  .single['encrypted_content'],
-              'opaque-reasoning',
-            );
-            expect(
-              history
-                  .where((m) => m['type'] == 'function_call')
-                  .single['call_id'],
-              'call-snapshot',
-            );
-            expect(
-              history
-                  .where((m) => m['type'] == 'function_call_output')
-                  .single['output'],
-              original.output,
-            );
-          } else {
-            expect(
-              history.where((m) => m['role'] == 'tool').single['content'],
-              original.output,
-            );
-          }
-          expect(requests, hasLength(3));
-        },
-      );
+          expect(
+            history
+                .where((m) => m['type'] == 'function_call')
+                .single['call_id'],
+            'call-snapshot',
+          );
+          expect(
+            history
+                .where((m) => m['type'] == 'function_call_output')
+                .single['output'],
+            original.output,
+          );
+        } else {
+          expect(
+            history.where((m) => m['role'] == 'tool').single['content'],
+            original.output,
+          );
+        }
+        expect(requests, hasLength(3));
+      });
 
-      test(
-        'pending approval becomes cancelled history without a live approval in the fork',
-        () async {
-          await initialize(
-            MockClient((request) async {
-              requests.add(jsonDecode(request.body) as Map<String, dynamic>);
-              return http.Response(
-                jsonEncode(
-                  requests.length == 1
-                      ? toolAnswer(protocol, 'list_directory', {
-                          'path': 'D:/not-executed',
-                        })
-                      : answer(protocol, 'No operation'),
-                ),
-                200,
-              );
-            }),
-          );
-          final source = scope.provider;
-          final running = source.sendMessage('List directory');
-          await waitUntil(() => source.pendingApproval != null);
-          final snapshot = source.snapshotConversationFork();
-          final fork = source.forkForWorkspace();
-          addTearDown(fork.dispose);
-          fork.restoreConversationFork(snapshot);
-          expect(fork.pendingApproval, isNull);
-          expect(fork.busy, isFalse);
-          expect(requests, hasLength(1));
-          await fork.sendMessage('Continue safely');
-          final history = contextOf(requests.last, protocol);
-          final cancelled = protocol == AiApiProtocol.openAiResponses
-              ? history
-                    .where((m) => m['type'] == 'function_call_output')
-                    .single['output']
-              : history.where((m) => m['role'] == 'tool').single['content'];
-          expect(jsonDecode(cancelled as String)['cancelled'], isTrue);
-          expect(source.pendingApproval, isNotNull);
-          await source.resolveTool(source.pendingApproval!.id, approve: false);
-          await running;
-        },
-      );
+      test('pending approval becomes cancelled history without a live approval in the fork', () async {
+        await initialize(
+          MockClient((request) async {
+            requests.add(jsonDecode(request.body) as Map<String, dynamic>);
+            return http.Response(
+              jsonEncode(
+                requests.length == 1
+                    ? toolAnswer(protocol, 'list_directory', {
+                        'path': Directory.current.path,
+                      })
+                    : answer(protocol, 'No operation'),
+              ),
+              200,
+            );
+          }),
+        );
+        final source = scope.provider;
+        final running = source.sendMessage('List directory');
+        await waitUntil(() => source.pendingApproval != null);
+        final snapshot = source.snapshotConversationFork();
+        final fork = source.forkForWorkspace();
+        addTearDown(fork.dispose);
+        fork.restoreConversationFork(snapshot);
+        expect(fork.pendingApproval, isNull);
+        expect(fork.busy, isFalse);
+        expect(requests, hasLength(1));
+        await fork.sendMessage('Continue safely');
+        final history = contextOf(requests.last, protocol);
+        final cancelled = protocol == AiApiProtocol.openAiResponses
+            ? history
+                  .where((m) => m['type'] == 'function_call_output')
+                  .single['output']
+            : history.where((m) => m['role'] == 'tool').single['content'];
+        expect(jsonDecode(cancelled as String)['cancelled'], isTrue);
+        expect(source.pendingApproval, isNotNull);
+        await source.resolveTool(source.pendingApproval!.id, approve: false);
+        await running;
+      });
     });
   }
 }

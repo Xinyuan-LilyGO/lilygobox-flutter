@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,12 +14,15 @@ import 'package:lilygobox/core/theme/material_palette.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/widgets/action_button.dart';
 import 'package:lilygobox/core/widgets/app_scroll_behavior.dart';
+import 'package:lilygobox/core/widgets/desktop_card_selection.dart';
 import 'package:lilygobox/core/widgets/settings/select.dart';
+import 'package:lilygobox/core/widgets/title_bar_icon_button.dart';
 import 'package:lilygobox/features/assistant/data/agent_storage.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/storage_content.dart';
 import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
 import 'package:lilygobox/features/settings/presentation/widgets/content_layout.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
@@ -43,7 +47,7 @@ void main() {
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
-        final theme = ThemeProvider();
+        final theme = ThemeProvider()..setTheme(type);
         final language = LanguageProvider();
         final shell = AppShellProvider();
         final split = SplitViewProvider();
@@ -145,8 +149,11 @@ void main() {
         final palette = MaterialPalette.create(type);
         final boundary = GlobalKey();
         await tester.pumpWidget(
-          ChangeNotifierProvider.value(
-            value: workspaces,
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider.value(value: theme),
+              ChangeNotifierProvider.value(value: workspaces),
+            ],
             child: MaterialApp(
               locale: const Locale('zh'),
               supportedLocales: const [Locale('zh'), Locale('en')],
@@ -177,6 +184,25 @@ void main() {
         );
         await tick(tester);
         expect(tester.takeException(), isNull);
+        Future<void> openTextMenu(Finder text) async {
+          await tester.tapAt(
+            tester.getTopLeft(text) +
+                Offset(4, tester.getSize(text).height / 2),
+            buttons: kSecondaryMouseButton,
+          );
+          await tester.pumpAndSettle();
+        }
+
+        final dataPath = find.byWidgetPredicate(
+          (widget) =>
+              widget is SelectableText &&
+              widget.data == File('${directory.path}/data.sqlite').parent.path,
+        );
+        await tester.ensureVisible(dataPath);
+        await openTextMenu(dataPath);
+        expect(find.byIcon(Symbols.select_all), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
         expect(find.byType(SettingSelect<String>), findsNothing);
         // The overview combines chat bodies, attachments and context.
         expect(find.text('聊天记录与上下文'), findsNWidgets(2));
@@ -275,6 +301,10 @@ void main() {
         expect(find.text('还原'), findsOneWidget);
         final recycledCard = tester.widget<AnimatedContainer>(
           find.byKey(ValueKey('recycle-agent-card-$recycledId')),
+        );
+        expect(
+          tester.getRect(find.byWidget(recycledCard)).right,
+          closeTo(tester.getRect(find.byType(TextField)).right, .01),
         );
         expect(
           (recycledCard.decoration as BoxDecoration).color,
@@ -378,16 +408,164 @@ void main() {
         await tester.ensureVisible(longPreview);
         await tick(tester);
         expect(tester.widget<Text>(longPreview).maxLines, 2);
-        await tester.tap(
-          find.descendant(
-            of: find.ancestor(of: longPreview, matching: find.byType(ListTile)),
-            matching: find.byWidgetPredicate(
-              (widget) => widget is IconButton && widget.tooltip == '编辑',
-            ),
+        final memoryCard = find.byKey(
+          const ValueKey('storage-memory-card-long-example'),
+        );
+        final cardId = find.descendant(
+          of: memoryCard,
+          matching: find.text('记忆 ID：long-example'),
+        );
+        expect(
+          tester.getRect(cardId).bottom,
+          lessThan(tester.getRect(longPreview).top),
+        );
+        final idStyle = tester.widget<Text>(cardId).style!;
+        expect(
+          idStyle.fontSize,
+          lessThan(tester.widget<Text>(longPreview).style!.fontSize!),
+        );
+        expect(idStyle.color, palette.textColorTertiary);
+        expect(
+          tester.widget<Text>(longPreview).style!.color,
+          palette.textColorPrimary,
+        );
+        expect(
+          tester.getRect(memoryCard).right,
+          closeTo(tester.getRect(managerScroll).right - 24, .01),
+        );
+        final listViewport = tester.getRect(memoryList);
+        final memoryScrollbar = find
+            .ancestor(of: memoryCard, matching: find.byType(Scrollbar))
+            .first;
+        final scrollbarTheme = ScrollbarTheme.of(
+          tester.element(memoryScrollbar),
+        );
+        expect(
+          tester.getRect(memoryCard).right,
+          lessThan(
+            listViewport.right -
+                scrollbarTheme.crossAxisMargin! -
+                scrollbarTheme.thickness!.resolve({})!,
           ),
         );
+        String? copiedId;
+        final messenger = tester.binding.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(SystemChannels.platform, (
+          call,
+        ) async {
+          if (call.method == 'Clipboard.setData')
+            copiedId = (call.arguments as Map)['text'] as String;
+          return null;
+        });
+        addTearDown(
+          () =>
+              messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+        );
+        Future<void> copyFromMenu(Finder target) async {
+          await tester.ensureVisible(target);
+          await tester.pumpAndSettle();
+          await tester.tap(target, buttons: kSecondaryMouseButton);
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.byKey(const ValueKey('storage-memory-context-copy-id')),
+          );
+          await tester.pumpAndSettle();
+          expect(copiedId, 'long-example');
+          copiedId = null;
+        }
+
+        await copyFromMenu(cardId);
+        await tester.ensureVisible(longPreview);
+        await tester.pumpAndSettle();
+        final region = tester.widget<DesktopCardSelectionRegion>(
+          find.byType(DesktopCardSelectionRegion),
+        );
+        await tester.tap(longPreview, buttons: kSecondaryMouseButton);
+        await tester.pumpAndSettle();
+        expect(region.selection.selected, isEmpty);
+        await tester.tap(find.text('全选'));
+        await tester.pumpAndSettle();
+        expect(region.selection.selected, region.ids.toSet());
+        await tester.tap(longPreview, buttons: kSecondaryMouseButton);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('取消选定'));
+        await tester.pumpAndSettle();
+        expect(
+          region.selection.selected,
+          region.ids.toSet()..remove('long-example'),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        Finder buttonsOn(Finder card) => find.descendant(
+          of: card,
+          matching: find.byType(TitleBarIconButton),
+        );
+        final memoryActions = buttonsOn(memoryCard);
+        expect(memoryActions, findsNWidgets(2));
+        final mouse = await tester.createGesture(
+          kind: ui.PointerDeviceKind.mouse,
+        );
+        await mouse.addPointer(location: const Offset(2, 2));
+        for (final action in memoryActions.evaluate().map(
+          (element) => find.byWidget(element.widget),
+        )) {
+          final surface = tester.widget<TitleBarIconButton>(action);
+          expect(surface.backgroundColor, Colors.transparent);
+          expect(surface.surfaceColor, palette.secondary);
+          final hover = palette.interactionHoverColor(palette.secondary);
+          Color renderedColor() =>
+              (tester
+                          .widget<DecoratedBox>(
+                            find
+                                .descendant(
+                                  of: action,
+                                  matching: find.byType(DecoratedBox),
+                                )
+                                .first,
+                          )
+                          .decoration
+                      as BoxDecoration)
+                  .color!;
+          await mouse.moveTo(tester.getCenter(action));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 75));
+          final midHover = renderedColor();
+          expect(midHover.withValues(alpha: hover.a), hover);
+          expect(midHover.a, closeTo(hover.a / 2, .02));
+          await tester.pumpAndSettle();
+          expect(renderedColor(), hover);
+          expect(
+            (renderedColor().computeLuminance() -
+                    palette.secondary.computeLuminance())
+                .abs(),
+            greaterThan(.05),
+          );
+          await mouse.moveTo(const Offset(2, 2));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 75));
+          expect(renderedColor().withValues(alpha: hover.a), hover);
+          await tester.pumpAndSettle();
+          expect(renderedColor().a, 0);
+        }
+        await mouse.removePointer();
+        await tester.tap(memoryActions.first);
         await tick(tester);
         expect(find.byType(Dialog), findsNWidgets(2));
+        final memoryId = find.byKey(const ValueKey('storage-memory-editor-id'));
+        expect(
+          tester.getRect(memoryId).bottom,
+          lessThan(tester.getRect(find.byType(TextField).last).top),
+        );
+        await openTextMenu(memoryId);
+        expect(find.byIcon(Symbols.select_all), findsOneWidget);
+        expect(find.byIcon(Symbols.content_copy), findsNothing);
+        await tester.tap(find.text('全选'));
+        await tester.pumpAndSettle();
+        await openTextMenu(memoryId);
+        expect(find.byIcon(Symbols.content_copy), findsOneWidget);
+        await tester.tap(find.text('复制'));
+        await tester.pumpAndSettle();
+        expect(copiedId, 'long-example');
         expect(
           tester
               .widget<TextField>(find.byType(TextField).last)
@@ -404,6 +582,14 @@ void main() {
         await tick(tester);
         final searchField = find.byType(TextField).first;
         await tester.ensureVisible(searchField);
+        await tester.enterText(searchField, 'long-example');
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tick(tester);
+        expect(longPreview, findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('storage-memory-card-example')),
+          findsNothing,
+        );
         await tester.enterText(searchField, 'zzzxqv987654321');
         await tester.testTextInput.receiveAction(TextInputAction.done);
         await tick(tester);
@@ -481,12 +667,8 @@ void main() {
           });
         }
         await tester.tap(
-          find.descendant(
-            of: find.ancestor(of: memory, matching: find.byType(ListTile)),
-            matching: find.byWidgetPredicate(
-              (widget) => widget is IconButton && widget.tooltip == '编辑',
-            ),
-          ),
+          buttonsOn(find.ancestor(of: memory, matching: find.byType(ListTile)))
+              .first,
         );
         await tick(tester);
         expect(find.byType(Dialog), findsNWidgets(2));

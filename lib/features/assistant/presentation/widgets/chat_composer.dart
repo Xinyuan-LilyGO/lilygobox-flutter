@@ -28,6 +28,7 @@ import '../../../../core/widgets/popup_menu_transition.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../domain/models.dart';
 import '../../state/provider.dart';
+import 'agent_message_source.dart';
 import 'approval_panel.dart';
 import 'model_selector.dart';
 import 'permissions_button.dart';
@@ -633,6 +634,7 @@ class _QueuedMessageState extends State<_QueuedMessage> {
   Widget build(BuildContext context) {
     final message = widget.message;
     final assistant = widget.assistant;
+    final waitingToSteer = assistant.pendingTurnSteerId == message.id;
     final theme = widget.theme;
     final l10n = context.l10n;
     return Padding(
@@ -652,6 +654,8 @@ class _QueuedMessageState extends State<_QueuedMessage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (message.toolName == 'agent_message')
+                      AgentMessageSource(message: message, theme: theme),
                     if (message.attachments.isNotEmpty)
                       Wrap(
                         spacing: 5,
@@ -688,6 +692,17 @@ class _QueuedMessageState extends State<_QueuedMessage> {
                           fontSize: 13,
                         ),
                       ),
+                    if (waitingToSteer)
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          l10n.aiGuidanceAwaitingBoundary,
+                          style: TextStyle(
+                            color: theme.textColorSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -696,7 +711,7 @@ class _QueuedMessageState extends State<_QueuedMessage> {
                 l10n.aiSendPendingGuidance,
                 Symbols.arrow_upward_rounded,
                 assistant.canGuideNow
-                    ? () => unawaited(assistant.guidePendingMessage(message.id))
+                    ? () => unawaited(assistant.steerPendingMessage(message.id))
                     : null,
               ),
               _button(
@@ -709,7 +724,9 @@ class _QueuedMessageState extends State<_QueuedMessage> {
                 'remove',
                 l10n.aiRemoveGuidance,
                 Symbols.close_rounded,
-                () => assistant.removePendingGuidance(message.id),
+                assistant.canRemovePendingGuidance(message.id)
+                    ? () => assistant.removePendingGuidance(message.id)
+                    : null,
               ),
             ],
           ),

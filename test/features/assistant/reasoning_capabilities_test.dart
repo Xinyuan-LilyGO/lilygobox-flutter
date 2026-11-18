@@ -2,6 +2,73 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 
 void main() {
+  test('models default to the second slider position including off', () {
+    for (final model in [
+      'gpt-6-sol',
+      'gpt-6.1-sol',
+      'gpt-6.1-terra',
+      'gpt-5.6-sol',
+      'gpt-5.6-terra',
+      'gpt-6-astra',
+      'gpt-6-luna',
+      'gpt-5.6-luna',
+      'gpt-5.5',
+      'o1',
+      'o3',
+      'o3-mini',
+      'o4-mini',
+    ]) {
+      expect(
+        AiReasoningCapabilities.forModel(model).initialEffort,
+        AiReasoningEffort.medium,
+        reason: model,
+      );
+    }
+    for (final model in ['deepseek-flash', 'deepseek-v4-pro']) {
+      final capabilities = AiReasoningCapabilities.forModel(model);
+      expect(capabilities.initialEffort, AiReasoningEffort.low, reason: model);
+      expect(capabilities.levels, [
+        AiReasoningEffort.none,
+        AiReasoningEffort.low,
+        AiReasoningEffort.high,
+        AiReasoningEffort.max,
+      ]);
+    }
+    for (final model in [
+      'gpt-5',
+      'gpt-5-mini',
+      'gpt-5-nano',
+      'gpt-5.1',
+      'gpt-5.2',
+      'gpt-5.4',
+    ]) {
+      expect(
+        AiReasoningCapabilities.forModel(model).initialEffort,
+        AiReasoningEffort.low,
+        reason: model,
+      );
+    }
+  });
+
+  test('default handles empty and single slider position capabilities', () {
+    expect(const AiReasoningCapabilities([]).initialEffort, isNull);
+    expect(
+      const AiReasoningCapabilities([AiReasoningEffort.none]).initialEffort,
+      AiReasoningEffort.none,
+    );
+    expect(
+      const AiReasoningCapabilities([
+        AiReasoningEffort.none,
+        AiReasoningEffort.high,
+      ]).initialEffort,
+      AiReasoningEffort.high,
+    );
+    expect(
+      const AiReasoningCapabilities([AiReasoningEffort.low]).initialEffort,
+      AiReasoningEffort.low,
+    );
+  });
+
   for (final model in [
     'deepseek-flash',
     'deepseek-v4-pro',

@@ -353,6 +353,211 @@ void main() {
     );
   }
 
+  testWidgets('add child never falls back to an arbitrary active agent', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final root = (await tester.runAsync(
+      () => workspaces.createPrimary(title: 'Root', task: 'Coordinate'),
+    ))!;
+    await tester.runAsync(
+      () => workspaces.create(
+        title: 'Orphan',
+        task: 'Wait',
+        parentId: root.id,
+        kind: AiWorkspaceKind.permanent,
+        startImmediately: false,
+      ),
+    );
+    await tester.pumpWidget(app());
+    await tick(tester);
+    await tester.tap(find.byKey(ValueKey('topology-node-${root.id}')));
+    await tester.pumpAndSettle();
+    final button = find.byKey(const ValueKey('topology-new-child'));
+    expect(tester.widget<MenuItemSurface>(button).onPressed, isNotNull);
+    root.closed = true;
+    workspaces.rename(root.id, 'Closed root');
+    await tick(tester);
+    expect(tester.widget<MenuItemSurface>(button).onPressed, isNull);
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets('selected child can still receive another level of children', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final root = (await tester.runAsync(
+      () => workspaces.createPrimary(title: 'Root', task: 'Coordinate'),
+    ))!;
+    final child = (await tester.runAsync(
+      () => workspaces.create(
+        title: 'Child',
+        task: 'Delegate',
+        parentId: root.id,
+        startImmediately: false,
+      ),
+    ))!;
+    await tester.pumpWidget(app());
+    await tick(tester);
+    await tester.tap(find.byKey(ValueKey('topology-node-${child.id}')));
+    await tester.pumpAndSettle();
+    final button = find.byKey(const ValueKey('topology-new-child'));
+    expect(tester.widget<MenuItemSurface>(button).onPressed, isNotNull);
+    await tester.tap(button);
+    await tick(tester);
+    expect(
+      find.byKey(const ValueKey('topology-create-confirm')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+    Navigator.of(
+      tester.element(find.byKey(const ValueKey('topology-create-confirm'))),
+    ).pop();
+    await finish(tester);
+  });
+
+  testWidgets('main layout changes only its own workflow positions', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final leader = (await tester.runAsync(
+      () => workspaces.create(
+        title: 'Leader',
+        task: 'Coordinate',
+        startImmediately: false,
+      ),
+    ))!;
+    final child = (await tester.runAsync(
+      () => workspaces.create(
+        title: 'Child',
+        task: 'Work',
+        parentId: leader.id,
+        startImmediately: false,
+      ),
+    ))!;
+    final outside = (await tester.runAsync(
+      () => workspaces.create(
+        title: 'Outside',
+        task: 'Unrelated',
+        startImmediately: false,
+      ),
+    ))!;
+    workspaces.updateCanvasPositions({
+      leader.id: [180, 140],
+      child.id: [260, 180],
+      outside.id: [400, 700],
+    });
+    await tester.pumpWidget(app());
+    await tick(tester);
+    final outsideCard = find.byKey(ValueKey('topology-node-${outside.id}'));
+    final outsideBefore = tester.getTopLeft(outsideCard);
+    await expectLater(
+      child.assistant.workspaceToolHandler!('layout_workflow', {}),
+      throwsStateError,
+    );
+    final result = await leader.assistant.workspaceToolHandler!(
+      'layout_workflow',
+      {},
+    );
+    await tester.pumpAndSettle();
+    expect(result['applied'], isTrue);
+    expect(result['agent_ids'], unorderedEquals([leader.id, child.id]));
+    expect(workspaces.canvasPositions[child.id], isNot([260, 180]));
+    expect(workspaces.canvasPositions[outside.id], [400, 700]);
+    expect(tester.getTopLeft(outsideCard), outsideBefore);
+    expect(child.parentId, leader.id);
+    await finish(tester);
+  });
+
+  for (final interval in [100, 400, 650]) {
+    testWidgets('card double click tolerates desktop cadence $interval ms', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 850));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final root = (await tester.runAsync(
+        () => workspaces.createPrimary(title: 'Double click', task: 'Wait'),
+      ))!;
+      await tester.pumpWidget(app());
+      await tick(tester);
+      final node = find.byKey(ValueKey('topology-node-${root.id}'));
+      final position = tester.getCenter(node);
+      Future<void> click(
+        int pointer,
+        int milliseconds, {
+        Offset drift = Offset.zero,
+      }) async {
+        await tester.sendEventToBinding(
+          PointerDownEvent(
+            pointer: pointer,
+            position: position,
+            timeStamp: Duration(milliseconds: milliseconds),
+            kind: PointerDeviceKind.mouse,
+            buttons: kPrimaryMouseButton,
+          ),
+        );
+        if (drift != Offset.zero) {
+          await tester.sendEventToBinding(
+            PointerMoveEvent(
+              pointer: pointer,
+              position: position + drift,
+              delta: drift,
+              timeStamp: Duration(milliseconds: milliseconds + 10),
+              kind: PointerDeviceKind.mouse,
+              buttons: kPrimaryMouseButton,
+            ),
+          );
+        }
+        await tester.sendEventToBinding(
+          PointerUpEvent(
+            pointer: pointer,
+            position: position + drift,
+            timeStamp: Duration(milliseconds: milliseconds + 20),
+            kind: PointerDeviceKind.mouse,
+          ),
+        );
+        await tester.pump();
+      }
+
+      await click(1, 1000);
+      await click(2, 1000 + interval, drift: const Offset(4, 0));
+      await tick(tester);
+      expect(
+        find.byKey(const ValueKey('ai-message-input')),
+        interval <= 500 ? findsOneWidget : findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    });
+  }
+
+  testWidgets('toolbar deletion skips confirmation and keeps a recycled copy', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final root = (await tester.runAsync(
+      () => workspaces.createPrimary(title: 'Project', task: 'Coordinate'),
+    ))!;
+    await tester.pumpWidget(app());
+    await tick(tester);
+    await tester.tap(find.byKey(ValueKey('topology-node-${root.id}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('topology-delete')));
+    await tick(tester);
+    expect(find.byKey(const ValueKey('confirm-topology-delete')), findsNothing);
+    expect(workspaces.find(root.id), isNull);
+    expect(
+      workspaces.recycledAgents.map((entry) => entry.id),
+      contains(root.id),
+    );
+    await finish(tester);
+  });
+
   testWidgets('floating actions remain visible and use menu feedback', (
     tester,
   ) async {
@@ -432,12 +637,25 @@ void main() {
     await tester.pumpWidget(app());
     await tick(tester);
     final viewport = tester.getRect(find.byType(TaskTopologyPage));
+    final toolbar = tester.getRect(
+      find.byKey(const ValueKey('topology-action-toolbar')),
+    );
     final visibleTask = tasks.firstWhere(
-      (task) => viewport
-          .deflate(60)
-          .contains(
-            tester.getCenter(find.byKey(ValueKey('topology-node-${task.id}'))),
-          ),
+      (task) =>
+          !toolbar
+              .inflate(8)
+              .contains(
+                tester.getCenter(
+                  find.byKey(ValueKey('topology-node-${task.id}')),
+                ),
+              ) &&
+          viewport
+              .deflate(60)
+              .contains(
+                tester.getCenter(
+                  find.byKey(ValueKey('topology-node-${task.id}')),
+                ),
+              ),
     );
     final node = find.byKey(ValueKey('topology-node-${visibleTask.id}'));
     await tester.tap(node);
@@ -900,8 +1118,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('topology-context-delete')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('confirm-topology-delete')));
-    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('confirm-topology-delete')), findsNothing);
     expect(workspaces.find(first.id), isNull);
     expect(workspaces.find(second.id), isNull);
     await finish(tester);
@@ -1062,9 +1279,13 @@ void main() {
     },
   );
 
-  for (final useChildren in [false, true]) {
+  for (final (useChildren, childToRoot) in [
+    (false, false),
+    (true, false),
+    (false, true),
+  ]) {
     testWidgets(
-      'cross-tree drag requires confirmation even with child endpoints: $useChildren',
+      'cross-tree drag applies immediately and supports undo with child endpoints: $useChildren child to root: $childToRoot',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(1180, 850));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -1074,7 +1295,7 @@ void main() {
         final rootB = (await tester.runAsync(
           () => workspaces.createPrimary(title: 'Root B', task: 'two'),
         ))!;
-        final a = useChildren
+        final a = useChildren || childToRoot
             ? (await tester.runAsync(
                 () => workspaces.create(
                   title: 'Child A',
@@ -1114,41 +1335,12 @@ void main() {
         await connect();
         expect(
           find.byKey(const ValueKey('confirm-topology-merge')),
-          findsOneWidget,
+          findsNothing,
         );
-        final l10n = AppLocalizations.of(
-          tester.element(find.byType(TaskTopologyPage)),
-        );
-        expect(
-          find.text(
-            useChildren
-                ? l10n.aiTopologyMergeChildHelp(
-                    '${b.title} (${b.id})',
-                    '${a.title} (${a.id})',
-                  )
-                : l10n.aiTopologyMergeRootHelp(
-                    '${rootB.title} (${rootB.id})',
-                    '${a.title} (${a.id})',
-                  ),
-          ),
-          findsOneWidget,
-        );
-        expect(rootB.kind, AiWorkspaceKind.primary);
-        expect(rootB.parentId, isNull);
-        expect(workspaces.connections, hasLength(count));
-        await tester.tap(find.byKey(const ValueKey('cancel-topology-merge')));
-        await tester.pumpAndSettle();
-        expect(rootB.kind, AiWorkspaceKind.primary);
-        expect(workspaces.connections, hasLength(count));
-        await connect();
-        await tester.tap(find.byKey(const ValueKey('confirm-topology-merge')));
-        await tester.pumpAndSettle();
         expect(rootA.kind, AiWorkspaceKind.primary);
-        expect(
-          rootB.kind,
-          useChildren ? AiWorkspaceKind.primary : AiWorkspaceKind.permanent,
-        );
-        expect(rootB.parentId, useChildren ? isNull : a.id);
+        expect(rootB.kind, AiWorkspaceKind.permanent);
+        expect(rootB.parentId, useChildren ? b.id : a.id);
+        expect(workspaces.primaries, [rootA]);
         if (useChildren) {
           expect(b.parentId, a.id);
           expect(a.parentId, rootA.id);
@@ -1168,6 +1360,7 @@ void main() {
         await tick(tester);
         expect(workspaces.isConnected(a.id, b.id), isTrue);
         expect(b.parentId, a.id);
+        expect(workspaces.primaries, [rootA]);
         await finish(tester);
       },
     );
@@ -1218,7 +1411,7 @@ void main() {
   });
 
   testWidgets(
-    'cancel mixed select-all deletion preserves every wire parent and task',
+    'mixed select-all deletion runs without confirmation and supports undo',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1180, 850));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -1234,11 +1427,19 @@ void main() {
       workspaces.connectTasks(a.id, b.id);
       await tester.pumpWidget(app());
       await tick(tester);
-      await tester.tap(find.byKey(ValueKey('topology-node-${root.id}')));
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-      await tester.pump();
+      final canvas = find.byKey(const ValueKey('task-topology-canvas'));
+      await tester.tapAt(
+        tester.getTopLeft(canvas) + const Offset(20, 20),
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('topology-canvas-select-all')),
+      );
+      await tester.pumpAndSettle();
+      for (final agent in [root, a, b]) {
+        expect(selected(tester, agent.id), isTrue);
+      }
       Set<String> selectedWires() {
         final dynamic painter = tester
             .widgetList<CustomPaint>(find.byType(CustomPaint))
@@ -1255,11 +1456,16 @@ void main() {
       expect(selectedWires(), ids);
       await tester.sendKeyEvent(LogicalKeyboardKey.delete);
       await tester.pumpAndSettle();
-      expect(workspaces.connections.map((c) => c.id).toSet(), ids);
-      expect(a.parentId, root.id);
-      expect(b.parentId, root.id);
-      await tester.tap(find.byKey(const ValueKey('cancel-topology-delete')));
-      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('confirm-topology-delete')),
+        findsNothing,
+      );
+      expect(workspaces.sessions, isEmpty);
+      expect(workspaces.connections, isEmpty);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tick(tester);
       expect(workspaces.sessions, hasLength(3));
       expect(workspaces.connections.map((c) => c.id).toSet(), ids);
       expect(selectedWires(), ids);
@@ -1267,8 +1473,6 @@ void main() {
       expect(b.parentId, root.id);
       expect(root.kind, AiWorkspaceKind.primary);
       await tester.sendKeyEvent(LogicalKeyboardKey.delete);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('confirm-topology-delete')));
       await tester.pumpAndSettle();
       expect(workspaces.sessions, isEmpty);
       expect(workspaces.connections, isEmpty);
@@ -1356,26 +1560,11 @@ void main() {
       expect(selectedWires(), {first.id, second.id});
       await tester.tap(find.byKey(const ValueKey('topology-edge-disconnect')));
       await tester.pumpAndSettle();
-      expect(workspaces.connections, hasLength(2));
-      for (final child in [first, second]) {
-        expect(child.parentId, root.id);
-        expect(child.kind, AiWorkspaceKind.permanent);
-      }
-      expect(find.textContaining('将变为主智能体'), findsOneWidget);
-      await tester.tap(
-        find.byKey(const ValueKey('cancel-topology-disconnect')),
-      );
-      await tester.pumpAndSettle();
-      expect(workspaces.connections, hasLength(2));
-      expect(selectedWires(), {first.id, second.id});
-      await tester.tapAt(other, buttons: kSecondaryMouseButton);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('topology-edge-disconnect')));
-      await tester.pumpAndSettle();
-      await tester.tap(
+      expect(workspaces.connections, isEmpty);
+      expect(
         find.byKey(const ValueKey('confirm-topology-disconnect')),
+        findsNothing,
       );
-      await tester.pumpAndSettle();
       for (final child in [first, second]) {
         expect(child.parentId, isNull);
         expect(child.kind, AiWorkspaceKind.primary);
@@ -1887,6 +2076,58 @@ void main() {
   );
 
   testWidgets(
+    'manual workflow main action keeps cards linked and is undoable',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1180, 850));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final main = (await tester.runAsync(
+        () => workspaces.createPrimary(title: 'Main', task: 'one'),
+      ))!;
+      final child = (await tester.runAsync(
+        () => workspaces.create(title: 'Child', task: 'two', parentId: main.id),
+      ))!;
+      await tester.pumpWidget(app());
+      await tick(tester);
+      final mainNode = find.byKey(ValueKey('topology-node-${main.id}'));
+      final childNode = find.byKey(ValueKey('topology-node-${child.id}'));
+      await tester.tap(childNode, buttons: kSecondaryMouseButton);
+      await tester.pumpAndSettle();
+      final mainPosition = tester.getCenter(mainNode);
+      final childPosition = tester.getCenter(childNode);
+      expect(
+        find.byKey(const ValueKey('topology-context-make-root')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('topology-context-make-workflow-main')),
+      );
+      await tester.pumpAndSettle();
+      expect(child.kind, AiWorkspaceKind.primary);
+      expect(main.parentId, child.id);
+      expect(workspaces.connections, hasLength(1));
+      expect(tester.getCenter(mainNode), mainPosition);
+      expect(tester.getCenter(childNode), childPosition);
+      for (final (key, expected) in [
+        (LogicalKeyboardKey.keyZ, main),
+        (LogicalKeyboardKey.keyY, child),
+      ]) {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyEvent(key);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pumpAndSettle();
+        expect(
+          workspaces.sessions.where(
+            (agent) => agent.kind == AiWorkspaceKind.primary,
+          ),
+          [expected],
+        );
+        expect(workspaces.connections, hasLength(1));
+      }
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
     'role menu converts only its target and excludes descendants from parents',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1180, 850));
@@ -1906,7 +2147,7 @@ void main() {
       ))!;
       final temporary = (await tester.runAsync(
         () => workspaces.create(
-          title: 'Temporary',
+          title: other.title,
           task: 'four',
           parentId: other.id,
           kind: AiWorkspaceKind.permanent,
@@ -1941,6 +2182,19 @@ void main() {
         find.byKey(const ValueKey('topology-parent-select')),
       );
       expect(select.items.map((item) => item.value), [other.id, temporary.id]);
+      final selectedLabel = '${other.id} · ${other.title}';
+      final alternativeLabel = '${temporary.id} · ${temporary.title}';
+      expect(find.text(selectedLabel), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('topology-parent-select')));
+      await tester.pumpAndSettle();
+      expect(find.text(alternativeLabel), findsOneWidget);
+      await tester.tap(find.text(alternativeLabel));
+      await tester.pumpAndSettle();
+      expect(find.text(alternativeLabel), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('topology-parent-select')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(selectedLabel).last);
+      await tester.pumpAndSettle();
       expect(
         select.items.any((item) => [root.id, child.id].contains(item.value)),
         isFalse,
@@ -1966,21 +2220,10 @@ void main() {
         find.byKey(const ValueKey('topology-context-make-root')),
       );
       await tester.pumpAndSettle();
-      expect(root.kind, AiWorkspaceKind.permanent);
-      expect(root.parentId, other.id);
-      await tester.tap(find.byKey(const ValueKey('cancel-topology-make-root')));
-      await tester.pumpAndSettle();
-      expect(root.kind, AiWorkspaceKind.permanent);
-      await tester.tap(rootNode, buttons: kSecondaryMouseButton);
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('topology-context-make-root')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(
+      expect(
         find.byKey(const ValueKey('confirm-topology-make-root')),
+        findsNothing,
       );
-      await tester.pumpAndSettle();
       expect(root.kind, AiWorkspaceKind.primary);
       expect(root.parentId, isNull);
       expect(child.parentId, root.id);
@@ -2179,8 +2422,10 @@ void main() {
       await tester.tap(find.byKey(ValueKey('topology-node-$copyId')));
       await tester.sendKeyEvent(LogicalKeyboardKey.delete);
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('confirm-topology-delete')));
-      await tick(tester);
+      expect(
+        find.byKey(const ValueKey('confirm-topology-delete')),
+        findsNothing,
+      );
       expect(workspaces.find(copyId), isNull);
       await shortcut(LogicalKeyboardKey.keyZ);
       expect(workspaces.find(copyId), isNotNull);
@@ -4155,8 +4400,10 @@ void main() {
       await tester.pump();
       await tester.tap(item);
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('confirm-topology-delete')));
-      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('confirm-topology-delete')),
+        findsNothing,
+      );
       expect(workspaces.find(second.id), isNull);
       expect(workspaces.find(first.id), isNotNull);
       expect(tester.takeException(), isNull);
@@ -4239,7 +4486,7 @@ void main() {
   });
 
   testWidgets(
-    'deleting an intermediate child preserves its branch and previews promotion without forced newlines',
+    'deleting an intermediate child preserves its branch without confirmation',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1600, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -4269,26 +4516,28 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('topology-context-delete')));
       await tester.pumpAndSettle();
-      final l10n = AppLocalizations.of(
-        tester.element(find.byType(TaskTopologyPage)),
-      );
-      final notice = find.textContaining(
-        l10n.aiTopologyRootPromotionNotice(leaf.title),
-      );
-      expect(notice, findsOneWidget);
-      expect(tester.widget<Text>(notice).data, isNot(contains('\n')));
-      final confirmButton = tester.widget<AppActionButton>(
+      expect(
         find.byKey(const ValueKey('confirm-topology-delete')),
+        findsNothing,
       );
-      expect(confirmButton.destructive, isTrue);
-      expect(confirmButton.primary, isFalse);
-      await tester.tap(find.byKey(const ValueKey('confirm-topology-delete')));
-      await tick(tester);
       expect(workspaces.find(middle.id), isNull);
       expect(workspaces.find(root.id), same(root));
       expect(workspaces.find(leaf.id), same(leaf));
-      expect(leaf.kind, AiWorkspaceKind.primary);
-      expect(leaf.parentId, isNull);
+      expect(leaf.kind, AiWorkspaceKind.permanent);
+      expect(leaf.parentId, root.id);
+      expect(workspaces.isConnected(root.id, leaf.id), isTrue);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tick(tester);
+      expect(workspaces.find(middle.id), same(middle));
+      expect(leaf.parentId, middle.id);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyY);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tick(tester);
+      expect(workspaces.find(middle.id), isNull);
+      expect(leaf.parentId, root.id);
       expect(tester.takeException(), isNull);
       await finish(tester);
     },
@@ -4348,14 +4597,9 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('topology-context-delete')));
       await tester.pumpAndSettle();
       expect(
-        find.textContaining(
-          AppLocalizations.of(tester.element(find.byType(TaskTopologyPage)))
-              .aiTopologyRootPromotionNotice(latest.title),
-        ),
-        findsOneWidget,
+        find.byKey(const ValueKey('confirm-topology-delete')),
+        findsNothing,
       );
-      await tester.tap(find.byKey(const ValueKey('confirm-topology-delete')));
-      await tick(tester);
       expect(
         draftController.text,
         'Retain promoted task draft',
@@ -4391,7 +4635,7 @@ void main() {
   );
 
   testWidgets(
-    'root deletion reconfirms when the task receiving the root role changes',
+    'root deletion uses the latest successor and undo restores the hierarchy',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1180, 850));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -4412,15 +4656,6 @@ void main() {
         buttons: kSecondaryMouseButton,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('topology-context-delete')));
-      await tester.pumpAndSettle();
-      final l10n = AppLocalizations.of(
-        tester.element(find.byType(TaskTopologyPage)),
-      );
-      expect(
-        find.textContaining(l10n.aiTopologyRootPromotionNotice(first.title)),
-        findsOneWidget,
-      );
       final latest = (await tester.runAsync(
         () => workspaces.create(
           title: 'New candidate',
@@ -4430,16 +4665,20 @@ void main() {
         ),
       ))!;
       await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('confirm-topology-delete')));
+      await tester.tap(find.byKey(const ValueKey('topology-context-delete')));
       await tester.pumpAndSettle();
-      expect(workspaces.find(root.id), same(root));
-      expect(latest.kind, AiWorkspaceKind.permanent);
       expect(
-        find.textContaining(l10n.aiTopologyRootPromotionNotice(latest.title)),
-        findsOneWidget,
+        find.byKey(const ValueKey('confirm-topology-delete')),
+        findsNothing,
       );
-      await tester.tap(find.byKey(const ValueKey('cancel-topology-delete')));
-      await tester.pumpAndSettle();
+      expect(workspaces.find(root.id), isNull);
+      expect(latest.kind, AiWorkspaceKind.primary);
+      expect(first.parentId, latest.id);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tick(tester);
+      expect(workspaces.find(root.id), same(root));
       expect(workspaces.sessions, hasLength(3));
       expect(first.kind, AiWorkspaceKind.permanent);
       expect(latest.kind, AiWorkspaceKind.permanent);
@@ -4488,8 +4727,63 @@ void main() {
     },
   );
 
+  testWidgets('child promotion preserves the merged subtree with one main', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1180, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final tasks = (await tester.runAsync(() async {
+      final leader = await workspaces.create(
+        title: 'Leader',
+        task: 'Work',
+        startImmediately: false,
+      );
+      final root = await workspaces.create(
+        title: 'Branch',
+        parentId: leader.id,
+        task: 'Work',
+        startImmediately: false,
+      );
+      final child = await workspaces.create(
+        title: 'Delegate',
+        task: 'Work',
+        parentId: root.id,
+        startImmediately: false,
+      );
+      final peer = await workspaces.create(
+        title: 'Peer',
+        task: 'Work',
+        startImmediately: false,
+      );
+      workspaces.connectTasks(child.id, peer.id);
+      return [root, child, peer];
+    }))!;
+    await tester.pumpWidget(app());
+    await tick(tester);
+    Future<void> choose(String action) async {
+      await tester.tap(
+        find.byKey(ValueKey('topology-node-${tasks.first.id}')),
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey(action)));
+      await tester.pumpAndSettle();
+    }
+
+    await choose('topology-context-make-root');
+    expect(tasks.first.kind, AiWorkspaceKind.primary);
+    expect(tasks[1].kind, AiWorkspaceKind.permanent);
+    expect(tasks.last.kind, AiWorkspaceKind.permanent);
+    expect(tasks.last.parentId, tasks[1].id);
+    expect(workspaces.isConnected(tasks[1].id, tasks.last.id), isTrue);
+    expect(tasks[1].parentId, tasks.first.id);
+    expect(workspaces.isConnected(tasks[1].id, tasks.last.id), isTrue);
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
   testWidgets(
-    'empty topology creates a primary task and opens its own conversation',
+    'empty topology creates a main agent and opens its own conversation',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1180, 850));
       addTearDown(() => tester.binding.setSurfaceSize(null));

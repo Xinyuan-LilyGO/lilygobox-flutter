@@ -110,21 +110,23 @@ void main() {
     expect(positions['root']!.dx, lessThan(positions['a']!.dx));
     noOverlap(positions);
   });
-  test(
-    'legacy root and orphan peer chain uses columns instead of one vertical line',
-    () {
-      final nodes = [task('root', root: true), task('a'), task('b'), task('c')];
-      final positions = layout(nodes, [
-        peer('root', 'a'),
-        peer('a', 'b'),
-        peer('b', 'c'),
-      ]);
-      expect(positions['root']!.dx, lessThan(positions['a']!.dx));
-      expect(positions['a']!.dx, lessThan(positions['b']!.dx));
-      expect(positions['b']!.dx, lessThan(positions['c']!.dx));
-      noOverlap(positions);
-    },
-  );
+  test('independent root communication chain uses columns instead of one vertical line', () {
+    final nodes = [
+      task('root', root: true),
+      task('a', root: true),
+      task('b', root: true),
+      task('c', root: true),
+    ];
+    final positions = layout(nodes, [
+      peer('root', 'a'),
+      peer('a', 'b'),
+      peer('b', 'c'),
+    ]);
+    expect(positions['root']!.dx, lessThan(positions['a']!.dx));
+    expect(positions['a']!.dx, lessThan(positions['b']!.dx));
+    expect(positions['b']!.dx, lessThan(positions['c']!.dx));
+    noOverlap(positions);
+  });
   test(
     'extra shortcut never puts ownership child to the left of its parent',
     () {

@@ -199,6 +199,18 @@ void main() {
           findsOneWidget,
         );
         expect(find.text(l10n.aiCommandDirectory), findsOneWidget);
+        expect(
+          tester.getBottomLeft(find.text(l10n.aiCommandApprovalNotice)).dy,
+          lessThan(tester.getTopLeft(find.text(l10n.aiCommandReason)).dy),
+        );
+        expect(
+          tester.getBottomLeft(find.text(l10n.aiCommandReason)).dy,
+          lessThan(tester.getTopLeft(find.text(l10n.aiCommandDirectory)).dy),
+        );
+        expect(
+          tester.getBottomLeft(find.text(l10n.aiCommandDirectory)).dy,
+          lessThan(tester.getTopLeft(find.text(l10n.aiCommandFull)).dy),
+        );
         expect(find.textContaining('powershell.exe'), findsOneWidget);
         expect(find.textContaining('D:/projects/board'), findsOneWidget);
         expect(

@@ -227,54 +227,48 @@ void main() {
       },
     );
 
-    test(
-      'should ignore stale answers and reject incomplete ones without dismissing',
-      () async {
-        final send = scope.provider.sendMessage('Ask me');
-        final pending = await waitForQuestion();
-        scope.provider.resolveUserInput('stale', {
-          'format': ['Text'],
-        });
-        scope.provider.cancelUserInput('stale');
-        expect(
-          () => scope.provider.resolveUserInput(pending.id, {}),
-          throwsFormatException,
-        );
-        expect(scope.provider.pendingUserInput, same(pending));
-        scope.provider.resolveUserInput(pending.id, {
-          'format': ['Custom CSV'],
-        });
-        scope.provider.resolveUserInput(pending.id, {
-          'format': ['Text'],
-        });
-        await send;
-        expect(
-          jsonDecode(
-            toolResult()['content'] as String,
-          )['answers']['format']['answers'],
-          ['Custom CSV'],
-        );
-        expect(requests, hasLength(2));
-      },
-    );
+    test('should ignore stale answers and reject incomplete ones without dismissing', () async {
+      final send = scope.provider.sendMessage('Ask me');
+      final pending = await waitForQuestion();
+      scope.provider.resolveUserInput('stale', {
+        'format': ['Text'],
+      });
+      scope.provider.cancelUserInput('stale');
+      expect(
+        () => scope.provider.resolveUserInput(pending.id, {}),
+        throwsFormatException,
+      );
+      expect(scope.provider.pendingUserInput, same(pending));
+      scope.provider.resolveUserInput(pending.id, {
+        'format': ['Custom CSV'],
+      });
+      scope.provider.resolveUserInput(pending.id, {
+        'format': ['Text'],
+      });
+      await send;
+      expect(
+        jsonDecode(
+          toolResult()['content'] as String,
+        )['answers']['format']['answers'],
+        ['Custom CSV'],
+      );
+      expect(requests, hasLength(2));
+    });
 
-    test(
-      'should return cancellation without granting permissions or leaving a waiter',
-      () async {
-        final permissions = scope.provider.permissions;
-        final send = scope.provider.sendMessage('Ask me');
-        final pending = await waitForQuestion();
-        scope.provider.cancelUserInput(pending.id);
-        await send.timeout(const Duration(seconds: 5));
-        expect(scope.provider.pendingUserInput, isNull);
-        expect(scope.provider.permissions, same(permissions));
-        expect(jsonDecode(toolResult()['content'] as String), {
-          'cancelled': true,
-          'answers': {},
-        });
-        expect(scope.provider.busy, isFalse);
-      },
-    );
+    test('should return cancellation without granting permissions or leaving a waiter', () async {
+      final permissions = scope.provider.permissions;
+      final send = scope.provider.sendMessage('Ask me');
+      final pending = await waitForQuestion();
+      scope.provider.cancelUserInput(pending.id);
+      await send.timeout(const Duration(seconds: 5));
+      expect(scope.provider.pendingUserInput, isNull);
+      expect(scope.provider.permissions, same(permissions));
+      expect(jsonDecode(toolResult()['content'] as String), {
+        'cancelled': true,
+        'answers': {},
+      });
+      expect(scope.provider.busy, isFalse);
+    });
 
     test(
       'should unblock stopping without starting another model request',
@@ -306,28 +300,25 @@ void main() {
       },
     );
 
-    test(
-      'should serialize repeated questions and ignore answers for an older card',
-      () async {
-        questionCalls = 2;
-        final send = scope.provider.sendMessage('Ask twice');
-        final first = await waitForQuestion();
-        scope.provider.resolveUserInput(first.id, {
-          'format': ['JSON'],
-        });
-        final second = await waitForQuestion(afterId: first.id);
-        scope.provider.resolveUserInput(first.id, {
-          'format': ['Text'],
-        });
-        expect(scope.provider.pendingUserInput, same(second));
-        scope.provider.resolveUserInput(second.id, {
-          'format': ['Text'],
-        });
-        await send.timeout(const Duration(seconds: 5));
-        expect(requests, hasLength(3));
-        expect(toolResult()['tool_call_id'], 'question-2');
-      },
-    );
+    test('should serialize repeated questions and ignore answers for an older card', () async {
+      questionCalls = 2;
+      final send = scope.provider.sendMessage('Ask twice');
+      final first = await waitForQuestion();
+      scope.provider.resolveUserInput(first.id, {
+        'format': ['JSON'],
+      });
+      final second = await waitForQuestion(afterId: first.id);
+      scope.provider.resolveUserInput(first.id, {
+        'format': ['Text'],
+      });
+      expect(scope.provider.pendingUserInput, same(second));
+      scope.provider.resolveUserInput(second.id, {
+        'format': ['Text'],
+      });
+      await send.timeout(const Duration(seconds: 5));
+      expect(requests, hasLength(3));
+      expect(toolResult()['tool_call_id'], 'question-2');
+    });
 
     test(
       'should resume Responses with the original call id and structured answer',
@@ -347,11 +338,9 @@ void main() {
         });
         await send.timeout(const Duration(seconds: 5));
         final input = requests.last['input'] as List;
-        final result =
-            input.singleWhere(
-                  (dynamic item) => item['type'] == 'function_call_output',
-                )
-                as Map;
+        final result = input.singleWhere(
+          (dynamic item) => item['type'] == 'function_call_output',
+        ) as Map;
         expect(result['call_id'], 'question-1');
         expect(jsonDecode(result['output'] as String), {
           'cancelled': false,
@@ -366,21 +355,34 @@ void main() {
     );
 
     test(
-      'should cancel the pending question before applying queued guidance',
+      'keeps the pending question open until it is answered before guiding',
       () async {
         final send = scope.provider.sendMessage('Ask me');
         final pending = await waitForQuestion();
-        await scope.provider.sendMessage('Use the existing defaults');
-        final queuedId = scope.provider.pendingGuidance.single.id;
-        await scope.provider.guidePendingMessage(queuedId);
+        await scope.provider.receiveAgentMessage(
+          sourceId: 'parent-id',
+          sourceTitle: 'Parent',
+          sourceKind: 'primary',
+          content: 'Use the selected format',
+          steer: true,
+        );
+        expect(scope.provider.pendingUserInput?.id, pending.id);
+        expect(scope.provider.busy, isTrue);
+        expect(requests, hasLength(1));
+        scope.provider.resolveUserInput(pending.id, {
+          'format': ['JSON'],
+        });
         await send.timeout(const Duration(seconds: 5));
         expect(scope.provider.pendingUserInput, isNull);
         expect(scope.provider.busy, isFalse);
         expect(requests, hasLength(2));
-        scope.provider.resolveUserInput(pending.id, {
-          'format': ['JSON'],
-        });
-        expect(scope.provider.pendingUserInput, isNull);
+        expect(
+          scope.provider.messages
+              .where((message) => message.role == 'user')
+              .last
+              .content,
+          'Use the selected format',
+        );
         expect(scope.provider.messages.last.content, 'Done');
       },
     );

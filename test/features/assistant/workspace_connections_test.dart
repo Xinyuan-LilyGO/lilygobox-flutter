@@ -69,6 +69,185 @@ void main() {
     });
     await workspaces.initialized;
   });
+  test('canvas child to root connection adopts target subtree and survives undo and restore', () async {
+    final root = await workspaces.create(
+      title: 'Root',
+      task: 'Plan',
+      startImmediately: false,
+    );
+    final child = await workspaces.create(
+      title: 'Child',
+      task: 'Work',
+      parentId: root.id,
+      startImmediately: false,
+    );
+    final target = await workspaces.create(
+      title: 'Target',
+      task: 'Plan',
+      startImmediately: false,
+    );
+    final descendant = await workspaces.create(
+      title: 'Descendant',
+      task: 'Work',
+      parentId: target.id,
+      startImmediately: false,
+    );
+    final model = target.model;
+    final permissions = target.assistant.permissions;
+    final before = workspaces.captureTopologyEdit();
+    final edge = workspaces.connectCanvasTasks(child.id, target.id);
+    expect(edge.isHierarchy, isTrue);
+    expect(target.parentId, child.id);
+    expect(target.kind, AiWorkspaceKind.permanent);
+    expect(descendant.parentId, target.id);
+    expect(
+      workspaces.sessions
+          .where((agent) => agent.kind == AiWorkspaceKind.primary)
+          .map((agent) => agent.id),
+      [root.id],
+    );
+    expect(target.model, model);
+    expect(target.assistant.permissions, same(permissions));
+    expect(workspaces.connectCanvasTasks(child.id, target.id).id, edge.id);
+    final after = workspaces.captureTopologyEdit();
+    await workspaces.restoreTopologyEdit(before);
+    expect(target.kind, AiWorkspaceKind.primary);
+    expect(target.parentId, isNull);
+    await workspaces.restoreTopologyEdit(after);
+    expect(target.parentId, child.id);
+    expect(target.kind, AiWorkspaceKind.permanent);
+    await workspaces.flush();
+    workspaces.dispose();
+    workspaces = AiWorkspaceProvider(scope.provider);
+    await workspaces.initialized;
+    expect(workspaces.find(target.id)!.parentId, child.id);
+    expect(workspaces.find(target.id)!.kind, AiWorkspaceKind.permanent);
+    expect(workspaces.find(descendant.id)!.parentId, target.id);
+  });
+
+  test(
+    'same-tree links preserve leadership and cross-tree links join workflows',
+    () async {
+      final root = await workspaces.create(
+        title: 'Root',
+        task: 'Plan',
+        startImmediately: false,
+      );
+      final child = await workspaces.create(
+        title: 'Child',
+        task: 'Work',
+        parentId: root.id,
+        startImmediately: false,
+      );
+      final descendant = await workspaces.create(
+        title: 'Descendant',
+        task: 'Work',
+        parentId: child.id,
+        startImmediately: false,
+      );
+      final other = await workspaces.create(
+        title: 'Other',
+        task: 'Plan',
+        startImmediately: false,
+      );
+      workspaces.connectCanvasTasks(descendant.id, root.id);
+      expect(root.parentId, isNull);
+      expect(root.kind, AiWorkspaceKind.primary);
+      workspaces.connectTasks(child.id, other.id);
+      expect(other.kind, AiWorkspaceKind.permanent);
+      workspaces.connectCanvasTasks(child.id, other.id);
+      expect(other.parentId, child.id);
+      expect(other.kind, AiWorkspaceKind.permanent);
+      expect(
+        workspaces.connections.where(
+          (edge) => {edge.fromId, edge.toId}.containsAll([child.id, other.id]),
+        ),
+        hasLength(1),
+      );
+      expect(
+        () => workspaces.connectCanvasTasks(child.id, child.id),
+        throwsStateError,
+      );
+    },
+  );
+
+  for (final batch in [false, true]) {
+    test(
+      'deletion reconnects descendants to nearest retained ancestor batch=$batch',
+      () async {
+        final root = await workspaces.create(
+          title: 'Root',
+          task: 'Plan',
+          startImmediately: false,
+        );
+        final middle = await workspaces.create(
+          title: 'Middle',
+          task: 'Work',
+          parentId: root.id,
+          startImmediately: false,
+        );
+        final child = await workspaces.create(
+          title: 'Child',
+          task: 'Work',
+          parentId: middle.id,
+          startImmediately: false,
+        );
+        final leaf = await workspaces.create(
+          title: 'Leaf',
+          task: 'Work',
+          parentId: child.id,
+          startImmediately: false,
+        );
+        final peer = await workspaces.create(
+          title: 'Peer',
+          task: 'Work',
+          parentId: root.id,
+          startImmediately: false,
+        );
+        workspaces.connectTasks(leaf.id, peer.id);
+        final permissions = leaf.assistant.permissions;
+        final before = workspaces.captureTopologyEdit();
+        workspaces.removeMany(
+          batch ? [child.id, middle.id, middle.id] : [middle.id],
+        );
+        expect(workspaces.find(middle.id), isNull);
+        expect(leaf.parentId, batch ? root.id : child.id);
+        if (!batch) expect(child.parentId, root.id);
+        expect(leaf.assistant.permissions, same(permissions));
+        expect(workspaces.isConnected(leaf.id, peer.id), isTrue);
+        expect(
+          workspaces.isConnected(root.id, batch ? leaf.id : child.id),
+          isTrue,
+        );
+        expect(
+          workspaces.sessions
+              .where((agent) => agent.kind == AiWorkspaceKind.primary)
+              .map((agent) => agent.id),
+          [root.id],
+        );
+        expect(
+          workspaces.recycledAgents.map((entry) => entry.id),
+          unorderedEquals(batch ? [middle.id, child.id] : [middle.id]),
+        );
+        final after = workspaces.captureTopologyEdit();
+        await workspaces.restoreTopologyEdit(before, previous: after);
+        expect(middle.parentId, root.id);
+        expect(child.parentId, middle.id);
+        expect(leaf.parentId, child.id);
+        await workspaces.restoreTopologyEdit(after, previous: before);
+        expect(leaf.parentId, batch ? root.id : child.id);
+        await workspaces.flush();
+        workspaces.dispose();
+        workspaces = AiWorkspaceProvider(scope.provider);
+        await workspaces.initialized;
+        expect(workspaces.find(leaf.id)!.parentId, batch ? root.id : child.id);
+        await workspaces.restoreRecycledAgent(middle.id);
+        expect(workspaces.find(middle.id)!.parentId, root.id);
+        expect(workspaces.find(leaf.id)!.parentId, batch ? root.id : child.id);
+      },
+    );
+  }
+
   test('copy titles number existing tasks and never stack suffixes', () async {
     await workspaces.createPrimary(title: '配置', task: 'one');
     expect(workspaces.nextCopyTitle('配置'), '配置 (2)');
@@ -96,7 +275,7 @@ void main() {
   Future<AiAgentWorkspace> task(
     String name, {
     String? parent,
-    AiWorkspaceKind kind = AiWorkspaceKind.permanent,
+    AiWorkspaceKind? kind,
   }) => workspaces.create(
     title: name,
     task: 'Task $name',
@@ -104,12 +283,171 @@ void main() {
     kind: kind,
     startImmediately: false,
   );
-  AiTaskConnection connectConfirmed(String from, String to) =>
-      workspaces.connectTasks(
-        from,
-        to,
-        confirmedMerge: workspaces.connectionMergeFor(from, to),
+
+  void expectSingleMainPerWorkflow() {
+    final remaining = workspaces.sessions
+        .where((agent) => !agent.closed)
+        .map((agent) => agent.id)
+        .toSet();
+    while (remaining.isNotEmpty) {
+      final members = <String>{};
+      final pending = [remaining.first];
+      while (pending.isNotEmpty) {
+        final id = pending.removeLast();
+        if (!members.add(id)) continue;
+        remaining.remove(id);
+        pending.addAll(workspaces.neighborsOf(id).map((agent) => agent.id));
+      }
+      final leaders = members.where(
+        (id) => workspaces.find(id)!.kind == AiWorkspaceKind.primary,
       );
+      expect(leaders, hasLength(1));
+      final root = leaders.single;
+      for (final id in members) {
+        final path = <String>{};
+        var current = workspaces.find(id)!;
+        while (current.parentId != null) {
+          expect(path.add(current.id), isTrue);
+          expect(members, contains(current.parentId));
+          current = workspaces.find(current.parentId)!;
+        }
+        expect(current.id, root);
+      }
+    }
+  }
+
+  for (final canvas in [false, true]) {
+    for (final sourceChild in [false, true]) {
+      for (final targetChild in [false, true]) {
+        test(
+          'connection joins one workflow canvas=$canvas sourceChild=$sourceChild targetChild=$targetChild',
+          () async {
+            final sourceRoot = await task('Source root');
+            final targetRoot = await task('Target root');
+            final source = sourceChild
+                ? await task('Source child', parent: sourceRoot.id)
+                : sourceRoot;
+            final target = targetChild
+                ? await task('Target child', parent: targetRoot.id)
+                : targetRoot;
+            await task('Target branch', parent: targetRoot.id);
+            await task('Target descendant', parent: target.id);
+            final before = workspaces.captureTopologyEdit();
+            final originalEdges = workspaces.connections
+                .map((edge) => ({edge.fromId, edge.toId}))
+                .toList();
+            final edge = canvas
+                ? workspaces.connectCanvasTasks(source.id, target.id)
+                : workspaces.connectTasks(source.id, target.id);
+            expect(edge.isHierarchy, isTrue);
+            expect(target.parentId, source.id);
+            expect(workspaces.primaries, [sourceRoot]);
+            expect(workspaces.connections, hasLength(originalEdges.length + 1));
+            for (final endpoints in originalEdges) {
+              expect(
+                workspaces.isConnected(endpoints.first, endpoints.last),
+                isTrue,
+              );
+            }
+            expectSingleMainPerWorkflow();
+            final after = workspaces.captureTopologyEdit();
+            await workspaces.restoreTopologyEdit(before, previous: after);
+            expect(workspaces.primaries, [sourceRoot, targetRoot]);
+            expectSingleMainPerWorkflow();
+            await workspaces.restoreTopologyEdit(after, previous: before);
+            expect(workspaces.primaries, [sourceRoot]);
+            expectSingleMainPerWorkflow();
+            expect(workspaces.connectTasks(target.id, source.id).id, edge.id);
+            await workspaces.flush();
+            workspaces.dispose();
+            workspaces = AiWorkspaceProvider(scope.provider);
+            await workspaces.initialized;
+            expect(workspaces.primaries.map((agent) => agent.id), [
+              sourceRoot.id,
+            ]);
+            expectSingleMainPerWorkflow();
+          },
+        );
+      }
+    }
+  }
+
+  test(
+    'import repairs connected roots through child endpoints before persistence',
+    () async {
+      final root = await task('Root');
+      final first = await task('First', parent: root.id);
+      final other = await task('Other');
+      final second = await task('Second', parent: other.id);
+      final packet = workspaces.exportData();
+      packet['connections'] = [
+        {'fromId': first.id, 'toId': second.id},
+      ];
+      final mapping = await workspaces.importData(packet);
+      expect(workspaces.find(mapping[second.id])!.parentId, mapping[first.id]);
+      expect(workspaces.find(mapping[other.id])!.parentId, mapping[second.id]);
+      expectSingleMainPerWorkflow();
+      final copies = await workspaces.pasteCards(
+        workspaces.copyCards(mapping.values),
+        titleForCopy: (title) => title,
+      );
+      expect(
+        copies.where((agent) => agent.kind == AiWorkspaceKind.primary),
+        hasLength(1),
+      );
+      expectSingleMainPerWorkflow();
+      await workspaces.flush();
+      workspaces.dispose();
+      workspaces = AiWorkspaceProvider(scope.provider);
+      await workspaces.initialized;
+      expectSingleMainPerWorkflow();
+    },
+  );
+  AiTaskConnection connectConfirmed(String from, String to) =>
+      workspaces.connectTasks(from, to);
+
+  test(
+    'wait_agents rejects results after communication is disconnected',
+    () async {
+      final caller = await task('Caller');
+      final target = await task('Target');
+      final connection = connectConfirmed(caller.id, target.id);
+      final pending = caller.assistant.workspaceToolHandler!('wait_agents', {
+        'agent_ids': [target.id],
+        'wait_ms': 5000,
+      });
+      final assertion = expectLater(pending, throwsStateError);
+      workspaces.disconnectConnection(connection.id);
+      await assertion;
+    },
+  );
+
+  test('wait_agents rejects results after its caller is removed', () async {
+    final caller = await task('Caller');
+    final target = await task('Target');
+    connectConfirmed(caller.id, target.id);
+    final pending = caller.assistant.workspaceToolHandler!('wait_agents', {
+      'agent_ids': [target.id],
+      'wait_ms': 5000,
+    });
+    final assertion = expectLater(pending, throwsStateError);
+    workspaces.remove(caller.id);
+    await assertion;
+  });
+
+  test('wait_agents still reports a removed target as closed', () async {
+    final caller = await task('Caller');
+    final target = await task('Target');
+    connectConfirmed(caller.id, target.id);
+    final pending = caller.assistant.workspaceToolHandler!('wait_agents', {
+      'agent_ids': [target.id],
+      'wait_ms': 5000,
+    });
+    workspaces.remove(target.id);
+    expect((await pending)['agents'], [
+      {'agent_id': target.id, 'status': 'closed'},
+    ]);
+  });
 
   Future<void> settle() async {
     for (var i = 0; i < 200 && workspaces.sessions.any((s) => s.busy); i++) {
@@ -190,7 +528,7 @@ void main() {
     }
     expect(workspaces.connections.single.toId, temp.id);
   });
-  test('disconnect preserves one root through alternate links and reroutes ownership', () async {
+  test('disconnect preserves one main through remaining peer links', () async {
     final root = await task('Root', kind: AiWorkspaceKind.primary);
     final a = await task('A', parent: root.id);
     final b = await task('B', parent: root.id);
@@ -207,13 +545,14 @@ void main() {
     expect(workspaces.isConnected(a.id, b.id), isTrue);
     workspaces.disconnectConnection('missing');
     expect(workspaces.sessions, hasLength(3));
+    expect(workspaces.isConnected(a.id, b.id), isTrue);
   });
   test('batch cut previews roles without mutation then promotes each split tree once', () async {
     final root = await task('Root', kind: AiWorkspaceKind.primary);
     final a = await task('A', parent: root.id);
     final b = await task('B', parent: root.id);
     final nested = await task('Nested', parent: a.id);
-    final unrelated = await task('Unrelated orphan');
+    final unrelated = await task('Unrelated root');
     final peer = workspaces.connectTasks(a.id, b.id);
     final selected = [a.id, b.id, peer.id];
     expect(workspaces.disconnectionRoleChanges(selected), {
@@ -232,14 +571,14 @@ void main() {
     expect(b.kind, AiWorkspaceKind.primary);
     expect(nested.parentId, a.id);
     expect(nested.kind, AiWorkspaceKind.permanent);
-    expect(unrelated.kind, AiWorkspaceKind.permanent);
+    expect(unrelated.kind, AiWorkspaceKind.primary);
     expect(workspaces.connections.single.id, nested.id);
     await reload();
     expect(workspaces.find(a.id)!.kind, AiWorkspaceKind.primary);
     expect(workspaces.find(b.id)!.kind, AiWorkspaceKind.primary);
   });
   test(
-    'cut with an alternate path preserves root and all unselected edges',
+    'cut with an alternate path reroutes delegation without adding edges',
     () async {
       final root = await task('Root', kind: AiWorkspaceKind.primary);
       final a = await task('A', parent: root.id);
@@ -320,11 +659,11 @@ void main() {
       );
       expect(workspaces.isConnected(a.id, b.id), isTrue);
       await workspaces.flush();
-      final legacy = jsonDecode(
+      final incomplete = jsonDecode(
         (await storage.request('readWorkflow')) as String,
       ) as Map<String, dynamic>;
-      legacy.remove('connections');
-      await reload(replacement: legacy);
+      incomplete.remove('connections');
+      await reload(replacement: incomplete);
       expect(workspaces.persistenceError, isNotNull);
       expect(workspaces.sessions, isEmpty);
       expect(requests, isEmpty);
@@ -425,59 +764,58 @@ void main() {
       workspaces.removeMany([root.id, remove.id]);
       expect(workspaces.sessions, [keep, descendant]);
       expect(keep.kind, AiWorkspaceKind.primary);
-      expect(descendant.kind, AiWorkspaceKind.primary);
-      expect(descendant.parentId, isNull);
+      expect(descendant.kind, AiWorkspaceKind.permanent);
+      expect(descendant.parentId, keep.id);
     },
   );
-  test('deleting adjacent children preserves each surviving branch and previews promotions', () async {
-    final root = await task('Root', kind: AiWorkspaceKind.primary);
-    final middle = await task('Middle', parent: root.id);
-    final adjacent = await task('Adjacent', parent: middle.id);
-    final first = await task('First', parent: middle.id);
-    final second = await task('Second', parent: adjacent.id);
-    final deeper = await task('Deeper', parent: second.id);
-    final permissions = second.assistant.permissions;
-    final messages = second.assistant.messages;
-    expect(
-      workspaces.promotedRootsForDeletion([middle.id, adjacent.id]).keys,
-      unorderedEquals([first.id, second.id]),
-    );
-    workspaces.removeMany([adjacent.id, middle.id, middle.id]);
-    expect(workspaces.find(root.id), same(root));
-    expect(workspaces.find(middle.id), isNull);
-    expect(workspaces.find(adjacent.id), isNull);
-    for (final child in [first, second]) {
-      expect(child.parentId, isNull);
-      expect(child.kind, AiWorkspaceKind.primary);
-    }
-    expect(deeper.parentId, second.id);
-    expect(deeper.kind, AiWorkspaceKind.permanent);
-    expect(second.assistant.permissions, same(permissions));
-    expect(second.assistant.messages, orderedEquals(messages));
-    await reload();
-    expect(workspaces.persistenceError, isNull);
-    expect(workspaces.find(first.id)!.kind, AiWorkspaceKind.primary);
-    expect(workspaces.find(second.id)!.parentId, isNull);
-    expect(workspaces.find(deeper.id)!.parentId, second.id);
-  });
-
   test(
-    'delete tool reports only selected child and promotes its live descendants',
+    'deleting adjacent children preserves branches under the retained ancestor',
     () async {
       final root = await task('Root', kind: AiWorkspaceKind.primary);
       final middle = await task('Middle', parent: root.id);
-      final leaf = await task('Leaf', parent: middle.id);
-      final result = await root.assistant.workspaceToolHandler!(
-        'delete_agent',
-        {'agent_id': middle.id},
+      final adjacent = await task('Adjacent', parent: middle.id);
+      final first = await task('First', parent: middle.id);
+      final second = await task('Second', parent: adjacent.id);
+      final deeper = await task('Deeper', parent: second.id);
+      final permissions = second.assistant.permissions;
+      final messages = second.assistant.messages;
+      expect(
+        workspaces.promotedRootsForDeletion([middle.id, adjacent.id]).keys,
+        isEmpty,
       );
-      expect(result['deleted_agent_ids'], [middle.id]);
-      expect(result['promoted_agent_ids'], [leaf.id]);
-      expect(workspaces.find(leaf.id), same(leaf));
-      expect(leaf.kind, AiWorkspaceKind.primary);
-      expect(leaf.parentId, isNull);
+      workspaces.removeMany([adjacent.id, middle.id, middle.id]);
+      expect(workspaces.find(root.id), same(root));
+      expect(workspaces.find(middle.id), isNull);
+      expect(workspaces.find(adjacent.id), isNull);
+      for (final child in [first, second]) {
+        expect(child.parentId, root.id);
+        expect(child.kind, AiWorkspaceKind.permanent);
+      }
+      expect(deeper.parentId, second.id);
+      expect(deeper.kind, AiWorkspaceKind.permanent);
+      expect(second.assistant.permissions, same(permissions));
+      expect(second.assistant.messages, orderedEquals(messages));
+      await reload();
+      expect(workspaces.persistenceError, isNull);
+      expect(workspaces.find(first.id)!.kind, AiWorkspaceKind.permanent);
+      expect(workspaces.find(second.id)!.parentId, root.id);
+      expect(workspaces.find(deeper.id)!.parentId, second.id);
     },
   );
+
+  test('delete tool reports only selected child and reconnects its live descendants', () async {
+    final root = await task('Root', kind: AiWorkspaceKind.primary);
+    final middle = await task('Middle', parent: root.id);
+    final leaf = await task('Leaf', parent: middle.id);
+    final result = await root.assistant.workspaceToolHandler!('delete_agent', {
+      'agent_id': middle.id,
+    });
+    expect(result['deleted_agent_ids'], [middle.id]);
+    expect(result['promoted_agent_ids'], isEmpty);
+    expect(workspaces.find(leaf.id), same(leaf));
+    expect(leaf.kind, AiWorkspaceKind.permanent);
+    expect(leaf.parentId, root.id);
+  });
 
   test(
     'selected peer copies connect only copies and preserve original hierarchy',
@@ -513,129 +851,115 @@ void main() {
     expect(b.kind, AiWorkspaceKind.primary);
   });
 
-  test('cross-tree endpoints require explicit approval before any hierarchy mutation', () async {
+  test('cross-tree connection merges roots and retains branch edges', () async {
     final rootA = await task('Root A', kind: AiWorkspaceKind.primary);
     final rootB = await task('Root B', kind: AiWorkspaceKind.primary);
     final childA = await task('Child A', parent: rootA.id);
     final childB = await task('Child B', parent: rootB.id);
     final before = workspaces.connections.map((e) => e.id).toList();
-    expect(() => workspaces.connectTasks(rootA.id, rootB.id), throwsStateError);
-    expect(
-      () => workspaces.connectTasks(childA.id, childB.id),
-      throwsStateError,
-    );
+    final rootLink = workspaces.connectTasks(rootA.id, rootB.id);
+    final childLink = workspaces.connectTasks(childA.id, childB.id);
     expect(rootA.parentId, isNull);
-    expect(rootB.parentId, isNull);
+    expect(rootB.parentId, rootA.id);
     expect(rootA.kind, AiWorkspaceKind.primary);
-    expect(rootB.kind, AiWorkspaceKind.primary);
+    expect(rootB.kind, AiWorkspaceKind.permanent);
     expect(childA.parentId, rootA.id);
     expect(childB.parentId, rootB.id);
-    expect(workspaces.connections.map((e) => e.id), before);
-    expect(workspaces.connectionMergeFor(rootA.id, childA.id), isNull);
+    expect(
+      workspaces.connections.map((e) => e.id),
+      unorderedEquals([...before, rootLink.id, childLink.id]),
+    );
   });
 
-  test('confirmed child-to-child join moves only target branch with history and internal peers', () async {
-    final rootA = await task('Root A', kind: AiWorkspaceKind.primary);
-    final rootB = await task('Root B', kind: AiWorkspaceKind.primary);
-    final childA = await task('Child A', parent: rootA.id);
-    final childB = await task('Child B', parent: rootB.id);
-    final siblingB = await task('Sibling B', parent: rootB.id);
-    final nested = await task('Nested B', parent: childB.id);
-    final nestedSibling = await task('Nested sibling B', parent: childB.id);
-    final innerPeer = workspaces.connectTasks(nested.id, nestedSibling.id);
-    final boundaryPeer = workspaces.connectTasks(childB.id, siblingB.id);
-    final boundaryDescendantPeer = workspaces.connectTasks(nested.id, rootB.id);
-    await childB.assistant.sendMessage('Existing target history');
-    final assistant = childB.assistant;
-    final permissions = assistant.permissions;
-    final history = assistant.messages.map((m) => m.content).toList();
-    final plan = workspaces.connectionMergeFor(childA.id, childB.id)!;
-    expect(plan.sourceRootId, rootA.id);
-    expect(plan.targetRootId, rootB.id);
-    expect(plan.rootId, childB.id);
-    expect(plan.parentId, childA.id);
-    expect(plan.changesRole, isFalse);
-    final edge = workspaces.connectTasks(
-      childA.id,
-      childB.id,
-      confirmedMerge: plan,
-    );
-    expect(edge.isHierarchy, isTrue);
-    expect(rootA.kind, AiWorkspaceKind.primary);
-    expect(rootA.parentId, isNull);
-    expect(rootB.kind, AiWorkspaceKind.primary);
-    expect(rootB.parentId, isNull);
-    expect(childA.kind, AiWorkspaceKind.permanent);
-    expect(childA.parentId, rootA.id);
-    expect(childB.parentId, childA.id);
-    expect(childB.kind, AiWorkspaceKind.permanent);
-    expect(siblingB.parentId, rootB.id);
-    expect(nested.parentId, childB.id);
-    expect(nestedSibling.parentId, childB.id);
-    expect(
-      workspaces.connections.any((item) => item.id == innerPeer.id),
-      isTrue,
-    );
-    expect(
-      workspaces.connections.any((item) => item.id == boundaryPeer.id),
-      isFalse,
-    );
-    expect(
-      workspaces.connections.any(
-        (item) => item.id == boundaryDescendantPeer.id,
-      ),
-      isFalse,
-    );
-    expect(workspaces.isConnected(childB.id, rootB.id), isFalse);
-    expect(childB.assistant, same(assistant));
-    expect(assistant.permissions, same(permissions));
-    expect(assistant.messages.map((m) => m.content), history);
-    expect(workspaces.primaries, [rootA, rootB]);
-    expect(workspaces.connectTasks(childB.id, childA.id).id, edge.id);
-    expect(workspaces.connectionMergeFor(childA.id, childB.id), isNull);
-    await reload();
-    expect(workspaces.find(childB.id)!.parentId, childA.id);
-    expect(workspaces.find(siblingB.id)!.parentId, rootB.id);
-    expect(workspaces.find(nested.id)!.parentId, childB.id);
-    expect(workspaces.primaries.map((task) => task.id), [rootA.id, rootB.id]);
-    expect(workspaces.isConnected(nested.id, nestedSibling.id), isTrue);
-    expect(workspaces.isConnected(childB.id, siblingB.id), isFalse);
-  });
-  test('reversing drag direction moves the other target branch and retains both roots', () async {
-    final rootA = await task('Root A', kind: AiWorkspaceKind.primary);
-    final rootB = await task('Root B', kind: AiWorkspaceKind.primary);
-    final childA = await task('Child A', parent: rootA.id);
-    final childB = await task('Child B', parent: rootB.id);
-    final plan = workspaces.connectionMergeFor(childB.id, childA.id)!;
-    expect(plan.rootId, childA.id);
-    expect(plan.parentId, childB.id);
-    workspaces.connectTasks(childB.id, childA.id, confirmedMerge: plan);
-    expect(workspaces.primaries, [rootA, rootB]);
-    expect(rootA.parentId, isNull);
-    expect(rootB.parentId, isNull);
-    expect(childA.parentId, childB.id);
-    expect(childB.parentId, rootB.id);
-  });
   test(
-    'target parent change inside its old tree invalidates branch move approval',
+    'child-to-child communication retains history ownership and all peer links',
+    () async {
+      final rootA = await task('Root A', kind: AiWorkspaceKind.primary);
+      final rootB = await task('Root B', kind: AiWorkspaceKind.primary);
+      final childA = await task('Child A', parent: rootA.id);
+      final childB = await task('Child B', parent: rootB.id);
+      final siblingB = await task('Sibling B', parent: rootB.id);
+      final nested = await task('Nested B', parent: childB.id);
+      final nestedSibling = await task('Nested sibling B', parent: childB.id);
+      final innerPeer = workspaces.connectTasks(nested.id, nestedSibling.id);
+      final boundaryPeer = workspaces.connectTasks(childB.id, siblingB.id);
+      final boundaryDescendantPeer = workspaces.connectTasks(
+        nested.id,
+        rootB.id,
+      );
+      await childB.assistant.sendMessage('Existing target history');
+      final assistant = childB.assistant;
+      final permissions = assistant.permissions;
+      final history = assistant.messages.map((m) => m.content).toList();
+      final edge = workspaces.connectTasks(childA.id, childB.id);
+      expect(edge.isHierarchy, isTrue);
+      expect(rootA.kind, AiWorkspaceKind.primary);
+      expect(rootA.parentId, isNull);
+      expect(rootB.kind, AiWorkspaceKind.permanent);
+      expect(rootB.parentId, childB.id);
+      expect(childA.kind, AiWorkspaceKind.permanent);
+      expect(childA.parentId, rootA.id);
+      expect(childB.parentId, childA.id);
+      expect(childB.kind, AiWorkspaceKind.permanent);
+      expect(siblingB.parentId, rootB.id);
+      expect(nested.parentId, childB.id);
+      expect(nestedSibling.parentId, childB.id);
+      expect(
+        workspaces.connections.any((item) => item.id == innerPeer.id),
+        isTrue,
+      );
+      expect(
+        workspaces.connections.any((item) => item.id == boundaryPeer.id),
+        isTrue,
+      );
+      expect(
+        workspaces.connections.any(
+          (item) => item.id == boundaryDescendantPeer.id,
+        ),
+        isTrue,
+      );
+      expect(workspaces.isConnected(childB.id, rootB.id), isTrue);
+      expect(childB.assistant, same(assistant));
+      expect(assistant.permissions, same(permissions));
+      expect(assistant.messages.map((m) => m.content), history);
+      expect(workspaces.primaries, [rootA]);
+      expect(workspaces.connectTasks(childB.id, childA.id).id, edge.id);
+      await reload();
+      expect(workspaces.find(childB.id)!.parentId, childA.id);
+      expect(workspaces.find(siblingB.id)!.parentId, rootB.id);
+      expect(workspaces.find(nested.id)!.parentId, childB.id);
+      expect(workspaces.primaries.map((task) => task.id), [rootA.id]);
+      expect(workspaces.isConnected(nested.id, nestedSibling.id), isTrue);
+      expect(workspaces.isConnected(childB.id, siblingB.id), isTrue);
+    },
+  );
+  test(
+    'reverse duplicate connection retains the first source group leader',
+    () async {
+      final rootA = await task('Root A', kind: AiWorkspaceKind.primary);
+      final rootB = await task('Root B', kind: AiWorkspaceKind.primary);
+      final childA = await task('Child A', parent: rootA.id);
+      final childB = await task('Child B', parent: rootB.id);
+      final edge = workspaces.connectTasks(childB.id, childA.id);
+      expect(workspaces.connectTasks(childA.id, childB.id).id, edge.id);
+      expect(workspaces.primaries, [rootB]);
+      expect(rootA.parentId, childA.id);
+      expect(rootB.parentId, isNull);
+      expect(childA.parentId, childB.id);
+      expect(childB.parentId, rootB.id);
+    },
+  );
+  test(
+    'cross-tree connection reverses the target path and retains its branches',
     () async {
       final source = await task('Source', kind: AiWorkspaceKind.primary);
       final oldRoot = await task('Old root', kind: AiWorkspaceKind.primary);
       final target = await task('Target', parent: oldRoot.id);
       final sibling = await task('Sibling', parent: oldRoot.id);
-      final approval = workspaces.connectionMergeFor(source.id, target.id)!;
       workspaces.reparent(target.id, sibling.id);
       final graph = workspaces.connections
           .map((edge) => (edge.id, edge.fromId, edge.toId))
           .toList();
-      expect(
-        () => workspaces.connectTasks(
-          source.id,
-          target.id,
-          confirmedMerge: approval,
-        ),
-        throwsStateError,
-      );
       expect(target.parentId, sibling.id);
       expect(source.parentId, isNull);
       expect(oldRoot.parentId, isNull);
@@ -645,186 +969,156 @@ void main() {
       );
       connectConfirmed(source.id, target.id);
       expect(target.parentId, source.id);
-      expect(sibling.parentId, oldRoot.id);
-      expect(workspaces.primaries, [source, oldRoot]);
+      expect(sibling.parentId, target.id);
+      expect(oldRoot.parentId, sibling.id);
+      expect(workspaces.primaries, [source]);
     },
   );
+  test('reparent moves only the selected subtree and reconnect joins its old group', () async {
+    final a = await task('A', kind: AiWorkspaceKind.primary);
+    final b = await task('B', kind: AiWorkspaceKind.primary);
+    final c = await task('C', kind: AiWorkspaceKind.primary);
+    workspaces.connectTasks(a.id, b.id);
+    expect(b.parentId, a.id);
+    expect(a.parentId, isNull);
+    workspaces.reparent(b.id, c.id);
+    expect(b.parentId, c.id);
+    expect(c.parentId, isNull);
+    expect(a.parentId, isNull);
+    expect(c.parentId, isNull);
+    expect(a.parentId, isNull);
+    final edge = workspaces.connectTasks(b.id, a.id);
+    expect(a.parentId, b.id);
+    expect(workspaces.primaries, [c]);
+    expect(workspaces.connections, hasLength(2));
+    expect(workspaces.connectTasks(a.id, b.id).id, edge.id);
+  });
+
+  test('child creation without a parent is rejected', () async {
+    await expectLater(
+      task('Orphan', kind: AiWorkspaceKind.permanent),
+      throwsStateError,
+    );
+    expect(workspaces.sessions, isEmpty);
+  });
+
   test(
-    'stale hierarchy role or reversed approvals reject without further changes',
+    'saved child without a parent is rejected instead of restored',
+    () async {
+      final root = await task('Root');
+      await task('Child', parent: root.id);
+      await workspaces.flush();
+      final saved = jsonDecode(
+        (await storage.request('readWorkflow')) as String,
+      ) as Map<String, dynamic>;
+      final child = (saved['sessions'] as List).cast<Map>().firstWhere(
+        (record) => record['parentId'] == root.id,
+      );
+      child['parentId'] = null;
+      await reload(replacement: saved);
+      expect(workspaces.persistenceError, isNotNull);
+      expect(workspaces.sessions, isEmpty);
+    },
+  );
+
+  test(
+    'stored cross-tree links restore and group-copy with one main per workflow',
     () async {
       final a = await task('A', kind: AiWorkspaceKind.primary);
       final b = await task('B', kind: AiWorkspaceKind.primary);
-      final c = await task('C', kind: AiWorkspaceKind.primary);
-      final oldPlan = workspaces.connectionMergeFor(a.id, b.id)!;
+      await workspaces.flush();
+      final saved = jsonDecode(
+        (await storage.request('readWorkflow')) as String,
+      ) as Map<String, dynamic>;
+      saved['connections'] = [
+        {'fromId': a.id, 'toId': b.id},
+      ];
+      await reload(replacement: saved);
+      expect(workspaces.persistenceError, isNull);
+      expect(workspaces.primaries.map((s) => s.id), [a.id]);
+      expect(workspaces.find(a.id)!.parentId, isNull);
+      expect(workspaces.find(b.id)!.parentId, a.id);
+      expect(workspaces.connections.single.isHierarchy, isTrue);
       expect(
-        () => workspaces.connectTasks(b.id, a.id, confirmedMerge: oldPlan),
-        throwsStateError,
+        workspaces.connectTasks(a.id, b.id).id,
+        workspaces.connections.single.id,
       );
-      expect(b.parentId, isNull);
-      expect(a.parentId, isNull);
-      workspaces.reparent(b.id, c.id);
+      final copies = await workspaces.pasteCards(
+        workspaces.copyCards([a.id, b.id]),
+        titleForCopy: (name) => name,
+      );
       expect(
-        () => workspaces.connectTasks(a.id, b.id, confirmedMerge: oldPlan),
-        throwsStateError,
+        copies.where((copy) => copy.kind == AiWorkspaceKind.primary),
+        hasLength(1),
       );
-      expect(b.parentId, c.id);
-      expect(c.parentId, isNull);
-      expect(a.parentId, isNull);
-      final current = workspaces.connectionMergeFor(a.id, b.id)!;
-      c.kind = AiWorkspaceKind.permanent;
+      expect(workspaces.isConnected(copies[0].id, copies[1].id), isTrue);
+      workspaces.connectTasks(a.id, b.id);
+      expect(workspaces.find(b.id)!.parentId, a.id);
       expect(
-        () => workspaces.connectTasks(a.id, b.id, confirmedMerge: current),
-        throwsStateError,
+        workspaces.connections.where((e) => e.fromId == a.id && e.toId == b.id),
+        hasLength(1),
       );
-      expect(c.parentId, isNull);
-      expect(a.parentId, isNull);
-      final confirmed = workspaces.connectionMergeFor(a.id, b.id)!;
-      final edge = workspaces.connectTasks(
-        a.id,
-        b.id,
-        confirmedMerge: confirmed,
-      );
-      final edgeCount = workspaces.connections.length;
-      expect(
-        () => workspaces.connectTasks(a.id, b.id, confirmedMerge: confirmed),
-        throwsStateError,
-      );
-      expect(workspaces.connections, hasLength(edgeCount));
-      expect(workspaces.connectTasks(a.id, b.id).id, edge.id);
     },
   );
 
   test(
-    'orphan source subtree joins existing target root without changing roles',
+    'explicit promotion cuts boundary links and preserves internal state',
     () async {
-      final orphan = await task('Orphan');
-      final orphanChild = await task('Orphan child', parent: orphan.id);
       final root = await task('Root', kind: AiWorkspaceKind.primary);
-      final target = await task('Target child', parent: root.id);
-      final plan = workspaces.connectionMergeFor(orphanChild.id, target.id)!;
-      expect(plan.sourceRootId, orphan.id);
-      expect(plan.targetRootId, root.id);
-      expect(plan.rootId, orphan.id);
-      expect(plan.parentId, target.id);
-      expect(plan.changesRole, isFalse);
-      expect(
-        () => workspaces.connectTasks(orphanChild.id, target.id),
-        throwsStateError,
-      );
-      workspaces.connectTasks(orphanChild.id, target.id, confirmedMerge: plan);
-      expect(root.parentId, isNull);
+      final branch = await task('Branch', parent: root.id);
+      final left = await task('Left', parent: branch.id);
+      final right = await task('Right', parent: branch.id);
+      final outside = await task('Outside', parent: root.id);
+      final internal = workspaces.connectTasks(left.id, right.id);
+      final cutFirst = workspaces.connectTasks(branch.id, outside.id);
+      final cutSecond = workspaces.connectTasks(right.id, root.id);
+      await branch.assistant.sendMessage('Keep conversation');
+      final assistant = branch.assistant;
+      final permissions = assistant.permissions;
+      final messages = assistant.messages
+          .map((message) => message.content)
+          .toList();
+      var notifications = 0;
+      workspaces.addListener(() {
+        notifications++;
+        expect(branch.kind, AiWorkspaceKind.primary);
+        expect(workspaces.isConnected(branch.id, outside.id), isFalse);
+        expect(workspaces.isConnected(right.id, root.id), isFalse);
+      });
+      workspaces.promoteToRoot(branch.id);
+      expect(notifications, 1);
+      expect(branch.parentId, isNull);
+      expect(branch.kind, AiWorkspaceKind.primary);
+      expect(left.parentId, branch.id);
+      expect(right.parentId, branch.id);
+      expect(left.kind, AiWorkspaceKind.permanent);
+      expect(right.kind, AiWorkspaceKind.permanent);
+      expect(outside.parentId, root.id);
       expect(root.kind, AiWorkspaceKind.primary);
-      expect(orphan.parentId, target.id);
-      expect(orphan.kind, AiWorkspaceKind.permanent);
-      expect(orphanChild.parentId, orphan.id);
-      expect(target.parentId, root.id);
+      expect(branch.assistant, same(assistant));
+      expect(assistant.permissions, same(permissions));
+      expect(assistant.messages.map((message) => message.content), messages);
+      expect(
+        workspaces.connections.map((edge) => edge.id),
+        containsAll([left.id, right.id, outside.id, internal.id]),
+      );
+      expect(
+        workspaces.connections.any(
+          (edge) => edge.id == cutFirst.id || edge.id == cutSecond.id,
+        ),
+        isFalse,
+      );
+      await reload();
+      expect(workspaces.find(branch.id)!.kind, AiWorkspaceKind.primary);
+      expect(workspaces.find(branch.id)!.parentId, isNull);
+      expect(workspaces.connections, hasLength(4));
+      expect(workspaces.isConnected(left.id, right.id), isTrue);
+      expect(workspaces.isConnected(right.id, root.id), isFalse);
     },
   );
 
-  test('two orphan trees still require explicit merge approval', () async {
-    final a = await task('A');
-    final b = await task('B');
-    final plan = workspaces.connectionMergeFor(a.id, b.id)!;
-    expect(plan.changesRole, isFalse);
-    expect(() => workspaces.connectTasks(a.id, b.id), throwsStateError);
-    workspaces.connectTasks(a.id, b.id, confirmedMerge: plan);
-    expect(b.parentId, a.id);
-    expect(b.kind, AiWorkspaceKind.permanent);
-    expect(a.kind, AiWorkspaceKind.permanent);
-  });
-
-  test('legacy cross-tree links restore and group-copy without silently changing root roles', () async {
-    final a = await task('A', kind: AiWorkspaceKind.primary);
-    final b = await task('B', kind: AiWorkspaceKind.primary);
-    await workspaces.flush();
-    final saved = jsonDecode(
-      (await storage.request('readWorkflow')) as String,
-    ) as Map<String, dynamic>;
-    saved['connections'] = [
-      {'fromId': a.id, 'toId': b.id},
-    ];
-    await reload(replacement: saved);
-    expect(workspaces.persistenceError, isNull);
-    expect(workspaces.primaries.map((s) => s.id), [a.id, b.id]);
-    expect(workspaces.find(a.id)!.parentId, isNull);
-    expect(workspaces.find(b.id)!.parentId, isNull);
-    expect(workspaces.connections.single.isHierarchy, isFalse);
-    expect(() => workspaces.connectTasks(a.id, b.id), throwsStateError);
-    final copies = await workspaces.pasteCards(
-      workspaces.copyCards([a.id, b.id]),
-      titleForCopy: (name) => name,
-    );
-    expect(
-      copies.every(
-        (copy) => copy.kind == AiWorkspaceKind.primary && copy.parentId == null,
-      ),
-      isTrue,
-    );
-    expect(workspaces.isConnected(copies[0].id, copies[1].id), isTrue);
-    final plan = workspaces.connectionMergeFor(a.id, b.id)!;
-    workspaces.connectTasks(a.id, b.id, confirmedMerge: plan);
-    expect(workspaces.find(b.id)!.parentId, a.id);
-    expect(
-      workspaces.connections.where((e) => e.fromId == a.id && e.toId == b.id),
-      hasLength(1),
-    );
-  });
-
-  test('explicit promotion cuts all subtree boundary peers but retains internal links and state', () async {
-    final root = await task('Root', kind: AiWorkspaceKind.primary);
-    final branch = await task('Branch', parent: root.id);
-    final left = await task('Left', parent: branch.id);
-    final right = await task('Right', parent: branch.id);
-    final outside = await task('Outside', parent: root.id);
-    final internal = workspaces.connectTasks(left.id, right.id);
-    final cutFirst = workspaces.connectTasks(branch.id, outside.id);
-    final cutSecond = workspaces.connectTasks(right.id, root.id);
-    await branch.assistant.sendMessage('Keep conversation');
-    final assistant = branch.assistant;
-    final permissions = assistant.permissions;
-    final messages = assistant.messages
-        .map((message) => message.content)
-        .toList();
-    var notifications = 0;
-    workspaces.addListener(() {
-      notifications++;
-      expect(branch.kind, AiWorkspaceKind.primary);
-      expect(workspaces.isConnected(branch.id, outside.id), isFalse);
-      expect(workspaces.isConnected(right.id, root.id), isFalse);
-    });
-    workspaces.promoteToRoot(branch.id);
-    expect(notifications, 1);
-    expect(branch.parentId, isNull);
-    expect(branch.kind, AiWorkspaceKind.primary);
-    expect(left.parentId, branch.id);
-    expect(right.parentId, branch.id);
-    expect(left.kind, AiWorkspaceKind.permanent);
-    expect(right.kind, AiWorkspaceKind.permanent);
-    expect(outside.parentId, root.id);
-    expect(root.kind, AiWorkspaceKind.primary);
-    expect(branch.assistant, same(assistant));
-    expect(assistant.permissions, same(permissions));
-    expect(assistant.messages.map((message) => message.content), messages);
-    expect(
-      workspaces.connections.map((edge) => edge.id),
-      containsAll([left.id, right.id, outside.id, internal.id]),
-    );
-    expect(
-      workspaces.connections.any(
-        (edge) => edge.id == cutFirst.id || edge.id == cutSecond.id,
-      ),
-      isFalse,
-    );
-    await reload();
-    expect(workspaces.find(branch.id)!.kind, AiWorkspaceKind.primary);
-    expect(workspaces.find(branch.id)!.parentId, isNull);
-    expect(workspaces.connections, hasLength(4));
-    expect(workspaces.isConnected(left.id, right.id), isTrue);
-    expect(workspaces.isConnected(right.id, root.id), isFalse);
-  });
-
   test(
-    'promotion after an alternate path cut isolates the selected subtree',
+    'promotion after a delegation cut splits the current management subtree',
     () async {
       final root = await task('Root', kind: AiWorkspaceKind.primary);
       final branch = await task('Branch', parent: root.id);
@@ -838,7 +1132,7 @@ void main() {
       expect(branch.kind, AiWorkspaceKind.primary);
       expect(workspaces.isConnected(branch.id, child.id), isFalse);
       expect(workspaces.isConnected(child.id, root.id), isTrue);
-      expect(workspaces.connections.single.toId, child.id);
+      expect(workspaces.connections, hasLength(1));
     },
   );
 
@@ -866,6 +1160,44 @@ void main() {
       expect(changes, 0);
     },
   );
+  test('restoring a deleted main with a surviving peer edge does not create two mains', () async {
+    final root = await task('Root');
+    final child = await task('Child', parent: root.id);
+    final nested = await task('Nested', parent: child.id);
+    workspaces.connectTasks(root.id, nested.id);
+    workspaces.remove(root.id);
+    expect(workspaces.primaries, [child]);
+    await workspaces.restoreRecycledAgent(root.id);
+    expect(workspaces.primaries, [child]);
+    expect(workspaces.find(root.id)!.parentId, nested.id);
+    expect(workspaces.isConnected(root.id, nested.id), isTrue);
+    expectSingleMainPerWorkflow();
+    await reload();
+    expectSingleMainPerWorkflow();
+  });
+
+  test('startup repairs the screenshot topology through child endpoints without losing edges', () async {
+    final root = await task('Original main');
+    final first = await task('First child', parent: root.id);
+    final second = await task('Second child', parent: root.id);
+    final other = await task('Copied main');
+    final endpoint = await task('Copied child', parent: other.id);
+    final saved = workspaces.exportData();
+    saved['connections'] = [
+      {'fromId': second.id, 'toId': endpoint.id},
+    ];
+    await reload(replacement: saved);
+    expect(workspaces.persistenceError, isNull);
+    expect(workspaces.primaries.map((agent) => agent.id), [root.id]);
+    expect(workspaces.find(other.id)!.parentId, endpoint.id);
+    expect(workspaces.find(endpoint.id)!.parentId, second.id);
+    expect(workspaces.find(first.id)!.parentId, root.id);
+    expect(workspaces.connections, hasLength(4));
+    expectSingleMainPerWorkflow();
+    await reload();
+    expectSingleMainPerWorkflow();
+  });
+
   test('mixed deletion preview matches role changes after root replacement and cuts', () async {
     final root = await task('Root', kind: AiWorkspaceKind.primary);
     final a = await task('A', parent: root.id);
@@ -877,7 +1209,7 @@ void main() {
       deletingTaskIds: [root.id],
     );
     expect(preview[detached.id], AiWorkspaceKind.primary);
-    expect(preview[replacement.id], AiWorkspaceKind.primary);
+    expect(preview[replacement.id], isNull);
     expect(root.kind, AiWorkspaceKind.primary);
     expect(detached.parentId, root.id);
     workspaces.removeMany([root.id]);

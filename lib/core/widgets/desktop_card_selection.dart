@@ -3,6 +3,11 @@
  */
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:material_symbols_icons/symbols.dart';
+
+import '../context_menu/right_click_menu.dart';
+import '../l10n/language_provider.dart';
+import '../theme/definition.dart';
 
 /// 选区遵循当前可见项的顺序，由调用方负责重建。
 class DesktopCardSelection {
@@ -79,6 +84,11 @@ class DesktopCardSelectionRegion extends StatelessWidget {
   final Widget child;
   final bool enabled;
 
+  void _selectAll() {
+    selection.selectAll(ids);
+    onChanged();
+  }
+
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
     if (!enabled || event is! KeyDownEvent) return KeyEventResult.ignored;
     final primaryContext = FocusManager.instance.primaryFocus?.context;
@@ -89,8 +99,7 @@ class DesktopCardSelectionRegion extends StatelessWidget {
     if (keyboard.isAltPressed) return KeyEventResult.ignored;
     if ((keyboard.isControlPressed || keyboard.isMetaPressed) &&
         event.logicalKey == LogicalKeyboardKey.keyA) {
-      selection.selectAll(ids);
-      onChanged();
+      _selectAll();
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.escape &&
@@ -142,6 +151,76 @@ class DesktopCardSelectionTarget extends StatelessWidget {
         region.onChanged();
       },
       child: child,
+    );
+  }
+}
+
+class DesktopCardSelectionMenu extends StatefulWidget {
+  const DesktopCardSelectionMenu({
+    super.key,
+    required this.id,
+    required this.theme,
+    required this.child,
+    this.extraItems,
+  });
+
+  final String id;
+  final AppTheme theme;
+  final Widget child;
+  final List<RightClickMenuItem> Function(VoidCallback close)? extraItems;
+
+  @override
+  State<DesktopCardSelectionMenu> createState() =>
+      _DesktopCardSelectionMenuState();
+}
+
+class _DesktopCardSelectionMenuState extends State<DesktopCardSelectionMenu> {
+  final _menu = RightClickMenuController();
+
+  @override
+  Widget build(BuildContext context) {
+    final region = context
+        .dependOnInheritedWidgetOfExactType<_DesktopCardSelectionScope>()!
+        .region;
+    final l10n = context.l10n;
+    final selected = region.selection.selected.contains(widget.id);
+    final extraItems = widget.extraItems?.call(_menu.close) ?? const [];
+    return DesktopCardSelectionTarget(
+      child: RightClickMenuBuilder.buildMenuAnchor(
+        context: context,
+        controller: _menu,
+        theme: widget.theme,
+        menuTapRegionGroupId: region.selection,
+        onSecondaryTap: region.enabled || extraItems.isNotEmpty ? () {} : null,
+        menuItems: [
+          RightClickMenuItem(
+            label: selected ? l10n.cardDeselect : l10n.cardSelect,
+            icon: selected
+                ? Symbols.check_box_outline_blank
+                : Symbols.check_box,
+            isEnabled: region.enabled,
+            onTap: () {
+              _menu.close();
+              region.focusNode.requestFocus();
+              region.selection.select(widget.id, region.ids, control: true);
+              region.onChanged();
+            },
+          ),
+          RightClickMenuItem(
+            label: l10n.cardSelectAll,
+            icon: Symbols.select_all,
+            isEnabled: region.enabled,
+            showDivider: extraItems.isNotEmpty,
+            onTap: () {
+              _menu.close();
+              region.focusNode.requestFocus();
+              region._selectAll();
+            },
+          ),
+          ...extraItems,
+        ],
+        child: widget.child,
+      ),
     );
   }
 }

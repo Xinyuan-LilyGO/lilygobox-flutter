@@ -1,4 +1,5 @@
 import 'package:lilygobox/core/l10n/delegates.dart';
+
 import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 
@@ -305,7 +306,7 @@ void main() {
           name: 'run_command',
           arguments: args,
           succeeded: true,
-          output: 'legacy',
+          output: jsonEncode({'exit_code': 0, 'running': false}),
         ),
       );
       String? selected;
@@ -598,7 +599,7 @@ void main() {
       'timeout',
       'stopped',
       'stopping',
-      'legacy',
+      'invalid_result',
     ]) {
       testWidgets(
         'command displays a short target and actual result: $locale/$state',
@@ -617,8 +618,8 @@ void main() {
               name: 'run_command',
               arguments: {'executable': executable},
               succeeded: succeeded,
-              output: state == 'legacy'
-                  ? 'Legacy result'
+              output: state == 'invalid_result'
+                  ? 'Invalid result'
                   : jsonEncode({
                       'ok': succeeded,
                       'process_id': 'process-0',
@@ -650,7 +651,7 @@ void main() {
             'stopping' => l10n.aiCommandStopping('flasher.exe'),
             'timeout' => l10n.aiCommandTimedOut('flasher.exe'),
             'stopped' => l10n.aiProcessStoppedLabel('flasher.exe'),
-            _ => l10n.aiCommandRan('flasher.exe'),
+            _ => l10n.aiActionUnknown,
           };
           expect(processText(label), findsOneWidget);
           expect(processText(executable), findsNothing);
@@ -733,7 +734,7 @@ void main() {
         name: 'run_command',
         arguments: {'executable': executable},
         succeeded: true,
-        output: 'Started',
+        output: jsonEncode({'running': true, 'process_id': 'process-0'}),
       ),
     );
     String? selected;
@@ -744,7 +745,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final title = processText('Ran command · firmware_download_run.exe');
+    final title = processText('Process started · firmware_download_run.exe');
     final titleText = tester
         .widget<Text>(title)
         .textSpan!

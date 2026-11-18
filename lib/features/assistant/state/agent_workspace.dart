@@ -22,56 +22,6 @@ class AiTaskConnection {
   final bool isHierarchy;
 }
 
-/// Explicit approval snapshot for joining two hierarchy trees.
-class AiTaskTreeMerge {
-  const AiTaskTreeMerge({
-    required this.fromId,
-    required this.toId,
-    required this.sourceRootId,
-    required this.targetRootId,
-    required this.rootId,
-    required this.parentId,
-    required this.changesRole,
-    required this.fromKind,
-    required this.toKind,
-    required this.sourceRootKind,
-    required this.targetRootKind,
-    required this.previousParentId,
-    required this.detachedConnectionIds,
-  });
-  final String fromId;
-  final String toId;
-  final String sourceRootId;
-  final String targetRootId;
-  final String rootId;
-  final String parentId;
-  final String? previousParentId;
-  final List<String> detachedConnectionIds;
-  final bool changesRole;
-  final AiWorkspaceKind fromKind;
-  final AiWorkspaceKind toKind;
-  final AiWorkspaceKind sourceRootKind;
-  final AiWorkspaceKind targetRootKind;
-
-  bool matches(AiTaskTreeMerge other) =>
-      fromId == other.fromId &&
-      toId == other.toId &&
-      sourceRootId == other.sourceRootId &&
-      targetRootId == other.targetRootId &&
-      rootId == other.rootId &&
-      parentId == other.parentId &&
-      changesRole == other.changesRole &&
-      fromKind == other.fromKind &&
-      toKind == other.toKind &&
-      sourceRootKind == other.sourceRootKind &&
-      targetRootKind == other.targetRootKind &&
-      previousParentId == other.previousParentId &&
-      detachedConnectionIds.length == other.detachedConnectionIds.length &&
-      detachedConnectionIds.indexed.every(
-        (entry) => entry.$2 == other.detachedConnectionIds[entry.$1],
-      );
-}
-
 class AiAgentWorkspace {
   AiAgentWorkspace({
     required this.id,
@@ -131,6 +81,8 @@ class AiAgentWorkspace {
     'title': title,
     'status': status,
     'model': model,
+    'reasoning_effort': assistant.reasoningEffort?.name,
+    'processing_speed': assistant.processingSpeed.name,
     'service_id': serviceId,
     'service_name': assistant.selectedService?.name,
     'result': result.length > maximumResultCharacters

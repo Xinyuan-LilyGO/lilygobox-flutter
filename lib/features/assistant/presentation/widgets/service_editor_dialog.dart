@@ -19,6 +19,7 @@ import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../domain/models.dart';
 import '../../state/provider.dart';
 import 'error_text.dart';
+import 'model_discovery_dialog.dart';
 
 class ServiceEditorDialog extends StatefulWidget {
   const ServiceEditorDialog({
@@ -147,39 +148,37 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
   }
 
   Future<void> _discover() async {
+    final existing = _models.text
+        .split(RegExp(r'[,，\n\r]+'))
+        .map((model) => model.trim())
+        .where((model) => model.isNotEmpty)
+        .toSet();
+    final catalog = await showDialog<AiModelCatalog>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => ModelDiscoveryDialog(
+        theme: widget.theme,
+        existingModels: existing,
+        load: (abort) => widget.assistant.discoverModelCatalog(
+          baseUrl: _baseUrl,
+          apiKey: _key.text,
+          serviceId: _canReuseKey ? widget.service?.id : null,
+          abortTrigger: abort,
+        ),
+      ),
+    );
+    if (!mounted || catalog == null) return;
     setState(() {
-      _working = true;
+      for (final model in catalog.models) {
+        _serviceTiers.remove(model);
+        _imageInputs.remove(model);
+      }
+      _serviceTiers.addAll(catalog.serviceTiers);
+      _imageInputs.addAll(catalog.imageInputs);
+      _models.text = {...existing, ...catalog.models}.join('\n');
       _error = null;
     });
     _revealModelStatus();
-    try {
-      final catalog = await widget.assistant.discoverModelCatalog(
-        baseUrl: _baseUrl,
-        apiKey: _key.text,
-        serviceId: _canReuseKey ? widget.service?.id : null,
-      );
-      final models = catalog.models;
-      if (models.isEmpty) {
-        throw const AiConfigurationException(AiProblem.modelsRequired);
-      }
-      if (mounted) {
-        // 每次成功获取均以本次服务声明为准，缺失能力恢复为未知。
-        _serviceTiers
-          ..clear()
-          ..addAll(catalog.serviceTiers);
-        _imageInputs
-          ..clear()
-          ..addAll(catalog.imageInputs);
-        _models.text = models.join('\n');
-      }
-    } catch (error) {
-      if (mounted) setState(() => _error = error);
-    } finally {
-      if (mounted) {
-        setState(() => _working = false);
-        _revealModelStatus();
-      }
-    }
   }
 
   void _revealModelStatus() {
