@@ -94,6 +94,22 @@ class _TitleCountingScaler extends TextScaler {
   }
 }
 
+class _DelayedTransferStorage extends AgentStorage {
+  _DelayedTransferStorage() : super(path: ':memory:');
+  final commitGate = Completer<void>();
+  final copyGate = Completer<void>();
+
+  @override
+  Future<Object?> request(
+    String operation, [
+    Map<String, Object?> args = const {},
+  ]) async {
+    if (operation == 'commitImport') await commitGate.future;
+    if (operation == 'copyMemories') await copyGate.future;
+    return super.request(operation, args);
+  }
+}
+
 void main() {
   late ThemeProvider theme;
   late LanguageProvider language;
@@ -3991,6 +4007,134 @@ void main() {
       expect(copies.every((s) => !s.busy), isTrue);
       expect(tester.takeException(), isNull);
       await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'large recycle bin keeps import progress and pasted card placement stable',
+    (tester) async {
+      final storage = _DelayedTransferStorage();
+      late AssistantTestScope local;
+      final workspace = (await tester.runAsync(() async {
+        local = await createAssistantTestScope(
+          theme: theme,
+          language: language,
+          shell: shell,
+          splitView: split,
+          storage: storage,
+        );
+        await local.provider.initialized;
+        await storage.saveWorkflow({
+          'version': 1,
+          'sessions': [],
+          'connections': [],
+          'recycleBin': [
+            for (var index = 0; index < 1000; index++)
+              {
+                'record': {
+                  'id': '2000-$index',
+                  'title': 'Recycled $index',
+                  'task': '',
+                  'conversation': <String, Object?>{},
+                },
+                'deletedAt': DateTime.now().toIso8601String(),
+              },
+          ],
+        });
+        final workspace = AiWorkspaceProvider(local.provider);
+        await workspace.initialized;
+        return workspace;
+      }))!;
+      final messenger = tester.binding.defaultBinaryMessenger;
+      const picker = MethodChannel('plugins.flutter.io/file_selector');
+      final archive = File('artifacts/test-data/lilygobox-long-chat-10000.7z')
+          .absolute
+          .path;
+      messenger.setMockMethodCallHandler(picker, (_) async => [archive]);
+      String? clipboard;
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') {
+          clipboard = (call.arguments as Map)['text'] as String;
+        }
+        if (call.method == 'Clipboard.getData') return {'text': clipboard};
+        return null;
+      });
+      try {
+        await tester.pumpWidget(app(restored: workspace));
+        await tester.pumpAndSettle();
+        expect(workspace.recycledAgents, hasLength(1000));
+        const importPoint = Offset(110, 160);
+        await tester.tapAt(importPoint, buttons: kSecondaryMouseButton);
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('topology-canvas-import-agents')),
+        );
+        final progress = find.byKey(
+          const ValueKey('storage-transfer-progress-bar'),
+        );
+        final completing = find.text('正在完成导入');
+        Element? firstProgress;
+        var sawCommit = false;
+        for (var frame = 0; frame < 800; frame++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 10)),
+          );
+          await tester.pump(const Duration(milliseconds: 20));
+          if (!sawCommit && completing.evaluate().isNotEmpty) {
+            sawCommit = true;
+            storage.commitGate.complete();
+          }
+          if (!sawCommit && firstProgress != null) {
+            expect(progress, findsOneWidget);
+          }
+          if (progress.evaluate().isNotEmpty && !sawCommit) {
+            firstProgress ??= tester.element(progress);
+            expect(tester.element(progress), same(firstProgress));
+          }
+          if (workspace.sessions.isNotEmpty && completing.evaluate().isEmpty) {
+            break;
+          }
+        }
+        expect(firstProgress, isNotNull);
+        expect(sawCommit, isTrue);
+        await tick(tester);
+        final original = workspace.sessions.single;
+        expect(original.assistant.messages, hasLength(10000));
+        final node = find.byKey(ValueKey('topology-node-${original.id}'));
+        expect((tester.getTopLeft(node) - importPoint).distance, lessThan(1));
+        await tester.tap(node);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pumpAndSettle();
+        const pastePoint = Offset(480, 370);
+        await tester.tapAt(pastePoint, buttons: kSecondaryMouseButton);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('topology-canvas-paste')));
+        await tick(tester);
+        expect(workspace.sessions, hasLength(2));
+        final copy = find.byKey(
+          ValueKey('topology-node-${workspace.sessions.last.id}'),
+        );
+        expect((tester.getTopLeft(copy) - pastePoint).distance, lessThan(1));
+        storage.copyGate.complete();
+        await tick(tester);
+        expect((tester.getTopLeft(copy) - pastePoint).distance, lessThan(1));
+        expect(workspace.recycledAgents, hasLength(1000));
+        expect(tester.takeException(), isNull);
+      } finally {
+        if (!storage.commitGate.isCompleted) storage.commitGate.complete();
+        if (!storage.copyGate.isCompleted) storage.copyGate.complete();
+        messenger.setMockMethodCallHandler(picker, null);
+        messenger.setMockMethodCallHandler(SystemChannels.platform, null);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.runAsync(() async {
+          await workspace.flush();
+          workspace.dispose();
+          local.dispose();
+          await storage.close();
+        });
+      }
     },
   );
 

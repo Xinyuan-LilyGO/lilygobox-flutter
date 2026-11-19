@@ -2021,6 +2021,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
   Future<List<AiAgentWorkspace>> pasteCards(
     List<AiTaskCardCopy> cards, {
     required String Function(String) titleForCopy,
+    Offset Function(String sourceId)? positionForCopy,
   }) async {
     await initialized;
     if (_disposed) throw StateError('Workspace is closed');
@@ -2047,6 +2048,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
           card,
           title: titleForCopy(card.title),
           parentId: parentId,
+          positionForCopy: positionForCopy,
         );
         copies[card.sourceId] = copy;
         pending.remove(card);
@@ -2070,6 +2072,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
         _sessions.remove(copy);
         _detachForEdit(copy);
         _dirtyConversations.remove(copy.id);
+        canvasPositions.remove(copy.id);
       }
       _pruneConnections();
       if (copies.values.any((copy) => copy.id == _selectedId)) {
@@ -2084,6 +2087,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     AiTaskCardCopy card, {
     required String title,
     required String? parentId,
+    required Offset Function(String sourceId)? positionForCopy,
   }) async {
     if (_disposed) throw StateError('Workspace is closed');
     final parent = find(parentId);
@@ -2138,6 +2142,9 @@ class AiWorkspaceProvider extends ChangeNotifier {
             : AiWorkspaceKind.permanent,
         createdAt: DateTime.now(),
       );
+      if (positionForCopy?.call(card.sourceId) case final position?) {
+        canvasPositions[session.id] = [position.dx, position.dy];
+      }
       _register(session);
       _selectedId ??= session.id;
       _notify();

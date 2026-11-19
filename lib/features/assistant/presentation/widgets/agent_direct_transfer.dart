@@ -59,43 +59,47 @@ Future<void> runDirectAgentTransfer(
             ],
           );
           if (file == null || !context.mounted) return;
-          var package = await transfer(() => controller.inspect(file.path));
-          if (!context.mounted) return;
-          final type = package['type'] as String;
-          final validType = action == 'import'
-              ? type == 'memory'
-              : {'agent', 'workflow', 'chat', 'memory'}.contains(type);
-          if (!validType) {
-            throw const _UnexpectedPackageKind();
-          }
-          final createsMemoryAgent =
-              type == 'memory' && action == 'import-agents';
-          if (type == 'memory' &&
-              !createsMemoryAgent &&
-              workspaces.find(owner) == null) {
-            throw const _UnexpectedPackageKind();
-          }
-          if (createsMemoryAgent) {
-            package = controller.memoryPackageForNewAgent(
-              package,
-              title: l.agentStorageImportedMemoryAgent,
-            );
-          }
-          final plan = await transfer(() => controller.plan(package));
-          if (!context.mounted) return;
-          if (package['type'] == 'memory' &&
-              plan.isNotEmpty &&
-              !await reviewMemoryImport(context, theme, plan)) {
-            return;
-          }
-          if (!context.mounted) return;
           try {
-            await transfer(
-              () => controller.import(package, plan: plan),
+            final completed = await transfer(
+              () async {
+                var package = await controller.inspect(file.path);
+                if (!context.mounted) return false;
+                final type = package['type'] as String;
+                final validType = action == 'import'
+                    ? type == 'memory'
+                    : {'agent', 'workflow', 'chat', 'memory'}.contains(type);
+                if (!validType) {
+                  throw const _UnexpectedPackageKind();
+                }
+                final createsMemoryAgent =
+                    type == 'memory' && action == 'import-agents';
+                if (type == 'memory' &&
+                    !createsMemoryAgent &&
+                    workspaces.find(owner) == null) {
+                  throw const _UnexpectedPackageKind();
+                }
+                if (createsMemoryAgent) {
+                  package = controller.memoryPackageForNewAgent(
+                    package,
+                    title: l.agentStorageImportedMemoryAgent,
+                  );
+                }
+                final plan = await controller.plan(package);
+                if (!context.mounted) return false;
+                if (package['type'] == 'memory' &&
+                    plan.isNotEmpty &&
+                    !await reviewMemoryImport(context, theme, plan)) {
+                  return false;
+                }
+                if (!context.mounted) return false;
+                await controller.import(package, plan: plan);
+                return true;
+              },
               onCommit: onImportCommitting == null
                   ? null
                   : () => onImportCommitting(true),
             );
+            if (!completed) return;
           } finally {
             onImportCommitting?.call(false);
           }

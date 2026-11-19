@@ -118,7 +118,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   Map<String, Offset> _copiedPositions = const {};
   String? _cardClipboardToken;
   Offset? _canvasPointer;
-  Offset? _menuPlacement;
+  Offset? _menuPointer;
   Offset? _importPlacement;
   bool _importCommitting = false;
   int _lastImportRevision = 0;
@@ -1681,7 +1681,9 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     AiWorkspaceProvider workspaces,
     AppTheme theme,
   ) async {
-    _importPlacement = _menuPlacement ?? _placementPoint();
+    _importPlacement = _transform.toScene(
+      _menuPointer ?? _canvasPointer ?? _viewport.center(Offset.zero),
+    );
     final revision = workspaces.importRevision;
     try {
       await runDirectAgentTransfer(
@@ -1726,9 +1728,10 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   }) async {
     if (_pastingCards || _copiedCards.isEmpty) return;
     _pastingCards = true;
-    final anchor = fromMenu
-        ? (_menuPlacement ?? _placementPoint())
-        : _placementPoint();
+    final pointer =
+        (fromMenu ? _menuPointer : null) ??
+        _canvasPointer ??
+        _viewport.center(Offset.zero);
     try {
       final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
       if (!mounted ||
@@ -1739,21 +1742,32 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       }
       final cards = _copiedCards;
       final positions = _copiedPositions;
+      final topLeft = Offset(
+        positions.values.map((p) => p.dx).reduce(math.min),
+        positions.values.map((p) => p.dy).reduce(math.min),
+      );
+      _movedNodes.addAll(_positions);
       final before = _captureEdit(workspaces);
       late final List<AiAgentWorkspace> copies;
       try {
-        copies = await workspaces.pasteCards(cards, titleForCopy: _copyTitle);
+        copies = await workspaces.pasteCards(
+          cards,
+          titleForCopy: _copyTitle,
+          positionForCopy: (id) =>
+              _transform.toScene(pointer) + (positions[id]! - topLeft),
+        );
         if (!mounted) {
           _releaseFrame(before);
           return;
         }
         _canvasFocus.requestFocus();
+        if (_lastCount == 0) _lastCount = workspaces.sessions.length;
         _movedNodes.addAll(_positions);
         setState(() {
           _placeNodes({
             for (var index = 0; index < copies.length; index++)
               copies[index].id: positions[cards[index].sourceId]!,
-          }, anchor);
+          }, _transform.toScene(pointer));
           _selectedIds
             ..clear()
             ..addAll(copies.map((copy) => copy.id));
@@ -2535,7 +2549,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     if (visibleSessions.length != _lastCount) {
       final firstTasks = _lastCount <= 0 && visibleSessions.isNotEmpty;
       _lastCount = visibleSessions.length;
-      if (firstTasks && !imported) {
+      if (firstTasks && !imported && !_pastingCards) {
         _fitOnLayout = true;
       }
     }
@@ -2841,7 +2855,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
           _canvasPointer = event.localPosition;
           if (event.buttons & kSecondaryMouseButton != 0) {
             if (_overviewMenuPointer != event.pointer) _overviewMenuId = null;
-            _menuPlacement = _transform.toScene(event.localPosition);
+            _menuPointer = event.localPosition;
           }
           _closeCanvasMenus();
           _canvasFocus.requestFocus();
