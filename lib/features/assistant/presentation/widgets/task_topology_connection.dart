@@ -57,8 +57,79 @@ class TaskTopologyConnection {
   /// The router keeps both coordinates monotonic, so each axis contributes one
   /// parameter interval. Their intersection avoids bounding-box false positives
   /// and does not miss narrow rectangles between sampled points.
-  bool intersectsRect(Rect rect) {
-    if (!rect.isFinite || rect.width < 0 || rect.height < 0) return false;
+  bool intersectsRect(Rect rect) => _parameterRange(rect) != null;
+
+  Path? clippedPath(Rect bounds) {
+    final controls = _clippedControls(bounds);
+    if (controls == null) return null;
+    final (from, first, second, to) = controls;
+    if (from == start && to == end) return path;
+    return Path()
+      ..moveTo(from.dx, from.dy)
+      ..cubicTo(first.dx, first.dy, second.dx, second.dy, to.dx, to.dy);
+  }
+
+  List<Offset>? clippedPolyline(Rect bounds, double tolerance) {
+    assert(tolerance.isFinite && tolerance > 0);
+    final controls = _clippedControls(bounds);
+    if (controls == null) return null;
+    final points = [controls.$1];
+    final toleranceSquared = tolerance * tolerance;
+    void subdivide(Offset from, Offset first, Offset second, Offset to) {
+      final chord = to - from;
+      final lengthSquared = chord.distanceSquared;
+      bool nearChord(Offset point) {
+        final offset = point - from;
+        final cross = chord.dx * offset.dy - chord.dy * offset.dx;
+        return cross * cross <= toleranceSquared * lengthSquared;
+      }
+
+      if (nearChord(first) && nearChord(second)) {
+        points.add(to);
+        return;
+      }
+      final left = (from + first) * .5;
+      final middle = (first + second) * .5;
+      final right = (second + to) * .5;
+      final leftBend = (left + middle) * .5;
+      final rightBend = (middle + right) * .5;
+      final split = (leftBend + rightBend) * .5;
+      if (split == from || split == to) {
+        points.add(to);
+        return;
+      }
+      subdivide(from, left, leftBend, split);
+      subdivide(split, rightBend, right, to);
+    }
+
+    subdivide(controls.$1, controls.$2, controls.$3, controls.$4);
+    return points;
+  }
+
+  (Offset, Offset, Offset, Offset)? _clippedControls(Rect bounds) {
+    final range = _parameterRange(bounds);
+    if (range == null) return null;
+    final (entry, exit) = range;
+    if (entry == 0 && exit == 1) return (start, _first, _second, end);
+    (Offset, Offset) pointAndTangent(double parameter) {
+      final first = Offset.lerp(start, _first, parameter)!;
+      final middle = Offset.lerp(_first, _second, parameter)!;
+      final last = Offset.lerp(_second, end, parameter)!;
+      final left = Offset.lerp(first, middle, parameter)!;
+      final right = Offset.lerp(middle, last, parameter)!;
+      return (Offset.lerp(left, right, parameter)!, right - left);
+    }
+
+    final span = exit - entry;
+    final (from, startTangent) = pointAndTangent(entry);
+    final (to, endTangent) = pointAndTangent(exit);
+    final first = from + startTangent * span;
+    final second = to - endTangent * span;
+    return (from, first, second, to);
+  }
+
+  (double, double)? _parameterRange(Rect rect) {
+    if (!rect.isFinite || rect.width < 0 || rect.height < 0) return null;
     var lower = 0.0;
     var upper = 1.0;
     for (final axis in [
@@ -68,7 +139,7 @@ class TaskTopologyConnection {
       final (a, b, c, d, minimum, maximum) = axis;
       final ascending = d >= a;
       if (math.max(a, d) < minimum || math.min(a, d) > maximum) {
-        return false;
+        return null;
       }
       if (a == d) continue;
       double parameterAt(double coordinate) {
@@ -91,13 +162,15 @@ class TaskTopologyConnection {
         return (left + right) / 2;
       }
 
-      final entry = parameterAt(ascending ? minimum : maximum);
-      final exit = parameterAt(ascending ? maximum : minimum);
-      lower = math.max(lower, entry);
-      upper = math.min(upper, exit);
-      if (lower > upper + 1e-12) return false;
+      if (ascending ? a < minimum : a > maximum) {
+        lower = math.max(lower, parameterAt(ascending ? minimum : maximum));
+      }
+      if (ascending ? d > maximum : d < minimum) {
+        upper = math.min(upper, parameterAt(ascending ? maximum : minimum));
+      }
+      if (lower > upper + 1e-12) return null;
     }
-    return true;
+    return (lower, math.max(lower, upper));
   }
 
   /// Drag previews follow the pointer in either direction without overshooting.

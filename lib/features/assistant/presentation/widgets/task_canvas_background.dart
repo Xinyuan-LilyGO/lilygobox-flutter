@@ -1,45 +1,131 @@
-/*
- * @Description: 绘制可选择的点阵和网格画布背景，缩放时保持线条和点的屏幕尺寸。
- */
 import 'dart:typed_data';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart' show Listenable, ValueListenable;
+import 'package:flutter/widgets.dart'
+    show CustomPainter, MatrixUtils, TransformationController;
+
 import '../../domain/task_canvas_style.dart';
 
-void paintTaskCanvasBackground(
-  Canvas canvas,
-  Size size, {
-  required AiTaskCanvasStyle style,
-  required Color color,
-  double scale = 1,
-}) {
-  if (style == AiTaskCanvasStyle.plain) return;
-  final zoom = scale.clamp(.25, 1.8);
-  const spacing = 24.0;
-  final paint = Paint()
-    ..color = color
-    ..strokeWidth = .7 / zoom;
-  if (style == AiTaskCanvasStyle.grid) {
-    for (var x = 0.0; x < size.width; x += spacing) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+class TaskCanvasAxesPainter extends CustomPainter {
+  TaskCanvasAxesPainter({
+    required this.transform,
+    required this.color,
+    required this.sceneOrigin,
+  }) : super(repaint: Listenable.merge([transform, sceneOrigin]));
+
+  final TransformationController transform;
+  final Color color;
+  final ValueListenable<Offset> sceneOrigin;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final origin = MatrixUtils.transformPoint(
+      transform.value,
+      sceneOrigin.value,
+    );
+    final horizontal = origin.dy >= 0 && origin.dy < size.height;
+    final vertical = origin.dx >= 0 && origin.dx < size.width;
+    if (!horizontal && !vertical) return;
+    final paint = Paint()
+      ..color = color.withValues(alpha: .32)
+      ..strokeWidth = 1;
+    if (horizontal) {
+      canvas.drawLine(
+        Offset(0, origin.dy),
+        Offset(size.width, origin.dy),
+        paint,
+      );
     }
-    for (var y = 0.0; y < size.height; y += spacing) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    if (vertical) {
+      canvas.drawLine(
+        Offset(origin.dx, 0),
+        Offset(origin.dx, size.height),
+        paint,
+      );
     }
-    return;
+    if (!horizontal || !vertical) return;
+    canvas.drawCircle(origin, 2.5, paint..color = color.withValues(alpha: .60));
   }
-  final columns = (size.width / spacing).ceil();
-  final rows = (size.height / spacing).ceil();
-  final points = Float32List(columns * rows * 2);
-  var index = 0;
-  for (var x = 0; x < columns; x++) {
-    for (var y = 0; y < rows; y++) {
-      points[index++] = x * spacing;
-      points[index++] = y * spacing;
+
+  @override
+  bool shouldRepaint(TaskCanvasAxesPainter oldDelegate) =>
+      transform != oldDelegate.transform ||
+      color != oldDelegate.color ||
+      sceneOrigin != oldDelegate.sceneOrigin;
+}
+
+class TaskCanvasBackgroundPattern {
+  static double spacingFor(double scale) {
+    var spacing = scale < .35
+        ? 96.0
+        : scale < .65
+        ? 48.0
+        : 24.0;
+    while (spacing * scale.clamp(taskCanvasMinScale, taskCanvasMaxScale) < 16) {
+      spacing *= 2;
     }
+    return spacing;
   }
-  paint
-    ..strokeWidth = 2 / zoom
-    ..strokeCap = StrokeCap.round;
-  canvas.drawRawPoints(PointMode.points, points, paint);
+
+  (AiTaskCanvasStyle, int, int, double)? _key;
+  Float32List _points = Float32List(0);
+
+  void paint(
+    Canvas canvas,
+    Rect bounds, {
+    required AiTaskCanvasStyle style,
+    required Color color,
+    required double scale,
+  }) {
+    if (style == AiTaskCanvasStyle.plain || bounds.isEmpty) return;
+    final spacing = spacingFor(scale);
+    final columns = (bounds.width / spacing).ceil() + 2;
+    final rows = (bounds.height / spacing).ceil() + 2;
+    final key = (style, columns, rows, spacing);
+    final dots = style == AiTaskCanvasStyle.dots;
+    if (_key != key) {
+      _key = key;
+      final points = _points = Float32List(
+        dots ? columns * rows * 2 : (columns + rows) * 4,
+      );
+      var index = 0;
+      for (var column = 0; column < columns; column++) {
+        if (dots) {
+          for (var row = 0; row < rows; row++) {
+            points[index++] = column * spacing;
+            points[index++] = row * spacing;
+          }
+        } else {
+          points[index++] = column * spacing;
+          points[index++] = 0;
+          points[index++] = column * spacing;
+          points[index++] = rows * spacing;
+        }
+      }
+      if (!dots) {
+        for (var row = 0; row < rows; row++) {
+          points[index++] = 0;
+          points[index++] = row * spacing;
+          points[index++] = columns * spacing;
+          points[index++] = row * spacing;
+        }
+      }
+    }
+    canvas.save();
+    canvas.clipRect(bounds);
+    canvas.translate(
+      (bounds.left / spacing).floor() * spacing,
+      (bounds.top / spacing).floor() * spacing,
+    );
+    canvas.drawRawPoints(
+      dots ? PointMode.points : PointMode.lines,
+      _points,
+      Paint()
+        ..color = color
+        ..strokeWidth = (dots ? 2 : .7) / scale
+        ..strokeCap = dots ? StrokeCap.round : StrokeCap.butt,
+    );
+    canvas.restore();
+  }
 }

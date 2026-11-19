@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show Offset;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -10,6 +11,7 @@ import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/features/assistant/data/agent_storage.dart';
+import 'package:lilygobox/features/assistant/data/conversation_codec.dart';
 import 'package:lilygobox/features/assistant/domain/agent_link.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/domain/permissions.dart';
@@ -19,9 +21,28 @@ import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart
 
 import 'assistant_test_scope.dart';
 
+class _WorkflowSaveFailureStorage extends AgentStorage {
+  _WorkflowSaveFailureStorage() : super(path: ':memory:');
+
+  bool failNextWorkflowSave = false;
+  Object? lastWorkflowSave;
+  int workflowSaves = 0;
+
+  @override
+  Future<void> saveWorkflow(Object value) {
+    workflowSaves++;
+    if (failNextWorkflowSave) {
+      failNextWorkflowSave = false;
+      return Future.error(StateError('Workflow save failed'));
+    }
+    lastWorkflowSave = value;
+    return super.saveWorkflow(value);
+  }
+}
+
 void main() {
   late AssistantTestScope scope;
-  late AgentStorage storage;
+  late _WorkflowSaveFailureStorage storage;
   late AiWorkspaceProvider workspaces;
   late ThemeProvider theme;
   late LanguageProvider language;
@@ -80,7 +101,7 @@ void main() {
     askApproval = false;
     failNaming = false;
     parentResponseCount = 0;
-    storage = AgentStorage(path: ':memory:');
+    storage = _WorkflowSaveFailureStorage();
     await storage.ready;
     scope = await createAssistantTestScope(
       storage: storage,
@@ -210,6 +231,376 @@ void main() {
       'wait_ms': 100,
     });
   }
+
+  test(
+    'canvas position saves do not notify workflow or relationship observers',
+    () async {
+      final primary = await workspaces.create(
+        title: 'Primary',
+        task: 'Coordinate',
+        startImmediately: false,
+      );
+      final child = await workspaces.create(
+        title: 'Child',
+        task: 'Work',
+        parentId: primary.id,
+        startImmediately: false,
+      );
+      await workspaces.flush();
+      final topologyBefore = await primary.assistant.workspaceToolHandler!(
+        'get_agent_topology',
+        {},
+      );
+      var workflowNotifications = 0;
+      var agentNotifications = 0;
+      void workflowListener() => workflowNotifications++;
+      void agentListener() => agentNotifications++;
+      workspaces.addListener(workflowListener);
+      primary.assistant.addListener(agentListener);
+      child.assistant.addListener(agentListener);
+      try {
+        final positions = {
+          primary.id: [100.0, 200.0],
+          child.id: [400.0, 200.0],
+        };
+        workspaces.updateCanvasPositions(positions);
+        expect(workspaces.canvasPositions, positions);
+        expect(workflowNotifications, 0);
+        expect(agentNotifications, 0);
+        await workspaces.flush();
+        final saved = await storage.request('readWorkflowData') as Map;
+        expect(saved['canvas'], positions);
+        expect(workflowNotifications, 0);
+        expect(agentNotifications, 0);
+        expect(
+          await primary.assistant.workspaceToolHandler!(
+            'get_agent_topology',
+            {},
+          ),
+          topologyBefore,
+        );
+        workspaces.select(child.id);
+        expect(workflowNotifications, 1);
+        expect(agentNotifications, 0);
+      } finally {
+        workspaces.removeListener(workflowListener);
+        primary.assistant.removeListener(agentListener);
+        child.assistant.removeListener(agentListener);
+      }
+    },
+  );
+
+  test(
+    'canvas and selection saves keep recycled snapshots encoded until storage',
+    () async {
+      final primary = await workspaces.create(
+        title: 'Primary',
+        task: 'Coordinate',
+        startImmediately: false,
+      );
+      final child = await workspaces.create(
+        title: 'Child',
+        task: 'Saved long history ' * 1000,
+        parentId: primary.id,
+        startImmediately: false,
+      );
+      final beforeRemoval = workspaces.captureTopologyEdit();
+      workspaces.remove(child.id);
+      final afterRemoval = workspaces.captureTopologyEdit();
+      addTearDown(() {
+        workspaces.releaseTopologyEdit(beforeRemoval);
+        workspaces.releaseTopologyEdit(afterRemoval);
+      });
+      final recycled = workspaces.recycledAgents.single.toJson();
+      for (var step = 1; step <= 3; step++) {
+        workspaces.updateCanvasPositions({
+          primary.id: [step * 100.0, step * 50.0],
+        });
+        workspaces.select(step.isEven ? null : primary.id);
+        await workspaces.flush();
+        final transmitted = storage.lastWorkflowSave as Map;
+        final encoded = (transmitted['recycleBin'] as List).single as Map;
+        expect(encoded['record'], isA<String>());
+        expect(jsonDecode(encoded['record'] as String), recycled['record']);
+        final saved = await storage.request('readWorkflowData') as Map;
+        expect(saved['canvas'], workspaces.canvasPositions);
+        expect(saved['selectedId'], workspaces.selectedId);
+        expect(saved['recycleBin'], [recycled]);
+        expect(workspaces.exportData()['recycleBin'], [recycled]);
+      }
+      await workspaces.restoreTopologyEdit(
+        beforeRemoval,
+        previous: afterRemoval,
+      );
+      await workspaces.flush();
+      expect(
+        (await storage.request('readWorkflowData') as Map)['recycleBin'],
+        isEmpty,
+      );
+      await workspaces.restoreTopologyEdit(
+        afterRemoval,
+        previous: beforeRemoval,
+      );
+      await workspaces.flush();
+      expect((await storage.request('readWorkflowData') as Map)['recycleBin'], [
+        recycled,
+      ]);
+      workspaces.releaseTopologyEdit(beforeRemoval);
+      workspaces.releaseTopologyEdit(afterRemoval);
+      workspaces.dispose();
+      workspaces = AiWorkspaceProvider(scope.provider);
+      await workspaces.initialized;
+      expect(workspaces.persistenceError, isNull);
+      expect(workspaces.recycledAgents.single.toJson(), recycled);
+      expect(workspaces.find(primary.id), isNotNull);
+      expect(workspaces.find(child.id), isNull);
+    },
+  );
+
+  test(
+    'agent lookup tracks creation deletion and recycle restoration',
+    () async {
+      expect(workspaces.find(null), isNull);
+      expect(workspaces.find('missing'), isNull);
+      final primary = await workspaces.create(
+        title: 'Primary',
+        task: 'Coordinate',
+        startImmediately: false,
+      );
+      final child = await workspaces.create(
+        title: 'Child',
+        task: 'Work',
+        parentId: primary.id,
+        startImmediately: false,
+      );
+      expect(workspaces.find(primary.id), same(primary));
+      expect(workspaces.find(child.id), same(child));
+      expect(workspaces.sessions, [primary, child]);
+      workspaces.remove(child.id);
+      expect(workspaces.find(child.id), isNull);
+      expect(workspaces.find(primary.id), same(primary));
+      await workspaces.restoreRecycledAgent(child.id);
+      final restored = workspaces.sessions.last;
+      expect(restored.id, child.id);
+      expect(restored, isNot(same(child)));
+      expect(workspaces.find(child.id), same(restored));
+      expect(restored.parentId, primary.id);
+      expect(workspaces.recycledAgents, isEmpty);
+    },
+  );
+
+  test('agent lookup follows topology undo redo and discarded edits', () async {
+    final primary = await workspaces.create(
+      title: 'Primary',
+      task: 'Coordinate',
+      startImmediately: false,
+    );
+    final before = workspaces.captureTopologyEdit();
+    final child = await workspaces.create(
+      title: 'Child',
+      task: 'Work',
+      parentId: primary.id,
+      startImmediately: false,
+    );
+    final after = workspaces.captureTopologyEdit();
+    try {
+      await workspaces.restoreTopologyEdit(before);
+      expect(workspaces.sessions, [primary]);
+      expect(workspaces.find(child.id), isNull);
+      await workspaces.restoreTopologyEdit(after);
+      expect(workspaces.find(child.id), same(child));
+      expect(workspaces.sessions, [primary, child]);
+      workspaces.remove(child.id);
+      expect(workspaces.find(child.id), isNull);
+      await workspaces.restoreTopologyEdit(after);
+      expect(workspaces.find(child.id), same(child));
+      await workspaces.restoreTopologyEdit(before);
+      expect(workspaces.find(child.id), isNull);
+    } finally {
+      workspaces.releaseTopologyEdit(before);
+      workspaces.releaseTopologyEdit(after);
+    }
+    expect(workspaces.find(primary.id), same(primary));
+    expect(workspaces.find(child.id), isNull);
+  });
+
+  test(
+    'agent lookup tracks import persistence restoration and disposal',
+    () async {
+      final primary = await workspaces.create(
+        title: 'Primary',
+        task: 'Coordinate',
+        startImmediately: false,
+      );
+      final child = await workspaces.create(
+        title: 'Child',
+        task: 'Work',
+        parentId: primary.id,
+        startImmediately: false,
+      );
+      final imported = await workspaces.importData(workspaces.exportData());
+      expect(workspaces.find(imported[primary.id]), isNotNull);
+      expect(
+        workspaces.find(imported[child.id])!.parentId,
+        imported[primary.id],
+      );
+      final order = workspaces.sessions.map((session) => session.id).toList();
+      expect(order.take(2), [primary.id, child.id]);
+      const origin = Offset(480, 240);
+      workspaces.updateCanvasPositions({
+        primary.id: [24, 72],
+      }, origin: origin);
+      for (final session in workspaces.sessions) {
+        expect(workspaces.find(session.id), same(session));
+      }
+      await workspaces.flush();
+      workspaces.dispose();
+      for (final id in order) {
+        expect(workspaces.find(id), isNull);
+      }
+      workspaces = AiWorkspaceProvider(scope.provider);
+      await workspaces.initialized;
+      expect(workspaces.persistenceError, isNull);
+      expect(workspaces.sessions.map((session) => session.id), order);
+      expect(workspaces.canvasOrigin, origin);
+      expect(workspaces.canvasPositions[primary.id], [24, 72]);
+      for (final session in workspaces.sessions) {
+        expect(workspaces.find(session.id), same(session));
+      }
+      expect(workspaces.find(child.id)!.parentId, primary.id);
+      expect(workspaces.find(null), isNull);
+      expect(workspaces.find('missing'), isNull);
+    },
+  );
+
+  test('agent lookup rolls back a failed recycle batch before retry', () async {
+    final primary = await workspaces.create(
+      title: 'Primary',
+      task: 'Coordinate',
+      startImmediately: false,
+    );
+    final child = await workspaces.create(
+      title: 'Child',
+      task: 'Work',
+      parentId: primary.id,
+      startImmediately: false,
+    );
+    final grandchild = await workspaces.create(
+      title: 'Grandchild',
+      task: 'Work',
+      parentId: child.id,
+      startImmediately: false,
+    );
+    final batch = [grandchild.id, child.id];
+    workspaces.removeMany(batch);
+    await workspaces.flush();
+    final savesBefore = storage.workflowSaves;
+    var cancel = false;
+    await workspaces.restoreRecycledAgents(
+      batch,
+      onProgress: (progress) => cancel = progress == .5,
+      isCancelled: () => cancel,
+    );
+    expect(cancel, isTrue);
+    expect(workspaces.recycleBusy, isFalse);
+    expect(storage.workflowSaves, savesBefore);
+    expect(workspaces.sessions, [primary]);
+    expect(
+      workspaces.recycledAgents.map((entry) => entry.id),
+      unorderedEquals(batch),
+    );
+    storage.failNextWorkflowSave = true;
+    await expectLater(
+      workspaces.restoreRecycledAgents(batch),
+      throwsStateError,
+    );
+    expect(workspaces.sessions, [primary]);
+    expect(workspaces.find(primary.id), same(primary));
+    expect(workspaces.find(child.id), isNull);
+    expect(workspaces.find(grandchild.id), isNull);
+    expect(
+      workspaces.recycledAgents.map((entry) => entry.id),
+      unorderedEquals(batch),
+    );
+    await workspaces.restoreRecycledAgents(batch);
+    expect(workspaces.find(child.id)?.parentId, primary.id);
+    expect(workspaces.find(grandchild.id)?.parentId, child.id);
+    expect(workspaces.recycledAgents, isEmpty);
+  });
+
+  test(
+    'batch restore commits 836 long conversations together in parent order',
+    () async {
+      const count = 836;
+      const firstId = '1000-0';
+      const lastId = '1000-835';
+      final content = 'Repeated test content. ' * 5700;
+      final template = ConversationCodec.message(
+        const AiMessage(id: 'message', role: 'user', content: ''),
+      );
+      final now = DateTime.now().toIso8601String();
+      await workspaces.initialized;
+      workspaces.dispose();
+      await storage.saveWorkflow({
+        'version': 1,
+        'sessions': [],
+        'connections': [],
+        'recycleBin': [
+          for (var index = count - 1; index >= 0; index--)
+            {
+              'deletedAt': now,
+              'position': [index, index],
+              'record': {
+                'id': '1000-$index',
+                'title': 'Agent $index',
+                'task': 'Test restore',
+                'kind': index == 0 ? 'primary' : 'permanent',
+                'parentId': index == 0 ? null : '1000-${index - 1}',
+                'createdAt': now,
+                'conversation': {
+                  'serviceId': '',
+                  'model': '',
+                  'messages': [
+                    {...template, 'content': '$content$index'},
+                  ],
+                  'history': [],
+                },
+              },
+            },
+        ],
+      });
+      await storage.putMemory(id: 'memory', owner: lastId, content: 'Kept');
+      workspaces = AiWorkspaceProvider(scope.provider);
+      await workspaces.initialized;
+      expect(workspaces.recycledAgents, hasLength(count));
+      await workspaces.flush();
+      await storage.request('clean');
+      workspaces.dispose();
+      workspaces = AiWorkspaceProvider(scope.provider);
+      await workspaces.initialized;
+      expect(workspaces.recycledAgents, hasLength(count));
+      final savesBefore = storage.workflowSaves;
+      final progress = <double?>[];
+      await workspaces.restoreRecycledAgents([
+        for (var index = count - 1; index >= 0; index--) '1000-$index',
+      ], onProgress: progress.add);
+      expect(storage.workflowSaves - savesBefore, 1);
+      expect(progress.first, 0);
+      expect(progress.last, isNull);
+      expect(progress.whereType<double>().last, greaterThanOrEqualTo(.99));
+      expect(workspaces.recycledAgents, isEmpty);
+      expect(workspaces.sessions, hasLength(count));
+      expect(workspaces.sessions.first.id, firstId);
+      expect(workspaces.sessions.last.id, lastId);
+      expect(workspaces.find(lastId)?.parentId, '1000-834');
+      expect(
+        workspaces.find(lastId)?.assistant.messages.single.content,
+        '${content}835',
+      );
+      expect(workspaces.canvasPositions[lastId], [835, 835]);
+      expect((await storage.memories(lastId)).single['content'], 'Kept');
+    },
+  );
 
   test(
     'a child report wakes an active wait without starting a new turn',
@@ -1935,9 +2326,27 @@ void main() {
       );
       workspaces.dispose();
       workspaces = AiWorkspaceProvider(scope.provider);
+      final progress = <double?>[];
+      workspaces.restoreProgress.addListener(
+        () => progress.add(workspaces.restoreProgress.value),
+      );
       await workspaces.initialized;
       expect(workspaces.persistenceError, isNull);
       expect(workspaces.sessions, hasLength(130));
+      final measured = progress.whereType<double>().toList();
+      expect(measured.first, 0);
+      expect(measured.length, greaterThan(90));
+      for (var index = 0; index < measured.length; index++) {
+        expect(measured[index], inInclusiveRange(0, 1));
+        expect(
+          measured[index] * 130,
+          closeTo((measured[index] * 130).round(), .000001),
+        );
+        if (index > 0) {
+          expect(measured[index], greaterThan(measured[index - 1]));
+        }
+      }
+      expect(progress.last, isNull);
       expect(workspaces.find(copies.single.id), isNotNull);
       expect(workspaces.sessions.every((agent) => !agent.busy), isTrue);
     },

@@ -32,6 +32,13 @@ void main() {
               primary: true,
               onPressed: () {},
             ),
+            AppActionButton.dialog(
+              key: const ValueKey('destructive'),
+              theme: theme,
+              label: 'Delete',
+              destructive: true,
+              onPressed: () {},
+            ),
           ],
         );
         await tester.pumpWidget(
@@ -58,6 +65,9 @@ void main() {
               : theme.settingsControlBackgroundColor,
         );
         expect(button('primary').backgroundColor, theme.basePrimary);
+        for (final key in ['secondary', 'primary', 'destructive']) {
+          expect(button(key).borderRadius, BorderRadius.circular(8));
+        }
         expect(tester.widget<Text>(find.text('Cancel')).style?.fontSize, 12);
         expect(tester.widget<Text>(find.text('Save')).style?.fontSize, 12);
         expect(tester.takeException(), isNull);

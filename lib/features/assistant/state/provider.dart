@@ -3,6 +3,7 @@
  */
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -835,6 +836,7 @@ class AiAssistantProvider extends ChangeNotifier {
   final SettingsToolHandler _settings;
   final ChatCompletionClient _client;
   final List<AiMessage> _messages = [];
+  late final _messageListView = UnmodifiableListView(_messages);
   final List<AiMessage> _pendingGuidance = [];
   bool _activeAcceptsImages = true;
   final List<Map<String, Object?>> _history = [];
@@ -864,7 +866,9 @@ class AiAssistantProvider extends ChangeNotifier {
   void _startRequestCountdown(String id, VoidCallback expire) {
     _requestCountdownTimer?.cancel();
     _requestCountdown.value = (id: id, seconds: _requestTimeoutSeconds);
-    _requestCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _requestCountdownTimer = Timer.periodic(const Duration(seconds: 1), (
+      timer,
+    ) {
       final remaining = _requestTimeoutSeconds - timer.tick;
       if (remaining > 0) {
         _requestCountdown.value = (id: id, seconds: remaining);
@@ -976,7 +980,10 @@ class AiAssistantProvider extends ChangeNotifier {
         },
       }),
     );
-    _startRequestCountdown(id, () => _decideApproval(id, false, timedOut: true));
+    _startRequestCountdown(
+      id,
+      () => _decideApproval(id, false, timedOut: true),
+    );
     _recordStatus(
       AiResponseStatus.awaitingApproval,
       toolName: tool.name,
@@ -1073,7 +1080,7 @@ class AiAssistantProvider extends ChangeNotifier {
     processingSpeed: processingSpeed,
     serviceTiers: selectedService?.serviceTiers[selectedModel],
   );
-  List<AiMessage> get messages => List.unmodifiable(_messages);
+  List<AiMessage> get messages => _messageListView;
   List<AiMessage> get pendingGuidance => List.unmodifiable(_pendingGuidance);
   String? get pendingTurnSteerId => _pendingTurnSteerId;
   bool get canGuideNow => canSendMessage && _pendingTurnSteerId == null;
@@ -2113,8 +2120,7 @@ class AiAssistantProvider extends ChangeNotifier {
                 'answers': <String, Object?>{},
               } else
                 'denied': true,
-              'instruction':
-                  'No user response was received. Continue only with work that does not depend on this response. Do not retry the same request without a new user message.',
+              'instruction': 'No user response was received. Continue only with work that does not depend on this response. Do not retry the same request without a new user message.',
             });
           } else if (error is AiCommandPolicyFailure) {
             result = jsonEncode(error.toJson());

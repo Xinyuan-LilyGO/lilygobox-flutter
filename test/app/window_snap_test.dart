@@ -1,16 +1,21 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/widgets/window_frame.dart';
 import 'package:lilygobox/core/theme/material_palette.dart';
 import 'package:lilygobox/core/theme/provider.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:window_manager/window_manager.dart';
 
 class _Window implements Window {
   FutureOr<void> Function(WindowEvent)? listener;
+  final alphas = <int>[];
+
+  @override
+  set backgroundColor(value) => alphas.add(value.a);
+
   @override
   int addListener(FutureOr<void> Function(WindowEvent) callback) {
     listener = callback;
@@ -61,6 +66,7 @@ void main() {
     await tester.pumpAndSettle();
     final content = find.byKey(const ValueKey('content'));
     expect(tester.getTopLeft(content), const Offset(10, 10));
+    expect(window.alphas, [0]);
     expect(
       tester.widget<ClipRRect>(find.byType(ClipRRect)).clipBehavior,
       Clip.antiAliasWithSaveLayer,
@@ -72,6 +78,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(content), Offset.zero);
+    expect(window.alphas, [0, 255]);
     expect(
       tester.widget<ClipRRect>(find.byType(ClipRRect)).clipBehavior,
       Clip.hardEdge,
@@ -94,7 +101,7 @@ void main() {
     // The native layout notification must update corners without another drag.
     Future<void> notifyLayout(bool snapped) async {
       final completed = Completer<void>();
-      tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
         'lilygobox/window_layout',
         const StandardMethodCodec().encodeMethodCall(
           MethodCall('layoutChanged', snapped),
@@ -112,6 +119,29 @@ void main() {
       BorderRadius.zero,
     );
     await notifyLayout(false);
+    expect(tester.getTopLeft(content), const Offset(10, 10));
+    expect(window.alphas, [0, 255, 0, 255, 0]);
+
+    Future<void> maximize(bool value) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppWindowFrame(
+            window: window,
+            theme: MaterialPalette.create(ThemeType.dark),
+            isMaximized: value,
+            child: const SizedBox.expand(key: ValueKey('content')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await maximize(true);
+    await notifyLayout(true);
+    await notifyLayout(false);
+    await maximize(true);
+    await maximize(false);
+    expect(window.alphas, [0, 255, 0, 255, 0, 255, 0]);
     expect(tester.getTopLeft(content), const Offset(10, 10));
 
     await tester.pumpWidget(const SizedBox.shrink());

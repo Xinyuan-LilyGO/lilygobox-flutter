@@ -39,6 +39,35 @@ class _ChatGraphUpdateBuilder extends Fake
 
   @override
   ui.SemanticsUpdate build() {
+    final oldParents = <int, int>{
+      for (final entry in binding.nodes.entries)
+        for (final child in entry.value.children) child: entry.key,
+    };
+    final removals = <int, Set<int>>{};
+    for (final entry in changes.entries) {
+      for (final child in entry.value.children) {
+        final oldParent = oldParents[child];
+        if (oldParent != null && oldParent != entry.key) {
+          (removals[oldParent] ??= {}).add(child);
+        }
+      }
+    }
+    final detached = <int>{};
+    void detach(int id) {
+      if (!detached.add(id)) return;
+      for (final child in binding.nodes[id]!.children) {
+        detach(child);
+      }
+    }
+
+    for (final children in removals.values) {
+      children.forEach(detach);
+    }
+    expect(
+      removals.keys.where(detached.contains),
+      isEmpty,
+      reason: 'Nested reparenting can corrupt the Windows accessibility bridge',
+    );
     binding.nodes.addAll(changes);
     final reachable = <int>{};
     void visit(int id) {
@@ -207,12 +236,7 @@ void main() {
             )
             .toList();
         expect(messages(), contains('Message 0'));
-        if (ChatMessageList.semanticsViewportEnabled) {
-          expect(messages().length, lessThan(10));
-          expect(messages(), isNot(contains('Message 119')));
-        } else {
-          expect(messages().length, 120);
-        }
+        expect(messages().length, 120);
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(
           location: tester.getCenter(find.byKey(const ValueKey('details-0'))),
@@ -226,10 +250,7 @@ void main() {
         controller.jumpTo(5050);
         await tester.pumpAndSettle();
         expect(messages(), contains('Message 50'));
-        if (ChatMessageList.semanticsViewportEnabled) {
-          expect(messages(), isNot(contains('Message 0')));
-          expect(messages().length, lessThan(10));
-        }
+        expect(messages().length, 120);
         await mouse.removePointer();
         await tester.pumpAndSettle();
         controller.jumpTo(controller.position.maxScrollExtent);

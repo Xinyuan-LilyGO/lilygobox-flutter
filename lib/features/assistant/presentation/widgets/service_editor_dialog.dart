@@ -178,24 +178,6 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
       _models.text = {...existing, ...catalog.models}.join('\n');
       _error = null;
     });
-    _revealModelStatus();
-  }
-
-  void _revealModelStatus() {
-    // 等待进度条或模型列表完成布局，再露出表单底部，避免内容被视口裁切。
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_formScrollController.hasClients) return;
-      final target = _formScrollController.position.maxScrollExtent;
-      if (MediaQuery.disableAnimationsOf(context)) {
-        _formScrollController.jumpTo(target);
-      } else {
-        _formScrollController.animateTo(
-          target,
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-        );
-      }
-    });
   }
 
   @override

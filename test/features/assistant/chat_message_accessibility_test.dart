@@ -69,12 +69,7 @@ void main() {
       expect(adjacent.getSemanticsData().flagsCollection.isHidden, isTrue);
       expect(controller.offset, 0);
       expect(controller.position.maxScrollExtent, 5800);
-      if (ChatMessageList.semanticsViewportEnabled) {
-        expect(
-          nodes().any((node) => node.getSemanticsData().label == 'History 59'),
-          isFalse,
-        );
-      }
+      expect(history(59).getSemanticsData().flagsCollection.isHidden, isTrue);
 
       // 走 Windows bridge 同样派发的语义动作，不能以 controller.jumpTo 替代。
       owner.performAction(adjacent.id, ui.SemanticsAction.showOnScreen);

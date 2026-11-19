@@ -3,6 +3,7 @@
  */
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' show Offset;
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -175,6 +176,11 @@ class AiWorkspaceProvider extends ChangeNotifier {
   late final Future<void> initialized;
   bool _disposed = false;
   bool _restoring = true;
+  bool get isRestoring => _restoring;
+  bool _restoreFailed = false;
+  bool get restoreFailed => _restoreFailed;
+  final _restoreProgress = ValueNotifier<double?>(null);
+  ValueListenable<double?> get restoreProgress => _restoreProgress;
   int _sequence = 0;
   String? _selectedId;
 
@@ -232,6 +238,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     AiTopologyEditSnapshot? previous,
   }) async {
     if (_disposed ||
+        _recycleOperation ||
         !_editSnapshots.contains(snapshot) ||
         !identical(snapshot._owner, this)) {
       throw StateError('Topology edit snapshot is no longer available');
@@ -355,6 +362,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
   final Map<String, Object> _pendingNames = {};
 
   void _detachForEdit(AiAgentWorkspace task) {
+    _topologyAgents.remove(task.id);
     _pendingNames.remove(task.id);
     _removeSessionListener(task.assistant);
     task.assistant.closeWorkspaceRuntime();
@@ -370,8 +378,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
   int get runningCount => _sessions
       .where((s) => s.kind != AiWorkspaceKind.primary && s.busy)
       .length;
-  AiAgentWorkspace? find(String? id) =>
-      _sessions.where((s) => s.id == id).firstOrNull;
+  AiAgentWorkspace? find(String? id) => id == null ? null : _topologyAgents[id];
   List<AiAgentWorkspace> childrenOf(String id) =>
       List.unmodifiable(_sessions.where((s) => s.parentId == id));
 
@@ -662,7 +669,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
 
   List<Object> _relationshipSignature = const [];
   int _topologyRevision = 0;
-  Map<String, AiAgentWorkspace> _topologyAgents = {};
+  final Map<String, AiAgentWorkspace> _topologyAgents = {};
   Map<String, Set<String>> _topologyAdjacency = {};
   Map<String, List<String>> _topologyChildren = {};
 
@@ -782,7 +789,6 @@ class AiWorkspaceProvider extends ChangeNotifier {
         ? _currentRelationshipSignature
         : signature;
     _topologyRevision++;
-    _topologyAgents = {for (final session in _sessions) session.id: session};
     _topologyChildren = {};
     for (final session in _sessions) {
       if (session.parentId case final parent?) {
@@ -847,9 +853,9 @@ class AiWorkspaceProvider extends ChangeNotifier {
   }
 
   Future<void> _restore() async {
-    await main.initialized;
-    if (_disposed) return;
     try {
+      await main.initialized;
+      if (_disposed) return;
       final storage = main.storage;
       if (storage == null) return;
       final decoded = await storage.request('readWorkflowData');
@@ -860,6 +866,9 @@ class AiWorkspaceProvider extends ChangeNotifier {
         throw const FormatException('Invalid agent topology');
       }
       if (decoded['canvas'] case final Map positions) {
+        if (decoded['canvasOrigin'] case [final num x, final num y]) {
+          canvasOrigin = Offset(x.toDouble(), y.toDouble());
+        }
         canvasPositions = {
           for (final e in positions.entries)
             e.key as String: (e.value as List)
@@ -926,36 +935,51 @@ class AiWorkspaceProvider extends ChangeNotifier {
       final records = <Map>[];
       final visiting = <String>{};
       final visited = <String>{};
-      void visit(String id) {
-        if (visited.contains(id)) return;
-        if (!visiting.add(id)) {
-          throw const FormatException('Agent topology contains a cycle');
-        }
-        final raw = byId[id]!;
-        final parentId = raw['parentId'] as String?;
-        if (raw['kind'] == 'primary' && parentId != null) {
-          throw const FormatException('A main agent cannot have a parent');
-        }
-        if (raw['kind'] == 'permanent' && parentId == null) {
-          throw const FormatException('A child agent must have a parent');
-        }
-        if (parentId != null && parentId != 'main') {
-          final parent = byId[parentId];
-          if (parent == null) {
+      final path = <String>[];
+      for (final id in byId.keys) {
+        if (visited.contains(id)) continue;
+        var current = id;
+        while (!visited.contains(current)) {
+          if (!visiting.add(current)) {
+            throw const FormatException('Agent topology contains a cycle');
+          }
+          path.add(current);
+          final raw = byId[current];
+          if (raw == null) {
             throw const FormatException('Invalid saved parent agent');
           }
-          visit(parentId);
+          final parentId = raw['parentId'] as String?;
+          if (raw['kind'] == 'primary' && parentId != null) {
+            throw const FormatException('A main agent cannot have a parent');
+          }
+          if (raw['kind'] == 'permanent' && parentId == null) {
+            throw const FormatException('A child agent must have a parent');
+          }
+          if (parentId == null || parentId == 'main') break;
+          current = parentId;
         }
-        visiting.remove(id);
-        visited.add(id);
-        records.add(raw);
+        visited.addAll(path);
+        for (final member in path.reversed) {
+          records.add(byId[member]!);
+        }
+        visiting.clear();
+        path.clear();
       }
-
-      for (final id in byId.keys) {
-        visit(id);
-      }
-      for (final raw in records) {
+      final slice = Stopwatch()..start();
+      for (var index = 0; index < records.length; index++) {
         if (_disposed) return;
+        final fraction = index / records.length;
+        if (_restoreProgress.value == null ||
+            (_restoreProgress.value! * 100).floor() !=
+                (fraction * 100).floor()) {
+          _restoreProgress.value = fraction;
+        }
+        if (records.length >= 128 && slice.elapsedMilliseconds >= 8) {
+          await Future<void>.delayed(Duration.zero);
+          if (_disposed) return;
+          slice.reset();
+        }
+        final raw = records[index];
         try {
           if (raw['id'] is! String ||
               raw['title'] is! String ||
@@ -1031,6 +1055,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
           persistenceError = error;
         }
       }
+      _restoreProgress.value = null;
       _supplementalConnections.addAll(restoredConnections);
       _pruneConnections();
       final savedSelection = decoded['selectedId'];
@@ -1040,6 +1065,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     } catch (error) {
       persistenceError = error;
     } finally {
+      _restoreFailed = persistenceError != null;
       _restoring = false;
       _notify();
     }
@@ -1057,6 +1083,42 @@ class AiWorkspaceProvider extends ChangeNotifier {
       ? session.assistant.snapshotWorkspaceConversation()
       : {'@conversation': session.id};
 
+  Map<String, Object?> _sessionForStorage(
+    AiAgentWorkspace session,
+    Map<String, Object?> conversation,
+  ) => {
+    'id': session.id,
+    'title': session.title,
+    'task': session.task,
+    'kind': session.kind.name,
+    'closed': session.closed,
+    'parentId': session.parentId,
+    'createdAt': session.createdAt.toIso8601String(),
+    'conversation': conversation,
+  };
+
+  Map<String, Object?> _workflowForStorage({
+    Set<String> omitRecycled = const {},
+  }) => {
+    'version': 1,
+    'selectedId': _selectedId,
+    'recycleRetentionDays': _recycleRetentionDays,
+    'recycleBin': [
+      for (final entry in _recycledAgents)
+        if (!omitRecycled.contains(entry.id)) entry.toStorage(),
+    ],
+    'canvas': canvasPositions,
+    'canvasOrigin': [canvasOrigin.dx, canvasOrigin.dy],
+    'connections': [
+      for (final connection in connections.where((c) => !c.isHierarchy))
+        {'fromId': connection.fromId, 'toId': connection.toId},
+    ],
+    'sessions': [
+      for (final session in _sessions)
+        _sessionForStorage(session, _conversationForSave(session)),
+    ],
+  };
+
   Future<void>? _lastSave;
   Future<void> _saveNow() {
     if (_disposed) return _lastSave ?? Future.value();
@@ -1071,31 +1133,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
       return;
     }
     try {
-      final source = <String, Object?>{
-        'version': 1,
-        'selectedId': _selectedId,
-        'recycleRetentionDays': _recycleRetentionDays,
-        'recycleBin': [for (final entry in _recycledAgents) entry.toJson()],
-        'canvas': canvasPositions,
-        'connections': [
-          for (final connection in connections.where((c) => !c.isHierarchy))
-            {'fromId': connection.fromId, 'toId': connection.toId},
-        ],
-        'sessions': [
-          for (final session in _sessions)
-            {
-              'id': session.id,
-              'title': session.title,
-              'task': session.task,
-              'kind': session.kind.name,
-              'closed': session.closed,
-              'parentId': session.parentId,
-              'createdAt': session.createdAt.toIso8601String(),
-              'conversation': _conversationForSave(session),
-            },
-        ],
-      };
-      await main.storage!.saveWorkflow(source);
+      await main.storage!.saveWorkflow(_workflowForStorage());
     } catch (error) {
       persistenceError = error;
     }
@@ -1147,6 +1185,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
       'recycleRetentionDays': _recycleRetentionDays,
       'recycleBin': [for (final entry in _recycledAgents) entry.toJson()],
       'canvas': canvasPositions,
+      'canvasOrigin': [canvasOrigin.dx, canvasOrigin.dy],
       'connections': [
         for (final c in edges)
           if (parents[c.fromId] != c.toId && parents[c.toId] != c.fromId)
@@ -1211,10 +1250,16 @@ class AiWorkspaceProvider extends ChangeNotifier {
   int importRevision = 0;
   Set<String> importedAgentIds = const {};
   Map<String, List<double>> canvasPositions = {};
+  Offset canvasOrigin = Offset.zero;
   bool Function(Set<String>)? layoutCanvasGroup;
-  void updateCanvasPositions(Map<String, List<double>> positions) {
+  void updateCanvasPositions(
+    Map<String, List<double>> positions, {
+    Offset? origin,
+  }) {
+    if (_disposed) return;
     canvasPositions = positions;
-    _notify();
+    if (origin != null) canvasOrigin = origin;
+    _scheduleSave();
   }
 
   Future<Map<String, String>> importData(
@@ -1478,6 +1523,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     _sessionListeners[assistant] = listener;
     assistant.addListener(listener);
     _sessions.add(session);
+    _topologyAgents[session.id] = session;
     if (synchronize) _synchronizeRelationships();
   }
 
@@ -1929,36 +1975,10 @@ class AiWorkspaceProvider extends ChangeNotifier {
     if (original == null || original.closed) {
       throw StateError('Only main and child agents may be duplicated');
     }
-    final effort = original.assistant.reasoningEffort;
-    final conversation = original.assistant.snapshotConversationFork();
-    final copy = await create(
-      title: title,
-      task: original.task,
-      parentId: original.parentId,
-      kind: original.kind,
-      serviceId: original.serviceId,
-      model: original.model,
-      permissions: original.assistant.permissions,
-      startImmediately: false,
-    );
-    await copy.assistant.setReasoningEffort(effort);
-    if (copy.assistant.processingSpeeds.contains(
-      original.assistant.processingSpeed,
-    )) {
-      await copy.assistant.setProcessingSpeed(
-        original.assistant.processingSpeed,
-      );
-    }
-    copy.assistant.restoreConversationFork(conversation);
-    try {
-      await main.storage?.request('copyMemories', {
-        'mapping': {id: copy.id},
-      });
-    } catch (_) {
-      removeMany([copy.id]);
-      rethrow;
-    }
-    return copy;
+    final copies = await pasteCards([
+      AiTaskCardCopy(original),
+    ], titleForCopy: (_) => title);
+    return copies.single;
   }
 
   List<AiTaskCardCopy> copyCards(Iterable<String> ids) => [
@@ -2002,8 +2022,11 @@ class AiWorkspaceProvider extends ChangeNotifier {
     List<AiTaskCardCopy> cards, {
     required String Function(String) titleForCopy,
   }) async {
+    await initialized;
+    if (_disposed) throw StateError('Workspace is closed');
     final pending = [...cards];
     final copies = <String, AiAgentWorkspace>{};
+    final previousSelection = _selectedId;
     try {
       while (pending.isNotEmpty) {
         final card = pending.firstWhere(
@@ -2015,25 +2038,17 @@ class AiWorkspaceProvider extends ChangeNotifier {
         final originalParent = find(card.parentId);
         final parentId =
             copies[card.parentId]?.id ??
-            (originalParent != null && !originalParent.closed
+            (card.parentId == 'main'
+                ? 'main'
+                : originalParent != null && !originalParent.closed
                 ? originalParent.id
                 : null);
-        final copy = await create(
+        final copy = await _createCardCopy(
+          card,
           title: titleForCopy(card.title),
-          task: card.task,
           parentId: parentId,
-          kind: parentId == null ? card.kind : null,
-          serviceId: card.serviceId,
-          model: card.model,
-          permissions: card.permissions,
-          startImmediately: false,
         );
         copies[card.sourceId] = copy;
-        await copy.assistant.setReasoningEffort(card.effort);
-        if (copy.assistant.processingSpeeds.contains(card.processingSpeed)) {
-          await copy.assistant.setProcessingSpeed(card.processingSpeed);
-        }
-        copy.assistant.restoreConversationFork(card.conversation);
         pending.remove(card);
       }
       for (final card in cards) {
@@ -2050,7 +2065,85 @@ class AiWorkspaceProvider extends ChangeNotifier {
       });
       return [for (final card in cards) copies[card.sourceId]!];
     } catch (_) {
-      removeMany(copies.values.map((copy) => copy.id));
+      for (final copy in copies.values) {
+        if (!identical(find(copy.id), copy)) continue;
+        _sessions.remove(copy);
+        _detachForEdit(copy);
+        _dirtyConversations.remove(copy.id);
+      }
+      _pruneConnections();
+      if (copies.values.any((copy) => copy.id == _selectedId)) {
+        _selectedId = find(previousSelection)?.id;
+      }
+      _notify();
+      rethrow;
+    }
+  }
+
+  Future<AiAgentWorkspace> _createCardCopy(
+    AiTaskCardCopy card, {
+    required String title,
+    required String? parentId,
+  }) async {
+    if (_disposed) throw StateError('Workspace is closed');
+    final parent = find(parentId);
+    if (parentId != null &&
+        parentId != 'main' &&
+        (parent == null || parent.closed)) {
+      throw StateError('A main or child agent is required');
+    }
+    if (title.length > 200) {
+      throw const FormatException(
+        'Agent content is required; title is optional',
+      );
+    }
+    final worker = main.forkForWorkspace();
+    try {
+      final service = main.services
+          .where((service) => service.id == card.serviceId)
+          .firstOrNull;
+      if (card.modelSelectionUnavailable ||
+          service == null ||
+          !service.models.contains(card.model) ||
+          !main.hasServiceKey(service.id)) {
+        worker.markWorkspaceSelectionUnavailable(
+          serviceId: card.serviceId,
+          model: card.model,
+        );
+      } else {
+        await worker.selectModel(service.id, card.model);
+        await worker.setReasoningEffort(card.effort);
+        if (worker.processingSpeeds.contains(card.processingSpeed)) {
+          await worker.setProcessingSpeed(card.processingSpeed);
+        }
+      }
+      worker.setPermissions(card.permissions);
+      worker.restoreConversationFork(card.conversation);
+      if (_disposed ||
+          (parent != null && (find(parent.id) != parent || parent.closed))) {
+        throw StateError('Workspace or parent agent is closed');
+      }
+      final requestedTitle = title.trim();
+      final fallback = card.task.trim().replaceAll(RegExp(r'\s+'), ' ');
+      final session = AiAgentWorkspace(
+        id: '${DateTime.now().microsecondsSinceEpoch}-${_sequence++}',
+        title: requestedTitle.isNotEmpty
+            ? requestedTitle
+            : String.fromCharCodes(fallback.runes.take(32)),
+        task: card.task,
+        assistant: worker,
+        parentId: parentId,
+        kind: parentId == null
+            ? AiWorkspaceKind.primary
+            : AiWorkspaceKind.permanent,
+        createdAt: DateTime.now(),
+      );
+      _register(session);
+      _selectedId ??= session.id;
+      _notify();
+      return session;
+    } catch (_) {
+      worker.dispose();
       rethrow;
     }
   }
@@ -2620,6 +2713,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     }
     _transferTimers.clear();
     _transfers.dispose();
+    _restoreProgress.dispose();
     notifyListeners();
     main.workspaceToolDefinitions = const [];
     main.workspaceToolHandler = null;
@@ -2633,6 +2727,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     _detachedEditTasks.clear();
     _editSnapshots.clear();
     _sessions.clear();
+    _topologyAgents.clear();
     _supplementalConnections.clear();
     super.dispose();
   }

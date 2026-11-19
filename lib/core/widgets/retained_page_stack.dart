@@ -11,9 +11,11 @@ class RetainedPageStack extends StatefulWidget {
     super.key,
     required this.pages,
     required this.activeKey,
+    this.animateTransitions = true,
   });
   final Map<Object, Widget> pages;
   final Object activeKey;
+  final bool animateTransitions;
 
   @override
   State<RetainedPageStack> createState() => _RetainedPageStackState();
@@ -32,12 +34,10 @@ class _RetainedPageStackState extends State<RetainedPageStack>
   void didUpdateWidget(RetainedPageStack oldWidget) {
     super.didUpdateWidget(oldWidget);
     _visited.removeWhere((key) => !widget.pages.containsKey(key));
-    if (oldWidget.activeKey != widget.activeKey) {
-      if (MediaQuery.disableAnimationsOf(context)) {
-        _fade.value = 1;
-      } else {
-        _fade.forward(from: 0);
-      }
+    if (!widget.animateTransitions || MediaQuery.disableAnimationsOf(context)) {
+      _fade.value = 1;
+    } else if (oldWidget.activeKey != widget.activeKey) {
+      _fade.forward(from: 0);
     }
   }
 
@@ -46,7 +46,7 @@ class _RetainedPageStackState extends State<RetainedPageStack>
     _visited.add(widget.activeKey);
     final keys = widget.pages.keys.toList();
     return FadeTransition(
-      opacity: _fade,
+      opacity: widget.animateTransitions ? _fade : kAlwaysCompleteAnimation,
       child: IndexedStack(
         sizing: StackFit.expand,
         index: keys.indexOf(widget.activeKey),

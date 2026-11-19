@@ -5,49 +5,124 @@ import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/message_content.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
+import 'package:markdown/markdown.dart' as md;
 import 'package:material_ui/material_ui.dart';
 
 void main() {
-  for (final entry in {
-    'empty table cell': '| Name | Value |\n| --- | --- |\n| First | |',
-    'empty list item': '- ',
-  }.entries) {
-    testWidgets('streaming retains ${entry.key} block widgets', (tester) async {
-      final theme = ThemeProvider();
-      addTearDown(theme.dispose);
-      Future<void> pump(String tail) => tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: ChatMessageBody(
-              message: AiMessage(
-                id: 'empty-block',
-                role: 'assistant',
-                content: '${entry.value}\n\nTail $tail',
+  testWidgets('long Markdown parses once across theme and scale changes', (
+    tester,
+  ) async {
+    final syntax = _CountingBlockSyntax();
+    final replacement = _CountingBlockSyntax();
+    Future<void> pump({
+      String tail = '',
+      bool dark = false,
+      double scale = 1,
+      _CountingBlockSyntax? blockSyntax,
+    }) => tester.pumpWidget(
+      MaterialApp(
+        theme: dark ? ThemeData.dark() : ThemeData.light(),
+        home: MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+          child: Scaffold(
+            body: SelectionArea(
+              child: SingleChildScrollView(
+                child: ChatMarkdownBody(
+                  MarkdownBody(
+                    data: 'COUNTED\n\n${_longPrefix()}$tail',
+                    blockSyntaxes: [blockSyntax ?? syntax],
+                  ),
+                ),
               ),
-              theme: theme.themeData,
             ),
           ),
         ),
-      );
-      final first = find.byKey(
-        const ValueKey('ai-markdown-block-empty-block-0'),
-      );
-      await pump('initial');
-      final original = tester.widget<RepaintBoundary>(first).child;
-      expect(original, isNotNull);
-      if (entry.key == 'empty table cell') {
-        expect(find.byType(Table), findsOneWidget);
-      }
-      for (var i = 0; i < 5; i++) {
-        await pump('updated $i');
-        expect(
-          identical(tester.widget<RepaintBoundary>(first).child, original),
-          isTrue,
+      ),
+    );
+    await pump();
+    expect(syntax.parses, 1);
+    final initialHeight = tester.getSize(find.byType(ChatMarkdownBody)).height;
+    for (var index = 0; index < 8; index++) {
+      await pump(dark: index.isEven, scale: 1 + index / 10);
+      expect(syntax.parses, 1);
+    }
+    expect(
+      tester.getSize(find.byType(ChatMarkdownBody)).height,
+      greaterThan(initialHeight),
+    );
+    await pump(tail: '\n\nNew paragraph');
+    expect(syntax.parses, 2);
+    await pump(tail: '\n\nNew paragraph', blockSyntax: replacement);
+    expect(replacement.parses, 1);
+    expect(find.text('New paragraph', findRichText: true), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final parentSelection in [false, true]) {
+    testWidgets(
+      'unchanged Markdown widget survives status updates: parent=$parentSelection',
+      (tester) async {
+        final theme = ThemeProvider();
+        addTearDown(theme.dispose);
+        final message = AiMessage(
+          id: 'stable',
+          role: 'assistant',
+          content: _longPrefix(),
         );
-      }
-      expect(tester.takeException(), isNull);
-    });
+        Future<void> pump(AiResponseStatus status) => tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SelectionArea(
+                child: SingleChildScrollView(
+                  child: ChatMessageBody(
+                    message: message.copyWith(status: status),
+                    theme: theme.themeData,
+                    useParentSelectionArea: parentSelection,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final markdown = find.byWidgetPredicate(
+          (widget) => widget is MarkdownBody,
+        );
+        await pump(AiResponseStatus.streaming);
+        final original = tester.widget(markdown);
+        await pump(AiResponseStatus.completed);
+        expect(identical(tester.widget(markdown), original), isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
+
+  testWidgets('cached Markdown links use the current handler', (tester) async {
+    final syntax = _CountingBlockSyntax();
+    final links = <String>[];
+    Future<void> pump(String label) => tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMarkdownBody(
+            MarkdownBody(
+              data: 'COUNTED\n\n[Open](https://example.test)',
+              blockSyntaxes: [syntax],
+              onTapLink: (_, href, _) => links.add('$label:$href'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await pump('before');
+    await tester.tap(find.text('Open', findRichText: true));
+    await pump('after');
+    await tester.tap(find.text('Open', findRichText: true));
+    expect(links, [
+      'before:https://example.test',
+      'after:https://example.test',
+    ]);
+    expect(syntax.parses, 1);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final html in ['<!-- ignored -->', '<div>ignored</div>']) {
     for (final position in ['head', 'middle', 'tail']) {
@@ -112,44 +187,12 @@ void main() {
     }
   }
 
-  testWidgets('streaming retains unchanged Markdown widgets', (tester) async {
-    final theme = ThemeProvider();
-    addTearDown(theme.dispose);
-    Future<void> pump(String content) => tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: appLocalizationDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          body: ChatMessageBody(
-            message: AiMessage(
-              id: 'cache',
-              role: 'assistant',
-              content: content,
-            ),
-            theme: theme.themeData,
-          ),
-        ),
-      ),
-    );
-    await pump('Stable **paragraph**.\n\nGrowing tail');
-    final first = find.descendant(
-      of: find.byKey(const ValueKey('ai-markdown-block-cache-0')),
-      matching: find.byType(RichText),
-    );
-    final original = tester.widgetList<RichText>(first).toList();
-    expect(original, isNotEmpty);
-    for (var i = 0; i < 10; i++) {
-      await pump('Stable **paragraph**.\n\nGrowing tail ${'word ' * i}');
-      final current = tester.widgetList<RichText>(first).toList();
-      expect(current.length, original.length);
-      for (var j = 0; j < original.length; j++) {
-        expect(identical(current[j], original[j]), isTrue);
-      }
-    }
-    expect(tester.takeException(), isNull);
-  });
-
   final cases = <String, List<String>>{
+    'empty table cells': [
+      '| Name | Value |\n| --- | --- |\n| First | |',
+      '| Name | Value |\n| --- | --- |\n| First | |\n\nTail',
+    ],
+    'empty list items': ['- ', '- \n\nTail'],
     'late reference definitions': [
       '[Read documentation][doc]\n\nTail',
       '[Read documentation][doc]\n\nTail\n\n[doc]: https://example.test/docs',
@@ -180,11 +223,18 @@ void main() {
           localizationsDelegates: appLocalizationDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
-            body: SingleChildScrollView(
-              child: ChatMessageBody(
-                key: ValueKey(id),
-                message: AiMessage(id: id, role: 'assistant', content: content),
-                theme: theme.themeData,
+            body: SelectionArea(
+              child: SingleChildScrollView(
+                child: ChatMessageBody(
+                  key: ValueKey(id),
+                  message: AiMessage(
+                    id: id,
+                    role: 'assistant',
+                    content: '${_longPrefix()}\n\n$content',
+                  ),
+                  theme: theme.themeData,
+                  useParentSelectionArea: true,
+                ),
               ),
             ),
           ),
@@ -216,5 +266,24 @@ void main() {
       }
       expect(tester.takeException(), isNull);
     });
+  }
+}
+
+String _longPrefix() => List.generate(
+  12,
+  (index) => 'Paragraph $index: ${'Text with **formatting**. ' * 10}',
+).join('\n\n');
+
+class _CountingBlockSyntax extends md.BlockSyntax {
+  int parses = 0;
+
+  @override
+  RegExp get pattern => RegExp(r'^COUNTED$');
+
+  @override
+  md.Node parse(md.BlockParser parser) {
+    parses++;
+    parser.advance();
+    return md.Element.text('p', 'Parsed marker');
   }
 }

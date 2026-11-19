@@ -3,6 +3,94 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_message_list.dart';
 
 void main() {
+  testWidgets(
+    'a cached message still paints rows revealed by outer scrolling',
+    (tester) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      final paints = <int>{};
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Center(
+            child: SizedBox(
+              width: 400,
+              height: 200,
+              child: SingleChildScrollView(
+                controller: scroll,
+                child: RepaintBoundary(
+                  child: ChatMessageList(
+                    children: List.generate(
+                      8,
+                      (index) => _MessageProbe(
+                        index: index,
+                        height: 100,
+                        onPaint: paints.add,
+                        onHit: (_) {},
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      scroll.jumpTo(400);
+      await tester.pump();
+      expect(paints, containsAll([4, 5]));
+    },
+  );
+
+  testWidgets(
+    'cached horizontal code viewport includes rows exposed by vertical scroll alone',
+    (tester) async {
+      final vertical = ScrollController();
+      final horizontal = ScrollController();
+      addTearDown(vertical.dispose);
+      addTearDown(horizontal.dispose);
+      final paints = <int>[];
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Center(
+            child: SizedBox(
+              width: 400,
+              height: 200,
+              child: SingleChildScrollView(
+                controller: vertical,
+                child: SingleChildScrollView(
+                  controller: horizontal,
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: 1200,
+                    child: ChatMessageList(
+                      children: List.generate(
+                        100,
+                        (index) => _MessageProbe(
+                          index: index,
+                          height: 100,
+                          onPaint: paints.add,
+                          onHit: (_) {},
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      vertical.jumpTo(5050);
+      await tester.pump();
+      expect(paints, containsAll([50, 51, 52]));
+      horizontal.jumpTo(500);
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('a thousand messages paint and hit test only visible entries', (
     tester,
   ) async {
@@ -24,11 +112,13 @@ void main() {
               child: ChatMessageList(
                 children: List.generate(
                   1000,
-                  (index) => _MessageProbe(
-                    index: index,
-                    height: 100,
-                    onPaint: paints.add,
-                    onHit: hits.add,
+                  (index) => RepaintBoundary(
+                    child: _MessageProbe(
+                      index: index,
+                      height: 100,
+                      onPaint: paints.add,
+                      onHit: hits.add,
+                    ),
                   ),
                 ),
               ),
@@ -55,6 +145,10 @@ void main() {
     await tester.pump();
     expect(paints, [998, 999]);
     expect(controller.position.maxScrollExtent, 99800);
+    paints.clear();
+    controller.jumpTo(0);
+    await tester.pump();
+    expect(paints, isEmpty);
     expect(tester.takeException(), isNull);
   });
 

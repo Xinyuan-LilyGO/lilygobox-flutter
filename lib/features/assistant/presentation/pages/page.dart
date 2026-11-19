@@ -10,7 +10,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../app/navigation/provider.dart';
-import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/material_palette.dart';
 import '../../../../core/theme/provider.dart';
@@ -28,7 +27,8 @@ import '../../state/provider.dart';
 import '../widgets/agent_message_source.dart';
 import '../widgets/chat_bottom_fade.dart';
 import '../widgets/chat_composer.dart';
-import '../widgets/chat_message_paint_region.dart';
+import '../widgets/chat_history_selection.dart';
+import '../widgets/chat_history_window.dart';
 import '../widgets/conversation_scroll_controller.dart';
 import '../widgets/error_text.dart';
 import '../widgets/message_content.dart';
@@ -56,6 +56,8 @@ class _AssistantPageState extends State<AssistantPage> {
   final _inputFocus = FocusNode();
   final _conversationSelectionFocus = FocusNode(skipTraversal: true);
   final _inputScroll = ScrollController();
+  final _historyWindow = GlobalKey<ChatHistoryWindowState>();
+  final _historySelection = GlobalKey<ChatHistorySelectionState>();
   bool _showLatest = false;
   // 仅在用户仍停留在底部时跟随流式内容；手动向上滚动后暂停跟随。
   bool _followLatest = true;
@@ -73,17 +75,16 @@ class _AssistantPageState extends State<AssistantPage> {
       return cached.$3;
     }
     final view = Center(
-      key: ValueKey(message.id),
+      key: PageStorageKey(message.id),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 772),
-        child: ChatMessagePaintRegion(
-          child: RepaintBoundary(
-            key: ValueKey('ai-message-paint-${message.id}'),
-            child: _MessageView(
-              key: ValueKey(message.id),
-              message: message,
-              theme: theme,
-            ),
+        child: _MessageRepaintBoundary(
+          key: ValueKey('ai-message-paint-${message.id}'),
+          enabled: !ChatMessageBody.usesContentSegments(message),
+          child: _MessageView(
+            key: ValueKey(message.id),
+            message: message,
+            theme: theme,
           ),
         ),
       ),
@@ -101,7 +102,9 @@ class _AssistantPageState extends State<AssistantPage> {
 
   void _updateLatestButton() {
     if (!mounted || !_scroll.hasClients) return;
-    final show = _scroll.position.extentAfter > 120;
+    final show =
+        _scroll.position.extentAfter > 120 ||
+        (_historyWindow.currentState?.hasLater ?? false);
     if (show != _showLatest) setState(() => _showLatest = show);
   }
 
@@ -143,13 +146,16 @@ class _AssistantPageState extends State<AssistantPage> {
       _scrollToEndPending = false;
     } else if (notification is ScrollUpdateNotification &&
         (notification.scrollDelta ?? 0) > 0 &&
-        metrics.extentAfter <= 1) {
+        metrics.extentAfter <= 1 &&
+        !(_historyWindow.currentState?.hasLater ?? false)) {
       _followLatest = true;
     }
     if (notification is ScrollMetricsNotification && notification.depth == 0) {
       if (!_initialScrollPositionApplied) {
         _initialScrollPositionApplied = true;
-        _followLatest = _scroll.initiallyFollowsLatest;
+        _followLatest =
+            _scroll.initiallyFollowsLatest &&
+            !(_historyWindow.currentState?.hasLater ?? false);
       }
       _updateLatestButton();
       if (_followLatest && notification.metrics.extentAfter > 1) {
@@ -212,7 +218,10 @@ class _AssistantPageState extends State<AssistantPage> {
   }
 
   void _scrollToEnd({bool force = false}) {
-    if (force) _followLatest = true;
+    if (force) {
+      _followLatest = true;
+      _historyWindow.currentState?.showLatest();
+    }
     if (!_followLatest || _scrollToEndPending) return;
     _scrollToEndPending = true;
     final version = ++_scrollToEndVersion;
@@ -273,8 +282,6 @@ class _AssistantPageState extends State<AssistantPage> {
       (workspaces) => active ? workspaces?.runningCount ?? 0 : -1,
     );
     final messages = assistant.messages;
-    final messageIds = messages.map((message) => message.id).toSet();
-    _messageViews.removeWhere((id, _) => !messageIds.contains(id));
     final l10n = context.l10n;
     final ready = assistant.credentialLoaded && assistant.hasApiKey;
 
@@ -299,46 +306,70 @@ class _AssistantPageState extends State<AssistantPage> {
                                 _conversationSelectionFocus.unfocus();
                               }
                             },
-                            child: SelectionArea(
+                            child: ChatHistorySelection(
+                              key: _historySelection,
                               focusNode: _conversationSelectionFocus,
-                              contextMenuBuilder:
-                                  AppTextSelectionMenu.buildRegion,
+                              messages: messages,
+                              onSelectionChanged: () => _historyWindow
+                                  .currentState
+                                  ?.selectionChanged(),
+                              hasUnloadedMessages: () =>
+                                  (_historyWindow.currentState?.hasEarlier ??
+                                      false) ||
+                                  (_historyWindow.currentState?.hasLater ??
+                                      false) ||
+                                  (_historyWindow
+                                          .currentState
+                                          ?.hasUnloadedContent ??
+                                      false),
                               child: NotificationListener<Notification>(
                                 key: PageStorageKey(
                                   'assistant-history-${assistant.memoryOwner}',
                                 ),
                                 onNotification: _handleScrollNotification,
-                                child: Scrollbar(
+                                child: ChatHistoryWindow(
+                                  key: _historyWindow,
+                                  messages: messages,
                                   controller: _scroll,
-                                  child: ChatBottomFade(
-                                    backgroundColor: theme.secondary,
-                                    topFadeHeight: 64,
-                                    scrollController: _scroll,
-                                    child: ScrollConfiguration(
-                                      behavior: const AppScrollBehavior(
-                                        scrollbars: false,
+                                  scrollbar: true,
+                                  historyId: assistant.memoryOwner,
+                                  followsLatest: () => _followLatest,
+                                  hasSelection: () =>
+                                      _historySelection
+                                          .currentState
+                                          ?.hasSelection ??
+                                      false,
+                                  onContentRangeChanged: _updateLatestButton,
+                                  itemBuilder: (message) =>
+                                      _messageView(message, theme),
+                                  onRangeChanged: (ids) =>
+                                      _messageViews.removeWhere(
+                                        (id, _) => !ids.contains(id),
                                       ),
-                                      child: SingleChildScrollView(
-                                        key: const ValueKey(
-                                          'ai-message-scroll',
-                                        ),
-                                        controller: _scroll,
-                                        padding: const EdgeInsets.fromLTRB(
-                                          24,
-                                          16,
-                                          24,
-                                          56,
-                                        ),
-                                        // 使用实际总高度，避免变高消息的懒加载估算导致拖动滑块跳位。
-                                        child: Column(
-                                          children: [
-                                            for (final message in messages)
-                                              _messageView(message, theme),
-                                          ],
+                                  viewportBuilder: (context, child) =>
+                                      ChatBottomFade(
+                                        backgroundColor: theme.secondary,
+                                        topFadeHeight: 64,
+                                        scrollController: _scroll,
+                                        child: ScrollConfiguration(
+                                          behavior: const AppScrollBehavior(
+                                            scrollbars: false,
+                                          ),
+                                          child: SingleChildScrollView(
+                                            key: const ValueKey(
+                                              'ai-message-scroll',
+                                            ),
+                                            controller: _scroll,
+                                            padding: const EdgeInsets.fromLTRB(
+                                              24,
+                                              16,
+                                              24,
+                                              56,
+                                            ),
+                                            child: child,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ),
                                 ),
                               ),
                             ),
@@ -445,6 +476,42 @@ class _AssistantPageState extends State<AssistantPage> {
       ),
     );
   }
+}
+
+class _MessageRepaintBoundary extends RepaintBoundary {
+  const _MessageRepaintBoundary({
+    required super.key,
+    required super.child,
+    required this.enabled,
+  });
+
+  final bool enabled;
+
+  @override
+  RenderRepaintBoundary createRenderObject(BuildContext context) =>
+      _RenderMessageRepaintBoundary(enabled);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderMessageRepaintBoundary renderObject,
+  ) => renderObject.enabled = enabled;
+}
+
+class _RenderMessageRepaintBoundary extends RenderRepaintBoundary {
+  _RenderMessageRepaintBoundary(this._enabled);
+
+  bool _enabled;
+
+  set enabled(bool value) {
+    if (_enabled == value) return;
+    _enabled = value;
+    markNeedsCompositingBitsUpdate();
+    markNeedsPaint();
+  }
+
+  @override
+  bool get isRepaintBoundary => _enabled;
 }
 
 enum _ConversationSlot { messages, composer, latest }
@@ -576,6 +643,20 @@ class _MessageViewState extends State<_MessageView> {
   bool _detailsExpanded = false;
   bool _detailsHovered = false;
   bool _detailsFocused = false;
+  bool _detailsRestored = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_detailsRestored) return;
+    _detailsRestored = true;
+    _detailsExpanded =
+        PageStorage.maybeOf(context)?.readState(
+          context,
+          identifier: ValueKey('chat-details-${widget.message.id}'),
+        ) ==
+        true;
+  }
 
   Widget _processEvent(
     AiProcessEvent event,
@@ -691,6 +772,11 @@ class _MessageViewState extends State<_MessageView> {
               selection?.selectableRegion.clearSelection();
               selection?.selectableRegion.hideToolbar();
               setState(() => _detailsExpanded = !_detailsExpanded);
+              PageStorage.maybeOf(context)?.writeState(
+                context,
+                _detailsExpanded,
+                identifier: ValueKey('chat-details-${message.id}'),
+              );
             },
             onHover: (hovered) => setState(() => _detailsHovered = hovered),
             onFocusChange: (focused) =>

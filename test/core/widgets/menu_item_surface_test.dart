@@ -3,15 +3,90 @@
  */
 
 import 'package:flutter/gestures.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/context_menu/right_click_menu.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/widgets/menu_item_surface.dart';
 import 'package:lilygobox/core/widgets/popup_menu_transition.dart';
+import 'package:material_ui/material_ui.dart';
+
+class _PanelConstructionItem extends RightClickMenuItem {
+  const _PanelConstructionItem({required this.onPanelRead, super.onTap})
+    : super(label: 'Copy');
+
+  final VoidCallback onPanelRead;
+
+  @override
+  Widget? get labelWidget {
+    onPanelRead();
+    return super.labelWidget;
+  }
+}
 
 void main() {
+  testWidgets('closed context menus defer panel construction until opening', (
+    tester,
+  ) async {
+    final theme = ThemeProvider();
+    addTearDown(theme.dispose);
+    final controller = RightClickMenuController();
+    late StateSetter rebuild;
+    var panelReads = 0;
+    var clicks = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            rebuild = setState;
+            return Scaffold(
+              body: Center(
+                child: RightClickMenuBuilder.buildMenuAnchor(
+                  context: context,
+                  controller: controller,
+                  theme: theme.themeData,
+                  menuItems: [
+                    _PanelConstructionItem(
+                      onPanelRead: () => panelReads++,
+                      onTap: () {
+                        clicks++;
+                        controller.close();
+                      },
+                    ),
+                  ],
+                  child: const SizedBox(
+                    width: 120,
+                    height: 90,
+                    child: Text('Target'),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    expect(panelReads, 0);
+    expect(find.text('Copy'), findsNothing);
+    for (var opening = 0; opening < 2; opening++) {
+      final beforeRebuild = panelReads;
+      rebuild(() {});
+      await tester.pump();
+      expect(panelReads, beforeRebuild);
+      controller.open();
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isTrue);
+      expect(panelReads, greaterThan(beforeRebuild));
+      expect(find.text('Copy'), findsOneWidget);
+      await tester.tap(find.text('Copy'));
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isFalse);
+      expect(find.text('Copy'), findsNothing);
+      expect(clicks, opening + 1);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'left click on the context menu anchor closes it and preserves the target action',
     (tester) async {
@@ -95,9 +170,8 @@ void main() {
             builder: (context, setState) {
               rebuild = setState;
               return MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(disableAnimations: reducedMotion),
+                data: MediaQuery.of(context)
+                    .copyWith(disableAnimations: reducedMotion),
                 child: Scaffold(
                   body: Center(
                     child: RightClickMenuBuilder.buildMenuAnchor(

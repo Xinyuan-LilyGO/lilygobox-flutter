@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
@@ -9,7 +10,10 @@ import '../../../../core/theme/definition.dart';
 import '../../../../core/theme/material_palette.dart';
 import '../../../../core/widgets/app_scroll_behavior.dart';
 import '../../../../core/widgets/app_tooltip.dart';
+import '../../../../core/widgets/empty_line_selection.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
+import 'chat_content_window.dart';
+import 'chat_text_segments.dart';
 
 /// 聊天 Markdown 与命令详情共用的代码面板，正文继续参与外层唯一选区。
 class ChatCodeBlock extends StatefulWidget {
@@ -45,6 +49,51 @@ class _ChatCodeBlockState extends State<ChatCodeBlock> {
   bool _copied = false;
   late bool _softWrap = widget.initialSoftWrap;
   Timer? _reset;
+  PageStorageBucket? _storage;
+  List<String>? _segments;
+  final _fallbackStorageId = Object();
+  double _measuredCodeWidth = 0;
+  TextScaler? _widthTextScaler;
+  TextDirection? _widthTextDirection;
+
+  Object? get _wrapStorageId =>
+      widget.key is PageStorageKey ? ('ai-code-wrap', widget.key) : null;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    if (scaler != _widthTextScaler || direction != _widthTextDirection) {
+      _measuredCodeWidth = 0;
+      _widthTextScaler = scaler;
+      _widthTextDirection = direction;
+    }
+    final storage = PageStorage.maybeOf(context);
+    if (identical(storage, _storage)) return;
+    _storage = storage;
+    if (_wrapStorageId case final identifier?) {
+      final saved = storage?.readState(context, identifier: identifier);
+      if (saved is bool) _softWrap = saved;
+    }
+  }
+
+  void _toggleWrap() {
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+    setState(() => _softWrap = !_softWrap);
+    if (_wrapStorageId case final identifier?) {
+      _storage?.writeState(context, _softWrap, identifier: identifier);
+    }
+  }
+
+  @override
+  void didUpdateWidget(ChatCodeBlock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.text != oldWidget.text) {
+      _segments = null;
+      if (!widget.text.startsWith(oldWidget.text)) _measuredCodeWidth = 0;
+    }
+  }
 
   @override
   void dispose() {
@@ -121,10 +170,7 @@ class _ChatCodeBlockState extends State<ChatCodeBlock> {
                             key: const ValueKey('ai-code-wrap'),
                             theme: theme,
                             isFocused: true,
-                            onPressed: () {
-                              if (_scroll.hasClients) _scroll.jumpTo(0);
-                              setState(() => _softWrap = !_softWrap);
-                            },
+                            onPressed: _toggleWrap,
                             icon: Symbols.wrap_text_rounded,
                             size: 25,
                             iconSize: 15,
@@ -179,6 +225,18 @@ class _ChatCodeBlockState extends State<ChatCodeBlock> {
                     height: 1.5,
                     color: theme.textColorPrimary,
                   );
+                  if (widget.maxBodyHeight == null &&
+                      widget.text.length >= 4096 &&
+                      ChatContentScope.maybeOf(context) != null) {
+                    final segments = _segments ??= splitChatText(widget.text);
+                    if (segments.length > 1) {
+                      return _segmentedBody(
+                        style,
+                        constraints.maxWidth,
+                        segments,
+                      );
+                    }
+                  }
                   final painter = TextPainter(
                     text: TextSpan(text: widget.text, style: style),
                     textDirection: Directionality.of(context),
@@ -197,6 +255,81 @@ class _ChatCodeBlockState extends State<ChatCodeBlock> {
                 },
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _segmentedBody(
+    TextStyle style,
+    double maxWidth,
+    List<String> segments,
+  ) {
+    Widget body = ChatContentWindow(
+      childCount: segments.length,
+      revision: widget.text.hashCode,
+      storageId: ('chat-code-lines', widget.key ?? _fallbackStorageId),
+      itemBuilder: (context, index) => RepaintBoundary(
+        key: ValueKey('ai-code-lines-$index'),
+        child: EmptyLineSelection(
+          child: Text(
+            index < segments.length - 1 && segments[index].endsWith('\r')
+                ? segments[index].substring(0, segments[index].length - 1)
+                : segments[index],
+            style: style,
+            softWrap: _softWrap,
+          ),
+        ),
+      ),
+    );
+    if (_softWrap) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: body,
+      );
+    }
+    body = SingleChildScrollView(
+      key: const ValueKey('ai-code-horizontal-scroll'),
+      controller: _scroll,
+      scrollDirection: Axis.horizontal,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
+        child: _MeasuredCodeWidth(
+          minimumWidth: _measuredCodeWidth,
+          onMeasured: (width) => _measuredCodeWidth = width,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minWidth: (maxWidth - 24).clamp(0, double.infinity),
+            ),
+            child: body,
+          ),
+        ),
+      ),
+    );
+    if (widget.key is PageStorageKey) {
+      body = KeyedSubtree(
+        key: const PageStorageKey('ai-code-horizontal'),
+        child: body,
+      );
+    }
+    return ScrollbarTheme(
+      data: ScrollbarTheme.of(context).copyWith(
+        crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
+        mainAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
+      ),
+      child: Scrollbar(
+        key: const ValueKey('ai-code-horizontal-scrollbar'),
+        controller: _scroll,
+        interactive: true,
+        notificationPredicate: (notification) =>
+            notification.metrics.axis == Axis.horizontal,
+        child: ScrollConfiguration(
+          behavior: const AppScrollBehavior(scrollbars: false),
+          child: ClipRect(
+            key: const ValueKey('ai-code-scroll-gutter'),
+            clipper: const _CodeBodyClipper(EdgeInsets.fromLTRB(12, 0, 12, 20)),
+            child: body,
           ),
         ),
       ),
@@ -252,6 +385,12 @@ class _ChatCodeBlockState extends State<ChatCodeBlock> {
         scrollDirection: Axis.horizontal,
         child: body,
       );
+      if (widget.key is PageStorageKey) {
+        body = KeyedSubtree(
+          key: const PageStorageKey('ai-code-horizontal'),
+          child: body,
+        );
+      }
     }
     if (vertical) {
       body = SingleChildScrollView(
@@ -259,6 +398,12 @@ class _ChatCodeBlockState extends State<ChatCodeBlock> {
         controller: _verticalScroll,
         child: body,
       );
+      if (widget.key is PageStorageKey) {
+        body = KeyedSubtree(
+          key: const PageStorageKey('ai-code-vertical'),
+          child: body,
+        );
+      }
     }
     // 滚动视口与卡片等宽，保证轨道两端的 6 px 按真实边缘计算。
     // 固定裁剪区在滚动后仍保留正文通道，避免文字滑入滚动条下方。
@@ -302,6 +447,56 @@ class _ChatCodeBlockState extends State<ChatCodeBlock> {
         child: body,
       ),
     );
+  }
+}
+
+class _MeasuredCodeWidth extends SingleChildRenderObjectWidget {
+  const _MeasuredCodeWidth({
+    required this.minimumWidth,
+    required this.onMeasured,
+    required super.child,
+  });
+
+  final double minimumWidth;
+  final ValueChanged<double> onMeasured;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderMeasuredCodeWidth(minimumWidth, onMeasured);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderMeasuredCodeWidth renderObject,
+  ) {
+    renderObject.minimumWidth = minimumWidth;
+    renderObject.onMeasured = onMeasured;
+  }
+}
+
+class _RenderMeasuredCodeWidth extends RenderProxyBox {
+  _RenderMeasuredCodeWidth(this._minimumWidth, this.onMeasured);
+
+  double _minimumWidth;
+  ValueChanged<double> onMeasured;
+
+  set minimumWidth(double value) {
+    if (_minimumWidth == value) return;
+    _minimumWidth = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void performLayout() {
+    child!.layout(
+      constraints.enforce(BoxConstraints(minWidth: _minimumWidth)),
+      parentUsesSize: true,
+    );
+    size = constraints.constrain(child!.size);
+    if (size.width > _minimumWidth) {
+      _minimumWidth = size.width;
+      onMeasured(_minimumWidth);
+    }
   }
 }
 

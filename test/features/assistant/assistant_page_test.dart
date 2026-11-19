@@ -7,6 +7,7 @@ import 'package:lilygobox/core/l10n/delegates.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
@@ -20,7 +21,6 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:lilygobox/app/navigation/provider.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
-import 'package:lilygobox/core/context_menu/text_selection_menu.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/theme/material_palette.dart';
@@ -33,6 +33,7 @@ import 'package:lilygobox/features/assistant/data/conversation_codec.dart';
 import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 import 'package:lilygobox/features/assistant/presentation/pages/page.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_composer.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/chat_content_window.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/message_content.dart';
 import 'package:lilygobox/features/assistant/state/provider.dart';
 import 'package:lilygobox/features/settings/presentation/widgets/split_view.dart';
@@ -486,6 +487,18 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 40));
         final wheelStart = scroll.offset;
+        final visibleText = find
+            .descendant(of: list, matching: find.byType(RichText))
+            .evaluate()
+            .map((element) => element.widget as RichText)
+            .firstWhere((widget) => widget.text.toPlainText().trim().isNotEmpty)
+            .text
+            .toPlainText();
+        final visibleAnchor = find.byWidgetPredicate(
+          (widget) =>
+              widget is RichText && widget.text.toPlainText() == visibleText,
+        );
+        final visibleAnchorTop = tester.getTopLeft(visibleAnchor).dy;
         await tester.sendEventToBinding(
           PointerScrollEvent(
             position: tester.getTopLeft(list) + const Offset(100, 100),
@@ -502,11 +515,13 @@ void main() {
         );
         await tester.pumpAndSettle();
         final readingOffset = scroll.offset;
-        // 连续向上滚轮必须累计目标，不能因解除跟随而反复重置动画。
-        expect(readingOffset, closeTo(wheelStart - 600, 1));
+        // 正文窗口会校正滚动原点；阅读内容仍应随滚轮向下移动。
+        expect(readingOffset, isNot(wheelStart));
+        expect(tester.getTopLeft(visibleAnchor).dy, lessThan(visibleAnchorTop));
         expect(scroll.position.extentAfter, greaterThan(120));
         expect(latest, findsOneWidget);
         // 后续输出继续增长也不能拉走用户的阅读位置。
+        final readingTop = tester.getTopLeft(visibleAnchor).dy;
         output.add(
           utf8.encode(
             'data: ${jsonEncode({
@@ -520,7 +535,7 @@ void main() {
         );
         await tester.runAsync(() => Future<void>.delayed(Duration.zero));
         await tester.pumpAndSettle();
-        expect(scroll.offset, closeTo(readingOffset, 1));
+        expect(tester.getTopLeft(visibleAnchor).dy, closeTo(readingTop, 1));
         expect(copy, findsNothing);
         // 点击回到最新消息恢复跟随。
         await tester.tap(latest);
@@ -1143,16 +1158,32 @@ void main() {
       expect(find.text('Ready to help with LilygoBox.'), findsOneWidget);
       expect(find.text('Adjust sidebar layout'), findsOneWidget);
       expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
-      final assistantSelection = tester.widget<SelectionArea>(
-        find.ancestor(
-          of: find.text('Ready to help with LilygoBox.'),
-          matching: find.byType(SelectionArea),
-        ),
+      final assistantSelection = tester.state<SelectableRegionState>(
+        find.byType(SelectableRegion),
       );
+      assistantSelection.selectAll(SelectionChangedCause.toolbar);
+      await tester.pump();
+      await tester.tapAt(
+        tester.getCenter(find.text('Ready to help with LilygoBox.')),
+        buttons: kSecondaryMouseButton,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      final copyItem = find.ancestor(
+        of: find.text('Copy'),
+        matching: find.byType(MenuItemSurface),
+      );
+      expect(copyItem, findsOneWidget);
       expect(
-        assistantSelection.contextMenuBuilder,
-        AppTextSelectionMenu.buildRegion,
+        find.descendant(
+          of: copyItem,
+          matching: find.byIcon(Symbols.content_copy),
+        ),
+        findsOneWidget,
       );
+      assistantSelection.hideToolbar();
+      assistantSelection.clearSelection();
+      await tester.pumpAndSettle();
       final reply = scope.provider.messages.last;
       final responseDetails = find.byKey(
         ValueKey('ai-response-details-${reply.id}'),
@@ -1214,23 +1245,24 @@ void main() {
       tester.getRect(scrollbar).right - tester.getRect(field).right,
       closeTo(14, .1),
     );
-    expect(input.scrollController!.position.maxScrollExtent, greaterThan(0));
+    final controller = tester.widget<Scrollbar>(scrollbar).controller!;
+    expect(controller.position.maxScrollExtent, greaterThan(0));
     final original = input.controller!.text;
-    input.scrollController!.jumpTo(0);
+    controller.jumpTo(0);
     await tester.pumpAndSettle();
     await tester.sendEventToBinding(
       PointerScrollEvent(
-        position: tester.getCenter(field),
+        position: tester.getCenter(scrollbar),
         scrollDelta: const Offset(0, 60),
         kind: PointerDeviceKind.mouse,
       ),
     );
-    expect(input.scrollController!.offset, 0);
+    expect(controller.offset, 0);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 60));
-    expect(input.scrollController!.offset, inExclusiveRange(0, 60));
+    expect(controller.offset, inExclusiveRange(0, 60));
     await tester.pumpAndSettle();
-    expect(input.scrollController!.offset, closeTo(60, .1));
+    expect(controller.offset, closeTo(60, .1));
     expect(input.controller!.text, original);
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
@@ -1340,6 +1372,69 @@ void main() {
     variant: latestMotionVariant,
   );
 
+  testWidgets(
+    'history thumb drag cancels latest following and retains the chosen location',
+    (tester) async {
+      await tester.runAsync(() => scope.provider.initialized);
+      scope.provider.restoreWorkspaceConversation({
+        'messages': List.generate(
+          1000,
+          (index) => ConversationCodec.message(
+            AiMessage(
+              id: 'thumb-history-$index',
+              role: 'user',
+              content: 'HISTORY-$index ${'Example text. ' * 12}',
+            ),
+          ),
+        ),
+        'history': <Map<String, Object?>>[],
+      });
+      await tester.pumpWidget(
+        app(
+          disableAnimations: true,
+          content: const ScrollbarTheme(
+            data: ScrollbarThemeData(
+              thumbVisibility: WidgetStatePropertyAll(true),
+              crossAxisMargin: 6,
+            ),
+            child: AssistantPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final viewportFinder = find.byKey(const ValueKey('ai-message-scroll'));
+      final viewport = tester.getRect(viewportFinder);
+      final bar = find
+          .ancestor(of: viewportFinder, matching: find.byType(Scrollbar))
+          .first;
+      final logical = tester.widget<Scrollbar>(bar).controller!;
+      final gesture = await tester.startGesture(
+        Offset(viewport.right - 10, viewport.bottom - 18),
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveBy(Offset(0, -viewport.height * .5));
+      await tester.pumpAndSettle();
+      final fraction = logical.offset / logical.position.maxScrollExtent;
+      expect(fraction, inExclusiveRange(.1, .9));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(
+        logical.offset / logical.position.maxScrollExtent,
+        closeTo(fraction, .01),
+      );
+      final latest = find.byKey(const ValueKey('ai-scroll-to-latest'));
+      expect(latest, findsOneWidget);
+      await tester.tap(latest);
+      await tester.pumpAndSettle();
+      expect(logical.offset / logical.position.maxScrollExtent, 1);
+      expect(
+        find.textContaining('HISTORY-999', findRichText: true),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('one latest click reaches the end of mixed image messages', (
     tester,
   ) async {
@@ -1405,86 +1500,86 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: latestMotionVariant);
 
-  testWidgets(
-    'scrolling long Markdown reuses message paint without changing selection or extent',
-    (tester) async {
-      await tester.runAsync(() => scope.provider.initialized);
-      final content = List.generate(
-        35,
-        (i) =>
-            '### Section $i\n\n- First long list item with enough text to wrap across the conversation width.\n- Second item\n\n| Name | Value |\n| --- | --- |\n| Row $i | Table content |\n',
-      ).join('\n');
-      scope.provider.restoreWorkspaceConversation({
-        'messages': [
-          ConversationCodec.message(
-            AiMessage(id: 'paint-test', role: 'assistant', content: content),
-          ),
-        ],
-        'history': <Map<String, Object?>>[],
-      });
-      await tester.pumpWidget(app(disableAnimations: true));
-      await tester.pumpAndSettle();
-      final scroll = tester
-          .widget<SingleChildScrollView>(
-            find.byKey(const ValueKey('ai-message-scroll')),
-          )
-          .controller!;
-      final boundaryFinder = find.byKey(
-        const ValueKey('ai-message-paint-paint-test'),
-      );
-      final boundary = tester.renderObject<RenderRepaintBoundary>(
-        boundaryFinder,
-      );
-      final extent = scroll.position.maxScrollExtent;
-      expect(extent, greaterThan(1000));
-      scroll.jumpTo(extent * .3);
-      await tester.pumpAndSettle();
-      boundary.debugResetMetrics();
-      for (var i = 1; i <= 8; i++) {
-        scroll.jumpTo(extent * .3 + i * 8);
-        await tester.pump();
-      }
-      // The viewport repaints, but the completed Markdown display list is reused.
-      expect(boundary.debugSymmetricPaintCount, 0);
-      expect(boundary.debugAsymmetricPaintCount, greaterThan(0));
-      expect(scroll.position.maxScrollExtent, closeTo(extent, .1));
-      final region = tester.state<SelectableRegionState>(
-        find.byType(SelectableRegion),
-      );
-      region.selectAll(SelectionChangedCause.toolbar);
-      await tester.pump();
-      final paragraphs = find.descendant(
-        of: boundaryFinder,
-        matching: find.byType(RichText),
-      );
-      expect(
-        paragraphs.evaluate().any(
-          (e) => (e.renderObject! as RenderParagraph).selections.any(
-            (s) => !s.isCollapsed,
-          ),
+  testWidgets('long Markdown uses a partial body window and remains selectable', (
+    tester,
+  ) async {
+    await tester.runAsync(() => scope.provider.initialized);
+    final content = List.generate(
+      35,
+      (i) =>
+          '### Section $i\n\n- First long list item with enough text to wrap across the conversation width.\n- Second item\n\n| Name | Value |\n| --- | --- |\n| Row $i | Table content |\n',
+    ).join('\n');
+    scope.provider.restoreWorkspaceConversation({
+      'messages': [
+        ConversationCodec.message(
+          AiMessage(id: 'paint-test', role: 'assistant', content: content),
         ),
-        isTrue,
-      );
-      region.clearSelection();
-      region.hideToolbar();
-      await tester.pump();
-      theme.setTheme(ThemeType.dark);
-      await tester.pumpAndSettle();
-      final paragraph = paragraphs
-          .evaluate()
-          .map((e) => e.renderObject! as RenderParagraph)
-          .firstWhere((p) => p.text.toPlainText().contains('Section 0'));
-      bool hasColor(InlineSpan span, Color color) =>
-          span.style?.color == color ||
-          (span is TextSpan &&
-              (span.children?.any((child) => hasColor(child, color)) ?? false));
-      expect(
-        hasColor(paragraph.text, theme.themeData.textColorPrimary),
-        isTrue,
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
+      ],
+      'history': <Map<String, Object?>>[],
+    });
+    await tester.pumpWidget(app(disableAnimations: true));
+    await tester.pumpAndSettle();
+    final scroll = tester
+        .widget<SingleChildScrollView>(
+          find.byKey(const ValueKey('ai-message-scroll')),
+        )
+        .controller!;
+    final boundaryFinder = find.byKey(
+      const ValueKey('ai-message-paint-paint-test'),
+    );
+    final bodyWindow = tester.state<ChatContentWindowState>(
+      find.descendant(
+        of: boundaryFinder,
+        matching: find.byType(ChatContentWindow),
+      ),
+    );
+    final initialFirst = bodyWindow.firstChildIndex;
+    final extent = scroll.position.maxScrollExtent;
+    expect(bodyWindow.widget.childCount, greaterThan(8));
+    expect(bodyWindow.loadedChildCount, lessThan(bodyWindow.widget.childCount));
+    expect(extent, greaterThan(0));
+    final initialLoaded = bodyWindow.loadedChildCount;
+    scroll.jumpTo(math.min(160, extent));
+    await tester.pumpAndSettle();
+    expect(bodyWindow.firstChildIndex, lessThan(initialFirst));
+    expect(bodyWindow.loadedChildCount, greaterThan(initialLoaded));
+    expect(bodyWindow.loadedChildCount, lessThan(bodyWindow.widget.childCount));
+    final region = tester.state<SelectableRegionState>(
+      find.byType(SelectableRegion),
+    );
+    region.selectAll(SelectionChangedCause.toolbar);
+    await tester.pump();
+    final paragraphs = find.descendant(
+      of: boundaryFinder,
+      matching: find.byType(RichText),
+    );
+    expect(
+      paragraphs.evaluate().any(
+        (e) => (e.renderObject! as RenderParagraph).selections.any(
+          (s) => !s.isCollapsed,
+        ),
+      ),
+      isTrue,
+    );
+    region.clearSelection();
+    region.hideToolbar();
+    await tester.pump();
+    theme.setTheme(ThemeType.dark);
+    await tester.pumpAndSettle();
+    final paragraph = find
+        .descendant(of: boundaryFinder, matching: find.byType(RichText))
+        .evaluate()
+        .map((element) => element.renderObject! as RenderParagraph)
+        .firstWhere(
+          (paragraph) => paragraph.text.toPlainText().contains('Section 34'),
+        );
+    bool hasColor(InlineSpan span, Color color) =>
+        span.style?.color == color ||
+        (span is TextSpan &&
+            (span.children?.any((child) => hasColor(child, color)) ?? false));
+    expect(hasColor(paragraph.text, theme.themeData.textColorPrimary), isTrue);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'message repaint boundary updates when a running reply receives content',

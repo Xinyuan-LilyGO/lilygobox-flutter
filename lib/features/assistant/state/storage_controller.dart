@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../data/agent_package.dart';
@@ -78,40 +80,80 @@ class AgentStorageController extends ChangeNotifier {
   Map<String, Object?> stats = const {};
   bool hasMore = false;
   String _query = '';
-  int _offset = 0;
-  Future<void> refresh({String query = ''}) async {
+  int _readGeneration = 0;
+  bool replacingMemories = false;
+  bool appendingMemories = false;
+  Future<void> refreshStats({bool force = false}) async {
     final storage = workspaces.main.storage;
     if (storage == null) return;
-    stats = Map<String, Object?>.from(await storage.request('stats') as Map);
-    final recycled = workspaces.recycledAgents.map((e) => e.id).toSet();
-    stats['scopes'] = (stats['scopes'] as List? ?? [])
-        .where((id) => !recycled.contains(id))
-        .toList();
-    final owners = {...workspaces.sessions.map((session) => session.id)};
-    if (!owners.contains(owner)) owner = owners.firstOrNull ?? '';
-    _query = query;
-    _offset = 0;
-    final rows = await storage.memories(owner, query: query, limit: 51);
-    hasMore = rows.length > 50;
-    memories = rows.take(50).toList();
+    stats = await storage.readStats(force: force);
     notifyListeners();
   }
 
-  Future<void> loadMore() async {
-    _offset += 50;
-    final rows = await workspaces.main.storage!.memories(
-      owner,
-      query: _query,
-      limit: 51,
-      offset: _offset,
-    );
-    hasMore = rows.length > 50;
-    memories = [...memories, ...rows.take(50)];
-    notifyListeners();
-  }
-
-  Future<void> saveMemory(String content, {String? id}) async {
+  void resolveOwner() {
     if (workspaces.find(owner) == null) {
+      owner = workspaces.sessions.firstOrNull?.id ?? '';
+    }
+  }
+
+  Future<void> refresh({String query = ''}) => _readMemories(query);
+
+  Future<void> loadMore() => _readMemories(_query, append: true);
+
+  Future<void> _readMemories(String query, {bool append = false}) async {
+    if (_disposed ||
+        (append && (!hasMore || replacingMemories || appendingMemories))) {
+      return;
+    }
+    final generation = ++_readGeneration;
+    _query = query;
+    replacingMemories = !append;
+    appendingMemories = append;
+    if (!append) {
+      memories = const [];
+      hasMore = false;
+    }
+    error = null;
+    notifyListeners();
+    try {
+      await workspaces.initialized;
+      if (_disposed || generation != _readGeneration) return;
+      if (!append) resolveOwner();
+      final target = owner;
+      final storage = workspaces.main.storage;
+      if (target.isEmpty || storage == null) return;
+      final rows = await storage.memories(
+        target,
+        query: query,
+        limit: 51,
+        offset: memories.length,
+      );
+      if (_disposed ||
+          generation != _readGeneration ||
+          owner != target ||
+          workspaces.find(target) == null) {
+        return;
+      }
+      memories = [...memories, ...rows.take(50)];
+      hasMore = rows.length > 50;
+    } catch (failure) {
+      if (!_disposed && generation == _readGeneration) error = failure;
+    } finally {
+      if (!_disposed && generation == _readGeneration) {
+        replacingMemories = false;
+        appendingMemories = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> saveMemory(
+    String content, {
+    String? id,
+    String? expectedOwner,
+  }) async {
+    if ((expectedOwner != null && expectedOwner != owner) ||
+        workspaces.find(owner) == null) {
       throw StateError('Agent is unavailable');
     }
     await workspaces.main.storage!.putMemory(
@@ -119,7 +161,7 @@ class AgentStorageController extends ChangeNotifier {
       owner: owner,
       content: content.trim(),
     );
-    await refresh();
+    unawaited(refresh(query: _query));
   }
 
   Future<void> deleteMemory(String id) => deleteMemories({id});
@@ -142,7 +184,7 @@ class AgentStorageController extends ChangeNotifier {
       }
       await workspaces.main.storage!.deleteMemory(id);
     }
-    await refresh(query: _query);
+    unawaited(refresh(query: _query));
   }
 
   String suggestedExportName(
@@ -518,6 +560,6 @@ class AgentStorageController extends ChangeNotifier {
         },
       );
     }
-    await refresh();
+    resolveOwner();
   }
 }

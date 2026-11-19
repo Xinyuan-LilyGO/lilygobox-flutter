@@ -69,12 +69,29 @@ void main() {
         .68,
       );
       progress.value = const AgentPackageProgress(
+        AgentPackageStage.checksumming,
+        completed: 524288,
+        total: 1048576,
+      );
+      await tester.pump();
+      expect(find.text('正在校验数据完整性'), findsOneWidget);
+      expect(find.text('50%'), findsOneWidget);
+      progress.value = const AgentPackageProgress(
         AgentPackageStage.committing,
         canCancel: false,
       );
       await tester.pump();
       expect(find.text('正在完成导入'), findsOneWidget);
       expect(find.text('68%'), findsNothing);
+      expect(find.text('50%'), findsNothing);
+      expect(
+        tester
+            .widget<LinearProgressIndicator>(
+              find.byKey(const ValueKey('storage-transfer-progress-bar')),
+            )
+            .value,
+        isNull,
+      );
       expect(
         tester
             .widget<AppActionButton>(
@@ -183,6 +200,55 @@ void main() {
       findsNothing,
     );
     expect(find.text('start'), findsOneWidget);
+  });
+
+  testWidgets('commit hides the dialog while retaining the modal barrier', (
+    tester,
+  ) async {
+    final controller = _Controller();
+    addTearDown(controller.dispose);
+    final operation = Completer<void>();
+    Future<void>? transfer;
+    var commits = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: appLocalizationDelegates,
+        supportedLocales: const [Locale('zh'), Locale('en')],
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => transfer = showAgentTransferProgress<void>(
+                context: context,
+                theme: MaterialPalette.create(ThemeType.light),
+                controller: controller,
+                work: () => operation.future,
+                onCommit: () => commits++,
+              ),
+              child: const Text('start'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('start'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    final cancel = find.byKey(const ValueKey('storage-transfer-cancel'));
+    expect(tester.widget<AppActionButton>(cancel).onPressed, isNotNull);
+    controller.transferProgress = const AgentPackageProgress(
+      AgentPackageStage.committing,
+      canCancel: false,
+    );
+    controller.notifyListeners();
+    await tester.pump();
+    expect(commits, 1);
+    expect(cancel, findsNothing);
+    expect(find.text('start').hitTestable(), findsNothing);
+    operation.complete();
+    await tester.pumpAndSettle();
+    await transfer;
+    expect(find.text('start').hitTestable(), findsOneWidget);
   });
 
   testWidgets('progress dialog fits narrow window at large text scale', (

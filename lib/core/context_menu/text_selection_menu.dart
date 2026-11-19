@@ -82,6 +82,28 @@ class AppTextSelectionMenu {
     ),
   );
 
+  static Widget buildRegionWithActions(
+    BuildContext context,
+    SelectableRegionState region, {
+    VoidCallback? onCopy,
+    required VoidCallback onSelectAll,
+  }) => Consumer<ThemeProvider>(
+    builder: (context, provider, _) => _buildMenu(
+      context,
+      region.contextMenuAnchors,
+      [
+        for (final button in region.contextMenuButtonItems)
+          if (button.type == ContextMenuButtonType.selectAll)
+            ContextMenuButtonItem(type: button.type, onPressed: onSelectAll)
+          else if (button.type == ContextMenuButtonType.copy && onCopy != null)
+            ContextMenuButtonItem(type: button.type, onPressed: onCopy)
+          else
+            button,
+      ],
+      provider.themeData,
+    ),
+  );
+
   static Widget _buildMenu(
     BuildContext context,
     TextSelectionToolbarAnchors anchors,

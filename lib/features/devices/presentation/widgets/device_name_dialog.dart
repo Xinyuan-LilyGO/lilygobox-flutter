@@ -136,7 +136,6 @@ class _DeviceNameDialogState extends State<DeviceNameDialog> {
             label: l10n.settingsCancel,
             settingBackground: true,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            borderRadius: BorderRadius.circular(10),
             onPressed: _saving ? null : () => Navigator.pop(context),
             fontSize: 12,
           ),

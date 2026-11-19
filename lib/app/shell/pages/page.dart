@@ -71,12 +71,14 @@ class _AppShellState extends State<AppShell> {
     );
 
     return ResizableSidebar(
-      sidebar: _buildLeftSidebar(
-        context,
-        isOverview:
-            !addingDevice && selectedIndex == 0 && !deviceManagementSelected,
-        isDeviceManagement: deviceManagementSelected,
-        isAddingDevice: addingDevice,
+      sidebar: RepaintBoundary(
+        child: _buildLeftSidebar(
+          context,
+          isOverview:
+              !addingDevice && selectedIndex == 0 && !deviceManagementSelected,
+          isDeviceManagement: deviceManagementSelected,
+          isAddingDevice: addingDevice,
+        ),
       ),
       content: Container(
         decoration: BoxDecoration(
@@ -87,6 +89,7 @@ class _AppShellState extends State<AppShell> {
           borderRadius: const BorderRadius.only(topLeft: Radius.circular(10)),
           clipBehavior: Clip.antiAlias,
           child: RetainedPageStack(
+            animateTransitions: false,
             activeKey: addingDevice
                 ? AppPage.addDevice
                 : deviceManagementSelected

@@ -21,6 +21,7 @@ import '../../../../core/widgets/dialog_style.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/popup_menu_surface.dart';
 import '../../../../core/widgets/popup_menu_transition.dart';
+import '../../../../core/widgets/settings/compact_switch.dart';
 import '../../../../core/widgets/settings/select.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../domain/permissions.dart';
@@ -578,27 +579,12 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                SizedBox(
-                  width: 44,
-                  height: 28,
-                  child: FittedBox(
-                    fit: BoxFit.contain,
-                    child: Switch(
-                      key: ValueKey(key),
-                      value: value,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      activeTrackColor: theme.basePrimary,
-                      inactiveTrackColor: theme.selectControlColorForSurface(
-                        theme.popupSurfaceColor,
-                      ),
-                      activeThumbColor: theme.materialColors.onPrimary,
-                      inactiveThumbColor: theme.materialColors.onPrimary,
-                      trackOutlineColor: const WidgetStatePropertyAll(
-                        Colors.transparent,
-                      ),
-                      onChanged: onChanged,
-                    ),
-                  ),
+                CompactSettingSwitch(
+                  controlKey: ValueKey(key),
+                  theme: theme,
+                  surface: theme.popupSurfaceColor,
+                  value: value,
+                  onChanged: onChanged,
                 ),
               ],
             ),

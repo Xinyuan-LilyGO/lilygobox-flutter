@@ -8,6 +8,10 @@ import 'package:lilygobox/core/theme/update_scope.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+class _NotifyingThemeProvider extends ThemeProvider {
+  void notifyUnchanged() => notifyListeners();
+}
+
 class _ThemeProbe extends StatefulWidget {
   const _ThemeProbe({super.key});
 
@@ -20,12 +24,13 @@ class _ThemeProbeState extends State<_ThemeProbe> {
   late AppTheme palette;
   late Brightness brightness;
   late String fontChoice;
+  late ThemeProvider source;
   Color? defaultTextColor;
 
   @override
   Widget build(BuildContext context) {
     builds++;
-    final source = context.watch<ThemeProvider>();
+    source = context.watch<ThemeProvider>();
     palette = source.themeData;
     fontChoice = source.fontChoice;
     brightness = Theme.of(context).brightness;
@@ -35,6 +40,162 @@ class _ThemeProbeState extends State<_ThemeProbe> {
 }
 
 void main() {
+  testWidgets(
+    'visible theme consumers ignore unrelated parent frames and unchanged notifications',
+    (tester) async {
+      final source = _NotifyingThemeProvider();
+      final frame = ValueNotifier(0);
+      addTearDown(source.dispose);
+      addTearDown(frame.dispose);
+      await tester.pumpWidget(
+        ChangeNotifierProvider<ThemeProvider>.value(
+          value: source,
+          child: MaterialApp(
+            home: ValueListenableBuilder<int>(
+              valueListenable: frame,
+              child: const _ThemeProbe(),
+              builder: (context, _, child) =>
+                  ThemeUpdateScope(active: true, child: child!),
+            ),
+          ),
+        ),
+      );
+      final probe = tester.state<_ThemeProbeState>(find.byType(_ThemeProbe));
+      final initialBuilds = probe.builds;
+      for (var tick = 1; tick <= 12; tick++) {
+        frame.value = tick;
+        await tester.pump();
+      }
+      expect(probe.builds, initialBuilds);
+      for (var tick = 0; tick < 12; tick++) {
+        source.notifyUnchanged();
+        await tester.pump();
+      }
+      expect(probe.builds, initialBuilds);
+      source.setFontChoice('inter');
+      await tester.pump();
+      expect(probe.fontChoice, 'inter');
+      expect(probe.builds, initialBuilds + 1);
+      source.setTheme(ThemeType.dark);
+      await tester.pump();
+      expect(probe.palette, same(source.themeData));
+      expect(probe.builds, initialBuilds + 2);
+    },
+  );
+
+  testWidgets(
+    'resuming during a theme transition syncs once and keeps later animation frames',
+    (tester) async {
+      final source = ThemeProvider(vsync: tester);
+      final visible = ValueNotifier(false);
+      addTearDown(source.dispose);
+      addTearDown(visible.dispose);
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: source,
+          child: MaterialApp(
+            home: ValueListenableBuilder<bool>(
+              valueListenable: visible,
+              child: const _ThemeProbe(),
+              builder: (context, active, child) =>
+                  ThemeUpdateScope(active: active, child: child!),
+            ),
+          ),
+        ),
+      );
+      final probe = tester.state<_ThemeProbeState>(find.byType(_ThemeProbe));
+      final hiddenBuilds = probe.builds;
+      source.setTheme(ThemeType.dark);
+      source.setFontChoice('inter');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 90));
+      expect(probe.builds, hiddenBuilds);
+      expect(probe.fontChoice, 'system');
+      visible.value = true;
+      await tester.pump();
+      expect(tester.state(find.byType(_ThemeProbe)), same(probe));
+      expect(probe.palette, same(source.themeData));
+      expect(probe.palette.lightProgress, closeTo(.5, .001));
+      expect(probe.fontChoice, 'inter');
+      expect(probe.builds, hiddenBuilds + 1);
+      final resumedBuilds = probe.builds;
+      final resumedPalette = probe.palette;
+      await tester.pump(const Duration(milliseconds: 30));
+      expect(probe.builds, greaterThan(resumedBuilds));
+      expect(probe.palette.primary, isNot(resumedPalette.primary));
+      expect(probe.palette, same(source.themeData));
+      await tester.pumpAndSettle();
+      expect(probe.palette.lightProgress, 0);
+      final settledBuilds = probe.builds;
+      for (var tick = 1; tick <= 12; tick++) {
+        visible.value = false;
+        await tester.pump();
+        visible.value = true;
+        await tester.pump();
+      }
+      expect(probe.builds, settledBuilds);
+    },
+  );
+
+  testWidgets(
+    'visible and hidden scopes follow replacement theme provider instances',
+    (tester) async {
+      final initial = ThemeProvider();
+      final replacement = ThemeProvider();
+      final hiddenReplacement = ThemeProvider();
+      final source = ValueNotifier(initial);
+      final visible = ValueNotifier(true);
+      addTearDown(initial.dispose);
+      addTearDown(replacement.dispose);
+      addTearDown(hiddenReplacement.dispose);
+      addTearDown(source.dispose);
+      addTearDown(visible.dispose);
+      await tester.pumpWidget(
+        ValueListenableBuilder<ThemeProvider>(
+          valueListenable: source,
+          child: MaterialApp(
+            home: ValueListenableBuilder<bool>(
+              valueListenable: visible,
+              child: const _ThemeProbe(),
+              builder: (context, active, child) =>
+                  ThemeUpdateScope(active: active, child: child!),
+            ),
+          ),
+          builder: (context, provider, child) =>
+              ChangeNotifierProvider.value(value: provider, child: child),
+        ),
+      );
+      final probe = tester.state<_ThemeProbeState>(find.byType(_ThemeProbe));
+      expect(probe.source, same(initial));
+      source.value = replacement;
+      await tester.pump();
+      expect(probe.source, same(replacement));
+      visible.value = false;
+      await tester.pump();
+      final hiddenBuilds = probe.builds;
+      source.value = hiddenReplacement;
+      await tester.pump();
+      replacement.setFontChoice('inter');
+      hiddenReplacement.setFontChoice('roboto');
+      await tester.pump();
+      expect(probe.builds, hiddenBuilds);
+      expect(probe.source, same(replacement));
+      visible.value = true;
+      await tester.pump();
+      expect(probe.source, same(hiddenReplacement));
+      expect(probe.fontChoice, 'roboto');
+      final resumedBuilds = probe.builds;
+      replacement.setTheme(ThemeType.dark);
+      await tester.pump();
+      expect(probe.builds, resumedBuilds);
+      final context = tester.element(find.byType(_ThemeProbe));
+      context.read<ThemeProvider>().setTheme(ThemeType.dark);
+      await tester.pump();
+      expect(hiddenReplacement.currentTheme, ThemeType.dark);
+      expect(probe.palette, same(hiddenReplacement.themeData));
+    },
+  );
+
   testWidgets(
     'hidden page skips theme frames and resumes with retained State',
     (tester) async {

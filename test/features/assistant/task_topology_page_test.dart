@@ -7,6 +7,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -28,6 +29,7 @@ import 'package:lilygobox/core/widgets/popup_menu_surface.dart';
 import 'package:lilygobox/core/widgets/settings/select.dart';
 import 'package:lilygobox/core/widgets/tilt_card.dart';
 import 'package:lilygobox/core/widgets/title_bar_icon_button.dart';
+import 'package:lilygobox/features/assistant/data/agent_storage.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/domain/permissions.dart';
 import 'package:lilygobox/features/assistant/domain/reasoning.dart';
@@ -36,7 +38,10 @@ import 'package:lilygobox/features/assistant/presentation/pages/page.dart';
 import 'package:lilygobox/features/assistant/presentation/pages/task_topology_page.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/agent_transfer_error.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/storage_content.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/task_canvas_background.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/task_topology_connection.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/task_topology_connection_layer.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/task_topology_overview_card.dart';
 import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
 import 'package:lilygobox/features/assistant/state/provider.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
@@ -45,6 +50,49 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import 'assistant_test_scope.dart';
+
+class _RasterFailure implements ui.PictureRasterizationException {
+  @override
+  String get message => 'Test texture failure';
+  @override
+  StackTrace? get stack => null;
+}
+
+class _TextureFailureCanvas extends TestRecordingCanvas {
+  int attempts = 0;
+
+  @override
+  void drawImageRect(ui.Image image, Rect src, Rect dst, Paint paint) {
+    attempts++;
+    throw _RasterFailure();
+  }
+}
+
+class _GatedWorkflowStorage extends AgentStorage {
+  _GatedWorkflowStorage() : super(path: ':memory:');
+  final workflow = Completer<Object?>();
+
+  @override
+  Future<Object?> request(
+    String operation, [
+    Map<String, Object?> args = const {},
+  ]) async => operation == 'readWorkflowData' ? workflow.future : null;
+}
+
+class _TitleCountingScaler extends TextScaler {
+  const _TitleCountingScaler(this.onTitleMeasure);
+
+  final VoidCallback onTitleMeasure;
+
+  @override
+  double get textScaleFactor => 1;
+
+  @override
+  double scale(double fontSize) {
+    if (fontSize == 13) onTitleMeasure();
+    return fontSize;
+  }
+}
 
 void main() {
   late ThemeProvider theme;
@@ -172,13 +220,19 @@ void main() {
   Widget app({
     bool disableAnimations = false,
     double textScale = 1,
+    TextScaler? textScaler,
+    AiWorkspaceProvider? restored,
   }) => MultiProvider(
     providers: [
       ChangeNotifierProvider<ThemeProvider>.value(value: theme),
       ChangeNotifierProvider<AppShellProvider>.value(value: shell),
       ChangeNotifierProvider<AppNavigationProvider>.value(value: navigation),
-      ChangeNotifierProvider<AiAssistantProvider>.value(value: scope.provider),
-      ChangeNotifierProvider<AiWorkspaceProvider>.value(value: workspaces),
+      ChangeNotifierProvider<AiAssistantProvider>.value(
+        value: restored?.main ?? scope.provider,
+      ),
+      ChangeNotifierProvider<AiWorkspaceProvider>.value(
+        value: restored ?? workspaces,
+      ),
     ],
     child: RepaintBoundary(
       key: overlayBoundary,
@@ -187,7 +241,7 @@ void main() {
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(
             disableAnimations: disableAnimations,
-            textScaler: TextScaler.linear(textScale),
+            textScaler: textScaler ?? TextScaler.linear(textScale),
           ),
           child: child!,
         ),
@@ -228,6 +282,260 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 500));
   }
+
+  for (final outcome in ['empty', 'saved', 'invalid']) {
+    testWidgets('canvas waits for storage before showing $outcome workflow', (
+      tester,
+    ) async {
+      final storage = _GatedWorkflowStorage();
+      addTearDown(storage.close);
+      final restoreScope = await createAssistantTestScope(
+        theme: theme,
+        language: language,
+        shell: shell,
+        splitView: split,
+        storage: storage,
+      );
+      final restored = AiWorkspaceProvider(restoreScope.provider);
+      try {
+        await tester.pumpWidget(app(restored: restored));
+        await tester.pump();
+        final emptyCard = find.byKey(const ValueKey('topology-empty-create'));
+        expect(find.text('正在加载智能体…'), findsOneWidget);
+        expect(emptyCard, findsNothing);
+        storage.workflow.complete(switch (outcome) {
+          'empty' => null,
+          'invalid' => {'version': -1},
+          _ => {
+            'version': 1,
+            'connections': [],
+            'sessions': [
+              {
+                'id': '10000-0',
+                'title': 'Saved card',
+                'task': '',
+                'kind': 'primary',
+                'conversation': {
+                  'serviceId': '',
+                  'model': '',
+                  'messages': [],
+                  'history': [],
+                },
+              },
+            ],
+          },
+        });
+        await tester.pumpAndSettle();
+        expect(find.text('正在加载智能体…'), findsNothing);
+        expect(emptyCard, outcome == 'empty' ? findsOneWidget : findsNothing);
+        expect(
+          find.text('未能读取已保存的智能体。'),
+          outcome == 'invalid' ? findsOneWidget : findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('topology-node-10000-0')),
+          outcome == 'saved' ? findsOneWidget : findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        restored.dispose();
+        restoreScope.dispose();
+      }
+    });
+  }
+
+  testWidgets('large cold canvas measures across frames with live card edits', (
+    tester,
+  ) async {
+    const count = 1024;
+    final storage = _GatedWorkflowStorage();
+    addTearDown(storage.close);
+    final restoreScope = await createAssistantTestScope(
+      theme: theme,
+      language: language,
+      shell: shell,
+      splitView: split,
+      storage: storage,
+    );
+    final restored = (await tester.runAsync(() async {
+      storage.workflow.complete({
+        'version': 1,
+        'connections': [],
+        'canvas': {
+          for (var index = 0; index < count; index++)
+            '10000-$index': [(index % 32) * 350, (index ~/ 32) * 240],
+        },
+        'sessions': [
+          for (var index = 0; index < count; index++)
+            {
+              'id': '10000-$index',
+              'title': 'Saved card $index',
+              'task': '',
+              'kind': 'primary',
+              'conversation': {
+                'serviceId': '',
+                'model': '',
+                'messages': [],
+                'history': [],
+              },
+            },
+        ],
+      });
+      final provider = AiWorkspaceProvider(restoreScope.provider);
+      await provider.initialized;
+      return provider;
+    }))!;
+    final progress = find.byKey(const ValueKey('topology-loading-progress'));
+    final canvas = find.byKey(const ValueKey('task-topology-canvas'));
+    double measured() =>
+        tester.widget<LinearProgressIndicator>(progress).value!;
+    try {
+      await tester.pumpWidget(
+        TickerMode(enabled: false, child: app(restored: restored)),
+      );
+      await tester.pump();
+      expect(measured(), 0);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(measured(), 0);
+      await tester.pumpWidget(
+        TickerMode(enabled: true, child: app(restored: restored)),
+      );
+      await tester.pump();
+      final first = measured();
+      expect(first, inExclusiveRange(0, 1));
+      expect(canvas, findsNothing);
+      await tester.pump();
+      expect(measured(), greaterThan(first));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(app(restored: restored));
+      await tester.pump();
+      expect(progress, findsOneWidget);
+      final title = List.filled(8, 'A longer card title').join(' ');
+      restored.rename('10000-0', title);
+      restored.remove('10000-1');
+      await tester.pumpWidget(app(restored: restored, textScale: 1.25));
+      expect(progress, findsOneWidget);
+      for (
+        var frame = 0;
+        frame < 1026 && progress.evaluate().isNotEmpty;
+        frame++
+      ) {
+        await tester.pump();
+      }
+      expect(progress, findsNothing);
+      final view = tester.widget<InteractiveViewer>(canvas);
+      final scale = view.transformationController!.value.entry(0, 0);
+      expect(scale, lessThan(1));
+      final firstFrameCards = find.byWidgetPredicate(
+        (widget) =>
+            widget is Positioned &&
+            widget.key.toString().contains('topology-position-'),
+      );
+      final bounds = tester.getRect(canvas);
+      expect(
+        firstFrameCards.evaluate().any((element) {
+          final card = find.byWidget(element.widget);
+          return bounds.contains(tester.getCenter(card));
+        }),
+        isTrue,
+      );
+      final card = firstFrameCards.first;
+      expect(
+        tester.getRect(card).width / tester.getSize(card).width,
+        closeTo(scale, .0001),
+      );
+      view.transformationController!.value = Matrix4.translationValues(
+        60,
+        80,
+        0,
+      );
+      await tester.pumpAndSettle();
+      final firstCard = find.byKey(const ValueKey('topology-node-10000-0'));
+      expect(
+        find.descendant(of: firstCard, matching: find.text(title)),
+        findsOneWidget,
+      );
+      expect(tester.getSize(firstCard).height, greaterThan(180));
+      expect(find.byKey(const ValueKey('topology-node-10000-1')), findsNothing);
+      restored.rename('10000-0', 'Renamed after opening');
+      await tester.pump();
+      expect(progress, findsNothing);
+      expect(canvas, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      restored.dispose();
+      restoreScope.dispose();
+    }
+  });
+
+  testWidgets('unique agent IDs do not evict recurring title measurements', (
+    tester,
+  ) async {
+    final storage = _GatedWorkflowStorage();
+    addTearDown(storage.close);
+    final restoreScope = await createAssistantTestScope(
+      theme: theme,
+      language: language,
+      shell: shell,
+      splitView: split,
+      storage: storage,
+    );
+    final restored = AiWorkspaceProvider(restoreScope.provider);
+    var titleScaleCalls = 0;
+    final scaler = _TitleCountingScaler(() => titleScaleCalls++);
+    try {
+      const count = 1024;
+      await tester.pumpWidget(app(restored: restored, textScaler: scaler));
+      storage.workflow.complete({
+        'version': 1,
+        'sessions': [
+          for (var index = 0; index < count; index++)
+            {
+              'id': '1000-$index',
+              'title': '画布 👩‍💻 ${index % 256}',
+              'task': '',
+              'kind': 'primary',
+              'conversation': {
+                'serviceId': '',
+                'model': '',
+                'messages': [],
+                'history': [],
+              },
+            },
+        ],
+        'connections': [],
+        'canvas': {
+          for (var index = 0; index < count; index++)
+            '1000-$index': [
+              index * 1500 + (index < count ~/ 2 ? 0 : 4000000),
+              100,
+            ],
+        },
+      });
+      await tester.pumpAndSettle();
+      expect(restored.sessions, hasLength(count));
+      expect(
+        find.byKey(const ValueKey('task-topology-canvas')),
+        findsOneWidget,
+      );
+      expect(titleScaleCalls, lessThan(1500));
+      final viewport = tester.getRect(
+        find.byKey(const ValueKey('task-topology-canvas')),
+      );
+      final firstCard = find.byKey(const ValueKey('topology-position-1000-0'));
+      expect(viewport.contains(tester.getCenter(firstCard)), isTrue);
+      expect(tester.takeException(), isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      restored.dispose();
+      restoreScope.dispose();
+    }
+  });
 
   testWidgets('creation without a model service asks before opening settings', (
     tester,
@@ -284,6 +592,591 @@ void main() {
           .color
           .a >
       0;
+
+  void expectPortWithoutOpacityLayers(WidgetTester tester, Finder port) {
+    final opacityLayers = <OpacityLayer>[];
+    var visitedRenderObjects = 0;
+    void visit(RenderObject renderObject) {
+      visitedRenderObjects++;
+      if (renderObject.debugLayer case final OpacityLayer layer) {
+        opacityLayers.add(layer);
+      }
+      renderObject.visitChildren(visit);
+    }
+
+    visit(tester.renderObject(port));
+    expect(visitedRenderObjects, greaterThan(1));
+    expect(
+      opacityLayers,
+      isEmpty,
+      reason: 'Connection port fades must paint without offscreen opacity',
+    );
+  }
+
+  testWidgets('ports fade on selection and hover without opacity layers', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1180, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final root = (await tester.runAsync(
+      () => workspaces.create(
+        title: 'Port fade',
+        task: 'Wait for instructions',
+        kind: AiWorkspaceKind.primary,
+        startImmediately: false,
+      ),
+    ))!;
+    final node = find.byKey(ValueKey('topology-node-${root.id}'));
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    const blank = Offset(20, 200);
+    await mouse.addPointer(location: blank);
+
+    void expectPortPaint(Matcher opacityMatcher) {
+      for (final side in ['in', 'out', 'top', 'bottom']) {
+        final port = find.byKey(ValueKey('topology-port-$side-${root.id}'));
+        final visual = find.descendant(
+          of: port,
+          matching: find.byType(DecoratedBox),
+        );
+        final decoration =
+            tester.renderObject<RenderDecoratedBox>(visual).decoration
+                as BoxDecoration;
+        final color = decoration.color!;
+        final opacity = color.a / theme.themeData.primary.a;
+        expect(opacity, opacityMatcher, reason: '$side connection port');
+        expect(
+          color.withValues(alpha: 1),
+          theme.themeData.primary.withValues(alpha: 1),
+        );
+        final border = decoration.border! as Border;
+        expect(
+          border.top.color.a,
+          closeTo(theme.themeData.basePrimary.a * opacity, .001),
+        );
+        expect(
+          border.top.color.withValues(alpha: 1),
+          theme.themeData.basePrimary.withValues(alpha: 1),
+        );
+        expect(border.top.width, 1.5);
+        expect(decoration.shape, BoxShape.circle);
+        expect(tester.getSize(visual), const Size(9, 9));
+        expect(tester.getSize(port), const Size(24, 24));
+        expectPortWithoutOpacityLayers(tester, port);
+      }
+    }
+
+    for (final type in [ThemeType.light, ThemeType.dark]) {
+      theme.setTheme(type);
+      await tester.pumpWidget(app());
+      await tick(tester);
+      expect(selected(tester, root.id), isFalse);
+      expectPortPaint(closeTo(.16, .001));
+
+      await tester.tap(node);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 75));
+      expect(selected(tester, root.id), isTrue);
+      expectPortPaint(closeTo(.58, .01));
+      await tester.pump(const Duration(milliseconds: 75));
+      expectPortPaint(closeTo(1, .001));
+
+      await tester.tapAt(blank);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 75));
+      expect(selected(tester, root.id), isFalse);
+      expectPortPaint(closeTo(.58, .01));
+      await tester.pump(const Duration(milliseconds: 75));
+      expectPortPaint(closeTo(.16, .001));
+
+      await mouse.moveTo(tester.getCenter(node));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 75));
+      expect(selected(tester, root.id), isFalse);
+      expectPortPaint(closeTo(.58, .01));
+      await tester.pump(const Duration(milliseconds: 75));
+      expectPortPaint(closeTo(1, .001));
+
+      await mouse.moveTo(blank);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 75));
+      expectPortPaint(closeTo(.58, .01));
+      await tester.pump(const Duration(milliseconds: 75));
+      expectPortPaint(closeTo(.16, .001));
+    }
+    await mouse.removePointer();
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets('rebuilding independent cards keeps agent lookups linear', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1180, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final countedWorkspaces = (await tester.runAsync(() async {
+      await workspaces.initialized;
+      workspaces.dispose();
+      final replacement = _LookupCountingWorkspaceProvider(scope.provider);
+      workspaces = replacement;
+      await replacement.initialized;
+      return replacement;
+    }))!;
+    final lookupCounts = <int>[];
+    for (final cardCount in [20, 40]) {
+      await tester.runAsync(() async {
+        for (
+          var index = countedWorkspaces.sessions.length;
+          index < cardCount;
+          index++
+        ) {
+          await countedWorkspaces.create(
+            title: 'Independent $index',
+            task: 'Wait for instructions',
+            kind: AiWorkspaceKind.primary,
+            startImmediately: false,
+          );
+        }
+      });
+      await tester.pumpWidget(app());
+      await tick(tester);
+      final firstAgent = countedWorkspaces.sessions.first;
+      final updatedTitle = 'Updated with $cardCount cards';
+      countedWorkspaces.rename(firstAgent.id, updatedTitle);
+      countedWorkspaces.findCalls = 0;
+      await tester.pump();
+      final lookups = countedWorkspaces.findCalls;
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(ValueKey('topology-title-${firstAgent.id}')),
+            )
+            .data,
+        updatedTitle,
+      );
+      expect(lookups, greaterThan(0));
+      expect(
+        lookups,
+        lessThanOrEqualTo(cardCount * 16),
+        reason: 'A card rebuild must not scan all agents for every card menu',
+      );
+      lookupCounts.add(lookups);
+
+      final canvas = find.byKey(const ValueKey('task-topology-canvas'));
+      final transform = tester
+          .widget<InteractiveViewer>(canvas)
+          .transformationController!;
+      final blank = tester.getTopLeft(canvas) + const Offset(4, 4);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: blank);
+      await tester.tapAt(blank);
+      await tester.pumpAndSettle();
+      expect(
+        countedWorkspaces.sessions.any(
+          (agent) => tester
+              .getRect(find.byKey(ValueKey('topology-node-${agent.id}')))
+              .inflate(12)
+              .contains(blank),
+        ),
+        isFalse,
+      );
+
+      void scroll(Offset delta) {
+        tester.binding.handlePointerEvent(
+          PointerScrollEvent(
+            position: blank,
+            scrollDelta: delta,
+            kind: PointerDeviceKind.mouse,
+          ),
+        );
+      }
+
+      MenuAnchor cardMenu(String id) => tester.widget<MenuAnchor>(
+        find
+            .ancestor(
+              of: find.byKey(ValueKey('topology-node-$id')),
+              matching: find.byType(MenuAnchor),
+            )
+            .first,
+      );
+
+      Map<String, MenuAnchor> cardMenus() => {
+        for (final agent in countedWorkspaces.sessions)
+          agent.id: cardMenu(agent.id),
+      };
+
+      void expectMenusReused(Map<String, MenuAnchor> before, String motion) {
+        for (final entry in before.entries) {
+          expect(
+            cardMenu(entry.key),
+            same(entry.value),
+            reason: '$motion must reuse every existing card menu',
+          );
+        }
+      }
+
+      scroll(const Offset(0, 1));
+      await tester.pumpAndSettle();
+      final beforePan = transform.value.clone();
+      final menusBeforePan = cardMenus();
+      scroll(const Offset(0, 40));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 75));
+      expectMenusReused(menusBeforePan, 'Wheel panning');
+      await tester.pumpAndSettle();
+      expectMenusReused(menusBeforePan, 'Wheel panning');
+      expect(transform.value.entry(1, 3), lessThan(beforePan.entry(1, 3)));
+      expect(transform.value.entry(0, 0), beforePan.entry(0, 0));
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      scroll(const Offset(0, -1));
+      await tester.pumpAndSettle();
+      final beforeZoom = transform.value.clone();
+      final menusBeforeZoom = cardMenus();
+      scroll(const Offset(0, -40));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 75));
+      expectMenusReused(menusBeforeZoom, 'Ctrl wheel zoom');
+      await tester.pumpAndSettle();
+      expectMenusReused(menusBeforeZoom, 'Ctrl wheel zoom');
+      expect(transform.value.entry(0, 0), greaterThan(beforeZoom.entry(0, 0)));
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+
+      final visibleAgent = countedWorkspaces.sessions.firstWhere(
+        (agent) => tester
+            .getRect(canvas)
+            .deflate(80)
+            .contains(
+              tester.getCenter(
+                find.byKey(ValueKey('topology-node-${agent.id}')),
+              ),
+            ),
+      );
+      final menusBeforeHover = cardMenus();
+      await mouse.moveTo(
+        tester.getCenter(
+          find.byKey(ValueKey('topology-node-${visibleAgent.id}')),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 75));
+      expectMenusReused(menusBeforeHover, 'Card hover enter');
+      await tester.pumpAndSettle();
+      expectMenusReused(menusBeforeHover, 'Card hover enter');
+
+      await mouse.moveTo(blank);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 75));
+      expectMenusReused(menusBeforeHover, 'Card hover exit');
+      await tester.pumpAndSettle();
+      expectMenusReused(menusBeforeHover, 'Card hover exit');
+      await mouse.removePointer();
+    }
+    expect(
+      lookupCounts.last,
+      lessThanOrEqualTo(lookupCounts.first * 3),
+      reason: 'Doubling independent cards must not quadruple agent lookups',
+    );
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets('page activity changes reuse the complete canvas graph', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1180, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(() async {
+      for (var index = 0; index < 8; index++) {
+        await workspaces.create(
+          title: 'Activity card $index',
+          task: 'Wait for instructions',
+          kind: AiWorkspaceKind.primary,
+          startImmediately: false,
+        );
+      }
+    });
+    final active = ValueNotifier(true);
+    addTearDown(active.dispose);
+    await tester.pumpWidget(
+      ValueListenableBuilder<bool>(
+        valueListenable: active,
+        builder: (context, enabled, child) =>
+            TickerMode(enabled: enabled, child: child!),
+        child: app(),
+      ),
+    );
+    await tick(tester);
+    MenuAnchor menu(String id) => tester.widget<MenuAnchor>(
+      find
+          .ancestor(
+            of: find.byKey(ValueKey('topology-node-$id'), skipOffstage: false),
+            matching: find.byType(MenuAnchor, skipOffstage: false),
+          )
+          .first,
+    );
+    final menus = {
+      for (final agent in workspaces.sessions) agent.id: menu(agent.id),
+    };
+    void expectGraphReused() {
+      for (final entry in menus.entries) {
+        expect(menu(entry.key), same(entry.value));
+      }
+    }
+
+    for (final enabled in [false, true]) {
+      active.value = enabled;
+      await tester.pumpAndSettle();
+      expectGraphReused();
+      expect(workspaces.activeConversationId, isNull);
+    }
+    final topologyContext = tester.element(find.byType(TaskTopologyPage));
+    unawaited(
+      showDialog<void>(
+        context: topologyContext,
+        builder: (context) => const Dialog(child: Text('Activity modal')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expectGraphReused();
+    Navigator.of(topologyContext).pop();
+    await tester.pumpAndSettle();
+    expectGraphReused();
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets('covered conversations reject navigation without replaying it', (
+    tester,
+  ) async {
+    final primary = (await tester.runAsync(
+      () => workspaces.createPrimary(title: 'Activity main', task: 'Wait'),
+    ))!;
+    final child = (await tester.runAsync(
+      () => workspaces.create(
+        title: 'Activity child',
+        task: 'Wait',
+        parentId: primary.id,
+      ),
+    ))!;
+    await tester.pumpWidget(app());
+    await tick(tester);
+    await tester.tap(find.byKey(ValueKey('topology-open-${primary.id}')));
+    await tester.pumpAndSettle();
+    expect(workspaces.activeConversationId, primary.id);
+    final topologyContext = tester.element(find.byType(TaskTopologyPage));
+    unawaited(
+      showDialog<void>(
+        context: topologyContext,
+        builder: (context) => const Dialog(child: Text('Activity modal')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(workspaces.activeConversationId, isNull);
+    final result = await tester.runAsync(
+      () => primary.assistant.workspaceToolHandler!('open_agent', {
+        'agent_id': child.id,
+      }),
+    );
+    expect(result!['navigation_requested'], isFalse);
+    Navigator.of(topologyContext).pop();
+    await tester.pumpAndSettle();
+    expect(workspaces.activeConversationId, primary.id);
+    expect(find.byKey(ValueKey('topology-chat-${primary.id}')), findsOneWidget);
+    expect(find.byKey(ValueKey('topology-chat-${child.id}')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets(
+    'canvas transforms preserve agent semantics and the accessible open action',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.binding.setSurfaceSize(const Size(1180, 850));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final leader = (await tester.runAsync(
+          () => workspaces.createPrimary(
+            title: 'Accessible leader',
+            task: 'Coordinate',
+          ),
+        ))!;
+        final child = (await tester.runAsync(
+          () => workspaces.create(
+            title: 'Accessible child',
+            task: 'Assist',
+            parentId: leader.id,
+            startImmediately: false,
+          ),
+        ))!;
+        await tester.pumpWidget(app());
+        await tick(tester);
+        final leaderCard = find.byKey(ValueKey('topology-node-${leader.id}'));
+        final childCard = find.byKey(ValueKey('topology-node-${child.id}'));
+        await tester.tap(leaderCard);
+        await tester.pumpAndSettle();
+        final leaderSemanticsId = tester.getSemantics(leaderCard).id;
+        final childSemanticsId = tester.getSemantics(childCard).id;
+        final openChild = find.byKey(ValueKey('topology-open-${child.id}'));
+        final openSemanticsId = tester.getSemantics(openChild).id;
+        final canvas = tester.widget<InteractiveViewer>(
+          find.byKey(const ValueKey('task-topology-canvas')),
+        );
+        final position = tester.widget<Positioned>(
+          find.byKey(ValueKey('topology-position-${leader.id}')),
+        );
+        for (final scale in [.25, .7, 1.2]) {
+          canvas.transformationController!.value =
+              Matrix4.translationValues(
+                100 - position.left! * scale,
+                200 - position.top! * scale,
+                0,
+              ) *
+              Matrix4.diagonal3Values(scale, scale, 1);
+          await tester.pumpAndSettle();
+          final leaderNode = tester.getSemantics(leaderCard);
+          final childNode = tester.getSemantics(childCard);
+          expect(leaderNode.id, leaderSemanticsId);
+          expect(childNode.id, childSemanticsId);
+          final leaderData = leaderNode.getSemanticsData();
+          final childData = childNode.getSemanticsData();
+          expect(leaderData.label, contains('Accessible leader'));
+          expect(leaderData.label, contains('主智能体'));
+          expect(childData.label, contains('Accessible child'));
+          expect(childData.label, contains('子智能体'));
+          expect(leaderData.flagsCollection.isSelected, ui.Tristate.isTrue);
+          expect(childData.flagsCollection.isSelected, ui.Tristate.isFalse);
+          expect(leaderData.flagsCollection.isHidden, isFalse);
+          expect(childData.flagsCollection.isHidden, isFalse);
+          final openNode = tester.getSemantics(openChild);
+          expect(openNode.id, openSemanticsId);
+          expect(
+            openNode.getSemanticsData().hasAction(ui.SemanticsAction.tap),
+            isTrue,
+          );
+        }
+        tester.binding.renderViews.single.owner!.semanticsOwner!.performAction(
+          openSemanticsId,
+          ui.SemanticsAction.tap,
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('ai-message-input')), findsOneWidget);
+        expect(
+          find.byKey(ValueKey('topology-conversation-task-id-${child.id}')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+        await finish(tester);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
+  testWidgets(
+    'dense overview cards select, open menus, connect and expose an accessible open action',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.binding.setSurfaceSize(const Size(1280, 850));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final cards = (await tester.runAsync(
+          () async => [
+            for (var index = 0; index < 66; index++)
+              await workspaces.create(
+                title: 'Overview $index',
+                task: 'Wait for instructions',
+                kind: AiWorkspaceKind.primary,
+                startImmediately: false,
+              ),
+          ],
+        ))!;
+        workspaces.updateCanvasPositions({
+          for (final (index, card) in cards.indexed)
+            card.id: [(index % 11) * 400.0, (index ~/ 11) * 300.0],
+        });
+        await tester.pumpWidget(app());
+        await tick(tester);
+        final view = tester.widget<InteractiveViewer>(
+          find.byKey(const ValueKey('task-topology-canvas')),
+        );
+        view.transformationController!.value = Matrix4.translationValues(
+          120,
+          180,
+          0,
+        )..scaleByDouble(.3, .3, 1, 1);
+        await tester.pumpAndSettle();
+        final first = find.byKey(ValueKey('topology-node-${cards[0].id}'));
+        final second = find.byKey(ValueKey('topology-node-${cards[1].id}'));
+        expect(tester.widget(first), isA<TaskTopologyOverviewCard>());
+        final failedSurface = _TextureFailureCanvas();
+        for (final card in [first, second]) {
+          final paint = tester.widget<CustomPaint>(
+            find.descendant(of: card, matching: find.byType(CustomPaint)),
+          );
+          paint.painter!.paint(failedSurface, tester.getSize(card));
+        }
+        expect(
+          failedSurface.attempts,
+          !kIsWeb &&
+                  defaultTargetPlatform == TargetPlatform.windows &&
+                  !ui.ImageFilter.isShaderFilterSupported
+              ? 0
+              : 1,
+        );
+        expect(
+          failedSurface.invocations.where(
+            (record) => record.invocation.memberName == #drawRRect,
+          ),
+          hasLength(2),
+        );
+        await tester.tap(first);
+        await tester.pumpAndSettle();
+        expect(workspaces.selected?.id, cards[0].id);
+        await tester.tap(second, buttons: kSecondaryMouseButton);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('topology-context-copy-id')),
+          findsOneWidget,
+        );
+        expect(workspaces.selected?.id, cards[1].id);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        final start = tester.getRect(first).centerRight - const Offset(1, 0);
+        final drag = await tester.startGesture(
+          start,
+          kind: PointerDeviceKind.mouse,
+        );
+        await drag.moveTo(start + const Offset(30, 0));
+        await tester.pump();
+        await drag.moveTo(tester.getCenter(second));
+        await drag.up();
+        await tester.pumpAndSettle();
+        expect(workspaces.isConnected(cards[0].id, cards[1].id), isTrue);
+        final accessible = tester.getSemantics(second);
+        expect(accessible.getSemanticsData().label, contains(cards[1].id));
+        expect(accessible.getSemanticsData().label, contains('子智能体'));
+        tester.binding.renderViews.single.owner!.semanticsOwner!.performAction(
+          accessible.id,
+          ui.SemanticsAction.tap,
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(ValueKey('topology-conversation-task-id-${cards[1].id}')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+        await finish(tester);
+      } finally {
+        semantics.dispose();
+      }
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.windows,
+      TargetPlatform.android,
+    }),
+  );
 
   for (final textScale in [1.0, 1.5]) {
     testWidgets(
@@ -700,6 +1593,351 @@ void main() {
     await finish(tester);
   });
 
+  for (final multiple in [false, true]) {
+    testWidgets(
+      '${multiple ? 'multiple' : 'single'} card drag retains all menus and updates routes positions and history',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(1600, 1000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final tasks = (await tester.runAsync(() async {
+          return [
+            for (var index = 0; index < 12; index++)
+              await workspaces.create(
+                title: 'Drag task $index',
+                task: 'Wait for instructions',
+                kind: AiWorkspaceKind.primary,
+                startImmediately: false,
+              ),
+          ];
+        }))!;
+        workspaces.connectCanvasTasks(tasks[0].id, tasks[1].id);
+        workspaces.connectCanvasTasks(tasks[2].id, tasks[3].id);
+        final initialPositions = {
+          for (final (index, task) in tasks.indexed)
+            task.id: Offset(180 + (index % 4) * 350, 180 + (index ~/ 4) * 240),
+        };
+        final savedPositions = {
+          for (final entry in initialPositions.entries)
+            entry.key: [entry.value.dx, entry.value.dy],
+        };
+        workspaces.updateCanvasPositions(savedPositions);
+        await tester.pumpWidget(app());
+        await tick(tester);
+        final canvas = find.byKey(const ValueKey('task-topology-canvas'));
+        final controller = tester
+            .widget<InteractiveViewer>(canvas)
+            .transformationController!;
+        const scale = .8;
+        controller.value = Matrix4.identity()
+          ..scaleByDouble(scale, scale, 1, 1);
+        await tester.pumpAndSettle();
+        Finder card(String id) => find.byKey(ValueKey('topology-node-$id'));
+        Offset position(String id) {
+          final placed = tester.widget<Positioned>(
+            find.byKey(ValueKey('topology-position-$id')),
+          );
+          return Offset(placed.left!, placed.top!);
+        }
+
+        MenuAnchor menu(String id) => tester.widget<MenuAnchor>(
+          find.ancestor(of: card(id), matching: find.byType(MenuAnchor)).first,
+        );
+        Rect bounds(String id) {
+          final placed = tester.widget<Positioned>(
+            find.byKey(ValueKey('topology-position-$id')),
+          );
+          return position(id) & Size(placed.width!, placed.height!);
+        }
+
+        final edges = workspaces.connections;
+        void expectRoutesFollowCards() {
+          final painter =
+              tester
+                      .widget<CustomPaint>(
+                        find.byKey(
+                          const ValueKey('topology-connections-paint'),
+                        ),
+                      )
+                      .painter!
+                  as TaskTopologyConnectionsPainter;
+          expect(
+            painter.routes.keys,
+            unorderedEquals(edges.map((edge) => edge.id)),
+          );
+          for (final edge in edges) {
+            final expected = TaskTopologyConnection.between(
+              bounds(edge.fromId),
+              bounds(edge.toId),
+            );
+            final actual = painter.routes[edge.id]!;
+            expect((actual.start - expected.start).distance, lessThan(.001));
+            expect((actual.end - expected.end).distance, lessThan(.001));
+            expect(actual.path.getBounds(), expected.path.getBounds());
+          }
+        }
+
+        await tester.tap(card(tasks.first.id));
+        if (multiple) {
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+          await tester.tap(card(tasks[1].id));
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        }
+        await tester.pumpAndSettle();
+        final targetIds = {tasks.first.id, if (multiple) tasks[1].id};
+        for (final task in tasks) {
+          expect(selected(tester, task.id), targetIds.contains(task.id));
+        }
+        final start = tester.getCenter(card(tasks.first.id));
+        final drag = await tester.startGesture(start);
+        await drag.moveTo(start + const Offset(30, 20));
+        await tester.pumpAndSettle();
+        await drag.moveTo(start + const Offset(60, 40));
+        await tester.pumpAndSettle();
+        final menusBefore = {for (final task in tasks) task.id: menu(task.id)};
+        final cardsBefore = {
+          for (final task in tasks)
+            task.id: tester.widget<AnimatedContainer>(card(task.id)),
+        };
+        var totalScreenDelta = const Offset(60, 40);
+        for (var step = 1; step <= 6; step++) {
+          totalScreenDelta = Offset(60 + step * 8, 40 + step * 6);
+          await drag.moveTo(start + totalScreenDelta);
+          await tester.pump();
+          for (final task in tasks) {
+            expect(menu(task.id), same(menusBefore[task.id]));
+            expect(
+              tester.widget<AnimatedContainer>(card(task.id)),
+              same(cardsBefore[task.id]),
+            );
+            final expected =
+                initialPositions[task.id]! +
+                (targetIds.contains(task.id)
+                    ? totalScreenDelta / scale
+                    : Offset.zero);
+            expect((position(task.id) - expected).distance, lessThan(.001));
+          }
+          expectRoutesFollowCards();
+          expect(workspaces.canvasPositions, savedPositions);
+        }
+        final finalPositions = {
+          for (final task in tasks) task.id: position(task.id),
+        };
+        await drag.up();
+        await tester.pumpAndSettle();
+        for (final task in tasks) {
+          expect(position(task.id), finalPositions[task.id]);
+          expect(workspaces.canvasPositions[task.id], [
+            finalPositions[task.id]!.dx,
+            finalPositions[task.id]!.dy,
+          ]);
+        }
+        expectRoutesFollowCards();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tick(tester);
+        for (final task in tasks) {
+          expect(position(task.id), initialPositions[task.id]);
+        }
+        expect(workspaces.canvasPositions, savedPositions);
+        expectRoutesFollowCards();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyY);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tick(tester);
+        for (final task in tasks) {
+          expect(position(task.id), finalPositions[task.id]);
+          expect(workspaces.canvasPositions[task.id], [
+            finalPositions[task.id]!.dx,
+            finalPositions[task.id]!.dy,
+          ]);
+        }
+        expectRoutesFollowCards();
+        if (!multiple) {
+          final external = (await tester.runAsync(
+            () => workspaces.create(
+              title: 'Created outside canvas history',
+              task: 'Wait for instructions',
+              kind: AiWorkspaceKind.primary,
+              startImmediately: false,
+            ),
+          ))!;
+          const externalPosition = Offset(1500, 900);
+          workspaces.updateCanvasPositions({
+            ...workspaces.canvasPositions,
+            external.id: [externalPosition.dx, externalPosition.dy],
+          });
+          await tester.pumpAndSettle();
+          expect(position(external.id), externalPosition);
+          for (final command in [
+            LogicalKeyboardKey.keyZ,
+            LogicalKeyboardKey.keyY,
+          ]) {
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+            await tester.sendKeyEvent(command);
+            await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+            await tick(tester);
+            expect(workspaces.find(external.id), same(external));
+            expect(position(external.id), externalPosition);
+            expect(workspaces.canvasPositions[external.id], [
+              externalPosition.dx,
+              externalPosition.dy,
+            ]);
+            for (final task in tasks) {
+              expect(
+                position(task.id),
+                command == LogicalKeyboardKey.keyZ
+                    ? initialPositions[task.id]
+                    : finalPositions[task.id],
+              );
+            }
+            expectRoutesFollowCards();
+          }
+        }
+        expect(tester.takeException(), isNull);
+        await finish(tester);
+      },
+    );
+  }
+
+  for (final deletion in [
+    'keyboard',
+    'agent',
+    'last card',
+    'agent partial selection',
+  ]) {
+    testWidgets('deleting the dragged card releases drag state: $deletion', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 850));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      AiAgentWorkspace? survivor;
+      if (deletion != 'last card') {
+        survivor = (await tester.runAsync(
+          () => workspaces.create(
+            title: 'Surviving leader',
+            task: 'Coordinate',
+            kind: AiWorkspaceKind.primary,
+            startImmediately: false,
+          ),
+        ))!;
+      }
+      final target = (await tester.runAsync(
+        () => workspaces.create(
+          title: 'Dragged deletion target',
+          task: 'Wait for instructions',
+          parentId: survivor?.id,
+          kind: survivor == null
+              ? AiWorkspaceKind.primary
+              : AiWorkspaceKind.permanent,
+          startImmediately: false,
+        ),
+      ))!;
+      workspaces.updateCanvasPositions({
+        if (survivor != null) survivor.id: [180, 240],
+        target.id: [560, 240],
+      });
+      await tester.pumpWidget(app());
+      await tick(tester);
+      final controller = tester
+          .widget<InteractiveViewer>(
+            find.byKey(const ValueKey('task-topology-canvas')),
+          )
+          .transformationController!;
+      controller.value = Matrix4.identity();
+      await tester.pumpAndSettle();
+      Finder card(String id) => find.byKey(ValueKey('topology-node-$id'));
+      Offset position(String id) {
+        final placed = tester.widget<Positioned>(
+          find.byKey(ValueKey('topology-position-$id')),
+        );
+        return Offset(placed.left!, placed.top!);
+      }
+
+      await tester.tap(card(target.id));
+      final partialSelection = deletion == 'agent partial selection';
+      if (partialSelection) {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.tap(card(survivor!.id));
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      }
+      await tester.pumpAndSettle();
+      final start = tester.getCenter(
+        card(partialSelection ? survivor!.id : target.id),
+      );
+      final drag = await tester.startGesture(
+        start,
+        kind: PointerDeviceKind.mouse,
+      );
+      await drag.moveTo(start + const Offset(45, 30));
+      await tester.pumpAndSettle();
+      expect(position(target.id), const Offset(605, 270));
+      final survivorPosition = survivor == null ? null : position(survivor.id);
+      final agentDeletion = deletion.startsWith('agent');
+      if (agentDeletion) {
+        final result = await survivor!.assistant.workspaceToolHandler!(
+          'delete_agent',
+          {'agent_id': target.id},
+        );
+        expect(result['status'], 'deleted');
+      } else {
+        await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      }
+      await tester.pumpAndSettle();
+      expect(workspaces.find(target.id), isNull);
+      expect(card(target.id), findsNothing);
+      await drag.moveTo(start + const Offset(60, 40));
+      await tester.pump();
+      await drag.up();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      if (partialSelection) {
+        expect(position(survivor!.id), survivorPosition);
+        expect(workspaces.canvasPositions[survivor.id], [
+          survivorPosition!.dx,
+          survivorPosition.dy,
+        ]);
+      }
+      if (survivor == null) {
+        expect(workspaces.sessions, isEmpty);
+        survivor = (await tester.runAsync(
+          () => workspaces.create(
+            title: 'New leader after last card deletion',
+            task: 'Wait for instructions',
+            kind: AiWorkspaceKind.primary,
+            startImmediately: false,
+          ),
+        ))!;
+        await tester.pumpAndSettle();
+        controller.value = Matrix4.identity();
+        await tester.pumpAndSettle();
+      }
+      expect(workspaces.layoutCanvasGroup!({survivor.id}), isTrue);
+      await tester.pumpAndSettle();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tick(tester);
+      if (!agentDeletion) {
+        expect(workspaces.find(target.id), isNotNull);
+        expect(workspaces.find(survivor.id), same(survivor));
+        expect(position(target.id), const Offset(605, 270));
+      } else {
+        expect(workspaces.find(target.id), isNull);
+      }
+      final before = position(survivor.id);
+      await tester.drag(card(survivor.id), const Offset(45, 25));
+      await tester.pumpAndSettle();
+      expect(position(survivor.id), before + const Offset(45, 25));
+      expect(workspaces.canvasPositions[survivor.id], [
+        before.dx + 45,
+        before.dy + 25,
+      ]);
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    });
+  }
+
   testWidgets(
     'connection preview moves without rebuilding cards or the background',
     (tester) async {
@@ -1036,13 +2274,19 @@ void main() {
       await tick(tester);
       List<Key?> order() {
         final node = find.byKey(ValueKey('topology-position-${first.id}'));
-        final stack = tester.widget<Stack>(
-          find.ancestor(of: node, matching: find.byType(Stack)).first,
-        );
-        return stack.children
-            .whereType<Positioned>()
-            .where((w) => w.key != null)
-            .map((w) => w.key)
+        final stack = find
+            .ancestor(of: node, matching: find.byType(Stack))
+            .first;
+        final nodeKeys = {
+          ValueKey('topology-position-${first.id}'),
+          ValueKey('topology-position-${second.id}'),
+        };
+        return tester
+            .widgetList<Positioned>(
+              find.descendant(of: stack, matching: find.byType(Positioned)),
+            )
+            .where((widget) => nodeKeys.contains(widget.key))
+            .map((widget) => widget.key)
             .toList();
       }
 
@@ -1189,6 +2433,18 @@ void main() {
       final before = {
         for (final task in [root, first, second]) task.id: position(task.id),
       };
+      void expectConnectionPortLayers() {
+        for (final task in [root, first, second]) {
+          for (final side in ['in', 'out', 'top', 'bottom']) {
+            expectPortWithoutOpacityLayers(
+              tester,
+              find.byKey(ValueKey('topology-port-$side-${task.id}')),
+            );
+          }
+        }
+      }
+
+      expectConnectionPortLayers();
       Future<void> connect(String from, String to) async {
         final start = tester.getCenter(
           find.byKey(ValueKey('topology-port-bottom-$from')),
@@ -1199,10 +2455,13 @@ void main() {
         final gesture = await tester.startGesture(start);
         await gesture.moveTo(start + const Offset(0, 20));
         await tester.pump();
+        await tester.pump(const Duration(milliseconds: 75));
+        expectConnectionPortLayers();
         await gesture.moveTo(end);
         await tester.pump();
         await gesture.up();
         await tester.pumpAndSettle();
+        expectConnectionPortLayers();
       }
 
       await connect(first.id, second.id);
@@ -1873,6 +3132,21 @@ void main() {
       }
 
       final original = position();
+      final axes =
+          tester
+                  .widget<CustomPaint>(
+                    find.byWidgetPredicate(
+                      (widget) =>
+                          widget is CustomPaint &&
+                          widget.painter is TaskCanvasAxesPainter,
+                    ),
+                  )
+                  .painter!
+              as TaskCanvasAxesPainter;
+      Offset axisPosition() => MatrixUtils.transformPoint(
+        axes.transform.value,
+        axes.sceneOrigin.value,
+      );
       controller.value =
           Matrix4.translationValues(
             800 - original.dx * .5,
@@ -1882,9 +3156,11 @@ void main() {
           Matrix4.diagonal3Values(.5, .5, 1);
       await tester.pump();
       final before = tester.getCenter(node);
+      final axesBefore = axisPosition();
       final gesture = await tester.startGesture(before);
       await gesture.moveTo(before - const Offset(400, 100));
       await tester.pump();
+      expect(axisPosition(), axesBefore);
       expect((tester.getCenter(node) - before).dx, closeTo(-400, 2));
       expect((tester.getCenter(node) - before).dy, closeTo(-100, 2));
       await gesture.moveTo(before - const Offset(460, 130));
@@ -1893,6 +3169,9 @@ void main() {
       await tester.pumpAndSettle();
       expect((tester.getCenter(node) - before).dx, closeTo(-460, 2));
       expect((tester.getCenter(node) - before).dy, closeTo(-130, 2));
+      expect(axisPosition(), axesBefore);
+      expect(position().dx - workspaces.canvasOrigin.dx, lessThan(0));
+      expect(position().dy - workspaces.canvasOrigin.dy, lessThan(0));
       expect(position().dx, greaterThan(0));
       expect(position().dy, greaterThan(0));
       final rebased = position();
@@ -1905,10 +3184,12 @@ void main() {
           Matrix4.diagonal3Values(1.5, 1.5, 1);
       await tester.pump();
       final zoomedBefore = tester.getCenter(node);
+      final axesAfterZoom = axisPosition();
       await tester.drag(node, const Offset(-600, -400));
       await tester.pumpAndSettle();
       expect((tester.getCenter(node) - zoomedBefore).dx, closeTo(-600, 2));
       expect((tester.getCenter(node) - zoomedBefore).dy, closeTo(-400, 2));
+      expect(axisPosition(), axesAfterZoom);
       await tester.tap(find.byKey(ValueKey('topology-open-${task.id}')));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('ai-message-input')), findsOneWidget);
@@ -1950,7 +3231,7 @@ void main() {
       await tick(tester);
       final finder = find.byKey(const ValueKey('task-topology-canvas'));
       final viewer = tester.widget<InteractiveViewer>(finder);
-      final originalSize = (viewer.child as SizedBox).width!;
+      final originalSize = tester.getSize(find.byWidget(viewer.child!)).width;
       final positioned = tester.widget<Positioned>(
         find.byKey(ValueKey('topology-position-${task.id}')),
       );
@@ -1968,7 +3249,11 @@ void main() {
       await tester.pumpAndSettle();
       expect((tester.getCenter(node) - before).dx, closeTo(800, 2));
       expect(
-        (tester.widget<InteractiveViewer>(finder).child as SizedBox).width!,
+        tester
+            .getSize(
+              find.byWidget(tester.widget<InteractiveViewer>(finder).child!),
+            )
+            .width,
         greaterThan(originalSize),
       );
       await tester.tap(find.byKey(ValueKey('topology-open-${task.id}')));
@@ -3549,13 +4834,36 @@ void main() {
       await tester.enterText(editor, '500');
       FocusManager.instance.primaryFocus?.unfocus();
       await tester.pumpAndSettle();
-      expect(transform.value.entry(0, 0), closeTo(1.8, .001));
-      expect(shown(), '180');
+      expect(transform.value.entry(0, 0), closeTo(2.0, .001));
+      expect(shown(), '200');
       await tester.tap(editor);
       await tester.enterText(editor, '');
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
-      expect(shown(), '180');
+      expect(shown(), '200');
+      await tester.tap(editor);
+      await tester.enterText(editor, '0');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      expect(shown(), '1');
+      expect(transform.value.entry(0, 0), closeTo(.01, .00001));
+      for (final (input, display) in [
+        ('1.5', '1.5'),
+        ('1.44', '1.4'),
+        ('9', '9'),
+        ('10', '10'),
+        ('10.6', '11'),
+      ]) {
+        await tester.tap(editor);
+        await tester.enterText(editor, input);
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pumpAndSettle();
+        expect(shown(), display);
+        expect(
+          transform.value.entry(0, 0),
+          closeTo(double.parse(input) / 100, .00001),
+        );
+      }
       expect(tester.takeException(), isNull);
     },
   );
@@ -3600,7 +4908,7 @@ void main() {
       await scrollAt(pointer);
       expect(
         controller.value.entry(0, 0),
-        closeTo((initial.entry(0, 0) * math.exp(.5)).clamp(.25, 1.8), .001),
+        closeTo((initial.entry(0, 0) * math.exp(.5)).clamp(.01, 2.0), .001),
       );
       expect((controller.toScene(local) - anchored).distance, lessThan(.001));
       await tester.tap(
@@ -3666,8 +4974,9 @@ void main() {
               .transformationController!;
           final point = tester.getTopLeft(canvas) + const Offset(20, 20);
           final initial = controller.value.clone();
-          if (shift)
+          if (shift) {
             await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+          }
           for (var eventIndex = 0; eventIndex < 3; eventIndex++) {
             tester.binding.handlePointerEvent(
               PointerScrollEvent(
@@ -3831,52 +5140,91 @@ void main() {
   testWidgets(
     'selecting an off-center card and opening it never fits the view',
     (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1180, 850));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      final task = (await tester.runAsync(
-        () =>
-            workspaces.createPrimary(title: 'Keep this position', task: 'one'),
-      ))!;
-      await tester.pumpWidget(app());
-      await tick(tester);
-      final canvas = find.byKey(const ValueKey('task-topology-canvas'));
-      final view = tester
-          .widget<InteractiveViewer>(canvas)
-          .transformationController!;
-      final position = tester.widget<Positioned>(
-        find.byKey(ValueKey('topology-position-${task.id}')),
-      );
-      view.value =
-          Matrix4.translationValues(
-            70 - position.left! * .7,
-            450 - position.top! * .7,
-            0,
-          ) *
-          Matrix4.diagonal3Values(.7, .7, 1);
-      await tester.pump();
-      final before = view.value.clone();
-      final node = find.byKey(ValueKey('topology-node-${task.id}'));
-      final location = tester.getRect(node);
-      final click = tester.getCenter(node);
-      await tester.tapAt(click);
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(selected(tester, task.id), isTrue);
-      expect(view.value, before);
-      expect(tester.getRect(node), location);
-      await tester.tapAt(click);
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('ai-message-input')), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('topology-back')));
-      await tester.pumpAndSettle();
-      expect(view.value, before);
-      await tester.binding.setSurfaceSize(const Size(1080, 800));
-      await tester.pumpAndSettle();
-      expect(
-        view.value,
-        before,
-        reason: 'Resizing must not implicitly fit the view',
-      );
-      await finish(tester);
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.binding.setSurfaceSize(const Size(1180, 850));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        String? copiedText;
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          (call) async {
+            if (call.method == 'Clipboard.setData') {
+              copiedText = (call.arguments as Map)['text'] as String?;
+            }
+            return null;
+          },
+        );
+        addTearDown(
+          () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            null,
+          ),
+        );
+        final task = (await tester.runAsync(
+          () => workspaces.createPrimary(
+            title: 'Keep this position',
+            task: 'one',
+          ),
+        ))!;
+        await tester.pumpWidget(app());
+        await tick(tester);
+        final canvas = find.byKey(const ValueKey('task-topology-canvas'));
+        final view = tester
+            .widget<InteractiveViewer>(canvas)
+            .transformationController!;
+        final position = tester.widget<Positioned>(
+          find.byKey(ValueKey('topology-position-${task.id}')),
+        );
+        view.value =
+            Matrix4.translationValues(
+              70 - position.left! * .7,
+              450 - position.top! * .7,
+              0,
+            ) *
+            Matrix4.diagonal3Values(.7, .7, 1);
+        await tester.pump();
+        final before = view.value.clone();
+        final node = find.byKey(ValueKey('topology-node-${task.id}'));
+        final location = tester.getRect(node);
+        final click = tester.getCenter(node);
+        await tester.tapAt(click);
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(selected(tester, task.id), isTrue);
+        expect(view.value, before);
+        expect(tester.getRect(node), location);
+        await tester.tapAt(click);
+        await tester.pumpAndSettle();
+        final input = find.byKey(const ValueKey('ai-message-input'));
+        expect(input, findsOneWidget);
+        const draft = 'Accessible draft';
+        await tester.enterText(input, draft);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pump();
+        final editor = tester.widget<EditableText>(
+          find.descendant(of: input, matching: find.byType(EditableText)),
+        );
+        expect(
+          editor.controller.selection,
+          TextSelection(baseOffset: 0, extentOffset: draft.length),
+        );
+        expect(copiedText, draft);
+        await tester.tap(find.byKey(const ValueKey('topology-back')));
+        await tester.pumpAndSettle();
+        expect(view.value, before);
+        await tester.binding.setSurfaceSize(const Size(1080, 800));
+        await tester.pumpAndSettle();
+        expect(
+          view.value,
+          before,
+          reason: 'Resizing must not implicitly fit the view',
+        );
+        await finish(tester);
+      } finally {
+        semantics.dispose();
+      }
     },
   );
 
@@ -4271,7 +5619,7 @@ void main() {
     await tester.tap(find.byIcon(Symbols.add_rounded).last);
     await tester.pump();
     final interrupted = controller.value.clone();
-    final zoomTarget = (interrupted.entry(0, 0) * 1.2).clamp(.25, 1.8);
+    final zoomTarget = (interrupted.entry(0, 0) * 1.2).clamp(.01, 2.0);
     await tester.pump(const Duration(milliseconds: 100));
     expect(controller.value.entry(0, 0), greaterThan(interrupted.entry(0, 0)));
     expect(controller.value.entry(0, 0), lessThan(zoomTarget));
@@ -4514,7 +5862,10 @@ void main() {
         buttons: kSecondaryMouseButton,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('topology-context-delete')));
+      final deleteItem = find.byKey(const ValueKey('topology-context-delete'));
+      await tester.ensureVisible(deleteItem);
+      await tester.pumpAndSettle();
+      await tester.tap(deleteItem);
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('confirm-topology-delete')),
@@ -4710,7 +6061,7 @@ void main() {
       final viewer = tester.widget<InteractiveViewer>(
         find.byKey(const ValueKey('task-topology-canvas')),
       );
-      final scene = viewer.child as SizedBox;
+      final scene = tester.getSize(find.byWidget(viewer.child!));
       expect(scene.height, greaterThan(positioned.top! + positioned.height!));
       viewer.transformationController!.value = Matrix4.translationValues(
         180 - positioned.left!,
@@ -5702,4 +7053,16 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+}
+
+class _LookupCountingWorkspaceProvider extends AiWorkspaceProvider {
+  _LookupCountingWorkspaceProvider(super.main);
+
+  int findCalls = 0;
+
+  @override
+  AiAgentWorkspace? find(String? id) {
+    findCalls++;
+    return super.find(id);
+  }
 }

@@ -4,7 +4,7 @@
 
 ## 开发规范
 
-- [Flutter 升级与性能验证](flutter-upgrade-performance.md)：稳定版迁移、真实窗口性能基准与点阵批量绘制。
+- Windows 最大化时多选拖动脱离鼠标、上千张卡片加载和长聊天滚动分段的修复方法与实机基准。[画布与长聊天卡顿](flutter-upgrade-performance.md#画布与长聊天卡顿)
 
 - [标准提示框与操作按钮](dialog-style.md)：公共窗口模板、统一字体、按钮尺寸与浅色背景上的 6% 灰色按钮规则。
 

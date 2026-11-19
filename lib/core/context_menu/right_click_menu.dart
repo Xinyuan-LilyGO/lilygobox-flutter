@@ -65,7 +65,8 @@ class RightClickMenuBuilder {
   static Widget buildMenuAnchor({
     required BuildContext context,
     required RightClickMenuController controller,
-    required List<RightClickMenuItem> menuItems,
+    List<RightClickMenuItem> menuItems = const [],
+    List<RightClickMenuItem> Function()? menuItemsBuilder,
     required AppTheme theme,
     required Widget child,
     VoidCallback? onSecondaryTap,
@@ -77,11 +78,11 @@ class RightClickMenuBuilder {
   }) {
     const double menuPadding = 5.0; // 菜单内边距
     // 高度与下方菜单项、间距和分隔线保持一致，向上展开时留出 8 像素间隙。
-    final menuHeight =
+    double heightFor(List<RightClickMenuItem> items) =>
         menuPadding * 2 +
-        menuItems.length * 28 +
-        menuItems
-            .take(menuItems.isNotEmpty ? menuItems.length - 1 : 0)
+        items.length * 28 +
+        items
+            .take(items.isNotEmpty ? items.length - 1 : 0)
             .fold<double>(
               0,
               (height, item) => height + (item.showDivider ? 9 : 4),
@@ -89,17 +90,25 @@ class RightClickMenuBuilder {
 
     // 菜单超出窗口时，MenuAnchor 会自行添加滚动视图。
     // 为滚动条留出空间，避免遮挡菜单项的点击区域和文字。
-    final scrollGutter = menuHeight > MediaQuery.sizeOf(context).height - 48
-        ? 20.0
-        : 0.0;
-    final panelWidth = menuWidth + scrollGutter;
+    final windowHeight = MediaQuery.sizeOf(context).height;
+    final maxHeight = (windowHeight - 48).clamp(0.0, 640.0);
+    double gutterFor(double height) => height > maxHeight ? 20 : 0;
+    double visibleHeight(double height) => height.clamp(0.0, maxHeight);
     return MenuAnchor(
       controller: controller._menuController,
       clipBehavior: Clip.none,
       alignmentOffset: openAbove
-          ? Offset(0, -menuHeight - 8) + alignmentOffset
+          ? Offset(
+                  0,
+                  -visibleHeight(
+                        heightFor(menuItemsBuilder?.call() ?? menuItems),
+                      ) -
+                      8,
+                ) +
+                alignmentOffset
           : alignmentOffset,
       style: MenuStyle(
+        maximumSize: WidgetStatePropertyAll(Size(double.infinity, maxHeight)),
         alignment: openAbove ? AlignmentDirectional.topStart : null,
         backgroundColor: WidgetStateProperty.all(Colors.transparent),
         elevation: WidgetStateProperty.all(0),
@@ -133,11 +142,17 @@ class RightClickMenuBuilder {
                       child: child!,
                     ),
             ),
-            child: buildMenuPanel(
-              menuItems: menuItems,
-              theme: theme,
-              width: panelWidth,
-              trailingInset: scrollGutter,
+            child: Builder(
+              builder: (context) {
+                final items = menuItemsBuilder?.call() ?? menuItems;
+                final gutter = gutterFor(heightFor(items));
+                return buildMenuPanel(
+                  menuItems: items,
+                  theme: theme,
+                  width: menuWidth + gutter,
+                  trailingInset: gutter,
+                );
+              },
             ),
           ),
         ),
@@ -176,6 +191,11 @@ class RightClickMenuBuilder {
                     );
                     var menuOrigin = pointerPosition - const Offset(0, 8);
                     if (!openAbove) {
+                      final contentHeight = heightFor(
+                        menuItemsBuilder?.call() ?? menuItems,
+                      );
+                      final menuHeight = visibleHeight(contentHeight);
+                      final panelWidth = menuWidth + gutterFor(contentHeight);
                       // Flutter 溢出时会相对整张锚点卡片翻转，长卡片会让菜单
                       // 跳到远离鼠标的位置。先在覆盖层内围绕鼠标翻转并限位，
                       // 再转回锚点偏移，避免触发框架的二次翻转。
@@ -281,7 +301,7 @@ class RightClickMenuBuilder {
       widgets.add(
         // 悬停渐变与波纹只重绘当前项，避免快速切换时反复重绘整块浮层和阴影。
         RepaintBoundary(
-          child: _buildCustomMenuItem(
+          child: buildMenuItem(
             item: item,
             theme: theme,
             menuWidth: menuWidth,
@@ -323,7 +343,7 @@ class RightClickMenuBuilder {
   }
 
   // 构建自定义菜单项。
-  static Widget _buildCustomMenuItem({
+  static Widget buildMenuItem({
     required RightClickMenuItem item,
     required AppTheme theme,
     required double menuWidth,

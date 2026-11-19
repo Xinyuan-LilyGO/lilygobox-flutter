@@ -23,6 +23,7 @@ Future<void> runDirectAgentTransfer(
   String owner,
   String action, {
   Set<String>? selectedIds,
+  ValueChanged<bool>? onImportCommitting,
 }) async {
   final workspaces = context.read<AiWorkspaceProvider>();
   if (!_activeDirectTransfers.add(workspaces)) return;
@@ -30,12 +31,13 @@ Future<void> runDirectAgentTransfer(
   final importing = action == 'import' || action == 'import-agents';
   final l = context.l10n;
 
-  Future<T> transfer<T>(Future<T> Function() work) =>
+  Future<T> transfer<T>(Future<T> Function() work, {VoidCallback? onCommit}) =>
       showAgentTransferProgress<T>(
         context: context,
         theme: theme,
         controller: controller,
         work: work,
+        onCommit: onCommit,
       );
 
   void notice(String message) {
@@ -87,7 +89,16 @@ Future<void> runDirectAgentTransfer(
             return;
           }
           if (!context.mounted) return;
-          await transfer(() => controller.import(package, plan: plan));
+          try {
+            await transfer(
+              () => controller.import(package, plan: plan),
+              onCommit: onImportCommitting == null
+                  ? null
+                  : () => onImportCommitting(true),
+            );
+          } finally {
+            onImportCommitting?.call(false);
+          }
           notice(l.agentStorageImportSuccess);
         } else {
           final destination = await getSaveLocation(

@@ -146,6 +146,43 @@ void main() {
       noOverlap(positions);
     },
   );
+  for (final withShortcut in [false, true]) {
+    test(
+      '10,000-level hierarchy preserves each column (peer: $withShortcut)',
+      () {
+        const count = 10000;
+        final nodes = [
+          task('0', root: true),
+          for (var depth = 1; depth < count; depth++)
+            task('$depth', parent: '${depth - 1}'),
+        ];
+        final edges = [if (withShortcut) peer('0', '${count - 1}')];
+        final positions = layout(nodes, edges);
+        expect(positions, hasLength(count));
+        for (var depth = 0; depth < count; depth++) {
+          expect(positions['$depth'], Offset(180 + 470.0 * depth, 140));
+        }
+      },
+    );
+  }
+  test('ownership cycles retain every card and a deterministic layout', () {
+    final nodes = [
+      task('a', parent: 'c', root: true),
+      task('b', parent: 'a'),
+      task('c', parent: 'b'),
+      task('branch', parent: 'b'),
+      task('self', parent: 'self'),
+    ];
+    for (final edges in [
+      <AiTaskConnection>[],
+      [peer('a', 'c')],
+    ]) {
+      final positions = layout(nodes, edges);
+      expect(positions.keys, unorderedEquals(nodes.map((node) => node.id)));
+      expect(layout(nodes, edges), positions);
+      noOverlap(positions);
+    }
+  });
   test('variable heights widths and disconnected components never overlap', () {
     final nodes = [
       task('root', root: true),

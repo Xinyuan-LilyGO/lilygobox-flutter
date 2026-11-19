@@ -34,16 +34,52 @@ Rect _marker(Rect line, TextDirection direction) {
   );
 }
 
+TextSelection _visibleEditableSelection(
+  RenderEditable editable,
+  TextSelection selection,
+) {
+  final margin = editable.preferredLineHeight;
+  final positions = [
+    for (final horizontal in [0.0, editable.size.width])
+      for (final vertical in [-margin, editable.size.height + margin])
+        editable
+            .getPositionForPoint(
+              editable.localToGlobal(Offset(horizontal, vertical)),
+            )
+            .offset,
+  ];
+  final start = positions.reduce(
+    (first, second) => first < second ? first : second,
+  );
+  final end =
+      (positions.reduce((first, second) => first > second ? first : second) + 1)
+          .clamp(0, editable.plainText.length);
+  return TextSelection(
+    baseOffset: selection.start.clamp(start, end),
+    extentOffset: selection.end.clamp(start, end),
+  );
+}
+
 class _EmptyLinePainter extends RenderEditablePainter {
   @override
   void paint(Canvas canvas, Size size, RenderEditable editable) {
     final selection = editable.selection;
     final color = editable.selectionColor;
-    if (selection == null || color == null || editable.obscureText) return;
+    if (selection == null ||
+        !selection.isValid ||
+        selection.isCollapsed ||
+        color == null ||
+        editable.obscureText) {
+      return;
+    }
+    final visibleSelection = _visibleEditableSelection(editable, selection);
     final paint = Paint()..color = color;
     canvas.save();
     canvas.clipRect(Offset.zero & size);
-    for (final offset in _selectedEmptyLines(editable.plainText, selection)) {
+    for (final offset in _selectedEmptyLines(
+      editable.plainText,
+      visibleSelection,
+    )) {
       final caret = editable.getLocalRectForCaret(TextPosition(offset: offset));
       canvas.drawRect(_marker(caret, editable.textDirection), paint);
     }

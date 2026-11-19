@@ -9,6 +9,9 @@ import '../theme/material_palette.dart';
 
 /// 账号菜单与右键菜单共用的浮层卡片。
 class PopupMenuSurface extends StatelessWidget {
+  static const listMaxHeight = 326.0;
+  static const verticalInset = 16.0;
+
   const PopupMenuSurface({
     super.key,
     required this.theme,

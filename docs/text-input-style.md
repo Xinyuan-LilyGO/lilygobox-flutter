@@ -62,11 +62,7 @@
 
 新增或修改表单输入时，先确认是否属于上述特殊场景；若不是，直接使用共享控件和统一内边距。
 
-聊天编辑器使用 `BoxWidthStyle.tight`，多行选择不扩展短行右侧的空白区域；保留真实空格、换行和复制内容。编辑区右侧为内部滚动条预留 14 px，显式滚动条与输入框共享同一个 `ScrollController`，并关闭输入框内部的自动滚动条，避免重复显示或遮住文字。
-
-注意：Flutter 3.35 的 `EditableText` 会为多行输入重新调用 `copyWith(scrollbars: true)`，仅在外层设置 `scrollbars: false` 不足以关闭内部滚动条。聊天输入框使用共享的 `AppScrollBehavior(scrollbars: false)`，在绘制入口只关闭自动滚动条装饰，保留平滑鼠标滚轮；确保只有预留区域的一条显式滚动条。不要用直接返回子项的局部 `MaterialScrollBehavior`，也不要用 `copyWith(scrollbars: false)`，这两种方式都会绕过全局平滑滚动。
-
-聊天编辑器默认最少 2 行，最多扩展至 8 行；超过 8 行后在编辑区内部滚动。
+聊天编辑区从 2 行扩展至 8 行，行高随文字缩放。超过 8 行时，外层 `SingleChildScrollView` 负责滚动，与右侧显式滚动条共用一个 `ScrollController`。编辑区为滚动条预留 14 px，内部 `TextField` 随正文增高，滚动偏移保持为零。详见[输入框选区](#输入框选区)和[普通滚轮](scroll-behavior.md#普通滚轮)。
 
 ## 输入框选区
 

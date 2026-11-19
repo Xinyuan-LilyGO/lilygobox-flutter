@@ -2491,6 +2491,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiTopologyTitle => 'Agent workflow';
 
   @override
+  String get aiTopologyLoading => 'Loading agents…';
+
+  @override
+  String get aiTopologyRestoring => 'Restoring agents…';
+
+  @override
+  String get agentStorageTransferChecksumming => 'Checking data integrity';
+
+  @override
+  String get aiTopologyRestoreFailed => 'Could not load the saved agents.';
+
+  @override
   String get aiTopologyDescription =>
       'Connect agents at every level and collaborate.';
 
@@ -2863,6 +2875,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentStorageEmpty => 'No saved memories.';
 
   @override
+  String get agentStorageMemoriesLoading => 'Loading long-term memories…';
+
+  @override
   String get agentStorageContent => 'Memory content';
 
   @override
@@ -2944,6 +2959,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentStorageUsage => 'Local storage usage';
+
+  @override
+  String get agentStorageUsageLoading => 'Loading local storage usage…';
 
   @override
   String get agentStorageSearch => 'Search memories';
@@ -3161,10 +3179,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentRecycleRestore => 'Restore';
 
   @override
+  String agentRecycleRestoring(int percent) {
+    return 'Preparing to restore… $percent%';
+  }
+
+  @override
+  String get agentRecycleRestoreSaving => 'Saving restored agents…';
+
+  @override
   String get agentRecycleDelete => 'Delete permanently';
 
   @override
-  String get agentRecycleEmptyAction => 'Empty recycle bin';
+  String get agentRecycleRestoreAll => 'Restore all';
+
+  @override
+  String agentRecycleRestoreAllConfirm(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count agents',
+      one: '1 agent',
+    );
+    return 'Restore all $_temp0 in the recycle bin?';
+  }
+
+  @override
+  String get agentRecycleEmptyAction => 'Empty all';
 
   @override
   String get agentRecycleDeleteHint =>

@@ -359,6 +359,63 @@ void main() {
           isFalse,
         );
         expect(region.selection.selected, isEmpty);
+        await tester.ensureVisible(search);
+        await tester.enterText(find.byType(TextField), 'No results for this');
+        await tester.pumpAndSettle();
+        final restoreAll = find.byKey(const ValueKey('recycle-restore-all'));
+        final emptyAll = find.byKey(const ValueKey('recycle-empty-all'));
+        await tester.ensureVisible(restoreAll);
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(restoreAll).right,
+          lessThan(tester.getRect(emptyAll).left),
+        );
+        expect(find.text('Restore all'), findsOneWidget);
+        expect(find.text('Empty all'), findsOneWidget);
+        await tester.tap(emptyAll);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('confirm-recycle-empty')),
+          findsOneWidget,
+        );
+        await tester.tap(find.byKey(const ValueKey('cancel-recycle-empty')));
+        await tester.pumpAndSettle();
+        expect(workspace.recycledAgents, hasLength(8));
+        await tester.ensureVisible(restoreAll);
+        await tester.pumpAndSettle();
+        await tester.tap(restoreAll);
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Restore all 8 agents in the recycle bin?'),
+          findsOneWidget,
+        );
+        expect(workspace.recycledAgents, hasLength(8));
+        await tester.tapAt(const Offset(2, 2));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('recycle-restore-dialog')),
+          findsNothing,
+        );
+        expect(workspace.recycledAgents, hasLength(8));
+        await tester.ensureVisible(restoreAll);
+        await tester.pumpAndSettle();
+        await tester.tap(restoreAll);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('confirm-recycle-restore')));
+        await tester.pump();
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('recycle-restore-dialog')),
+            matching: find.byType(LinearProgressIndicator),
+          ),
+          findsOneWidget,
+        );
+        await settleRecycleCount(0);
+        await tester.pumpAndSettle();
+        expect(workspace.recycledAgents, isEmpty);
+        expect(workspace.sessions, hasLength(10));
+        expect(tester.widget<AppActionButton>(restoreAll).onPressed, isNull);
+        expect(tester.widget<AppActionButton>(emptyAll).onPressed, isNull);
         expect(tester.takeException(), isNull);
         await tester.tap(close);
         await tester.pumpAndSettle();

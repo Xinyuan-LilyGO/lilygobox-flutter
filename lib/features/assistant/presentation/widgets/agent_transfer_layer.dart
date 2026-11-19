@@ -1,7 +1,9 @@
 import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../domain/task_canvas_style.dart';
 import '../../state/agent_workspace_provider.dart';
 import 'task_topology_connection.dart';
 
@@ -117,7 +119,10 @@ class AgentTransferPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final scale = transform.value.entry(0, 0).abs().clamp(.25, 1.8);
+    final scale = transform.value
+        .entry(0, 0)
+        .abs()
+        .clamp(taskCanvasMinScale, taskCanvasMaxScale);
     final now = DateTime.now();
     final dashed = <String>{};
     for (final transfer in transfers) {

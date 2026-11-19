@@ -17,6 +17,8 @@ import '../../../../core/widgets/app_scroll_behavior.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
 import '../../../../core/widgets/desktop_card_selection.dart';
+import '../../../../core/widgets/dialog_style.dart';
+import '../../../../core/widgets/settings/compact_switch.dart';
 import '../../../../core/widgets/settings/fields.dart';
 import '../../../../core/widgets/settings/search_field.dart';
 import '../../../../core/widgets/settings/select.dart';
@@ -34,6 +36,11 @@ import 'memory_import_review.dart';
 import 'recycle_bin_dialog.dart';
 
 enum _StorageManager { memory, context, backup }
+
+const _activityIndicator = SizedBox.square(
+  dimension: 18,
+  child: CircularProgressIndicator(strokeWidth: 2),
+);
 
 class AgentStorageContent extends StatefulWidget {
   const AgentStorageContent({super.key, required this.theme, this.owner})
@@ -74,16 +81,28 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
   bool _importMode = false;
   bool _includeChildren = false;
   bool _choosingFile = false;
+  Future<void>? _overviewRead;
   @override
   void initState() {
     super.initState();
     controller = AgentStorageController(context.read<AiWorkspaceProvider>())
-      ..owner = widget.owner ?? '';
+      ..owner = widget.owner ?? ''
+      ..resolveOwner();
     controller.addListener(_changed);
+    if (widget._manager == null) {
+      _refreshOverview();
+      return;
+    }
+    if (widget._manager == _StorageManager.memory) {
+      _refreshMemories();
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      await _run(controller.refresh);
+      await controller.workspaces.initialized;
       if (!mounted) return;
+      controller.resolveOwner();
+      setState(() {});
     });
   }
 
@@ -98,7 +117,30 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
     );
     if (!mounted) return;
     if (owner != null) controller.owner = owner;
-    await _run(controller.refresh);
+    await _refreshOverview();
+  }
+
+  Future<void> _refreshOverview({bool flush = false}) async {
+    final read = (_overviewRead ?? Future<void>.value()).then((_) async {
+      if (!mounted) return;
+      try {
+        await controller.workspaces.initialized;
+        if (!mounted) return;
+        controller.resolveOwner();
+        if (flush) await controller.workspaces.flush();
+        if (mounted) await controller.refreshStats(force: flush);
+      } catch (error) {
+        if (mounted) setState(() => controller.error = error);
+      }
+    });
+    setState(() {
+      _overviewRead = read;
+      controller.error = null;
+    });
+    await read;
+    if (mounted && identical(_overviewRead, read)) {
+      setState(() => _overviewRead = null);
+    }
   }
 
   void _changed() {
@@ -115,6 +157,9 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
     _contextPercent.dispose();
     super.dispose();
   }
+
+  Future<void> _refreshMemories({String query = ''}) =>
+      controller.refresh(query: query);
 
   Future<void> _run(Future<void> Function() work) async {
     if (controller.busy) return;
@@ -134,7 +179,11 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
     } catch (e) {
       controller.error = e;
     } finally {
-      if (mounted) setState(() => controller.busy = false);
+      if (mounted) {
+        setState(() {
+          controller.busy = false;
+        });
+      }
     }
   }
 
@@ -144,7 +193,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
       await controller.workspaces.flush();
       final result =
           await controller.workspaces.main.storage!.request('clean') as Map;
-      await controller.refresh(query: search.text);
+      await controller.refreshStats();
       if (!mounted) return;
       final count = result['objectsRemoved'] as int;
       final bytes = result['bytesFreed'] as int;
@@ -310,6 +359,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
   }
 
   Future<void> _edit([Map<String, Object?>? memory]) async {
+    final owner = controller.owner;
     final value = await showDialog<String>(
       context: context,
       builder: (_) => _MemoryEditor(
@@ -318,9 +368,13 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
         memoryId: memory?['id'] as String?,
       ),
     );
-    if (value != null && value.trim().isNotEmpty) {
+    if (mounted && value != null && value.trim().isNotEmpty) {
       await _run(
-        () => controller.saveMemory(value, id: memory?['id'] as String?),
+        () => controller.saveMemory(
+          value,
+          id: memory?['id'] as String?,
+          expectedOwner: owner,
+        ),
       );
     }
   }
@@ -419,7 +473,11 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                         _memorySelection.clear();
                       }
                       controller.owner = value;
-                      _run(() => controller.refresh(query: search.text));
+                      if (forMemory) {
+                        _refreshMemories(query: search.text);
+                      } else {
+                        setState(() {});
+                      }
                     }
                   },
           ),
@@ -576,7 +634,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
     required String title,
     required String description,
     required String label,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
   }) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
     child: LayoutBuilder(
@@ -606,7 +664,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
         final action = AppActionButton.settings(
           theme: widget.theme,
           label: label,
-          onPressed: controller.busy ? null : onPressed,
+          onPressed: onPressed,
         );
         return constraints.maxWidth < 360
             ? Column(
@@ -920,8 +978,9 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
       _memorySelectionOwner = controller.owner;
       _memorySelection.clear();
     }
-    final enabled =
+    final canAdd =
         !controller.busy && workspaces.find(controller.owner) != null;
+    final enabled = canAdd && !controller.replacingMemories;
     final environment = (theme, l, enabled, controller.owner);
     if (_memoryEnvironment != environment) {
       _memoryEnvironment = environment;
@@ -951,12 +1010,12 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                       enabled: !controller.busy,
                       onClear: () {
                         search.clear();
-                        _run(() => controller.refresh());
+                        _refreshMemories();
                       },
                       hintText: l.agentStorageSearch,
                       onChanged: (_) => setState(() {}),
                       onSubmitted: (value) {
-                        _run(() => controller.refresh(query: value));
+                        _refreshMemories(query: value);
                       },
                     ),
                   ),
@@ -972,7 +1031,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                     horizontal: 8,
                     vertical: 7,
                   ),
-                  onPressed: enabled ? () => _edit() : null,
+                  onPressed: canAdd ? () => _edit() : null,
                 );
                 final deleteButton = _memorySelection.selected.isEmpty
                     ? null
@@ -1069,12 +1128,42 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                   primary: false,
                   shrinkWrap: true,
                   padding: const EdgeInsetsDirectional.only(start: 24, end: 16),
-                  itemCount: controller.memories.isEmpty
+                  itemCount:
+                      controller.replacingMemories ||
+                          controller.memories.isEmpty
                       ? 1
                       : controller.memories.length +
                             (controller.hasMore ? 1 : 0),
                   itemBuilder: (context, index) {
+                    if (controller.replacingMemories ||
+                        (controller.appendingMemories &&
+                            index == controller.memories.length)) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Semantics(
+                          liveRegion: true,
+                          child: Row(
+                            children: [
+                              _activityIndicator,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  l.agentStorageMemoriesLoading,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: theme.textColorSecondary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
                     if (controller.memories.isEmpty) {
+                      if (controller.error != null) {
+                        return const SizedBox.shrink();
+                      }
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         child: Text(
@@ -1090,7 +1179,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                       return _button(
                         l.agentStorageMore,
                         Symbols.expand_more,
-                        () => _run(controller.loadMore),
+                        controller.loadMore,
                       );
                     }
                     final memory = controller.memories[index];
@@ -1171,7 +1260,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         color: theme.textColorPrimary,
                       ),
                     ),
@@ -1217,6 +1306,25 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _memorySwitch({
+    required Key key,
+    required String label,
+    required bool value,
+    required ValueChanged<bool>? onChanged,
+  }) {
+    final theme = widget.theme;
+    return Semantics(
+      label: label,
+      child: CompactSettingSwitch(
+        controlKey: key,
+        theme: theme,
+        surface: AppDialogStyle.backgroundColor(theme),
+        value: value,
+        onChanged: onChanged,
       ),
     );
   }
@@ -1269,30 +1377,14 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                               theme: theme,
                               title: l.agentStorageMemoryEnabled,
                               description: l.agentStorageMemoryHint,
-                              trailing: SizedBox(
-                                width: 44,
-                                height: 28,
-                                child: FittedBox(
-                                  fit: BoxFit.contain,
-                                  child: Switch(
-                                    key: const ValueKey(
-                                      'storage-use-memory-switch',
-                                    ),
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    activeTrackColor: theme.basePrimary,
-                                    value: selected.assistant.useMemory,
-                                    onChanged: controller.busy
-                                        ? null
-                                        : (v) {
-                                            setState(
-                                              () =>
-                                                  selected.assistant.useMemory =
-                                                      v,
-                                            );
-                                            _run(workspaces.flush);
-                                          },
-                                  ),
+                              trailing: _memorySwitch(
+                                key: const ValueKey(
+                                  'storage-use-memory-switch',
+                                ),
+                                label: l.agentStorageMemoryEnabled,
+                                value: selected.assistant.useMemory,
+                                onChanged: (value) => setState(
+                                  () => selected.assistant.useMemory = value,
                                 ),
                               ),
                             ),
@@ -1301,35 +1393,19 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                               theme: theme,
                               title: l.agentStorageAutoMemoryTitle,
                               description: l.agentStorageAutoMemoryHint,
-                              trailing: SizedBox(
-                                width: 44,
-                                height: 28,
-                                child: FittedBox(
-                                  fit: BoxFit.contain,
-                                  child: Switch(
-                                    key: const ValueKey(
-                                      'storage-auto-memory-switch',
-                                    ),
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    activeTrackColor: theme.basePrimary,
-                                    value: selected.assistant.autoSaveMemory,
-                                    onChanged:
-                                        controller.busy ||
-                                            !selected.assistant.useMemory
-                                        ? null
-                                        : (value) {
-                                            setState(
-                                              () =>
-                                                  selected
-                                                          .assistant
-                                                          .autoSaveMemory =
-                                                      value,
-                                            );
-                                            _run(workspaces.flush);
-                                          },
-                                  ),
+                              trailing: _memorySwitch(
+                                key: const ValueKey(
+                                  'storage-auto-memory-switch',
                                 ),
+                                label: l.agentStorageAutoMemoryTitle,
+                                value: selected.assistant.autoSaveMemory,
+                                onChanged: selected.assistant.useMemory
+                                    ? (value) => setState(
+                                        () =>
+                                            selected.assistant.autoSaveMemory =
+                                                value,
+                                      )
+                                    : null,
                               ),
                             ),
                           ],
@@ -1468,13 +1544,11 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
               _StorageOverview(
                 theme: theme,
                 stats: controller.stats,
+                loading: _overviewRead != null,
                 path: workspaces.main.storage?.databasePath,
-                onRefresh: controller.busy
+                onRefresh: controller.busy || _overviewRead != null
                     ? null
-                    : () => _run(() async {
-                        await workspaces.flush();
-                        await controller.refresh(query: search.text);
-                      }),
+                    : () => _refreshOverview(flush: true),
               ),
               const SizedBox(height: 28),
               _panel([
@@ -1510,7 +1584,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                   title: l.agentStorageClean,
                   description: l.agentStorageCleanHint,
                   label: l.agentStorageCleanAction,
-                  onPressed: _clean,
+                  onPressed: controller.busy ? null : _clean,
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1522,7 +1596,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                   label: l.agentStorageManageAction,
                   onPressed: () async {
                     await showAgentRecycleBin(context, theme);
-                    if (mounted) await _run(controller.refresh);
+                    if (mounted) await _refreshOverview();
                   },
                 ),
               ]),
@@ -1547,11 +1621,13 @@ class _StorageOverview extends StatelessWidget {
   const _StorageOverview({
     required this.theme,
     required this.stats,
+    required this.loading,
     required this.path,
     required this.onRefresh,
   });
   final AppTheme theme;
   final Map<String, Object?> stats;
+  final bool loading;
   final String? path;
   final VoidCallback? onRefresh;
 
@@ -1632,13 +1708,24 @@ class _StorageOverview extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 18),
-        Text(
-          '${l.agentStorageUsage} ${_size(total)}',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: theme.textColorPrimary,
-          ),
+        Row(
+          children: [
+            if (loading) ...[_activityIndicator, const SizedBox(width: 12)],
+            Expanded(
+              child: Text(
+                loading
+                    ? l.agentStorageUsageLoading
+                    : stats.containsKey('bytes')
+                    ? '${l.agentStorageUsage} ${_size(total)}'
+                    : l.agentStorageUsage,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: theme.textColorPrimary,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 10),
         Semantics(

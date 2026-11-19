@@ -10,6 +10,7 @@ class AiRecycledAgent {
   }) : id = record['id'] as String,
        title = record['title'] as String,
        task = record['task'] as String,
+       parentId = record['parentId'] as String?,
        _record = jsonEncode(record);
   final String _record;
   Map<String, dynamic> get record =>
@@ -20,8 +21,15 @@ class AiRecycledAgent {
   final String id;
   final String title;
   final String task;
+  final String? parentId;
   Map<String, Object?> toJson() => {
     'record': record,
+    'deletedAt': deletedAt.toIso8601String(),
+    'position': position,
+    'connections': connections,
+  };
+  Map<String, Object?> toStorage() => {
+    'record': _record,
     'deletedAt': deletedAt.toIso8601String(),
     'position': position,
     'connections': connections,
@@ -155,15 +163,160 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
     await storage.saveWorkflow(exportData());
   }
 
-  Future<void> restoreRecycledAgent(String id) async {
+  Future<void> restoreRecycledAgent(String id) => restoreRecycledAgents([id]);
+
+  Future<void> restoreRecycledAgents(
+    Iterable<String> ids, {
+    ValueChanged<double?>? onProgress,
+    bool Function()? isCancelled,
+  }) async {
     await initialized;
-    if (_recycleOperation) return;
-    final entry = _recycledAgents.where((e) => e.id == id).firstOrNull;
-    if (entry == null || find(id) != null) return;
+    if (_disposed || _recycleOperation || isCancelled?.call() == true) return;
+    final selected = ids.toSet();
+    final pending = {
+      for (final entry in _recycledAgents)
+        if (selected.contains(entry.id) && find(entry.id) == null)
+          entry.id: entry,
+    };
+    if (pending.isEmpty) return;
     _recycleOperation = true;
     _recycleChanged();
+    final staged = <AiAgentWorkspace>[];
+    final snapshots = <Map<String, Object?>>[];
+    final positions = <String, List<double>>{};
+    var published = false;
+    try {
+      final ordered = <AiRecycledAgent>[];
+      final visited = <String>{};
+      for (final entry in pending.values) {
+        final chain = <AiRecycledAgent>[];
+        AiRecycledAgent? current = entry;
+        while (current != null && visited.add(current.id)) {
+          chain.add(current);
+          current = pending[current.parentId];
+        }
+        ordered.addAll(chain.reversed);
+      }
+      final slice = Stopwatch()..start();
+      var lastPercent = -1;
+      for (final (index, entry) in ordered.indexed) {
+        final percent = index * 100 ~/ ordered.length;
+        if (percent != lastPercent) {
+          onProgress?.call(index / ordered.length);
+          lastPercent = percent;
+        }
+        if (slice.elapsedMilliseconds >= 8) {
+          await Future<void>.delayed(Duration.zero);
+          slice.reset();
+        }
+        if (_disposed || isCancelled?.call() == true) return;
+        final session = await _prepareRecycledAgent(entry);
+        staged.add(session);
+        if (_disposed || isCancelled?.call() == true) return;
+        snapshots.add(
+          _sessionForStorage(
+            session,
+            session.assistant.snapshotWorkspaceConversation(),
+          ),
+        );
+        if (entry.position case final position?) {
+          positions[entry.id] = List.of(position);
+        }
+      }
+      await Future<void>.delayed(Duration.zero);
+      await _lastSave;
+      if (_disposed || isCancelled?.call() == true) return;
+      final storage = main.storage;
+      if (storage == null) throw StateError('Storage unavailable');
+
+      void restoreParent(AiAgentWorkspace session, Set<String> earlier) {
+        final parentId = pending[session.id]!.parentId;
+        session.parentId =
+            earlier.contains(parentId) || find(parentId)?.closed == false
+            ? parentId
+            : null;
+        session.kind = session.parentId == null
+            ? AiWorkspaceKind.primary
+            : AiWorkspaceKind.permanent;
+        earlier.add(session.id);
+      }
+
+      final earlier = <String>{};
+      for (final (index, session) in staged.indexed) {
+        restoreParent(session, earlier);
+        snapshots[index]['parentId'] = session.parentId;
+        snapshots[index]['kind'] = session.kind.name;
+      }
+      final edges = <String, AiTaskConnection>{};
+      for (final entry in ordered) {
+        for (final connection in entry.connections) {
+          final from = connection['fromId'] as String;
+          final to = connection['toId'] as String;
+          if (from == to ||
+              !(earlier.contains(from) || _canLink(find(from))) ||
+              !(earlier.contains(to) || _canLink(find(to)))) {
+            continue;
+          }
+          final key = _connectionId(from, to);
+          if (_supplementalConnections.containsKey(key) ||
+              edges.containsKey(key)) {
+            continue;
+          }
+          final ends = [from, to]..sort();
+          edges[key] = AiTaskConnection(
+            id: key,
+            fromId: ends.first,
+            toId: ends.last,
+            isHierarchy: false,
+          );
+        }
+      }
+      final dirty = Set<String>.of(_dirtyConversations);
+      try {
+        final workflow = _workflowForStorage(omitRecycled: earlier);
+        (workflow['sessions'] as List<Map<String, Object?>>).addAll(snapshots);
+        workflow['canvas'] = {...canvasPositions, ...positions};
+        (workflow['connections'] as List<Map<String, String>>).addAll([
+          for (final edge in edges.values)
+            {'fromId': edge.fromId, 'toId': edge.toId},
+        ]);
+        normalizeWorkflowData(workflow);
+        onProgress?.call(null);
+        await storage.saveWorkflow(workflow);
+      } catch (_) {
+        _dirtyConversations.addAll(dirty);
+        rethrow;
+      }
+      if (_disposed) return;
+
+      earlier.clear();
+      for (final session in staged) {
+        restoreParent(session, earlier);
+        _register(session, synchronize: false);
+        _dirtyConversations.remove(session.id);
+      }
+      published = true;
+      for (final edge in edges.values) {
+        _supplementalConnections.putIfAbsent(edge.id, () => edge);
+      }
+      _pruneConnections();
+      canvasPositions.addAll(positions);
+      _recycledAgents.removeWhere((entry) => earlier.contains(entry.id));
+      _recycledAgentsCache = null;
+      _invalidateRecycleHistory();
+    } finally {
+      if (!published) {
+        for (final session in staged) {
+          session.assistant.dispose();
+        }
+      }
+      _recycleOperation = false;
+      _notify();
+    }
+  }
+
+  Future<AiAgentWorkspace> _prepareRecycledAgent(AiRecycledAgent entry) async {
     final assistant = main.forkForWorkspace();
-    AiAgentWorkspace? restored;
     try {
       final raw = entry.record;
       final conversation = Map<String, dynamic>.from(
@@ -192,66 +345,17 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
       }
       assistant.setPermissions(AiPermissions());
       assistant.restoreWorkspaceConversation(conversation);
-      final parent = find(raw['parentId'] as String? ?? '');
-      restored = AiAgentWorkspace(
-        id: id,
+      return AiAgentWorkspace(
+        id: entry.id,
         title: entry.title,
         task: entry.task,
         assistant: assistant,
         createdAt: DateTime.parse(raw['createdAt'] as String),
-        kind: parent != null && !parent.closed
-            ? AiWorkspaceKind.permanent
-            : AiWorkspaceKind.primary,
-        parentId: parent != null && !parent.closed ? parent.id : null,
+        kind: AiWorkspaceKind.primary,
       );
-      _register(restored);
-      _recycledAgents.remove(entry);
-      _recycledAgentsCache = null;
-      if (entry.position != null) {
-        canvasPositions[id] = List.of(entry.position!);
-      }
-      final added = <String>[];
-      for (final c in entry.connections) {
-        final from = c['fromId'] as String;
-        final to = c['toId'] as String;
-        if (find(from) == null ||
-            find(to) == null ||
-            find(from)!.closed ||
-            find(to)!.closed) {
-          continue;
-        }
-        final key = _connectionId(from, to);
-        if (!_supplementalConnections.containsKey(key)) {
-          final ends = [from, to]..sort();
-          _supplementalConnections[key] = AiTaskConnection(
-            id: key,
-            fromId: ends.first,
-            toId: ends.last,
-            isHierarchy: false,
-          );
-          added.add(key);
-        }
-      }
-      try {
-        await _saveRecycleState();
-      } catch (_) {
-        _sessions.remove(restored);
-        final listener = _sessionListeners.remove(assistant);
-        if (listener != null) assistant.removeListener(listener);
-        restored = null;
-        _recycledAgents.add(entry);
-        _recycledAgentsCache = null;
-        canvasPositions.remove(id);
-        for (final key in added) {
-          _supplementalConnections.remove(key);
-        }
-        rethrow;
-      }
-      _invalidateRecycleHistory();
-    } finally {
-      if (restored == null) assistant.dispose();
-      _recycleOperation = false;
-      _notify();
+    } catch (_) {
+      assistant.dispose();
+      rethrow;
     }
   }
 

@@ -18,12 +18,83 @@ import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/theme/material_palette.dart';
 import 'package:lilygobox/features/assistant/data/message_link_opener.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/chat_message_list.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/message_content.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/task_navigation_scope.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 void main() {
+  testWidgets('long Markdown preserves height and cross-block selection', (
+    tester,
+  ) async {
+    final theme = ThemeProvider();
+    final controller = ScrollController();
+    addTearDown(theme.dispose);
+    addTearDown(controller.dispose);
+    final markdown = List.generate(
+      48,
+      (index) => 'Paragraph $index: ${'A **formatted** line of text. ' * 6}',
+    ).join('\n\n');
+    String? selection;
+
+    Future<void> show(Widget body) => tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 400,
+            height: 300,
+            child: SelectionArea(
+              onSelectionChanged: (value) => selection = value?.plainText,
+              child: SingleChildScrollView(controller: controller, child: body),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Future<String?> selectAll() async {
+      final region = tester.state<SelectableRegionState>(
+        find.byType(SelectableRegion),
+      );
+      region.selectAll(SelectionChangedCause.toolbar);
+      await tester.pump();
+      return selection;
+    }
+
+    await show(
+      ChatMessageBody(
+        message: AiMessage(id: 'long', role: 'assistant', content: markdown),
+        theme: theme.themeData,
+        useParentSelectionArea: true,
+      ),
+    );
+    final groups = tester.widget<ChatMessageList>(find.byType(ChatMessageList));
+    expect(groups.children.length, greaterThan(1));
+    final last = tester.renderObject<RenderRepaintBoundary>(
+      find.byKey(groups.children.last.key!),
+    );
+    expect(last.debugLayer, isNull);
+    final extent = controller.position.maxScrollExtent;
+    controller.jumpTo(extent);
+    await tester.pump();
+    expect(last.debugLayer, isNotNull);
+    expect(controller.position.maxScrollExtent, extent);
+    final groupedSelection = await selectAll();
+    expect(groupedSelection, contains('Paragraph 0:'));
+    expect(groupedSelection, contains('Paragraph 47:'));
+
+    final style = tester
+        .widget<MarkdownBody>(
+          find.byWidgetPredicate((widget) => widget is MarkdownBody),
+        )
+        .styleSheet;
+    await show(MarkdownBody(data: markdown, styleSheet: style));
+    expect(controller.position.maxScrollExtent, extent);
+    expect(await selectAll(), groupedSelection);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'assistant without a completion time does not display its start time',
     (tester) async {

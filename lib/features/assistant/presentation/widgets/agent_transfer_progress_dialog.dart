@@ -16,24 +16,57 @@ Future<T> showAgentTransferProgress<T>({
   required AppTheme theme,
   required AgentStorageController controller,
   required Future<T> Function() work,
+  VoidCallback? onCommit,
 }) async {
   final navigator = Navigator.of(context, rootNavigator: true);
+  final showPageProgress = ValueNotifier(false);
   final route = DialogRoute<void>(
     context: context,
+    barrierColor: onCommit == null ? Colors.black54 : Colors.transparent,
     barrierDismissible: false,
-    builder: (_) => AgentTransferProgressDialog(
-      theme: theme,
-      progress: controller,
-      readProgress: () => controller.transferProgress,
-      onCancel: controller.cancelTransfer,
-    ),
+    builder: (context) {
+      final dialog = AgentTransferProgressDialog(
+        theme: theme,
+        progress: controller,
+        readProgress: () => controller.transferProgress,
+        onCancel: controller.cancelTransfer,
+      );
+      if (onCommit == null) return dialog;
+      return ValueListenableBuilder<bool>(
+        valueListenable: showPageProgress,
+        child: ColoredBox(color: Colors.black54, child: dialog),
+        builder: (context, committed, child) => committed
+            ? PopScope(
+                canPop: false,
+                child: Semantics(
+                  label: context.l10n.agentStorageTransferCommitting,
+                  liveRegion: true,
+                  child: const SizedBox.expand(),
+                ),
+              )
+            : child!,
+      );
+    },
   );
   final closed = navigator.push(route);
+  void switchToPageProgress() {
+    final progress = controller.transferProgress;
+    if (progress?.stage != AgentPackageStage.committing ||
+        progress?.canCancel != false ||
+        showPageProgress.value) {
+      return;
+    }
+    showPageProgress.value = true;
+    onCommit?.call();
+  }
+
+  if (onCommit != null) controller.addListener(switchToPageProgress);
   try {
     // 后台处理开始前，先让模态窗口注册监听器。
     await Future<void>.delayed(Duration.zero);
     return await controller.runTransfer(work);
   } finally {
+    if (onCommit != null) controller.removeListener(switchToPageProgress);
     if (route.isActive && navigator.mounted) {
       if (route.isCurrent) {
         navigator.pop();
@@ -42,6 +75,8 @@ Future<T> showAgentTransferProgress<T>({
       }
     }
     await closed;
+    await route.completed;
+    showPageProgress.dispose();
   }
 }
 
@@ -103,6 +138,8 @@ class _AgentTransferProgressDialogState
               AgentPackageStage.decompressing =>
                 l.agentStorageTransferDecompressing,
               AgentPackageStage.verifying => l.agentStorageTransferVerifying,
+              AgentPackageStage.checksumming =>
+                l.agentStorageTransferChecksumming,
               AgentPackageStage.analyzing => l.agentStorageTransferAnalyzing,
               AgentPackageStage.writing => l.agentStorageTransferWriting,
               AgentPackageStage.committing => l.agentStorageTransferCommitting,

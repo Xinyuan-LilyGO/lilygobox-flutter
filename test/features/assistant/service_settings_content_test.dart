@@ -783,6 +783,12 @@ void main() {
       await tester.enterText(field('models'), 'manual-model\nmodel-a');
       final fetch = find.byKey(const ValueKey('ai-discover-models'));
       await tester.ensureVisible(fetch);
+      final formScroll = tester
+          .widget<SingleChildScrollView>(
+            find.byKey(const ValueKey('ai-service-form-scroll')),
+          )
+          .controller!;
+      final originalOffset = formScroll.offset;
       modelRequestGate = Completer<void>();
       await tester.tap(fetch);
       await tester.pump();
@@ -794,9 +800,11 @@ void main() {
         find.byKey(const ValueKey('ai-model-discovery-dialog')),
         findsOneWidget,
       );
+      expect(formScroll.offset, originalOffset);
       modelRequestGate!.complete();
       await tester.pumpAndSettle();
       expect(progress, findsNothing);
+      expect(formScroll.offset, originalOffset);
       expect(
         find.text('Found 2 models: 1 new, 1 already listed.'),
         findsOneWidget,
@@ -807,6 +815,7 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('ai-apply-model-discovery')));
       await tester.pumpAndSettle();
+      expect(formScroll.offset, originalOffset);
       expect(
         tester.widget<TextField>(input('models')).controller!.text,
         'manual-model\nmodel-a\nmodel-b',

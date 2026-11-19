@@ -104,6 +104,8 @@ class AiTaskCardCopy {
        parentId = source.parentId,
        serviceId = source.serviceId,
        model = source.model,
+       modelSelectionUnavailable =
+           source.assistant.workspaceSelectionUnavailable,
        permissions = source.assistant.permissions,
        effort = source.assistant.reasoningEffort,
        processingSpeed = source.assistant.processingSpeed,
@@ -116,6 +118,7 @@ class AiTaskCardCopy {
   final String? parentId;
   final String serviceId;
   final String model;
+  final bool modelSelectionUnavailable;
   final AiPermissions permissions;
   final AiReasoningEffort? effort;
   final AiProcessingSpeed processingSpeed;

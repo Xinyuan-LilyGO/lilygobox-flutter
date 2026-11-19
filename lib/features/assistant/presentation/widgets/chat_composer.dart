@@ -127,12 +127,18 @@ class ChatComposer extends StatelessWidget {
     final selection = input.selection;
     final start = selection.isValid ? selection.start : input.text.length;
     final end = selection.isValid ? selection.end : start;
-    final value = input.value;
-    input.value = value.copyWith(
-      text: value.text.replaceRange(start, end, text),
-      selection: TextSelection.collapsed(offset: start + text.length),
-      composing: TextRange.empty,
-    );
+    if (focusNode.context case final editingContext?) {
+      if (!editingContext.mounted) return;
+      Actions.invoke(
+        editingContext,
+        ReplaceTextIntent(
+          input.value,
+          text,
+          TextRange(start: start, end: end),
+          SelectionChangedCause.keyboard,
+        ),
+      );
+    }
   }
 
   Widget _attachmentStrip(BuildContext context) {
@@ -284,7 +290,10 @@ class ChatComposer extends StatelessWidget {
                 child: Text(
                   l10n.aiRequestCountdown(countdown.seconds),
                   key: const ValueKey('ai-request-countdown'),
-                  style: TextStyle(color: theme.textColorSecondary, fontSize: 12),
+                  style: TextStyle(
+                    color: theme.textColorSecondary,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             );
@@ -377,49 +386,64 @@ class ChatComposer extends StatelessWidget {
                             },
                           ),
                         },
-                        child: Scrollbar(
-                          key: const ValueKey('ai-input-scrollbar'),
-                          controller: scrollController,
-                          child: Padding(
-                            padding: const EdgeInsetsDirectional.only(end: 14),
-                            child: ScrollConfiguration(
-                              behavior: const AppScrollBehavior(
-                                scrollbars: false,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxHeight:
+                                MediaQuery.textScalerOf(context).scale(14) *
+                                1.5 *
+                                8,
+                          ),
+                          child: Scrollbar(
+                            key: const ValueKey('ai-input-scrollbar'),
+                            controller: scrollController,
+                            child: Padding(
+                              padding: const EdgeInsetsDirectional.only(
+                                end: 14,
                               ),
-                              child: TextField(
-                                key: const ValueKey('ai-message-input'),
-                                contextMenuBuilder: (context, editable) =>
-                                    AppTextSelectionMenu.buildWithPaste(
-                                      context,
-                                      editable,
-                                      () => unawaited(_pasteImage(context)),
-                                    ),
-                                controller: input,
-                                scrollController: scrollController,
-                                selectionWidthStyle: ui.BoxWidthStyle.tight,
-                                focusNode: focusNode,
-                                minLines: 2,
-                                maxLines: 8,
-                                textInputAction: TextInputAction.newline,
-                                cursorColor: theme.basePrimary,
-                                style: TextStyle(
-                                  color: theme.textColorPrimary,
-                                  fontSize: 14,
-                                  height: 1.5,
+                              child: ScrollConfiguration(
+                                behavior: const AppScrollBehavior(
+                                  scrollbars: false,
                                 ),
-                                decoration: InputDecoration(
-                                  hintText: assistant.busy
-                                      ? l10n.aiGuidanceHint
-                                      : l10n.aiInputHint,
-                                  hintStyle: TextStyle(
-                                    color: theme.textColorTertiary,
+                                child: SingleChildScrollView(
+                                  controller: scrollController,
+                                  primary: false,
+                                  child: TextField(
+                                    key: const ValueKey('ai-message-input'),
+                                    contextMenuBuilder: (context, editable) =>
+                                        AppTextSelectionMenu.buildWithPaste(
+                                          context,
+                                          editable,
+                                          () => unawaited(_pasteImage(context)),
+                                        ),
+                                    controller: input,
+                                    selectionWidthStyle: ui.BoxWidthStyle.tight,
+                                    focusNode: focusNode,
+                                    minLines: 2,
+                                    maxLines: null,
+                                    scrollPhysics:
+                                        const NeverScrollableScrollPhysics(),
+                                    textInputAction: TextInputAction.newline,
+                                    cursorColor: theme.basePrimary,
+                                    style: TextStyle(
+                                      color: theme.textColorPrimary,
+                                      fontSize: 14,
+                                      height: 1.5,
+                                    ),
+                                    decoration: InputDecoration(
+                                      hintText: assistant.busy
+                                          ? l10n.aiGuidanceHint
+                                          : l10n.aiInputHint,
+                                      hintStyle: TextStyle(
+                                        color: theme.textColorTertiary,
+                                      ),
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      disabledBorder: InputBorder.none,
+                                      filled: false,
+                                      isCollapsed: true,
+                                    ),
                                   ),
-                                  border: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  disabledBorder: InputBorder.none,
-                                  filled: false,
-                                  isCollapsed: true,
                                 ),
                               ),
                             ),

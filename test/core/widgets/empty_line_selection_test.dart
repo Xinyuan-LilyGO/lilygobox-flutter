@@ -1,11 +1,121 @@
 import 'dart:ui' as ui;
 
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/widgets/empty_line_selection.dart';
+import 'package:material_ui/material_ui.dart';
+
+class _CountingEditable extends RenderEditable {
+  _CountingEditable({
+    required RenderEditable source,
+    required TextSelectionDelegate delegate,
+    required super.offset,
+  }) : super(
+         text: source.text,
+         textDirection: source.textDirection,
+         selection: source.selection,
+         selectionColor: source.selectionColor,
+         maxLines: source.maxLines,
+         textSelectionDelegate: delegate,
+         startHandleLayerLink: LayerLink(),
+         endHandleLayerLink: LayerLink(),
+       );
+
+  final queriedOffsets = <int>[];
+
+  Rect caretWithoutRecording(TextPosition position) =>
+      super.getLocalRectForCaret(position);
+
+  @override
+  Rect getLocalRectForCaret(TextPosition caretPosition) {
+    queriedOffsets.add(caretPosition.offset);
+    return super.getLocalRectForCaret(caretPosition);
+  }
+}
 
 void main() {
+  for (final direction in TextDirection.values) {
+    testWidgets(
+      'long editable blank-line markers query only visible lines ($direction)',
+      (tester) async {
+        final controller = TextEditingController(
+          text: List.generate(2000, (index) => '$index\r\n\r\n').join(),
+        );
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Directionality(
+                textDirection: direction,
+                child: SizedBox(
+                  width: 400,
+                  child: EmptyLineSelection(
+                    child: TextField(
+                      controller: controller,
+                      maxLines: 8,
+                      style: const TextStyle(fontSize: 16),
+                      selectionWidthStyle: ui.BoxWidthStyle.tight,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.byType(TextField));
+        controller.selection = TextSelection(
+          baseOffset: controller.text.length,
+          extentOffset: 0,
+        );
+        await tester.pump();
+        final state = tester.state<EditableTextState>(
+          find.byType(EditableText),
+        );
+        final source = state.renderEditable;
+        final painter = source.foregroundPainter!;
+        for (final progress in [0.0, .5, 1.0]) {
+          final offset = ViewportOffset.fixed(
+            (source.offset as ScrollPosition).maxScrollExtent * progress,
+          );
+          final editable = _CountingEditable(
+            source: source,
+            delegate: state,
+            offset: offset,
+          );
+          final pipeline = PipelineOwner()..rootNode = editable;
+          editable.layout(BoxConstraints.tight(source.size));
+          final recorder = ui.PictureRecorder();
+          painter.paint(Canvas(recorder), editable.size, editable);
+          final picture = recorder.endRecording();
+          expect(editable.queriedOffsets, isNotEmpty);
+          expect(editable.queriedOffsets.length, lessThanOrEqualTo(12));
+          final expected = <int>[];
+          for (final line in RegExp(r'\r\n\r\n').allMatches(controller.text)) {
+            final newline = line.end - 1;
+            final caret = editable.caretWithoutRecording(
+              TextPosition(offset: newline),
+            );
+            if (caret.bottom > 0 && caret.top < editable.size.height) {
+              expected.add(newline);
+            }
+          }
+          expect(expected, isNotEmpty);
+          expect(editable.queriedOffsets, containsAll(expected));
+          expect(
+            controller.selection,
+            TextSelection(baseOffset: controller.text.length, extentOffset: 0),
+          );
+          picture.dispose();
+          pipeline.rootNode = null;
+          editable.dispose();
+          pipeline.dispose();
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('read-only selection highlights blank lines and clears them', (
     tester,
   ) async {

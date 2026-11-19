@@ -37,10 +37,7 @@ class AppActionButton extends StatelessWidget {
                ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
                : const EdgeInsets.symmetric(horizontal: 14, vertical: 8)),
        borderRadius =
-           borderRadius ??
-           (primary || destructive
-               ? const BorderRadius.all(Radius.circular(10))
-               : const BorderRadius.all(Radius.circular(8)));
+           borderRadius ?? const BorderRadius.all(Radius.circular(8));
 
   /// 标准提示框操作使用统一的 12px 字号，其他交互沿用公共按钮。
   factory AppActionButton.dialog({

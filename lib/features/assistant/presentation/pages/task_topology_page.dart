@@ -36,6 +36,7 @@ import '../../../settings/presentation/widgets/content_layout.dart';
 import '../../domain/task_canvas_style.dart';
 import '../../state/agent_workspace_provider.dart';
 import '../../state/provider.dart';
+import '../widgets/agent_direct_transfer.dart';
 import '../widgets/agent_transfer_layer.dart';
 import '../widgets/error_text.dart';
 import '../widgets/model_selector.dart';
@@ -47,6 +48,8 @@ import '../widgets/task_navigation_scope.dart';
 import '../widgets/task_topology_connection.dart';
 import '../widgets/task_topology_connection_layer.dart';
 import '../widgets/task_topology_layout.dart';
+import '../widgets/task_topology_node_layer.dart';
+import '../widgets/task_topology_overview_card.dart';
 import '../widgets/task_topology_routes.dart';
 import 'page.dart';
 
@@ -77,7 +80,8 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     vsync: this,
     duration: const Duration(milliseconds: 200),
   )..addListener(_animateView);
-  Animation<Matrix4>? _viewFrames;
+  Matrix4Tween? _viewTween;
+  Curve _viewCurve = Curves.easeOut;
   double? _wheelZoomTargetScale;
   int _wheelZoomDirection = 0;
   Offset? _wheelPanTarget;
@@ -85,15 +89,29 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   final _wheelPanAcceleration = WheelScrollAcceleration();
 
   void _animateView() {
-    if (_viewFrames case final frames?) _transform.value = frames.value;
+    if (_viewTween case final tween?) {
+      _transform.value = tween.transform(
+        _viewCurve.transform(_viewMotion.value),
+      );
+    }
+  }
+
+  void _animateViewTo(Matrix4 target, Curve curve) {
+    _viewTween = Matrix4Tween(begin: _transform.value.clone(), end: target);
+    _viewCurve = curve;
+    _viewMotion.forward(from: 0);
   }
 
   final _movedNodes = <String, Offset>{};
   final _nodeMenus = <String, RightClickMenuController>{};
+  String? _openNodeMenuId;
+  String? _overviewMenuId;
+  int? _overviewMenuPointer;
   final _backgroundMenu = RightClickMenuController();
   final _canvasMenu = RightClickMenuController();
   final _canvasFocus = FocusNode(debugLabel: 'task topology canvas');
   final _sceneKey = GlobalKey();
+  final _viewportKey = GlobalKey();
   final _selectedIds = <String>{};
   final _frontOrder = <String>[];
   List<AiTaskCardCopy> _copiedCards = const [];
@@ -102,6 +120,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   Offset? _canvasPointer;
   Offset? _menuPlacement;
   Offset? _importPlacement;
+  bool _importCommitting = false;
   int _lastImportRevision = 0;
   bool _pastingCards = false;
   bool _connectingTasks = false;
@@ -109,7 +128,6 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   final _selectedEdges = <String>{};
   Set<String> _boxEdgeBase = {};
   String? _rightEdge;
-  String? _hoveredNode;
   String? _connectingSource;
   Offset? _connectingStart;
   Offset? _connectingEnd;
@@ -127,7 +145,17 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   final _selectionRect = ValueNotifier<Rect?>(null);
   Set<String> _boxBase = {};
   Map<String, Offset> _dragStarts = {};
+  final _dragPreview = TaskCanvasDragPreview();
+  Rect _dragBounds = Rect.zero;
+  double _dragEdgeMargin = 0;
+  double _maxNodeSide() => _nodeSizes.values.fold<double>(
+    0,
+    (largest, size) => math.max(largest, size.longestSide),
+  );
   Offset _dragDelta = Offset.zero;
+  String? _dragAnchorId;
+  Offset _dragPointer = Offset.zero;
+  Offset _nodeGrabOffset = Offset.zero;
   String? _lastTapId;
   Duration? _lastTapTime;
   Offset? _lastTapPosition;
@@ -136,14 +164,35 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   bool _nodeDragged = false;
   String? _openId;
   final List<String?> _conversationHistory = [];
+  final _visitedChats = <String>{};
   int _lastNavigationRevision = 0;
   AiWorkspaceProvider? _navigationWorkspace;
+  bool _pageActive = true;
   Size _viewport = Size.zero;
+  bool _fitOnLayout = false;
   Map<String, Offset> _positions = const {};
+  final _nodePositions = <String, ValueNotifier<Offset>>{};
+  final _sceneExtent = ValueNotifier(_sceneSize);
+  final _sceneOrigin = ValueNotifier(Offset.zero);
+  final _connectionGeometry = ValueNotifier(0);
+  final _nodeIndex = TaskCanvasSpatialIndex();
+  final _overviewPaint = TaskOverviewPaintCache();
+  final _nodeGeometry = ValueNotifier(0);
   final Set<String> _restoredPositionIds = {};
   Map<String, Size> _nodeSizes = const {};
   Map<String, TaskTopologyConnection> _connectionRoutes = const {};
-  Map<String, Rect> _routedNodes = const {};
+  final _incidentEdges = <String, List<AiTaskConnection>>{};
+  final _edgeIndex = TaskCanvasSpatialIndex();
+  final _edgeLayers = <String, int>{};
+  List<AiTaskConnection> _routedConnections = const [];
+  int _routedNodeRevision = -1;
+  int _visibleRouteRevision = -1;
+  Rect _edgeCoverage = Rect.zero;
+  double _edgeCoverageScale = 0;
+  Map<String, TaskTopologyConnection> _visibleRoutes = const {};
+  Rect _backgroundCoverage = Rect.zero;
+  final _backgroundPattern = TaskCanvasBackgroundPattern();
+  double _backgroundScale = 0;
   List<(String, String, String)> _routedEdges = const [];
 
   final _undoEdits = <(_TopologyEditFrame, _TopologyEditFrame)>[];
@@ -158,8 +207,8 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
 
   _TopologyEditFrame _captureEdit(AiWorkspaceProvider workspaces) {
     _historyWorkspace = workspaces;
-    final visible = workspaces.sessions.toList();
-    final fallback = _layout(visible);
+    final visible = workspaces.sessions;
+    late final fallback = _layout(visible);
     return _TopologyEditFrame(
       workspaces.captureTopologyEdit(),
       {
@@ -174,6 +223,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       Set.of(_selectedIds),
       Set.of(_selectedEdges),
       _transform.value.clone(),
+      _sceneOrigin.value,
     );
   }
 
@@ -196,14 +246,15 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     final after = _captureEdit(workspaces);
     if (before.snapshot.matches(after.snapshot) &&
         mapEquals(before.positions, after.positions) &&
-        listEquals(before.frontOrder, after.frontOrder)) {
+        listEquals(before.frontOrder, after.frontOrder) &&
+        before.origin == after.origin) {
       _releaseFrame(before);
       _releaseFrame(after);
       return;
     }
     workspaces.updateCanvasPositions({
       for (final e in after.positions.entries) e.key: [e.value.dx, e.value.dy],
-    });
+    }, origin: after.origin);
     _clearEdits(_redoEdits);
     _undoEdits.add((before, after));
     if (_undoEdits.length > 30) {
@@ -264,11 +315,17 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         previous: (redo ? entry.$1 : entry.$2).snapshot,
       );
       if (!mounted) return;
+      final positions = {
+        for (final entry in _positions.entries)
+          if (workspaces.find(entry.key) != null) entry.key: entry.value,
+        for (final entry in frame.positions.entries)
+          if (workspaces.find(entry.key) != null) entry.key: entry.value,
+      };
       setState(() {
         _movedNodes
           ..clear()
-          ..addAll(frame.positions);
-        _positions = Map.of(frame.positions);
+          ..addAll(positions);
+        _positions = positions;
         _frontOrder
           ..clear()
           ..addAll(frame.frontOrder);
@@ -284,8 +341,13 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         _lastCount = workspaces.sessions.length;
         _lastTapId = null;
         _rightEdge = null;
+        _sceneOrigin.value = frame.origin;
         _transform.value = frame.transform.clone();
       });
+      workspaces.updateCanvasPositions({
+        for (final entry in positions.entries)
+          entry.key: [entry.value.dx, entry.value.dy],
+      }, origin: frame.origin);
       workspaces.select(_selectedIds.lastOrNull);
       source.removeLast();
       destination.add(entry);
@@ -303,63 +365,80 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
 
   Size _size(String? id) => _nodeSizes[id] ?? _nodeSize;
 
-  final _measuredNodes = <String, (Object, Size)>{};
+  final _measuredNodes = <String, (String, Size)>{};
   final _nodeCards = <String, (Object, Widget)>{};
+  final _textHeights = <(String, TextStyle), double>{};
+  Object? _measurementEnvironment;
 
-  Size _measureNode(AiAgentWorkspace session) {
+  Map<String, Size> _measureNodes(Iterable<AiAgentWorkspace> sessions) {
     final scaler = MediaQuery.textScalerOf(context);
-    final signature = (
-      session.title,
-      context.l10n.aiAgentIdValue(session.id),
-      scaler,
-      DefaultTextStyle.of(context).style,
-      Directionality.of(context),
-      Localizations.maybeLocaleOf(context),
-    );
-    final cached = _measuredNodes[session.id];
-    if (cached != null && cached.$1 == signature) return cached.$2;
-    double height(String text, TextStyle style) {
+    final defaultStyle = DefaultTextStyle.of(context).style;
+    final direction = Directionality.of(context);
+    final locale = Localizations.maybeLocaleOf(context);
+    final l10n = context.l10n;
+    final environment = (scaler, defaultStyle, direction, locale, l10n);
+    if (environment != _measurementEnvironment) {
+      _measurementEnvironment = environment;
+      _textHeights.clear();
+      _measuredNodes.clear();
+    }
+    double measure(String text, TextStyle style) {
       final painter = TextPainter(
-        text: TextSpan(
-          text: text,
-          style: DefaultTextStyle.of(context).style.merge(style),
-        ),
-        textDirection: Directionality.of(context),
+        text: TextSpan(text: text, style: defaultStyle.merge(style)),
+        textDirection: direction,
         textScaler: scaler,
-        locale: Localizations.maybeLocaleOf(context),
+        locale: locale,
       )..layout(maxWidth: _nodeSize.width - 28);
       final result = painter.height;
       painter.dispose();
       return result;
     }
 
-    final title = height(session.title, _taskNodeTitleStyle);
-    final twoLines = height('M\nM', _taskNodeTitleStyle);
-    final small = height('M', const TextStyle(fontSize: 10));
-    final kind = height('M', _taskKindTitleStyle);
-    final status = height('M', const TextStyle(fontSize: 11));
-    final taskId = height(
-      context.l10n.aiAgentIdValue(session.id),
-      const TextStyle(fontSize: 10),
-    );
+    double sharedHeight(String text, TextStyle style) {
+      final key = (text, style);
+      if (_textHeights[key] case final cached?) return cached;
+      if (_textHeights.length >= 512) _textHeights.clear();
+      return _textHeights[key] = measure(text, style);
+    }
+
+    late final twoLines = sharedHeight('M\nM', _taskNodeTitleStyle);
+    late final small = sharedHeight('M', const TextStyle(fontSize: 10));
+    late final kind = sharedHeight('M', _taskKindTitleStyle);
+    late final status = sharedHeight('M', const TextStyle(fontSize: 11));
     final minimum = _nodeSize.height * math.max(1, scaler.scale(13) / 13);
-    final content =
-        22 +
-        math.max(_taskKindIconSize, kind) +
-        10 +
-        title +
-        small +
-        taskId +
-        4 +
-        7 +
-        math.max(22, status) +
-        6;
-    final size = Size(
-      _nodeSize.width,
-      math.max(minimum + math.max(0, title - twoLines), content).ceilToDouble(),
-    );
-    _measuredNodes[session.id] = (signature, size);
-    return size;
+    final sizes = <String, Size>{};
+    for (final session in sessions) {
+      final cached = _measuredNodes[session.id];
+      if (cached != null && cached.$1 == session.title) {
+        sizes[session.id] = cached.$2;
+        continue;
+      }
+      final title = sharedHeight(session.title, _taskNodeTitleStyle);
+      final taskId = measure(
+        l10n.aiAgentIdValue(session.id),
+        const TextStyle(fontSize: 10),
+      );
+      final content =
+          22 +
+          math.max(_taskKindIconSize, kind) +
+          10 +
+          title +
+          small +
+          taskId +
+          4 +
+          7 +
+          math.max(22, status) +
+          6;
+      final size = Size(
+        _nodeSize.width,
+        math
+            .max(minimum + math.max(0, title - twoLines), content)
+            .ceilToDouble(),
+      );
+      sizes[session.id] = size;
+      _measuredNodes[session.id] = (session.title, size);
+    }
+    return sizes;
   }
 
   int _lastCount = -1;
@@ -373,6 +452,15 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       _navigationWorkspace?.layoutCanvasGroup = null;
     }
     _navigationWorkspace?.activeConversationId = null;
+    for (final position in _nodePositions.values) {
+      position.dispose();
+    }
+    _sceneExtent.dispose();
+    _sceneOrigin.dispose();
+    _overviewPaint.dispose();
+    _connectionGeometry.dispose();
+    _nodeGeometry.dispose();
+    _dragPreview.dispose();
     _selectionRect.dispose();
     _connectionPointer.dispose();
     _canvasFocus.dispose();
@@ -391,6 +479,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         ..clear()
         ..add(session.id);
       _openId = session.id;
+      _visitedChats.add(session.id);
     });
   }
 
@@ -567,66 +656,155 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         if (_positions[id] != null) id: _positions[id]!,
     };
     _dragDelta = Offset.zero;
+    _dragAnchorId = session.id;
+    if (_positions.length > 64 && _dragStarts.length >= 32) {
+      _dragPreview.starts = _dragStarts;
+      _dragPreview.all = _dragStarts.length == _positions.length;
+      _dragBounds = _dragStarts.keys
+          .map((id) => _nodeIndex[id]!)
+          .reduce((first, next) => first.expandToInclude(next));
+      _dragEdgeMargin = _dragPreview.all ? 0 : _maxNodeSide();
+    }
     _dragEdit = _captureEdit(workspaces);
+    _transform.addListener(_syncDraggedNodes);
   }
 
   void _updateNodeDrag(
     AiWorkspaceProvider workspaces,
     AiAgentWorkspace session,
-    DragUpdateDetails details,
+    Offset globalPosition,
   ) {
-    if (_dragStarts.isNotEmpty) {
-      _dragNodes(details);
-      return;
+    if (_dragAnchorId == null) {
+      final down = _nodePointerDown;
+      if (!_nodePrimaryDown ||
+          down == null ||
+          (globalPosition - down).distance <= 8) {
+        return;
+      }
+      _startNodeDrag(workspaces, session);
     }
-    final down = _nodePointerDown;
-    if (!_nodePrimaryDown ||
-        down == null ||
-        (details.globalPosition - down).distance <= 8) {
-      return;
-    }
-    final delta = _scenePoint(details.globalPosition) - _scenePoint(down);
-    _startNodeDrag(workspaces, session);
-    _dragNodes(
-      DragUpdateDetails(delta: delta, globalPosition: details.globalPosition),
-    );
+    if (_dragAnchorId != session.id) return;
+    final viewport =
+        _viewportKey.currentContext!.findRenderObject()! as RenderBox;
+    _dragPointer = viewport.globalToLocal(globalPosition);
+    _syncDraggedNodes();
   }
 
-  void _dragNodes(DragUpdateDetails details) {
-    if (_dragStarts.isEmpty) return;
-    _dragDelta += details.delta;
-    setState(() {
-      for (final entry in _dragStarts.entries) {
-        _movedNodes[entry.key] = entry.value + _dragDelta;
+  void _syncDraggedNodes() {
+    final anchor = _dragStarts[_dragAnchorId];
+    final workspaces = _navigationWorkspace;
+    if (anchor == null || workspaces == null) return;
+    final delta = _transform.toScene(_dragPointer) - anchor - _nodeGrabOffset;
+    if ((delta - _dragDelta).distanceSquared < precisionErrorTolerance) return;
+    _dragDelta = delta;
+    if (_dragPreview.starts.isNotEmpty) {
+      final bounds = _dragBounds.shift(delta);
+      if (bounds.left < 24 || bounds.top < 24) {
+        _commitDragPreview(workspaces, continueDrag: true);
+      } else {
+        final extent = _sceneExtent.value;
+        _sceneExtent.value = Size(
+          math.max(extent.width, bounds.right + 200),
+          math.max(extent.height, bounds.bottom + 200),
+        );
+        _dragPreview.move(delta);
       }
-      final next = {
-        for (final entry in _positions.entries)
-          entry.key: _movedNodes[entry.key] ?? entry.value,
+      return;
+    }
+    var left = double.infinity;
+    var top = double.infinity;
+    for (final entry in _dragStarts.entries) {
+      final next = entry.value + delta;
+      _positions[entry.key] = _movedNodes[entry.key] = next;
+      left = math.min(left, next.dx);
+      top = math.min(top, next.dy);
+    }
+    // 卡片接近有限绘制区域边缘前重新设置坐标原点；按完整网格单元平移，
+    // 保持背景稳定，再通过视图反向平移保持
+    // 指针和卡片的位置。这只是坐标换算，不限制拖动范围。
+    final shift = Offset(
+      left < 24 ? ((240 - left) / 24).ceil() * 24.0 : 0,
+      top < 24 ? ((240 - top) / 24).ceil() * 24.0 : 0,
+    );
+    if (shift != Offset.zero) {
+      _dragStarts = {
+        for (final entry in _dragStarts.entries) entry.key: entry.value + shift,
       };
-      final left = next.values.map((offset) => offset.dx).reduce(math.min);
-      final top = next.values.map((offset) => offset.dy).reduce(math.min);
-      // 卡片接近有限绘制区域边缘前重新设置坐标原点；按完整网格单元平移，
-      // 保持背景稳定，再通过视图反向平移保持
-      // 指针和卡片的位置。这只是坐标换算，不限制拖动范围。
-      final shift = Offset(
-        left < 24 ? ((240 - left) / 24).ceil() * 24.0 : 0,
-        top < 24 ? ((240 - top) / 24).ceil() * 24.0 : 0,
-      );
-      if (shift != Offset.zero) {
-        _movedNodes.addAll({
-          for (final entry in next.entries) entry.key: entry.value + shift,
-        });
-        _dragStarts = {
-          for (final entry in _dragStarts.entries)
-            entry.key: entry.value + shift,
-        };
-        _positions = {
-          for (final entry in next.entries) entry.key: entry.value + shift,
-        };
-        _transform.value = _transform.value.clone()
-          ..translateByDouble(-shift.dx, -shift.dy, 0, 1);
+      _positions = {
+        for (final entry in _positions.entries) entry.key: entry.value + shift,
+      };
+      _movedNodes.addAll(_positions);
+      _rebaseView(shift);
+    }
+    final moved = shift == Offset.zero ? _dragStarts.keys : null;
+    _syncSceneGeometry(ids: moved);
+    _updateConnectionRoutes(workspaces, movedIds: moved);
+  }
+
+  void _commitDragPreview(
+    AiWorkspaceProvider workspaces, {
+    bool continueDrag = false,
+  }) {
+    final bounds = _dragBounds.shift(_dragDelta);
+    final shift = Offset(
+      bounds.left < 24 ? ((240 - bounds.left) / 24).ceil() * 24.0 : 0,
+      bounds.top < 24 ? ((240 - bounds.top) / 24).ceil() * 24.0 : 0,
+    );
+    for (final entry in _dragStarts.entries) {
+      _positions[entry.key] = _movedNodes[entry.key] = entry.value + _dragDelta;
+    }
+    if (shift != Offset.zero) {
+      _positions = {
+        for (final entry in _positions.entries) entry.key: entry.value + shift,
+      };
+      _movedNodes.addAll(_positions);
+    }
+    if (continueDrag) {
+      _dragStarts = {for (final id in _dragStarts.keys) id: _positions[id]!};
+      _dragPreview.starts = _dragStarts;
+      _dragBounds = bounds.shift(shift);
+      _dragPreview.move(Offset.zero);
+    } else {
+      _dragPreview.reset();
+    }
+    _dragDelta = Offset.zero;
+    if (shift != Offset.zero) _rebaseView(shift);
+    _syncSceneGeometry();
+    _updateConnectionRoutes(workspaces);
+  }
+
+  void _rebaseView(Offset shift) {
+    _sceneOrigin.value += shift;
+    Matrix4 rebased(Matrix4 matrix) =>
+        matrix.clone()..translateByDouble(-shift.dx, -shift.dy, 0, 1);
+    final tween = _viewTween;
+    if (_viewMotion.isAnimating && tween != null) {
+      tween.begin = rebased(tween.begin!);
+      final target = tween.end = rebased(tween.end!);
+      if (_wheelPanTarget != null) {
+        _wheelPanTarget = Offset(target.entry(0, 3), target.entry(1, 3));
       }
-    });
+    }
+    _transform.value = rebased(_transform.value);
+  }
+
+  void _endNodeDrag(AiWorkspaceProvider workspaces, {bool recordEdit = true}) {
+    final before = _dragEdit;
+    if (before == null && _dragStarts.isEmpty) return;
+    _transform.removeListener(_syncDraggedNodes);
+    _dragAnchorId = null;
+    if (_dragPreview.starts.isNotEmpty) _commitDragPreview(workspaces);
+    _dragEdit = null;
+    _dragStarts.clear();
+    _dragDelta = Offset.zero;
+    _nodePrimaryDown = false;
+    _nodePointerDown = null;
+    if (before == null) return;
+    if (recordEdit) {
+      _finishEdit(workspaces, before);
+    } else {
+      _releaseFrame(before);
+    }
   }
 
   void _autoLayout(List<AiAgentWorkspace> sessions) {
@@ -636,6 +814,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       setState(() {
         _movedNodes.clear();
         workspaces.canvasPositions.clear();
+        _sceneOrigin.value = Offset.zero;
         _positions = _layout(sessions);
       });
       _fit(animate: true);
@@ -655,9 +834,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         .where((session) => ids.contains(session.id))
         .toList();
     if (group.isEmpty) return false;
-    final sizes = {
-      for (final session in sessions) session.id: _measureNode(session),
-    };
+    final sizes = _measureNodes(sessions);
     final current = {..._layout(sessions), ..._positions};
     final next = layoutTaskTopology(
       sessions: group,
@@ -697,38 +874,179 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   TaskTopologyConnection? _route(AiTaskConnection connection) =>
       _connectionRoutes[connection.id];
 
-  void _updateConnectionRoutes(AiWorkspaceProvider workspaces) {
-    final nodes = {
-      for (final entry in _positions.entries)
-        entry.key: entry.value & _size(entry.key),
-    };
+  void _syncSceneGeometry({Iterable<String>? ids}) {
+    var changed = false;
+    if (ids == null) {
+      final removed = _nodeIndex.ids
+          .where((id) => !_positions.containsKey(id))
+          .toList();
+      for (final id in removed) {
+        _nodeIndex.remove(id);
+        changed = true;
+      }
+    }
+    var extent = ids == null ? _sceneSize : _sceneExtent.value;
+    for (final id in ids ?? _positions.keys) {
+      final position = _positions[id];
+      if (position == null) continue;
+      final rect = position & _size(id);
+      if (_nodeIndex.update(id, rect)) changed = true;
+      extent = Size(
+        math.max(extent.width, rect.right + 200),
+        math.max(extent.height, rect.bottom + 200),
+      );
+      final notifier = _nodePositions[id];
+      if (notifier == null) {
+        _nodePositions[id] = ValueNotifier(position);
+      } else {
+        notifier.value = position;
+      }
+    }
+    _sceneExtent.value = extent;
+    if (changed) _nodeGeometry.value++;
+  }
+
+  void _updateConnectionRoutes(
+    AiWorkspaceProvider workspaces, {
+    Iterable<String>? movedIds,
+  }) {
+    if (movedIds != null) {
+      final affected = <String, AiTaskConnection>{
+        for (final id in movedIds)
+          for (final edge in _incidentEdges[id] ?? const <AiTaskConnection>[])
+            edge.id: edge,
+      };
+      for (final edge in affected.values) {
+        final route = TaskTopologyConnection.between(
+          _nodeIndex[edge.fromId]!,
+          _nodeIndex[edge.toId]!,
+        );
+        _connectionRoutes[edge.id] = route;
+        _edgeIndex.update(
+          edge.id,
+          Rect.fromPoints(route.start, route.end).inflate(8),
+        );
+      }
+      _routedNodeRevision = _nodeGeometry.value;
+      if (affected.isNotEmpty) _connectionGeometry.value++;
+      return;
+    }
     final connections = workspaces.connections;
     final edges = [
       for (final edge in connections) (edge.id, edge.fromId, edge.toId),
     ];
-    if (mapEquals(nodes, _routedNodes) && listEquals(edges, _routedEdges)) {
+    if (_routedNodeRevision == _nodeGeometry.value &&
+        listEquals(edges, _routedEdges)) {
       return;
     }
-    _routedNodes = nodes;
+    _routedNodeRevision = _nodeGeometry.value;
     _routedEdges = edges;
+    _routedConnections = connections;
+    _incidentEdges.clear();
+    _edgeLayers.clear();
+    for (final (index, edge) in connections.indexed) {
+      _edgeLayers[edge.id] = index;
+      (_incidentEdges[edge.fromId] ??= []).add(edge);
+      (_incidentEdges[edge.toId] ??= []).add(edge);
+    }
     _connectionRoutes = buildTaskTopologyRoutes(
-      nodes: nodes,
+      nodes: {for (final id in _positions.keys) id: _nodeIndex[id]!},
       connections: connections,
     );
+    for (final id
+        in _edgeIndex.ids
+            .where((id) => !_connectionRoutes.containsKey(id))
+            .toList()) {
+      _edgeIndex.remove(id);
+    }
+    for (final entry in _connectionRoutes.entries) {
+      _edgeIndex.update(
+        entry.key,
+        Rect.fromPoints(entry.value.start, entry.value.end).inflate(8),
+      );
+    }
+    _connectionGeometry.value += 1;
   }
 
-  String? _edgeAt(AiWorkspaceProvider workspaces, Offset point) {
-    final tolerance = 8 / _transform.value.entry(0, 0).abs().clamp(.25, 1.8);
-    for (final connection in workspaces.connections.reversed) {
-      if (_route(connection)?.hitTest(point, tolerance: tolerance) ?? false) {
-        return connection.id;
+  Map<String, TaskTopologyConnection> _routesInView() {
+    final scale = _transform.value.entry(0, 0).abs();
+    var viewport = Rect.fromPoints(
+      _transform.toScene(Offset.zero),
+      _transform.toScene(_viewport.bottomRight(Offset.zero)),
+    );
+    final delta = _dragPreview.value;
+    if (_dragPreview.all) {
+      viewport = viewport.shift(-delta);
+    } else if (delta != Offset.zero) {
+      final coverage = viewport.inflate(96 / scale);
+      _edgeCoverage = coverage;
+      _visibleRouteRevision = -1;
+      final search = coverage
+          .expandToInclude(coverage.shift(-delta))
+          .inflate(_dragEdgeMargin);
+      final candidates = _edgeIndex.intersecting(search).toList()
+        ..sort(
+          (first, second) =>
+              _edgeLayers[first]!.compareTo(_edgeLayers[second]!),
+        );
+      final routes = <String, TaskTopologyConnection>{};
+      for (final id in candidates) {
+        final edge = _routedConnections[_edgeLayers[id]!];
+        final fromMoved = _dragPreview.starts.containsKey(edge.fromId);
+        final toMoved = _dragPreview.starts.containsKey(edge.toId);
+        final route = fromMoved || toMoved
+            ? TaskTopologyConnection.between(
+                _nodeIndex[edge.fromId]!.shift(fromMoved ? delta : Offset.zero),
+                _nodeIndex[edge.toId]!.shift(toMoved ? delta : Offset.zero),
+              )
+            : _connectionRoutes[id]!;
+        if (Rect.fromPoints(
+          route.start,
+          route.end,
+        ).inflate(8).overlaps(coverage)) {
+          routes[id] = route;
+        }
+      }
+      return routes;
+    }
+    if (_connectionRoutes.length <= 64) return _connectionRoutes;
+    if (_visibleRouteRevision != _connectionGeometry.value ||
+        scale >= _edgeCoverageScale * 1.5 ||
+        !_edgeCoverage.contains(viewport.topLeft) ||
+        !_edgeCoverage.contains(viewport.bottomRight)) {
+      _edgeCoverage = viewport.inflate(96 / scale);
+      _edgeCoverageScale = scale;
+      _visibleRouteRevision = _connectionGeometry.value;
+      final ids = _edgeIndex.intersecting(_edgeCoverage).toList()
+        ..sort(
+          (first, second) =>
+              _edgeLayers[first]!.compareTo(_edgeLayers[second]!),
+        );
+      _visibleRoutes = {for (final id in ids) id: _connectionRoutes[id]!};
+    }
+    return _visibleRoutes;
+  }
+
+  String? _edgeAt(Offset point) {
+    final tolerance =
+        8 /
+        _transform.value
+            .entry(0, 0)
+            .abs()
+            .clamp(taskCanvasMinScale, taskCanvasMaxScale);
+    final area = Rect.fromCircle(center: point, radius: tolerance);
+    String? front;
+    for (final id in _edgeIndex.intersecting(area)) {
+      if ((front == null || _edgeLayers[id]! > _edgeLayers[front]!) &&
+          _connectionRoutes[id]!.hitTest(point, tolerance: tolerance)) {
+        front = id;
       }
     }
-    return null;
+    return front;
   }
 
   void _backgroundTap(AiWorkspaceProvider workspaces, Offset point) {
-    final edge = _edgeAt(workspaces, point);
+    final edge = _edgeAt(point);
     if (edge == null) {
       if (!_extendSelection) _clearSelection(workspaces);
       return;
@@ -919,7 +1237,6 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     _selectionRect.value = null;
     setState(() {
       _boxStart = point;
-      _hoveredNode = null;
       _boxRect = null;
     });
   }
@@ -1027,23 +1344,48 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     }
   }
 
+  Offset _portAnchor(Size size, String side) => switch (side) {
+    'in' => Offset(1, size.height / 2),
+    'out' => Offset(size.width - 1, size.height / 2),
+    'top' => Offset(size.width / 2, 1),
+    _ => Offset(size.width / 2, size.height - 1),
+  };
+
+  void _startConnection(String id, Offset at) {
+    _viewMotion.stop();
+    _canvasFocus.requestFocus();
+    setState(() {
+      _connectingSource = id;
+      _connectingStart = _positions[id]! + at;
+      _connectingEnd = _connectingStart;
+      _connectionPointer.value = _connectingEnd;
+    });
+  }
+
+  void _moveConnection(Offset globalPosition) {
+    _connectingEnd = _scenePoint(globalPosition);
+    _connectionPointer.value = _connectingEnd;
+  }
+
+  void _cancelConnection() => setState(() {
+    _connectingSource = null;
+    _connectingStart = null;
+    _connectingEnd = null;
+    _connectionPointer.value = null;
+  });
+
   Widget _port(
     AiWorkspaceProvider workspaces,
     AiAgentWorkspace session,
     AppTheme theme,
-    String side,
-  ) {
+    String side, {
+    required bool hovered,
+  }) {
     final visible =
-        _hoveredNode == session.id ||
+        hovered ||
         _selectedIds.contains(session.id) ||
         _connectingSource != null;
-    final size = _size(session.id);
-    final at = switch (side) {
-      'in' => Offset(1, size.height / 2),
-      'out' => Offset(size.width - 1, size.height / 2),
-      'top' => Offset(size.width / 2, 1),
-      _ => Offset(size.width / 2, size.height - 1),
-    };
+    final at = _portAnchor(_size(session.id), side);
     return Positioned(
       left: at.dx - 12,
       top: at.dy - 12,
@@ -1055,36 +1397,26 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
           key: ValueKey('topology-port-$side-${session.id}'),
           behavior: HitTestBehavior.opaque,
           dragStartBehavior: DragStartBehavior.down,
-          onPanStart: (_) {
-            _viewMotion.stop();
-            _canvasFocus.requestFocus();
-            setState(() {
-              _connectingSource = session.id;
-              _connectingStart = _positions[session.id]! + at;
-              _connectingEnd = _connectingStart;
-              _connectionPointer.value = _connectingEnd;
-            });
-          },
-          onPanUpdate: (details) {
-            _connectingEnd = _scenePoint(details.globalPosition);
-            _connectionPointer.value = _connectingEnd;
-          },
+          onPanStart: (_) => _startConnection(session.id, at),
+          onPanUpdate: (details) => _moveConnection(details.globalPosition),
           onPanEnd: (_) => _finishConnection(workspaces),
-          onPanCancel: () => setState(() {
-            _connectingSource = null;
-            _connectingStart = null;
-            _connectingEnd = null;
-            _connectionPointer.value = null;
-          }),
-          child: AnimatedOpacity(
+          onPanCancel: _cancelConnection,
+          child: TweenAnimationBuilder<double>(
             duration: const Duration(milliseconds: 150),
-            opacity: visible ? 1 : .16,
-            child: Center(
+            tween: Tween(begin: visible ? 1 : .16, end: visible ? 1 : .16),
+            builder: (context, opacity, child) => Center(
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: theme.primary,
-                  border: Border.all(color: theme.basePrimary, width: 1.5),
+                  color: theme.primary.withValues(
+                    alpha: theme.primary.a * opacity,
+                  ),
+                  border: Border.all(
+                    color: theme.basePrimary.withValues(
+                      alpha: theme.basePrimary.a * opacity,
+                    ),
+                    width: 1.5,
+                  ),
                 ),
                 child: const SizedBox(width: 9, height: 9),
               ),
@@ -1163,6 +1495,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     final edges = edgeTargets ?? Set<String>.of(_selectedEdges);
     final selected = workspaces.find(ids.first);
     if (selected == null) return;
+    _endNodeDrag(workspaces);
     _edit(workspaces, () {
       workspaces.removeMany(ids);
       workspaces.disconnectConnections(edges);
@@ -1193,7 +1526,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     _edit(workspaces, () => workspaces.makeWorkflowMain(session.id));
   }
 
-  List<AiAgentWorkspace> _parentCandidates(
+  Iterable<AiAgentWorkspace> _parentCandidates(
     AiWorkspaceProvider workspaces,
     AiAgentWorkspace session,
   ) => workspaces.sessions.where((candidate) {
@@ -1207,13 +1540,13 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       ancestor = workspaces.find(ancestor.parentId);
     }
     return true;
-  }).toList();
+  });
 
   Future<void> _makeChild(
     AiWorkspaceProvider workspaces,
     AiAgentWorkspace session,
   ) async {
-    final candidates = _parentCandidates(workspaces, session);
+    final candidates = _parentCandidates(workspaces, session).toList();
     if (candidates.isEmpty) return;
     var parentId = candidates.first.id;
     final selected = await showDialog<String>(
@@ -1340,8 +1673,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         for (final entry in _positions.entries) entry.key: entry.value + shift,
       };
       _movedNodes.addAll(_positions);
-      _transform.value = _transform.value.clone()
-        ..translateByDouble(-shift.dx, -shift.dy, 0, 1);
+      _rebaseView(shift);
     }
   }
 
@@ -1352,7 +1684,17 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     _importPlacement = _menuPlacement ?? _placementPoint();
     final revision = workspaces.importRevision;
     try {
-      await showAgentStorage(context, theme, '', action: 'import-agents');
+      await runDirectAgentTransfer(
+        context,
+        theme,
+        '',
+        'import-agents',
+        onImportCommitting: (committing) {
+          if (mounted && _importCommitting != committing) {
+            setState(() => _importCommitting = committing);
+          }
+        },
+      );
     } finally {
       if (workspaces.importRevision == revision) _importPlacement = null;
     }
@@ -1436,16 +1778,8 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     }
   }
 
-  Widget _nodeContextMenu(
-    AiWorkspaceProvider workspaces,
-    AiAgentWorkspace session,
-    AppTheme theme,
-    Widget child,
-  ) {
+  ({double normal, double makeMain}) _nodeMenuWidths() {
     final l10n = context.l10n;
-    final canMakeMain =
-        session.kind != AiWorkspaceKind.primary &&
-        workspaces.canMakeWorkflowMain(session.id);
     final menuLabel = TextPainter(
       text: TextSpan(
         text: l10n.agentStorageManageContext,
@@ -1454,289 +1788,318 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
     )..layout();
-    var menuWidth = math.max(190.0, menuLabel.width + 48);
-    if (canMakeMain) {
-      menuLabel
-        ..text = TextSpan(
-          text: l10n.aiTopologyMakeWorkflowMain,
-          style: const TextStyle(fontSize: 13),
-        )
-        ..layout();
-      menuWidth = math.max(menuWidth, menuLabel.width + 48);
-    }
+    final normal = math.max(190.0, menuLabel.width + 48);
+    menuLabel
+      ..text = TextSpan(
+        text: l10n.aiTopologyMakeWorkflowMain,
+        style: const TextStyle(fontSize: 13),
+      )
+      ..layout();
+    final makeMain = math.max(normal, menuLabel.width + 48);
     menuLabel.dispose();
-    final targetIds = _selectedIds.contains(session.id)
-        ? _selectedIds
-        : {session.id};
+    return (normal: normal, makeMain: makeMain);
+  }
+
+  List<RightClickMenuItem> _nodeMenuItems(
+    AiWorkspaceProvider workspaces,
+    AiAgentWorkspace session,
+    AppTheme theme,
+    Set<String> connectedIds,
+    ({bool hasStop, bool hasDisconnect}) selectedActions,
+    VoidCallback closeMenu,
+  ) {
+    final l10n = context.l10n;
+    final canMakeMain =
+        session.kind != AiWorkspaceKind.primary &&
+        workspaces.canMakeWorkflowMain(session.id);
+    final selected = _selectedIds.contains(session.id);
+    final targetIds = selected ? _selectedIds : {session.id};
     final multipleTargets = targetIds.length > 1;
-    final hasStop = targetIds.any((id) => workspaces.find(id)?.busy ?? false);
-    final hasDisconnect = workspaces.connections.any(
-      (connection) =>
-          targetIds.contains(connection.fromId) ||
-          targetIds.contains(connection.toId),
-    );
+    final hasStop = selected ? selectedActions.hasStop : session.busy;
+    final hasDisconnect = selected
+        ? selectedActions.hasDisconnect
+        : connectedIds.contains(session.id);
     final connectTarget = targetIds.length == 2
         ? targetIds.where((id) => id != session.id).firstOrNull
         : null;
     final canConnect =
         connectTarget != null &&
         !workspaces.isConnected(session.id, connectTarget);
+    final hasParentCandidate =
+        !multipleTargets && _parentCandidates(workspaces, session).isNotEmpty;
     final hasRole =
-        session.kind != AiWorkspaceKind.primary ||
-        _parentCandidates(workspaces, session).isNotEmpty;
-    void closeMenu() => _nodeMenus[session.id]?.close();
-    return RightClickMenuBuilder.buildMenuAnchor(
-      context: context,
-      menuWidth: menuWidth,
-      onMenuPointerEvent: _menuPointerEvent,
-      controller: _nodeMenus.putIfAbsent(
-        session.id,
-        RightClickMenuController.new,
-      ),
-      theme: theme,
-      onSecondaryTap: () {
-        _viewMotion.stop();
-        _selectNode(workspaces, session, contextMenu: true);
-      },
-      menuItems: [
-        if (!multipleTargets)
-          RightClickMenuItem(
-            key: const ValueKey('topology-context-open'),
-            label: l10n.aiTopologyOpen,
-            icon: Symbols.chat_rounded,
-            onTap: () {
-              closeMenu();
-              _open(workspaces, session);
-            },
-          ),
+        session.kind != AiWorkspaceKind.primary || hasParentCandidate;
+    return [
+      if (!multipleTargets)
         RightClickMenuItem(
-          key: const ValueKey('topology-context-duplicate'),
-          label: multipleTargets
-              ? l10n.aiTopologyCopyWorkflow
-              : l10n.aiTopologyDuplicate,
-          icon: Symbols.content_copy_rounded,
+          key: const ValueKey('topology-context-open'),
+          label: l10n.aiTopologyOpen,
+          icon: Symbols.chat_rounded,
           onTap: () {
             closeMenu();
-            _copySelectedCards(workspaces);
+            _open(workspaces, session);
           },
         ),
-        if (!multipleTargets)
-          RightClickMenuItem(
-            key: const ValueKey('topology-context-paste'),
-            label: _copiedCards.length > 1
-                ? l10n.aiTopologyPasteWorkflow
-                : l10n.aiTopologyPasteAgent,
-            icon: Symbols.content_paste_rounded,
-            isEnabled: _copiedCards.isNotEmpty && !_pastingCards,
-            onTap: _copiedCards.isEmpty || _pastingCards
-                ? null
-                : () {
-                    closeMenu();
-                    _pasteSelectedCards(workspaces, fromMenu: true);
-                  },
-          ),
-        if (!multipleTargets)
-          RightClickMenuItem(
-            key: const ValueKey('topology-context-copy-id'),
-            label: l10n.aiTopologyCopyId,
-            icon: Symbols.content_copy_rounded,
-            onTap: () async {
-              closeMenu();
-              await Clipboard.setData(ClipboardData(text: session.id));
-            },
-          ),
-        if (multipleTargets)
-          RightClickMenuItem(
-            key: const ValueKey('topology-context-export-workflow'),
-            label: l10n.agentStorageExportWorkflow,
-            icon: Symbols.archive,
-            onTap: () {
-              final exportIds = Set<String>.of(targetIds);
-              closeMenu();
-              showAgentStorage(
-                context,
-                theme,
-                '',
-                action: 'workflow',
-                selectedIds: exportIds,
-              );
-            },
-          )
-        else ...[
-          RightClickMenuItem(
-            label: l10n.agentStorageManage,
-            icon: Symbols.memory,
-            onTap: () {
-              closeMenu();
-              showAgentStorage(context, theme, session.id);
-            },
-          ),
-          RightClickMenuItem(
-            key: const ValueKey('topology-context-manage-chat'),
-            label: l10n.agentStorageManageContext,
-            icon: Symbols.chat_rounded,
-            onTap: () {
-              closeMenu();
-              showAgentContextStorage(context, theme, session.id);
-            },
-          ),
-          RightClickMenuItem(
-            label: l10n.agentStorageImportMemory,
-            icon: Symbols.file_open,
-            onTap: () {
-              closeMenu();
-              showAgentStorage(context, theme, session.id, action: 'import');
-            },
-          ),
-          RightClickMenuItem(
-            label: l10n.agentStorageExportMemory,
-            icon: Symbols.file_save,
-            onTap: () {
-              closeMenu();
-              showAgentStorage(context, theme, session.id, action: 'memory');
-            },
-          ),
-          RightClickMenuItem(
-            key: const ValueKey('topology-context-export-chat'),
-            label: l10n.agentStorageExportChat,
-            icon: Symbols.file_save,
-            onTap: () {
-              closeMenu();
-              showAgentStorage(context, theme, session.id, action: 'chat');
-            },
-          ),
-          RightClickMenuItem(
-            label: l10n.agentStorageExportAgent,
-            icon: Symbols.archive,
-            onTap: () {
-              closeMenu();
-              showAgentStorage(context, theme, session.id, action: 'agent');
-            },
-          ),
-        ],
-        if (!multipleTargets)
-          RightClickMenuItem(
-            key: const ValueKey('topology-context-rename'),
-            label: l10n.aiTopologyRename,
-            icon: Symbols.edit_rounded,
-            onTap: () {
-              closeMenu();
-              _rename(workspaces, session);
-            },
-          ),
-        if (!multipleTargets)
-          RightClickMenuItem(
-            key: const ValueKey('topology-context-bring-front'),
-            label: l10n.aiTopologyBringToFront,
-            icon: Symbols.flip_to_front_rounded,
-            onTap: () {
-              closeMenu();
-              _edit(
-                workspaces,
-                () => setState(() {
-                  _frontOrder.remove(session.id);
-                  _frontOrder.add(session.id);
-                }),
-              );
-            },
-          ),
-        if (canConnect)
-          RightClickMenuItem(
-            key: const ValueKey('topology-context-connect'),
-            label: l10n.aiTopologyConnectSelected,
-            icon: Symbols.add_link_rounded,
-            onTap: () {
-              closeMenu();
-              _connectTasks(workspaces, session.id, connectTarget);
-            },
-          ),
-        if (!multipleTargets)
-          RightClickMenuItem(
-            key: const ValueKey('topology-context-create'),
-            showDivider: !hasRole && !hasStop && !hasDisconnect,
-            label: l10n.aiTopologyCreateChild,
-            icon: Symbols.account_tree_rounded,
-            onTap: () {
-              closeMenu();
-              _create(workspaces, parent: session);
-            },
-          ),
-        if (!multipleTargets && canMakeMain)
-          RightClickMenuItem(
-            key: const ValueKey('topology-context-make-workflow-main'),
-            label: l10n.aiTopologyMakeWorkflowMain,
-            icon: Symbols.hub_rounded,
-            onTap: () {
-              closeMenu();
-              _makeWorkflowMain(workspaces, session);
-            },
-          ),
-        if (!multipleTargets && session.kind != AiWorkspaceKind.primary)
-          RightClickMenuItem(
-            key: const ValueKey('topology-context-make-root'),
-            showDivider: !hasStop && !hasDisconnect,
-            label: l10n.aiTopologyMakeRoot,
-            icon: Symbols.hub_rounded,
-            onTap: () {
-              closeMenu();
-              _makeRoot(workspaces, session);
-            },
-          ),
-        if (!multipleTargets &&
-            _parentCandidates(workspaces, session).isNotEmpty)
-          RightClickMenuItem(
-            key: const ValueKey('topology-context-make-child'),
-            showDivider: !hasStop && !hasDisconnect,
-            label: l10n.aiTopologyMakeChild,
-            icon: Symbols.subdirectory_arrow_right_rounded,
-            onTap: () {
-              closeMenu();
-              _makeChild(workspaces, session);
-            },
-          ),
-        if (hasStop)
-          RightClickMenuItem(
-            key: const ValueKey('topology-context-stop'),
-            showDivider: !hasDisconnect,
-            label: _selectedIds.length > 1
-                ? l10n.aiTopologyStopSelected
-                : l10n.aiWorkspaceStopAction,
-            icon: Symbols.stop_circle_rounded,
-            onTap: () {
-              closeMenu();
-              for (final id in _selectedIds.toList()) {
-                if (workspaces.find(id)?.busy ?? false) workspaces.stop(id);
-              }
-            },
-          ),
-        if (hasDisconnect)
-          RightClickMenuItem(
-            key: const ValueKey('topology-context-disconnect'),
-            showDivider: true,
-            label: _selectedIds.length > 1
-                ? l10n.aiTopologyDisconnectSelected
-                : l10n.aiTopologyDisconnect,
-            icon: Symbols.link_off_rounded,
-            onTap: () {
-              closeMenu();
-              _disconnectNodes(workspaces, Set.of(_selectedIds));
-            },
-          ),
+      RightClickMenuItem(
+        key: const ValueKey('topology-context-duplicate'),
+        label: multipleTargets
+            ? l10n.aiTopologyCopyWorkflow
+            : l10n.aiTopologyDuplicate,
+        icon: Symbols.content_copy_rounded,
+        onTap: () {
+          closeMenu();
+          _copySelectedCards(workspaces);
+        },
+      ),
+      if (!multipleTargets)
         RightClickMenuItem(
-          key: const ValueKey('topology-context-delete'),
-          label: _selectedIds.length > 1
-              ? l10n.aiTopologyDeleteSelected
-              : l10n.aiTopologyDelete,
-          icon: Symbols.delete_outline_rounded,
+          key: const ValueKey('topology-context-paste'),
+          label: _copiedCards.length > 1
+              ? l10n.aiTopologyPasteWorkflow
+              : l10n.aiTopologyPasteAgent,
+          icon: Symbols.content_paste_rounded,
+          isEnabled: _copiedCards.isNotEmpty && !_pastingCards,
+          onTap: _copiedCards.isEmpty || _pastingCards
+              ? null
+              : () {
+                  closeMenu();
+                  _pasteSelectedCards(workspaces, fromMenu: true);
+                },
+        ),
+      if (!multipleTargets)
+        RightClickMenuItem(
+          key: const ValueKey('topology-context-copy-id'),
+          label: l10n.aiTopologyCopyId,
+          icon: Symbols.content_copy_rounded,
+          onTap: () async {
+            closeMenu();
+            await Clipboard.setData(ClipboardData(text: session.id));
+          },
+        ),
+      if (multipleTargets)
+        RightClickMenuItem(
+          key: const ValueKey('topology-context-export-workflow'),
+          label: l10n.agentStorageExportWorkflow,
+          icon: Symbols.archive,
+          onTap: () {
+            final exportIds = Set<String>.of(targetIds);
+            closeMenu();
+            showAgentStorage(
+              context,
+              theme,
+              '',
+              action: 'workflow',
+              selectedIds: exportIds,
+            );
+          },
+        )
+      else ...[
+        RightClickMenuItem(
+          label: l10n.agentStorageManage,
+          icon: Symbols.memory,
           onTap: () {
             closeMenu();
-            _delete(workspaces, target: session);
+            showAgentStorage(context, theme, session.id);
+          },
+        ),
+        RightClickMenuItem(
+          key: const ValueKey('topology-context-manage-chat'),
+          label: l10n.agentStorageManageContext,
+          icon: Symbols.chat_rounded,
+          onTap: () {
+            closeMenu();
+            showAgentContextStorage(context, theme, session.id);
+          },
+        ),
+        RightClickMenuItem(
+          label: l10n.agentStorageImportMemory,
+          icon: Symbols.file_open,
+          onTap: () {
+            closeMenu();
+            showAgentStorage(context, theme, session.id, action: 'import');
+          },
+        ),
+        RightClickMenuItem(
+          label: l10n.agentStorageExportMemory,
+          icon: Symbols.file_save,
+          onTap: () {
+            closeMenu();
+            showAgentStorage(context, theme, session.id, action: 'memory');
+          },
+        ),
+        RightClickMenuItem(
+          key: const ValueKey('topology-context-export-chat'),
+          label: l10n.agentStorageExportChat,
+          icon: Symbols.file_save,
+          onTap: () {
+            closeMenu();
+            showAgentStorage(context, theme, session.id, action: 'chat');
+          },
+        ),
+        RightClickMenuItem(
+          label: l10n.agentStorageExportAgent,
+          icon: Symbols.archive,
+          onTap: () {
+            closeMenu();
+            showAgentStorage(context, theme, session.id, action: 'agent');
           },
         ),
       ],
-      child: child,
-    );
+      if (!multipleTargets)
+        RightClickMenuItem(
+          key: const ValueKey('topology-context-rename'),
+          label: l10n.aiTopologyRename,
+          icon: Symbols.edit_rounded,
+          onTap: () {
+            closeMenu();
+            _rename(workspaces, session);
+          },
+        ),
+      if (!multipleTargets)
+        RightClickMenuItem(
+          key: const ValueKey('topology-context-bring-front'),
+          label: l10n.aiTopologyBringToFront,
+          icon: Symbols.flip_to_front_rounded,
+          onTap: () {
+            closeMenu();
+            _edit(
+              workspaces,
+              () => setState(() {
+                _frontOrder.remove(session.id);
+                _frontOrder.add(session.id);
+              }),
+            );
+          },
+        ),
+      if (canConnect)
+        RightClickMenuItem(
+          key: const ValueKey('topology-context-connect'),
+          label: l10n.aiTopologyConnectSelected,
+          icon: Symbols.add_link_rounded,
+          onTap: () {
+            closeMenu();
+            _connectTasks(workspaces, session.id, connectTarget);
+          },
+        ),
+      if (!multipleTargets)
+        RightClickMenuItem(
+          key: const ValueKey('topology-context-create'),
+          showDivider: !hasRole && !hasStop && !hasDisconnect,
+          label: l10n.aiTopologyCreateChild,
+          icon: Symbols.account_tree_rounded,
+          onTap: () {
+            closeMenu();
+            _create(workspaces, parent: session);
+          },
+        ),
+      if (!multipleTargets && canMakeMain)
+        RightClickMenuItem(
+          key: const ValueKey('topology-context-make-workflow-main'),
+          label: l10n.aiTopologyMakeWorkflowMain,
+          icon: Symbols.hub_rounded,
+          onTap: () {
+            closeMenu();
+            _makeWorkflowMain(workspaces, session);
+          },
+        ),
+      if (!multipleTargets && session.kind != AiWorkspaceKind.primary)
+        RightClickMenuItem(
+          key: const ValueKey('topology-context-make-root'),
+          showDivider: !hasStop && !hasDisconnect,
+          label: l10n.aiTopologyMakeRoot,
+          icon: Symbols.hub_rounded,
+          onTap: () {
+            closeMenu();
+            _makeRoot(workspaces, session);
+          },
+        ),
+      if (hasParentCandidate)
+        RightClickMenuItem(
+          key: const ValueKey('topology-context-make-child'),
+          showDivider: !hasStop && !hasDisconnect,
+          label: l10n.aiTopologyMakeChild,
+          icon: Symbols.subdirectory_arrow_right_rounded,
+          onTap: () {
+            closeMenu();
+            _makeChild(workspaces, session);
+          },
+        ),
+      if (hasStop)
+        RightClickMenuItem(
+          key: const ValueKey('topology-context-stop'),
+          showDivider: !hasDisconnect,
+          label: _selectedIds.length > 1
+              ? l10n.aiTopologyStopSelected
+              : l10n.aiWorkspaceStopAction,
+          icon: Symbols.stop_circle_rounded,
+          onTap: () {
+            closeMenu();
+            for (final id in _selectedIds.toList()) {
+              if (workspaces.find(id)?.busy ?? false) workspaces.stop(id);
+            }
+          },
+        ),
+      if (hasDisconnect)
+        RightClickMenuItem(
+          key: const ValueKey('topology-context-disconnect'),
+          showDivider: true,
+          label: _selectedIds.length > 1
+              ? l10n.aiTopologyDisconnectSelected
+              : l10n.aiTopologyDisconnect,
+          icon: Symbols.link_off_rounded,
+          onTap: () {
+            closeMenu();
+            _disconnectNodes(workspaces, Set.of(_selectedIds));
+          },
+        ),
+      RightClickMenuItem(
+        key: const ValueKey('topology-context-delete'),
+        label: _selectedIds.length > 1
+            ? l10n.aiTopologyDeleteSelected
+            : l10n.aiTopologyDelete,
+        icon: Symbols.delete_outline_rounded,
+        onTap: () {
+          closeMenu();
+          _delete(workspaces, target: session);
+        },
+      ),
+    ];
   }
+
+  Widget _nodeContextMenu(
+    AiWorkspaceProvider workspaces,
+    AiAgentWorkspace session,
+    AppTheme theme,
+    Widget child,
+    Set<String> connectedIds,
+    ({bool hasStop, bool hasDisconnect}) selectedActions,
+    ({double normal, double makeMain}) menuWidths,
+  ) => RightClickMenuBuilder.buildMenuAnchor(
+    context: context,
+    menuWidth: session.kind != AiWorkspaceKind.primary
+        ? menuWidths.makeMain
+        : menuWidths.normal,
+    onMenuPointerEvent: _menuPointerEvent,
+    controller: _nodeMenus.putIfAbsent(
+      session.id,
+      RightClickMenuController.new,
+    ),
+    theme: theme,
+    onSecondaryTap: () {
+      _openNodeMenuId = session.id;
+      _viewMotion.stop();
+      _selectNode(workspaces, session, contextMenu: true);
+    },
+    menuItemsBuilder: () => _nodeMenuItems(
+      workspaces,
+      session,
+      theme,
+      connectedIds,
+      selectedActions,
+      () => _nodeMenus[session.id]?.close(),
+    ),
+    child: child,
+  );
 
   Widget _backgroundControl(AppTheme theme, AiWorkspaceProvider workspaces) {
     final l10n = context.l10n;
@@ -1792,7 +2155,19 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   Map<String, Offset> _automaticPositions = const {};
 
   Map<String, Offset> _layout(List<AiAgentWorkspace> sessions) {
-    final connections = context.read<AiWorkspaceProvider>().connections;
+    final workspace = context.read<AiWorkspaceProvider>();
+    final placed = <String, Offset>{};
+    for (final session in sessions) {
+      final id = session.id;
+      if (_restoredPositionIds.add(id)) {
+        if (workspace.canvasPositions[id] case [final x, final y]) {
+          _movedNodes.putIfAbsent(id, () => Offset(x, y));
+        }
+      }
+      if (_movedNodes[id] case final position?) placed[id] = position;
+    }
+    if (placed.length == sessions.length) return placed;
+    final connections = workspace.connections;
     final signature = <Object>[
       for (final session in sessions)
         (session.id, session.parentId, session.kind, _size(session.id)),
@@ -1809,22 +2184,10 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         connections: connections,
       );
     }
-    final result = _automaticPositions;
-    final saved = context.read<AiWorkspaceProvider>().canvasPositions;
-    for (final id in result.keys) {
-      if (_restoredPositionIds.add(id)) {
-        if (saved[id] case final p? when p.length == 2) {
-          _movedNodes.putIfAbsent(id, () => Offset(p[0], p[1]));
-        }
-      }
-    }
-    return {
-      for (final item in result.entries)
-        item.key: _movedNodes[item.key] ?? item.value,
-    };
+    return {..._automaticPositions, ...placed};
   }
 
-  void _fit({bool animate = false}) {
+  void _fit({bool animate = false, bool initial = false}) {
     if (_viewport.isEmpty) return;
     _wheelPanAcceleration.reset();
     _wheelZoomTargetScale = null;
@@ -1847,11 +2210,26 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
           _viewport.width / (bounds.width + 140),
           _viewport.height / (bounds.height + 140),
         )
-        .clamp(.3, 1.0);
+        .clamp(taskCanvasMinScale, 1.0);
+    var center = bounds.center;
+    if (initial &&
+        scale == taskCanvasMinScale &&
+        _positions.isNotEmpty &&
+        _nodeIndex
+            .intersecting(
+              Rect.fromCenter(
+                center: center,
+                width: _viewport.width / scale,
+                height: _viewport.height / scale,
+              ),
+            )
+            .isEmpty) {
+      center = _nodeIndex[_positions.keys.first]!.center;
+    }
     final target =
         Matrix4.translationValues(
-          _viewport.width / 2 - bounds.center.dx * scale,
-          _viewport.height / 2 - bounds.center.dy * scale,
+          _viewport.width / 2 - center.dx * scale,
+          _viewport.height / 2 - center.dy * scale,
           0,
         ) *
         Matrix4.diagonal3Values(scale, scale, 1);
@@ -1859,10 +2237,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       _transform.value = target;
       return;
     }
-    _viewFrames = _viewMotion
-        .drive(CurveTween(curve: Curves.easeInOut))
-        .drive(Matrix4Tween(begin: _transform.value.clone(), end: target));
-    _viewMotion.forward(from: 0);
+    _animateViewTo(target, Curves.easeInOut);
   }
 
   void _zoom(double factor) => _zoomAt(
@@ -1887,7 +2262,10 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
             _wheelZoomDirection == direction
         ? _wheelZoomTargetScale ?? currentScale
         : currentScale;
-    final scale = (baseScale * factor).clamp(.25, 1.8);
+    final scale = (baseScale * factor).clamp(
+      taskCanvasMinScale,
+      taskCanvasMaxScale,
+    );
     _viewMotion.stop();
     _wheelPanTarget = null;
     _wheelZoomTargetScale = accumulateWheel ? scale : null;
@@ -1901,18 +2279,13 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         ) *
         Matrix4.diagonal3Values(scale, scale, 1);
     if (animate && !MediaQuery.disableAnimationsOf(context)) {
-      _viewFrames = _viewMotion
-          .drive(
-            CurveTween(
-              curve: accumulateWheel ? Curves.easeOut : Curves.easeInOut,
-            ),
-          )
-          .drive(Matrix4Tween(begin: _transform.value.clone(), end: target));
-      _viewMotion.forward(from: 0);
+      _animateViewTo(
+        target,
+        accumulateWheel ? Curves.easeOut : Curves.easeInOut,
+      );
     } else {
       _transform.value = target;
     }
-    setState(() {});
   }
 
   void _panByWheel(Offset delta) {
@@ -1937,18 +2310,121 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     if (MediaQuery.disableAnimationsOf(context)) {
       _transform.value = target;
     } else {
-      _viewFrames = _viewMotion
-          .drive(CurveTween(curve: Curves.easeOut))
-          .drive(Matrix4Tween(begin: _transform.value.clone(), end: target));
-      _viewMotion.forward(from: 0);
+      _animateViewTo(target, Curves.easeOut);
     }
-    setState(() {});
+  }
+
+  Widget _canvasLoading(AppTheme theme, String label, {double? progress}) {
+    final percentage = progress == null ? null : '${(progress * 100).floor()}%';
+    return SizedBox(
+      width: 200,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(
+            key: const ValueKey('topology-loading-progress'),
+            value: progress,
+            semanticsLabel: label,
+            semanticsValue: percentage,
+          ),
+          if (percentage != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              percentage,
+              key: const ValueKey('topology-loading-percentage'),
+              style: TextStyle(fontSize: 12, color: theme.textColorSecondary),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget? _prepareColdCanvas(List<AiAgentWorkspace> sessions, AppTheme theme) {
+    if (_lastCount > 0 || sessions.length < 512) return null;
+    _measureNodes(const []);
+    final pending = [
+      for (final session in sessions)
+        if (_measuredNodes[session.id]?.$1 != session.title) session,
+    ];
+    if (pending.isEmpty) return null;
+
+    var next = 0;
+    return StatefulBuilder(
+      key: ObjectKey(pending),
+      builder: (loadingContext, refresh) {
+        if (TickerMode.valuesOf(loadingContext).enabled) {
+          final budget = Stopwatch()..start();
+          Iterable<AiAgentWorkspace> batch() sync* {
+            final end = math.min(next + 256, pending.length);
+            while (next < end) {
+              yield pending[next++];
+              if (budget.elapsedMicroseconds >= 4000) break;
+            }
+          }
+
+          _measureNodes(batch());
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!loadingContext.mounted) return;
+            if (next == pending.length) {
+              setState(() {});
+            } else {
+              refresh(() {});
+            }
+          });
+        }
+        final measuredCount = sessions.length - pending.length + next;
+        return ColoredBox(
+          color: theme.secondary,
+          child: Center(
+            child: _canvasLoading(
+              theme,
+              loadingContext.l10n.aiTopologyLoading,
+              progress: measuredCount / sessions.length,
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeProvider>().themeData;
     final workspaces = context.watch<AiWorkspaceProvider>();
+    if (_importCommitting) {
+      return ColoredBox(
+        color: theme.secondary,
+        child: Center(
+          child: _canvasLoading(
+            theme,
+            context.l10n.agentStorageTransferCommitting,
+          ),
+        ),
+      );
+    }
+    if (workspaces.isRestoring ||
+        (workspaces.restoreFailed && workspaces.sessions.isEmpty)) {
+      return ColoredBox(
+        color: theme.secondary,
+        child: Center(
+          child: workspaces.isRestoring
+              ? ValueListenableBuilder<double?>(
+                  valueListenable: workspaces.restoreProgress,
+                  builder: (context, progress, _) => _canvasLoading(
+                    theme,
+                    progress == null
+                        ? context.l10n.aiTopologyLoading
+                        : context.l10n.aiTopologyRestoring,
+                    progress: progress,
+                  ),
+                )
+              : Text(context.l10n.aiTopologyRestoreFailed),
+        ),
+      );
+    }
     if (_recycleRevision != workspaces.recycleRevision) {
       _recycleRevision = workspaces.recycleRevision;
       _clearEdits(_undoEdits);
@@ -1958,21 +2434,21 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       if (_navigationWorkspace?.layoutCanvasGroup == _layoutCanvasGroup) {
         _navigationWorkspace?.layoutCanvasGroup = null;
       }
+      _navigationWorkspace?.activeConversationId = null;
       _navigationWorkspace = workspaces;
+      _sceneOrigin.value = workspaces.canvasOrigin;
+      _lastCount = -1;
       workspaces.layoutCanvasGroup = _layoutCanvasGroup;
       _lastNavigationRevision = workspaces.navigationRequest?.revision ?? 0;
     }
-    final active =
-        TickerMode.valuesOf(context).enabled &&
-        (ModalRoute.of(context)?.isCurrent ?? true);
-    workspaces.activeConversationId = active ? _openId : null;
     final request = workspaces.navigationRequest;
     if (request != null && request.revision > _lastNavigationRevision) {
       _lastNavigationRevision = request.revision;
-      if (active && _openId != null && request.sourceId == _openId) {
+      if (_pageActive && _openId != null && request.sourceId == _openId) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted &&
-              TickerMode.valuesOf(context).enabled &&
+              identical(_navigationWorkspace, workspaces) &&
+              _pageActive &&
               _openId == request.sourceId) {
             _openLinkedTask(workspaces, request.targetId);
           }
@@ -1980,18 +2456,30 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       }
     }
     final sessions = workspaces.sessions;
+    if (_prepareColdCanvas(sessions, theme) case final loading?) return loading;
     final sessionIds = sessions.map((session) => session.id).toSet();
+    final dragInterrupted = _dragStarts.keys.any(
+      (id) => !sessionIds.contains(id),
+    );
+    if (dragInterrupted) _endNodeDrag(workspaces, recordEdit: false);
+    if (_dragPreview.all && _dragStarts.length != sessions.length) {
+      _dragPreview.all = false;
+      _dragPreview.partial.value = _dragPreview.value;
+    }
     _measuredNodes.removeWhere((id, _) => !sessionIds.contains(id));
     _nodeCards.removeWhere((id, _) => !sessionIds.contains(id));
+    _nodePositions.removeWhere((id, position) {
+      if (sessionIds.contains(id)) return false;
+      position.dispose();
+      return true;
+    });
     _selectedIds.removeWhere((id) => workspaces.find(id) == null);
     final connectionIds = workspaces.connections
         .map((connection) => connection.id)
         .toSet();
     _selectedEdges.removeWhere((id) => !connectionIds.contains(id));
     final visibleSessions = sessions.toList();
-    final sizes = {
-      for (final session in visibleSessions) session.id: _measureNode(session),
-    };
+    final sizes = _measureNodes(visibleSessions);
     if (_nodeSizes.entries.any(
       (entry) =>
           sizes.containsKey(entry.key) && sizes[entry.key] != entry.value,
@@ -2000,6 +2488,9 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       _movedNodes.addAll(_positions);
     }
     _nodeSizes = sizes;
+    if (_dragPreview.starts.isNotEmpty && !_dragPreview.all) {
+      _dragEdgeMargin = _maxNodeSide();
+    }
     _positions = _layout(visibleSessions);
     final imported = _lastImportRevision != workspaces.importRevision;
     if (imported) {
@@ -2019,92 +2510,148 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
           for (final entry in _positions.entries)
             entry.key: [entry.value.dx, entry.value.dy],
         };
+        final origin = _sceneOrigin.value;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) workspaces.updateCanvasPositions(positions);
+          if (mounted) {
+            workspaces.updateCanvasPositions(positions, origin: origin);
+          }
         });
       }
     }
+    _syncSceneGeometry();
     _updateConnectionRoutes(workspaces);
+    if (dragInterrupted) {
+      final positions = {
+        for (final entry in _positions.entries)
+          entry.key: [entry.value.dx, entry.value.dy],
+      };
+      final origin = _sceneOrigin.value;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          workspaces.updateCanvasPositions(positions, origin: origin);
+        }
+      });
+    }
     if (visibleSessions.length != _lastCount) {
       final firstTasks = _lastCount <= 0 && visibleSessions.isNotEmpty;
       _lastCount = visibleSessions.length;
       if (firstTasks && !imported) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _fit();
-        });
+        _fitOnLayout = true;
       }
     }
     if (_openId != null && workspaces.find(_openId) == null) _openId = null;
-    return ColoredBox(
+    _visitedChats.removeWhere((id) => !sessionIds.contains(id));
+    final content = ColoredBox(
       color: theme.secondary,
       child: RetainedPageStack(
         activeKey: _openId ?? _graphKey,
         pages: {
           _graphKey: _graph(theme, workspaces),
-          for (final session in sessions)
-            session.id: ChangeNotifierProvider<AiAssistantProvider>.value(
-              // 主智能体移除或节点提升会改变 IndexedStack 的索引，按会话身份保留草稿。
-              key: GlobalObjectKey(session.assistant),
-              value: session.assistant,
-              child: TaskNavigationScope(
-                openTask: (id) => _openLinkedTask(workspaces, id),
-                child: _TopologyConversation(
-                  key: ValueKey('topology-chat-${session.id}'),
-                  session: session,
-                  onBack: () => _backToConversation(workspaces),
+          for (final id in _visitedChats)
+            if (workspaces.find(id) case final session?)
+              session.id: ChangeNotifierProvider<AiAssistantProvider>.value(
+                // 主智能体移除或节点提升会改变 IndexedStack 的索引，按会话身份保留草稿。
+                key: GlobalObjectKey(session.assistant),
+                value: session.assistant,
+                child: TaskNavigationScope(
+                  openTask: (id) => _openLinkedTask(workspaces, id),
+                  child: _TopologyConversation(
+                    key: ValueKey('topology-chat-${session.id}'),
+                    session: session,
+                    onBack: () => _backToConversation(workspaces),
+                  ),
                 ),
               ),
-            ),
+        },
+      ),
+    );
+    return AppTooltipScope(
+      child: Builder(
+        builder: (context) {
+          _pageActive =
+              TickerMode.valuesOf(context).enabled &&
+              (ModalRoute.isCurrentOf(context) ?? true);
+          workspaces.activeConversationId = _pageActive ? _openId : null;
+          return content;
         },
       ),
     );
   }
 
-  Widget _sceneBackground(
-    AppTheme theme,
-    AiWorkspaceProvider workspaces,
-  ) => ListenableBuilder(
-    listenable: Listenable.merge([_transform, workspaces.transfers]),
-    builder: (context, _) => Stack(
-      fit: StackFit.expand,
-      children: [
-        RepaintBoundary(
-          child: CustomPaint(
-            painter: _TopologyBackgroundPainter(
-              canvasStyle: workspaces.canvasStyle,
-              scale: _transform.value.entry(0, 0).abs(),
-              backgroundBounds: Rect.fromPoints(
-                _transform.toScene(Offset.zero),
-                _transform.toScene(Offset(_viewport.width, _viewport.height)),
-              ).inflate(24),
-              gridColor: theme.textColorTertiary.withValues(alpha: .28),
+  Rect _backgroundInView() {
+    final scale = _transform.value.entry(0, 0).abs();
+    final viewport = Rect.fromPoints(
+      _transform.toScene(Offset.zero),
+      _transform.toScene(_viewport.bottomRight(Offset.zero)),
+    );
+    if (_backgroundScale != scale ||
+        !_backgroundCoverage.contains(viewport.topLeft) ||
+        !_backgroundCoverage.contains(viewport.bottomRight)) {
+      _backgroundScale = scale;
+      _backgroundCoverage = viewport.inflate(96 / scale);
+    }
+    return _backgroundCoverage;
+  }
+
+  Widget _sceneBackground(AppTheme theme, AiWorkspaceProvider workspaces) {
+    final selected = Set.of(_selectedEdges);
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        _transform,
+        workspaces.transfers,
+        _connectionGeometry,
+        _dragPreview,
+      ]),
+      builder: (context, _) => Stack(
+        fit: StackFit.expand,
+        children: [
+          RepaintBoundary(
+            child: CustomPaint(
+              painter: _TopologyBackgroundPainter(
+                pattern: _backgroundPattern,
+                canvasStyle: workspaces.canvasStyle,
+                scale: _transform.value.entry(0, 0).abs(),
+                backgroundBounds: _backgroundInView(),
+                gridColor: theme.textColorTertiary.withValues(alpha: .28),
+              ),
             ),
           ),
-        ),
-        TaskTopologyConnectionLayer(
-          routes: _connectionRoutes,
-          scale: _transform.value.entry(0, 0).abs(),
-          lineColor: theme.textColorTertiary.withValues(alpha: .48),
-          accentColor: theme.basePrimary,
-          selectedEdges: Set.of(_selectedEdges),
-          activeEdges: {
-            for (final edge in workspaces.connections)
-              if (workspaces.transfers.value.any(
-                (item) =>
-                    (item.fromId == edge.fromId && item.toId == edge.toId) ||
-                    (item.fromId == edge.toId && item.toId == edge.fromId),
-              ))
-                edge.id,
-          },
-        ),
-      ],
-    ),
-  );
+          Transform.translate(
+            offset: _dragPreview.all ? _dragPreview.value : Offset.zero,
+            child: TaskTopologyConnectionLayer(
+              routes: _routesInView(),
+              bounds: _connectionRoutes.length > 64 ? _edgeCoverage : null,
+              revision: _connectionGeometry.value,
+              scale: _transform.value.entry(0, 0).abs(),
+              lineColor: theme.textColorTertiary.withValues(alpha: .48),
+              accentColor: theme.basePrimary,
+              selectedEdges: selected,
+              activeEdges: {
+                if (workspaces.transfers.value.isNotEmpty)
+                  for (final edge in _routedConnections)
+                    if (workspaces.transfers.value.any(
+                      (item) =>
+                          (item.fromId == edge.fromId &&
+                              item.toId == edge.toId) ||
+                          (item.fromId == edge.toId &&
+                              item.toId == edge.fromId),
+                    ))
+                      edge.id,
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _canvasInteractions(
     AppTheme theme,
     AiWorkspaceProvider workspaces,
     Widget child,
+    Set<String> connectedIds,
+    ({bool hasStop, bool hasDisconnect}) selectedActions,
+    ({double normal, double makeMain}) menuWidths,
   ) {
     final l10n = context.l10n;
     final sessions = workspaces.sessions.toList();
@@ -2128,9 +2675,13 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       context: context,
       onMenuPointerEvent: _menuPointerEvent,
       controller: _canvasMenu,
+      menuWidth: _overviewMenuId == null ? 150 : menuWidths.makeMain,
       theme: theme,
       onSecondaryTap: () {
-        if (_rightEdge == null) {
+        if (workspaces.find(_overviewMenuId) case final session?) {
+          _viewMotion.stop();
+          _selectNode(workspaces, session, contextMenu: true);
+        } else if (_rightEdge == null) {
           _clearSelection(workspaces);
         } else {
           _canvasFocus.requestFocus();
@@ -2148,99 +2699,110 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
           workspaces.select(null);
         }
       },
-      menuItems: [
-        if (_rightEdge != null)
-          action(
-            'topology-edge-disconnect',
-            l10n.aiTopologyDisconnect,
-            Symbols.link_off_rounded,
-            () {
-              if (_selectedEdges.isNotEmpty) {
-                _disconnectEdges(workspaces, Set.of(_selectedEdges));
-              }
-            },
-          )
-        else ...[
-          RightClickMenuItem(
-            key: const ValueKey('topology-canvas-paste'),
-            label: _copiedCards.length > 1
-                ? l10n.aiTopologyPasteWorkflow
-                : l10n.aiTopologyPasteAgent,
-            icon: Symbols.content_paste_rounded,
-            isEnabled: _copiedCards.isNotEmpty && !_pastingCards,
-            onTap: _copiedCards.isEmpty || _pastingCards
-                ? null
-                : () {
-                    _canvasMenu.close();
-                    _pasteSelectedCards(workspaces, fromMenu: true);
-                  },
-          ),
-          action(
-            'topology-canvas-import-agents',
-            l10n.agentStorageImportAgents,
-            Symbols.file_open_rounded,
-            () => _importAtPointer(workspaces, theme),
-            divider: sessions.isEmpty,
-          ),
-          if (sessions.isNotEmpty)
+      menuItemsBuilder: () => switch (workspaces.find(_overviewMenuId)) {
+        final session? => _nodeMenuItems(
+          workspaces,
+          session,
+          theme,
+          connectedIds,
+          selectedActions,
+          _canvasMenu.close,
+        ),
+        null => [
+          if (_rightEdge != null)
             action(
-              'topology-canvas-select-all',
-              l10n.cardSelectAll,
-              Symbols.select_all,
-              () => _selectAll(workspaces),
+              'topology-edge-disconnect',
+              l10n.aiTopologyDisconnect,
+              Symbols.link_off_rounded,
+              () {
+                if (_selectedEdges.isNotEmpty) {
+                  _disconnectEdges(workspaces, Set.of(_selectedEdges));
+                }
+              },
+            )
+          else ...[
+            RightClickMenuItem(
+              key: const ValueKey('topology-canvas-paste'),
+              label: _copiedCards.length > 1
+                  ? l10n.aiTopologyPasteWorkflow
+                  : l10n.aiTopologyPasteAgent,
+              icon: Symbols.content_paste_rounded,
+              isEnabled: _copiedCards.isNotEmpty && !_pastingCards,
+              onTap: _copiedCards.isEmpty || _pastingCards
+                  ? null
+                  : () {
+                      _canvasMenu.close();
+                      _pasteSelectedCards(workspaces, fromMenu: true);
+                    },
+            ),
+            action(
+              'topology-canvas-import-agents',
+              l10n.agentStorageImportAgents,
+              Symbols.file_open_rounded,
+              () => _importAtPointer(workspaces, theme),
+              divider: sessions.isEmpty,
+            ),
+            if (sessions.isNotEmpty)
+              action(
+                'topology-canvas-select-all',
+                l10n.cardSelectAll,
+                Symbols.select_all,
+                () => _selectAll(workspaces),
+                divider: true,
+              ),
+            action(
+              'topology-canvas-zoom-out',
+              l10n.aiTopologyZoomOut,
+              Symbols.remove_rounded,
+              () => _zoom(1 / 1.2),
+            ),
+            action(
+              'topology-canvas-zoom-in',
+              l10n.aiTopologyZoomIn,
+              Symbols.add_rounded,
+              () => _zoom(1.2),
               divider: true,
             ),
-          action(
-            'topology-canvas-zoom-out',
-            l10n.aiTopologyZoomOut,
-            Symbols.remove_rounded,
-            () => _zoom(1 / 1.2),
-          ),
-          action(
-            'topology-canvas-zoom-in',
-            l10n.aiTopologyZoomIn,
-            Symbols.add_rounded,
-            () => _zoom(1.2),
-            divider: true,
-          ),
-          for (final style in AiTaskCanvasStyle.values)
-            RightClickMenuItem(
-              key: ValueKey('topology-canvas-background-${style.name}'),
-              label: switch (style) {
-                AiTaskCanvasStyle.dots => l10n.aiTopologyCanvasDots,
-                AiTaskCanvasStyle.grid => l10n.aiTopologyCanvasGrid,
-                AiTaskCanvasStyle.plain => l10n.aiTopologyCanvasPlain,
-              },
-              icon: switch (style) {
-                AiTaskCanvasStyle.dots => Symbols.grain_rounded,
-                AiTaskCanvasStyle.grid => Symbols.grid_on_rounded,
-                AiTaskCanvasStyle.plain => Symbols.crop_square_rounded,
-              },
-              isSelected: workspaces.canvasStyle == style,
-              showDivider: style == AiTaskCanvasStyle.values.last,
-              onTap: () {
-                _canvasMenu.close();
-                workspaces.setCanvasStyle(style);
+            for (final style in AiTaskCanvasStyle.values)
+              RightClickMenuItem(
+                key: ValueKey('topology-canvas-background-${style.name}'),
+                label: switch (style) {
+                  AiTaskCanvasStyle.dots => l10n.aiTopologyCanvasDots,
+                  AiTaskCanvasStyle.grid => l10n.aiTopologyCanvasGrid,
+                  AiTaskCanvasStyle.plain => l10n.aiTopologyCanvasPlain,
+                },
+                icon: switch (style) {
+                  AiTaskCanvasStyle.dots => Symbols.grain_rounded,
+                  AiTaskCanvasStyle.grid => Symbols.grid_on_rounded,
+                  AiTaskCanvasStyle.plain => Symbols.crop_square_rounded,
+                },
+                isSelected: workspaces.canvasStyle == style,
+                showDivider: style == AiTaskCanvasStyle.values.last,
+                onTap: () {
+                  _canvasMenu.close();
+                  workspaces.setCanvasStyle(style);
+                },
+              ),
+            action(
+              'topology-canvas-auto-layout',
+              l10n.aiTopologyAutoLayout,
+              Symbols.auto_awesome_mosaic_rounded,
+              () => _autoLayout(sessions),
+            ),
+            action(
+              'topology-canvas-reset',
+              l10n.aiTopologyReset,
+              Symbols.fit_screen_rounded,
+              () {
+                _fit(animate: true);
+                setState(() {});
               },
             ),
-          action(
-            'topology-canvas-auto-layout',
-            l10n.aiTopologyAutoLayout,
-            Symbols.auto_awesome_mosaic_rounded,
-            () => _autoLayout(sessions),
-          ),
-          action(
-            'topology-canvas-reset',
-            l10n.aiTopologyReset,
-            Symbols.fit_screen_rounded,
-            () {
-              _fit(animate: true);
-              setState(() {});
-            },
-          ),
+          ],
         ],
-      ],
+      },
       child: Listener(
+        key: _viewportKey,
         onPointerHover: (event) => _canvasPointer = event.localPosition,
         onPointerSignal: (event) {
           if (event is PointerScrollEvent) {
@@ -2278,6 +2840,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
           _wheelPanAcceleration.reset();
           _canvasPointer = event.localPosition;
           if (event.buttons & kSecondaryMouseButton != 0) {
+            if (_overviewMenuPointer != event.pointer) _overviewMenuId = null;
             _menuPlacement = _transform.toScene(event.localPosition);
           }
           _closeCanvasMenus();
@@ -2294,16 +2857,14 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
             return;
           }
           final point = _transform.toScene(event.localPosition);
-          final onNode = _positions.entries.any(
-            (entry) => (entry.value & _size(entry.key)).contains(point),
-          );
+          final onNode = _nodeIndex.containsPoint(point);
           if (event.buttons & kSecondaryMouseButton != 0) {
             _secondaryPointer = event.pointer;
             _secondaryDown = event.localPosition;
             setState(() {
-              _rightEdge = onNode ? null : _edgeAt(workspaces, point);
+              _rightEdge = onNode ? null : _edgeAt(point);
             });
-            if (onNode) {
+            if (onNode && _overviewMenuId == null) {
               _canvasMenu.disable();
             } else {
               _canvasMenu.enable();
@@ -2370,70 +2931,142 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     AppTheme theme,
     AiWorkspaceProvider workspaces,
     AiAgentWorkspace session,
-  ) => _nodeContextMenu(
-    workspaces,
-    session,
-    theme,
-    MouseRegion(
-      onEnter: (_) => setState(() => _hoveredNode = session.id),
-      onExit: (_) {
-        if (_hoveredNode == session.id) setState(() => _hoveredNode = null);
-      },
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            child: Listener(
-              onPointerDown: (event) {
-                _nodePointerDown = event.position;
-                _nodeDragged = false;
-                _nodePrimaryDown = event.buttons & kPrimaryMouseButton != 0;
-              },
-              onPointerCancel: (_) {
-                _nodePrimaryDown = false;
-                _nodePointerDown = null;
-                _lastTapId = null;
-              },
-              onPointerUp: (event) =>
-                  _nodePointerUp(workspaces, session, event),
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                dragStartBehavior: DragStartBehavior.down,
-                onTap: () {
-                  if (!HardwareKeyboard.instance.isLogicalKeyPressed(
-                    LogicalKeyboardKey.space,
-                  )) {
-                    _selectNode(workspaces, session);
-                  }
-                },
-                onPanDown: (_) => _viewMotion.stop(),
-                onPanStart: (details) => _updateNodeDrag(
-                  workspaces,
-                  session,
-                  DragUpdateDetails(globalPosition: details.globalPosition),
-                ),
-                onPanUpdate: (details) =>
-                    _updateNodeDrag(workspaces, session, details),
-                onPanEnd: (_) {
-                  final before = _dragEdit;
-                  _dragEdit = null;
-                  _dragStarts.clear();
-                  if (before != null) _finishEdit(workspaces, before);
-                },
-                onPanCancel: () {
-                  final before = _dragEdit;
-                  _dragEdit = null;
-                  _dragStarts.clear();
-                  if (before != null) _finishEdit(workspaces, before);
-                },
+    Set<String> connectedIds,
+    ({bool hasStop, bool hasDisconnect}) selectedActions,
+    ({double normal, double makeMain}) menuWidths, {
+    bool overview = false,
+  }) {
+    if (overview) {
+      final kind = _kind(context.l10n, session.kind);
+      final status = _taskStatus(context, session).label;
+      final model = session.assistant.selectedService?.name;
+      final summary = '$kind · $status';
+      return _nodeSurface(
+        workspaces,
+        session,
+        overview: true,
+        child: TaskTopologyOverviewCard(
+          key: ValueKey('topology-node-${session.id}'),
+          title: session.title,
+          summary: summary,
+          modelLabel: context.l10n.aiAgentModelServiceValue(
+            model == null ? session.model : '$model · ${session.model}',
+          ),
+          idLabel: context.l10n.aiAgentIdValue(session.id),
+          selected: _selectedIds.contains(session.id),
+          showPorts:
+              _selectedIds.contains(session.id) || _connectingSource != null,
+          indicator: session.needsAttention
+              ? theme.permissionWarningColor
+              : session.busy
+              ? theme.basePrimary
+              : null,
+          onOpen: () => _open(workspaces, session),
+          onSelect: () => _selectNode(workspaces, session),
+          theme: theme,
+          cache: _overviewPaint,
+        ),
+      );
+    }
+    return _nodeContextMenu(
+      workspaces,
+      session,
+      theme,
+      _TaskNodeHover(
+        builder: (hovered) => Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: _nodeSurface(
+                workspaces,
+                session,
                 child: _nodeCard(theme, workspaces, session),
               ),
             ),
-          ),
-          for (final side in ['in', 'out', 'top', 'bottom'])
-            _port(workspaces, session, theme, side),
-        ],
+            for (final side in ['in', 'out', 'top', 'bottom'])
+              _port(workspaces, session, theme, side, hovered: hovered),
+          ],
+        ),
       ),
+      connectedIds,
+      selectedActions,
+      menuWidths,
+    );
+  }
+
+  Widget _nodeSurface(
+    AiWorkspaceProvider workspaces,
+    AiAgentWorkspace session, {
+    required Widget child,
+    bool overview = false,
+  }) => Listener(
+    onPointerDown: (event) {
+      _nodePointerDown = event.position;
+      _nodeGrabOffset = event.localPosition;
+      _nodeDragged = false;
+      _nodePrimaryDown = event.buttons & kPrimaryMouseButton != 0;
+      if (overview && event.buttons & kSecondaryMouseButton != 0) {
+        _overviewMenuId = session.id;
+        _overviewMenuPointer = event.pointer;
+      }
+    },
+    onPointerCancel: (_) {
+      _nodePrimaryDown = false;
+      _nodePointerDown = null;
+      _lastTapId = null;
+    },
+    onPointerUp: (event) => _nodePointerUp(workspaces, session, event),
+    child: GestureDetector(
+      excludeFromSemantics: overview,
+      behavior: HitTestBehavior.opaque,
+      dragStartBehavior: DragStartBehavior.down,
+      onTap: () {
+        if (!HardwareKeyboard.instance.isLogicalKeyPressed(
+          LogicalKeyboardKey.space,
+        )) {
+          final size = _size(session.id);
+          if (overview &&
+              Rect.fromLTWH(
+                size.width - 38,
+                size.height - 38,
+                32,
+                32,
+              ).contains(_nodeGrabOffset)) {
+            _open(workspaces, session);
+            return;
+          }
+          _selectNode(workspaces, session);
+        }
+      },
+      onPanDown: (_) => _viewMotion.stop(),
+      onPanStart: (details) {
+        if (overview) {
+          final size = _size(session.id);
+          for (final side in ['in', 'out', 'top', 'bottom']) {
+            final at = _portAnchor(size, side);
+            if (Rect.fromCenter(
+              center: at,
+              width: 24,
+              height: 24,
+            ).contains(_nodeGrabOffset)) {
+              _nodeDragged = true;
+              _startConnection(session.id, at);
+              return;
+            }
+          }
+        }
+        _updateNodeDrag(workspaces, session, details.globalPosition);
+      },
+      onPanUpdate: (details) => overview && _connectingSource == session.id
+          ? _moveConnection(details.globalPosition)
+          : _updateNodeDrag(workspaces, session, details.globalPosition),
+      onPanEnd: (_) => overview && _connectingSource == session.id
+          ? _finishConnection(workspaces)
+          : _endNodeDrag(workspaces),
+      onPanCancel: () => overview && _connectingSource == session.id
+          ? _cancelConnection()
+          : _endNodeDrag(workspaces),
+      child: child,
     ),
   );
 
@@ -2475,25 +3108,58 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     final l10n = context.l10n;
     final parent = _selectedIds.length == 1 ? _parentFor(workspaces) : null;
     final sessions = workspaces.sessions;
+    final menuWidths = _nodeMenuWidths();
+    final connectedIds = {
+      for (final connection in workspaces.connections) ...[
+        connection.fromId,
+        connection.toId,
+      ],
+    };
+    final selectedActions = (
+      hasStop: _selectedIds.any((id) => workspaces.find(id)?.busy ?? false),
+      hasDisconnect: _selectedIds.any(connectedIds.contains),
+    );
     final layers = {
       for (final (index, session) in sessions.indexed) session.id: index,
       for (final (index, id) in _frontOrder.indexed)
         id: sessions.length + index,
     };
-    final visibleSessions = sessions.toList()
-      ..sort((a, b) => layers[a.id]!.compareTo(layers[b.id]!));
-    final sceneSize = Size(
-      _positions.entries.fold(
-        _sceneSize.width,
-        (value, entry) =>
-            math.max(value, entry.value.dx + _size(entry.key).width + 200),
-      ),
-      _positions.entries.fold(
-        _sceneSize.height,
-        (value, entry) =>
-            math.max(value, entry.value.dy + _size(entry.key).height + 200),
-      ),
-    );
+    Widget positionedNode(String id, {bool overview = false}) {
+      final session = workspaces.find(id)!;
+      final notifier = _nodePositions[id]!;
+      return ListenableBuilder(
+        key: ValueKey('topology-position-listener-$id'),
+        listenable: Listenable.merge([notifier, _dragPreview.partial]),
+        builder: (context, child) {
+          final position =
+              notifier.value +
+              (_dragPreview.starts.containsKey(id)
+                  ? _dragPreview.partial.value
+                  : Offset.zero);
+          return Positioned(
+            key: ValueKey('topology-position-$id'),
+            left: position.dx,
+            top: position.dy,
+            width: _size(id).width,
+            height: _size(id).height,
+            child: child!,
+          );
+        },
+        child: IgnorePointer(
+          ignoring: _boxStart != null,
+          child: _nodeView(
+            theme,
+            workspaces,
+            session,
+            connectedIds,
+            selectedActions,
+            menuWidths,
+            overview: overview,
+          ),
+        ),
+      );
+    }
+
     return Focus(
       focusNode: _canvasFocus,
       onFocusChange: (focused) => _updateShortcutHints(clear: !focused),
@@ -2507,14 +3173,27 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
                 if (_viewport != constraints.biggest) {
                   final initialViewport = _viewport.isEmpty;
                   _viewport = constraints.biggest;
-                  if (initialViewport || visibleSessions.isEmpty) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) _fit();
-                    });
-                  }
+                  if (initialViewport || sessions.isEmpty) _fitOnLayout = true;
+                }
+                if (_fitOnLayout && !_viewport.isEmpty) {
+                  _fitOnLayout = false;
+                  _fit(initial: true);
                 }
                 return Stack(
                   children: [
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: RepaintBoundary(
+                          child: CustomPaint(
+                            painter: TaskCanvasAxesPainter(
+                              transform: _transform,
+                              color: theme.textColorSecondary,
+                              sceneOrigin: _sceneOrigin,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                     Positioned.fill(
                       child: _canvasInteractions(
                         theme,
@@ -2531,126 +3210,185 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
                             boundaryMargin: const EdgeInsets.all(
                               double.infinity,
                             ),
-                            minScale: .25,
-                            maxScale: 1.8,
-                            child: SizedBox.fromSize(
-                              key: _sceneKey,
-                              size: sceneSize,
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  Positioned.fill(
-                                    child: _sceneBackground(theme, workspaces),
-                                  ),
-                                  Positioned.fill(
-                                    child: AgentTransferLayer(
-                                      transfers: workspaces.transfers,
-                                      connections: workspaces.connections,
-                                      routes: _connectionRoutes,
-                                      transform: _transform,
-                                      color: theme.basePrimary,
+                            minScale: taskCanvasMinScale,
+                            maxScale: taskCanvasMaxScale,
+                            child: Semantics(
+                              container: true,
+                              child: ValueListenableBuilder<Size>(
+                                valueListenable: _sceneExtent,
+                                builder: (context, size, child) =>
+                                    SizedBox.fromSize(
+                                      key: _sceneKey,
+                                      size: size,
+                                      child: child,
                                     ),
-                                  ),
-                                  Positioned.fill(
-                                    child: IgnorePointer(
-                                      child: RepaintBoundary(
-                                        child: CustomPaint(
-                                          key: const ValueKey(
-                                            'topology-connection-preview',
-                                          ),
-                                          painter: _ConnectionPreviewPainter(
-                                            start: _connectingStart,
-                                            pointer: _connectionPointer,
-                                            transform: _transform,
-                                            color: theme.basePrimary,
-                                          ),
-                                        ),
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    Positioned.fill(
+                                      child: _sceneBackground(
+                                        theme,
+                                        workspaces,
                                       ),
                                     ),
-                                  ),
-                                  if (workspaces.sessions.isEmpty)
-                                    Positioned(
-                                      left: 530 - _nodeSize.width / 2,
-                                      top: 350 - _nodeSize.height / 2,
-                                      width: _nodeSize.width,
+                                    Positioned.fill(
+                                      child: ListenableBuilder(
+                                        listenable: Listenable.merge([
+                                          _connectionGeometry,
+                                          _dragPreview,
+                                          workspaces.transfers,
+                                        ]),
+                                        builder: (context, _) =>
+                                            Transform.translate(
+                                              offset: _dragPreview.all
+                                                  ? _dragPreview.value
+                                                  : Offset.zero,
+                                              child: AgentTransferLayer(
+                                                transfers: workspaces.transfers,
+                                                connections: _routedConnections,
+                                                routes:
+                                                    _dragPreview
+                                                                .partial
+                                                                .value !=
+                                                            Offset.zero &&
+                                                        workspaces
+                                                            .transfers
+                                                            .value
+                                                            .isNotEmpty
+                                                    ? _routesInView()
+                                                    : _connectionRoutes,
+                                                transform: _transform,
+                                                color: theme.basePrimary,
+                                              ),
+                                            ),
+                                      ),
+                                    ),
+                                    Positioned.fill(
                                       child: IgnorePointer(
-                                        ignoring: _boxStart != null,
-                                        child: _CreatePrimaryTile(
-                                          theme: theme,
-                                          onPressed: () => _create(workspaces),
+                                        child: RepaintBoundary(
+                                          child: CustomPaint(
+                                            key: const ValueKey(
+                                              'topology-connection-preview',
+                                            ),
+                                            painter: _ConnectionPreviewPainter(
+                                              start: _connectingStart,
+                                              pointer: _connectionPointer,
+                                              transform: _transform,
+                                              color: theme.basePrimary,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  for (final session in visibleSessions)
-                                    Positioned(
-                                      key: ValueKey(
-                                        'topology-position-${session.id}',
+                                    if (workspaces.sessions.isEmpty)
+                                      Positioned(
+                                        left: 530 - _nodeSize.width / 2,
+                                        top: 350 - _nodeSize.height / 2,
+                                        width: _nodeSize.width,
+                                        child: IgnorePointer(
+                                          ignoring: _boxStart != null,
+                                          child: _CreatePrimaryTile(
+                                            theme: theme,
+                                            onPressed: () =>
+                                                _create(workspaces),
+                                          ),
+                                        ),
                                       ),
-                                      left: _positions[session.id]!.dx,
-                                      top: _positions[session.id]!.dy,
-                                      width: _size(session.id).width,
-                                      height: _size(session.id).height,
+                                    if (sessions.length > 64)
+                                      Positioned.fill(
+                                        child: TaskTopologyNodeLayer(
+                                          index: _nodeIndex,
+                                          geometry: _nodeGeometry,
+                                          drag: _dragPreview,
+                                          viewport: _viewport,
+                                          transform: _transform,
+                                          layers: layers,
+                                          pinnedIds: () sync* {
+                                            if (_dragAnchorId case final id?) {
+                                              yield id;
+                                            }
+                                            if (_connectingSource
+                                                case final id?) {
+                                              yield id;
+                                            }
+                                            if (_openNodeMenuId case final id?
+                                                when _nodeMenus[id]?.isOpen ==
+                                                    true) {
+                                              yield id;
+                                            }
+                                          },
+                                          nodeBuilder: positionedNode,
+                                          overviewNodeBuilder: (id) =>
+                                              positionedNode(
+                                                id,
+                                                overview: true,
+                                              ),
+                                        ),
+                                      ),
+                                    if (sessions.length <= 64)
+                                      for (final session
+                                          in sessions.toList()..sort(
+                                            (first, second) => layers[first.id]!
+                                                .compareTo(layers[second.id]!),
+                                          ))
+                                        positionedNode(session.id),
+                                    Positioned.fill(
                                       child: IgnorePointer(
-                                        ignoring: _boxStart != null,
-                                        child: _nodeView(
-                                          theme,
-                                          workspaces,
-                                          session,
-                                        ),
-                                      ),
-                                    ),
-                                  Positioned.fill(
-                                    child: IgnorePointer(
-                                      child: RepaintBoundary(
-                                        child: ValueListenableBuilder<Rect?>(
-                                          valueListenable: _selectionRect,
-                                          builder: (context, rect, _) => Stack(
-                                            clipBehavior: Clip.none,
-                                            children: [
-                                              if (rect != null)
-                                                Positioned.fromRect(
-                                                  rect: rect,
-                                                  child: IgnorePointer(
-                                                    child: DecoratedBox(
-                                                      key: const ValueKey(
-                                                        'topology-selection-overlay',
-                                                      ),
-                                                      decoration: BoxDecoration(
-                                                        color: theme.basePrimary
-                                                            .withValues(
-                                                              alpha: .08,
-                                                            ),
-                                                        border: Border.all(
+                                        child: RepaintBoundary(
+                                          child: ValueListenableBuilder<Rect?>(
+                                            valueListenable: _selectionRect,
+                                            builder: (context, rect, _) => Stack(
+                                              clipBehavior: Clip.none,
+                                              children: [
+                                                if (rect != null)
+                                                  Positioned.fromRect(
+                                                    rect: rect,
+                                                    child: IgnorePointer(
+                                                      child: DecoratedBox(
+                                                        key: const ValueKey(
+                                                          'topology-selection-overlay',
+                                                        ),
+                                                        decoration: BoxDecoration(
                                                           color: theme
                                                               .basePrimary
                                                               .withValues(
-                                                                alpha: .8,
+                                                                alpha: .08,
                                                               ),
-                                                          width:
-                                                              1 /
-                                                              _transform.value
-                                                                  .entry(0, 0)
-                                                                  .abs()
-                                                                  .clamp(
-                                                                    .25,
-                                                                    1.8,
-                                                                  ),
+                                                          border: Border.all(
+                                                            color: theme
+                                                                .basePrimary
+                                                                .withValues(
+                                                                  alpha: .8,
+                                                                ),
+                                                            width:
+                                                                1 /
+                                                                _transform.value
+                                                                    .entry(0, 0)
+                                                                    .abs()
+                                                                    .clamp(
+                                                                      taskCanvasMinScale,
+                                                                      taskCanvasMaxScale,
+                                                                    ),
+                                                          ),
                                                         ),
                                                       ),
                                                     ),
                                                   ),
-                                                ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
+                        connectedIds,
+                        selectedActions,
+                        menuWidths,
                       ),
                     ),
                     Positioned(
@@ -2699,7 +3437,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
                                   theme,
                                   l10n.aiTopologyAutoLayout,
                                   Symbols.auto_awesome_mosaic_rounded,
-                                  () => _autoLayout(visibleSessions),
+                                  () => _autoLayout(sessions),
                                   iconFill: 1,
                                 ),
                               ),
@@ -2966,6 +3704,26 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   );
 }
 
+class _TaskNodeHover extends StatefulWidget {
+  const _TaskNodeHover({required this.builder});
+
+  final Widget Function(bool hovered) builder;
+
+  @override
+  State<_TaskNodeHover> createState() => _TaskNodeHoverState();
+}
+
+class _TaskNodeHoverState extends State<_TaskNodeHover> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    onEnter: (_) => setState(() => _hovered = true),
+    onExit: (_) => setState(() => _hovered = false),
+    child: RepaintBoundary(child: widget.builder(_hovered)),
+  );
+}
+
 /// 局部编辑器独立监听视口动画，避免重建整个拓扑。
 class _CanvasZoomPercentage extends StatefulWidget {
   const _CanvasZoomPercentage({
@@ -3006,9 +3764,10 @@ class _CanvasZoomPercentageState extends State<_CanvasZoomPercentage> {
 
   void _sync() {
     if (!_focus.hasFocus) {
-      final value = (widget.transform.value.entry(0, 0).abs() * 100)
-          .round()
-          .toString();
+      final percent = widget.transform.value.entry(0, 0).abs() * 100;
+      final value = percent < 10
+          ? percent.toStringAsFixed(1).replaceFirst(RegExp(r'\.0$'), '')
+          : percent.round().toString();
       if (_text.text != value) _text.text = value;
     }
   }
@@ -3029,9 +3788,9 @@ class _CanvasZoomPercentageState extends State<_CanvasZoomPercentage> {
 
   void _commit() {
     final percent = double.tryParse(_text.text.replaceAll(',', '.'));
-    if (percent == null || !percent.isFinite || percent <= 0) return;
+    if (percent == null || !percent.isFinite) return;
     final currentScale = widget.transform.value.entry(0, 0).abs();
-    final scale = (percent / 100).clamp(.25, 1.8);
+    final scale = (percent / 100).clamp(taskCanvasMinScale, taskCanvasMaxScale);
     widget.onZoom(scale / currentScale);
   }
 
@@ -3136,6 +3895,7 @@ class _TopologyEditFrame {
     this.selectedIds,
     this.selectedEdges,
     this.transform,
+    this.origin,
   );
   final AiTopologyEditSnapshot snapshot;
   final Map<String, Offset> positions;
@@ -3143,6 +3903,7 @@ class _TopologyEditFrame {
   final Set<String> selectedIds;
   final Set<String> selectedEdges;
   final Matrix4 transform;
+  final Offset origin;
 }
 
 /// 会话顶部名称限高两行，超出后独立滚动。
@@ -3435,9 +4196,9 @@ IconData _kindIcon(AiWorkspaceKind kind) => switch (kind) {
       fill: 0,
     );
   }
-  final response = session.assistant.messages
+  final response = session.assistant.messages.reversed
       .where((message) => message.role == 'assistant' && message.status != null)
-      .lastOrNull;
+      .firstOrNull;
   if (response != null) {
     final summary = aiMessageProcessSummary(context, response);
     if (summary != null) return summary;
@@ -3560,7 +4321,12 @@ class _ConnectionPreviewPainter extends CustomPainter {
       Paint()
         ..color = color
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2 / transform.value.entry(0, 0).abs().clamp(.25, 1.8),
+        ..strokeWidth =
+            2 /
+            transform.value
+                .entry(0, 0)
+                .abs()
+                .clamp(taskCanvasMinScale, taskCanvasMaxScale),
     );
   }
 
@@ -3574,33 +4340,27 @@ class _ConnectionPreviewPainter extends CustomPainter {
 
 class _TopologyBackgroundPainter extends CustomPainter {
   const _TopologyBackgroundPainter({
+    required this.pattern,
     required this.gridColor,
     required this.canvasStyle,
     required this.scale,
     required this.backgroundBounds,
   });
   final Rect backgroundBounds;
+  final TaskCanvasBackgroundPattern pattern;
   final AiTaskCanvasStyle canvasStyle;
   final double scale;
   final Color gridColor;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 覆盖当前视口，包括场景坐标为负的区域。
-    final origin = Offset(
-      (backgroundBounds.left / 24).floor() * 24.0,
-      (backgroundBounds.top / 24).floor() * 24.0,
-    );
-    canvas.save();
-    canvas.translate(origin.dx, origin.dy);
-    paintTaskCanvasBackground(
+    pattern.paint(
       canvas,
-      Size(backgroundBounds.width + 48, backgroundBounds.height + 48),
+      backgroundBounds,
       style: canvasStyle,
       color: gridColor,
       scale: scale,
     );
-    canvas.restore();
   }
 
   @override

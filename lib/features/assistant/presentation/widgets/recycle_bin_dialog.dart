@@ -87,27 +87,23 @@ class _RecycleBinState extends State<_RecycleBin> {
     }
   }
 
-  Future<void> restoreSelected(AiWorkspaceProvider workspace) async {
-    if (busy || workspace.recycleBusy || selection.selected.isEmpty) return;
-    final pending = {
-      for (final entry in workspace.recycledAgents)
-        if (selection.selected.contains(entry.id)) entry.id: entry,
-    };
+  Future<void> restore(
+    AiWorkspaceProvider workspace,
+    Set<String> ids, {
+    bool all = false,
+  }) async {
+    if (busy || workspace.recycleBusy || ids.isEmpty) return;
     await run(() async {
-      // 先还原选中的上级，再还原下级；即使列表按删除时间倒序排列，
-      // 仍能恢复原有层级关系。
-      while (pending.isNotEmpty) {
-        final entry =
-            pending.values
-                .where(
-                  (entry) => !pending.containsKey(entry.record['parentId']),
-                )
-                .firstOrNull ??
-            pending.values.first;
-        await workspace.restoreRecycledAgent(entry.id);
-        pending.remove(entry.id);
-        selection.retain(workspace.recycledAgents.map((entry) => entry.id));
-      }
+      final failure = await showDialog<Object>(
+        context: context,
+        builder: (_) => _RecycleRestoreDialog(
+          theme: widget.theme,
+          workspace: workspace,
+          ids: ids,
+          confirmAll: all,
+        ),
+      );
+      if (failure != null) throw failure;
     });
   }
 
@@ -271,7 +267,9 @@ class _RecycleBinState extends State<_RecycleBin> {
             label: '${l.agentRecycleRestore} (${selection.selected.length})',
             fontSize: 12,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-            onPressed: disabled ? null : () => restoreSelected(workspace),
+            onPressed: disabled
+                ? null
+                : () => restore(workspace, selection.selected.toSet()),
           ),
           const SizedBox(width: 6),
           AppActionButton(
@@ -288,16 +286,35 @@ class _RecycleBinState extends State<_RecycleBin> {
         ],
       ),
     );
-    final emptyButton = DesktopCardSelectionTarget(
-      child: AppActionButton(
-        theme: theme,
-        label: l.agentRecycleEmptyAction,
-        destructive: true,
-        fontSize: 12,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        onPressed: disabled || snapshot.entries.isEmpty
-            ? null
-            : () => empty(workspace),
+    final bulkActionsDisabled = disabled || snapshot.entries.isEmpty;
+    final bulkActions = DesktopCardSelectionTarget(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppActionButton(
+            key: const ValueKey('recycle-restore-all'),
+            theme: theme,
+            label: l.agentRecycleRestoreAll,
+            surfaceColor: theme.primary,
+            fontSize: 12,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            onPressed: bulkActionsDisabled
+                ? null
+                : () => restore(workspace, {
+                    for (final entry in snapshot.entries) entry.id,
+                  }, all: true),
+          ),
+          const SizedBox(width: 8),
+          AppActionButton(
+            key: const ValueKey('recycle-empty-all'),
+            theme: theme,
+            label: l.agentRecycleEmptyAction,
+            destructive: true,
+            fontSize: 12,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            onPressed: bulkActionsDisabled ? null : () => empty(workspace),
+          ),
+        ],
       ),
     );
     return DesktopCardSelectionRegion(
@@ -311,7 +328,7 @@ class _RecycleBinState extends State<_RecycleBin> {
         constraints: BoxConstraints(maxWidth: dialogWidth),
         theme: theme,
         title: l.agentRecycleBin,
-        titleTrailing: compact ? null : emptyButton,
+        titleTrailing: compact ? null : bulkActions,
         contentPadding: const EdgeInsets.fromLTRB(0, 20, 0, 24),
         content: ConstrainedBox(
           constraints: BoxConstraints(
@@ -330,7 +347,10 @@ class _RecycleBinState extends State<_RecycleBin> {
             child: fitContent(
               [
                 if (compact) ...[
-                  Align(alignment: Alignment.centerRight, child: emptyButton),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FittedBox(fit: BoxFit.scaleDown, child: bulkActions),
+                  ),
                   const SizedBox(height: 12),
                 ],
                 Text(
@@ -555,12 +575,9 @@ class _RecycleBinState extends State<_RecycleBin> {
                                           ),
                                           onPressed: disabled
                                               ? null
-                                              : () => run(
-                                                  () => workspace
-                                                      .restoreRecycledAgent(
-                                                        entry.id,
-                                                      ),
-                                                ),
+                                              : () => restore(workspace, {
+                                                  entry.id,
+                                                }),
                                         ),
                                         AppActionButton(
                                           theme: theme,
@@ -609,6 +626,141 @@ class _RecycleBinState extends State<_RecycleBin> {
               onPressed: disabled ? null : () => Navigator.pop(context),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecycleRestoreDialog extends StatefulWidget {
+  const _RecycleRestoreDialog({
+    required this.theme,
+    required this.workspace,
+    required this.ids,
+    required this.confirmAll,
+  });
+  final AppTheme theme;
+  final AiWorkspaceProvider workspace;
+  final Set<String> ids;
+  final bool confirmAll;
+
+  @override
+  State<_RecycleRestoreDialog> createState() => _RecycleRestoreDialogState();
+}
+
+class _RecycleRestoreDialogState extends State<_RecycleRestoreDialog> {
+  bool _started = false;
+  bool _cancelled = false;
+  double? _progress = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.confirmAll) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_cancelled) _start();
+      });
+    }
+  }
+
+  Future<void> _start() async {
+    if (_started || _cancelled) return;
+    setState(() => _started = true);
+    Object? failure;
+    try {
+      await widget.workspace.restoreRecycledAgents(
+        widget.ids,
+        isCancelled: () => !mounted || _cancelled,
+        onProgress: (value) {
+          if (mounted && value != _progress) setState(() => _progress = value);
+        },
+      );
+    } catch (error) {
+      failure = error;
+    }
+    if (mounted) _finish(failure);
+  }
+
+  void _finish([Object? failure]) {
+    final route = ModalRoute.of<Object>(context)!;
+    if (route.isCurrent) {
+      Navigator.of(context).pop(failure);
+    } else if (route.isActive) {
+      Navigator.of(context).removeRoute(route, failure);
+    }
+  }
+
+  void _cancel() {
+    if (_cancelled || _progress == null) return;
+    setState(() => _cancelled = true);
+    if (!_started) _finish();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = widget.theme;
+    final confirming = widget.confirmAll && !_started;
+    final label = _cancelled
+        ? l.agentStorageTransferCancelling
+        : _progress == null
+        ? l.agentRecycleRestoreSaving
+        : l.agentRecycleRestoring((_progress! * 100).floor());
+    return PopScope<Object>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _cancel();
+      },
+      child: AppDialog(
+        key: const ValueKey('recycle-restore-dialog'),
+        theme: theme,
+        constraints: const BoxConstraints(maxWidth: 440),
+        title: widget.confirmAll
+            ? l.agentRecycleRestoreAll
+            : l.agentRecycleRestore,
+        content: SizedBox(
+          width: 392,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                confirming
+                    ? l.agentRecycleRestoreAllConfirm(widget.ids.length)
+                    : label,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.5,
+                  color: theme.textColorSecondary,
+                ),
+              ),
+              if (!confirming) ...[
+                const SizedBox(height: 16),
+                LinearProgressIndicator(
+                  value: _progress,
+                  backgroundColor: theme.dividerColor,
+                  semanticsLabel: label,
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          if (_progress != null)
+            AppActionButton.dialog(
+              key: const ValueKey('cancel-recycle-restore'),
+              theme: theme,
+              label: l.settingsCancel,
+              onPressed: _cancelled ? null : _cancel,
+            ),
+          if (confirming)
+            AppActionButton.dialog(
+              key: const ValueKey('confirm-recycle-restore'),
+              theme: theme,
+              label: l.agentRecycleRestoreAll,
+              primary: true,
+              onPressed: _start,
+            ),
         ],
       ),
     );

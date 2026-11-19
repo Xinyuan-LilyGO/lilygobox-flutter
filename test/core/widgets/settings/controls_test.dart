@@ -112,6 +112,90 @@ void main() {
     );
   });
 
+  testWidgets(
+    'a long dropdown opens inside the viewport and its thumb reaches the last option',
+    (tester) async {
+      final themes = ThemeProvider();
+      addTearDown(themes.dispose);
+      int? chosen;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            platform: TargetPlatform.windows,
+            scrollbarTheme: const ScrollbarThemeData(
+              crossAxisMargin: 6,
+              mainAxisMargin: 6,
+            ),
+          ),
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.bottomCenter,
+              child: SizedBox(
+                width: 300,
+                child: SettingSelect<int>(
+                  theme: themes.themeData,
+                  value: 0,
+                  items: List.generate(
+                    10000,
+                    (index) => DropdownMenuItem(
+                      value: index,
+                      child: Text('Agent $index'),
+                    ),
+                  ),
+                  onChanged: (value) => chosen = value,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final trigger = find.byType(SettingSelect<int>);
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      final panel = find.byType(PopupMenuSurface);
+      final bounds = tester.getRect(panel);
+      expect(bounds.top, greaterThanOrEqualTo(PopupMenuSurface.verticalInset));
+      expect(bounds.height, PopupMenuSurface.listMaxHeight);
+      expect(bounds.bottom, lessThan(tester.getTopLeft(trigger).dy));
+      final bars = find.descendant(of: panel, matching: find.byType(Scrollbar));
+      expect(bars, findsOneWidget);
+      expect(find.byType(MenuItemSurface).evaluate().length, lessThan(50));
+      final first = find.ancestor(
+        of: find.text('Agent 1'),
+        matching: find.byType(MenuItemSurface),
+      );
+      expect(
+        bounds.right - tester.getRect(first).right,
+        greaterThanOrEqualTo(20),
+      );
+      final scroll = tester.widget<Scrollbar>(bars).controller!;
+      scroll.jumpTo(1);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 160));
+      final thumb = await tester.startGesture(
+        Offset(bounds.right - 8, bounds.top + 15),
+        kind: PointerDeviceKind.mouse,
+      );
+      await thumb.moveTo(Offset(bounds.right - 8, bounds.bottom - 3));
+      await thumb.up();
+      await tester.pumpAndSettle();
+      expect(scroll.position.extentAfter, closeTo(0, .01));
+      await tester.tap(find.text('Agent 9999'));
+      await tester.pumpAndSettle();
+      expect(chosen, 9999);
+      expect(panel, findsNothing);
+      await tester.binding.setSurfaceSize(const Size(500, 210));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpAndSettle();
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      final compact = tester.getRect(panel);
+      expect(compact.top, closeTo(PopupMenuSurface.verticalInset, .01));
+      expect(compact.height, lessThan(bounds.height));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('dropdown fades both ways and still selects and dismisses', (
     tester,
   ) async {

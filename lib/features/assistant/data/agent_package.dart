@@ -131,13 +131,14 @@ Future<void> _packageWorker(_PackageJob job) async {
       final payload = job.payload!;
       final content = Uint8List.fromList(utf8.encode(jsonEncode(payload)));
       check();
+      final checksum = await _checksum(content, cancellation, report);
       final manifest = Uint8List.fromList(
         utf8.encode(
           jsonEncode({
             'format': 'LilygoBox.agent-data',
             'version': 1,
             'type': payload['type'],
-            'sha256': sha256.convert(content).toString(),
+            'sha256': checksum,
             'size': content.length,
           }),
         ),
@@ -234,6 +235,35 @@ typedef _Report = void Function(
   int? total,
 });
 
+Future<String> _checksum(
+  Uint8List data,
+  CodecCancellation cancellation,
+  _Report report,
+) async {
+  Iterable<List<int>> chunks() sync* {
+    const chunkSize = 256 * 1024;
+    var lastPercent = -1;
+    report(AgentPackageStage.checksumming, completed: 0, total: data.length);
+    for (var offset = 0; offset < data.length; offset += chunkSize) {
+      if (cancellation.isCancelled) throw const AgentPackageCancelled();
+      final end = (offset + chunkSize).clamp(0, data.length);
+      yield Uint8List.sublistView(data, offset, end);
+      final percent = end * 100 ~/ data.length;
+      if (percent != lastPercent) {
+        lastPercent = percent;
+        report(
+          AgentPackageStage.checksumming,
+          completed: end,
+          total: data.length,
+        );
+      }
+    }
+  }
+
+  return (await sha256.bind(Stream<List<int>>.fromIterable(chunks())).first)
+      .toString();
+}
+
 Future<Map<String, dynamic>> _decode(
   Uint8List bytes,
   CodecCancellation cancellation,
@@ -299,9 +329,8 @@ Future<Map<String, dynamic>> _decode(
         }
       },
     );
-    report(AgentPackageStage.verifying);
     if (data.length != manifest['size'] ||
-        sha256.convert(data).toString() != manifest['sha256']) {
+        await _checksum(data, cancellation, report) != manifest['sha256']) {
       throw const FormatException('Package checksum mismatch');
     }
     report(AgentPackageStage.analyzing);

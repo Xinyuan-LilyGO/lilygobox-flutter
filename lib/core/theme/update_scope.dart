@@ -28,10 +28,22 @@ class ThemeUpdateScope extends StatefulWidget {
 
 class _ThemeUpdateScopeState extends State<ThemeUpdateScope> {
   CapturedThemes? _pausedThemes;
+  bool _notifyTheme = false;
+  ({ThemeProvider source, AppTheme palette, ThemeType type, String fontChoice})?
+  _publishedTheme;
 
   @override
   Widget build(BuildContext context) {
     final source = context.watch<ThemeProvider?>();
+    final snapshot = source == null
+        ? null
+        : (
+            source: source,
+            palette: source.themeData,
+            type: source.currentTheme,
+            fontChoice: source.fontChoice,
+          );
+    _notifyTheme = widget.active && snapshot != _publishedTheme;
     // 同时捕获继承的 Material、文字、图标及选区主题。
     // 否则这些依赖仍可能重建隐藏页面中的 Text，
     // 即使该页面的 ThemeProvider 通知已暂停。
@@ -39,7 +51,10 @@ class _ThemeUpdateScopeState extends State<ThemeUpdateScope> {
     DefaultTextStyle.of(context);
     IconTheme.of(context);
     DefaultSelectionStyle.of(context);
-    if (widget.active) _pausedThemes = null;
+    if (widget.active) {
+      _pausedThemes = null;
+      _publishedTheme = snapshot;
+    }
     final themes = widget.active
         ? InheritedTheme.capture(from: context, to: null)
         : _pausedThemes ??= InheritedTheme.capture(from: context, to: null);
@@ -50,7 +65,7 @@ class _ThemeUpdateScopeState extends State<ThemeUpdateScope> {
               value: source,
               // 上层作用域已经监听，避免在这里再次订阅
               // ChangeNotifier，以免绕过暂停机制。
-              updateShouldNotify: (_, _) => widget.active,
+              updateShouldNotify: (_, _) => _notifyTheme,
               child: widget.child,
             ),
     );

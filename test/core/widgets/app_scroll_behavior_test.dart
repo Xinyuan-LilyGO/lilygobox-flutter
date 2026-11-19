@@ -468,6 +468,65 @@ void main() {
     });
 
     testWidgets(
+      'replacing a wheel region keeps the new gesture on its reused position',
+      (tester) async {
+        final controller = ScrollController();
+        final parent = ValueNotifier(false);
+        addTearDown(controller.dispose);
+        addTearDown(parent.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            scrollBehavior: const AppScrollBehavior(),
+            home: Stack(
+              fit: StackFit.expand,
+              children: [
+                ListView(
+                  controller: controller,
+                  children: const [SizedBox(height: 10000)],
+                ),
+                ValueListenableBuilder<bool>(
+                  valueListenable: parent,
+                  builder: (context, value, _) => KeyedSubtree(
+                    key: ValueKey(value),
+                    child: const AppScrollBehavior(scrollbars: false)
+                        .buildScrollbar(
+                          context,
+                          const SizedBox.expand(),
+                          ScrollableDetails.vertical(controller: controller),
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        const point = Offset(200, 200);
+        await wheel(tester, point, 300);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 40));
+        final original = controller.position;
+        late double expectedOffset;
+        tester.binding.addPostFrameCallback((_) {
+          expectedOffset = controller.offset + 120;
+          tester.binding.handlePointerEvent(
+            const PointerScrollEvent(
+              kind: PointerDeviceKind.mouse,
+              position: point,
+              scrollDelta: Offset(0, 120),
+            ),
+          );
+        });
+        parent.value = true;
+        await tester.pump();
+        expect(controller.position, same(original));
+        expect(controller.position.isScrollingNotifier.value, isTrue);
+        await tester.pumpAndSettle();
+        expect(controller.offset, closeTo(expectedOffset, .01));
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
       'wheel target remains bounded when content shrinks during animation',
       (tester) async {
         final controller = ScrollController();

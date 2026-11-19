@@ -76,9 +76,70 @@ void main() {
       );
       expect(written.last.stage, AgentPackageStage.committing);
       expect(written.last.canCancel, isFalse);
+      for (final events in [written, read]) {
+        final checksums = events
+            .where((event) => event.stage == AgentPackageStage.checksumming)
+            .toList();
+        expect(checksums, isNotEmpty);
+        expect(checksums.first.fraction, 0);
+        expect(checksums.last.fraction, 1);
+        expect(
+          checksums.any((event) => event.fraction! > 0 && event.fraction! < 1),
+          isTrue,
+        );
+        var previous = 0;
+        for (final event in checksums) {
+          if (event.completed == 0) previous = 0;
+          expect(event.completed, greaterThanOrEqualTo(previous));
+          expect(event.completed, lessThanOrEqualTo(event.total!));
+          previous = event.completed!;
+        }
+      }
       expect(directory.listSync().whereType<File>().length, 1);
     },
   );
+
+  for (final exporting in [true, false]) {
+    test(
+      'cancelled ${exporting ? 'export' : 'import'} checksum preserves the original file',
+      () async {
+        final path = '${directory.path}/checksum.7z';
+        if (exporting) {
+          await File(path).writeAsString('Existing destination');
+        } else {
+          await AgentPackage.write(path, payload());
+        }
+        final before = await File(path).readAsBytes();
+        final cancellation = AgentPackageCancellation();
+        void onProgress(AgentPackageProgress progress) {
+          if (progress.stage == AgentPackageStage.checksumming &&
+              progress.fraction != null &&
+              progress.fraction! > 0 &&
+              progress.fraction! < 1) {
+            cancellation.cancel();
+          }
+        }
+
+        await expectLater(
+          exporting
+              ? AgentPackage.write(
+                  path,
+                  payload(),
+                  cancellation: cancellation,
+                  onProgress: onProgress,
+                )
+              : AgentPackage.read(
+                  path,
+                  cancellation: cancellation,
+                  onProgress: onProgress,
+                ),
+          throwsA(isA<AgentPackageCancelled>()),
+        );
+        expect(await File(path).readAsBytes(), before);
+        expect(directory.listSync().whereType<File>(), hasLength(1));
+      },
+    );
+  }
 
   test('cancelled compression keeps existing destination and removes temporary output', () async {
     final path = '${directory.path}/existing.7z';

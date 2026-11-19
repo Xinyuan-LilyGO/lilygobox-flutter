@@ -4440,6 +4440,30 @@ abstract class AppLocalizations {
   /// **'Agent workflow'**
   String get aiTopologyTitle;
 
+  /// No description provided for @aiTopologyLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading agents…'**
+  String get aiTopologyLoading;
+
+  /// No description provided for @aiTopologyRestoring.
+  ///
+  /// In en, this message translates to:
+  /// **'Restoring agents…'**
+  String get aiTopologyRestoring;
+
+  /// No description provided for @agentStorageTransferChecksumming.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking data integrity'**
+  String get agentStorageTransferChecksumming;
+
+  /// No description provided for @aiTopologyRestoreFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load the saved agents.'**
+  String get aiTopologyRestoreFailed;
+
   /// No description provided for @aiTopologyDescription.
   ///
   /// In en, this message translates to:
@@ -5100,6 +5124,12 @@ abstract class AppLocalizations {
   /// **'No saved memories.'**
   String get agentStorageEmpty;
 
+  /// No description provided for @agentStorageMemoriesLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading long-term memories…'**
+  String get agentStorageMemoriesLoading;
+
   /// No description provided for @agentStorageContent.
   ///
   /// In en, this message translates to:
@@ -5237,6 +5267,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Local storage usage'**
   String get agentStorageUsage;
+
+  /// No description provided for @agentStorageUsageLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading local storage usage…'**
+  String get agentStorageUsageLoading;
 
   /// No description provided for @agentStorageSearch.
   ///
@@ -5628,16 +5664,40 @@ abstract class AppLocalizations {
   /// **'Restore'**
   String get agentRecycleRestore;
 
+  /// No description provided for @agentRecycleRestoring.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing to restore… {percent}%'**
+  String agentRecycleRestoring(int percent);
+
+  /// No description provided for @agentRecycleRestoreSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving restored agents…'**
+  String get agentRecycleRestoreSaving;
+
   /// No description provided for @agentRecycleDelete.
   ///
   /// In en, this message translates to:
   /// **'Delete permanently'**
   String get agentRecycleDelete;
 
+  /// No description provided for @agentRecycleRestoreAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore all'**
+  String get agentRecycleRestoreAll;
+
+  /// No description provided for @agentRecycleRestoreAllConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore all {count, plural, =1{1 agent} other{{count} agents}} in the recycle bin?'**
+  String agentRecycleRestoreAllConfirm(int count);
+
   /// No description provided for @agentRecycleEmptyAction.
   ///
   /// In en, this message translates to:
-  /// **'Empty recycle bin'**
+  /// **'Empty all'**
   String get agentRecycleEmptyAction;
 
   /// No description provided for @agentRecycleDeleteHint.

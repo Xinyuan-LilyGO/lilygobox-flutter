@@ -67,6 +67,18 @@ class AppScrollBehavior extends MaterialScrollBehavior {
   /// 滚动条外缘到所属承载区边缘的统一距离；已有外层留白时须扣除。
   static const scrollbarEdgeInset = 6.0;
 
+  static void correctForContentChange(
+    ScrollPosition position,
+    double correction,
+  ) {
+    position.correctBy(correction);
+    final region = _WheelRegionState._regionsByPosition[position];
+    if (region != null && (region._wheelActivity?.active ?? false)) {
+      region._target = region._target! + correction;
+      region._wheelSimulation!.shift(correction);
+    }
+  }
+
   /// 自绘滚动条时只关闭装饰，保留平滑滚轮与嵌套事件仲裁。
   final bool scrollbars;
 
@@ -181,6 +193,7 @@ class _WheelRegionState extends State<_WheelRegion>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static _WheelRegionState? _activeAutoScroll;
   static PointerEvent? _lastMiddleDown;
+  static final _regionsByPosition = Expando<_WheelRegionState>();
   static const _deadZone = 12.0;
   late final Ticker _autoTicker;
   OverlayEntry? _autoOverlay;
@@ -228,7 +241,7 @@ class _WheelRegionState extends State<_WheelRegion>
   @override
   void deactivate() {
     _stopAutoScroll();
-    _stopWheelScroll();
+    _stopWheelScroll(afterFrame: true);
     super.deactivate();
   }
 
@@ -398,11 +411,23 @@ class _WheelRegionState extends State<_WheelRegion>
   _WheelSimulation? _wheelSimulation;
   final _wheelAcceleration = WheelScrollAcceleration();
 
-  void _stopWheelScroll() {
-    _wheelActivity?.stop();
+  void _stopWheelScroll({bool afterFrame = false}) {
+    final activity = _wheelActivity;
+    if (activity != null && activity.active) {
+      if (afterFrame) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => activity.stop());
+      } else {
+        activity.stop();
+      }
+    }
     _wheelActivity = null;
     _wheelSimulation = null;
     _target = null;
+    if (_position case final position?) {
+      if (identical(_regionsByPosition[position], this)) {
+        _regionsByPosition[position] = null;
+      }
+    }
     _position = null;
     _wheelAcceleration.reset();
   }
@@ -461,6 +486,7 @@ class _WheelRegionState extends State<_WheelRegion>
         _target != null && (_target! - position.pixels) * delta < 0;
     if (!continuing || reversing) _target = position.pixels;
     _position = position;
+    _regionsByPosition[position] = this;
     final target = (_target! + delta)
         .clamp(position.minScrollExtent, position.maxScrollExtent)
         .toDouble();
@@ -539,6 +565,11 @@ class _WheelSimulation extends Simulation {
   double _startVelocity;
   double _startTime = 0;
   double _time = 0;
+
+  void shift(double correction) {
+    _from += correction;
+    _target += correction;
+  }
 
   void retarget(double target, {required bool reverse}) {
     final current = x(_time);

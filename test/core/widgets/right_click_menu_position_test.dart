@@ -55,8 +55,55 @@ void main() {
   }
 
   testWidgets(
+    'card menu builds its items on demand and uses the current item count',
+    (tester) async {
+      final theme = ThemeProvider();
+      addTearDown(theme.dispose);
+      final controller = RightClickMenuController();
+      var builds = 0;
+      var count = 3;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => RightClickMenuBuilder.buildMenuAnchor(
+                context: context,
+                controller: controller,
+                theme: theme.themeData,
+                onSecondaryTap: () {},
+                menuItemsBuilder: () {
+                  builds++;
+                  return [
+                    for (var index = 0; index < count; index++)
+                      RightClickMenuItem(label: 'Action $index'),
+                  ];
+                },
+                child: const ColoredBox(
+                  color: Colors.white,
+                  child: SizedBox.expand(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(builds, 0);
+      count = 7;
+      await tester.tapAt(
+        const Offset(100, 150),
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Action 6'), findsOneWidget);
+      expect(builds, greaterThan(0));
+    },
+  );
+
+  testWidgets(
     'overflowing menu reserves scrollbar space outside item targets',
     (tester) async {
+      await tester.binding.setSurfaceSize(const Size(880, 1100));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       await mountMenu(tester, itemCount: 24);
       await tester.tapAt(
         const Offset(400, 200),
@@ -64,6 +111,11 @@ void main() {
       );
       await tester.pumpAndSettle();
       final panel = tester.getRect(find.byType(PopupMenuSurface));
+      final scroll = tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position;
+      expect(scroll.viewportDimension, lessThanOrEqualTo(640));
+      expect(scroll.maxScrollExtent, greaterThan(0));
       final firstItem = tester.getRect(
         find
             .ancestor(

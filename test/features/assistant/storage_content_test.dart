@@ -15,6 +15,7 @@ import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/widgets/action_button.dart';
 import 'package:lilygobox/core/widgets/app_scroll_behavior.dart';
 import 'package:lilygobox/core/widgets/desktop_card_selection.dart';
+import 'package:lilygobox/core/widgets/dialog_style.dart';
 import 'package:lilygobox/core/widgets/settings/select.dart';
 import 'package:lilygobox/core/widgets/title_bar_icon_button.dart';
 import 'package:lilygobox/features/assistant/data/agent_storage.dart';
@@ -27,6 +28,23 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import 'assistant_test_scope.dart';
+
+class _DelayedReadStorage extends AgentStorage {
+  _DelayedReadStorage({required super.path});
+
+  final pending = <String, Completer<void>>{};
+  int statsReads = 0;
+
+  @override
+  Future<Object?> request(
+    String operation, [
+    Map<String, Object?> args = const {},
+  ]) async {
+    if (operation == 'stats') statsReads++;
+    if (pending[operation] case final gate?) await gate.future;
+    return super.request(operation, args);
+  }
+}
 
 Future<void> tick(WidgetTester tester) async {
   for (var i = 0; i < 8; i++) {
@@ -52,7 +70,7 @@ void main() {
         final shell = AppShellProvider();
         final split = SplitViewProvider();
         late Directory directory;
-        late AgentStorage storage;
+        late _DelayedReadStorage storage;
         late AssistantTestScope scope;
         late AiWorkspaceProvider workspaces;
         String? owner;
@@ -102,7 +120,7 @@ void main() {
                 .load();
           }
           directory = await Directory.systemTemp.createTemp('storage-ui');
-          storage = AgentStorage(path: '${directory.path}/data.sqlite');
+          storage = _DelayedReadStorage(path: '${directory.path}/data.sqlite');
           scope = await createAssistantTestScope(
             theme: theme,
             language: language,
@@ -204,6 +222,25 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
         expect(find.byType(SettingSelect<String>), findsNothing);
+        storage.pending['stats'] = Completer<void>();
+        await tester.tap(find.text('刷新'));
+        await tester.pump();
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        expect(find.text('正在加载本地存储占用…'), findsOneWidget);
+        final manageButtons = tester.widgetList<AppActionButton>(
+          find.byWidgetPredicate(
+            (widget) => widget is AppActionButton && widget.label == '管理',
+          ),
+        );
+        expect(manageButtons, hasLength(4));
+        expect(
+          manageButtons.every((button) => button.onPressed != null),
+          isTrue,
+        );
+        storage.pending.remove('stats')!.complete();
+        await tick(tester);
+        expect(find.text('正在加载本地存储占用…'), findsNothing);
+        expect(find.byType(CircularProgressIndicator), findsNothing);
         // The overview combines chat bodies, attachments and context.
         expect(find.text('聊天记录与上下文'), findsNWidgets(2));
         for (final retired in ['正文与附件', '聊天记录', '上下文缓存', '记忆历史版本']) {
@@ -331,15 +368,23 @@ void main() {
         await tick(tester);
         expect(workspaces.find(recycledId), isNotNull);
         expect(find.text('回收站为空'), findsOneWidget);
-        final emptyRecycleButton = find.byWidgetPredicate(
-          (widget) => widget is AppActionButton && widget.label == '清空回收站',
+        final emptyRecycleButton = find.byKey(
+          const ValueKey('recycle-empty-all'),
         );
         expect(
           tester.widget<AppActionButton>(emptyRecycleButton).onPressed,
           isNull,
         );
         expect(
-          tester.widget<Text>(find.text('清空回收站')).style!.color,
+          tester
+              .widget<Text>(
+                find.descendant(
+                  of: emptyRecycleButton,
+                  matching: find.byType(Text),
+                ),
+              )
+              .style!
+              .color,
           isNot(palette.materialColors.onError),
         );
         expect(
@@ -348,6 +393,46 @@ void main() {
         );
         await tester.tap(find.text('关闭'));
         await tick(tester);
+        if (type == ThemeType.dark && scale == 1.0) {
+          final readsBeforeBrowsing = storage.statsReads;
+          final oldOwnerRead = storage.pending['memories'] = Completer<void>();
+          await tester.tap(find.text('管理').first);
+          await tick(tester);
+          await tester.tap(find.byType(SettingSelect<String>));
+          await tick(tester);
+          final newOwnerRead = storage.pending['memories'] = Completer<void>();
+          await tester.tap(find.textContaining('Recoverable agent').last);
+          await tick(tester);
+          await tester.tap(find.text('添加记忆'));
+          await tick(tester);
+          await tester.enterText(find.byType(TextField).last, 'New owner only');
+          storage.pending.remove('memories');
+          await tester.tap(find.text('保存'));
+          await tick(tester);
+          newOwnerRead.complete();
+          oldOwnerRead.completeError(StateError('outdated read'));
+          await tick(tester);
+          expect(find.text('New owner only'), findsOneWidget);
+          expect(find.textContaining('outdated read'), findsNothing);
+          await tester.runAsync(() async {
+            expect(
+              (await storage.memories(recycledId)).single['content'],
+              'New owner only',
+            );
+            expect(
+              await storage.memories(owner!, query: 'New owner only'),
+              isEmpty,
+            );
+          });
+          await tester.tap(find.text('关闭'));
+          await tick(tester);
+          expect(storage.statsReads, readsBeforeBrowsing + 1);
+          await tester.tap(find.text('管理').first);
+          await tick(tester);
+          await tester.tap(find.text('关闭'));
+          await tick(tester);
+          expect(storage.statsReads, readsBeforeBrowsing + 1);
+        }
         await tester.runAsync(() async {
           workspaces.removeMany([recycledId]);
           await storage.putMemory(
@@ -357,8 +442,35 @@ void main() {
           );
           await workspaces.flush();
         });
+        final initialRead = storage.pending['memories'] = Completer<void>();
         await tester.tap(find.text('管理').first);
         await tick(tester);
+        expect(find.text('正在加载长期记忆…'), findsOneWidget);
+        expect(
+          tester
+              .widget<SettingSelect<String>>(find.byType(SettingSelect<String>))
+              .onChanged,
+          isNotNull,
+        );
+        expect(
+          tester.widget<TextField>(find.byType(TextField).first).enabled,
+          isNot(false),
+        );
+        await tester.tap(find.text('添加记忆'));
+        await tick(tester);
+        expect(find.byType(Dialog), findsNWidgets(2));
+        await tester.tap(find.text('取消'));
+        await tick(tester);
+        await tester.tap(find.text('关闭'));
+        await tick(tester);
+        expect(find.byType(Dialog), findsNothing);
+        storage.pending.remove('memories');
+        await tester.tap(find.text('管理').first);
+        await tick(tester);
+        initialRead.complete();
+        await tick(tester);
+        expect(find.text('正在加载长期记忆…'), findsNothing);
+        expect(tester.takeException(), isNull);
         expect(find.byType(Dialog), findsOneWidget);
         expect(find.byType(SettingSelect<String>), findsOneWidget);
         // Dialog controls leave a gutter; only one scrollbar owns this viewport.
@@ -591,8 +703,24 @@ void main() {
           findsNothing,
         );
         await tester.enterText(searchField, 'zzzxqv987654321');
+        storage.pending['memories'] = Completer<void>();
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pump();
+        expect(find.text('正在加载长期记忆…'), findsOneWidget);
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        expect(find.text('暂无已保存的记忆。'), findsNothing);
+        final outdatedSearch = storage.pending.remove('memories')!;
+        await tester.enterText(searchField, 'long-example');
         await tester.testTextInput.receiveAction(TextInputAction.done);
         await tick(tester);
+        expect(longPreview, findsOneWidget);
+        outdatedSearch.complete();
+        await tick(tester);
+        expect(longPreview, findsOneWidget);
+        await tester.enterText(searchField, 'zzzxqv987654321');
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tick(tester);
+        expect(find.text('正在加载长期记忆…'), findsNothing);
         expect(find.text('暂无已保存的记忆。'), findsOneWidget);
         final addMemoryButton = find.byWidgetPredicate(
           (widget) => widget is AppActionButton && widget.label == '添加记忆',
@@ -620,7 +748,22 @@ void main() {
         final automaticMemory = find.byKey(
           const ValueKey('storage-auto-memory-switch'),
         );
-        expect(tester.widget<Switch>(automaticMemory).value, isTrue);
+        final memoryControl = tester.widget<Switch>(automaticMemory);
+        expect(memoryControl.value, isTrue);
+        expect(
+          memoryControl.activeThumbColor,
+          palette.materialColors.onPrimary,
+        );
+        expect(
+          memoryControl.inactiveThumbColor,
+          palette.materialColors.onPrimary,
+        );
+        expect(
+          memoryControl.inactiveTrackColor,
+          palette.selectControlColorForSurface(
+            AppDialogStyle.backgroundColor(palette),
+          ),
+        );
         await tester.ensureVisible(automaticMemory);
         await tester.tap(automaticMemory);
         await tick(tester);
@@ -637,8 +780,9 @@ void main() {
         );
         await tester.ensureVisible(useMemory);
         await tester.tap(useMemory);
-        await tick(tester);
+        await tester.pump();
         expect(tester.widget<Switch>(automaticMemory).onChanged, isNull);
+        expect(tester.widget<Switch>(useMemory).onChanged, isNotNull);
         await tester.tap(useMemory);
         await tick(tester);
         expect(tester.widget<Switch>(automaticMemory).onChanged, isNotNull);

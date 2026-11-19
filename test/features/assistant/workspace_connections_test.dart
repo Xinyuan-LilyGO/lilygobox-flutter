@@ -778,7 +778,7 @@ void main() {
       final second = await task('Second', parent: adjacent.id);
       final deeper = await task('Deeper', parent: second.id);
       final permissions = second.assistant.permissions;
-      final messages = second.assistant.messages;
+      final messages = second.assistant.messages.toList();
       expect(
         workspaces.promotedRootsForDeletion([middle.id, adjacent.id]).keys,
         isEmpty,
@@ -1020,6 +1020,79 @@ void main() {
       expect(workspaces.sessions, isEmpty);
     },
   );
+
+  test('restores ten thousand saved agents in reverse parent order', () async {
+    const count = 10000;
+    await reload(
+      replacement: {
+        'version': 1,
+        'connections': [],
+        'sessions': [
+          for (var index = count - 1; index >= 0; index--)
+            {
+              'id': '1000-$index',
+              'parentId': index == 0 ? null : '1000-${index - 1}',
+              'kind': index == 0 ? 'primary' : 'permanent',
+              'title': 'Task $index',
+              'task': 'Local fixture',
+              'conversation': {
+                'model': '',
+                'serviceId': '',
+                'messages': [],
+                'history': [],
+              },
+            },
+        ],
+      },
+    );
+    expect(workspaces.persistenceError, isNull);
+    expect(workspaces.sessions, hasLength(count));
+    expect(workspaces.sessions.first.id, '1000-0');
+    expect(workspaces.sessions.last.parentId, '1000-${count - 2}');
+    expect(workspaces.primaries.single.id, '1000-0');
+  });
+
+  for (final (parent, reason) in [
+    ('1000-1', 'Agent topology contains a cycle'),
+    ('1000-99', 'Invalid saved parent agent'),
+  ]) {
+    test('rejects saved parent $parent when restoring a chain', () async {
+      await reload(
+        replacement: {
+          'version': 1,
+          'connections': [],
+          'sessions': [
+            for (final (id, parentId) in [
+              ('1000-1', '1000-0'),
+              ('1000-0', parent),
+            ])
+              {
+                'id': id,
+                'parentId': parentId,
+                'kind': 'permanent',
+                'title': 'Task $id',
+                'task': 'Local fixture',
+                'conversation': {
+                  'model': '',
+                  'serviceId': '',
+                  'messages': [],
+                  'history': [],
+                },
+              },
+          ],
+        },
+      );
+      expect(
+        workspaces.persistenceError,
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          reason,
+        ),
+      );
+      expect(workspaces.sessions, isEmpty);
+    });
+  }
 
   test(
     'stored cross-tree links restore and group-copy with one main per workflow',

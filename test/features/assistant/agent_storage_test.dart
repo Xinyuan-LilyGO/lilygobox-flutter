@@ -21,6 +21,24 @@ Future<void> waitForStorage(bool Function() condition) async {
 }
 
 void main() {
+  test('storage usage reuses reads until a write or manual refresh', () async {
+    final store = AgentStorage(path: ':memory:');
+    addTearDown(store.close);
+    final first = store.readStats();
+    expect(store.readStats(), same(first));
+    expect((await first)['memories'], 0);
+    await store.memories('owner');
+    expect(store.readStats(), same(first));
+    await store.putMemory(id: 'first', owner: 'owner', content: 'Test');
+    final updated = store.readStats();
+    expect((await updated)['memories'], 1);
+    final manual = store.readStats(force: true);
+    expect(manual, isNot(same(updated)));
+    await manual;
+    await store.deleteMemory('first');
+    expect((await store.readStats())['memories'], 0);
+  });
+
   test(
     'complete memory IDs take precedence over content and remain owner-scoped',
     () async {
@@ -331,7 +349,18 @@ void main() {
       final path = '${dir.path}/main.db';
       final store = AgentStorage(path: path);
       addTearDown(store.close);
-      await store.saveWorkflow({'keep': 'live content ' * 100});
+      final recycledRecord = {
+        'id': 'agent',
+        'conversation': {
+          'messages': ['recycled chat content ' * 100],
+        },
+      };
+      await store.saveWorkflow({
+        'keep': 'live content ' * 100,
+        'recycleBin': [
+          {'record': jsonEncode(recycledRecord)},
+        ],
+      });
       await store.putMemory(
         id: 'memory',
         owner: 'agent',
@@ -357,6 +386,9 @@ void main() {
       expect(result['bytesFreed'], greaterThan(0));
       expect(await store.request('readWorkflowData'), {
         'keep': 'live content ' * 100,
+        'recycleBin': [
+          {'record': recycledRecord},
+        ],
       });
       expect(
         (await store.memories('agent')).single['content'],
@@ -547,6 +579,93 @@ void main() {
       );
     },
   );
+  test(
+    'encoded recycle snapshots preserve schema across updates and restart',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'encoded-recycle-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final path = '${directory.path}/main.db';
+      final store = AgentStorage(path: path);
+      addTearDown(store.close);
+      final record = {
+        'id': 'recycled-agent',
+        'title': 'Recycled agent',
+        'conversation': {
+          'messages': [
+            {'content': 'Complete recycled history ' * 1000},
+          ],
+        },
+      };
+      final encoded = jsonEncode(record);
+      Map<String, Object?> workflow(Object source, int position) => {
+        'sessions': <Object?>[],
+        'canvas': {
+          'active': [position, position],
+        },
+        'recycleBin': [
+          {
+            'record': source,
+            'deletedAt': '2026-11-16T12:00:00.000',
+            'connections': <Object?>[],
+          },
+        ],
+      };
+      for (var position = 0; position < 3; position++) {
+        await store.saveWorkflow(workflow(encoded, position));
+        expect(
+          await store.request('readWorkflowData'),
+          workflow(record, position),
+        );
+      }
+      final changed = {...record, 'title': 'Changed recycled agent'};
+      await store.saveWorkflow(workflow(jsonEncode(changed), 4));
+      expect(await store.request('readWorkflowData'), workflow(changed, 4));
+      await store.saveWorkflow({'sessions': [], 'recycleBin': []});
+      await store.saveWorkflow(workflow(encoded, 5));
+      await store.close();
+      final reopened = AgentStorage(path: path);
+      addTearDown(reopened.close);
+      expect(await reopened.request('readWorkflowData'), workflow(record, 5));
+    },
+  );
+  test('failed import does not cache recycle objects rolled back by its transaction', () async {
+    final store = AgentStorage(path: ':memory:');
+    addTearDown(store.close);
+    await store.saveWorkflow({'sessions': [], 'recycleBin': []});
+    final record = {
+      'id': 'recycled-agent',
+      'conversation': {
+        'messages': [
+          {'content': 'New object in a rolled back transaction ' * 1000},
+        ],
+      },
+    };
+    final workflow = {
+      'sessions': <Object?>[],
+      'recycleBin': [
+        {'record': jsonEncode(record)},
+      ],
+    };
+    await expectLater(
+      store.commitImport(workflow, [
+        {'id': 'invalid', 'owner': 'global', 'content': 'Rejected memory'},
+      ]),
+      throwsStateError,
+    );
+    expect(await store.request('readWorkflowData'), {
+      'sessions': [],
+      'recycleBin': [],
+    });
+    await store.saveWorkflow(workflow);
+    expect(await store.request('readWorkflowData'), {
+      'sessions': [],
+      'recycleBin': [
+        {'record': record},
+      ],
+    });
+  });
   test(
     'conversation codec retains attachments, tools, elapsed and timeline',
     () {

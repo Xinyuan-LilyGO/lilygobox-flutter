@@ -2326,6 +2326,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiTopologyTitle => '智能体工作流';
 
   @override
+  String get aiTopologyLoading => '正在加载智能体…';
+
+  @override
+  String get aiTopologyRestoring => '正在恢复智能体…';
+
+  @override
+  String get agentStorageTransferChecksumming => '正在校验数据完整性';
+
+  @override
+  String get aiTopologyRestoreFailed => '未能读取已保存的智能体。';
+
+  @override
   String get aiTopologyDescription => '连接各级智能体，协同处理工作。';
 
   @override
@@ -2679,6 +2691,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStorageEmpty => '暂无已保存的记忆。';
 
   @override
+  String get agentStorageMemoriesLoading => '正在加载长期记忆…';
+
+  @override
   String get agentStorageContent => '记忆内容';
 
   @override
@@ -2753,6 +2768,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agentStorageUsage => '本地存储占用';
+
+  @override
+  String get agentStorageUsageLoading => '正在加载本地存储占用…';
 
   @override
   String get agentStorageSearch => '搜索记忆';
@@ -2959,10 +2977,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentRecycleRestore => '还原';
 
   @override
+  String agentRecycleRestoring(int percent) {
+    return '正在准备还原… $percent%';
+  }
+
+  @override
+  String get agentRecycleRestoreSaving => '正在保存已还原的智能体…';
+
+  @override
   String get agentRecycleDelete => '永久删除';
 
   @override
-  String get agentRecycleEmptyAction => '清空回收站';
+  String get agentRecycleRestoreAll => '全部还原';
+
+  @override
+  String agentRecycleRestoreAllConfirm(int count) {
+    return '还原回收站中的全部 $count 个智能体？';
+  }
+
+  @override
+  String get agentRecycleEmptyAction => '全部清空';
 
   @override
   String get agentRecycleDeleteHint => '聊天记录、附件和记忆将被永久删除，此操作无法撤销。';

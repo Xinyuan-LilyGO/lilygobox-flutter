@@ -5,6 +5,7 @@ enum AgentPackageStage {
   compressing,
   decompressing,
   verifying,
+  checksumming,
   analyzing,
   writing,
   committing,

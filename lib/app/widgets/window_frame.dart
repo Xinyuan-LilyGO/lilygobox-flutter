@@ -39,6 +39,7 @@ class _AppWindowFrameState extends State<AppWindowFrame> {
   Window? _window;
   ListenerId? _windowListener;
   bool _snapped = false;
+  bool? _opaqueSurface;
   int _request = 0;
   bool get _windows =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
@@ -52,12 +53,11 @@ class _AppWindowFrameState extends State<AppWindowFrame> {
         if (call.method == 'layoutChanged' && call.arguments is bool) {
           ++_request;
           final snapped = call.arguments as bool;
-          if (mounted && _snapped != snapped) {
-            setState(() => _snapped = snapped);
-          }
+          _setSnapped(snapped);
         }
       });
       _window = widget.window ?? currentDesktopWindow();
+      _syncNativeSurface();
       _windowListener = _window?.addListener((event) {
         if (event is WindowMovedEvent ||
             event is WindowResizedEvent ||
@@ -70,13 +70,33 @@ class _AppWindowFrameState extends State<AppWindowFrame> {
     }
   }
 
+  @override
+  void didUpdateWidget(AppWindowFrame oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isMaximized != widget.isMaximized) _syncNativeSurface();
+  }
+
+  void _syncNativeSurface() {
+    final window = _window;
+    final opaque = widget.isMaximized || _snapped;
+    if (window == null || _opaqueSurface == opaque) return;
+    _opaqueSurface = opaque;
+    window.backgroundColor =
+        (opaque ? widget.theme.primary.withAlpha(255) : Colors.transparent)
+            .toNative();
+  }
+
+  void _setSnapped(bool snapped) {
+    if (!mounted || _snapped == snapped) return;
+    setState(() => _snapped = snapped);
+    _syncNativeSurface();
+  }
+
   Future<void> _refreshLayout() async {
     final request = ++_request;
     try {
       final snapped = await _channel.invokeMethod<bool>('isSnapped') ?? false;
-      if (mounted && request == _request && _snapped != snapped) {
-        setState(() => _snapped = snapped);
-      }
+      if (request == _request) _setSnapped(snapped);
     } on MissingPluginException {
       // 其他平台和不包含原生通道的测试环境保持普通窗口外观。
     } on PlatformException catch (error) {

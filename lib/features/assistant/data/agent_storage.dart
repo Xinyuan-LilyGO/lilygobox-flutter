@@ -34,6 +34,21 @@ class AgentStorage {
   bool _closed = false;
   int _memoryRevision = 0;
   int get memoryRevision => _memoryRevision;
+  Future<Map<String, Object?>>? _statsRead;
+
+  Future<Map<String, Object?>> readStats({bool force = false}) {
+    if (force) _statsRead = null;
+    if (_statsRead case final existing?) return existing;
+    late final Future<Map<String, Object?>> read;
+    read = request('stats')
+        .then((value) => Map<String, Object?>.from(value as Map))
+        .onError((Object error, StackTrace stack) {
+          if (identical(_statsRead, read)) _statsRead = null;
+          Error.throwWithStackTrace(error, stack);
+        });
+    return _statsRead = read;
+  }
+
   String? databasePath;
   Future<void> get ready => _opening ??= _open();
 
@@ -56,6 +71,10 @@ class AgentStorage {
     }
 
     _responses.listen((dynamic data) {
+      if (data == 'statsInvalidated') {
+        _statsRead = null;
+        return;
+      }
       if (data is SendPort) {
         _worker = data;
         started.complete();
@@ -115,6 +134,9 @@ class AgentStorage {
       'deleteMemory',
     }.contains(operation)) {
       _memoryRevision++;
+      _statsRead = null;
+    } else if (operation == 'saveWorkflow' || operation == 'clean') {
+      _statsRead = null;
     }
     return value;
   }
@@ -200,6 +222,12 @@ class AgentStorage {
   }
 }
 
+class _PackedRecycleRecord {
+  const _PackedRecycleRecord(this.value);
+
+  final Object? value;
+}
+
 void _databaseWorker(List<dynamic> initialization) {
   final db = sqlite3.open(initialization[0] as String);
   final replies = initialization[1] as SendPort;
@@ -236,9 +264,12 @@ void _databaseWorker(List<dynamic> initialization) {
     }
   }
 
-  void saveWorkflow(Object source) {
+  var packedRecycleRecords = <String, Object?>{};
+
+  Map<String, Object?> saveWorkflow(Object source) {
     final known = <String>{};
     Object? pack(Object? value) {
+      if (value is _PackedRecycleRecord) return value.value;
       if (value is String && value.length > 256) {
         final bytes = utf8.encode(value);
         final hash = sha256.convert(bytes).toString();
@@ -256,7 +287,29 @@ void _databaseWorker(List<dynamic> initialization) {
       return value;
     }
 
-    final data = source is String ? jsonDecode(source) : source;
+    var data = source is String ? jsonDecode(source) : source;
+    final nextRecycleRecords = <String, Object?>{};
+    if (data is Map && data['recycleBin'] is List) {
+      final recycled = <Object?>[];
+      for (final entry in data['recycleBin'] as List) {
+        if (entry is Map && entry['record'] is String) {
+          final record = entry['record'] as String;
+          final packedRecord = nextRecycleRecords.putIfAbsent(
+            record,
+            () => packedRecycleRecords.containsKey(record)
+                ? packedRecycleRecords[record]
+                : pack(jsonDecode(record)),
+          );
+          recycled.add({
+            ...entry,
+            'record': _PackedRecycleRecord(packedRecord),
+          });
+        } else {
+          recycled.add(entry);
+        }
+      }
+      data = {...data, 'recycleBin': recycled};
+    }
     if (data is Map && data['sessions'] is List) {
       final ids = <String>{};
       for (final session in data['sessions'] as List) {
@@ -288,6 +341,7 @@ void _databaseWorker(List<dynamic> initialization) {
       "INSERT INTO state VALUES('workflow',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
       [jsonEncode(packed)],
     );
+    return nextRecycleRecords;
   }
 
   Object? expand(Object? value) {
@@ -452,7 +506,7 @@ void _databaseWorker(List<dynamic> initialization) {
     final idle = now.difference(lastActivity) >= idleDelay;
     try {
       if (objectsDirty) {
-        transaction(collectObjects);
+        if (transaction(collectObjects) > 0) replies.send('statsInvalidated');
         objectsDirty = false;
       }
       // PASSIVE 检查点不等待其他连接；仅在空闲且可回收页不少于 8 MiB、
@@ -471,6 +525,7 @@ void _databaseWorker(List<dynamic> initialization) {
             vacuumAllowed) {
           db.execute('PRAGMA wal_checkpoint(TRUNCATE)');
           db.execute('VACUUM');
+          replies.send('statsInvalidated');
           db.execute('PRAGMA wal_checkpoint(TRUNCATE)');
           lastVacuum = DateTime.now();
         } else {
@@ -520,8 +575,8 @@ void _databaseWorker(List<dynamic> initialization) {
         case 'saveWorkflow':
         case 'commitImport':
         case 'commitRecycle':
-          transaction(() {
-            saveWorkflow(a['value'] as Object);
+          packedRecycleRecords = transaction(() {
+            final nextRecycleRecords = saveWorkflow(a['value'] as Object);
             if (op == 'commitRecycle') {
               for (final owner in a['owners'] as List) {
                 db.execute(
@@ -536,6 +591,7 @@ void _databaseWorker(List<dynamic> initialization) {
                 putMemory(memory as Map);
               }
             }
+            return nextRecycleRecords;
           });
         case 'copyMemories':
           transaction(() {
@@ -779,10 +835,6 @@ void _databaseWorker(List<dynamic> initialization) {
               'workflow': workflowBytes,
               'recycleBin': recycleBinBytes,
             },
-            'scopes': db
-                .select('SELECT DISTINCT owner FROM memories')
-                .map((r) => r['owner'])
-                .toList(),
           };
         case 'clean':
           final before = physicalBytes();

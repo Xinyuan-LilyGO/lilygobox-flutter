@@ -1,7 +1,8 @@
 param(
   [string]$Flutter = "flutter",
   [string]$LogPath = "tmp/window-accessibility.log",
-  [int]$Cycles = 24
+  [int]$Cycles = 24,
+  [string]$Target = "integration_test/window_accessibility_test.dart"
 )
 
 # Native AXTree errors do not reach tester.takeException(), so validate the
@@ -11,7 +12,7 @@ Push-Location -LiteralPath $taskRoot
 try {
   $logParent = Split-Path -Parent $LogPath
   if ($logParent) { New-Item -ItemType Directory -Path $logParent -Force | Out-Null }
-  & $Flutter drive --no-pub --driver=test_driver/tray_theme.dart --target=integration_test/window_accessibility_test.dart "--dart-define=WINDOW_CYCLES=$Cycles" -d windows 2>&1 |
+  & $Flutter drive --no-pub --driver=test_driver/tray_theme.dart "--target=$Target" "--dart-define=WINDOW_CYCLES=$Cycles" -d windows 2>&1 |
     Tee-Object -FilePath $LogPath
   $testExitCode = $LASTEXITCODE
   if ($testExitCode -ne 0) { throw "Windows integration test failed ($testExitCode). See $LogPath" }

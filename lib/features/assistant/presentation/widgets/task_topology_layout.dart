@@ -12,12 +12,10 @@ Map<String, Offset> layoutTaskTopology({
   const siblingGap = 64.0;
   const columnWidth = 470.0;
   const fallbackSize = Size(252, 164);
-  final visible = sessions.toList();
-  final byId = {for (final task in visible) task.id: task};
-  final order = {for (var i = 0; i < visible.length; i++) visible[i].id: i};
+  final byId = {for (final task in sessions) task.id: task};
   Size size(String id) => nodeSizes[id] ?? fallbackSize;
   final hierarchy = <String, List<String>>{};
-  for (final task in visible) {
+  for (final task in sessions) {
     if (byId.containsKey(task.parentId)) {
       hierarchy.putIfAbsent(task.parentId!, () => []).add(task.id);
     }
@@ -30,56 +28,81 @@ Map<String, Offset> layoutTaskTopology({
             byId.containsKey(edge.toId),
       )
       .toList();
+  final roots = sessions.where((task) => !byId.containsKey(task.parentId));
+  final seen = <String>{};
+  final pending = <String>[];
+  void appendSubtree(String start, List<String> preorder) {
+    if (seen.contains(start)) return;
+    pending.add(start);
+    while (pending.isNotEmpty) {
+      final id = pending.removeLast();
+      if (!seen.add(id)) continue;
+      preorder.add(id);
+      if (hierarchy[id] case final children?) {
+        pending.addAll(children.reversed);
+      }
+    }
+  }
+
   if (peers.isEmpty) {
     final positions = <String, Offset>{};
     final heights = <String, double>{};
-    double measure(String id, Set<String> ancestors) {
-      if (ancestors.contains(id)) return size(id).height;
-      if (heights[id] case final height?) return height;
-      final children = hierarchy[id] ?? const <String>[];
-      final childHeight =
-          children.fold<double>(
-            0,
-            (sum, child) => sum + measure(child, {...ancestors, id}),
-          ) +
-          math.max(0, children.length - 1) * siblingGap;
-      return heights[id] = math.max(size(id).height, childHeight);
-    }
-
-    void place(String id, double x, double top) {
-      if (positions.containsKey(id)) return;
-      final height = measure(id, {});
-      positions[id] = Offset(x, top + (height - size(id).height) / 2);
-      final children = hierarchy[id] ?? const <String>[];
-      final span = children.length < 2
-          ? 0.0
-          : height -
-                (measure(children.first, {}) + measure(children.last, {})) / 2;
-      // 为纵向跨度大的分支增加水平空间，不拉伸小型树。
-      final childX =
-          x + math.max(columnWidth, size(id).width + math.max(218, span / 4));
-      var childTop = top;
-      for (final child in children) {
-        place(child, childX, childTop);
-        childTop += measure(child, {}) + siblingGap;
-      }
-    }
-
+    final origins = <String, Offset>{};
+    final preorder = <String>[];
     var top = 140.0;
-    for (final task in [
-      ...visible.where((task) => !byId.containsKey(task.parentId)),
-      ...visible,
-    ]) {
-      if (positions.containsKey(task.id)) continue;
-      place(task.id, 180, top);
-      top += measure(task.id, {}) + 160;
+    for (final task in roots.followedBy(sessions)) {
+      if (seen.contains(task.id)) continue;
+      preorder.clear();
+      appendSubtree(task.id, preorder);
+      for (final id in preorder.reversed) {
+        final children = hierarchy[id] ?? const <String>[];
+        final childHeight = children.fold<double>(
+          0,
+          (sum, child) => sum + (heights[child] ?? size(child).height),
+        );
+        heights[id] = math.max(
+          size(id).height,
+          childHeight + math.max(0, children.length - 1) * siblingGap,
+        );
+      }
+      origins[task.id] = Offset(180, top);
+      top += heights[task.id]! + 160;
+      for (final id in preorder) {
+        final origin = origins.remove(id)!;
+        final height = heights[id]!;
+        positions[id] = Offset(
+          origin.dx,
+          origin.dy + (height - size(id).height) / 2,
+        );
+        if (hierarchy[id] case final children?) {
+          final span = children.length < 2
+              ? 0.0
+              : height -
+                    (heights[children.first]! + heights[children.last]!) / 2;
+          // 为纵向跨度大的分支增加水平空间，不拉伸小型树。
+          final childX =
+              origin.dx +
+              math.max(columnWidth, size(id).width + math.max(218, span / 4));
+          var childTop = origin.dy;
+          for (final child in children) {
+            if (!positions.containsKey(child)) {
+              origins[child] = Offset(childX, childTop);
+            }
+            childTop += heights[child]! + siblingGap;
+          }
+        }
+      }
     }
     return positions;
   }
 
   // 归属关系有方向，沟通连接无方向。布局时
   // 每个完整连通分量只处理一次，包括独立的根节点。
-  final adjacent = {for (final task in visible) task.id: <String>{}};
+  final order = {
+    for (var index = 0; index < sessions.length; index++)
+      sessions[index].id: index,
+  };
+  final adjacent = {for (final task in sessions) task.id: <String>{}};
   void link(String a, String b) {
     adjacent[a]!.add(b);
     adjacent[b]!.add(a);
@@ -95,11 +118,10 @@ Map<String, Offset> layoutTaskTopology({
   }
   final positions = <String, Offset>{};
   var componentTop = 140.0;
-  final seeds = [
-    ...visible.where((task) => task.kind == AiWorkspaceKind.primary),
-    ...visible.where((task) => !byId.containsKey(task.parentId)),
-    ...visible,
-  ];
+  final seeds = sessions
+      .where((task) => task.kind == AiWorkspaceKind.primary)
+      .followedBy(roots)
+      .followedBy(sessions);
   for (final seed in seeds) {
     if (positions.containsKey(seed.id)) continue;
     final component = <String>[];
@@ -121,58 +143,52 @@ Map<String, Offset> layoutTaskTopology({
         queue.add(neighbor);
       }
     }
-    // 即使沟通连接提供更短路径，也让下级保持在其实际
-    // 上级右侧。限制迭代次数，避免异常环导致无限循环。
-    for (var pass = 0; pass < component.length; pass++) {
-      var changed = false;
-      for (final id in component) {
-        final parent = byId[id]!.parentId;
-        if (rank.containsKey(parent) && rank[id]! <= rank[parent]!) {
-          rank[id] = rank[parent]! + 1;
-          changed = true;
+    final ranked = <String>{};
+    final parentPath = <String>[];
+    for (final id in component) {
+      if (ranked.contains(id)) continue;
+      String? parent = id;
+      while (parent != null && rank.containsKey(parent) && ranked.add(parent)) {
+        parentPath.add(parent);
+        parent = byId[parent]!.parentId;
+      }
+      final cycleStart = parentPath.contains(parent) ? parent : null;
+      for (final child in parentPath.reversed) {
+        if (child == cycleStart) continue;
+        if (rank[byId[child]!.parentId] case final parentRank?) {
+          rank[child] = math.max(rank[child]!, parentRank + 1);
         }
       }
-      if (!changed) break;
+      parentPath.clear();
+    }
+    final preorder = <String>[];
+    for (final id in component) {
+      appendSubtree(id, preorder);
     }
     final columns = <int, List<String>>{};
-    for (final id in component) {
+    for (final id in preorder) {
       columns.putIfAbsent(rank[id]!, () => []).add(id);
     }
     final ranks = columns.keys.toList()..sort();
-    // 稳定的归属先序遍历让同级及各自下级保持相邻。
-    final preorder = <String, int>{};
-    void visit(String id) {
-      if (preorder.containsKey(id)) return;
-      preorder[id] = preorder.length;
-      for (final child in hierarchy[id] ?? const <String>[]) {
-        visit(child);
-      }
-    }
-
-    visit(seed.id);
-    for (final id in component) {
-      visit(id);
-    }
-    for (final column in columns.values) {
-      column.sort((a, b) => preorder[a]!.compareTo(preorder[b]!));
-    }
-    double columnHeight(List<String> ids) =>
-        ids.fold<double>(0, (sum, id) => sum + size(id).height) +
-        math.max(0, ids.length - 1) * siblingGap;
-    final componentHeight = columns.values.map(columnHeight).reduce(math.max);
+    final columnHeights = [
+      for (final depth in ranks)
+        columns[depth]!.fold<double>(0, (sum, id) => sum + size(id).height) +
+            (columns[depth]!.length - 1) * siblingGap,
+    ];
+    final componentHeight = columnHeights.reduce(math.max);
     var x = 180.0;
-    for (final depth in ranks) {
-      final column = columns[depth]!;
-      var y = componentTop + (componentHeight - columnHeight(column)) / 2;
+    for (var index = 0; index < ranks.length; index++) {
+      final column = columns[ranks[index]]!;
+      final height = columnHeights[index];
+      var y = componentTop + (componentHeight - height) / 2;
       for (final id in column) {
         positions[id] = Offset(x, y);
         y += size(id).height + siblingGap;
       }
-      final nextRank = ranks.indexOf(depth) + 1;
-      final nextHeight = nextRank < ranks.length
-          ? columnHeight(columns[ranks[nextRank]]!)
+      final nextHeight = index + 1 < ranks.length
+          ? columnHeights[index + 1]
           : 0.0;
-      final span = math.max(columnHeight(column), nextHeight);
+      final span = math.max(height, nextHeight);
       x += math.max(
         columnWidth,
         column.map((id) => size(id).width).reduce(math.max) +
