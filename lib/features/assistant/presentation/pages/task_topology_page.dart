@@ -815,7 +815,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         _movedNodes.clear();
         workspaces.canvasPositions.clear();
         _sceneOrigin.value = Offset.zero;
-        _positions = _layout(sessions);
+        _positions = _layout(sessions, incremental: false);
       });
       _fit(animate: true);
     });
@@ -2168,7 +2168,10 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   List<Object> _layoutSignature = const [];
   Map<String, Offset> _automaticPositions = const {};
 
-  Map<String, Offset> _layout(List<AiAgentWorkspace> sessions) {
+  Map<String, Offset> _layout(
+    List<AiAgentWorkspace> sessions, {
+    bool incremental = true,
+  }) {
     final workspace = context.read<AiWorkspaceProvider>();
     final placed = <String, Offset>{};
     for (final session in sessions) {
@@ -2181,6 +2184,36 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       if (_movedNodes[id] case final position?) placed[id] = position;
     }
     if (placed.length == sessions.length) return placed;
+    if (incremental &&
+        _lastImportRevision == workspace.importRevision &&
+        sessions.any(
+          (session) =>
+              session.parentId != null &&
+              !placed.containsKey(session.id) &&
+              !_positions.containsKey(session.id),
+        )) {
+      final anchors = {
+        for (final session in sessions)
+          session.id: ?(placed[session.id] ?? _positions[session.id]),
+      };
+      final additions = placeNewTaskChildren(
+        sessions: sessions,
+        anchors: anchors,
+        sizeOf: _size,
+      );
+      if (additions.isNotEmpty) {
+        placed
+          ..addAll(anchors)
+          ..addAll(additions);
+        _movedNodes.addAll(placed);
+        workspace.updateCanvasPositions({
+          ...workspace.canvasPositions,
+          for (final entry in placed.entries)
+            entry.key: [entry.value.dx, entry.value.dy],
+        }, origin: _sceneOrigin.value);
+        if (placed.length == sessions.length) return placed;
+      }
+    }
     final connections = workspace.connections;
     final signature = <Object>[
       for (final session in sessions)
@@ -2357,7 +2390,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   }
 
   Widget? _prepareColdCanvas(List<AiAgentWorkspace> sessions, AppTheme theme) {
-    if (_lastCount > 0 || sessions.length < 512) return null;
+    if (sessions.length - math.max(0, _lastCount) < 512) return null;
     _measureNodes(const []);
     final pending = [
       for (final session in sessions)
@@ -2408,6 +2441,18 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeProvider>().themeData;
     final workspaces = context.watch<AiWorkspaceProvider>();
+    if (workspaces.pendingRecycleRestore != null) {
+      return _workspacePages(
+        theme,
+        workspaces,
+        Center(
+          child: _canvasLoading(
+            theme,
+            context.l10n.agentRecycleRestoreFinalizing,
+          ),
+        ),
+      );
+    }
     if (_importCommitting) {
       return ColoredBox(
         color: theme.secondary,
@@ -2470,7 +2515,9 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       }
     }
     final sessions = workspaces.sessions;
-    if (_prepareColdCanvas(sessions, theme) case final loading?) return loading;
+    if (_prepareColdCanvas(sessions, theme) case final loading?) {
+      return _workspacePages(theme, workspaces, loading);
+    }
     final sessionIds = sessions.map((session) => session.id).toSet();
     final dragInterrupted = _dragStarts.keys.any(
       (id) => !sessionIds.contains(id),
@@ -2555,12 +2602,20 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     }
     if (_openId != null && workspaces.find(_openId) == null) _openId = null;
     _visitedChats.removeWhere((id) => !sessionIds.contains(id));
+    return _workspacePages(theme, workspaces, _graph(theme, workspaces));
+  }
+
+  Widget _workspacePages(
+    AppTheme theme,
+    AiWorkspaceProvider workspaces,
+    Widget graph,
+  ) {
     final content = ColoredBox(
       color: theme.secondary,
       child: RetainedPageStack(
         activeKey: _openId ?? _graphKey,
         pages: {
-          _graphKey: _graph(theme, workspaces),
+          _graphKey: graph,
           for (final id in _visitedChats)
             if (workspaces.find(id) case final session?)
               session.id: ChangeNotifierProvider<AiAssistantProvider>.value(

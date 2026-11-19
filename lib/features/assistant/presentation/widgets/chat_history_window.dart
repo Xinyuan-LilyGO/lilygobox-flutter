@@ -44,6 +44,7 @@ class ChatHistoryWindowState extends State<ChatHistoryWindow> {
   static const batchMessages = 4;
   static const maximumMessages = 96;
   static const preloadScreens = 4;
+  static const _maximumBatch = 16;
 
   int _start = 0;
   int _end = 0;
@@ -347,9 +348,13 @@ class ChatHistoryWindowState extends State<ChatHistoryWindow> {
       final scrolling = position.isScrollingNotifier.value;
       final idleMargin = position.viewportDimension * preloadScreens;
       final margin = scrolling ? idleMargin / 2 : idleMargin;
-      final earlier = _start > 0 && position.extentBefore < margin;
+      final velocity = scrolling ? widget.controller.scrollVelocity : 0.0;
+      final lookAhead = (velocity * .12).clamp(-idleMargin * 2, idleMargin * 2);
+      final earlier =
+          _start > 0 && position.extentBefore < math.max(margin, -lookAhead);
       final later =
-          _end < widget.messages.length && position.extentAfter < margin;
+          _end < widget.messages.length &&
+          position.extentAfter < math.max(margin, lookAhead);
       final retainSelection = widget.hasSelection();
       if (!earlier &&
           !later &&
@@ -363,14 +368,27 @@ class ChatHistoryWindowState extends State<ChatHistoryWindow> {
       final remaining = loadEarlier
           ? position.extentBefore
           : position.extentAfter;
-      final preferredBatch = scrolling ? 2 : batchMessages;
+      final fastScroll = lookAhead.abs() > margin;
+      final retainMargin = fastScroll ? idleMargin : idleMargin * 2;
+      var preferredBatch = scrolling ? 2 : batchMessages;
+      if (_geometry.isNotEmpty &&
+          (loadEarlier ? -lookAhead : lookAhead) > margin) {
+        final averageHeight = math.max(
+          1,
+          (_geometry.last.bottom - _geometry.first.top) / _geometry.length,
+        );
+        preferredBatch = (lookAhead.abs() / (3 * averageHeight)).ceil().clamp(
+          preferredBatch,
+          _maximumBatch,
+        );
+      }
       final batch = remaining < position.viewportDimension / 2
-          ? 16
+          ? _maximumBatch
           : preferredBatch;
       final oldestRetained = _geometry
           .where(
             (entry) =>
-                entry.bottom <= position.extentBefore - idleMargin * 2 - 16,
+                entry.bottom <= position.extentBefore - retainMargin - 16,
           )
           .lastOrNull;
       final newestRetained = _geometry
@@ -379,7 +397,7 @@ class ChatHistoryWindowState extends State<ChatHistoryWindow> {
                 entry.top >=
                 position.extentBefore +
                     position.viewportDimension +
-                    idleMargin * 2 -
+                    retainMargin -
                     16,
           )
           .firstOrNull;
@@ -433,6 +451,8 @@ class ChatHistoryWindowState extends State<ChatHistoryWindow> {
 
   @override
   Widget build(BuildContext context) {
+    widget.controller.hasUnloadedBefore = _start > 0;
+    widget.controller.hasUnloadedAfter = _end < widget.messages.length;
     final loaded = widget.messages.getRange(_start, _end);
     widget.onRangeChanged({for (final message in loaded) message.id});
     return ChatContentScope(

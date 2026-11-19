@@ -25,8 +25,17 @@ class _WorkflowSaveFailureStorage extends AgentStorage {
   _WorkflowSaveFailureStorage() : super(path: ':memory:');
 
   bool failNextWorkflowSave = false;
-  Object? lastWorkflowSave;
   int workflowSaves = 0;
+  void Function(Map<String, Object?>)? onRecycleCommit;
+
+  @override
+  Future<Object?> request(
+    String operation, [
+    Map<String, Object?> args = const {},
+  ]) {
+    if (operation == 'commitRecycle') onRecycleCommit?.call(args);
+    return super.request(operation, args);
+  }
 
   @override
   Future<void> saveWorkflow(Object value) {
@@ -35,7 +44,6 @@ class _WorkflowSaveFailureStorage extends AgentStorage {
       failNextWorkflowSave = false;
       return Future.error(StateError('Workflow save failed'));
     }
-    lastWorkflowSave = value;
     return super.saveWorkflow(value);
   }
 }
@@ -290,72 +298,69 @@ void main() {
     },
   );
 
-  test(
-    'canvas and selection saves keep recycled snapshots encoded until storage',
-    () async {
-      final primary = await workspaces.create(
-        title: 'Primary',
-        task: 'Coordinate',
-        startImmediately: false,
-      );
-      final child = await workspaces.create(
-        title: 'Child',
-        task: 'Saved long history ' * 1000,
-        parentId: primary.id,
-        startImmediately: false,
-      );
-      final beforeRemoval = workspaces.captureTopologyEdit();
-      workspaces.remove(child.id);
-      final afterRemoval = workspaces.captureTopologyEdit();
-      addTearDown(() {
-        workspaces.releaseTopologyEdit(beforeRemoval);
-        workspaces.releaseTopologyEdit(afterRemoval);
-      });
-      final recycled = workspaces.recycledAgents.single.toJson();
-      for (var step = 1; step <= 3; step++) {
-        workspaces.updateCanvasPositions({
-          primary.id: [step * 100.0, step * 50.0],
-        });
-        workspaces.select(step.isEven ? null : primary.id);
-        await workspaces.flush();
-        final transmitted = storage.lastWorkflowSave as Map;
-        final encoded = (transmitted['recycleBin'] as List).single as Map;
-        expect(encoded['record'], isA<String>());
-        expect(jsonDecode(encoded['record'] as String), recycled['record']);
-        final saved = await storage.request('readWorkflowData') as Map;
-        expect(saved['canvas'], workspaces.canvasPositions);
-        expect(saved['selectedId'], workspaces.selectedId);
-        expect(saved['recycleBin'], [recycled]);
-        expect(workspaces.exportData()['recycleBin'], [recycled]);
-      }
-      await workspaces.restoreTopologyEdit(
-        beforeRemoval,
-        previous: afterRemoval,
-      );
-      await workspaces.flush();
-      expect(
-        (await storage.request('readWorkflowData') as Map)['recycleBin'],
-        isEmpty,
-      );
-      await workspaces.restoreTopologyEdit(
-        afterRemoval,
-        previous: beforeRemoval,
-      );
-      await workspaces.flush();
-      expect((await storage.request('readWorkflowData') as Map)['recycleBin'], [
-        recycled,
-      ]);
+  test('canvas-only saves preserve recycled records and coalesce with workflow edits', () async {
+    final primary = await workspaces.create(
+      title: 'Primary',
+      task: 'Coordinate',
+      startImmediately: false,
+    );
+    final child = await workspaces.create(
+      title: 'Child',
+      task: 'Saved long history ' * 1000,
+      parentId: primary.id,
+      startImmediately: false,
+    );
+    final beforeRemoval = workspaces.captureTopologyEdit();
+    workspaces.remove(child.id);
+    final afterRemoval = workspaces.captureTopologyEdit();
+    addTearDown(() {
       workspaces.releaseTopologyEdit(beforeRemoval);
       workspaces.releaseTopologyEdit(afterRemoval);
-      workspaces.dispose();
-      workspaces = AiWorkspaceProvider(scope.provider);
-      await workspaces.initialized;
-      expect(workspaces.persistenceError, isNull);
-      expect(workspaces.recycledAgents.single.toJson(), recycled);
-      expect(workspaces.find(primary.id), isNotNull);
-      expect(workspaces.find(child.id), isNull);
-    },
-  );
+    });
+    final recycled = workspaces.recycledAgents.single.toJson();
+    final initialSaves = storage.workflowSaves;
+    for (var step = 1; step <= 3; step++) {
+      workspaces.updateCanvasPositions({
+        primary.id: [step * 100.0, step * 50.0],
+      }, origin: Offset(-10.0 * step, 5.0 * step));
+      workspaces.select(step.isEven ? null : primary.id);
+      await workspaces.flush();
+      expect(storage.workflowSaves, initialSaves + 1);
+      final saved = await storage.request('readWorkflowData') as Map;
+      expect(saved['canvas'], workspaces.canvasPositions);
+      expect(saved['canvasOrigin'], [-10.0 * step, 5.0 * step]);
+      expect(saved['selectedId'], workspaces.selectedId);
+      expect(saved['recycleBin'], [recycled]);
+      expect(workspaces.exportData()['recycleBin'], [recycled]);
+    }
+    workspaces.select(null);
+    workspaces.rename(primary.id, 'Moved');
+    await workspaces.flush();
+    expect(storage.workflowSaves, initialSaves + 2);
+    final renamed = await storage.request('readWorkflowData') as Map;
+    expect((renamed['sessions'] as List).single['title'], 'Moved');
+    expect(renamed['recycleBin'], [recycled]);
+    await workspaces.restoreTopologyEdit(beforeRemoval, previous: afterRemoval);
+    await workspaces.flush();
+    expect(
+      (await storage.request('readWorkflowData') as Map)['recycleBin'],
+      isEmpty,
+    );
+    await workspaces.restoreTopologyEdit(afterRemoval, previous: beforeRemoval);
+    await workspaces.flush();
+    expect((await storage.request('readWorkflowData') as Map)['recycleBin'], [
+      recycled,
+    ]);
+    workspaces.releaseTopologyEdit(beforeRemoval);
+    workspaces.releaseTopologyEdit(afterRemoval);
+    workspaces.dispose();
+    workspaces = AiWorkspaceProvider(scope.provider);
+    await workspaces.initialized;
+    expect(workspaces.persistenceError, isNull);
+    expect(workspaces.recycledAgents.single.toJson(), recycled);
+    expect(workspaces.find(primary.id), isNotNull);
+    expect(workspaces.find(child.id), isNull);
+  });
 
   test(
     'agent lookup tracks creation deletion and recycle restoration',
@@ -386,6 +391,64 @@ void main() {
       expect(workspaces.find(child.id), same(restored));
       expect(restored.parentId, primary.id);
       expect(workspaces.recycledAgents, isEmpty);
+    },
+  );
+
+  test(
+    'purging reuses retained chats and preserves unsaved work on retry',
+    () async {
+      Future<AiAgentWorkspace> create(String title) => workspaces.create(
+        title: title,
+        task: 'Retain this history',
+        startImmediately: false,
+      );
+      final retained = await create('Retained');
+      await retained.assistant.sendMessage('Retained conversation');
+      final messages = retained.assistant
+          .snapshotWorkspaceConversation()['messages'];
+      final purged = await create('Purged');
+      final unchanged = await create('Unchanged');
+      workspaces.removeMany([retained.id, purged.id]);
+      await workspaces.flush();
+      final unsaved = await create('Unsaved');
+      var attempts = 0;
+      storage.onRecycleCommit = (args) {
+        attempts++;
+        expect(args['owners'], [purged.id]);
+        final workflow = args['value'] as Map;
+        expect(
+          (workflow['recycleBin'] as List).single['record'],
+          isA<String>(),
+        );
+        final conversations = {
+          for (final session in workflow['sessions'] as List)
+            session['id']: session['conversation'],
+        };
+        expect(conversations[unchanged.id], {'@conversation': unchanged.id});
+        expect(conversations[unsaved.id], contains('messages'));
+        if (attempts == 1) throw StateError('Interrupted recycle commit');
+      };
+      await expectLater(
+        workspaces.permanentlyDeleteRecycledAgents([purged.id]),
+        throwsStateError,
+      );
+      expect(workspaces.recycledAgents, hasLength(2));
+      await workspaces.permanentlyDeleteRecycledAgents([purged.id]);
+      expect(attempts, 2);
+      expect(workspaces.recycledAgents.single.id, retained.id);
+      await workspaces.restoreRecycledAgent(retained.id);
+      expect(
+        workspaces
+            .find(retained.id)!
+            .assistant
+            .snapshotWorkspaceConversation()['messages'],
+        messages,
+      );
+      final saved = await storage.request('readWorkflowData') as Map;
+      expect(
+        (saved['sessions'] as List).map((entry) => entry['id']),
+        unorderedEquals([unchanged.id, unsaved.id, retained.id]),
+      );
     },
   );
 
@@ -1845,19 +1908,14 @@ void main() {
       expect(result['configured'], isFalse);
       expect(result['reason'], 'busy');
       expect(child.model, 'gpt-6.1-sol');
-      await expectLater(
-        child.assistant.selectModel(service, 'deepseek-flash'),
-        throwsA(isA<AiConfigurationException>()),
-      );
-      await expectLater(
-        child.assistant.setReasoningEffort(AiReasoningEffort.high),
-        throwsA(isA<AiConfigurationException>()),
-      );
-      expect(child.model, 'gpt-6.1-sol');
-      expect(child.assistant.reasoningEffort, originalEffort);
+      await child.assistant.selectModel(service, 'deepseek-flash');
+      await child.assistant.setReasoningEffort(AiReasoningEffort.high);
       gate!.complete();
       await running;
-      expect(child.model, 'gpt-6.1-sol');
+      expect(requests.last['model'], 'gpt-6.1-sol');
+      await child.assistant.sendMessage('Use the next configuration');
+      expect(requests.last['model'], 'deepseek-flash');
+      expect(requests.last['reasoning_effort'], 'high');
     });
 
     test(

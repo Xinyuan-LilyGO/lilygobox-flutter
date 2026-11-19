@@ -19,6 +19,7 @@ import 'package:lilygobox/core/app_info/package_info_provider.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/core/widgets/app_scroll_behavior.dart';
 import 'package:lilygobox/core/window/desktop_window.dart';
 import 'package:lilygobox/core/window/provider.dart';
 import 'package:lilygobox/features/assistant/data/agent_storage.dart';
@@ -81,11 +82,24 @@ void main() {
         splitView: split,
         storage: storage,
       );
-      final count = int.parse(
-        Platform.environment['LILYGOBOX_MOTION_CARDS'] ?? '3000',
-      );
+      final mode = Platform.environment['LILYGOBOX_MOTION_CASE'] ?? 'both';
+      final loadedChat = mode == 'loaded-chat';
+      final count = loadedChat
+          ? 24
+          : int.parse(Platform.environment['LILYGOBOX_MOTION_CARDS'] ?? '3000');
       expect(count, greaterThanOrEqualTo(4));
-      await seedMotionCanvas(storage, count);
+      final fixture = await seedMotionCanvas(
+        storage,
+        count,
+        fullHistory: loadedChat,
+        recycleCount: loadedChat ? 5000 : 0,
+        recycledMessages: loadedChat
+            ? int.parse(
+                Platform.environment['LILYGOBOX_MOTION_RECYCLED_MESSAGES'] ??
+                    '2',
+              )
+            : 0,
+      );
       late final AiWorkspaceProvider graph;
       final nativeWindow = _ProfileWindow();
       final navigation = AppNavigationProvider();
@@ -180,7 +194,23 @@ void main() {
         final messageCount = graph.find(chatId)!.assistant.messages.length;
         expect(messageCount, 10000);
         expect(graph.sessions, hasLength(count + 1));
+        if (loadedChat) {
+          expect(
+            graph.sessions.map((agent) => agent.assistant.messages.length),
+            everyElement(10000),
+          );
+          expect(graph.recycledAgents, hasLength(5000));
+          expect(
+            graph.recycledAgents.first.record['conversation']['messages'],
+            hasLength(fixture['messages_per_recycled_agent']!),
+          );
+        }
         report.addAll({
+          ...fixture,
+          'all_active_messages': graph.sessions.fold<int>(
+            0,
+            (count, agent) => count + agent.assistant.messages.length,
+          ),
           'canvas_nodes': count + 1,
           'chat_messages': messageCount,
           'physical_width': tester.view.physicalSize.width,
@@ -210,8 +240,7 @@ void main() {
         }
 
         Finder card(String id) => find.byKey(ValueKey('topology-node-$id'));
-        final mode = Platform.environment['LILYGOBOX_MOTION_CASE'] ?? 'both';
-        if (mode != 'chat') {
+        if (mode != 'chat' && !loadedChat) {
           const grabbedId = '1000-2';
           const neighborId = '1000-3';
           await frameCard(grabbedId, .25);
@@ -331,7 +360,8 @@ void main() {
               matching: find.byType(ChatHistoryScrollbar),
             ),
           );
-          bar.seek(.552);
+          final targetMessage = loadedChat ? 3630 : 4106;
+          bar.seek((targetMessage - .5) / messageCount, true);
           await rest();
           final bounds = tester.getRect(viewport);
           final bodies = find.descendant(
@@ -359,22 +389,50 @@ void main() {
 
           final (middleId, middle) = pickAnchor();
           final middleNumber = int.parse(middleId.split('-').last);
-          expect(middleNumber, inInclusiveRange(5500, 5540));
+          expect(
+            middleNumber,
+            inInclusiveRange(targetMessage - 2, targetMessage + 2),
+          );
+          report['shell_chat_initial_anchor'] = middleId;
           final single = <List<num>>[];
-          await binding.watchPerformance(() async {
-            final start = middle.localToGlobal(Offset.zero).dy;
-            final timer = Stopwatch()..start();
-            await wheel(bounds.center, -100);
-            while (timer.elapsedMilliseconds < 350) {
-              await binding.endOfFrame;
-              single.add([
-                timer.elapsedMicroseconds,
-                middle.localToGlobal(Offset.zero).dy - start,
-              ]);
+          final signals = <double>[];
+          void captureWheel(PointerEvent event) {
+            if (event is PointerScrollEvent) signals.add(event.scrollDelta.dy);
+          }
+
+          await withNativeMotionMouse(tester, bounds.center, (mouse) async {
+            binding.pointerRouter.addGlobalRoute(captureWheel);
+            try {
+              await binding.watchPerformance(() async {
+                final start = middle.localToGlobal(Offset.zero).dy;
+                final timer = Stopwatch()..start();
+                mouse.wheel();
+                while (timer.elapsedMilliseconds < 450) {
+                  await binding.endOfFrame;
+                  single.add([
+                    timer.elapsedMicroseconds,
+                    middle.localToGlobal(Offset.zero).dy - start,
+                  ]);
+                }
+              }, reportKey: 'shell_chat_single_wheel');
+            } finally {
+              binding.pointerRouter.removeGlobalRoute(captureWheel);
             }
-          }, reportKey: 'shell_chat_single_wheel');
+          });
           report['shell_chat_single_us_px'] = single;
-          expect(single.last[1], closeTo(100, 1));
+          report['shell_chat_native_wheel_deltas'] = signals;
+          expect(signals, hasLength(1));
+          final travel = -signals.single;
+          expect(travel, greaterThan(0));
+          expect(single.last[1], closeTo(travel, 1));
+          expect(
+            single
+                .where((frame) => frame[1] > 0 && frame[1] < travel - 1)
+                .map((frame) => frame[1])
+                .toSet()
+                .length,
+            greaterThan(2),
+          );
           final burst = <List<num>>[];
           final firstLoaded = tester
               .widget<ChatMessageBody>(bodies.first)
@@ -383,34 +441,38 @@ void main() {
           var anchor = pickAnchor().$2;
           var lastY = anchor.localToGlobal(Offset.zero).dy;
           var displacement = 0.0;
-          final before = bar.readFraction();
-          await binding.watchPerformance(() async {
-            final timer = Stopwatch()..start();
-            void sample() {
-              expect(anchor.attached, isTrue);
-              final currentY = anchor.localToGlobal(Offset.zero).dy;
-              displacement += currentY - lastY;
-              lastY = currentY;
-              if ((currentY - bounds.center.dy).abs() > bounds.height * .4) {
-                anchor = pickAnchor().$2;
-                lastY = anchor.localToGlobal(Offset.zero).dy;
-              }
-              burst.add([timer.elapsedMicroseconds, displacement]);
+          final before = bar.readLogicalFraction();
+          final timer = Stopwatch();
+          void sample(List<List<num>> trace) {
+            expect(anchor.attached, isTrue);
+            final currentY = anchor.localToGlobal(Offset.zero).dy;
+            displacement += currentY - lastY;
+            lastY = currentY;
+            if ((currentY - bounds.center.dy).abs() > bounds.height * .4) {
+              anchor = pickAnchor().$2;
+              lastY = anchor.localToGlobal(Offset.zero).dy;
             }
+            trace.add([timer.elapsedMicroseconds, displacement]);
+          }
 
+          Future<void> framesFor(
+            int milliseconds,
+            List<List<num>> trace,
+          ) async {
+            final interval = Stopwatch()..start();
+            do {
+              await binding.endOfFrame;
+              sample(trace);
+            } while (interval.elapsedMilliseconds < milliseconds);
+          }
+
+          await binding.watchPerformance(() async {
+            timer.start();
             for (var event = 0; event < 64; event++) {
               await wheel(bounds.center, -65);
-              final interval = Stopwatch()..start();
-              do {
-                await binding.endOfFrame;
-                sample();
-              } while (interval.elapsedMilliseconds < 30);
+              await framesFor(30, burst);
             }
-            final tail = Stopwatch()..start();
-            while (tail.elapsedMilliseconds < 280) {
-              await binding.endOfFrame;
-              sample();
-            }
+            await framesFor(280, burst);
           }, reportKey: 'shell_chat_burst_across_history_windows');
           report['shell_chat_burst_us_px'] = burst;
           report['shell_chat_first_message_before'] = firstLoaded;
@@ -420,7 +482,7 @@ void main() {
               .id;
           report['shell_chat_first_message_after'] = afterFirst;
           report['shell_chat_burst_messages_travelled'] =
-              (before - bar.readFraction()) * messageCount;
+              (before - bar.readLogicalFraction()) * messageCount;
           expect(afterFirst, isNot(firstLoaded));
           expect(displacement, greaterThan(3500));
           for (final samples in [single, burst]) {
@@ -429,6 +491,168 @@ void main() {
                 samples[frame][1],
                 greaterThanOrEqualTo(samples[frame - 1][1] - .5),
               );
+            }
+          }
+          if (loadedChat) {
+            Future<void> resetTrace() async {
+              bar.seek((targetMessage - .5) / messageCount, true);
+              await rest();
+              anchor = pickAnchor().$2;
+              lastY = anchor.localToGlobal(Offset.zero).dy;
+              displacement = 0;
+              timer.reset();
+            }
+
+            await resetTrace();
+            final paused = <List<num>>[];
+            final events = <List<num>>[];
+            void captureBurst(PointerEvent event) {
+              if (event is PointerScrollEvent) {
+                events.add([
+                  event.timeStamp.inMicroseconds,
+                  event.scrollDelta.dy,
+                ]);
+              }
+            }
+
+            await withNativeMotionMouse(tester, bounds.center, (mouse) async {
+              binding.pointerRouter.addGlobalRoute(captureBurst);
+              try {
+                await binding.watchPerformance(() async {
+                  timer.reset();
+                  for (final delay in [28, 28, 145, 28, 28, 350]) {
+                    mouse.wheel();
+                    await framesFor(delay, paused);
+                  }
+                }, reportKey: 'shell_chat_native_pause_resume');
+              } finally {
+                binding.pointerRouter.removeGlobalRoute(captureBurst);
+              }
+            });
+            report['shell_chat_pause_resume_native_us_dy'] = List.of(events);
+            report['shell_chat_pause_resume_us_px'] = paused;
+            expect(events, hasLength(6));
+            double expectedWheelTravel() {
+              final acceleration = WheelScrollAcceleration();
+              return events.fold<double>(0, (sum, event) {
+                final time = Duration(microseconds: event[0].toInt());
+                final delta = Offset(0, event[1].toDouble());
+                return sum - acceleration.apply(delta, time).dy;
+              });
+            }
+
+            expect(displacement, closeTo(expectedWheelTravel(), 1));
+            await resetTrace();
+            final rapid = <List<num>>[];
+            final rapidStartId = tester
+                .widget<ChatMessageBody>(bodies.first)
+                .message
+                .id;
+            events.clear();
+            await withNativeMotionMouse(tester, bounds.center, (mouse) async {
+              binding.pointerRouter.addGlobalRoute(captureBurst);
+              try {
+                await binding.watchPerformance(() async {
+                  timer.reset();
+                  final tail = Stopwatch();
+                  Future<void> sendBurst() async {
+                    for (var index = 0; index < 48; index++) {
+                      mouse.wheel();
+                      await Future<void>.delayed(
+                        const Duration(milliseconds: 8),
+                      );
+                    }
+                  }
+
+                  Future<void> captureFrames() async {
+                    do {
+                      await binding.endOfFrame;
+                      sample(rapid);
+                    } while (!tail.isRunning || tail.elapsedMilliseconds < 350);
+                  }
+
+                  await Future.wait([
+                    sendBurst().whenComplete(tail.start),
+                    captureFrames(),
+                  ]);
+                }, reportKey: 'shell_chat_native_rapid_burst');
+              } finally {
+                binding.pointerRouter.removeGlobalRoute(captureBurst);
+              }
+            });
+            report['shell_chat_rapid_native_us_dy'] = events;
+            report['shell_chat_rapid_us_px'] = rapid;
+            final rapidEndId = tester
+                .widget<ChatMessageBody>(bodies.first)
+                .message
+                .id;
+            report['shell_chat_rapid_first_messages'] = [
+              rapidStartId,
+              rapidEndId,
+            ];
+            expect(rapidEndId, isNot(rapidStartId));
+            expect(events, hasLength(48));
+            expect(events.map((event) => event[1]), everyElement(lessThan(0)));
+            expect(displacement, closeTo(expectedWheelTravel(), 1));
+            await resetTrace();
+            final middleScroll = <List<num>>[];
+            final middleEvents = <String>[];
+            int? middlePointer;
+            void captureMiddle(PointerEvent event) {
+              if (event is PointerDownEvent &&
+                  event.buttons == kMiddleMouseButton) {
+                middlePointer = event.pointer;
+                middleEvents.add('down');
+              } else if (event.pointer == middlePointer &&
+                  event is PointerMoveEvent &&
+                  event.buttons == kMiddleMouseButton) {
+                middleEvents.add('move');
+              } else if (event.pointer == middlePointer &&
+                  event is PointerUpEvent) {
+                middleEvents.add('up');
+              }
+            }
+
+            await withNativeMotionMouse(tester, bounds.center, (mouse) async {
+              binding.pointerRouter.addGlobalRoute(captureMiddle);
+              try {
+                await binding.watchPerformance(() async {
+                  timer.reset();
+                  Future<void> waitFor(String event) async {
+                    final deadline = Stopwatch()..start();
+                    while (!middleEvents.contains(event) &&
+                        deadline.elapsedMilliseconds < 2000) {
+                      await binding.endOfFrame;
+                      sample(middleScroll);
+                    }
+                    expect(middleEvents, contains(event));
+                  }
+
+                  mouse.middleDown();
+                  await waitFor('down');
+                  mouse.middleMove(const Offset(0, -54));
+                  await waitFor('move');
+                  await framesFor(500, middleScroll);
+                  mouse.middleUp();
+                  await waitFor('up');
+                  final whenReleased = displacement;
+                  await framesFor(160, middleScroll);
+                  expect(displacement, closeTo(whenReleased, .5));
+                }, reportKey: 'shell_chat_middle_auto_scroll');
+              } finally {
+                binding.pointerRouter.removeGlobalRoute(captureMiddle);
+              }
+            });
+            report['shell_chat_native_middle_events'] = middleEvents;
+            report['shell_chat_middle_us_px'] = middleScroll;
+            expect(displacement, greaterThan(100));
+            for (final trace in [paused, rapid, middleScroll]) {
+              for (var index = 1; index < trace.length; index++) {
+                expect(
+                  trace[index][1],
+                  greaterThanOrEqualTo(trace[index - 1][1] - .5),
+                );
+              }
             }
           }
           await binding.watchPerformance(() async {

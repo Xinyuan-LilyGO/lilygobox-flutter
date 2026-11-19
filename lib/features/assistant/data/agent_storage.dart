@@ -135,7 +135,9 @@ class AgentStorage {
     }.contains(operation)) {
       _memoryRevision++;
       _statsRead = null;
-    } else if (operation == 'saveWorkflow' || operation == 'clean') {
+    } else if (operation == 'saveWorkflow' ||
+        operation == 'saveCanvas' ||
+        operation == 'clean') {
       _statsRead = null;
     }
     return value;
@@ -246,6 +248,9 @@ void _databaseWorker(List<dynamic> initialization) {
   );
   db.execute(
     'CREATE INDEX IF NOT EXISTS memories_owner_hash ON memories(owner,hash)',
+  );
+  db.execute(
+    'CREATE INDEX IF NOT EXISTS memories_owner_updated_id ON memories(owner,updated DESC,id)',
   );
   db.execute(
     'CREATE VIRTUAL TABLE IF NOT EXISTS memory_search USING fts5(id UNINDEXED,content,tokenize="trigram")',
@@ -411,7 +416,9 @@ void _databaseWorker(List<dynamic> initialization) {
         a['baseHash'] ?? previous?['hash'],
       ],
     );
-    db.execute('DELETE FROM memory_search WHERE id=?', [id]);
+    if (previous != null) {
+      db.execute('DELETE FROM memory_search WHERE id=?', [id]);
+    }
     db.execute('INSERT INTO memory_search(id,content) VALUES(?,?)', [
       id,
       content,
@@ -572,19 +579,31 @@ void _databaseWorker(List<dynamic> initialization) {
             final data = expand(jsonDecode(value));
             result = op == 'readWorkflowData' ? data : jsonEncode(data);
           }
+        case 'saveCanvas':
+          final updated = db.select(
+            r"UPDATE state SET value=json_set(value, '$.canvas', json(?), '$.canvasOrigin', json(?), '$.selectedId', ?) WHERE key='workflow' RETURNING 1",
+            [
+              jsonEncode(a['canvas']),
+              jsonEncode(a['canvasOrigin']),
+              a['selectedId'],
+            ],
+          );
+          if (updated.isEmpty) throw StateError('Missing workflow snapshot');
         case 'saveWorkflow':
         case 'commitImport':
         case 'commitRecycle':
           packedRecycleRecords = transaction(() {
             final nextRecycleRecords = saveWorkflow(a['value'] as Object);
             if (op == 'commitRecycle') {
-              for (final owner in a['owners'] as List) {
-                db.execute(
-                  'DELETE FROM memory_search WHERE id IN (SELECT id FROM memories WHERE owner=?)',
-                  [owner],
-                );
-                db.execute('DELETE FROM memories WHERE owner=?', [owner]);
-              }
+              final owners = jsonEncode(a['owners'] as List);
+              db.execute(
+                'DELETE FROM memory_search WHERE id IN (SELECT id FROM memories WHERE owner IN (SELECT value FROM json_each(?)))',
+                [owners],
+              );
+              db.execute(
+                'DELETE FROM memories WHERE owner IN (SELECT value FROM json_each(?))',
+                [owners],
+              );
             }
             if (op == 'commitImport') {
               for (final memory in a['memories'] as List) {
@@ -674,7 +693,7 @@ void _databaseWorker(List<dynamic> initialization) {
               : ' AND (${conditions.join(' OR ')})';
           result = db
               .select(
-                'SELECT * FROM memories WHERE owner=?$filter ORDER BY updated DESC LIMIT ? OFFSET ?',
+                'SELECT * FROM memories WHERE owner=?$filter ORDER BY updated DESC,id LIMIT ? OFFSET ?',
                 [...args, limit ?? -1, offset],
               )
               .map((r) => Map<String, Object?>.from(r))
@@ -863,6 +882,7 @@ void _databaseWorker(List<dynamic> initialization) {
       }
       if (const {
         'saveWorkflow',
+        'saveCanvas',
         'commitImport',
         'commitRecycle',
         'copyMemories',

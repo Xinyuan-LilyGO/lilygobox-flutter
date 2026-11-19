@@ -3,7 +3,10 @@ import 'package:flutter/widgets.dart';
 import '../../../../core/widgets/app_scroll_behavior.dart';
 
 /// 打开历史时默认定位最新消息；已有有效阅读位置则恢复该位置。
-class ConversationScrollController extends ScrollController {
+class ConversationScrollController extends WindowedScrollController {
+  double get scrollVelocity =>
+      (position as _ConversationScrollPosition).scrollVelocity;
+
   void correctForHistoryChange(double correction) {
     final current = position as _ConversationScrollPosition;
     AppScrollBehavior.correctForContentChange(current, correction);
@@ -44,6 +47,8 @@ class _ConversationScrollPosition extends ScrollPositionWithSingleContext {
   double? _savedOffset;
   bool _initialPositionResolved = false;
   bool initiallyFollowsLatest = true;
+
+  double get scrollVelocity => activity?.velocity ?? 0;
 
   void saveCorrectedOffset() => saveScrollOffset();
 

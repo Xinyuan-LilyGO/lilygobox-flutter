@@ -1,14 +1,111 @@
+import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:io';
 
+import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lilygobox/features/assistant/data/agent_package.dart';
 import 'package:lilygobox/features/assistant/data/agent_storage.dart';
 
 String motionPackagePath() =>
     Platform.environment['LILYGOBOX_MOTION_PACKAGE'] ??
     File('artifacts/test-data/lilygobox-long-chat-10000.7z').absolute.path;
+
+typedef MotionMouse = ({
+  void Function() wheel,
+  void Function() middleDown,
+  void Function(Offset delta) middleMove,
+  void Function() middleUp,
+});
+
+Future<void> withNativeMotionMouse(
+  WidgetTester tester,
+  Offset target,
+  Future<void> Function(MotionMouse mouse) measure,
+) async {
+  const channel = MethodChannel('lilygobox/window_layout');
+  final owner = (await channel.invokeMethod<int>('getWindowHandle'))!;
+  final user = ffi.DynamicLibrary.open('user32.dll');
+  final child = user
+      .lookupFunction<
+        ffi.IntPtr Function(ffi.IntPtr, ffi.Uint32),
+        int Function(int, int)
+      >('GetWindow')(owner, 5);
+  expect(child, isNot(0));
+  final getCursor = user
+      .lookupFunction<
+        ffi.Int32 Function(ffi.Pointer<ffi.Int32>),
+        int Function(ffi.Pointer<ffi.Int32>)
+      >('GetCursorPos');
+  final setCursor = user
+      .lookupFunction<
+        ffi.Int32 Function(ffi.Int32, ffi.Int32),
+        int Function(int, int)
+      >('SetCursorPos');
+  final toScreen = user
+      .lookupFunction<
+        ffi.Int32 Function(ffi.IntPtr, ffi.Pointer<ffi.Int32>),
+        int Function(int, ffi.Pointer<ffi.Int32>)
+      >('ClientToScreen');
+  final post = user
+      .lookupFunction<
+        ffi.Int32 Function(ffi.IntPtr, ffi.Uint32, ffi.UintPtr, ffi.IntPtr),
+        int Function(int, int, int, int)
+      >('PostMessageW');
+  final original = calloc<ffi.Int32>(2);
+  final point = calloc<ffi.Int32>(2);
+  final previous = tester.binding.shouldPropagateDevicePointerEvents;
+  try {
+    expect(getCursor(original), isNot(0));
+    final ratio = tester.view.devicePixelRatio;
+    var clientX = point[0] = (target.dx * ratio).round();
+    var clientY = point[1] = (target.dy * ratio).round();
+    int packed(int x, int y) => ((y & 0xffff) << 16) | (x & 0xffff);
+    void send(int message, int state, int coordinates) {
+      expect(post(child, message, state, coordinates), isNot(0));
+    }
+
+    const wmMouseWheel = 0x020a;
+    const wmMiddleDown = 0x0207;
+    const wmMouseMove = 0x0200;
+    const wmMiddleUp = 0x0208;
+    const middleButton = 0x0010;
+    var held = false;
+    void middleUp() {
+      send(wmMiddleUp, 0, packed(clientX, clientY));
+      held = false;
+    }
+
+    expect(toScreen(child, point), isNot(0));
+    expect(setCursor(point[0], point[1]), isNot(0));
+    try {
+      tester.binding.shouldPropagateDevicePointerEvents = true;
+      await tester.binding.endOfFrame;
+      await measure((
+        wheel: () => send(wmMouseWheel, 120 << 16, packed(point[0], point[1])),
+        middleDown: () {
+          send(wmMiddleDown, middleButton, packed(clientX, clientY));
+          held = true;
+        },
+        middleMove: (delta) {
+          clientX += (delta.dx * ratio).round();
+          clientY += (delta.dy * ratio).round();
+          send(wmMouseMove, middleButton, packed(clientX, clientY));
+        },
+        middleUp: middleUp,
+      ));
+    } finally {
+      if (held) middleUp();
+      tester.binding.shouldPropagateDevicePointerEvents = previous;
+      setCursor(original[0], original[1]);
+    }
+  } finally {
+    calloc.free(point);
+    calloc.free(original);
+  }
+}
 
 Finder motionCanvasCards() => find.byWidgetPredicate((widget) {
   final key = widget.key;
@@ -59,11 +156,58 @@ Future<void> setMotionWindowMaximized(
   await tester.pumpAndSettle();
 }
 
-Future<void> seedMotionCanvas(AgentStorage storage, int count) {
+Future<Map<String, int>> seedMotionCanvas(
+  AgentStorage storage,
+  int count, {
+  bool fullHistory = false,
+  int recycleCount = 0,
+  int recycledMessages = 0,
+}) async {
   final date = DateTime.utc(2020).toIso8601String();
-  return storage.saveWorkflow({
+  var conversation = <String, dynamic>{
+    'serviceId': '',
+    'model': '',
+    'messages': [],
+    'history': [],
+  };
+  if (fullHistory) {
+    final package = await AgentPackage.read(motionPackagePath());
+    conversation = Map<String, dynamic>.from(
+      (package['workflow']['sessions'] as List).single['conversation'] as Map,
+    );
+    expect(conversation['messages'], hasLength(10000));
+  }
+  if (recycledMessages < 0 ||
+      recycledMessages > (conversation['messages'] as List).length) {
+    throw ArgumentError.value(recycledMessages, 'recycledMessages');
+  }
+  final recycleConversation = {
+    ...conversation,
+    'messages': (conversation['messages'] as List)
+        .take(recycledMessages)
+        .toList(),
+    'history': (conversation['history'] as List)
+        .take(recycledMessages)
+        .toList(),
+  };
+  await storage.saveWorkflow({
     'version': 1,
     'connections': [],
+    'recycleRetentionDays': 0,
+    'recycleBin': [
+      for (var index = 0; index < recycleCount; index++)
+        {
+          'record': {
+            'id': '2000-$index',
+            'kind': 'primary',
+            'title': 'Recycled $index',
+            'task': '',
+            'createdAt': date,
+            'conversation': recycleConversation,
+          },
+          'deletedAt': date,
+        },
+    ],
     'sessions': [
       for (var index = 0; index < count; index++)
         {
@@ -73,12 +217,7 @@ Future<void> seedMotionCanvas(AgentStorage storage, int count) {
           'title': '画布压力测试 $index',
           'task': 'Local fixture',
           'createdAt': date,
-          'conversation': {
-            'serviceId': '',
-            'model': '',
-            'messages': [],
-            'history': [],
-          },
+          'conversation': conversation,
         },
     ],
     'canvas': {
@@ -88,4 +227,11 @@ Future<void> seedMotionCanvas(AgentStorage storage, int count) {
             : [(index % 60) * 480, (index ~/ 60) * 300],
     },
   });
+  return {
+    'recycled_agents': recycleCount,
+    'messages_per_recycled_agent': recycledMessages,
+    'recycled_conversation_json_utf8_bytes_each': utf8
+        .encode(jsonEncode(recycleConversation))
+        .length,
+  };
 }

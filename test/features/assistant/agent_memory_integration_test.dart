@@ -241,6 +241,7 @@ void main() {
       'Reply in Chinese',
     });
     final extraction = consolidationRequests().single;
+    expect(extraction['reasoning_effort'], agent.assistant.reasoningEffort?.name);
     expect(
       extraction['tools'] == null || (extraction['tools'] as List).isEmpty,
       isTrue,

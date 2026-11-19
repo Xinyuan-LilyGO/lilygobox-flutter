@@ -21,6 +21,15 @@ class AppUserScrollNotification extends Notification {
   final double delta;
 }
 
+class WindowedScrollController extends ScrollController {
+  bool hasUnloadedBefore = false;
+  bool hasUnloadedAfter = false;
+
+  bool _canExtendTo(ScrollPosition position, double target) =>
+      (hasUnloadedBefore && target < position.minScrollExtent) ||
+      (hasUnloadedAfter && target > position.maxScrollExtent);
+}
+
 class WheelScrollAcceleration {
   static const _interval = Duration(milliseconds: 100);
   static const _fastInterval = Duration(milliseconds: 25);
@@ -198,6 +207,8 @@ class _WheelRegionState extends State<_WheelRegion>
   late final Ticker _autoTicker;
   OverlayEntry? _autoOverlay;
   ScrollPosition? _autoPosition;
+  _MiddleScrollActivity? _autoActivity;
+  double _autoRemainder = 0;
   Offset _autoAnchor = Offset.zero;
   Offset _autoPointer = Offset.zero;
   Duration _lastTick = Duration.zero;
@@ -368,27 +379,55 @@ class _WheelRegionState extends State<_WheelRegion>
     }
     final seconds =
         ((elapsed - _lastTick).inMicroseconds / Duration.microsecondsPerSecond)
-            .clamp(0.0, .05);
+            .clamp(0.0, .25);
     _lastTick = elapsed;
     final displacement = _autoPointer - _autoAnchor;
     final distance = axisDirectionToAxis(widget.direction) == Axis.vertical
         ? displacement.dy
         : displacement.dx;
-    if (distance.abs() <= _deadZone) return;
+    if (distance.abs() <= _deadZone) {
+      _autoRemainder = 0;
+      _autoActivity?.velocity = 0;
+      return;
+    }
     final speed = (math.pow(distance.abs() - _deadZone, 1.6) * 7).clamp(
       0.0,
       100000.0,
     );
     final direction = axisDirectionIsReversed(widget.direction) ? -1 : 1;
-    final next = (position.pixels + distance.sign * direction * speed * seconds)
+    final velocity = distance.sign * direction * speed;
+    final delta = velocity * seconds;
+    if (_autoRemainder * delta < 0) _autoRemainder = 0;
+    final target = position.pixels + delta + _autoRemainder;
+    final next = target
         .clamp(position.minScrollExtent, position.maxScrollExtent)
         .toDouble();
+    _autoRemainder = (_window?._canExtendTo(position, target) ?? false)
+        ? (target - next)
+              .clamp(-position.viewportDimension, position.viewportDimension)
+              .toDouble()
+        : 0;
     if (next != position.pixels) {
       AppUserScrollNotification(
         position: position,
         delta: next - position.pixels,
       ).dispatch(context);
-      position.jumpTo(next);
+      if (position is ScrollPositionWithSingleContext) {
+        if (_autoActivity == null) {
+          final activity = _MiddleScrollActivity(position);
+          _autoActivity = activity;
+          position.beginActivity(activity);
+        }
+        if (!_autoActivity!.active) {
+          _stopAutoScroll();
+          return;
+        }
+        _autoActivity!
+          ..velocity = velocity
+          ..moveTo(next);
+      } else {
+        position.jumpTo(next);
+      }
     }
   }
 
@@ -401,6 +440,17 @@ class _WheelRegionState extends State<_WheelRegion>
     _autoOverlay!.dispose();
     _autoOverlay = null;
     _autoPosition = null;
+    final activity = _autoActivity;
+    _autoActivity = null;
+    _autoRemainder = 0;
+    if (activity != null && activity.active) {
+      if (SchedulerBinding.instance.schedulerPhase ==
+          SchedulerPhase.persistentCallbacks) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => activity.stop());
+      } else {
+        activity.stop();
+      }
+    }
     _activationEvent = null;
     if (identical(_activeAutoScroll, this)) _activeAutoScroll = null;
   }
@@ -455,17 +505,22 @@ class _WheelRegionState extends State<_WheelRegion>
       return false;
     }
     final position = widget.controller.position;
-    if (!position.hasContentDimensions ||
-        !position.physics.shouldAcceptUserOffset(position)) {
-      return false;
-    }
+    if (!position.hasContentDimensions) return false;
     final delta = _delta(event);
-    final target = (position.pixels + delta).clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
-    );
-    return delta != 0 && target != position.pixels;
+    final target = position.pixels + delta;
+    if (delta == 0) return false;
+    if (_window?._canExtendTo(position, target) ?? false) {
+      return position.physics.allowUserScrolling;
+    }
+    return position.physics.shouldAcceptUserOffset(position) &&
+        target.clamp(position.minScrollExtent, position.maxScrollExtent) !=
+            position.pixels;
   }
+
+  WindowedScrollController? get _window => switch (widget.controller) {
+    final WindowedScrollController controller => controller,
+    _ => null,
+  };
 
   /// 连续滚轮累计到同一目标，反向滚动立即从当前位置响应。
   void scroll(PointerSignalEvent signal) {
@@ -487,18 +542,26 @@ class _WheelRegionState extends State<_WheelRegion>
     if (!continuing || reversing) _target = position.pixels;
     _position = position;
     _regionsByPosition[position] = this;
-    final target = (_target! + delta)
-        .clamp(position.minScrollExtent, position.maxScrollExtent)
-        .toDouble();
+    final requested = _target! + delta;
+    final target = (_window?._canExtendTo(position, requested) ?? false)
+        ? requested
+        : requested
+              .clamp(position.minScrollExtent, position.maxScrollExtent)
+              .toDouble();
     _target = target;
     if (position is ScrollPositionWithSingleContext) {
       if (continuing) {
-        _wheelSimulation!.retarget(target, reverse: reversing);
+        _wheelSimulation!.retarget(
+          target,
+          from: position.pixels,
+          reverse: reversing,
+        );
       } else {
         final simulation = _WheelSimulation(position.pixels, target);
         final activity = _WheelScrollActivity(
           position,
           simulation,
+          window: _window,
           vsync: position.context.vsync,
         );
         _wheelSimulation = simulation;
@@ -525,10 +588,18 @@ class _WheelRegionState extends State<_WheelRegion>
 /// 一组连续滚轮输入共用一个原生滚动活动，更新目标不会重置
 /// 其计时器；触摸或滚动条交互仍由 Flutter 正常释放该活动。
 class _WheelScrollActivity extends DrivenScrollActivity {
-  _WheelScrollActivity(super.delegate, super.simulation, {required super.vsync})
-    : super.simulation();
+  _WheelScrollActivity(
+    super.delegate,
+    super.simulation, {
+    required this.window,
+    required super.vsync,
+  }) : super.simulation();
 
+  final WindowedScrollController? window;
   bool active = true;
+
+  @override
+  bool get shouldIgnorePointer => false;
 
   @override
   bool applyMoveTo(double value) {
@@ -539,8 +610,36 @@ class _WheelScrollActivity extends DrivenScrollActivity {
     final applied = super.applyMoveTo(bounded);
     // 连续滚轮输入期间内容可能缩短，应停在新的边界，
     // 避免旧的模拟过程恢复已失效的滚动位置。
-    return applied && bounded == value;
+    return applied &&
+        (bounded == value || (window?._canExtendTo(position, value) ?? false));
   }
+
+  void stop() {
+    if (active) delegate.goIdle();
+  }
+
+  @override
+  void dispose() {
+    active = false;
+    super.dispose();
+  }
+}
+
+class _MiddleScrollActivity extends ScrollActivity {
+  _MiddleScrollActivity(super.delegate);
+
+  bool active = true;
+
+  @override
+  bool get shouldIgnorePointer => false;
+
+  @override
+  bool get isScrolling => true;
+
+  @override
+  double velocity = 0;
+
+  void moveTo(double pixels) => delegate.setPixels(pixels);
 
   void stop() {
     if (active) delegate.goIdle();
@@ -571,13 +670,17 @@ class _WheelSimulation extends Simulation {
     _target += correction;
   }
 
-  void retarget(double target, {required bool reverse}) {
-    final current = x(_time);
+  void retarget(double target, {required double from, required bool reverse}) {
     final velocity = dx(_time);
-    _from = current;
+    final interval = (_time - _startTime) * Duration.microsecondsPerSecond;
+    _from = from;
     _target = target;
     _startTime = _time;
-    final distance = target - current;
+    final distance = target - from;
+    if (interval > WheelScrollAcceleration._interval.inMicroseconds) {
+      _startVelocity = 3 * distance / _duration;
+      return;
+    }
     // 此斜率范围可确保曲线段在受限边界附近保持单调。
     _startVelocity = reverse || velocity * distance < 0
         ? 0

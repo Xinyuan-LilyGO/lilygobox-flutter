@@ -6,6 +6,7 @@ import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/widgets/app_scroll_behavior.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_content_window.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/chat_history_scrollbar.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_history_selection.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_history_window.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_message_list.dart';
@@ -33,6 +34,8 @@ Widget _app({
   GlobalKey<ChatHistorySelectionState>? selection,
   double Function(AiMessage)? messageHeight,
   bool Function()? followsLatest,
+  double viewportHeight = 200,
+  bool scrollbar = false,
 }) => ChangeNotifierProvider(
   create: (_) => ThemeProvider(),
   child: MaterialApp(
@@ -44,7 +47,7 @@ Widget _app({
       body: Center(
         child: SizedBox(
           width: 400,
-          height: 200,
+          height: viewportHeight,
           child: PageStorage(
             bucket: bucket ?? PageStorageBucket(),
             child: ChatHistorySelection(
@@ -59,6 +62,7 @@ Widget _app({
                 historyId: 'stress-conversation',
                 messages: messages,
                 controller: controller,
+                scrollbar: scrollbar,
                 followsLatest: followsLatest ?? () => false,
                 hasSelection: () =>
                     selection?.currentState?.hasSelection ?? false,
@@ -105,6 +109,118 @@ Finder _visibleMessage(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets(
+    'fast wheel bursts through the middle of a ten-thousand-message history match an uninterrupted viewport',
+    (tester) async {
+      const size = Size(2048, 1220);
+      const referenceKey = ValueKey('reference-viewport');
+      const viewportHeight = 960.0;
+      await tester.binding.setSurfaceSize(size);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final reference = ScrollController(initialScrollOffset: 400000);
+      final scroll = ConversationScrollController();
+      final focus = FocusNode();
+      final history = GlobalKey<ChatHistoryWindowState>();
+      addTearDown(reference.dispose);
+      addTearDown(scroll.dispose);
+      addTearDown(focus.dispose);
+      Future<List<double>> trace(
+        Finder viewport,
+        double Function() read,
+      ) async {
+        final coordinates = <double>[];
+        final start = read();
+        final point = tester.getCenter(viewport);
+        var elapsed = const Duration(seconds: 1);
+        for (var frame = 0; frame < 112; frame++) {
+          final frameTime = Duration(milliseconds: frame % 8 == 5 ? 48 : 16);
+          final inputCount = frame % 56 < 40
+              ? frameTime.inMilliseconds ~/ 8
+              : 0;
+          for (var input = 0; input < inputCount; input++) {
+            await tester.sendEventToBinding(
+              PointerScrollEvent(
+                kind: PointerDeviceKind.mouse,
+                timeStamp: elapsed + Duration(milliseconds: input * 8),
+                position: point,
+                scrollDelta: Offset(0, frame < 56 ? -100 : 100),
+              ),
+            );
+          }
+          await tester.pump(frameTime);
+          elapsed += frameTime;
+          coordinates.add(read() - start);
+        }
+        return coordinates;
+      }
+
+      await tester.pumpWidget(
+        MaterialApp(
+          scrollBehavior: const AppScrollBehavior(scrollbars: false),
+          home: Center(
+            child: SizedBox(
+              height: viewportHeight,
+              width: 400,
+              child: SingleChildScrollView(
+                key: referenceKey,
+                controller: reference,
+                child: const SizedBox(height: 1000000),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final expected = await trace(
+        find.byKey(referenceKey),
+        () => reference.offset,
+      );
+      double heightThrough(int count) =>
+          (count ~/ 2) * 160.0 + (count.isOdd ? 64 : 0) + (count ~/ 20) * 160;
+      await tester.pumpWidget(
+        _app(
+          messages: _messages(10000),
+          controller: scroll,
+          history: history,
+          focus: focus,
+          viewportHeight: viewportHeight,
+          scrollbar: true,
+          messageHeight: (message) {
+            final index = int.parse(message.id.split('-').last);
+            return heightThrough(index + 1) - heightThrough(index);
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      tester
+          .widget<ChatHistoryScrollbar>(find.byType(ChatHistoryScrollbar))
+          .seek(.36295, true);
+      await tester.pumpAndSettle();
+      double logicalOffset() {
+        final list = tester.widget<ChatMessageList>(
+          find.byType(ChatMessageList),
+        );
+        expect(list.children.length, lessThanOrEqualTo(144));
+        return heightThrough(list.firstIndex) + scroll.offset;
+      }
+
+      final actual = await trace(
+        find.byType(SingleChildScrollView),
+        logicalOffset,
+      );
+      expect(expected[55], lessThan(-20000));
+      expect(expected.last, closeTo(0, .01));
+      for (var frame = 0; frame < expected.length; frame++) {
+        expect(
+          actual[frame],
+          closeTo(expected[frame], .01),
+          reason: 'frame $frame',
+        );
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final count in [10000, 100000, 1000000, 3000000]) {
     testWidgets('$count concrete message models mount only a history window', (
       tester,
@@ -428,6 +544,126 @@ void main() {
       expect(tester.getTopLeft(anchor).dy, closeTo(before, .01));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'wheel input crosses a pending history page without losing travel',
+    (tester) async {
+      final scroll = ConversationScrollController();
+      final history = GlobalKey<ChatHistoryWindowState>();
+      addTearDown(scroll.dispose);
+      await tester.pumpWidget(
+        _app(messages: _messages(10000), controller: scroll, history: history),
+      );
+      await tester.pumpAndSettle();
+      final viewport = find.byType(SingleChildScrollView);
+      Future<void> wheel(double delta) => tester.sendEventToBinding(
+        PointerScrollEvent(
+          kind: PointerDeviceKind.mouse,
+          position: tester.getCenter(viewport),
+          scrollDelta: Offset(0, delta),
+        ),
+      );
+      scroll.jumpTo(20);
+      final anchor = _visibleMessage(tester);
+      final initialTop = tester.getTopLeft(anchor).dy;
+      expect(history.currentState!.hasEarlier, isTrue);
+      await wheel(-100);
+      await tester.pump();
+      await tester.pumpAndSettle(const Duration(milliseconds: 8));
+      expect(tester.getTopLeft(anchor).dy - initialTop, closeTo(100, .01));
+      scroll.jumpTo(scroll.position.maxScrollExtent - 20);
+      expect(history.currentState!.hasLater, isFalse);
+      await wheel(100);
+      await tester.pumpAndSettle();
+      expect(scroll.position.extentAfter, closeTo(0, .01));
+      for (var page = 0; page < 12 && !history.currentState!.hasLater; page++) {
+        scroll.jumpTo(0);
+        await tester.pumpAndSettle();
+      }
+      expect(history.currentState!.hasLater, isTrue);
+      scroll.jumpTo(scroll.position.maxScrollExtent);
+      final lowerAnchor = _visibleMessage(tester);
+      final lowerTop = tester.getTopLeft(lowerAnchor).dy;
+      await wheel(100);
+      await tester.pump();
+      await tester.pumpAndSettle(const Duration(milliseconds: 8));
+      expect(tester.getTopLeft(lowerAnchor).dy - lowerTop, closeTo(-100, .01));
+
+      scroll.jumpTo(20);
+      final reverseAnchor = _visibleMessage(tester);
+      await wheel(-100);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 48));
+      final reverseTop = tester.getTopLeft(reverseAnchor).dy;
+      await wheel(60);
+      await tester.pumpAndSettle(const Duration(milliseconds: 8));
+      expect(
+        tester.getTopLeft(reverseAnchor).dy - reverseTop,
+        closeTo(-60, .01),
+      );
+    },
+  );
+
+  testWidgets(
+    'middle scrolling keeps one activity across chat pages and reversal',
+    (tester) async {
+      final scroll = ConversationScrollController();
+      final history = GlobalKey<ChatHistoryWindowState>();
+      final events = <ScrollNotification>[];
+      addTearDown(scroll.dispose);
+      await tester.pumpWidget(
+        NotificationListener<ScrollNotification>(
+          onNotification: (event) {
+            if (event.depth == 0) events.add(event);
+            return false;
+          },
+          child: _app(
+            messages: _messages(10000),
+            controller: scroll,
+            history: history,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      scroll.jumpTo(50);
+      final anchor = _visibleMessage(tester);
+      final initialTop = tester.getTopLeft(anchor).dy;
+      final point = tester.getCenter(find.byType(SingleChildScrollView));
+      events.clear();
+      final mouse = await tester.createGesture(
+        kind: PointerDeviceKind.mouse,
+        buttons: kMiddleMouseButton,
+      );
+      await mouse.addPointer(location: point);
+      await mouse.down(point);
+      await mouse.up();
+      await tester.pump();
+      final firstPage = _mountedMessageIds(tester).first;
+      await mouse.moveTo(point - const Offset(0, 75));
+      for (var frame = 0; frame < 40; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      final travel = tester.getTopLeft(anchor).dy - initialTop;
+      expect(travel, greaterThan(3000));
+      expect(_mountedMessageIds(tester).first, isNot(firstPage));
+      await mouse.moveTo(point + const Offset(0, 75));
+      for (var frame = 0; frame < 3; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await tester.pump(const Duration(milliseconds: 112));
+      final reversed = tester.getTopLeft(anchor).dy - initialTop;
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(events.whereType<ScrollStartNotification>().length, 1);
+      expect(events.whereType<ScrollEndNotification>().length, 1);
+      expect(reversed, closeTo(travel * .75, 1));
+      expect(scroll.position.isScrollingNotifier.value, isFalse);
+      final stopped = tester.getTopLeft(anchor).dy;
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(tester.getTopLeft(anchor).dy, stopped);
+      await mouse.removePointer();
     },
   );
 

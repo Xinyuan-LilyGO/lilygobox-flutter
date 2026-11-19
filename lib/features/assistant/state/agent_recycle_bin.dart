@@ -64,12 +64,12 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
       );
   int get recycleRetentionDays => _recycleRetentionDays;
   bool get recycleBusy => _recycleOperation;
+  Future<void>? get pendingRecycleRestore => _recycleRestoreCommit?.future;
   DateTime? recycleExpiry(AiRecycledAgent entry) => _recycleRetentionDays == 0
       ? null
       : entry.deletedAt.add(Duration(days: _recycleRetentionDays));
 
-  void _restoreRecycleState(Map data) {
-    _recycledAgentsCache = null;
+  Future<void> _restoreRecycleState(Map data) async {
     _recycleRetentionDays = switch (data['recycleRetentionDays']) {
       0 => 0,
       7 => 7,
@@ -77,39 +77,48 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
       _ => 30,
     };
     final seen = <String>{};
+    final restored = <AiRecycledAgent>[];
+    final slice = Stopwatch()..start();
     for (final raw in data['recycleBin'] as List? ?? []) {
+      if (slice.elapsedMilliseconds >= 8) {
+        await Future<void>.delayed(Duration.zero);
+        if (_disposed) return;
+        slice.reset();
+      }
       final entry = AiRecycledAgent.fromJson(raw as Map);
       if (!seen.add(entry.id)) {
         throw const FormatException('Duplicate recycled agent');
       }
-      _recycledAgents.add(entry);
+      restored.add(entry);
     }
+    _replaceRecycledAgents(restored);
   }
 
-  void _moveToRecycleBin(List<AiAgentWorkspace> removing, Map snapshot) {
-    _recycledAgentsCache = null;
-    final ids = removing.map((s) => s.id).toSet();
-    final now = DateTime.now();
-    _recycledAgents.removeWhere((e) => ids.contains(e.id));
-    for (final raw in (snapshot['sessions'] as List).cast<Map>().where(
-      (r) => ids.contains(r['id']),
-    )) {
-      final id = raw['id'] as String;
-      _recycledAgents.add(
-        AiRecycledAgent(
-          record: Map<String, dynamic>.from(raw),
-          deletedAt: now,
-          position: canvasPositions[id] == null
-              ? null
-              : List.of(canvasPositions[id]!),
-          connections: (snapshot['connections'] as List)
-              .cast<Map>()
-              .where((c) => c['fromId'] == id || c['toId'] == id)
-              .map((c) => Map<String, dynamic>.from(c))
-              .toList(),
-        ),
-      );
+  void _moveToRecycleBin(List<AiAgentWorkspace> removing, Set<String> ids) {
+    final graph = _snapshotGraph(_topologyAgents.keys.toSet());
+    final edgesById = <String, List<Map<String, dynamic>>>{};
+    for (final edge in graph.edges) {
+      for (final id in [edge.fromId, edge.toId]) {
+        if (ids.contains(id)) {
+          (edgesById[id] ??= []).add({
+            'fromId': edge.fromId,
+            'toId': edge.toId,
+          });
+        }
+      }
     }
+    final now = DateTime.now();
+    _replaceRecycledAgents([
+      for (final entry in _recycledAgents)
+        if (!ids.contains(entry.id)) entry,
+      for (final session in removing)
+        AiRecycledAgent(
+          record: _snapshotSession(session, graph.parents[session.id]),
+          deletedAt: now,
+          position: canvasPositions[session.id]?.toList(),
+          connections: edgesById[session.id] ?? const [],
+        ),
+    ]);
   }
 
   List<AiRecycledAgent> _prepareRecycleImport(
@@ -154,13 +163,27 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
     }
   }
 
-  Future<void> _saveRecycleState() async {
+  Future<void> _saveRecycleState({Set<String> purgeIds = const {}}) async {
     _saveTimer?.cancel();
     _saveTimer = null;
     await _lastSave;
     final storage = main.storage;
     if (storage == null) throw StateError('Storage unavailable');
-    await storage.saveWorkflow(exportData());
+    final dirty = Set.of(_dirtyConversations);
+    try {
+      final workflow = _workflowForStorage(omitRecycled: purgeIds);
+      if (purgeIds.isEmpty) {
+        await storage.saveWorkflow(workflow);
+      } else {
+        await storage.request('commitRecycle', {
+          'value': workflow,
+          'owners': purgeIds.toList(),
+        });
+      }
+    } catch (_) {
+      _dirtyConversations.addAll(dirty);
+      rethrow;
+    }
   }
 
   Future<void> restoreRecycledAgent(String id) => restoreRecycledAgents([id]);
@@ -281,6 +304,8 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
             {'fromId': edge.fromId, 'toId': edge.toId},
         ]);
         normalizeWorkflowData(workflow);
+        _recycleRestoreCommit = Completer<void>();
+        _recycleChanged();
         onProgress?.call(null);
         await storage.saveWorkflow(workflow);
       } catch (_) {
@@ -301,8 +326,9 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
       }
       _pruneConnections();
       canvasPositions.addAll(positions);
-      _recycledAgents.removeWhere((entry) => earlier.contains(entry.id));
-      _recycledAgentsCache = null;
+      _replaceRecycledAgents(
+        _recycledAgents.where((entry) => !earlier.contains(entry.id)),
+      );
       _invalidateRecycleHistory();
     } finally {
       if (!published) {
@@ -310,6 +336,8 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
           session.assistant.dispose();
         }
       }
+      _recycleRestoreCommit?.complete();
+      _recycleRestoreCommit = null;
       _recycleOperation = false;
       _notify();
     }
@@ -366,28 +394,19 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
 
   Future<void> _purgeRecycled(Set<String> ids) async {
     if (_disposed || _recycleOperation) return;
-    final removing = _recycledAgents.where((e) => ids.contains(e.id)).toList();
+    final removing = {
+      for (final entry in _recycledAgents)
+        if (ids.contains(entry.id)) entry.id,
+    };
     if (removing.isEmpty) return;
     _recycleOperation = true;
     _recycleChanged();
     try {
-      _saveTimer?.cancel();
-      _saveTimer = null;
-      await _lastSave;
-      final workflow = exportData();
-      workflow['recycleBin'] = [
-        for (final e in _recycledAgents)
-          if (!ids.contains(e.id)) e.toJson(),
-      ];
-      final storage = main.storage;
-      if (storage == null) throw StateError('Storage unavailable');
-      await storage.request('commitRecycle', {
-        'value': workflow,
-        'owners': removing.map((e) => e.id).toList(),
-      });
-      _recycledAgents.removeWhere((e) => ids.contains(e.id));
-      _recycledAgentsCache = null;
-      _purgedAgentIds.addAll(removing.map((e) => e.id));
+      await _saveRecycleState(purgeIds: removing);
+      _replaceRecycledAgents(
+        _recycledAgents.where((entry) => !removing.contains(entry.id)),
+      );
+      _purgedAgentIds.addAll(removing);
       _invalidateRecycleHistory();
     } finally {
       _recycleOperation = false;

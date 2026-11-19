@@ -2982,7 +2982,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get agentRecycleRestoreSaving => '正在保存已还原的智能体…';
+  String get agentRecycleRestoreFinalizing => '正在完成还原…';
+
+  @override
+  String get agentRecycleRestoreFailed => '还原失败，可在回收站重试。';
 
   @override
   String get agentRecycleDelete => '永久删除';

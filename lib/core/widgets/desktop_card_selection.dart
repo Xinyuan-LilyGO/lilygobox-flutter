@@ -1,6 +1,7 @@
 /*
  * @Description: 桌面卡片列表选择与键盘操作，隔离输入框的文字快捷键。
  */
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -8,6 +9,25 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../context_menu/right_click_menu.dart';
 import '../l10n/language_provider.dart';
 import '../theme/definition.dart';
+
+class DesktopCardViewCache {
+  final _views = <String, ({bool selected, Widget view})>{};
+
+  Widget? lookup(String id, bool selected) {
+    final cached = _views.remove(id);
+    if (cached == null || cached.selected != selected) return null;
+    _views[id] = cached;
+    return cached.view;
+  }
+
+  Widget store(String id, bool selected, Widget view) {
+    _views[id] = (selected: selected, view: view);
+    if (_views.length > 64) _views.remove(_views.keys.first);
+    return view;
+  }
+
+  void clear() => _views.clear();
+}
 
 /// 选区遵循当前可见项的顺序，由调用方负责重建。
 class DesktopCardSelection {
@@ -133,6 +153,20 @@ class DesktopCardSelectionTarget extends StatelessWidget {
 
   final Widget child;
 
+  static final _scrollbarHits = Expando<bool>();
+
+  static bool _hitsScrollbar(PointerDownEvent event) {
+    final hits = HitTestResult();
+    WidgetsBinding.instance.hitTestInView(hits, event.position, event.viewId);
+    return hits.path.whereType<BoxHitTestEntry>().any((entry) {
+      final target = entry.target;
+      if (target is! RenderCustomPaint) return false;
+      final painter = target.foregroundPainter;
+      return painter is ScrollbarPainter &&
+          painter.hitTestInteractive(entry.localPosition, event.kind);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final region = context
@@ -140,11 +174,12 @@ class DesktopCardSelectionTarget extends StatelessWidget {
         .region;
     return TapRegion(
       groupId: region.selection,
-      onTapOutside: (_) {
+      onTapOutside: (event) {
         // 上层确认框关闭前，由其独占鼠标输入。
         if (!region.enabled ||
             ModalRoute.of(context)?.isCurrent == false ||
-            region.selection.selected.isEmpty) {
+            region.selection.selected.isEmpty ||
+            (_scrollbarHits[event] ??= _hitsScrollbar(event))) {
           return;
         }
         region.selection.clear();

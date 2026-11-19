@@ -29,11 +29,13 @@ import 'package:lilygobox/core/widgets/app_capsule_slider.dart';
 import 'package:lilygobox/core/widgets/title_bar_icon_button.dart';
 import 'package:lilygobox/core/widgets/menu_item_surface.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
+import 'package:lilygobox/features/assistant/data/agent_package.dart';
 import 'package:lilygobox/features/assistant/data/conversation_codec.dart';
 import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 import 'package:lilygobox/features/assistant/presentation/pages/page.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_composer.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_content_window.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/chat_history_scrollbar.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/message_content.dart';
 import 'package:lilygobox/features/assistant/state/provider.dart';
 import 'package:lilygobox/features/settings/presentation/widgets/split_view.dart';
@@ -220,6 +222,65 @@ void main() {
     expect(scope.provider.busy, isFalse);
     await tester.pump();
   }
+
+  testWidgets(
+    'one wheel notch over MSG-04106 preserves message interaction and travel',
+    (tester) async {
+      final package = (await tester.runAsync(
+        () => AgentPackage.read(
+          'artifacts/test-data/lilygobox-long-chat-10000.7z',
+        ),
+      ))!;
+      final record = (package['workflow']['sessions'] as List).single;
+      scope.provider.restoreWorkspaceConversation(
+        Map<String, dynamic>.from(record['conversation'] as Map),
+      );
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      for (final size in [const Size(2048, 1220), const Size(1000, 680)]) {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pumpWidget(app(locale: 'zh'));
+        await tester.pumpAndSettle();
+        tester
+            .widget<ChatHistoryScrollbar>(find.byType(ChatHistoryScrollbar))
+            .seek(.41055, true);
+        await tester.pumpAndSettle();
+        final button = find.byKey(
+          const ValueKey('ai-copy-message-fixture-4106'),
+        );
+        expect(button.hitTestable(), findsOneWidget);
+        for (final delta in [-100.0, 100.0]) {
+          final start = tester.getCenter(button);
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              kind: PointerDeviceKind.mouse,
+              position: start,
+              scrollDelta: Offset(0, delta),
+            ),
+          );
+          await tester.pump();
+          for (var frame = 1; frame <= 25; frame++) {
+            await tester.pump(const Duration(milliseconds: 8));
+            final remaining = 1 - frame / 25;
+            expect(
+              tester.getCenter(button).dy,
+              closeTo(
+                start.dy - delta * (1 - remaining * remaining * remaining),
+                .1,
+              ),
+              reason: '$size frame $frame',
+            );
+            expect(
+              button.hitTestable(),
+              findsOneWidget,
+              reason: '$size frame $frame',
+            );
+          }
+          await tester.pumpAndSettle();
+          expect(tester.getCenter(button).dy, closeTo(start.dy - delta, .1));
+        }
+      }
+    },
+  );
 
   Future<void> capture(WidgetTester tester, String name) async {
     if (!const bool.fromEnvironment('CAPTURE_ASSISTANT_UI')) return;

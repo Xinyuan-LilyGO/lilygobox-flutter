@@ -37,6 +37,7 @@ import 'package:lilygobox/features/assistant/domain/task_canvas_style.dart';
 import 'package:lilygobox/features/assistant/presentation/pages/page.dart';
 import 'package:lilygobox/features/assistant/presentation/pages/task_topology_page.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/agent_transfer_error.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/recycle_bin_dialog.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/storage_content.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/task_canvas_background.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/task_topology_connection.dart';
@@ -71,12 +72,16 @@ class _TextureFailureCanvas extends TestRecordingCanvas {
 class _GatedWorkflowStorage extends AgentStorage {
   _GatedWorkflowStorage() : super(path: ':memory:');
   final workflow = Completer<Object?>();
+  Completer<void>? saveGate;
 
   @override
   Future<Object?> request(
     String operation, [
     Map<String, Object?> args = const {},
-  ]) async => operation == 'readWorkflowData' ? workflow.future : null;
+  ]) async {
+    if (operation == 'saveWorkflow') await saveGate?.future;
+    return operation == 'readWorkflowData' ? workflow.future : null;
+  }
 }
 
 class _TitleCountingScaler extends TextScaler {
@@ -360,6 +365,148 @@ void main() {
       }
     });
   }
+
+  testWidgets(
+    'restore keeps the recycle bin open and continues after manual close',
+    (tester) async {
+      const count = 513;
+      final storage = _GatedWorkflowStorage();
+      addTearDown(storage.close);
+      final local = await createAssistantTestScope(
+        theme: theme,
+        language: language,
+        shell: shell,
+        splitView: split,
+        storage: storage,
+      );
+      final now = DateTime.now().toIso8601String();
+      Map<String, Object?> record(int index) => {
+        'id': '1000-$index',
+        'title': 'Card $index',
+        'task': '',
+        'kind': 'primary',
+        'createdAt': now,
+        'conversation': {
+          'serviceId': '',
+          'model': '',
+          'messages': [],
+          'history': [],
+        },
+      };
+      storage.workflow.complete({
+        'version': 1,
+        'sessions': [record(0)],
+        'connections': [],
+        'recycleBin': [
+          for (var index = 1; index <= count; index++)
+            {'record': record(index), 'deletedAt': now},
+        ],
+      });
+      final workspace = AiWorkspaceProvider(local.provider);
+      final restoreAll = find.byKey(const ValueKey('recycle-restore-all'));
+      final close = find.widgetWithText(AppActionButton, '关闭');
+      Future<void> awaitHandoff() async {
+        for (
+          var frame = 0;
+          frame < 150 && workspace.pendingRecycleRestore == null;
+          frame++
+        ) {
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(workspace.pendingRecycleRestore, isNotNull);
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump();
+        expect(
+          find.byKey(const ValueKey('recycle-restore-dialog')),
+          findsNothing,
+        );
+        expect(tester.widget<AppActionButton>(restoreAll).onPressed, isNull);
+        expect(tester.widget<AppActionButton>(close).onPressed, isNotNull);
+      }
+
+      try {
+        await tester.pumpWidget(app(restored: workspace));
+        await tester.pumpAndSettle();
+        final card = find.byKey(const ValueKey('topology-node-1000-0'));
+        expect(card, findsOneWidget);
+        final navigator = Navigator.of(boundary.currentContext!);
+        unawaited(
+          navigator.push<void>(
+            MaterialPageRoute<void>(
+              builder: (_) => const Scaffold(body: Text('Settings')),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final binClosed = showAgentRecycleBin(
+          tester.element(find.text('Settings')),
+          theme.themeData,
+        );
+        await tester.pumpAndSettle();
+        final first = workspace.recycledAgents.first;
+        await workspace.flush();
+        final failedSave = storage.saveGate = Completer<void>();
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(ValueKey('recycle-agent-card-${first.id}')),
+            matching: find.widgetWithText(AppActionButton, '还原'),
+          ),
+        );
+        await awaitHandoff();
+        expect(workspace.recycledAgents, hasLength(count));
+        storage.saveGate = null;
+        failedSave.completeError(StateError('test save failure'));
+        await tester.pumpAndSettle();
+        expect(find.text('还原失败，可在回收站重试。'), findsOneWidget);
+        expect(find.byType(SnackBar), findsNothing);
+        expect(workspace.recycledAgents, hasLength(count));
+
+        await tester.tap(restoreAll);
+        await tester.pumpAndSettle();
+        await workspace.flush();
+        final saved = storage.saveGate = Completer<void>();
+        await tester.tap(find.byKey(const ValueKey('confirm-recycle-restore')));
+        await awaitHandoff();
+        await tester.tap(close);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.text('Settings').hitTestable(), findsOneWidget);
+        navigator.pop();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.text('正在完成还原…'), findsOneWidget);
+        final progress = find.byKey(
+          const ValueKey('topology-loading-progress'),
+        );
+        expect(tester.widget<LinearProgressIndicator>(progress).value, isNull);
+        var flushed = false;
+        final flush = workspace.flush().then((_) => flushed = true);
+        await tester.pump();
+        expect(flushed, isFalse);
+        storage.saveGate = null;
+        saved.complete();
+        await tester.pump();
+        await binClosed;
+        await flush;
+        await tester.pump();
+        expect(
+          tester.widget<LinearProgressIndicator>(progress).value,
+          isNotNull,
+        );
+        await tester.pumpAndSettle();
+        expect(progress, findsNothing);
+        expect(workspace.sessions, hasLength(count + 1));
+        expect(workspace.recycledAgents, isEmpty);
+        expect(card, findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        storage.saveGate?.complete();
+        await tester.pumpWidget(const SizedBox.shrink());
+        workspace.dispose();
+        local.dispose();
+      }
+    },
+  );
 
   testWidgets('large cold canvas measures across frames with live card edits', (
     tester,
@@ -1325,6 +1472,69 @@ void main() {
     Navigator.of(
       tester.element(find.byKey(const ValueKey('topology-create-confirm'))),
     ).pop();
+    await finish(tester);
+  });
+
+  testWidgets('AI spawns beside the actual parent and avoids occupied cards', (
+    tester,
+  ) async {
+    final parent = (await tester.runAsync(
+      () => workspaces.create(
+        title: 'Moved parent',
+        task: 'Coordinate',
+        startImmediately: false,
+      ),
+    ))!;
+    final occupied = (await tester.runAsync(
+      () => workspaces.create(
+        title: 'Occupied',
+        task: 'Wait',
+        startImmediately: false,
+      ),
+    ))!;
+    workspaces.updateCanvasPositions({
+      parent.id: [14000, 11000],
+      occupied.id: [14470, 11000],
+    });
+    await tester.pumpWidget(app());
+    await tick(tester);
+    await tester.runAsync(() async {
+      await parent.assistant.workspaceToolHandler!('spawn_agent', {
+        'title': 'Worker',
+        'task': 'Work',
+      });
+      final child = workspaces.childrenOf(parent.id).single;
+      await parent.assistant.workspaceToolHandler!('spawn_agent', {
+        'title': 'Nested',
+        'task': 'Check',
+        'parent_agent_id': child.id,
+      });
+    });
+    await tick(tester);
+    final child = workspaces.childrenOf(parent.id).single;
+    final grandchild = workspaces.childrenOf(child.id).single;
+    final positions = workspaces.canvasPositions;
+    expect(positions[parent.id], [14000, 11000]);
+    expect(positions[occupied.id], [14470, 11000]);
+    expect(positions[child.id], isNotNull);
+    expect(positions[child.id]!.first, inExclusiveRange(14252, 15000));
+    expect(positions[child.id]!.last, inExclusiveRange(11144, 11600));
+    expect(
+      positions[grandchild.id]!.first - positions[child.id]!.first,
+      inExclusiveRange(252, 1000),
+    );
+    expect(
+      (positions[grandchild.id]!.last - positions[child.id]!.last).abs(),
+      lessThan(100),
+    );
+    await tester.tap(find.byIcon(Symbols.fit_screen_rounded));
+    await tester.pumpAndSettle();
+    for (final id in [parent.id, occupied.id, child.id, grandchild.id]) {
+      final card = tester.widget<Positioned>(
+        find.byKey(ValueKey('topology-position-$id')),
+      );
+      expect([card.left, card.top], positions[id]);
+    }
     await finish(tester);
   });
 
@@ -7041,6 +7251,133 @@ void main() {
   );
 
   testWidgets(
+    'pan and zoom immediately after dropping a card with 5000 recycled cards',
+    (tester) async {
+      const agentId = '1000-0';
+      final storage = _CanvasWriteTrackingStorage();
+      late AssistantTestScope local;
+      final workspace = (await tester.runAsync(() async {
+        local = await createAssistantTestScope(
+          theme: theme,
+          language: language,
+          shell: shell,
+          splitView: split,
+          storage: storage,
+        );
+        await local.provider.initialized;
+        final date = DateTime.now().toUtc().toIso8601String();
+        await storage.saveWorkflow({
+          'version': 1,
+          'sessions': [
+            {
+              'id': agentId,
+              'kind': 'primary',
+              'title': 'Active',
+              'task': '',
+              'createdAt': date,
+              'conversation': local.provider.snapshotWorkspaceConversation(),
+            },
+          ],
+          'connections': [],
+          'canvas': {
+            agentId: [320, 240],
+          },
+          'recycleBin': [
+            for (var index = 0; index < 5000; index++)
+              {
+                'record': {
+                  'id': '2000-$index',
+                  'title': 'Recycled $index',
+                  'task': '',
+                  'conversation': <String, Object?>{},
+                },
+                'deletedAt': date,
+              },
+          ],
+        });
+        final workspace = AiWorkspaceProvider(local.provider);
+        await workspace.initialized;
+        await workspace.flush();
+        return workspace;
+      }))!;
+      try {
+        await tester.pumpWidget(app(restored: workspace));
+        await tester.pumpAndSettle();
+        expect(workspace.recycledAgents, hasLength(5000));
+        storage.writes.clear();
+        final canvas = find.byKey(const ValueKey('task-topology-canvas'));
+        final transform = tester
+            .widget<InteractiveViewer>(canvas)
+            .transformationController!;
+        final card = find.byKey(const ValueKey('topology-node-$agentId'));
+        final origin = tester.getTopLeft(canvas);
+        for (final zoom in [false, true]) {
+          final start = tester.getCenter(card);
+          final delta = const Offset(48, 24);
+          final drag = await tester.startGesture(
+            start,
+            kind: PointerDeviceKind.mouse,
+          );
+          await drag.moveTo(start + delta);
+          await tester.pump();
+          final pointer = start + delta;
+          final initialScale = transform.value.entry(0, 0);
+          final scene = transform.toScene(pointer - origin);
+          await drag.up();
+          if (zoom)
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              position: pointer,
+              scrollDelta: const Offset(0, -40),
+              kind: PointerDeviceKind.mouse,
+            ),
+          );
+          if (zoom) await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+          await tester.pumpAndSettle();
+          final saved = workspace.canvasPositions[agentId]!;
+          expect(
+            (transform.toScene(tester.getTopLeft(card) - origin) -
+                    Offset(saved[0], saved[1]))
+                .distance,
+            lessThan(.01),
+          );
+          expect(
+            (transform.toScene(tester.getCenter(card) - origin) - scene)
+                .distance,
+            lessThan(.01),
+          );
+          if (zoom) {
+            expect(transform.value.entry(0, 0), greaterThan(initialScale));
+            expect(
+              (transform.toScene(pointer - origin) - scene).distance,
+              lessThan(.01),
+            );
+          } else {
+            expect(tester.getCenter(card).dy, closeTo(pointer.dy + 40, .01));
+          }
+        }
+        await tester.pump(const Duration(milliseconds: 501));
+        await tester.runAsync(() async {
+          expect(storage.writes, isNotEmpty);
+          expect(storage.writes, everyElement('saveCanvas'));
+          final saved = await storage.request('readWorkflowData') as Map;
+          expect(saved['canvas'], workspace.canvasPositions);
+          expect(saved['recycleBin'], hasLength(5000));
+        });
+        expect(tester.takeException(), isNull);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.runAsync(() async {
+          workspace.dispose();
+          local.dispose();
+          await storage.close();
+        });
+      }
+    },
+  );
+
+  testWidgets(
     'nodes drag and all spawned children have editable chats while retaining drafts',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1180, 850));
@@ -7208,5 +7545,21 @@ class _LookupCountingWorkspaceProvider extends AiWorkspaceProvider {
   AiAgentWorkspace? find(String? id) {
     findCalls++;
     return super.find(id);
+  }
+}
+
+class _CanvasWriteTrackingStorage extends AgentStorage {
+  _CanvasWriteTrackingStorage() : super(path: ':memory:');
+
+  final writes = <String>[];
+
+  @override
+  Future<Object?> request(
+    String operation, [
+    Map<String, Object?> args = const {},
+  ]) {
+    if (operation == 'saveCanvas' || operation == 'saveWorkflow')
+      writes.add(operation);
+    return super.request(operation, args);
   }
 }

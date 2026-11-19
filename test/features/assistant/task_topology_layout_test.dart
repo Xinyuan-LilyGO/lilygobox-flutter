@@ -95,6 +95,25 @@ void main() {
     },
   );
 
+  test(
+    'incremental children use a negative parent position in any record order',
+    () {
+      final added = placeNewTaskChildren(
+        sessions: [
+          task('nested', parent: 'a'),
+          task('a', parent: 'root'),
+          task('root', root: true),
+        ],
+        anchors: {'root': const Offset(-5000, -3000)},
+        sizeOf: (_) => const Size(252, 164),
+      );
+      expect(added, {
+        'a': const Offset(-4530, -3000),
+        'nested': const Offset(-4060, -3000),
+      });
+    },
+  );
+
   test('sibling communication fans both branches into distinct rows', () {
     final nodes = [
       task('root', root: true),

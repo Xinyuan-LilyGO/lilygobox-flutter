@@ -5670,11 +5670,17 @@ abstract class AppLocalizations {
   /// **'Preparing to restore… {percent}%'**
   String agentRecycleRestoring(int percent);
 
-  /// No description provided for @agentRecycleRestoreSaving.
+  /// No description provided for @agentRecycleRestoreFinalizing.
   ///
   /// In en, this message translates to:
-  /// **'Saving restored agents…'**
-  String get agentRecycleRestoreSaving;
+  /// **'Finalizing restore…'**
+  String get agentRecycleRestoreFinalizing;
+
+  /// No description provided for @agentRecycleRestoreFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore failed. You can try again from the recycle bin.'**
+  String get agentRecycleRestoreFailed;
 
   /// No description provided for @agentRecycleDelete.
   ///

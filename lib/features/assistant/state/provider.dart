@@ -1277,7 +1277,7 @@ class AiAssistantProvider extends ChangeNotifier {
     AiProcessingSpeed? processingSpeed,
     required bool updateReasoningEffort,
   }) {
-    if (_disposed || _busy) {
+    if (_disposed) {
       throw const AiConfigurationException(AiProblem.busy);
     }
     final service = serviceId == null

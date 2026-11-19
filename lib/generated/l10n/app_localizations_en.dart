@@ -3184,7 +3184,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get agentRecycleRestoreSaving => 'Saving restored agents…';
+  String get agentRecycleRestoreFinalizing => 'Finalizing restore…';
+
+  @override
+  String get agentRecycleRestoreFailed =>
+      'Restore failed. You can try again from the recycle bin.';
 
   @override
   String get agentRecycleDelete => 'Delete permanently';

@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
@@ -5,6 +6,7 @@ import 'package:lilygobox/core/l10n/delegates.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
+import 'package:lilygobox/core/widgets/action_button.dart';
 import 'package:lilygobox/core/widgets/app_scroll_behavior.dart';
 import 'package:lilygobox/core/widgets/desktop_card_selection.dart';
 import 'package:lilygobox/core/widgets/settings/search_field.dart';
@@ -31,6 +33,75 @@ class _ObservedRecycledAgent extends AiRecycledAgent {
 }
 
 void main() {
+  Set<String> trackBuiltCards() {
+    final builtIds = <String>{};
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      previous?.call(element, builtOnce);
+      if (element.widget case DesktopCardSelectionMenu(:final id)) {
+        builtIds.add(id);
+      }
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+    return builtIds;
+  }
+
+  Future<void> checkJumps(
+    WidgetTester tester,
+    ScrollPosition position,
+    Set<String> builtIds,
+  ) async {
+    for (final fraction in [.02, .8047, 1.0, 0.0]) {
+      builtIds.clear();
+      final elapsed = Stopwatch()..start();
+      position.jumpTo(position.maxScrollExtent * fraction);
+      await tester.pumpAndSettle();
+      expect(
+        builtIds.length,
+        lessThan(30),
+        reason: 'Jump to $fraction took ${elapsed.elapsedMilliseconds} ms',
+      );
+    }
+  }
+
+  Future<void> dragScrollbar(
+    WidgetTester tester,
+    Finder list,
+    ScrollPosition position,
+    Set<String> builtIds,
+  ) async {
+    await tester.ensureVisible(list);
+    final region = tester.widget<DesktopCardSelectionRegion>(
+      find.byType(DesktopCardSelectionRegion),
+    );
+    region.selection.selectAll(region.ids.take(2));
+    region.onChanged();
+    await tester.pumpAndSettle();
+    final selected = region.selection.selected.toSet();
+    expect(selected, hasLength(2));
+    position.jumpTo(1);
+    await tester.pump();
+    position.jumpTo(0);
+    await tester.pump(const Duration(milliseconds: 32));
+    final rect = tester.getRect(list);
+    final thumb = Offset(rect.right - 9, rect.top + 18);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer();
+    await mouse.moveTo(thumb);
+    await tester.pumpAndSettle();
+    builtIds.clear();
+    await mouse.down(thumb);
+    expect(region.selection.selected, selected);
+    await mouse.moveBy(Offset(0, rect.height * .7));
+    await tester.pump();
+    await mouse.up();
+    await mouse.removePointer();
+    await tester.pumpAndSettle();
+    expect(position.pixels, greaterThan(position.maxScrollExtent * .5));
+    expect(region.selection.selected, selected);
+    expect(builtIds.length, lessThan(30));
+  }
+
   test(
     'recycle metadata does not decode or expose the conversation snapshot',
     () {
@@ -59,7 +130,7 @@ void main() {
     },
   );
 
-  testWidgets('memory pages build lazily and reuse unselected cards', (
+  testWidgets('10000 paged memories build only nearby cards during long jumps', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 1000);
@@ -97,13 +168,15 @@ void main() {
         kind: AiWorkspaceKind.primary,
         startImmediately: false,
       )).id;
-      for (var index = 0; index < 150; index++) {
-        await storage.putMemory(
-          id: 'memory-$index',
-          owner: owner,
-          content: 'Memory $index: ${'Retained details ' * 80}',
-        );
-      }
+      await storage.commitImport(workspace.exportData(), [
+        for (var index = 0; index < 10000; index++)
+          {
+            'id': 'memory-$index',
+            'owner': owner,
+            'content':
+                'Memory $index: ${index.isEven ? 'Retained details ' * 8 : 'Short'}',
+          },
+      ]);
     });
     addTearDown(() async {
       await tester.runAsync(() async {
@@ -121,6 +194,8 @@ void main() {
       ChangeNotifierProvider.value(
         value: workspace,
         child: MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.windows),
+          scrollBehavior: const AppScrollBehavior(),
           locale: const Locale('en'),
           supportedLocales: const [Locale('en'), Locale('zh')],
           localizationsDelegates: appLocalizationDelegates,
@@ -136,6 +211,7 @@ void main() {
         ),
       ),
     );
+    final builtIds = trackBuiltCards();
     await tester.tap(find.text('Open memories'));
     for (var attempt = 0; attempt < 10; attempt++) {
       await tester.runAsync(
@@ -185,7 +261,19 @@ void main() {
     final more = find.byWidgetPredicate(
       (widget) => widget is Text && widget.data == 'Load more',
     );
-    await tester.scrollUntilVisible(more, 300, scrollable: scrollable);
+    final position = tester.state<ScrollableState>(scrollable).position;
+    for (var attempt = 0; attempt < 4 && more.evaluate().isEmpty; attempt++) {
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pumpAndSettle();
+    }
+    await tester.ensureVisible(more);
+    await tester.pumpAndSettle();
+    expect(more.hitTestable(), findsOneWidget);
+    final loadMore = tester
+        .widget<AppActionButton>(
+          find.widgetWithText(AppActionButton, 'Load more'),
+        )
+        .onPressed!;
     await tester.tap(more);
     for (var attempt = 0; attempt < 10; attempt++) {
       await tester.runAsync(
@@ -202,18 +290,54 @@ void main() {
           .ids,
       hasLength(100),
     );
+    position.jumpTo(0);
+    await tester.pumpAndSettle();
+    await checkJumps(tester, position, builtIds);
+    final region = find.byType(DesktopCardSelectionRegion);
+    for (var loaded = 150; loaded <= 10000; loaded += 50) {
+      loadMore();
+      for (var attempt = 0; attempt < 100; attempt++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 5)),
+        );
+        await tester.pump(const Duration(milliseconds: 16));
+        if (tester.widget<DesktopCardSelectionRegion>(region).ids.length ==
+            loaded) {
+          break;
+        }
+      }
+      expect(
+        tester.widget<DesktopCardSelectionRegion>(region).ids,
+        hasLength(loaded),
+      );
+    }
+    await checkJumps(tester, position, builtIds);
+    await dragScrollbar(tester, list, position, builtIds);
+    final ids = tester.widget<DesktopCardSelectionRegion>(region).ids;
+    expect(ids.toSet(), hasLength(10000));
+    final last = find.byKey(ValueKey('storage-memory-card-${ids.last}'));
+    for (var attempt = 0; attempt < 4; attempt++) {
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      if (last.evaluate().isNotEmpty) {
+        await tester.ensureVisible(last);
+        await tester.pumpAndSettle();
+      }
+      if (last.hitTestable().evaluate().isNotEmpty) break;
+    }
+    expect(last.hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  for (final count in [100, 500]) {
+  for (final count in [100, 500, 10000]) {
     for (final compact in [false, true]) {
       testWidgets(
         'recycle $count long conversations compact=$compact stay lazy',
         (tester) async {
           tester.view.physicalSize = compact
               ? const Size(420, 620)
-              : const Size(1200, 900);
+              : const Size(2543, 1376);
           tester.view.devicePixelRatio = 1;
           addTearDown(tester.view.resetPhysicalSize);
           addTearDown(tester.view.resetDevicePixelRatio);
@@ -236,7 +360,11 @@ void main() {
             final conversation = {
               ...scope.provider.snapshotWorkspaceConversation(),
               'messages': [
-                for (var messageIndex = 0; messageIndex < 20; messageIndex++)
+                for (
+                  var messageIndex = 0;
+                  messageIndex < (count == 10000 ? 1 : 20);
+                  messageIndex++
+                )
                   {
                     'id': 'message-$messageIndex',
                     'role': 'assistant',
@@ -282,6 +410,7 @@ void main() {
           final snapshot = workspace.recycledAgents;
           expect(snapshot, hasLength(count));
           expect(identical(snapshot, workspace.recycledAgents), isTrue);
+          final builtIds = trackBuiltCards();
           await tester.pumpWidget(
             ChangeNotifierProvider.value(
               value: workspace,
@@ -320,6 +449,7 @@ void main() {
                 ),
           );
           expect(cards.evaluate().length, lessThan(30));
+          expect(builtIds.length, lessThan(30));
           final list = find.byKey(
             ValueKey(
               compact
@@ -331,6 +461,10 @@ void main() {
               .descendant(of: list, matching: find.byType(Scrollable))
               .first;
           final position = tester.state<ScrollableState>(scrollable).position;
+          if (count == 10000) {
+            await checkJumps(tester, position, builtIds);
+            await dragScrollbar(tester, list, position, builtIds);
+          }
           final last = find.byKey(
             ValueKey('recycle-agent-card-${snapshot.last.id}'),
           );

@@ -96,28 +96,34 @@ class _ChatHistoryScrollbarState extends State<ChatHistoryScrollbar> {
           ? widget.readLogicalFraction().clamp(0.0, 1.0) * extent
           : source.pixels.clamp(0.0, extent);
       _fraction = extent > 0 ? pixels / extent : 0;
-      if (position.hasContentDimensions &&
-          position.maxScrollExtent == extent &&
-          position.viewportDimension == source.viewportDimension &&
-          previous == pixels) {
-        return;
-      }
+      final dimensionsChanged =
+          !position.hasContentDimensions ||
+          position.maxScrollExtent != extent ||
+          position.viewportDimension != source.viewportDimension;
+      if (!dimensionsChanged && previous == pixels) return;
       _synchronizing = true;
-      position.applyViewportDimension(source.viewportDimension);
-      position.applyContentDimensions(0, extent);
+      if (dimensionsChanged) {
+        position.applyViewportDimension(source.viewportDimension);
+        position.applyContentDimensions(0, extent);
+      }
       position.synchronize(pixels);
       _synchronizing = false;
       final target = _notificationContext;
       if (target == null || !target.mounted) return;
-      ScrollMetricsNotification(
-        metrics: position.copyWith(),
-        context: target,
-      ).dispatch(target);
-      ScrollUpdateNotification(
-        metrics: position.copyWith(),
-        context: target,
-        scrollDelta: position.pixels - previous,
-      ).dispatch(target);
+      final metrics = position.copyWith();
+      if (dimensionsChanged) {
+        ScrollMetricsNotification(
+          metrics: metrics,
+          context: target,
+        ).dispatch(target);
+      }
+      if (previous != pixels) {
+        ScrollUpdateNotification(
+          metrics: metrics,
+          context: target,
+          scrollDelta: pixels - previous,
+        ).dispatch(target);
+      }
     });
     WidgetsBinding.instance.ensureVisualUpdate();
   }

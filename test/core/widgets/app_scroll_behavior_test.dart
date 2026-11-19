@@ -324,6 +324,51 @@ void main() {
       expect(controller.offset, closeTo(240, .1));
     });
 
+    testWidgets('a wheel notch after a pause responds on the next frame', (
+      tester,
+    ) async {
+      final controller = ScrollController(initialScrollOffset: 1000);
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          scrollBehavior: const AppScrollBehavior(),
+          home: ListView(
+            controller: controller,
+            children: const [SizedBox(height: 4000)],
+          ),
+        ),
+      );
+      const point = Offset(200, 200);
+      const frame = Duration(milliseconds: 16);
+      for (final delta in [100.0, -100.0]) {
+        final start = controller.offset;
+        await wheel(
+          tester,
+          point,
+          delta,
+          timeStamp: const Duration(seconds: 1),
+        );
+        await tester.pump();
+        await tester.pump(frame);
+        final firstFrame = (controller.offset - start).abs();
+        await tester.pump(const Duration(milliseconds: 129));
+        final beforeNext = controller.offset;
+        await wheel(
+          tester,
+          point,
+          delta,
+          timeStamp: const Duration(milliseconds: 1145),
+        );
+        await tester.pump(frame);
+        expect(
+          (controller.offset - beforeNext).abs(),
+          greaterThanOrEqualTo(firstFrame - .01),
+        );
+        await tester.pumpAndSettle();
+        expect(controller.offset, closeTo(start + 2 * delta, .01));
+      }
+    });
+
     testWidgets(
       'continuous wheel input advances during every frame without restarting the activity',
       (tester) async {

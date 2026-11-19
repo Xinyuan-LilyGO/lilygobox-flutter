@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +22,18 @@ import 'package:provider/provider.dart';
 
 import 'assistant_test_scope.dart';
 
+class _GatedStorage extends AgentStorage {
+  _GatedStorage() : super(path: ':memory:');
+
+  Completer<void>? deletion;
+
+  @override
+  Future<Object?> request(String operation, [Map<String, Object?> args = const {}]) async {
+    if (operation == 'commitRecycle') await deletion?.future;
+    return super.request(operation, args);
+  }
+}
+
 void main() {
   for (final compact in [false, true]) {
     testWidgets(
@@ -37,7 +51,7 @@ void main() {
         final language = LanguageProvider();
         final shell = AppShellProvider();
         final split = SplitViewProvider();
-        final storage = AgentStorage(path: ':memory:');
+        final storage = _GatedStorage();
         late AssistantTestScope scope;
         late AiWorkspaceProvider workspace;
         await tester.runAsync(() async {
@@ -132,7 +146,7 @@ void main() {
         final listSize = tester.getSize(list);
         if (!compact) expect(listSize.height, closeTo(270, .01));
         expect(dialogSize.height, lessThan(compact ? 620 : 800));
-        if (!compact) expect(tester.widget<ListView>(list).primary, isFalse);
+        if (!compact) expect(tester.widget<ScrollView>(list).primary, isFalse);
         expect(
           find.descendant(
             of: find.byType(AppDialog),
@@ -155,6 +169,7 @@ void main() {
         expect(tester.getRect(close), closeRect);
         expect(tester.takeException(), isNull);
         final ordered = workspace.recycledAgents.toList();
+        final bin = tester.element(find.byType(AppDialog));
         final region = tester.widget<DesktopCardSelectionRegion>(
           find.byType(DesktopCardSelectionRegion),
         );
@@ -334,6 +349,7 @@ void main() {
         expect(workspace.recycledAgents, hasLength(10));
         expect(workspace.find(ordered[0].id), isNotNull);
         expect(workspace.find(ordered[1].id), isNotNull);
+        expect(tester.element(find.byType(AppDialog)), same(bin));
         expect(region.selection.selected, isEmpty);
         await tapCard(2);
         await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
@@ -414,12 +430,41 @@ void main() {
         await tester.pumpAndSettle();
         expect(workspace.recycledAgents, isEmpty);
         expect(workspace.sessions, hasLength(10));
+        expect(tester.element(find.byType(AppDialog)), same(bin));
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).controller!.text,
+          'No results for this',
+        );
         expect(tester.widget<AppActionButton>(restoreAll).onPressed, isNull);
         expect(tester.widget<AppActionButton>(emptyAll).onPressed, isNull);
         expect(tester.takeException(), isNull);
         await tester.tap(close);
         await tester.pumpAndSettle();
         expect(find.byType(AppDialog), findsNothing);
+        workspace.removeMany(workspace.sessions.map((session) => session.id));
+        await tester.tap(find.text('Open bin'));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(emptyAll);
+        await tester.tap(emptyAll);
+        await tester.pumpAndSettle();
+        storage.deletion = Completer<void>();
+        try {
+          await tester.tap(find.byKey(const ValueKey('confirm-recycle-empty')));
+          await tester.pumpAndSettle();
+          for (var attempt = 0; attempt < 50 && !workspace.recycleBusy; attempt++) {
+            await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+            await tester.pump();
+          }
+          expect(workspace.recycleBusy, isTrue);
+          await tester.tap(close);
+          await tester.pumpAndSettle();
+          expect(find.byType(AppDialog), findsNothing);
+          expect(workspace.recycledAgents, hasLength(10));
+        } finally {
+          storage.deletion!.complete();
+        }
+        await settleRecycleCount(0);
+        expect(workspace.recycledAgents, isEmpty);
         await tester.pumpWidget(const SizedBox.shrink());
       },
     );

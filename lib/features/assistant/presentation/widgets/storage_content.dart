@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../../../../core/context_menu/right_click_menu.dart';
 import '../../../../core/context_menu/text_selection_menu.dart';
@@ -68,7 +69,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
   List<Map<String, Object?>>? _memorySource;
   List<String> _memoryIds = const [];
   Object? _memoryEnvironment;
-  final _memoryViews = <String, ({bool selected, Widget view})>{};
+  final _memoryViews = DesktopCardViewCache();
   final _contextBudget = TextEditingController();
   final _contextPercent = TextEditingController();
   int? _savedPercent;
@@ -1123,7 +1124,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                   crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
                   mainAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
                 ),
-                child: ListView.builder(
+                child: SuperListView.builder(
                   key: const ValueKey('storage-memory-list-scroll'),
                   primary: false,
                   shrinkWrap: true,
@@ -1185,13 +1186,14 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                     final memory = controller.memories[index];
                     final id = memory['id'] as String;
                     final selected = _memorySelection.selected.contains(id);
-                    final cached = _memoryViews[id];
-                    if (cached != null && cached.selected == selected) {
-                      return cached.view;
+                    if (_memoryViews.lookup(id, selected) case final view?) {
+                      return view;
                     }
-                    final view = _memoryCard(memory, ids, enabled);
-                    _memoryViews[id] = (selected: selected, view: view);
-                    return view;
+                    return _memoryViews.store(
+                      id,
+                      selected,
+                      _memoryCard(memory, ids, enabled),
+                    );
                   },
                 ),
               ),

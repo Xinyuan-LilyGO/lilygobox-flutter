@@ -4,6 +4,23 @@ import 'package:lilygobox/core/widgets/desktop_card_selection.dart';
 import 'package:material_ui/material_ui.dart';
 
 void main() {
+  test('card views retain recent uses and invalidate a changed selection', () {
+    final cache = DesktopCardViewCache();
+    for (var index = 0; index < 64; index++) {
+      cache.store('$index', false, Text('Card $index'));
+    }
+    final first = cache.lookup('0', false);
+    expect(first, isNotNull);
+    cache.store('64', false, const Text('Card 64'));
+    expect(cache.lookup('1', false), isNull);
+    expect(cache.lookup('0', false), same(first));
+    expect(cache.lookup('0', true), isNull);
+    final selected = cache.store('0', true, const Text('Selected card'));
+    expect(cache.lookup('0', true), same(selected));
+    cache.clear();
+    expect(cache.lookup('0', true), isNull);
+  });
+
   test('click, additive toggle, anchored range, and pruning', () {
     final selection = DesktopCardSelection();
     const ids = ['a', 'b', 'c', 'd', 'e'];

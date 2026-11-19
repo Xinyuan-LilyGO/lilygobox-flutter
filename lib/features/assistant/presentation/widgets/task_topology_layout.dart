@@ -2,6 +2,57 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import '../../state/agent_workspace.dart';
+import 'task_topology_node_layer.dart';
+
+const _siblingGap = 64.0;
+const _columnWidth = 470.0;
+
+Map<String, Offset> placeNewTaskChildren({
+  required List<AiAgentWorkspace> sessions,
+  required Map<String, Offset> anchors,
+  required Size Function(String) sizeOf,
+}) {
+  final children = <String, List<String>>{};
+  for (final session in sessions) {
+    final parent = session.parentId;
+    if (parent != null && !anchors.containsKey(session.id)) {
+      children.putIfAbsent(parent, () => []).add(session.id);
+    }
+  }
+  final parents = anchors.keys.where(children.containsKey).toList();
+  if (parents.isEmpty) return const {};
+  final occupied = TaskCanvasSpatialIndex();
+  for (final entry in anchors.entries) {
+    occupied.update(entry.key, entry.value & sizeOf(entry.key));
+  }
+  final added = <String, Offset>{};
+  for (var index = 0; index < parents.length; index++) {
+    final parent = parents[index];
+    final bounds = occupied[parent]!;
+    final left = bounds.left + math.max(_columnWidth, bounds.width + 218);
+    double? nextTop;
+    for (final child in children[parent]!) {
+      final size = sizeOf(child);
+      var top =
+          nextTop ??
+          bounds.top + math.max(0.0, (bounds.height - size.height) / 2);
+      while (true) {
+        final collisions = occupied.intersecting(
+          (Offset(left, top) & size).inflate(_siblingGap / 2),
+        );
+        if (collisions.isEmpty) break;
+        top =
+            collisions.map((id) => occupied[id]!.bottom).reduce(math.max) +
+            _siblingGap;
+      }
+      final position = added[child] = Offset(left, top);
+      occupied.update(child, position & size);
+      nextTop = top + size.height + _siblingGap;
+      if (children.containsKey(child)) parents.add(child);
+    }
+  }
+  return added;
+}
 
 /// 仅计算自动布局位置，页面随后应用手动位置。
 Map<String, Offset> layoutTaskTopology({
@@ -9,8 +60,6 @@ Map<String, Offset> layoutTaskTopology({
   required Map<String, Size> nodeSizes,
   required List<AiTaskConnection> connections,
 }) {
-  const siblingGap = 64.0;
-  const columnWidth = 470.0;
   const fallbackSize = Size(252, 164);
   final byId = {for (final task in sessions) task.id: task};
   Size size(String id) => nodeSizes[id] ?? fallbackSize;
@@ -62,7 +111,7 @@ Map<String, Offset> layoutTaskTopology({
         );
         heights[id] = math.max(
           size(id).height,
-          childHeight + math.max(0, children.length - 1) * siblingGap,
+          childHeight + math.max(0, children.length - 1) * _siblingGap,
         );
       }
       origins[task.id] = Offset(180, top);
@@ -82,13 +131,13 @@ Map<String, Offset> layoutTaskTopology({
           // 为纵向跨度大的分支增加水平空间，不拉伸小型树。
           final childX =
               origin.dx +
-              math.max(columnWidth, size(id).width + math.max(218, span / 4));
+              math.max(_columnWidth, size(id).width + math.max(218, span / 4));
           var childTop = origin.dy;
           for (final child in children) {
             if (!positions.containsKey(child)) {
               origins[child] = Offset(childX, childTop);
             }
-            childTop += heights[child]! + siblingGap;
+            childTop += heights[child]! + _siblingGap;
           }
         }
       }
@@ -173,7 +222,7 @@ Map<String, Offset> layoutTaskTopology({
     final columnHeights = [
       for (final depth in ranks)
         columns[depth]!.fold<double>(0, (sum, id) => sum + size(id).height) +
-            (columns[depth]!.length - 1) * siblingGap,
+            (columns[depth]!.length - 1) * _siblingGap,
     ];
     final componentHeight = columnHeights.reduce(math.max);
     var x = 180.0;
@@ -183,14 +232,14 @@ Map<String, Offset> layoutTaskTopology({
       var y = componentTop + (componentHeight - height) / 2;
       for (final id in column) {
         positions[id] = Offset(x, y);
-        y += size(id).height + siblingGap;
+        y += size(id).height + _siblingGap;
       }
       final nextHeight = index + 1 < ranks.length
           ? columnHeights[index + 1]
           : 0.0;
       final span = math.max(height, nextHeight);
       x += math.max(
-        columnWidth,
+        _columnWidth,
         column.map((id) => size(id).width).reduce(math.max) +
             math.max(218, span / 4),
       );

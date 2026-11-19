@@ -352,7 +352,7 @@ void main() {
         );
         expect(recycleList, findsOneWidget);
         expect(tester.getSize(recycleList).height, lessThanOrEqualTo(300));
-        expect(tester.widget<ListView>(recycleList).primary, isFalse);
+        expect(tester.widget<ScrollView>(recycleList).primary, isFalse);
         expect(tester.takeException(), isNull);
         await tester.runAsync(() async {
           final image =
@@ -367,6 +367,7 @@ void main() {
         await tester.tap(find.text('还原'));
         await tick(tester);
         expect(workspaces.find(recycledId), isNotNull);
+        expect(recycleList, findsOneWidget);
         expect(find.text('回收站为空'), findsOneWidget);
         final emptyRecycleButton = find.byKey(
           const ValueKey('recycle-empty-all'),
@@ -388,7 +389,7 @@ void main() {
           isNot(palette.materialColors.onError),
         );
         expect(
-          tester.getSize(find.byType(ListView).last).width,
+          tester.getSize(recycleList).width,
           lessThanOrEqualTo(440),
         );
         await tester.tap(find.text('关闭'));
@@ -484,7 +485,7 @@ void main() {
         );
         expect(memoryList, findsOneWidget);
         expect(tester.getSize(memoryList).height, lessThanOrEqualTo(240));
-        expect(tester.widget<ListView>(memoryList).primary, isFalse);
+        expect(tester.widget<ScrollView>(memoryList).primary, isFalse);
 
         final editableOwners = tester
             .widget<SettingSelect<String>>(find.byType(SettingSelect<String>))

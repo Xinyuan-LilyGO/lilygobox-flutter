@@ -38,6 +38,7 @@ class AiTopologyEditSnapshot {
     List<AiAgentWorkspace> tasks,
     this._connections,
     this._selectedId,
+    this._recycled,
   ) : _tasks = List.unmodifiable(tasks),
       _fields = {
         for (final task in tasks)
@@ -47,7 +48,7 @@ class AiTopologyEditSnapshot {
         for (final entry in _owner._deliveredMessages.entries)
           entry.key: Set<String>.of(entry.value),
       };
-  final List<AiRecycledAgent> _recycled = [];
+  final List<AiRecycledAgent> _recycled;
   final Map<String, Set<String>> _deliveredMessages;
   final AiWorkspaceProvider _owner;
   final List<AiAgentWorkspace> _tasks;
@@ -156,12 +157,18 @@ class AiWorkspaceProvider extends ChangeNotifier {
     return result;
   }
 
-  final List<AiRecycledAgent> _recycledAgents = [];
+  List<AiRecycledAgent> _recycledAgents = const [];
   List<AiRecycledAgent>? _recycledAgentsCache;
+  void _replaceRecycledAgents(Iterable<AiRecycledAgent> entries) {
+    _recycledAgents = List.unmodifiable(entries);
+    _recycledAgentsCache = null;
+  }
+
   final Set<String> _purgedAgentIds = {};
   int _recycleRetentionDays = 30;
   Timer? _recycleTimer;
   bool _recycleOperation = false;
+  Completer<void>? _recycleRestoreCommit;
   int recycleRevision = 0;
   void _recycleChanged() {
     if (!_disposed) notifyListeners();
@@ -193,6 +200,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
   ({int revision, String? sourceId, String targetId})? get navigationRequest =>
       _navigationRequest;
   Timer? _saveTimer;
+  bool _canvasOnlySave = false;
   Object? persistenceError;
   final Map<String, Set<String>> _deliveredMessages = {};
   List<AiAgentWorkspace> get sessions => List.unmodifiable(_sessions);
@@ -218,6 +226,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
 
   final Set<AiTopologyEditSnapshot> _editSnapshots = {};
   final Map<String, AiAgentWorkspace> _detachedEditTasks = {};
+  final Map<AiAgentWorkspace, int> _editReferences = {};
 
   AiTopologyEditSnapshot captureTopologyEdit() {
     if (_disposed) throw StateError('Workspace is closed');
@@ -226,9 +235,12 @@ class AiWorkspaceProvider extends ChangeNotifier {
       _sessions,
       connections,
       _selectedId,
+      _recycledAgents,
     );
-    snapshot._recycled.addAll(_recycledAgents);
     _editSnapshots.add(snapshot);
+    for (final task in snapshot._tasks) {
+      _editReferences.update(task, (count) => count + 1, ifAbsent: () => 1);
+    }
     return snapshot;
   }
 
@@ -264,11 +276,12 @@ class AiWorkspaceProvider extends ChangeNotifier {
                 previous._fields[task.id]?.$3 != AiWorkspaceKind.primary))
           task.id: _rootId(task.id),
     };
-    _recycledAgents.removeWhere((entry) => affected.contains(entry.id));
-    _recycledAgentsCache = null;
-    _recycledAgents.addAll(
-      snapshot._recycled.where((entry) => affected.contains(entry.id)),
-    );
+    if (!identical(_recycledAgents, snapshot._recycled)) {
+      _replaceRecycledAgents([
+        ..._recycledAgents.where((entry) => !affected.contains(entry.id)),
+        ...snapshot._recycled.where((entry) => affected.contains(entry.id)),
+      ]);
+    }
     final externalTasks = previous == null
         ? <AiAgentWorkspace>[]
         : _sessions
@@ -351,8 +364,14 @@ class AiWorkspaceProvider extends ChangeNotifier {
   /// Release when a history step is discarded, including page disposal.
   void releaseTopologyEdit(AiTopologyEditSnapshot snapshot) {
     if (!_editSnapshots.remove(snapshot)) return;
-    for (final task in _detachedEditTasks.values.toList()) {
-      if (!_editSnapshots.any((saved) => saved._tasks.contains(task))) {
+    for (final task in snapshot._tasks) {
+      final remaining = _editReferences[task]! - 1;
+      if (remaining > 0) {
+        _editReferences[task] = remaining;
+        continue;
+      }
+      _editReferences.remove(task);
+      if (identical(_detachedEditTasks[task.id], task)) {
         _detachedEditTasks.remove(task.id);
         task.assistant.dispose();
       }
@@ -366,7 +385,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     _pendingNames.remove(task.id);
     _removeSessionListener(task.assistant);
     task.assistant.closeWorkspaceRuntime();
-    if (_editSnapshots.any((snapshot) => snapshot._tasks.contains(task))) {
+    if (_editReferences.containsKey(task)) {
       _detachedEditTasks[task.id] = task;
     } else {
       task.assistant.dispose();
@@ -654,10 +673,11 @@ class AiWorkspaceProvider extends ChangeNotifier {
   }
 
   void select(String? id) {
-    if (id != null && find(id) == null) return;
+    if (_disposed || (id != null && find(id) == null)) return;
     if (_selectedId == id) return;
     _selectedId = id;
-    _notify();
+    notifyListeners();
+    _scheduleSave(canvasOnly: true);
   }
 
   void _notify() {
@@ -843,8 +863,9 @@ class AiWorkspaceProvider extends ChangeNotifier {
     }
   }
 
-  void _scheduleSave() {
+  void _scheduleSave({bool canvasOnly = false}) {
     if (!_restoring) {
+      _canvasOnlySave = canvasOnly && (_saveTimer == null || _canvasOnlySave);
       _saveTimer ??= Timer(const Duration(milliseconds: 500), () {
         _saveTimer = null;
         _saveNow();
@@ -859,7 +880,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
       final storage = main.storage;
       if (storage == null) return;
       final decoded = await storage.request('readWorkflowData');
-      if (decoded == null) return;
+      if (_disposed || decoded == null) return;
       if (decoded is! Map ||
           decoded['version'] != 1 ||
           decoded['sessions'] is! List) {
@@ -876,7 +897,8 @@ class AiWorkspaceProvider extends ChangeNotifier {
                 .toList(),
         };
       }
-      _restoreRecycleState(decoded);
+      await _restoreRecycleState(decoded);
+      if (_disposed) return;
       final rawRecords = decoded['sessions'] as List;
       final byId = <String, Map>{};
       for (final raw in rawRecords) {
@@ -1133,7 +1155,17 @@ class AiWorkspaceProvider extends ChangeNotifier {
       return;
     }
     try {
-      await main.storage!.saveWorkflow(_workflowForStorage());
+      final canvasOnly = _canvasOnlySave;
+      _canvasOnlySave = false;
+      if (canvasOnly) {
+        await main.storage!.request('saveCanvas', {
+          'canvas': canvasPositions,
+          'canvasOrigin': [canvasOrigin.dx, canvasOrigin.dy],
+          'selectedId': _selectedId,
+        });
+      } else {
+        await main.storage!.saveWorkflow(_workflowForStorage());
+      }
     } catch (error) {
       persistenceError = error;
     }
@@ -1162,23 +1194,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
         }
       }
     }
-    final parents = <String, String?>{
-      for (final session in _sessions.where(
-        (session) => selected.contains(session.id),
-      ))
-        session.id: selected.contains(session.parentId)
-            ? session.parentId
-            : null,
-    };
-    final edges = connections
-        .where(
-          (edge) =>
-              !edge.isHierarchy &&
-              selected.contains(edge.fromId) &&
-              selected.contains(edge.toId),
-        )
-        .toList();
-    _normalizeWorkflowParents(parents, edges);
+    final graph = _snapshotGraph(selected);
     return {
       'version': 1,
       'selectedId': null,
@@ -1187,27 +1203,56 @@ class AiWorkspaceProvider extends ChangeNotifier {
       'canvas': canvasPositions,
       'canvasOrigin': [canvasOrigin.dx, canvasOrigin.dy],
       'connections': [
-        for (final c in edges)
-          if (parents[c.fromId] != c.toId && parents[c.toId] != c.fromId)
-            {'fromId': c.fromId, 'toId': c.toId},
+        for (final edge in graph.edges)
+          {'fromId': edge.fromId, 'toId': edge.toId},
       ],
       'sessions': [
-        for (final s in _sessions.where((s) => selected.contains(s.id)))
-          {
-            'id': s.id,
-            'title': s.title,
-            'task': s.task,
-            'kind': parents[s.id] != null
-                ? AiWorkspaceKind.permanent.name
-                : AiWorkspaceKind.primary.name,
-            'closed': s.closed,
-            'parentId': parents[s.id],
-            'createdAt': s.createdAt.toIso8601String(),
-            'conversation': s.assistant.snapshotWorkspaceConversation(),
-          },
+        for (final session in _sessions)
+          if (selected.contains(session.id))
+            _snapshotSession(session, graph.parents[session.id]),
       ],
     };
   }
+
+  ({Map<String, String?> parents, List<AiTaskConnection> edges}) _snapshotGraph(
+    Set<String> selected,
+  ) {
+    final parents = <String, String?>{
+      for (final session in _sessions)
+        if (selected.contains(session.id))
+          session.id: selected.contains(session.parentId)
+              ? session.parentId
+              : null,
+    };
+    final edges = [
+      for (final edge in connections)
+        if (!edge.isHierarchy &&
+            selected.contains(edge.fromId) &&
+            selected.contains(edge.toId))
+          edge,
+    ];
+    _normalizeWorkflowParents(parents, edges);
+    edges.removeWhere(
+      (edge) =>
+          parents[edge.fromId] == edge.toId ||
+          parents[edge.toId] == edge.fromId,
+    );
+    return (parents: parents, edges: edges);
+  }
+
+  Map<String, Object?> _snapshotSession(
+    AiAgentWorkspace session,
+    String? parentId,
+  ) => {
+    ..._sessionForStorage(
+      session,
+      session.assistant.snapshotWorkspaceConversation(),
+    ),
+    'kind': parentId == null
+        ? AiWorkspaceKind.primary.name
+        : AiWorkspaceKind.permanent.name,
+    'parentId': parentId,
+  };
 
   void normalizeWorkflowData(Map<String, Object?> workflow) {
     final records = (workflow['sessions'] as List).cast<Map>();
@@ -1259,7 +1304,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     if (_disposed) return;
     canvasPositions = positions;
     if (origin != null) canvasOrigin = origin;
-    _scheduleSave();
+    _scheduleSave(canvasOnly: true);
   }
 
   Future<Map<String, String>> importData(
@@ -1270,6 +1315,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     void Function()? onBeforeCommit,
   }) async {
     await initialized;
+    if (pendingRecycleRestore case final commit?) await commit;
     await checkpoint?.call();
     if (sessions.any((s) => s.busy)) throw StateError('Agents are running');
     if (data['version'] != 1 ||
@@ -1459,8 +1505,9 @@ class AiWorkspaceProvider extends ChangeNotifier {
         if (memories.isNotEmpty) throw StateError('Storage is unavailable');
       }
       committed = true;
-      _recycledAgents.addAll(importedRecycle);
-      _recycledAgentsCache = null;
+      if (importedRecycle.isNotEmpty) {
+        _replaceRecycledAgents([..._recycledAgents, ...importedRecycle]);
+      }
       for (final session in staged) {
         _register(session, synchronize: false);
       }
@@ -1484,6 +1531,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
 
   Future<void> flush() async {
     await initialized;
+    if (pendingRecycleRestore case final commit?) await commit;
     _saveTimer?.cancel();
     _saveTimer = null;
     await _saveNow();
@@ -1956,9 +2004,11 @@ class AiWorkspaceProvider extends ChangeNotifier {
   AiAgentWorkspace? _replacementRootFor(String id, Set<String> excluded) {
     if (find(id)?.kind != AiWorkspaceKind.primary) return null;
     AiAgentWorkspace? replacement;
-    for (final child in childrenOf(id)) {
-      if (child.kind != AiWorkspaceKind.permanent ||
-          excluded.contains(child.id)) {
+    for (final childId in _topologyChildren[id] ?? const <String>[]) {
+      final child = find(childId);
+      if (child == null ||
+          child.kind != AiWorkspaceKind.permanent ||
+          excluded.contains(childId)) {
         continue;
       }
       if (replacement == null ||
@@ -2179,12 +2229,15 @@ class AiWorkspaceProvider extends ChangeNotifier {
     if (_disposed) return;
     final selected = ids.toSet().where((id) => find(id) != null).toSet();
     if (selected.isEmpty) return;
-    final recycleSnapshot = exportData();
     final parents = _parentsAfterDeletion(selected);
-    final oldRoots = {for (final id in parents.keys) id: _rootId(id)};
     final replacements = rootReplacementsForDeletion(selected);
     final promotions = promotedRootsForDeletion(selected);
+    final oldRoots = {for (final id in promotions.keys) id: _rootId(id)};
     final fallback = replacements[_selectedId] ?? promotions.values.firstOrNull;
+    final removing = _sessions
+        .where((task) => selected.contains(task.id))
+        .toList();
+    _moveToRecycleBin(removing, selected);
     for (final task in _sessions) {
       if (!parents.containsKey(task.id)) continue;
       if (task.parentId != parents[task.id]) {
@@ -2198,13 +2251,10 @@ class AiWorkspaceProvider extends ChangeNotifier {
       final oldRoot = oldRoots[id]!;
       if (oldRoot != id) _mergeDeliveredMessages(oldRoot, id);
     }
-    final removing = _sessions
-        .where((task) => selected.contains(task.id))
-        .toList();
-    _moveToRecycleBin(removing, recycleSnapshot);
+    _sessions.removeWhere((task) => selected.contains(task.id));
     for (final item in removing) {
-      _sessions.remove(item);
       _detachForEdit(item);
+      _dirtyConversations.remove(item.id);
       _deliveredMessages.remove(item.id);
     }
     _pruneConnections();
@@ -2733,6 +2783,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     }
     _detachedEditTasks.clear();
     _editSnapshots.clear();
+    _editReferences.clear();
     _sessions.clear();
     _topologyAgents.clear();
     _supplementalConnections.clear();
