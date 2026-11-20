@@ -35,9 +35,10 @@ Future<AssistantTestScope> createAssistantTestScope({
   http.Client? client,
   AssistantTools? tools,
   AgentStorage? storage,
+  PreferencesStorage? preferencesStorage,
 }) async {
   final preferences = await AppPreferences.load(
-    storage: _MemoryPreferencesStorage(),
+    storage: preferencesStorage ?? MemoryAssistantPreferencesStorage(),
   );
   final provider = AiAssistantProvider(
     preferences: preferences,
@@ -56,7 +57,7 @@ Future<AssistantTestScope> createAssistantTestScope({
   return AssistantTestScope(preferences, provider);
 }
 
-class _MemoryPreferencesStorage implements PreferencesStorage {
+class MemoryAssistantPreferencesStorage implements PreferencesStorage {
   String? value;
 
   @override

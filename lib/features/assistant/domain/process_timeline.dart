@@ -11,38 +11,20 @@ class AiProcessEntry {
 
 /// 将同次调用的准备、批准、执行与结果归为一个操作，保留完整过程。
 List<AiProcessEntry> buildAiProcessTimeline(List<AiProcessEvent> events) {
-  final entries = <AiProcessEntry>[];
-  final operationIndices = <String, int>{};
+  final groups = <String, List<AiProcessEvent>>{};
   for (final (index, event) in events.indexed) {
     final operationId = event.operationId;
-    final operation =
-        event.type == AiProcessEventType.action ||
-        (event.type == AiProcessEventType.status &&
-            (event.status == AiResponseStatus.preparingTools ||
-                event.status == AiResponseStatus.awaitingUserInput ||
-                event.status == AiResponseStatus.awaitingApproval ||
-                event.status == AiResponseStatus.executingTools ||
-                event.status == AiResponseStatus.accessingWeb));
-    if (operation && operationId != null) {
-      final previous = operationIndices[operationId];
-      final entry = AiProcessEntry(
-        'operation-$operationId',
-        event,
-        events: List.unmodifiable([
-          if (previous != null) ...entries[previous].events,
-          event,
-        ]),
-      );
-      if (previous == null) {
-        operationIndices[operationId] = entries.length;
-        entries.add(entry);
-      } else {
-        entries[previous] = entry;
-      }
-    } else {
-      // 没有调用标识的独立事件保持原顺序，不根据工具名称猜测归属。
-      entries.add(AiProcessEntry('event-$index', event));
-    }
+    final id = operationId == null ? 'event-$index' : 'operation-$operationId';
+    (groups[id] ??= []).add(event);
   }
-  return List.unmodifiable(entries);
+  return List.unmodifiable([
+    for (final group in groups.entries)
+      AiProcessEntry(
+        group.key,
+        group.value.last,
+        events: group.value.last.operationId == null
+            ? const []
+            : List.unmodifiable(group.value),
+      ),
+  ]);
 }

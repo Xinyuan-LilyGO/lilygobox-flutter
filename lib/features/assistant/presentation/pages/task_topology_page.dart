@@ -170,6 +170,9 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   bool _pageActive = true;
   Size _viewport = Size.zero;
   bool _fitOnLayout = false;
+  static const _viewportPreference = 'ai.agentCanvasViewport.v1';
+  bool _initializeViewport = true;
+  bool _hasSavedViewport = false;
   Map<String, Offset> _positions = const {};
   final _nodePositions = <String, ValueNotifier<Offset>>{};
   final _sceneExtent = ValueNotifier(_sceneSize);
@@ -444,7 +447,17 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   int _lastCount = -1;
 
   @override
+  void initState() {
+    super.initState();
+    _transform.addListener(_saveViewport);
+  }
+
+  @override
   void dispose() {
+    _transform.removeListener(_saveViewport);
+    if (_hasSavedViewport) {
+      unawaited(_navigationWorkspace?.main.workspacePreferences.flush());
+    }
     _clearEdits(_undoEdits);
     _clearEdits(_redoEdits);
     if (_dragEdit case final frame?) _releaseFrame(frame);
@@ -1445,6 +1458,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     AiWorkspaceProvider workspaces, {
     AiAgentWorkspace? parent,
   }) async {
+    final wasEmpty = workspaces.sessions.isEmpty;
     await workspaces.main.initialized;
     if (!mounted) return;
     if (!workspaces.main.services.any(
@@ -1475,7 +1489,30 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     );
     if (!mounted || id == null) return;
     final session = workspaces.find(id);
-    if (session != null) _open(workspaces, session);
+    if (session == null) return;
+    _nodeSizes = _measureNodes(workspaces.sessions);
+    if (parent == null) {
+      final viewportCenter = _viewport.isEmpty
+          ? _placementPoint()
+          : _transform.toScene(_viewport.center(Offset.zero));
+      final topLeft = viewportCenter - _size(session.id).center(Offset.zero);
+      _movedNodes.addAll(_positions);
+      setState(() {
+        _placeNodes({session.id: Offset.zero}, topLeft);
+        if (wasEmpty) {
+          _sceneOrigin.value = _positions[session.id]! +
+              _size(session.id).center(Offset.zero);
+        }
+      });
+      workspaces.updateCanvasPositions(
+        {
+          for (final entry in _positions.entries)
+            entry.key: [entry.value.dx, entry.value.dy],
+        },
+        origin: _sceneOrigin.value,
+      );
+    }
+    _open(workspaces, session);
   }
 
   void _delete(
@@ -2167,6 +2204,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
 
   List<Object> _layoutSignature = const [];
   Map<String, Offset> _automaticPositions = const {};
+  String? _defaultOriginAnchorId;
 
   Map<String, Offset> _layout(
     List<AiAgentWorkspace> sessions, {
@@ -2174,10 +2212,19 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   }) {
     final workspace = context.read<AiWorkspaceProvider>();
     final placed = <String, Offset>{};
+    var hasValidStoredPosition = false;
     for (final session in sessions) {
       final id = session.id;
+      final stored = workspace.canvasPositions[id];
+      if (stored != null &&
+          stored.length >= 2 &&
+          stored[0].isFinite &&
+          stored[1].isFinite) {
+        hasValidStoredPosition = true;
+      }
       if (_restoredPositionIds.add(id)) {
-        if (workspace.canvasPositions[id] case [final x, final y]) {
+        if (workspace.canvasPositions[id] case [final x, final y]
+            when x.isFinite && y.isFinite) {
           _movedNodes.putIfAbsent(id, () => Offset(x, y));
         }
       }
@@ -2223,13 +2270,39 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     ];
     if (!listEquals(signature, _layoutSignature)) {
       _layoutSignature = signature;
-      _automaticPositions = layoutTaskTopology(
+      var automatic = layoutTaskTopology(
         sessions: sessions,
         nodeSizes: {
           for (final session in sessions) session.id: _size(session.id),
         },
         connections: connections,
       );
+      // A new workspace has no persisted scene coordinates. Keep the first
+      // primary card centered on the world origin, then lay out its children
+      // relative to that anchor. Persisted positions always take precedence.
+      if (!hasValidStoredPosition &&
+          _movedNodes.isEmpty &&
+          _automaticPositions.isEmpty &&
+          automatic.isNotEmpty) {
+        final anchor = sessions.firstWhere(
+          (session) => session.kind == AiWorkspaceKind.primary,
+          orElse: () => sessions.first,
+        );
+        final anchorPosition = automatic[anchor.id];
+        if (anchorPosition != null) {
+          _defaultOriginAnchorId = anchor.id;
+          final origin =
+              anchorPosition + _size(anchor.id).center(Offset.zero);
+          if (_sceneOrigin.value != origin) {
+            _sceneOrigin.value = origin;
+            workspace.updateCanvasPositions(
+              workspace.canvasPositions,
+              origin: origin,
+            );
+          }
+        }
+      }
+      _automaticPositions = automatic;
     }
     return {..._automaticPositions, ...placed};
   }
@@ -2242,11 +2315,18 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     _viewMotion.stop();
     Rect bounds;
     if (_positions.isEmpty) {
-      bounds = Rect.fromCenter(
-        center: const Offset(530, 350),
-        width: _nodeSize.width,
-        height: _nodeSize.height,
-      );
+      bounds = Offset.zero & _nodeSize;
+      final origin = bounds.center;
+      if (_sceneOrigin.value != origin) {
+        _sceneOrigin.value = origin;
+        final workspace = _navigationWorkspace;
+        if (workspace != null && workspace.canvasOrigin != origin) {
+          workspace.updateCanvasPositions(
+            workspace.canvasPositions,
+            origin: origin,
+          );
+        }
+      }
     } else {
       bounds = _positions.entries
           .map((entry) => entry.value & _size(entry.key))
@@ -2259,6 +2339,13 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         )
         .clamp(taskCanvasMinScale, 1.0);
     var center = bounds.center;
+    if (initial && _positions.length == 1) {
+      final anchorId = _defaultOriginAnchorId;
+      final anchor = anchorId == null ? null : _positions[anchorId];
+      if (anchor != null && anchorId != null) {
+        center = anchor + _size(anchorId).center(Offset.zero);
+      }
+    }
     if (initial &&
         scale == taskCanvasMinScale &&
         _positions.isNotEmpty &&
@@ -2273,18 +2360,62 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
             .isEmpty) {
       center = _nodeIndex[_positions.keys.first]!.center;
     }
-    final target =
-        Matrix4.translationValues(
-          _viewport.width / 2 - center.dx * scale,
-          _viewport.height / 2 - center.dy * scale,
-          0,
-        ) *
-        Matrix4.diagonal3Values(scale, scale, 1);
+    final target = _centerView(center, scale);
     if (!animate || MediaQuery.disableAnimationsOf(context)) {
       _transform.value = target;
       return;
     }
     _animateViewTo(target, Curves.easeInOut);
+  }
+
+  Matrix4 _centerView(Offset sceneCenter, double scale) {
+    final translation = _viewport.center(Offset.zero) - sceneCenter * scale;
+    return Matrix4.translationValues(translation.dx, translation.dy, 0) *
+        Matrix4.diagonal3Values(scale, scale, 1);
+  }
+
+  void _saveViewport() {
+    if (_initializeViewport || _fitOnLayout || _viewport.isEmpty) {
+      return;
+    }
+    final matrix = _transform.value;
+    final scale = matrix.entry(0, 0);
+    if (!scale.isFinite || scale <= 0) return;
+    final translation = Offset(matrix.entry(0, 3), matrix.entry(1, 3));
+    final center =
+        (_viewport.center(Offset.zero) - translation) / scale -
+        _sceneOrigin.value;
+    if (!center.isFinite) return;
+    _hasSavedViewport = true;
+    _navigationWorkspace!.main.workspacePreferences.setValue(
+      _viewportPreference,
+      jsonEncode([scale, center.dx, center.dy]),
+      notify: false,
+    );
+  }
+
+  bool _restoreViewport(AiWorkspaceProvider workspaces) {
+    final saved = workspaces.main.workspacePreferences.stringValue(
+      _viewportPreference,
+      '',
+    );
+    if (saved.isEmpty) return false;
+    try {
+      if (jsonDecode(saved) case [final num zoom, final num x, final num y]) {
+        if (!zoom.isFinite || zoom <= 0) return false;
+        final scale = zoom.toDouble().clamp(
+          taskCanvasMinScale,
+          taskCanvasMaxScale,
+        );
+        final center = Offset(x.toDouble(), y.toDouble()) + _sceneOrigin.value;
+        if (!(center * scale).isFinite) return false;
+        _transform.value = _centerView(center, scale);
+        return true;
+      }
+    } on FormatException {
+      return false;
+    }
+    return false;
   }
 
   void _zoom(double factor) => _zoomAt(
@@ -2448,7 +2579,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         Center(
           child: _canvasLoading(
             theme,
-            context.l10n.agentRecycleRestoreFinalizing,
+            context.l10n.agentRecycleRestoring,
           ),
         ),
       );
@@ -2495,8 +2626,13 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       }
       _navigationWorkspace?.activeConversationId = null;
       _navigationWorkspace = workspaces;
+      _initializeViewport = true;
+      _hasSavedViewport = false;
       _sceneOrigin.value = workspaces.canvasOrigin;
       _lastCount = -1;
+      _layoutSignature = const [];
+      _automaticPositions = const {};
+      _defaultOriginAnchorId = null;
       workspaces.layoutCanvasGroup = _layoutCanvasGroup;
       _lastNavigationRevision = workspaces.navigationRequest?.revision ?? 0;
     }
@@ -2596,7 +2732,8 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     if (visibleSessions.length != _lastCount) {
       final firstTasks = _lastCount <= 0 && visibleSessions.isNotEmpty;
       _lastCount = visibleSessions.length;
-      if (firstTasks && !imported && !_pastingCards) {
+      if (visibleSessions.isEmpty ||
+          (firstTasks && !imported && !_pastingCards && !_hasSavedViewport)) {
         _fitOnLayout = true;
       }
     }
@@ -3239,14 +3376,27 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                if (_viewport != constraints.biggest) {
-                  final initialViewport = _viewport.isEmpty;
+                if (!constraints.biggest.isEmpty &&
+                    _viewport != constraints.biggest) {
                   _viewport = constraints.biggest;
-                  if (initialViewport || sessions.isEmpty) _fitOnLayout = true;
+                  if (!_initializeViewport && _hasSavedViewport) {
+                    _saveViewport();
+                  } else if (sessions.isEmpty) {
+                    _fitOnLayout = true;
+                  }
                 }
-                if (_fitOnLayout && !_viewport.isEmpty) {
+                if ((_initializeViewport || _fitOnLayout) &&
+                    !constraints.biggest.isEmpty) {
+                  if (_initializeViewport && _restoreViewport(workspaces)) {
+                    _hasSavedViewport = true;
+                  } else {
+                    _fit(initial: true);
+                  }
+                  _initializeViewport = false;
                   _fitOnLayout = false;
-                  _fit(initial: true);
+                  if (!_hasSavedViewport && sessions.isNotEmpty) {
+                    _saveViewport();
+                  }
                 }
                 return Stack(
                   children: [
@@ -3351,8 +3501,8 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
                                     ),
                                     if (workspaces.sessions.isEmpty)
                                       Positioned(
-                                        left: 530 - _nodeSize.width / 2,
-                                        top: 350 - _nodeSize.height / 2,
+                                        left: 0,
+                                        top: 0,
                                         width: _nodeSize.width,
                                         child: IgnorePointer(
                                           ignoring: _boxStart != null,
@@ -4258,16 +4408,15 @@ IconData _kindIcon(AiWorkspaceKind kind) => switch (kind) {
   if (session.status == 'unavailable') {
     return (label: l10n.aiSelectModel, icon: Symbols.error_rounded, fill: 1);
   }
-  if (session.assistant.stopRequested || session.status == 'stopped') {
+  final response = session.latestProcessMessage;
+  if (session.assistant.stopRequested ||
+      (session.status == 'stopped' && response?.role != 'compaction')) {
     return (
       label: l10n.aiWorkspaceStopped,
       icon: Symbols.stop_circle_rounded,
       fill: 0,
     );
   }
-  final response = session.assistant.messages.reversed
-      .where((message) => message.role == 'assistant' && message.status != null)
-      .firstOrNull;
   if (response != null) {
     final summary = aiMessageProcessSummary(context, response);
     if (summary != null) return summary;

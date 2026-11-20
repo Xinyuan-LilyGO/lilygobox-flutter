@@ -89,14 +89,14 @@ class AppPreferences extends ChangeNotifier {
         .toList();
   }
 
-  void setValue(String key, Object value) {
+  void setValue(String key, Object value, {bool notify = true}) {
     if (_disposed || (_values[key] == value && !_pending.containsKey(key))) {
       return;
     }
     final snapshot = value is List<String> ? List<String>.of(value) : value;
     _values[key] = snapshot;
     _pending[key] = snapshot;
-    _notify();
+    if (notify) _notify();
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(milliseconds: 250), () {
       _saveTimer = null;

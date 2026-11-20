@@ -7,6 +7,7 @@ import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/provider.dart';
 import '../../../../core/widgets/interaction_decoration.dart';
 import '../../data/chat_completion_client.dart';
+import '../../domain/chat_history_search.dart';
 import '../../domain/models.dart';
 import 'code_block.dart';
 import 'command_display.dart';
@@ -27,6 +28,8 @@ String? aiResponseStatusLabel(
     AiResponseStatus.streaming => l10n.aiStreaming,
     AiResponseStatus.preparingTools => l10n.aiPreparingTools,
     AiResponseStatus.executingTools => switch (toolName) {
+      ChatHistorySearch.searchTool => l10n.aiSearchChatHistory,
+      ChatHistorySearch.readTool => l10n.aiReadChatHistory,
       'search_memory' => l10n.agentStorageRetrieving,
       'save_memory' => l10n.agentStorageSaving,
       'delete_memory' => l10n.agentStorageDeleting,
@@ -92,6 +95,7 @@ String? aiResponseStatusLabel(
   AiProcessEvent event, {
   bool isThinking = false,
   bool includeTarget = true,
+  bool inlineCompaction = true,
 }) {
   final l10n = context.l10n;
   final action = event.action;
@@ -100,17 +104,22 @@ String? aiResponseStatusLabel(
   final isWeb =
       action?.name == 'read_webpage' ||
       event.status == AiResponseStatus.accessingWeb;
-  final questionCancelled = action != null && _questionWasCancelled(action);
-  final failed =
-      (action?.succeeded == false && !questionCancelled) ||
-      event.status == AiResponseStatus.failed;
+  final failed = _processEventFailed(event);
   final label = switch (event.type) {
+    AiProcessEventType.status
+        when toolName == 'compact_context' &&
+            event.toolArguments?['trigger'] == 'auto' =>
+      l10n.aiAutoCompaction,
     AiProcessEventType.status =>
       aiResponseStatusLabel(context, event.status, toolName: toolName) ??
           l10n.aiProcessCompleted,
     AiProcessEventType.reasoning =>
       isThinking ? l10n.aiAssistantThinking : l10n.aiProcessReasoning,
-    AiProcessEventType.action => _operationResultLabel(context, action!),
+    AiProcessEventType.action => _operationResultLabel(
+      context,
+      action!,
+      inlineCompaction: inlineCompaction,
+    ),
     AiProcessEventType.retry =>
       '${l10n.aiRequestRetryRecord(retry!.attempt)}: ${aiErrorText(l10n, retry.error)}',
   };
@@ -188,13 +197,24 @@ String? aiResponseStatusLabel(
                 status: message.status,
               ))
       : latest;
-  return event == null
-      ? null
-      : aiProcessEventSummary(
-          context,
-          event,
-          isThinking: message.status == AiResponseStatus.thinking,
-        );
+  if (event == null) return null;
+  final summary = aiProcessEventSummary(
+    context,
+    event,
+    isThinking: message.status == AiResponseStatus.thinking,
+  );
+  if (message.role != 'compaction') return summary;
+  final l10n = context.l10n;
+  final trigger = message.toolArguments?['trigger'] == 'auto'
+      ? l10n.aiAutoCompaction
+      : l10n.aiManualCompaction;
+  final state =
+      switch (message.processingSteps.lastOrNull?.arguments['outcome']) {
+        'unchanged' => l10n.aiCompactionUnchanged,
+        'cancelled' => l10n.aiCompactionCancelledStatus,
+        _ => summary.label,
+      };
+  return (label: '$trigger · $state', icon: summary.icon, fill: summary.fill);
 }
 
 /// 用时中的单条记录：简短阶段直接展示，思考和操作详情按需展开。
@@ -206,6 +226,7 @@ class AiProcessEventView extends StatefulWidget {
     this.isThinking = false,
     this.operationEvents = const [],
     this.detailsEnabled = true,
+    this.inlineCompaction = true,
   });
 
   final AiProcessEvent event;
@@ -213,6 +234,7 @@ class AiProcessEventView extends StatefulWidget {
   final bool isThinking;
   final List<AiProcessEvent> operationEvents;
   final bool detailsEnabled;
+  final bool inlineCompaction;
 
   @override
   State<AiProcessEventView> createState() => _AiProcessEventViewState();
@@ -239,14 +261,13 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
     final action = event.action;
     final toolName = action?.name ?? event.toolName;
     final questionCancelled = action != null && _questionWasCancelled(action);
-    final failed =
-        (action?.succeeded == false && !questionCancelled) ||
-        event.status == AiResponseStatus.failed;
+    final failed = _processEventFailed(event);
     final presentation = aiProcessEventSummary(
       context,
       event,
       isThinking: isThinking,
       includeTarget: false,
+      inlineCompaction: widget.inlineCompaction,
     );
     final label = presentation.label;
 
@@ -269,9 +290,12 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
     final questionDetails = action?.name == 'request_user_input'
         ? _questionAnswerDetails(context, action!)
         : null;
-    final stages = widget.operationEvents
-        .where((step) => step.type == AiProcessEventType.status)
-        .toList();
+    final stages = widget.operationEvents.where(
+      (step) =>
+          (widget.inlineCompaction || !identical(step, event)) &&
+          (step.type == AiProcessEventType.status ||
+              step.type == AiProcessEventType.retry),
+    );
     // 折叠展示一次操作做了什么，而不是显示工具返回的网页源码、文件正文或 JSON。
     final sections = <({String? title, String text})>[
       if (event.text.isNotEmpty) (title: null, text: event.text),
@@ -305,7 +329,8 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
     ];
     final hasDetails =
         widget.detailsEnabled &&
-        (questionDetails != null ||
+        ((toolName == 'compact_context' && resultSummary != null) ||
+            questionDetails != null ||
             event.text.isNotEmpty ||
             (action != null && target is String) ||
             failure != null ||
@@ -511,6 +536,8 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
 
 /// 以实际操作选择图标，执行阶段和完成记录使用同一套映射。
 IconData _toolIcon(String name) => switch (name) {
+  ChatHistorySearch.searchTool => Symbols.search_rounded,
+  ChatHistorySearch.readTool => Symbols.chat_rounded,
   'search_memory' ||
   'save_memory' ||
   'delete_memory' ||
@@ -561,6 +588,12 @@ String formatAiElapsed(Duration duration) {
   return hours == 0 ? time : '${twoDigits(hours)}:$time';
 }
 
+String formatCompactionDuration(BuildContext context, Duration duration) =>
+    context.l10n.aiCompactionDuration(
+      (duration.inMicroseconds / Duration.microsecondsPerSecond)
+          .toStringAsFixed(1),
+    );
+
 String _aiActionSummary(
   BuildContext context,
   String? name,
@@ -568,6 +601,8 @@ String _aiActionSummary(
 ) {
   final l10n = context.l10n;
   return switch (name) {
+    ChatHistorySearch.searchTool => l10n.aiSearchChatHistory,
+    ChatHistorySearch.readTool => l10n.aiReadChatHistory,
     'search_memory' => l10n.agentStorageRetrieving,
     'save_memory' => l10n.agentStorageSaving,
     'delete_memory' => l10n.agentStorageDeleting,
@@ -629,7 +664,7 @@ String _aiActionSummary(
     'set_settings_sidebar_width' => l10n.aiActionSettingsWidth(
       args['width'].toString(),
     ),
-    _ => l10n.aiActionUnknown,
+    _ => name ?? l10n.aiActionUnknown,
   };
 }
 
@@ -645,7 +680,11 @@ String _shortOperationTarget(String target, {required bool web}) {
   return parts.lastOrNull ?? target;
 }
 
-String _operationResultLabel(BuildContext context, AiProcessingStep action) {
+String _operationResultLabel(
+  BuildContext context,
+  AiProcessingStep action, {
+  required bool inlineCompaction,
+}) {
   final l10n = context.l10n;
   if (_requestTimedOut(action)) {
     return action.name == 'request_user_input'
@@ -653,6 +692,22 @@ String _operationResultLabel(BuildContext context, AiProcessingStep action) {
         : l10n.aiApprovalTimedOut;
   }
   final args = action.arguments;
+  if (action.name == 'compact_context' &&
+      inlineCompaction &&
+      args['trigger'] == 'auto') {
+    return [
+      l10n.aiAutoCompaction,
+      if (args['outcome'] == 'cancelled') l10n.aiCompactionCancelledStatus,
+      if (args['outcome'] == 'failed') l10n.aiWorkspaceFailed,
+      if (args['outcome'] == 'unchanged') l10n.aiCompactionUnchanged,
+      if (args['durationMicros'] case final int micros)
+        formatCompactionDuration(context, Duration(microseconds: micros)),
+    ].join(' · ');
+  }
+  if (action.name == 'compact_context') {
+    if (args['outcome'] == 'cancelled') return l10n.aiCompactionCancelledStatus;
+    if (args['outcome'] == 'unchanged') return l10n.aiCompactionUnchanged;
+  }
   final rawTarget =
       args['path'] ?? args['url'] ?? args['executable'] ?? args['process_id'];
   final target = rawTarget is String
@@ -730,6 +785,13 @@ Map<String, dynamic>? _processResult(AiProcessingStep action) {
 
 String? _operationSummary(BuildContext context, AiProcessingStep action) {
   final l10n = context.l10n;
+  if (action.name == 'compact_context') {
+    return switch (action.arguments) {
+      {'beforeTokens': final int before, 'afterTokens': final int after} =>
+        l10n.aiCompactionTokenChange(before, after),
+      _ => null,
+    };
+  }
   final result = _processResult(action);
   if (result != null) {
     if (result['timed_out'] == true) return l10n.aiProcessTimedOutSummary;
@@ -744,6 +806,23 @@ String? _operationSummary(BuildContext context, AiProcessingStep action) {
     return null;
   }
   if (!action.succeeded) return null;
+  if (ChatHistorySearch.supports(action.name)) {
+    try {
+      final result = jsonDecode(action.output);
+      if (result case {'matches': final List matches}) {
+        return l10n.aiHistoryMatches(matches.length);
+      }
+      if (result is Map && result.containsKey('message')) {
+        final message = result['message'];
+        if (message == null) return l10n.aiHistoryMessageMissing;
+        if (message is Map && message['message_id'] is String) {
+          return l10n.aiHistoryMessageRead(message['message_id'] as String);
+        }
+      }
+    } on FormatException {
+      return null;
+    }
+  }
   if (action.name == 'consolidate_memory') {
     try {
       final counts = jsonDecode(action.output);
@@ -805,6 +884,16 @@ String? _questionAnswerDetails(BuildContext context, AiProcessingStep action) {
     );
   }
   return entries.isEmpty ? null : entries.join('\n\n');
+}
+
+bool _processEventFailed(AiProcessEvent event) {
+  if (event.status == AiResponseStatus.failed) return true;
+  final action = event.action;
+  if (action == null || action.succeeded) return false;
+  if (action.name == 'compact_context') {
+    return action.arguments['outcome'] == 'failed';
+  }
+  return !_questionWasCancelled(action);
 }
 
 bool _questionWasCancelled(AiProcessingStep action) {

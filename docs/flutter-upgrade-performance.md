@@ -52,7 +52,7 @@ foreach ($cardCount in 3000, 10000) {
 
 驱动写入 `tmp/workflow-performance-<label>.json`。完整窗口从画布卡片进入导入的对话并保留无障碍。要定位组件开销，可在同一命令中换用独立组件入口并设置另一报告名。[完整窗口测试](../integration_test/workspace_shell_motion_test.dart) · [独立组件测试](../integration_test/workspace_motion_performance_test.dart)
 
-把 `LILYGOBOX_MOTION_CASE` 设为 `loaded-chat` 可复测包含多份长聊天的工作区。它准备 25 个活动智能体，每个 10,000 条消息，另有 5,000 张回收卡。每张回收卡默认带 2 条短消息，`LILYGOBOX_MOTION_RECYCLED_MESSAGES` 可设置其消息数。在 `MSG-03630` 附近分别测单齿滚轮、连续跨页、暂停 145 ms 后继续滚动，以及中键自动滚动。报告同时记录帧耗时和同一条可见消息的屏幕位移，可用来区分慢帧与输入行程损失。
+把 `LILYGOBOX_MOTION_CASE` 设为 `loaded-chat` 可复测包含多份长聊天的工作区。它准备 25 个活动智能体，每个 10,000 条消息，另有 5,000 张回收卡。每张回收卡默认带 2 条短消息，`LILYGOBOX_MOTION_RECYCLED_MESSAGES` 可设置其消息数。在 `MSG-03630` 附近分别测单齿滚轮、连续跨页、暂停 145 ms 后继续滚动。中键用例要求按住拖动、短按后移动都使聊天产生位移，松开或按 Esc 后阅读位置稳定。报告同时记录帧耗时和同一条可见消息的屏幕位移，可用来区分慢帧与输入行程损失。
 
 | 场景 | 验收方法 |
 | --- | --- |

@@ -850,7 +850,8 @@ class _ChatMessageActionsState extends State<ChatMessageActions> {
         ),
       ),
     );
-    final displayTime = message.role == 'assistant'
+    final displayTime =
+        message.role == 'assistant' || message.role == 'compaction'
         ? message.finishedAt
         : message.createdAt;
     final timestamp = displayTime == null

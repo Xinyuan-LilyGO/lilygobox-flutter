@@ -35,6 +35,7 @@ import 'agent_transfer_error.dart';
 import 'agent_transfer_progress_dialog.dart';
 import 'memory_import_review.dart';
 import 'recycle_bin_dialog.dart';
+import 'usage_chart_colors.dart';
 
 enum _StorageManager { memory, context, backup }
 
@@ -227,6 +228,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
           l.agentStorageCompactTooShort,
         AiContextCompactionOutcome.unavailableModel =>
           l.agentStorageCompactUnavailable,
+        AiContextCompactionOutcome.busy => l.aiContextCompactionBusy,
         AiContextCompactionOutcome.cancelled => l.agentStorageCompactCancelled,
         AiContextCompactionOutcome.unchanged => l.agentStorageCompactUnchanged,
       };
@@ -1655,12 +1657,12 @@ class _StorageOverview extends StatelessWidget {
       (
         l.agentStorageChatDataTitle,
         content + stateValue('conversations') + stateValue('context'),
-        const Color(0xffa3d52d),
+        UsageChartColors.green,
       ),
       (
         l.agentStorageWorkflowCategory,
         stateValue('workflow'),
-        const Color(0xff54a9ff),
+        UsageChartColors.blue,
       ),
       (l.agentRecycleBin, stateValue('recycleBin'), const Color(0xffef748e)),
       (l.agentStorageMemoryCategory, memory, const Color(0xffffcd36)),

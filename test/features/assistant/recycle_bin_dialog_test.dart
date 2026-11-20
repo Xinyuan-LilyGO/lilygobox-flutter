@@ -26,10 +26,21 @@ class _GatedStorage extends AgentStorage {
   _GatedStorage() : super(path: ':memory:');
 
   Completer<void>? deletion;
+  Completer<void>? workflowSave;
+  Completer<void>? workflowSaveStarted;
 
   @override
-  Future<Object?> request(String operation, [Map<String, Object?> args = const {}]) async {
+  Future<Object?> request(
+    String operation, [
+    Map<String, Object?> args = const {},
+  ]) async {
     if (operation == 'commitRecycle') await deletion?.future;
+    if (operation == 'saveWorkflow') {
+      if (workflowSaveStarted case final started? when !started.isCompleted) {
+        started.complete();
+      }
+      await workflowSave?.future;
+    }
     return super.request(operation, args);
   }
 }
@@ -157,6 +168,12 @@ void main() {
 
         final last = workspace.recycledAgents.last;
         final lastCard = find.byKey(ValueKey('recycle-agent-card-${last.id}'));
+        final confirmation = find.byKey(
+          const ValueKey('confirm-recycle-restore'),
+        );
+        final cancelRestore = find.byKey(
+          const ValueKey('cancel-recycle-restore'),
+        );
         final scrollable = find
             .descendant(of: list, matching: find.byType(Scrollable))
             .first;
@@ -236,6 +253,17 @@ void main() {
         await tester.tap(firstCard, buttons: kSecondaryMouseButton);
         await tester.pumpAndSettle();
         expect(region.selection.selected, isEmpty);
+        await tester.tap(
+          find.byKey(ValueKey('recycle-restore-${ordered[0].id}')),
+        );
+        await tester.pumpAndSettle();
+        expect(confirmation, findsOneWidget);
+        expect(find.text('Restore this agent?'), findsOneWidget);
+        await tester.tap(cancelRestore);
+        await tester.pumpAndSettle();
+        expect(workspace.recycledAgents, hasLength(12));
+        await tester.tap(firstCard, buttons: kSecondaryMouseButton);
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Select all'));
         await tester.pumpAndSettle();
         expect(
@@ -265,12 +293,12 @@ void main() {
         expect(region.selection.selected, {ordered[0].id, ordered[2].id});
         await tester.sendKeyEvent(LogicalKeyboardKey.delete);
         await tester.pumpAndSettle();
-        final confirmation = find.byKey(
+        final deleteConfirmation = find.byKey(
           const ValueKey('confirm-recycle-delete'),
         );
-        expect(confirmation, findsOneWidget);
+        expect(deleteConfirmation, findsOneWidget);
         expect(
-          tester.widget<AppActionButton>(confirmation).destructive,
+          tester.widget<AppActionButton>(deleteConfirmation).destructive,
           isTrue,
         );
         await tester.tap(find.byKey(const ValueKey('cancel-recycle-delete')));
@@ -326,6 +354,17 @@ void main() {
         await tester.tap(
           find.byKey(const ValueKey('recycle-restore-selected')),
         );
+        await tester.pumpAndSettle();
+        expect(find.text('Restore the 2 selected agents?'), findsOneWidget);
+        expect(workspace.pendingRecycleRestore, isNull);
+        await tester.tap(cancelRestore);
+        await tester.pumpAndSettle();
+        expect(region.selection.selected, {ordered[0].id, ordered[1].id});
+        await tester.tap(
+          find.byKey(const ValueKey('recycle-restore-selected')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(confirmation);
         Future<void> settleRecycleCount(int count) async {
           for (var attempt = 0; attempt < 100; attempt++) {
             await tester.runAsync(
@@ -408,24 +447,16 @@ void main() {
         expect(workspace.recycledAgents, hasLength(8));
         await tester.tapAt(const Offset(2, 2));
         await tester.pumpAndSettle();
-        expect(
-          find.byKey(const ValueKey('recycle-restore-dialog')),
-          findsNothing,
-        );
+        expect(confirmation, findsNothing);
         expect(workspace.recycledAgents, hasLength(8));
         await tester.ensureVisible(restoreAll);
         await tester.pumpAndSettle();
         await tester.tap(restoreAll);
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('confirm-recycle-restore')));
-        await tester.pump();
-        expect(
-          find.descendant(
-            of: find.byKey(const ValueKey('recycle-restore-dialog')),
-            matching: find.byType(LinearProgressIndicator),
-          ),
-          findsOneWidget,
-        );
+        await tester.tap(confirmation);
+        await tester.pumpAndSettle();
+        expect(cancelRestore, findsNothing);
+        expect(find.byType(LinearProgressIndicator), findsNothing);
         await settleRecycleCount(0);
         await tester.pumpAndSettle();
         expect(workspace.recycledAgents, isEmpty);
@@ -451,8 +482,14 @@ void main() {
         try {
           await tester.tap(find.byKey(const ValueKey('confirm-recycle-empty')));
           await tester.pumpAndSettle();
-          for (var attempt = 0; attempt < 50 && !workspace.recycleBusy; attempt++) {
-            await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+          for (
+            var attempt = 0;
+            attempt < 50 && !workspace.recycleBusy;
+            attempt++
+          ) {
+            await tester.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 10)),
+            );
             await tester.pump();
           }
           expect(workspace.recycleBusy, isTrue);
@@ -469,4 +506,5 @@ void main() {
       },
     );
   }
+
 }

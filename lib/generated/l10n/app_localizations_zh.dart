@@ -14,6 +14,17 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get aiAverageOutputSpeed => '平均速度';
+
+  @override
+  String aiOutputTokensPerSecond(String rate) {
+    return '$rate tok/s';
+  }
+
+  @override
+  String get aiAverageOutputSpeedHint => '此模型上次完成回复时，每秒流式输出的 token 数。';
+
+  @override
   String get githubSignInDialogDescription =>
       '请在浏览器中完成授权，然后返回此处等待登录完成。关闭此提示框将取消本次登录。';
 
@@ -591,7 +602,26 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get aiActionUnknown => '更改应用设置';
+  String get aiActionUnknown => '工具操作';
+
+  @override
+  String get aiSearchChatHistory => '搜索原始聊天记录';
+
+  @override
+  String get aiReadChatHistory => '读取聊天原文';
+
+  @override
+  String aiHistoryMatches(int count) {
+    return '返回了 $count 条匹配消息';
+  }
+
+  @override
+  String get aiHistoryMessageMissing => '当前对话中未找到该消息。';
+
+  @override
+  String aiHistoryMessageRead(String id) {
+    return '已读取消息 $id';
+  }
 
   @override
   String get aiServiceTitle => '模型服务';
@@ -2721,6 +2751,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStorageCompactUnavailable => '请先配置可用的模型服务后再压缩。';
 
   @override
+  String get aiContextCompactionBusy => '上下文压缩已在进行中。';
+
+  @override
   String get agentStorageCompactCancelled => '上下文压缩已取消。';
 
   @override
@@ -2728,6 +2761,90 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agentStorageCompactFailed => '上下文压缩失败，请检查模型服务后重试。';
+
+  @override
+  String get aiCacheHit => '缓存命中';
+
+  @override
+  String get aiContextUsed => '上下文已用';
+
+  @override
+  String get aiCacheUsageDetails => '缓存使用详情';
+
+  @override
+  String get aiCacheNotReported => '暂无数据';
+
+  @override
+  String get aiCacheNotReportedHint => '当前对话尚未收到此模型的缓存用量统计。';
+
+  @override
+  String get aiContextUsageDetails => '上下文使用详情';
+
+  @override
+  String get aiContextChatHistory => '对话历史';
+
+  @override
+  String get aiContextSummaryUsage => '压缩摘要';
+
+  @override
+  String get aiCacheInputTokens => '输入 token';
+
+  @override
+  String get aiCacheCachedTokens => '缓存输入 token';
+
+  @override
+  String get aiCacheUncachedTokens => '未缓存输入 token';
+
+  @override
+  String get aiCacheOutputTokens => '输出 token';
+
+  @override
+  String aiMetricTokenCount(int count) {
+    return '$count token';
+  }
+
+  @override
+  String get aiContextBudgetUsage => '估算使用量';
+
+  @override
+  String get aiContextCompactionThreshold => '自动压缩阈值';
+
+  @override
+  String get aiContextLastCompaction => '上次压缩';
+
+  @override
+  String get aiManualCompaction => '手动压缩上下文';
+
+  @override
+  String get aiAutoCompaction => '自动压缩上下文';
+
+  @override
+  String aiCompactionDuration(String seconds) {
+    return '耗时 $seconds 秒';
+  }
+
+  @override
+  String aiCompactionTokenChange(int before, int after) {
+    return '估算 token 数：$before → $after';
+  }
+
+  @override
+  String get aiCompactionUnchanged => '上下文未改变';
+
+  @override
+  String get aiCompactionCancelledStatus => '已取消';
+
+  @override
+  String get aiContextNoCompaction => '尚未压缩';
+
+  @override
+  String get aiContextCompacting => '正在压缩上下文…';
+
+  @override
+  String get aiCancelCompaction => '取消压缩';
+
+  @override
+  String get aiCompactionCancelHint => '右键可取消压缩';
 
   @override
   String get agentStorageCleanFailed => '清理失败，请稍后重试。';
@@ -2977,12 +3094,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentRecycleRestore => '还原';
 
   @override
-  String agentRecycleRestoring(int percent) {
-    return '正在准备还原… $percent%';
-  }
+  String get agentRecycleRestoring => '正在还原智能体…';
 
   @override
-  String get agentRecycleRestoreFinalizing => '正在完成还原…';
+  String agentRecycleRestoreConfirm(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '还原选中的 $count 个智能体？',
+      one: '还原此智能体？',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get agentRecycleRestoreFailed => '还原失败，可在回收站重试。';

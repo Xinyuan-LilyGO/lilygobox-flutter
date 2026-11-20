@@ -359,10 +359,37 @@ class AiCompletion {
     required this.toolCalls,
     this.responseItems = const [],
     this.reasoning = '',
+    this.usage,
+    this.streamedOutputDuration = Duration.zero,
   });
 
   final String text;
   final List<AiToolCall> toolCalls;
   final List<Map<String, Object?>> responseItems;
   final String reasoning;
+  final AiTokenUsage? usage;
+  final Duration streamedOutputDuration;
+}
+
+class AiTokenUsage {
+  const AiTokenUsage({this.inputTokens, this.outputTokens, this.cachedTokens});
+
+  final int? inputTokens;
+  final int? outputTokens;
+  final int? cachedTokens;
+
+  int? get uncachedTokens {
+    final input = inputTokens;
+    final cached = cachedTokens;
+    return input == null || cached == null || cached > input
+        ? null
+        : input - cached;
+  }
+
+  double? get cacheHitRatio {
+    final input = inputTokens;
+    return input == null || input == 0 || uncachedTokens == null
+        ? null
+        : cachedTokens! / input;
+  }
 }

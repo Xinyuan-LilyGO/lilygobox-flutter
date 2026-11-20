@@ -13,6 +13,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/clipboard/image_clipboard.dart';
+import '../../../../core/context_menu/right_click_menu.dart';
 import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
@@ -32,6 +33,7 @@ import 'agent_message_source.dart';
 import 'approval_panel.dart';
 import 'model_selector.dart';
 import 'permissions_button.dart';
+import 'usage_chart_colors.dart';
 import 'user_input_panel.dart';
 
 /// 后层承载队列与附件，前层保留独立文字输入区。
@@ -305,143 +307,153 @@ class ChatComposer extends StatelessWidget {
 
   Widget _buildInput(BuildContext context) {
     final l10n = context.l10n;
-    return DecoratedBox(
-      key: const ValueKey('ai-composer-context-layer'),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          theme.primary.withValues(alpha: .42),
-          theme.secondary,
-        ),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: PopupMenuSurface.shadowsFor(theme),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _attachmentStrip(context),
-            AnimatedBuilder(
-              animation: focusNode,
-              builder: (context, child) => TextFieldTapRegion(
-                // 第一层空白属于输入区，按住时不能被当作框外点击而失焦。
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  excludeFromSemantics: true,
-                  onTapDown: (_) => focusNode.requestFocus(),
-                  child: AnimatedContainer(
-                    key: const ValueKey('ai-composer-input-layer'),
-                    duration: MediaQuery.disableAnimationsOf(context)
-                        ? Duration.zero
-                        : const Duration(milliseconds: 180),
-                    curve: Curves.easeOut,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(17),
-                      border: Border.all(
-                        color: focusNode.hasFocus
-                            ? theme.basePrimary
-                            : Colors.transparent,
-                      ),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(17),
-                      child: ColoredBox(
-                        key: const ValueKey('ai-composer-input-background'),
-                        color: theme.primary,
-                        child: child,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DecoratedBox(
+          key: const ValueKey('ai-composer-context-layer'),
+          decoration: BoxDecoration(
+            color: Color.alphaBlend(
+              theme.primary.withValues(alpha: .42),
+              theme.secondary,
+            ),
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: PopupMenuSurface.shadowsFor(theme),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _attachmentStrip(context),
+                AnimatedBuilder(
+                  animation: focusNode,
+                  builder: (context, child) => TextFieldTapRegion(
+                    // 第一层空白属于输入区，按住时不能被当作框外点击而失焦。
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      excludeFromSemantics: true,
+                      onTapDown: (_) => focusNode.requestFocus(),
+                      child: AnimatedContainer(
+                        key: const ValueKey('ai-composer-input-layer'),
+                        duration: MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : const Duration(milliseconds: 180),
+                        curve: Curves.easeOut,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(17),
+                          border: Border.all(
+                            color: focusNode.hasFocus
+                                ? theme.basePrimary
+                                : Colors.transparent,
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(17),
+                          child: ColoredBox(
+                            key: const ValueKey('ai-composer-input-background'),
+                            color: theme.primary,
+                            child: child,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 15, 10, 10),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Focus(
-                      onKeyEvent: (_, event) {
-                        // 不截获输入法候选确认，也不改变 Shift+Enter 换行行为。
-                        if (event is KeyDownEvent &&
-                            event.logicalKey == LogicalKeyboardKey.enter &&
-                            !HardwareKeyboard.instance.isShiftPressed &&
-                            input.value.composing.isCollapsed) {
-                          if (assistant.canSendMessage &&
-                              (input.text.trim().isNotEmpty ||
-                                  attachments.isNotEmpty)) {
-                            onSend(true);
-                          }
-                          return KeyEventResult.handled;
-                        }
-                        return KeyEventResult.ignored;
-                      },
-                      child: Actions(
-                        actions: <Type, Action<Intent>>{
-                          PasteTextIntent: CallbackAction<PasteTextIntent>(
-                            onInvoke: (_) {
-                              unawaited(_pasteImage(context));
-                              return null;
-                            },
-                          ),
-                        },
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxHeight:
-                                MediaQuery.textScalerOf(context).scale(14) *
-                                1.5 *
-                                8,
-                          ),
-                          child: Scrollbar(
-                            key: const ValueKey('ai-input-scrollbar'),
-                            controller: scrollController,
-                            child: Padding(
-                              padding: const EdgeInsetsDirectional.only(
-                                end: 14,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 15, 10, 10),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Focus(
+                          onKeyEvent: (_, event) {
+                            // 不截获输入法候选确认，也不改变 Shift+Enter 换行行为。
+                            if (event is KeyDownEvent &&
+                                event.logicalKey == LogicalKeyboardKey.enter &&
+                                !HardwareKeyboard.instance.isShiftPressed &&
+                                input.value.composing.isCollapsed) {
+                              if (assistant.canSendMessage &&
+                                  (input.text.trim().isNotEmpty ||
+                                      attachments.isNotEmpty)) {
+                                onSend(true);
+                              }
+                              return KeyEventResult.handled;
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: Actions(
+                            actions: <Type, Action<Intent>>{
+                              PasteTextIntent: CallbackAction<PasteTextIntent>(
+                                onInvoke: (_) {
+                                  unawaited(_pasteImage(context));
+                                  return null;
+                                },
                               ),
-                              child: ScrollConfiguration(
-                                behavior: const AppScrollBehavior(
-                                  scrollbars: false,
-                                ),
-                                child: SingleChildScrollView(
-                                  controller: scrollController,
-                                  primary: false,
-                                  child: TextField(
-                                    key: const ValueKey('ai-message-input'),
-                                    contextMenuBuilder: (context, editable) =>
-                                        AppTextSelectionMenu.buildWithPaste(
-                                          context,
-                                          editable,
-                                          () => unawaited(_pasteImage(context)),
-                                        ),
-                                    controller: input,
-                                    selectionWidthStyle: ui.BoxWidthStyle.tight,
-                                    focusNode: focusNode,
-                                    minLines: 2,
-                                    maxLines: null,
-                                    scrollPhysics:
-                                        const NeverScrollableScrollPhysics(),
-                                    textInputAction: TextInputAction.newline,
-                                    cursorColor: theme.basePrimary,
-                                    style: TextStyle(
-                                      color: theme.textColorPrimary,
-                                      fontSize: 14,
-                                      height: 1.5,
+                            },
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxHeight:
+                                    MediaQuery.textScalerOf(context).scale(14) *
+                                    1.5 *
+                                    8,
+                              ),
+                              child: Scrollbar(
+                                key: const ValueKey('ai-input-scrollbar'),
+                                controller: scrollController,
+                                child: Padding(
+                                  padding: const EdgeInsetsDirectional.only(
+                                    end: 14,
+                                  ),
+                                  child: ScrollConfiguration(
+                                    behavior: const AppScrollBehavior(
+                                      scrollbars: false,
                                     ),
-                                    decoration: InputDecoration(
-                                      hintText: assistant.busy
-                                          ? l10n.aiGuidanceHint
-                                          : l10n.aiInputHint,
-                                      hintStyle: TextStyle(
-                                        color: theme.textColorTertiary,
+                                    child: SingleChildScrollView(
+                                      controller: scrollController,
+                                      primary: false,
+                                      child: TextField(
+                                        key: const ValueKey('ai-message-input'),
+                                        contextMenuBuilder: (context, editable) =>
+                                            AppTextSelectionMenu.buildWithPaste(
+                                              context,
+                                              editable,
+                                              () => unawaited(
+                                                _pasteImage(context),
+                                              ),
+                                            ),
+                                        controller: input,
+                                        selectionWidthStyle:
+                                            ui.BoxWidthStyle.tight,
+                                        focusNode: focusNode,
+                                        minLines: 2,
+                                        maxLines: null,
+                                        scrollPhysics:
+                                            const NeverScrollableScrollPhysics(),
+                                        textInputAction:
+                                            TextInputAction.newline,
+                                        cursorColor: theme.basePrimary,
+                                        style: TextStyle(
+                                          color: theme.textColorPrimary,
+                                          fontSize: 14,
+                                          height: 1.5,
+                                        ),
+                                        decoration: InputDecoration(
+                                          hintText: assistant.busy
+                                              ? l10n.aiGuidanceHint
+                                              : l10n.aiInputHint,
+                                          hintStyle: TextStyle(
+                                            color: theme.textColorTertiary,
+                                          ),
+                                          border: InputBorder.none,
+                                          enabledBorder: InputBorder.none,
+                                          focusedBorder: InputBorder.none,
+                                          disabledBorder: InputBorder.none,
+                                          filled: false,
+                                          isCollapsed: true,
+                                        ),
                                       ),
-                                      border: InputBorder.none,
-                                      enabledBorder: InputBorder.none,
-                                      focusedBorder: InputBorder.none,
-                                      disabledBorder: InputBorder.none,
-                                      filled: false,
-                                      isCollapsed: true,
                                     ),
                                   ),
                                 ),
@@ -449,114 +461,701 @@ class ChatComposer extends StatelessWidget {
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        return Row(
-                          children: [
-                            AppTooltip(
-                              message: l10n.aiAttachFile,
-                              child: Semantics(
-                                label: l10n.aiAttachFile,
-                                button: true,
-                                child: MenuItemSurface(
-                                  key: const ValueKey('ai-attach-file-button'),
-                                  theme: theme,
-                                  onPressed: () => _pickImages(context),
-                                  borderRadius: BorderRadius.circular(14),
-                                  child: SizedBox(
-                                    width: 28,
-                                    height: 28,
-                                    child: Center(
-                                      child: Transform.rotate(
-                                        angle: math.pi / 4,
-                                        child: Icon(
-                                          Symbols.attach_file_rounded,
-                                          size: 16,
-                                          color: theme.textColorSecondary,
+                        const SizedBox(height: 16),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            return Row(
+                              children: [
+                                AppTooltip(
+                                  message: l10n.aiAttachFile,
+                                  child: Semantics(
+                                    label: l10n.aiAttachFile,
+                                    button: true,
+                                    child: MenuItemSurface(
+                                      key: const ValueKey(
+                                        'ai-attach-file-button',
+                                      ),
+                                      theme: theme,
+                                      onPressed: () => _pickImages(context),
+                                      borderRadius: BorderRadius.circular(14),
+                                      child: SizedBox(
+                                        width: 28,
+                                        height: 28,
+                                        child: Center(
+                                          child: Transform.rotate(
+                                            angle: math.pi / 4,
+                                            child: Icon(
+                                              Symbols.attach_file_rounded,
+                                              size: 16,
+                                              color: theme.textColorSecondary,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            AssistantPermissionsButton(
-                              theme: theme,
-                              assistant: assistant,
-                              compact:
-                                  constraints.maxWidth < 520 ||
-                                  MediaQuery.textScalerOf(context).scale(12) >
-                                      16,
-                            ),
-                            Expanded(
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: ModelSelector(
+                                const SizedBox(width: 4),
+                                AssistantPermissionsButton(
                                   theme: theme,
                                   assistant: assistant,
+                                  compact:
+                                      constraints.maxWidth < 520 ||
+                                      MediaQuery.textScalerOf(context)
+                                              .scale(12) >
+                                          16,
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            ValueListenableBuilder<TextEditingValue>(
-                              valueListenable: input,
-                              builder: (context, value, _) =>
-                                  assistant.busy &&
-                                      value.text.trim().isEmpty &&
-                                      attachments.isEmpty
-                                  ? _actionButton(
+                                Expanded(
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: ModelSelector(
                                       theme: theme,
-                                      key: const ValueKey('ai-stop-button'),
-                                      label: l10n.aiStop,
-                                      icon: Symbols.stop_rounded,
-                                      size: 30,
-                                      onPressed: assistant.stopGeneration,
-                                    )
-                                  : assistant.canContinue &&
-                                        value.text.trim().isEmpty &&
-                                        attachments.isEmpty
-                                  ? _actionButton(
-                                      theme: theme,
-                                      key: const ValueKey('ai-continue-button'),
-                                      label: l10n.aiContinue,
-                                      icon: Symbols.play_arrow_rounded,
-                                      size: 30,
-                                      onPressed: () => onSend(false),
-                                    )
-                                  : _actionButton(
-                                      theme: theme,
-                                      key: const ValueKey('ai-send-button'),
-                                      label: assistant.busy
-                                          ? l10n.aiGuideTurn
-                                          : ready
-                                          ? l10n.aiSend
-                                          : l10n.aiSetupAction,
-                                      icon: Symbols.arrow_upward_rounded,
-                                      size: 30,
-                                      onPressed:
-                                          !assistant.canSendMessage ||
-                                              value.text.trim().isEmpty &&
-                                                  attachments.isEmpty
-                                          ? null
-                                          : () => onSend(false),
+                                      assistant: assistant,
                                     ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                ValueListenableBuilder<TextEditingValue>(
+                                  valueListenable: input,
+                                  builder: (context, value, _) =>
+                                      assistant.busy &&
+                                          value.text.trim().isEmpty &&
+                                          attachments.isEmpty
+                                      ? _actionButton(
+                                          theme: theme,
+                                          key: const ValueKey('ai-stop-button'),
+                                          label: l10n.aiStop,
+                                          icon: Symbols.stop_rounded,
+                                          size: 30,
+                                          onPressed: assistant.stopGeneration,
+                                        )
+                                      : assistant.canContinue &&
+                                            value.text.trim().isEmpty &&
+                                            attachments.isEmpty
+                                      ? _actionButton(
+                                          theme: theme,
+                                          key: const ValueKey(
+                                            'ai-continue-button',
+                                          ),
+                                          label: l10n.aiContinue,
+                                          icon: Symbols.play_arrow_rounded,
+                                          size: 30,
+                                          onPressed: () => onSend(false),
+                                        )
+                                      : _actionButton(
+                                          theme: theme,
+                                          key: const ValueKey('ai-send-button'),
+                                          label: assistant.busy
+                                              ? l10n.aiGuideTurn
+                                              : ready
+                                              ? l10n.aiSend
+                                              : l10n.aiSetupAction,
+                                          icon: Symbols.arrow_upward_rounded,
+                                          size: 30,
+                                          onPressed:
+                                              !assistant.canSendMessage ||
+                                                  value.text.trim().isEmpty &&
+                                                      attachments.isEmpty
+                                              ? null
+                                              : () => onSend(false),
+                                        ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        _ComposerMetrics(theme: theme, assistant: assistant),
+      ],
+    );
+  }
+}
+
+class _ComposerMetrics extends StatelessWidget {
+  const _ComposerMetrics({required this.theme, required this.assistant});
+
+  final AppTheme theme;
+  final AiAssistantProvider assistant;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: assistant,
+    builder: (context, _) {
+      final l10n = context.l10n;
+      final cacheUsage = assistant.latestCacheUsage;
+      final rate = assistant.latestReplySpeed;
+      final compacting = assistant.compacting.value;
+      return Padding(
+        padding: const EdgeInsetsDirectional.only(start: 8, end: 8, top: 5),
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 4,
+          runSpacing: 2,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            AppTooltip(
+              key: const ValueKey('ai-output-speed-metric'),
+              message: l10n.aiAverageOutputSpeedHint,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Symbols.speed_rounded,
+                      size: 14,
+                      color: theme.textColorTertiary,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      l10n.aiAverageOutputSpeed,
+                      style: TextStyle(
+                        color: theme.textColorTertiary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      rate == null
+                          ? '—'
+                          : l10n.aiOutputTokensPerSecond(
+                              rate.toStringAsFixed(1),
                             ),
-                          ],
-                        );
-                      },
+                      style: TextStyle(
+                        color: theme.textColorSecondary,
+                        fontSize: 12,
+                        fontFeatures: const [ui.FontFeature.tabularFigures()],
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
+            _ComposerMetric(
+              key: const ValueKey('ai-cache-usage-metric'),
+              theme: theme,
+              label: l10n.aiCacheHit,
+              ratio: cacheUsage?.cacheHitRatio,
+              detailTitle: l10n.aiCacheUsageDetails,
+              figures: switch (cacheUsage) {
+                AiTokenUsage(:final cachedTokens?, :final inputTokens?) =>
+                  '${_compactTokenCount(cachedTokens)} / ${_compactTokenCount(inputTokens)}',
+                _ => null,
+              },
+              details: _CacheUsageDetails(theme: theme, usage: cacheUsage),
+            ),
+            _ComposerMetric(
+              key: const ValueKey('ai-context-usage-metric'),
+              theme: theme,
+              label: compacting ? l10n.aiContextCompacting : l10n.aiContextUsed,
+              busyHint: compacting ? l10n.aiCompactionCancelHint : null,
+              ratio: assistant.contextUsageRatio,
+              detailBarColor: UsageChartColors.green,
+              contextMenuItems: (close) => [
+                RightClickMenuItem(
+                  key: const ValueKey('ai-compaction-context-menu-action'),
+                  label: compacting
+                      ? l10n.aiCancelCompaction
+                      : l10n.agentStorageCompactNow,
+                  icon: compacting
+                      ? Symbols.stop_rounded
+                      : Symbols.compress_rounded,
+                  isEnabled: compacting || !assistant.busy,
+                  onTap: () {
+                    close();
+                    if (compacting) {
+                      assistant.cancelContextCompaction();
+                    } else {
+                      unawaited(_compactContext(context, assistant));
+                    }
+                  },
+                ),
+              ],
+              detailTitle: l10n.aiContextUsageDetails,
+              figures:
+                  '~${_compactTokenCount(assistant.estimatedContextTokens)} / ${_compactTokenCount(assistant.contextBudgetTokens)}',
+              summaryRatio: math.min(
+                assistant.estimatedSummaryTokens /
+                    assistant.contextBudgetTokens,
+                assistant.contextUsageRatio,
+              ),
+              details: _ContextUsageDetails(theme: theme, assistant: assistant),
+            ),
           ],
+        ),
+      );
+    },
+  );
+}
+
+String _compactTokenCount(int tokens) {
+  for (final (scale, suffix) in const [
+    (1000000000, 'B'),
+    (1000000, 'M'),
+    (1000, 'K'),
+  ]) {
+    if (tokens >= scale) {
+      final number = (tokens / scale).toStringAsFixed(1);
+      return '${number.endsWith('.0') ? number.substring(0, number.length - 2) : number}$suffix';
+    }
+  }
+  return '$tokens';
+}
+
+class _ComposerMetric extends StatefulWidget {
+  const _ComposerMetric({
+    super.key,
+    required this.theme,
+    required this.label,
+    required this.ratio,
+    required this.detailTitle,
+    required this.details,
+    this.figures,
+    this.summaryRatio = 0,
+    this.detailBarColor,
+    this.busyHint,
+    this.contextMenuItems,
+  });
+
+  final AppTheme theme;
+  final String label;
+  final double? ratio;
+  final String detailTitle;
+  final Widget details;
+  final String? figures;
+  final double summaryRatio;
+  final Color? detailBarColor;
+  final String? busyHint;
+  final List<RightClickMenuItem> Function(VoidCallback close)? contextMenuItems;
+
+  @override
+  State<_ComposerMetric> createState() => _ComposerMetricState();
+}
+
+class _ComposerMetricState extends State<_ComposerMetric> {
+  final _detailsMenu = MenuController();
+  final _contextMenu = RightClickMenuController();
+  var _openRevision = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    final ratio = widget.ratio;
+    final percentText = switch (ratio) {
+      null => '—',
+      > 0 && < 0.01 => '<1%',
+      > 0.99 && < 1 => '>99%',
+      _ => '${(ratio * 100).round()}%',
+    };
+    final reading = ratio == null
+        ? context.l10n.aiCacheNotReported
+        : percentText;
+    final busy = widget.busyHint != null;
+    final semanticLabel = busy ? widget.label : '${widget.label}: $reading';
+    final trigger = RawMenuAnchor(
+      controller: _detailsMenu,
+      onOpen: () => setState(() => _openRevision++),
+      overlayBuilder: (context, info) {
+        const inset = 8.0;
+        final size = info.overlaySize;
+        final anchor = info.anchorRect;
+        final width = math.min(300.0, math.max(0.0, size.width - inset * 2));
+        final left = (anchor.right - width)
+            .clamp(inset, math.max(inset, size.width - width - inset))
+            .toDouble();
+        final above = math.max(0.0, anchor.top - inset * 2);
+        final below = math.max(0.0, size.height - anchor.bottom - inset * 2);
+        final opensAbove = above >= 190 || above >= below;
+        return Positioned(
+          left: left,
+          width: width,
+          top: opensAbove ? null : anchor.bottom + inset,
+          bottom: opensAbove ? size.height - anchor.top + inset : null,
+          child: TapRegion(
+            groupId: info.tapRegionGroupId,
+            onTapOutside: (_) => _detailsMenu.close(),
+            child: Focus(
+              autofocus: true,
+              onKeyEvent: (_, event) {
+                if (event.logicalKey != LogicalKeyboardKey.escape) {
+                  return KeyEventResult.ignored;
+                }
+                if (event is KeyDownEvent) _detailsMenu.close();
+                return KeyEventResult.handled;
+              },
+              child: PopupMenuTransition(
+                key: ValueKey(_openRevision),
+                alignment: opensAbove
+                    ? Alignment.bottomRight
+                    : Alignment.topRight,
+                child: PopupMenuSurface(
+                  key: ValueKey('${widget.key}-details'),
+                  theme: theme,
+                  padding: EdgeInsets.zero,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: opensAbove ? above : below,
+                    ),
+                    child: SingleChildScrollView(
+                      primary: false,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      child: _MetricDetailsFrame(
+                        theme: theme,
+                        title: widget.detailTitle,
+                        reading: percentText,
+                        figures: widget.figures,
+                        ratio: ratio,
+                        summaryRatio: widget.summaryRatio,
+                        barColor: widget.detailBarColor ?? theme.basePrimary,
+                        child: widget.details,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      builder: (context, controller, _) => AppTooltip(
+        message: widget.busyHint ?? semanticLabel,
+        child: Semantics(
+          label: semanticLabel,
+          hint: widget.busyHint,
+          button: true,
+          expanded: controller.isOpen,
+          child: MenuItemSurface(
+            theme: theme,
+            backgroundColor: theme.secondaryTextHoverColor.withValues(alpha: 0),
+            surfaceColor: theme.secondary,
+            hoverColor: theme.secondaryTextHoverColor,
+            borderRadius: BorderRadius.circular(8),
+            onPressed: () =>
+                controller.isOpen ? controller.close() : controller.open(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox.square(
+                    dimension: 14,
+                    child: CircularProgressIndicator(
+                      value: busy ? null : ratio ?? 0,
+                      strokeWidth: 2,
+                      backgroundColor: theme.textColorTertiary.withValues(
+                        alpha: 0.28,
+                      ),
+                      color: theme.basePrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    widget.label,
+                    style: TextStyle(
+                      color: theme.textColorTertiary,
+                      fontSize: 12,
+                    ),
+                  ),
+                  if (!busy) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      percentText,
+                      style: TextStyle(
+                        color: theme.textColorSecondary,
+                        fontSize: 12,
+                        fontFeatures: const [ui.FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
+    final menuItems = widget.contextMenuItems;
+    if (menuItems == null) return trigger;
+    return RightClickMenuBuilder.buildMenuAnchor(
+      context: context,
+      controller: _contextMenu,
+      menuItems: menuItems(_contextMenu.close),
+      theme: theme,
+      menuWidth: 174,
+      onSecondaryTap: _detailsMenu.close,
+      child: trigger,
+    );
+  }
+
+  @override
+  void dispose() {
+    _contextMenu.close();
+    super.dispose();
+  }
+}
+
+class _MetricDetailsFrame extends StatelessWidget {
+  const _MetricDetailsFrame({
+    required this.theme,
+    required this.title,
+    required this.reading,
+    required this.figures,
+    required this.ratio,
+    required this.summaryRatio,
+    required this.barColor,
+    required this.child,
+  });
+
+  final AppTheme theme;
+  final String title;
+  final String reading;
+  final String? figures;
+  final double? ratio;
+  final double summaryRatio;
+  final Widget child;
+  final Color barColor;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      OverflowBar(
+        spacing: 8,
+        overflowSpacing: 2,
+        alignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '$title  $reading',
+            style: TextStyle(
+              color: theme.textColorPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (figures != null)
+            Text(
+              figures!,
+              style: TextStyle(color: theme.textColorSecondary, fontSize: 12),
+            ),
+        ],
+      ),
+      const SizedBox(height: 7),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(2),
+        child: Stack(
+          children: [
+            LinearProgressIndicator(
+              value: ratio ?? 0,
+              minHeight: 4,
+              color: barColor,
+              backgroundColor: theme.dividerColor,
+            ),
+            if (summaryRatio > 0)
+              LinearProgressIndicator(
+                value: summaryRatio,
+                minHeight: 4,
+                color: UsageChartColors.blue,
+                backgroundColor: Colors.transparent,
+              ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 10),
+      child,
+    ],
+  );
+}
+
+class _CacheUsageDetails extends StatelessWidget {
+  const _CacheUsageDetails({required this.theme, required this.usage});
+
+  final AppTheme theme;
+  final AiTokenUsage? usage;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final rows = <(String, int?, Color?)>[
+      (l10n.aiCacheInputTokens, usage?.inputTokens, null),
+      (l10n.aiCacheCachedTokens, usage?.cachedTokens, theme.basePrimary),
+      (l10n.aiCacheUncachedTokens, usage?.uncachedTokens, theme.dividerColor),
+      (l10n.aiCacheOutputTokens, usage?.outputTokens, null),
+    ];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (usage?.cacheHitRatio == null)
+          Text(
+            l10n.aiCacheNotReportedHint,
+            style: TextStyle(color: theme.textColorSecondary, fontSize: 12),
+          ),
+        for (final (label, value, swatch) in rows)
+          if (value case final count?)
+            _MetricDetailRow(
+              theme: theme,
+              label: label,
+              value: l10n.aiMetricTokenCount(count),
+              swatch: swatch,
+            ),
+      ],
+    );
+  }
+}
+
+class _ContextUsageDetails extends StatelessWidget {
+  const _ContextUsageDetails({required this.theme, required this.assistant});
+
+  final AppTheme theme;
+  final AiAssistantProvider assistant;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final lastCompaction = assistant.lastCompaction;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _MetricDetailRow(
+          theme: theme,
+          label: l10n.aiContextBudgetUsage,
+          value: l10n.aiMetricTokenCount(assistant.estimatedContextTokens),
+        ),
+        _MetricDetailRow(
+          theme: theme,
+          label: l10n.aiContextChatHistory,
+          value: l10n.aiMetricTokenCount(
+            assistant.estimatedContextTokens - assistant.estimatedSummaryTokens,
+          ),
+          swatch: UsageChartColors.green,
+        ),
+        _MetricDetailRow(
+          theme: theme,
+          label: l10n.aiContextSummaryUsage,
+          value: l10n.aiMetricTokenCount(assistant.estimatedSummaryTokens),
+          swatch: UsageChartColors.blue,
+        ),
+        _MetricDetailRow(
+          theme: theme,
+          label: l10n.agentStorageContextBudget,
+          value: l10n.aiMetricTokenCount(assistant.contextBudgetTokens),
+        ),
+        _MetricDetailRow(
+          theme: theme,
+          label: l10n.aiContextCompactionThreshold,
+          value: l10n.aiMetricTokenCount(
+            assistant.contextCompactionThresholdTokens,
+          ),
+        ),
+        _MetricDetailRow(
+          theme: theme,
+          label: l10n.aiContextLastCompaction,
+          value: lastCompaction == null
+              ? l10n.aiContextNoCompaction
+              : '${_compactTokenCount(lastCompaction.before)} → ${_compactTokenCount(lastCompaction.after)}',
+        ),
+      ],
+    );
+  }
+}
+
+class _MetricDetailRow extends StatelessWidget {
+  const _MetricDetailRow({
+    required this.theme,
+    required this.label,
+    required this.value,
+    this.swatch,
+  });
+
+  final AppTheme theme;
+  final String label;
+  final String value;
+  final Color? swatch;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: OverflowBar(
+      spacing: 8,
+      overflowSpacing: 2,
+      alignment: MainAxisAlignment.spaceBetween,
+      overflowAlignment: OverflowBarAlignment.end,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (swatch case final color?) ...[
+              SizedBox.square(
+                dimension: 8,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(color: theme.textColorTertiary, fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+        Text(
+          value,
+          textAlign: TextAlign.end,
+          style: TextStyle(color: theme.textColorSecondary, fontSize: 12),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _compactContext(
+  BuildContext context,
+  AiAssistantProvider assistant,
+) async {
+  final l10n = context.l10n;
+  final before = assistant.estimatedContextTokens;
+  try {
+    final outcome = await assistant.compactContext();
+    if (!context.mounted) return;
+    final message = switch (outcome) {
+      AiContextCompactionOutcome.compacted => l10n.agentStorageCompactResult(
+        before,
+        assistant.estimatedContextTokens,
+      ),
+      AiContextCompactionOutcome.insufficientHistory =>
+        l10n.agentStorageCompactTooShort,
+      AiContextCompactionOutcome.unavailableModel =>
+        l10n.agentStorageCompactUnavailable,
+      AiContextCompactionOutcome.busy => l10n.aiContextCompactionBusy,
+      AiContextCompactionOutcome.cancelled => l10n.agentStorageCompactCancelled,
+      AiContextCompactionOutcome.unchanged => l10n.agentStorageCompactUnchanged,
+    };
+    showAppNotice(ScaffoldMessenger.of(context), message);
+  } catch (_) {
+    if (context.mounted) {
+      showAppNotice(
+        ScaffoldMessenger.of(context),
+        l10n.agentStorageCompactFailed,
+      );
+    }
   }
 }
 

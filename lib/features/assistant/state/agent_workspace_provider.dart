@@ -168,7 +168,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
   int _recycleRetentionDays = 30;
   Timer? _recycleTimer;
   bool _recycleOperation = false;
-  Completer<void>? _recycleRestoreCommit;
+  Completer<void>? _recycleRestoreDone;
   int recycleRevision = 0;
   void _recycleChanged() {
     if (!_disposed) notifyListeners();
@@ -1143,13 +1143,12 @@ class AiWorkspaceProvider extends ChangeNotifier {
 
   Future<void>? _lastSave;
   Future<void> _saveNow() {
-    if (_disposed) return _lastSave ?? Future.value();
+    if (_disposed || _recycleOperation) return _lastSave ?? Future.value();
     return _lastSave = _writeSnapshot();
   }
 
   Future<void> _writeSnapshot() async {
     if (_restoring ||
-        _recycleOperation ||
         persistenceError != null ||
         main.storage == null) {
       return;
@@ -1315,7 +1314,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     void Function()? onBeforeCommit,
   }) async {
     await initialized;
-    if (pendingRecycleRestore case final commit?) await commit;
+    if (pendingRecycleRestore case final restore?) await restore;
     await checkpoint?.call();
     if (sessions.any((s) => s.busy)) throw StateError('Agents are running');
     if (data['version'] != 1 ||
@@ -1531,7 +1530,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
 
   Future<void> flush() async {
     await initialized;
-    if (pendingRecycleRestore case final commit?) await commit;
+    if (pendingRecycleRestore case final restore?) await restore;
     _saveTimer?.cancel();
     _saveTimer = null;
     await _saveNow();
@@ -1558,7 +1557,10 @@ class AiWorkspaceProvider extends ChangeNotifier {
     assistant.workspaceRuntimeContext = () => _timerContext(session.id);
     _dirtyConversations.add(session.id);
     var presentation = _sessionPresentation(session);
+    var persistenceRevision = assistant.persistenceRevision;
     void listener() {
+      if (persistenceRevision == assistant.persistenceRevision) return;
+      persistenceRevision = assistant.persistenceRevision;
       _dirtyConversations.add(session.id);
       _scheduleSave();
       final next = _sessionPresentation(session);
@@ -1577,11 +1579,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
 
   Object _sessionPresentation(AiAgentWorkspace session) {
     final assistant = session.assistant;
-    final response = assistant.messages.reversed
-        .where(
-          (message) => message.role == 'assistant' && message.status != null,
-        )
-        .firstOrNull;
+    final response = session.latestProcessMessage;
     final event = response?.processEvents.lastOrNull;
     return (
       session.status,
@@ -1590,6 +1588,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
       assistant.selectedService?.name,
       assistant.pendingApproval,
       assistant.pendingUserInput,
+      response?.id,
       response?.status,
       event?.type,
       event?.status,

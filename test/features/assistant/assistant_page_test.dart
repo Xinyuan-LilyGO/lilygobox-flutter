@@ -89,7 +89,26 @@ void main() {
                 'packages/material_symbols_icons/lib/fonts/MaterialSymbolsRounded.ttf',
               ),
             );
-      await Future.wait([inter.load(), defaultFont.load(), symbols.load()]);
+      final outlined =
+          FontLoader('packages/material_symbols_icons/MaterialSymbolsOutlined')
+            ..addFont(
+              rootBundle.load(
+                'packages/material_symbols_icons/lib/fonts/MaterialSymbolsOutlined.ttf',
+              ),
+            );
+      final chinese = File('${Platform.environment['WINDIR']}/Fonts/msyh.ttc');
+      if (await chinese.exists()) {
+        await (FontLoader('AssistantCaptureCjk')..addFont(
+              Future.value(ByteData.sublistView(await chinese.readAsBytes())),
+            ))
+            .load();
+      }
+      await Future.wait([
+        inter.load(),
+        defaultFont.load(),
+        symbols.load(),
+        outlined.load(),
+      ]);
     }
     scope = await createAssistantTestScope(
       theme: theme,
@@ -195,6 +214,9 @@ void main() {
         ),
         colorScheme: theme.themeData.materialColors,
         fontFamily: 'LilygoBoxInter',
+        fontFamilyFallback: const bool.fromEnvironment('CAPTURE_ASSISTANT_UI')
+            ? const ['AssistantCaptureCjk']
+            : null,
       ),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(
@@ -1434,6 +1456,218 @@ void main() {
   );
 
   testWidgets(
+    'live compaction shows the request stage and running elapsed time',
+    (tester) async {
+      await tester.runAsync(() => scope.provider.initialized);
+      final serviceId = await scope.provider.saveService(
+        name: 'Summary service',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['test-model'],
+        apiKey: 'test-key',
+      );
+      await scope.provider.selectModel(serviceId, 'test-model');
+      scope.provider.restoreWorkspaceConversation({
+        'messages': [],
+        'history': [
+          for (var index = 0; index < 16; index++)
+            {
+              'role': index.isEven ? 'user' : 'assistant',
+              'content': 'History $index',
+            },
+        ],
+      });
+      final gate = responseGate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      await tester.pumpWidget(app(locale: 'zh'));
+      final pending = scope.provider.compactContext();
+      await tester.pump();
+      final header = find.textContaining('手动压缩上下文 · 正在连接 · 用时 ');
+      final initial = tester.widget<Text>(header).data;
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.widget<Text>(header).data, isNot(initial));
+      expect(find.byIcon(Symbols.cloud_sync_rounded), findsOneWidget);
+      gate.complete();
+      for (
+        var attempt = 0;
+        attempt < 100 && scope.provider.compacting.value;
+        attempt++
+      ) {
+        await tester.pump(const Duration(milliseconds: 20));
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      }
+      expect(scope.provider.compacting.value, isFalse);
+      await pending;
+      await tester.pumpAndSettle();
+      expect(find.textContaining('手动压缩上下文 · 已完成 · 用时 '), findsOneWidget);
+    },
+  );
+
+  for (final automatic in [false, true]) {
+    testWidgets(
+      '${automatic ? "automatic" : "manual"} compaction history expands independently of replies',
+      (tester) async {
+        await tester.runAsync(() => scope.provider.initialized);
+        final start = DateTime(2026, 11, 20, 10);
+        final step = AiProcessingStep(
+          name: 'compact_context',
+          succeeded: true,
+          arguments: {
+            'trigger': automatic ? 'auto' : 'manual',
+            'outcome': 'compacted',
+            'beforeTokens': 1200,
+            'afterTokens': 300,
+          },
+        );
+        const duration = Duration(milliseconds: 3200);
+        final record = AiMessage(
+          id: 'manual-history',
+          role: 'compaction',
+          model: 'deepseek-flash',
+          content: '',
+          toolName: 'compact_context',
+          toolArguments: automatic
+              ? {'trigger': 'auto', 'replyId': 'reply-1'}
+              : null,
+          createdAt: start,
+          finishedAt: start.add(duration),
+          elapsed: duration,
+          status: AiResponseStatus.completed,
+          processingSteps: [step],
+          processEvents: [
+            const AiProcessEvent(
+              type: AiProcessEventType.status,
+              status: AiResponseStatus.connecting,
+              elapsed: Duration.zero,
+            ),
+            const AiProcessEvent(
+              type: AiProcessEventType.status,
+              status: AiResponseStatus.thinking,
+              operationId: 'manual-history',
+              elapsed: Duration(milliseconds: 400),
+            ),
+            const AiProcessEvent(
+              type: AiProcessEventType.status,
+              status: AiResponseStatus.streaming,
+              operationId: 'manual-history',
+              elapsed: Duration(seconds: 2),
+            ),
+            AiProcessEvent(
+              type: AiProcessEventType.action,
+              operationId: 'manual-history',
+              elapsed: duration,
+              action: step,
+            ),
+            const AiProcessEvent(
+              type: AiProcessEventType.status,
+              status: AiResponseStatus.completed,
+              elapsed: duration,
+            ),
+          ],
+        );
+        final emptyReply = AiMessage(
+          id: 'empty-reply',
+          role: 'assistant',
+          content: '',
+          elapsed: Duration.zero,
+          finishedAt: start,
+          status: AiResponseStatus.stopped,
+        );
+        scope.provider.restoreWorkspaceConversation({
+          'messages': [
+            ConversationCodec.message(emptyReply),
+            ConversationCodec.message(record),
+          ],
+          'history': <Map<String, Object?>>[],
+        });
+        await tester.pumpWidget(app(locale: 'zh'));
+        await tester.pumpAndSettle();
+        final title = find.text(
+          '${automatic ? "自动" : "手动"}压缩上下文 · 已完成 · 用时 00:03:200',
+        );
+        final detail = find.text('估算 token 数：1200 → 300');
+        expect(find.text('2026.11.20 10:00:03'), findsOneWidget);
+        expect(detail, findsNothing);
+        double headerToCopy(String id) {
+          final button = find.byKey(ValueKey('ai-copy-message-$id'));
+          expect(tester.widget<TitleBarIconButton>(button).onPressed, isNull);
+          final header = find.byKey(ValueKey('ai-response-details-$id'));
+          return tester.getTopLeft(button).dy - tester.getBottomLeft(header).dy;
+        }
+
+        expect(
+          headerToCopy(record.id),
+          closeTo(headerToCopy(emptyReply.id), 1),
+        );
+        await tester.tap(title);
+        await tester.pumpAndSettle();
+        expect(detail, findsNothing);
+        expect(find.text('正在连接'), findsOneWidget);
+        expect(find.byIcon(Symbols.cloud_sync_rounded), findsOneWidget);
+        expect(find.text('00:00:000'), findsOneWidget);
+        final operation = find.byKey(
+          const ValueKey('operation-manual-history'),
+        );
+        await tester.tap(
+          find.descendant(of: operation, matching: find.byType(InkWell)).first,
+        );
+        await tester.pumpAndSettle();
+        expect(detail, findsOneWidget);
+        expect(find.textContaining('开始时间'), findsNothing);
+        final model = find.textContaining('deepseek-flash');
+        final left = tester
+            .getTopLeft(
+              find.byKey(const ValueKey('ai-response-details-manual-history')),
+            )
+            .dx;
+        expect(tester.getTopLeft(model.first).dx, closeTo(left, 1));
+        final stageIcon = find.byIcon(Symbols.edit_note_rounded);
+        final stage = find.text('正在输出');
+        final stageTime = find.text('00:02:000');
+        final firstTime = find.text('00:00:000');
+        expect(tester.getTopLeft(stageIcon).dx, greaterThan(left));
+        expect(
+          tester.getTopLeft(stage).dx,
+          greaterThan(tester.getTopLeft(stageIcon).dx),
+        );
+        expect(
+          tester.getTopLeft(stageTime).dy,
+          closeTo(tester.getTopLeft(stage).dy, 1),
+        );
+        expect(
+          tester.getTopRight(stageTime).dx,
+          closeTo(tester.getTopRight(firstTime).dx, 1),
+        );
+        expect(
+          tester.getTopLeft(detail).dx,
+          closeTo(tester.getTopLeft(stageIcon).dx, 1),
+        );
+        if (automatic) await capture(tester, 'compaction-shared-timing');
+        await tester.tap(title);
+        await tester.pumpAndSettle();
+        expect(detail, findsNothing);
+      },
+    );
+  }
+
+  testWidgets('composer metrics sit close to the bottom of the chat page', (
+    tester,
+  ) async {
+    await tester.runAsync(() => scope.provider.initialized);
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final size in [const Size(450, 650), const Size(1920, 1080)]) {
+      await tester.binding.setSurfaceSize(size);
+      await tester.pumpWidget(app(scale: size.width == 450 ? 1.5 : 1));
+      await tester.pumpAndSettle();
+      final metric = find.byKey(const ValueKey('ai-context-usage-metric'));
+      final pageBottom = tester.getBottomLeft(find.byType(AssistantPage)).dy;
+      expect(pageBottom - tester.getBottomLeft(metric).dy, closeTo(6, 1));
+    }
+  });
+
+  testWidgets(
     'history thumb drag cancels latest following and retains the chosen location',
     (tester) async {
       await tester.runAsync(() => scope.provider.initialized);
@@ -1466,7 +1700,7 @@ void main() {
       final viewportFinder = find.byKey(const ValueKey('ai-message-scroll'));
       final viewport = tester.getRect(viewportFinder);
       final bar = find
-          .ancestor(of: viewportFinder, matching: find.byType(Scrollbar))
+          .descendant(of: viewportFinder, matching: find.byType(Scrollbar))
           .first;
       final logical = tester.widget<Scrollbar>(bar).controller!;
       final gesture = await tester.startGesture(

@@ -6,11 +6,11 @@
 #include "flutter/generated_plugin_registrant.h"
 #include "single_instance.h"
 #include "image_clipboard.h"
+#include "window_messages.h"
 
 namespace {
 
-constexpr UINT kLayoutChangedMessage = WM_APP + 76;
-constexpr UINT kToggleMaximizeMessage = WM_APP + 78;
+using namespace lilygobox::messages;
 
 bool IsSystemSnapped(HWND window) {
   using IsArranged = BOOL(WINAPI*)(HWND);
@@ -42,6 +42,33 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  reader_channel_ = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+      flutter_controller_->engine()->messenger(), "lilygobox/reader_mode",
+      &flutter::StandardMethodCodec::GetInstance());
+  reader_channel_->SetMethodCallHandler([this](const auto& call, auto result) {
+    const auto* args = std::get_if<flutter::EncodableList>(call.arguments());
+    if (call.method_name() == "start" && args && args->size() == 4) {
+      const auto* session = std::get_if<int32_t>(&(*args)[0]);
+      const auto* horizontal = std::get_if<bool>(&(*args)[1]);
+      const auto* anchor_x = std::get_if<int32_t>(&(*args)[2]);
+      const auto* anchor_y = std::get_if<int32_t>(&(*args)[3]);
+      const bool accepted = session && horizontal && anchor_x && anchor_y &&
+          reader_mode_.Start(GetHandle(), flutter_controller_->view()->GetNativeWindow(),
+                             *session, *horizontal, {*anchor_x, *anchor_y});
+      result->Success(flutter::EncodableValue(accepted));
+    } else if (const auto* session = std::get_if<int32_t>(call.arguments())) {
+      if (call.method_name() == "take" && reader_mode_.active(*session)) {
+        result->Success(flutter::EncodableValue(reader_mode_.Take()));
+      } else if (call.method_name() == "stop") {
+        reader_mode_.Stop(*session);
+        result->Success();
+      } else {
+        result->Success();
+      }
+    } else {
+      result->NotImplemented();
+    }
+  });
   // runner 拥有主 HWND，直接同步激活状态，不依赖包装窗口的全局焦点事件。
   focus_channel_ =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
@@ -133,6 +160,8 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  reader_mode_.Stop(0);
+  reader_channel_.reset();
   RemovePropW(GetHandle(), lilygobox::kWindowMarker);
   tray_.reset();
   focus_channel_.reset();
@@ -149,6 +178,14 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  if (message == kBeginReaderMode) {
+    reader_mode_.Run(static_cast<int>(wparam));
+    return 0;
+  }
+  if ((message == WM_ACTIVATE && LOWORD(wparam) == WA_INACTIVE) ||
+      message == WM_CLOSE || message == WM_CANCELMODE) {
+    reader_mode_.Stop(0);
+  }
   if (message == WM_ACTIVATE && focus_channel_) {
     focus_channel_->InvokeMethod("focusChanged",
         std::make_unique<flutter::EncodableValue>(

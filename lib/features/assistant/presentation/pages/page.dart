@@ -139,7 +139,7 @@ class _AssistantPageState extends State<AssistantPage> {
             notification.direction == ScrollDirection.forward) ||
         (notification is ScrollUpdateNotification &&
             (notification.scrollDelta ?? 0) < 0)) {
-      // 公共滚轮和中键滚动使用程序位移，不一定发送 UserScrollNotification。
+      // 公共滚轮使用程序位移，不一定发送 UserScrollNotification。
       // 向上位移同样表示退出跟随，同时作废旧动画后等待布局的回底部任务。
       _followLatest = false;
       _scrollToEndVersion++;
@@ -383,7 +383,7 @@ class _AssistantPageState extends State<AssistantPage> {
                             assistant.pendingUserInput == null
                         ? const SizedBox.shrink()
                         : Padding(
-                            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                            padding: const EdgeInsets.fromLTRB(24, 8, 24, 6),
                             child: Align(
                               alignment: Alignment.bottomCenter,
                               heightFactor: 1,
@@ -658,24 +658,26 @@ class _MessageViewState extends State<_MessageView> {
         true;
   }
 
-  Widget _processEvent(
-    AiProcessEvent event,
-    List<AiProcessEvent> events,
-    bool thinking,
-    Key key,
-  ) => AiProcessEventView(
-    key: key,
-    event: event,
-    operationEvents: events,
-    theme: widget.theme,
-    isThinking: thinking,
-  );
-
   @override
   Widget build(BuildContext context) {
     final message = widget.message;
     final isUser = message.role == 'user';
-    final timeline = buildAiProcessTimeline(message.processEvents);
+    final isCompaction = message.role == 'compaction';
+    final events = isCompaction && message.processEvents.isEmpty
+        ? [
+            AiProcessEvent(
+              type: message.processingSteps.isEmpty
+                  ? AiProcessEventType.status
+                  : AiProcessEventType.action,
+              status: message.processingSteps.isEmpty ? message.status : null,
+              toolName: 'compact_context',
+              operationId: message.id,
+              elapsed: message.elapsed ?? Duration.zero,
+              action: message.processingSteps.lastOrNull,
+            ),
+          ]
+        : message.processEvents;
+    final timeline = buildAiProcessTimeline(events);
     final turnFinished = switch (message.status) {
       AiResponseStatus.completed ||
       AiResponseStatus.failed ||
@@ -747,7 +749,7 @@ class _MessageViewState extends State<_MessageView> {
         ),
       ),
     );
-    if (isUser || message.elapsed == null) {
+    if (isUser || (!isCompaction && message.elapsed == null)) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -805,7 +807,12 @@ class _MessageViewState extends State<_MessageView> {
                     ],
                     Flexible(
                       child: Text(
-                        _responseStatusText(context, message),
+                        [
+                          ?processSummary?.label,
+                          l10n.aiResponseElapsed(
+                            formatAiElapsed(message.elapsed ?? Duration.zero),
+                          ),
+                        ].join(' · '),
                         style: TextStyle(color: color, fontSize: 12),
                       ),
                     ),
@@ -841,15 +848,16 @@ class _MessageViewState extends State<_MessageView> {
                   key: const ValueKey('ai-response-details-expanded'),
                   padding: const EdgeInsets.fromLTRB(0, 10, 0, 12),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        l10n.aiResponseModel(message.model ?? ''),
-                        style: TextStyle(
-                          color: widget.theme.textColorSecondary,
-                          fontSize: 12,
+                      if (message.model != null)
+                        Text(
+                          l10n.aiResponseModel(message.model ?? ''),
+                          style: TextStyle(
+                            color: widget.theme.textColorSecondary,
+                            fontSize: 12,
+                          ),
                         ),
-                      ),
                       if (message.reasoningEffort case final effort?)
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
@@ -865,7 +873,7 @@ class _MessageViewState extends State<_MessageView> {
                           ),
                         ),
                       const SizedBox(height: 8),
-                      if (message.processEvents.isNotEmpty)
+                      if (events.isNotEmpty)
                         ConstrainedBox(
                           constraints: const BoxConstraints(maxHeight: 300),
                           child: ProcessDetailsScrollView(
@@ -879,16 +887,16 @@ class _MessageViewState extends State<_MessageView> {
                                           AiProcessEventType.status &&
                                       entry.event.status ==
                                           AiResponseStatus.thinking))
-                                    _processEvent(
-                                      entry.event,
-                                      entry.events,
-                                      message.status ==
+                                    AiProcessEventView(
+                                      key: ValueKey(entry.id),
+                                      event: entry.event,
+                                      theme: widget.theme,
+                                      operationEvents: entry.events,
+                                      inlineCompaction: !isCompaction,
+                                      isThinking:
+                                          message.status ==
                                               AiResponseStatus.thinking &&
-                                          identical(
-                                            entry.event,
-                                            message.processEvents.last,
-                                          ),
-                                      ValueKey(entry.id),
+                                          identical(entry.event, events.last),
                                     ),
                               ],
                             ),
@@ -934,12 +942,4 @@ class _MessageViewState extends State<_MessageView> {
       ],
     );
   }
-}
-
-String _responseStatusText(BuildContext context, AiMessage message) {
-  final l10n = context.l10n;
-  final elapsed = formatAiElapsed(message.elapsed!);
-  final summary = aiMessageProcessSummary(context, message);
-  final time = l10n.aiResponseElapsed(elapsed);
-  return summary == null ? time : '${summary.label} · $time';
 }

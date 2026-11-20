@@ -18,13 +18,16 @@ typedef MotionMouse = ({
   void Function() middleDown,
   void Function(Offset delta) middleMove,
   void Function() middleUp,
+  void Function(Offset target) hover,
+  void Function() escape,
 });
 
 Future<void> withNativeMotionMouse(
   WidgetTester tester,
   Offset target,
-  Future<void> Function(MotionMouse mouse) measure,
-) async {
+  Future<void> Function(MotionMouse mouse) measure, {
+  bool positionSystemCursor = false,
+}) async {
   const channel = MethodChannel('lilygobox/window_layout');
   final owner = (await channel.invokeMethod<int>('getWindowHandle'))!;
   final user = ffi.DynamicLibrary.open('user32.dll');
@@ -58,7 +61,6 @@ Future<void> withNativeMotionMouse(
   final point = calloc<ffi.Int32>(2);
   final previous = tester.binding.shouldPropagateDevicePointerEvents;
   try {
-    expect(getCursor(original), isNot(0));
     final ratio = tester.view.devicePixelRatio;
     var clientX = point[0] = (target.dx * ratio).round();
     var clientY = point[1] = (target.dy * ratio).round();
@@ -73,18 +75,32 @@ Future<void> withNativeMotionMouse(
     const wmMiddleUp = 0x0208;
     const middleButton = 0x0010;
     var held = false;
+    void moveSystemCursor() {
+      expect(positionSystemCursor, isTrue);
+      point[0] = clientX;
+      point[1] = clientY;
+      expect(toScreen(child, point), isNot(0));
+      expect(setCursor(point[0], point[1]), isNot(0));
+    }
+
     void middleUp() {
       send(wmMiddleUp, 0, packed(clientX, clientY));
       held = false;
     }
 
-    expect(toScreen(child, point), isNot(0));
-    expect(setCursor(point[0], point[1]), isNot(0));
     try {
       tester.binding.shouldPropagateDevicePointerEvents = true;
+      if (positionSystemCursor) {
+        expect(getCursor(original), isNot(0));
+        expect(toScreen(child, point), isNot(0));
+        expect(setCursor(point[0], point[1]), isNot(0));
+      }
       await tester.binding.endOfFrame;
       await measure((
-        wheel: () => send(wmMouseWheel, 120 << 16, packed(point[0], point[1])),
+        wheel: () {
+          expect(positionSystemCursor, isTrue);
+          send(wmMouseWheel, 120 << 16, packed(point[0], point[1]));
+        },
         middleDown: () {
           send(wmMiddleDown, middleButton, packed(clientX, clientY));
           held = true;
@@ -92,14 +108,25 @@ Future<void> withNativeMotionMouse(
         middleMove: (delta) {
           clientX += (delta.dx * ratio).round();
           clientY += (delta.dy * ratio).round();
+          moveSystemCursor();
           send(wmMouseMove, middleButton, packed(clientX, clientY));
         },
         middleUp: middleUp,
+        hover: (target) {
+          clientX = (target.dx * ratio).round();
+          clientY = (target.dy * ratio).round();
+          moveSystemCursor();
+          send(wmMouseMove, 0, packed(clientX, clientY));
+        },
+        escape: () => send(0x0100, 0x1b, 0),
       ));
     } finally {
-      if (held) middleUp();
+      if (held) {
+        middleUp();
+        await tester.binding.endOfFrame;
+      }
       tester.binding.shouldPropagateDevicePointerEvents = previous;
-      setCursor(original[0], original[1]);
+      if (positionSystemCursor) setCursor(original[0], original[1]);
     }
   } finally {
     calloc.free(point);

@@ -30,6 +30,7 @@ import 'package:lilygobox/core/widgets/settings/select.dart';
 import 'package:lilygobox/core/widgets/tilt_card.dart';
 import 'package:lilygobox/core/widgets/title_bar_icon_button.dart';
 import 'package:lilygobox/features/assistant/data/agent_storage.dart';
+import 'package:lilygobox/features/assistant/data/conversation_codec.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/domain/permissions.dart';
 import 'package:lilygobox/features/assistant/domain/reasoning.dart';
@@ -73,13 +74,17 @@ class _GatedWorkflowStorage extends AgentStorage {
   _GatedWorkflowStorage() : super(path: ':memory:');
   final workflow = Completer<Object?>();
   Completer<void>? saveGate;
+  int workflowSaveRequests = 0;
 
   @override
   Future<Object?> request(
     String operation, [
     Map<String, Object?> args = const {},
   ]) async {
-    if (operation == 'saveWorkflow') await saveGate?.future;
+    if (operation == 'saveWorkflow') {
+      workflowSaveRequests++;
+      await saveGate?.future;
+    }
     return operation == 'readWorkflowData' ? workflow.future : null;
   }
 }
@@ -122,6 +127,7 @@ void main() {
   late SplitViewProvider split;
   late AppNavigationProvider navigation;
   late AssistantTestScope scope;
+  late MemoryAssistantPreferencesStorage preferencesStorage;
   late AiWorkspaceProvider workspaces;
   final boundary = GlobalKey();
   final overlayBoundary = GlobalKey();
@@ -136,11 +142,13 @@ void main() {
     shell = AppShellProvider();
     split = SplitViewProvider();
     navigation = AppNavigationProvider();
+    preferencesStorage = MemoryAssistantPreferencesStorage();
     scope = await createAssistantTestScope(
       theme: theme,
       language: language,
       shell: shell,
       splitView: split,
+      preferencesStorage: preferencesStorage,
       client: MockClient((request) async {
         for (final entry in requestGates.entries) {
           if (request.body.contains(entry.key)) await entry.value.future;
@@ -304,6 +312,74 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
   }
 
+  for (final automatic in [false, true]) {
+    final trigger = automatic ? 'automatic' : 'manual';
+    testWidgets('card follows $trigger compaction and the next reply', (
+      tester,
+    ) async {
+      final session = (await tester.runAsync(
+        () => workspaces.create(
+          title: 'Card status',
+          task: 'Observe the current request',
+          startImmediately: false,
+        ),
+      ))!;
+      final previous = AiMessage(
+        id: 'previous',
+        role: 'assistant',
+        content: '',
+        status: AiResponseStatus.stopped,
+        finishedAt: DateTime(2026),
+      );
+      session.assistant.restoreWorkspaceConversation({
+        'messages': [ConversationCodec.message(previous)],
+        'history': [
+          for (var index = 0; index < 16; index++)
+            {
+              'role': index.isEven ? 'user' : 'assistant',
+              'content': 'Previous message $index with context',
+            },
+        ],
+        if (automatic) 'contextBudgetTokens': 128,
+        'useMemory': false,
+        'autoSaveMemory': false,
+      });
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      final card = find.byKey(ValueKey('topology-node-${session.id}'));
+      Finder onCard(String label) =>
+          find.descendant(of: card, matching: find.text(label));
+      final compression = requestGates['Summarize the supplied conversation'] =
+          Completer<void>();
+      final reply = requestGates['Resume after compaction'] = Completer<void>();
+      final prefix = automatic ? '自动压缩上下文' : '手动压缩上下文';
+      late Future<void> operation;
+      await tester.runAsync(() async {
+        operation = automatic
+            ? session.assistant.sendMessage('Resume after compaction')
+            : session.assistant.compactContext().then((_) {});
+        await Future<void>.delayed(Duration.zero);
+      });
+      await tester.pump();
+      expect(onCard('$prefix · 正在连接'), findsOneWidget);
+      await tester.runAsync(() async {
+        compression.complete();
+        await Future<void>.delayed(Duration.zero);
+      });
+      await tester.pump();
+      if (automatic) {
+        expect(onCard('正在连接'), findsOneWidget);
+      }
+      await tester.runAsync(() async {
+        reply.complete();
+        await operation.timeout(const Duration(seconds: 5));
+      });
+      await tester.pump();
+      expect(onCard(automatic ? '已完成' : '$prefix · 已完成'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   for (final outcome in ['empty', 'saved', 'invalid']) {
     testWidgets('canvas waits for storage before showing $outcome workflow', (
       tester,
@@ -404,6 +480,9 @@ void main() {
       });
       final workspace = AiWorkspaceProvider(local.provider);
       final restoreAll = find.byKey(const ValueKey('recycle-restore-all'));
+      final confirmRestore = find.byKey(
+        const ValueKey('confirm-recycle-restore'),
+      );
       final close = find.widgetWithText(AppActionButton, '关闭');
       Future<void> awaitHandoff() async {
         for (
@@ -414,10 +493,12 @@ void main() {
           await tester.pump(const Duration(milliseconds: 16));
         }
         expect(workspace.pendingRecycleRestore, isNotNull);
+        await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
         await tester.pump();
+        expect(confirmRestore, findsNothing);
         expect(
-          find.byKey(const ValueKey('recycle-restore-dialog')),
+          find.byKey(const ValueKey('cancel-recycle-restore')),
           findsNothing,
         );
         expect(tester.widget<AppActionButton>(restoreAll).onPressed, isNull);
@@ -452,6 +533,10 @@ void main() {
             matching: find.widgetWithText(AppActionButton, '还原'),
           ),
         );
+        await tester.pumpAndSettle();
+        expect(find.text('还原此智能体？'), findsOneWidget);
+        expect(workspace.pendingRecycleRestore, isNull);
+        await tester.tap(confirmRestore);
         await awaitHandoff();
         expect(workspace.recycledAgents, hasLength(count));
         storage.saveGate = null;
@@ -464,8 +549,12 @@ void main() {
         await tester.tap(restoreAll);
         await tester.pumpAndSettle();
         await workspace.flush();
-        final saved = storage.saveGate = Completer<void>();
-        await tester.tap(find.byKey(const ValueKey('confirm-recycle-restore')));
+        final previousSave = storage.saveGate = Completer<void>();
+        final savesBefore = storage.workflowSaveRequests;
+        final previousFlush = workspace.flush();
+        await tester.pump();
+        expect(storage.workflowSaveRequests, savesBefore + 1);
+        await tester.tap(confirmRestore);
         await awaitHandoff();
         await tester.tap(close);
         await tester.pump();
@@ -474,7 +563,7 @@ void main() {
         navigator.pop();
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
-        expect(find.text('正在完成还原…'), findsOneWidget);
+        expect(find.text('正在还原智能体…'), findsOneWidget);
         final progress = find.byKey(
           const ValueKey('topology-loading-progress'),
         );
@@ -483,6 +572,20 @@ void main() {
         final flush = workspace.flush().then((_) => flushed = true);
         await tester.pump();
         expect(flushed, isFalse);
+        expect(storage.workflowSaveRequests, savesBefore + 1);
+        final saved = storage.saveGate = Completer<void>();
+        previousSave.complete();
+        await previousFlush;
+        for (
+          var frame = 0;
+          frame < 150 && storage.workflowSaveRequests == savesBefore + 1;
+          frame++
+        ) {
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(storage.workflowSaveRequests, savesBefore + 2);
+        expect(flushed, isFalse);
+        expect(find.text('正在还原智能体…'), findsOneWidget);
         storage.saveGate = null;
         saved.complete();
         await tester.pump();
@@ -5582,6 +5685,190 @@ void main() {
     },
   );
 
+  testWidgets('reopening restores canvas zoom and world center after loading', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1180, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const oldOrigin = Offset(250, 140);
+    const newOrigin = Offset(600, 480);
+    const worldCenter = Offset(-45, 109);
+    const zoom = .675;
+    final task = (await tester.runAsync(
+      () => workspaces.createPrimary(title: 'Viewport', task: 'Keep position'),
+    ))!;
+    workspaces.updateCanvasPositions({task.id: [300, 220]}, origin: oldOrigin);
+    await tester.pumpWidget(app());
+    await tick(tester);
+    final canvas = find.byKey(const ValueKey('task-topology-canvas'));
+    TransformationController transform() =>
+        tester.widget<InteractiveViewer>(canvas).transformationController!;
+    final screenCenter = tester.getSize(canvas).center(Offset.zero);
+    final translation = screenCenter - (worldCenter + oldOrigin) * zoom;
+    var preferenceNotifications = 0;
+    scope.preferences.addListener(() => preferenceNotifications++);
+    transform().value = Matrix4.translationValues(10, 60, 0);
+    transform().value =
+        Matrix4.translationValues(translation.dx, translation.dy, 0) *
+        Matrix4.diagonal3Values(zoom, zoom, 1);
+    expect(preferenceNotifications, isZero);
+    await scope.preferences.flush();
+    await tester.pumpWidget(const SizedBox.shrink());
+
+    final storage = _GatedWorkflowStorage();
+    addTearDown(storage.close);
+    final reopened = await createAssistantTestScope(
+      theme: theme,
+      language: language,
+      shell: shell,
+      splitView: split,
+      preferencesStorage: preferencesStorage,
+      storage: storage,
+    );
+    final restored = AiWorkspaceProvider(reopened.provider);
+    try {
+      await tester.binding.setSurfaceSize(const Size(820, 650));
+      await tester.pumpWidget(app(restored: restored));
+      expect(canvas, findsNothing);
+      storage.workflow.complete({
+        'version': 1,
+        'sessions': [
+          {
+            'id': task.id,
+            'title': 'Viewport',
+            'task': 'Keep position',
+            'kind': 'primary',
+            'conversation': {
+              'serviceId': '',
+              'model': '',
+              'messages': [],
+              'history': [],
+            },
+          },
+        ],
+        'connections': [],
+        'canvas': {task.id: [650, 560]},
+        'canvasOrigin': [newOrigin.dx, newOrigin.dy],
+      });
+      await tester.pumpAndSettle();
+      expect(restored.persistenceError, isNull);
+      expect(restored.canvasOrigin, newOrigin);
+      expect(transform().value.entry(0, 0), closeTo(zoom, .00001));
+      final restoredCenter =
+          transform().toScene(tester.getSize(canvas).center(Offset.zero)) -
+          newOrigin;
+      expect((restoredCenter - worldCenter).distance, lessThan(.00001));
+      expect(tester.takeException(), isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      restored.dispose();
+      reopened.dispose();
+    }
+  });
+
+  testWidgets('first canvas layout anchors the primary card at world zero', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1180, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final task = (await tester.runAsync(
+      () => workspaces.createPrimary(title: 'Origin', task: 'Keep origin'),
+    ))!;
+    await tester.pumpWidget(app());
+    await tick(tester);
+    final position = tester.widget<Positioned>(
+      find.byKey(ValueKey('topology-position-${task.id}')),
+    );
+    final cardCenter = Offset(
+      position.left! + position.width! / 2,
+      position.top! + position.height! / 2,
+    );
+    expect(cardCenter, workspaces.canvasOrigin);
+    final canvas = find.byKey(const ValueKey('task-topology-canvas'));
+    final transform = tester
+        .widget<InteractiveViewer>(canvas)
+        .transformationController!;
+    final viewportCenter = tester.getSize(canvas).center(Offset.zero);
+    expect(
+      (transform.toScene(viewportCenter) - workspaces.canvasOrigin).distance,
+      lessThan(.001),
+    );
+  });
+
+  testWidgets('recreating the last primary card keeps the world origin', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1180, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(app());
+    await tick(tester);
+
+    await tester.tap(find.byKey(const ValueKey('topology-empty-create')));
+    await tick(tester);
+    await tester.enterText(
+      find.byKey(const ValueKey('topology-task-input')),
+      'Create the first primary card.',
+    );
+    await tester.tap(find.byKey(const ValueKey('topology-create-confirm')));
+    await tick(tester);
+    final first = workspaces.sessions.single;
+    await tester.tap(find.byKey(const ValueKey('topology-back')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(ValueKey('topology-node-${first.id}')));
+    await tester.tap(find.byKey(const ValueKey('topology-delete')));
+    await tick(tester);
+    expect(workspaces.sessions, isEmpty);
+    expect(
+      (tester.getCenter(find.byKey(const ValueKey('topology-empty-create'))) -
+              tester.getCenter(find.byKey(const ValueKey('task-topology-canvas'))))
+          .distance,
+      lessThan(20),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('topology-empty-create')));
+    await tick(tester);
+    await tester.enterText(
+      find.byKey(const ValueKey('topology-task-input')),
+      'Create the replacement primary card.',
+    );
+    await tester.tap(find.byKey(const ValueKey('topology-create-confirm')));
+    await tick(tester);
+    final replacement = workspaces.sessions.single;
+    await tester.tap(find.byKey(const ValueKey('topology-back')));
+    await tester.pumpAndSettle();
+
+    final position = tester.widget<Positioned>(
+      find.byKey(ValueKey('topology-position-${replacement.id}')),
+    );
+    final cardCenter = Offset(
+      position.left! + position.width! / 2,
+      position.top! + position.height! / 2,
+    );
+    expect(cardCenter, workspaces.canvasOrigin);
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets('invalid saved canvas viewport opens at the default fit', (
+    tester,
+  ) async {
+    scope.preferences.setValue('ai.agentCanvasViewport.v1', '[oops');
+    await tester.pumpWidget(app());
+    await tick(tester);
+    final canvas = find.byKey(const ValueKey('task-topology-canvas'));
+    final transform = tester
+        .widget<InteractiveViewer>(canvas)
+        .transformationController!;
+    expect(transform.value.entry(0, 0), 1);
+    expect(
+      transform.toScene(tester.getSize(canvas).center(Offset.zero)) -
+          workspaces.canvasOrigin,
+      Offset.zero,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('short title remains a card drag target', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1180, 850));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -6561,6 +6848,24 @@ void main() {
         findsOneWidget,
       );
       expect(find.byKey(const ValueKey('topology-empty-create')), findsNothing);
+      final position = tester.widget<Positioned>(
+        find.byKey(ValueKey('topology-position-${session.id}')),
+      );
+      final cardCenter = Offset(
+        position.left! + position.width! / 2,
+        position.top! + position.height! / 2,
+      );
+      expect(cardCenter, workspaces.canvasOrigin);
+      final canvas = find.byKey(const ValueKey('task-topology-canvas'));
+      final transform = tester
+          .widget<InteractiveViewer>(canvas)
+          .transformationController!;
+      expect(
+        (transform.toScene(tester.getSize(canvas).center(Offset.zero)) -
+                workspaces.canvasOrigin)
+            .distance,
+        lessThan(.001),
+      );
       expect(tester.takeException(), isNull);
       await finish(tester);
     },

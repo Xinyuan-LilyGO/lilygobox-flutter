@@ -26,10 +26,12 @@ class ChatCompletionClient {
     http.Client? client,
     this.retryDelay = const Duration(seconds: 1),
   }) : _client = client ?? http.Client(),
+       _withoutStreamUsage = {},
        _ownsTransport = true;
 
   ChatCompletionClient._fork(ChatCompletionClient parent)
     : _client = parent._client,
+      _withoutStreamUsage = parent._withoutStreamUsage,
       retryDelay = parent.retryDelay,
       _ownsTransport = false;
 
@@ -38,6 +40,7 @@ class ChatCompletionClient {
 
   final bool _ownsTransport;
   final http.Client _client;
+  final Set<({String baseUrl, String model})> _withoutStreamUsage;
   final Duration retryDelay;
   static const maxRetries = 2;
   StreamSubscription<String>? _responseSubscription;
@@ -136,7 +139,11 @@ class ChatCompletionClient {
             // Keep original protocol items, including encrypted reasoning, for
             // Responses API continuation; they are never displayed as text.
             responseItems: completion.responseItems,
+            usage: completion.usage,
+            streamedOutputDuration: completion.streamedOutputDuration,
           );
+        } on _StreamUsageUnsupported catch (error) {
+          _withoutStreamUsage.add(error.endpoint);
         } catch (error) {
           // 已输出正文或工具调用后不重发，避免重复回复或重复执行设置。
           final retryable = switch (error) {
@@ -188,6 +195,8 @@ class ChatCompletionClient {
   }) async {
     final base = configuration.baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final responses = configuration.protocol == AiApiProtocol.openAiResponses;
+    final endpoint = (baseUrl: base, model: configuration.model);
+    final includeUsage = !responses && !_withoutStreamUsage.contains(endpoint);
     final uri = Uri.parse(
       '$base/${responses ? 'responses' : 'chat/completions'}',
     );
@@ -216,6 +225,7 @@ class ChatCompletionClient {
               ..._responsesRequest(messages, tools, maxTokens)
             else ...{
               'messages': messages,
+              if (includeUsage) 'stream_options': {'include_usage': true},
               if (tools.isNotEmpty) 'tools': tools,
               if (tools.isNotEmpty) 'tool_choice': 'auto',
               'max_tokens': ?maxTokens,
@@ -231,6 +241,16 @@ class ChatCompletionClient {
     final streamedText = StringBuffer();
     final streamedReasoning = StringBuffer();
     AiCompletion? responseCompletion;
+    AiTokenUsage? streamedUsage;
+    final streamClock = Stopwatch()..start();
+    var receivedAt = Duration.zero;
+    Duration? firstOutputAt;
+    var outputDuration = Duration.zero;
+    void markOutput() {
+      firstOutputAt ??= receivedAt;
+      outputDuration = receivedAt - firstOutputAt!;
+    }
+
     void emitReasoning(String text) {
       if (text.isEmpty) return;
       streamedReasoning.write(text);
@@ -270,12 +290,19 @@ class ChatCompletionClient {
         if ((type == 'response.reasoning_summary_text.delta' ||
                 type == 'response.reasoning_text.delta') &&
             decoded['delta'] is String) {
-          emitReasoning(decoded['delta'] as String);
+          final delta = decoded['delta'] as String;
+          if (delta.isNotEmpty) markOutput();
+          emitReasoning(delta);
         } else if (type == 'response.output_text.delta' &&
             decoded['delta'] is String) {
           final delta = decoded['delta'] as String;
+          if (delta.isNotEmpty) markOutput();
           streamedText.write(delta);
           onTextDelta?.call(delta);
+        } else if (type == 'response.function_call_arguments.delta') {
+          if (decoded['delta'] case final String delta when delta.isNotEmpty) {
+            markOutput();
+          }
         } else if (type == 'response.completed' &&
             decoded['response'] is Map<String, dynamic>) {
           responseCompletion = _parseResponses(
@@ -285,20 +312,26 @@ class ChatCompletionClient {
         } else if (type == 'response.output_item.added' &&
             decoded['item'] is Map &&
             (decoded['item'] as Map)['type'] == 'function_call') {
+          markOutput();
           onStatus?.call(AiResponseStatus.preparingTools);
         } else if (type == 'response.failed' || type == 'response.incomplete') {
           throw const AiConfigurationException(AiProblem.invalidResponse);
         }
         return;
       }
+      streamedUsage = _parseUsage(decoded['usage']) ?? streamedUsage;
       final choices = decoded['choices'];
       if (choices is! List || choices.isEmpty || choices.first is! Map) return;
       final delta = (choices.first as Map)['delta'];
       if (delta is! Map) return;
       final reasoning = delta['reasoning_content'] ?? delta['reasoning'];
-      if (reasoning is String) emitReasoning(reasoning);
+      if (reasoning is String && reasoning.isNotEmpty) {
+        markOutput();
+        emitReasoning(reasoning);
+      }
       final text = delta['content'];
       if (text is String && text.isNotEmpty) {
+        markOutput();
         streamedText.write(text);
         onTextDelta?.call(text);
       }
@@ -313,9 +346,11 @@ class ChatCompletionClient {
         final function = call['function'];
         if (function is Map) {
           if (function['name'] is String) {
+            if ((function['name'] as String).isNotEmpty) markOutput();
             collected['name'] = function['name'];
           }
           if (function['arguments'] is String) {
+            if ((function['arguments'] as String).isNotEmpty) markOutput();
             collected['arguments'] =
                 '${collected['arguments'] ?? ''}${function['arguments']}';
           }
@@ -345,6 +380,7 @@ class ChatCompletionClient {
         .listen(
           (chunk) {
             try {
+              receivedAt = streamClock.elapsed;
               _armResponseTimeout();
               raw.write(chunk);
               lineTail += chunk;
@@ -400,6 +436,11 @@ class ChatCompletionClient {
 
     final body = raw.toString().trim();
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (includeUsage &&
+          (response.statusCode == 400 || response.statusCode == 422) &&
+          const ['stream_options', 'include_usage'].any(body.contains)) {
+        throw _StreamUsageUnsupported(endpoint);
+      }
       String? detail;
       try {
         final error = _decode(body)['error'];
@@ -428,6 +469,8 @@ class ChatCompletionClient {
         toolCalls: completion.toolCalls,
         responseItems: completion.responseItems,
         reasoning: streamedReasoning.toString(),
+        usage: completion.usage,
+        streamedOutputDuration: outputDuration,
       );
     }
     if (!body.startsWith('data:') && !body.contains('\ndata:')) {
@@ -469,6 +512,8 @@ class ChatCompletionClient {
       text: streamedText.toString(),
       toolCalls: calls,
       reasoning: streamedReasoning.toString(),
+      usage: streamedUsage,
+      streamedOutputDuration: outputDuration,
     );
   }
 
@@ -515,6 +560,7 @@ class ChatCompletionClient {
           : message['reasoning'] is String
           ? message['reasoning'] as String
           : '',
+      usage: _parseUsage(decoded['usage']),
     );
   }
 
@@ -665,7 +711,7 @@ class ChatCompletionClient {
     for (final message in messages) {
       final role = message['role'];
       final content = message['content'];
-      if (role == 'system') {
+      if (role == 'system' && instructions.isEmpty && input.isEmpty) {
         if (content is String && content.isNotEmpty) instructions.add(content);
         continue;
       }
@@ -792,10 +838,35 @@ class ChatCompletionClient {
       text: text.toString().trim(),
       reasoning: reasoning.toString(),
       toolCalls: calls,
+      usage: _parseUsage(decoded['usage'], responses: true),
       responseItems: [
         for (final item in output.whereType<Map>())
           Map<String, Object?>.from(item),
       ],
     );
   }
+
+  AiTokenUsage? _parseUsage(Object? raw, {bool responses = false}) {
+    if (raw is! Map) return null;
+    int? tokens(Object? value) => value is int && value >= 0 ? value : null;
+
+    final hit = tokens(raw['prompt_cache_hit_tokens']);
+    final miss = tokens(raw['prompt_cache_miss_tokens']);
+    final input = tokens(raw[responses ? 'input_tokens' : 'prompt_tokens']) ??
+        tokens(raw[responses ? 'prompt_tokens' : 'input_tokens']) ??
+        (hit != null && miss != null ? hit + miss : null);
+    int? cachedIn(Object? details) => details is Map ? tokens(details['cached_tokens']) : null;
+    final cached = responses
+        ? cachedIn(raw['input_tokens_details']) ?? hit ?? cachedIn(raw['prompt_tokens_details'])
+        : hit ?? cachedIn(raw['prompt_tokens_details']) ?? cachedIn(raw['input_tokens_details']);
+    final output = tokens(raw['output_tokens'] ?? raw['completion_tokens']);
+    if (input == null && cached == null && output == null) return null;
+    return AiTokenUsage(inputTokens: input, outputTokens: output, cachedTokens: cached);
+  }
+}
+
+class _StreamUsageUnsupported implements Exception {
+  const _StreamUsageUnsupported(this.endpoint);
+
+  final ({String baseUrl, String model}) endpoint;
 }

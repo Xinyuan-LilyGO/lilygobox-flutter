@@ -54,6 +54,7 @@ Future<void> _prepareShellWindow(RootIsolateToken root) =>
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized()
+    ..shouldPropagateDevicePointerEvents = true
     ..framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fullyLive;
   testWidgets(
     'measure imported history through the maximized workspace shell',
@@ -347,7 +348,7 @@ void main() {
           );
           await binding.watchPerformance(() async {
             final start = Stopwatch()..start();
-            await tester.tap(open, kind: PointerDeviceKind.mouse);
+            await tester.tap(open);
             await binding.endOfFrame;
             report['shell_open_first_frame_ms'] = start.elapsedMilliseconds;
             await rest();
@@ -387,6 +388,58 @@ void main() {
                 });
           }
 
+          if (loadedChat) {
+            final start = Offset(
+              bounds.right - 72,
+              bounds.top + bounds.height * .8,
+            );
+            final end = Offset(start.dx, bounds.top + bounds.height * .14);
+            for (final drag in [true, false]) {
+              final before = bar.readLogicalFraction();
+              await withNativeMotionMouse(tester, start, (mouse) async {
+                mouse.middleDown();
+                await rest();
+                if (drag) {
+                  mouse.middleMove(end - start);
+                } else {
+                  mouse.middleUp();
+                  await binding.endOfFrame;
+                  mouse.hover(end);
+                }
+                try {
+                  final timeout = Stopwatch()..start();
+                  while ((before - bar.readLogicalFraction()) * messageCount <
+                          4 &&
+                      timeout.elapsed.inSeconds < 3) {
+                    await binding.endOfFrame;
+                  }
+                  expect(
+                    (before - bar.readLogicalFraction()) * messageCount,
+                    greaterThanOrEqualTo(4),
+                  );
+                } finally {
+                  if (drag) {
+                    mouse.middleUp();
+                  } else {
+                    mouse.escape();
+                  }
+                }
+                await rest();
+                final stopped = bar.readLogicalFraction();
+                final (id, body) = pickAnchor();
+                final top = body.localToGlobal(Offset.zero).dy;
+                await rest();
+                expect(bar.readLogicalFraction(), stopped);
+                expect(pickAnchor().$1, id);
+                expect(body.localToGlobal(Offset.zero).dy, closeTo(top, .5));
+                final mode = drag ? 'drag' : 'click';
+                report['shell_chat_native_middle_${mode}_fraction'] =
+                    stopped - before;
+              }, positionSystemCursor: true);
+              bar.seek((targetMessage - .5) / messageCount, true);
+              await rest();
+            }
+          }
           final (middleId, middle) = pickAnchor();
           final middleNumber = int.parse(middleId.split('-').last);
           expect(
@@ -418,7 +471,7 @@ void main() {
             } finally {
               binding.pointerRouter.removeGlobalRoute(captureWheel);
             }
-          });
+          }, positionSystemCursor: true);
           report['shell_chat_single_us_px'] = single;
           report['shell_chat_native_wheel_deltas'] = signals;
           expect(signals, hasLength(1));
@@ -528,7 +581,7 @@ void main() {
               } finally {
                 binding.pointerRouter.removeGlobalRoute(captureBurst);
               }
-            });
+            }, positionSystemCursor: true);
             report['shell_chat_pause_resume_native_us_dy'] = List.of(events);
             report['shell_chat_pause_resume_us_px'] = paused;
             expect(events, hasLength(6));
@@ -579,7 +632,7 @@ void main() {
               } finally {
                 binding.pointerRouter.removeGlobalRoute(captureBurst);
               }
-            });
+            }, positionSystemCursor: true);
             report['shell_chat_rapid_native_us_dy'] = events;
             report['shell_chat_rapid_us_px'] = rapid;
             final rapidEndId = tester
@@ -594,59 +647,7 @@ void main() {
             expect(events, hasLength(48));
             expect(events.map((event) => event[1]), everyElement(lessThan(0)));
             expect(displacement, closeTo(expectedWheelTravel(), 1));
-            await resetTrace();
-            final middleScroll = <List<num>>[];
-            final middleEvents = <String>[];
-            int? middlePointer;
-            void captureMiddle(PointerEvent event) {
-              if (event is PointerDownEvent &&
-                  event.buttons == kMiddleMouseButton) {
-                middlePointer = event.pointer;
-                middleEvents.add('down');
-              } else if (event.pointer == middlePointer &&
-                  event is PointerMoveEvent &&
-                  event.buttons == kMiddleMouseButton) {
-                middleEvents.add('move');
-              } else if (event.pointer == middlePointer &&
-                  event is PointerUpEvent) {
-                middleEvents.add('up');
-              }
-            }
-
-            await withNativeMotionMouse(tester, bounds.center, (mouse) async {
-              binding.pointerRouter.addGlobalRoute(captureMiddle);
-              try {
-                await binding.watchPerformance(() async {
-                  timer.reset();
-                  Future<void> waitFor(String event) async {
-                    final deadline = Stopwatch()..start();
-                    while (!middleEvents.contains(event) &&
-                        deadline.elapsedMilliseconds < 2000) {
-                      await binding.endOfFrame;
-                      sample(middleScroll);
-                    }
-                    expect(middleEvents, contains(event));
-                  }
-
-                  mouse.middleDown();
-                  await waitFor('down');
-                  mouse.middleMove(const Offset(0, -54));
-                  await waitFor('move');
-                  await framesFor(500, middleScroll);
-                  mouse.middleUp();
-                  await waitFor('up');
-                  final whenReleased = displacement;
-                  await framesFor(160, middleScroll);
-                  expect(displacement, closeTo(whenReleased, .5));
-                }, reportKey: 'shell_chat_middle_auto_scroll');
-              } finally {
-                binding.pointerRouter.removeGlobalRoute(captureMiddle);
-              }
-            });
-            report['shell_chat_native_middle_events'] = middleEvents;
-            report['shell_chat_middle_us_px'] = middleScroll;
-            expect(displacement, greaterThan(100));
-            for (final trace in [paused, rapid, middleScroll]) {
+            for (final trace in [paused, rapid]) {
               for (var index = 1; index < trace.length; index++) {
                 expect(
                   trace[index][1],
@@ -656,10 +657,7 @@ void main() {
             }
           }
           await binding.watchPerformance(() async {
-            await tester.tap(
-              find.byKey(const ValueKey('topology-back')),
-              kind: PointerDeviceKind.mouse,
-            );
+            await tester.tap(find.byKey(const ValueKey('topology-back')));
             await rest();
           }, reportKey: 'shell_return_to_canvas');
           expect(graph.activeConversationId, isNull);

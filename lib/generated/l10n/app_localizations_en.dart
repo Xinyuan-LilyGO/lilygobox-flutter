@@ -14,6 +14,18 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get aiAverageOutputSpeed => 'Average speed';
+
+  @override
+  String aiOutputTokensPerSecond(String rate) {
+    return '$rate tok/s';
+  }
+
+  @override
+  String get aiAverageOutputSpeedHint =>
+      'Output tokens per second during streaming in the last completed reply for this model.';
+
+  @override
   String get githubSignInDialogDescription =>
       'Authorize this app in your browser, then return here to finish signing in. Closing this dialog cancels this sign-in attempt.';
 
@@ -620,7 +632,27 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get aiActionUnknown => 'Change an application setting';
+  String get aiActionUnknown => 'Tool operation';
+
+  @override
+  String get aiSearchChatHistory => 'Search original chat history';
+
+  @override
+  String get aiReadChatHistory => 'Read original chat message';
+
+  @override
+  String aiHistoryMatches(int count) {
+    return 'Matching messages returned: $count';
+  }
+
+  @override
+  String get aiHistoryMessageMissing =>
+      'Message not found in this conversation.';
+
+  @override
+  String aiHistoryMessageRead(String id) {
+    return 'Read message $id';
+  }
 
   @override
   String get aiServiceTitle => 'Model services';
@@ -2907,6 +2939,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Configure an available model service before compacting context.';
 
   @override
+  String get aiContextCompactionBusy =>
+      'Context compaction is already in progress.';
+
+  @override
   String get agentStorageCompactCancelled => 'Context compaction cancelled.';
 
   @override
@@ -2916,6 +2952,91 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get agentStorageCompactFailed =>
       'Context compaction failed. Check the model service and try again.';
+
+  @override
+  String get aiCacheHit => 'Cache hit';
+
+  @override
+  String get aiContextUsed => 'Context used';
+
+  @override
+  String get aiCacheUsageDetails => 'Cache usage details';
+
+  @override
+  String get aiCacheNotReported => 'No data';
+
+  @override
+  String get aiCacheNotReportedHint =>
+      'No cache usage has been reported for the current model in this chat.';
+
+  @override
+  String get aiContextUsageDetails => 'Context usage details';
+
+  @override
+  String get aiContextChatHistory => 'Conversation history';
+
+  @override
+  String get aiContextSummaryUsage => 'Compaction summary';
+
+  @override
+  String get aiCacheInputTokens => 'Input tokens';
+
+  @override
+  String get aiCacheCachedTokens => 'Cached input tokens';
+
+  @override
+  String get aiCacheUncachedTokens => 'Uncached input tokens';
+
+  @override
+  String get aiCacheOutputTokens => 'Output tokens';
+
+  @override
+  String aiMetricTokenCount(int count) {
+    return '$count tokens';
+  }
+
+  @override
+  String get aiContextBudgetUsage => 'Estimated usage';
+
+  @override
+  String get aiContextCompactionThreshold => 'Auto-compaction threshold';
+
+  @override
+  String get aiContextLastCompaction => 'Last compaction';
+
+  @override
+  String get aiManualCompaction => 'Manual context compaction';
+
+  @override
+  String get aiAutoCompaction => 'Automatic context compaction';
+
+  @override
+  String aiCompactionDuration(String seconds) {
+    return 'Took $seconds s';
+  }
+
+  @override
+  String aiCompactionTokenChange(int before, int after) {
+    return 'Estimated tokens: $before → $after';
+  }
+
+  @override
+  String get aiCompactionUnchanged => 'Unchanged';
+
+  @override
+  String get aiCompactionCancelledStatus => 'Cancelled';
+
+  @override
+  String get aiContextNoCompaction => 'Not compacted yet';
+
+  @override
+  String get aiContextCompacting => 'Compacting context…';
+
+  @override
+  String get aiCancelCompaction => 'Cancel compaction';
+
+  @override
+  String get aiCompactionCancelHint => 'Right-click to cancel compaction';
 
   @override
   String get agentStorageCleanFailed =>
@@ -3179,12 +3300,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentRecycleRestore => 'Restore';
 
   @override
-  String agentRecycleRestoring(int percent) {
-    return 'Preparing to restore… $percent%';
-  }
+  String get agentRecycleRestoring => 'Restoring agents…';
 
   @override
-  String get agentRecycleRestoreFinalizing => 'Finalizing restore…';
+  String agentRecycleRestoreConfirm(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Restore the $count selected agents?',
+      one: 'Restore this agent?',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get agentRecycleRestoreFailed =>

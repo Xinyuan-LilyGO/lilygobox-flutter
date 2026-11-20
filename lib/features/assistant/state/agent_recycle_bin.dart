@@ -64,7 +64,7 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
       );
   int get recycleRetentionDays => _recycleRetentionDays;
   bool get recycleBusy => _recycleOperation;
-  Future<void>? get pendingRecycleRestore => _recycleRestoreCommit?.future;
+  Future<void>? get pendingRecycleRestore => _recycleRestoreDone?.future;
   DateTime? recycleExpiry(AiRecycledAgent entry) => _recycleRetentionDays == 0
       ? null
       : entry.deletedAt.add(Duration(days: _recycleRetentionDays));
@@ -188,13 +188,9 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
 
   Future<void> restoreRecycledAgent(String id) => restoreRecycledAgents([id]);
 
-  Future<void> restoreRecycledAgents(
-    Iterable<String> ids, {
-    ValueChanged<double?>? onProgress,
-    bool Function()? isCancelled,
-  }) async {
+  Future<void> restoreRecycledAgents(Iterable<String> ids) async {
     await initialized;
-    if (_disposed || _recycleOperation || isCancelled?.call() == true) return;
+    if (_disposed || _recycleOperation) return;
     final selected = ids.toSet();
     final pending = {
       for (final entry in _recycledAgents)
@@ -202,6 +198,7 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
           entry.id: entry,
     };
     if (pending.isEmpty) return;
+    final done = _recycleRestoreDone = Completer<void>();
     _recycleOperation = true;
     _recycleChanged();
     final staged = <AiAgentWorkspace>[];
@@ -221,21 +218,15 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
         ordered.addAll(chain.reversed);
       }
       final slice = Stopwatch()..start();
-      var lastPercent = -1;
-      for (final (index, entry) in ordered.indexed) {
-        final percent = index * 100 ~/ ordered.length;
-        if (percent != lastPercent) {
-          onProgress?.call(index / ordered.length);
-          lastPercent = percent;
-        }
+      for (final entry in ordered) {
         if (slice.elapsedMilliseconds >= 8) {
           await Future<void>.delayed(Duration.zero);
           slice.reset();
         }
-        if (_disposed || isCancelled?.call() == true) return;
+        if (_disposed) return;
         final session = await _prepareRecycledAgent(entry);
         staged.add(session);
-        if (_disposed || isCancelled?.call() == true) return;
+        if (_disposed) return;
         snapshots.add(
           _sessionForStorage(
             session,
@@ -248,7 +239,7 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
       }
       await Future<void>.delayed(Duration.zero);
       await _lastSave;
-      if (_disposed || isCancelled?.call() == true) return;
+      if (_disposed) return;
       final storage = main.storage;
       if (storage == null) throw StateError('Storage unavailable');
 
@@ -304,9 +295,6 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
             {'fromId': edge.fromId, 'toId': edge.toId},
         ]);
         normalizeWorkflowData(workflow);
-        _recycleRestoreCommit = Completer<void>();
-        _recycleChanged();
-        onProgress?.call(null);
         await storage.saveWorkflow(workflow);
       } catch (_) {
         _dirtyConversations.addAll(dirty);
@@ -336,9 +324,9 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
           session.assistant.dispose();
         }
       }
-      _recycleRestoreCommit?.complete();
-      _recycleRestoreCommit = null;
+      _recycleRestoreDone = null;
       _recycleOperation = false;
+      done.complete();
       _notify();
     }
   }

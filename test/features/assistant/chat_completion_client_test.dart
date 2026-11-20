@@ -13,6 +13,43 @@ import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 
 void main() {
+  for (final streamed in [true, false]) {
+    test('Responses cache usage preserves reported zero, hits and missing counts (stream=$streamed)', () async {
+      for (final cached in [0, 120000, null]) {
+        final client = ChatCompletionClient(client: MockClient((request) async {
+          final body = jsonDecode(request.body) as Map;
+          expect(body['instructions'], 'Stable');
+          expect((body['input'] as List).map((row) => row['content']), ['Earlier', 'Changing', 'Now']);
+          final response = {
+            'output': [{'type': 'message', 'content': [{'type': 'output_text', 'text': 'Answer'}]}],
+            'usage': {'input_tokens': 182198, 'output_tokens': 7,
+              if (cached != null) 'input_tokens_details': {'cached_tokens': cached},
+            },
+          };
+          return http.Response(streamed ? 'data: ${jsonEncode({'type':'response.completed','response':response})}\n\ndata: [DONE]\n\n' : jsonEncode(response), 200);
+        }));
+        addTearDown(client.close);
+        final completion = await client.complete(configuration: const AiServiceConfiguration(protocol: AiApiProtocol.openAiResponses, baseUrl: 'https://gateway.test/v1', model: 'gpt-6.1-sol'), apiKey: 'test', tools: const [], messages: const [
+          {'role':'system', 'content':'Stable'}, {'role':'user','content':'Earlier'}, {'role':'system', 'content':'Changing'}, {'role':'user','content':'Now'},
+        ]);
+        expect(completion.usage?.inputTokens, 182198);
+        expect(completion.usage?.cachedTokens, cached);
+        expect(completion.usage?.cacheHitRatio, cached == null ? null : cached / 182198);
+      }
+    });
+  }
+
+  test('DeepSeek final usage-only stream chunk supplies cached and uncached token counts', () async {
+    final client = ChatCompletionClient(client: MockClient((request) async {
+      expect(jsonDecode(request.body)['stream_options']['include_usage'], isTrue);
+      return http.Response('data: {"choices":[{"delta":{"content":"Done"}}]}\n\ndata: {"choices":[],"usage":{"prompt_cache_hit_tokens":70,"prompt_cache_miss_tokens":30}}\n\ndata: [DONE]\n\n', 200);
+    }));
+    addTearDown(client.close);
+    final completion = await client.complete(configuration: const AiServiceConfiguration(protocol: AiApiProtocol.openAiChatCompletions, baseUrl: 'https://gateway.test/v1', model: 'deepseek-chat'), apiKey: 'test', tools: const [], messages: const [{'role':'user','content':'Now'}]);
+    expect(completion.usage?.inputTokens, 100);
+    expect(completion.usage?.uncachedTokens, 30);
+    expect(completion.usage?.cacheHitRatio, .7);
+  });
   test('catalog cancellation finishes before response headers without closing shared transport', () async {
     final gate = Completer<void>();
     final started = Completer<void>();

@@ -1,9 +1,10 @@
 /*
- * @Description: 全局平滑滚轮与鼠标中键连续滚动，保留嵌套仲裁和减少动画偏好。
+ * @Description: 全局平滑滚轮，保留嵌套仲裁和减少动画偏好。
  */
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
@@ -165,21 +166,42 @@ class AppScrollBehavior extends MaterialScrollBehavior {
     ScrollableDetails details,
   ) {
     final controller = details.controller;
-    final content = controller != null
-        ? _WheelRegion(
-            controller: controller,
-            direction: details.direction,
-            smoothWheel: !MediaQuery.disableAnimationsOf(context),
-            child: child,
-          )
-        : child;
     final inherited = ScrollConfiguration.of(context);
     final showScrollbar =
         scrollbars && (inherited is! AppScrollBehavior || inherited.scrollbars);
-    return showScrollbar
-        ? super.buildScrollbar(context, content, details)
-        : content;
+    final decoration = context
+        .dependOnInheritedWidgetOfExactType<AppScrollDecoration>();
+    final content =
+        decoration != null && identical(decoration.controller, controller)
+        ? decoration.builder(context, child)
+        : showScrollbar
+        ? super.buildScrollbar(context, child, details)
+        : child;
+    return controller == null
+        ? content
+        : _WheelRegion(
+            controller: controller,
+            direction: details.direction,
+            smoothWheel: !MediaQuery.disableAnimationsOf(context),
+            child: content,
+          );
   }
+}
+
+class AppScrollDecoration extends InheritedWidget {
+  const AppScrollDecoration({
+    super.key,
+    required this.controller,
+    required this.builder,
+    required super.child,
+  });
+
+  final ScrollController controller;
+  final Widget Function(BuildContext, Widget) builder;
+
+  @override
+  bool updateShouldNotify(AppScrollDecoration oldWidget) =>
+      controller != oldWidget.controller || builder != oldWidget.builder;
 }
 
 class _WheelRegion extends StatefulWidget {
@@ -199,36 +221,31 @@ class _WheelRegion extends StatefulWidget {
 }
 
 class _WheelRegionState extends State<_WheelRegion>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  static _WheelRegionState? _activeAutoScroll;
-  static PointerEvent? _lastMiddleDown;
+    with WidgetsBindingObserver {
   static final _regionsByPosition = Expando<_WheelRegionState>();
-  static const _deadZone = 12.0;
-  late final Ticker _autoTicker;
-  OverlayEntry? _autoOverlay;
-  ScrollPosition? _autoPosition;
-  _MiddleScrollActivity? _autoActivity;
-  double _autoRemainder = 0;
-  Offset _autoAnchor = Offset.zero;
-  Offset _autoPointer = Offset.zero;
-  Duration _lastTick = Duration.zero;
-  PointerEvent? _activationEvent;
+  static const _readerChannel = MethodChannel('lilygobox/reader_mode');
+  static int _nextReader = 0;
+  static int? _activeReader;
+  int? _reader;
+  double? _target;
+  ScrollPosition? _position;
+  _WheelScrollActivity? _wheelActivity;
+  _WheelSimulation? _wheelSimulation;
+  final _wheelAcceleration = WheelScrollAcceleration();
 
   @override
   void initState() {
     super.initState();
-    _autoTicker = createTicker(_autoScrollTick);
     WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!TickerMode.valuesOf(context).enabled) {
-      _stopAutoScroll();
+    if (!TickerMode.valuesOf(context).enabled) _stopReader();
+    if (!TickerMode.valuesOf(context).enabled || !widget.smoothWheel) {
       _stopWheelScroll();
     }
-    if (!widget.smoothWheel) _stopWheelScroll();
   }
 
   @override
@@ -236,7 +253,7 @@ class _WheelRegionState extends State<_WheelRegion>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller ||
         oldWidget.direction != widget.direction) {
-      _stopAutoScroll();
+      _stopReader();
       _stopWheelScroll();
     }
   }
@@ -244,222 +261,86 @@ class _WheelRegionState extends State<_WheelRegion>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
-      _stopAutoScroll();
+      _stopReader();
       _stopWheelScroll();
     }
   }
 
   @override
   void deactivate() {
-    _stopAutoScroll();
+    _stopReader();
     _stopWheelScroll(afterFrame: true);
     super.deactivate();
   }
 
   @override
   void dispose() {
-    _stopAutoScroll();
+    _stopReader();
     _stopWheelScroll();
-    _autoTicker.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  bool get canAutoScroll {
-    if (!mounted ||
-        !widget.controller.hasClients ||
-        widget.controller.positions.length != 1) {
-      return false;
-    }
-    final position = widget.controller.position;
-    return position.hasContentDimensions &&
-        position.maxScrollExtent > position.minScrollExtent &&
-        position.physics.shouldAcceptUserOffset(position);
+  bool get _canRead =>
+      mounted &&
+      widget.controller.positions.length == 1 &&
+      widget.controller.position.hasContentDimensions &&
+      widget.controller.position.physics.allowUserScrolling &&
+      (widget.controller.position.maxScrollExtent >
+              widget.controller.position.minScrollExtent ||
+          (_window?.hasUnloadedBefore ?? false) ||
+          (_window?.hasUnloadedAfter ?? false));
+
+  void _stopReader() {
+    final session = _reader;
+    if (session == null) return;
+    _reader = null;
+    if (_activeReader == session) _activeReader = null;
+    unawaited(_readerChannel.invokeMethod<void>('stop', session));
   }
 
-  void _startAutoScroll(PointerDownEvent event) {
-    if (!canAutoScroll) return;
-    final overlay = Overlay.maybeOf(context, rootOverlay: true);
-    if (overlay == null) return;
-    _activeAutoScroll?._stopAutoScroll();
-    _activeAutoScroll = this;
-    _autoPosition = widget.controller.position;
-    // 结束滚轮或回到底部的旧动画，避免与逐帧位移争用滚动位置。
-    _autoPosition!.jumpTo(_autoPosition!.pixels);
-    _target = null;
-    _activationEvent = event.original ?? event;
-    _autoAnchor = _autoPointer = event.position;
-    _lastTick = Duration.zero;
-    _autoOverlay = OverlayEntry(
-      builder: (context) {
-        final box = overlay.context.findRenderObject() as RenderBox;
-        final anchor = box.globalToLocal(_autoAnchor);
-        final colors = Theme.of(context).colorScheme;
-        return Positioned.fill(
-          child: ExcludeSemantics(
-            child: MouseRegion(
-              cursor: axisDirectionToAxis(widget.direction) == Axis.vertical
-                  ? SystemMouseCursors.resizeUpDown
-                  : SystemMouseCursors.resizeLeftRight,
-              onExit: (_) => _stopAutoScroll(),
-              child: Listener(
-                behavior: HitTestBehavior.opaque,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: anchor.dx - 14,
-                      top: anchor.dy - 14,
-                      child: DecoratedBox(
-                        key: const ValueKey('app-middle-scroll-anchor'),
-                        decoration: BoxDecoration(
-                          color: colors.surfaceContainerHighest,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: colors.outline),
-                        ),
-                        child: SizedBox(
-                          width: 28,
-                          height: 28,
-                          child: RotatedBox(
-                            quarterTurns:
-                                axisDirectionToAxis(widget.direction) ==
-                                    Axis.vertical
-                                ? 0
-                                : 1,
-                            child: Icon(
-                              Icons.unfold_more_rounded,
-                              size: 20,
-                              color: colors.onSurface,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+  Future<void> _startReader(Offset point) async {
+    if (_activeReader != null || !_canRead) return;
+    final session = _reader = _activeReader = ++_nextReader;
+    final ratio = View.of(context).devicePixelRatio;
+    try {
+      final accepted = await _readerChannel.invokeMethod<bool>('start', [
+        session,
+        axisDirectionToAxis(widget.direction) == Axis.horizontal,
+        (point.dx * ratio).round(),
+        (point.dy * ratio).round(),
+      ]);
+      if (accepted != true || _reader != session) return;
+      _stopWheelScroll();
+      while (_reader == session && _canRead) {
+        await SchedulerBinding.instance.endOfFrame;
+        if (_reader != session) break;
+        final distance = await _readerChannel.invokeMethod<double>(
+          'take',
+          session,
         );
-      },
-    );
-    GestureBinding.instance.pointerRouter.addGlobalRoute(_autoPointerEvent);
-    HardwareKeyboard.instance.addHandler(_autoKeyEvent);
-    overlay.insert(_autoOverlay!);
-    _autoTicker.start();
-  }
-
-  bool _autoKeyEvent(KeyEvent event) {
-    _stopAutoScroll();
-    // Esc 专用于退出；其余按键仍交给原来的输入框及快捷键。
-    return event.logicalKey == LogicalKeyboardKey.escape;
-  }
-
-  void _autoPointerEvent(PointerEvent event) {
-    if (identical(event.original ?? event, _activationEvent)) return;
-    if (event is PointerDownEvent ||
-        event is PointerScrollEvent ||
-        event is PointerCancelEvent) {
-      _stopAutoScroll();
-    } else if (event is PointerHoverEvent || event is PointerMoveEvent) {
-      _autoPointer = event.position;
-    } else if (event is PointerUpEvent &&
-        (_autoPointer - _autoAnchor).distance > _deadZone) {
-      // 短按松开后继续；按住中键移动则在松开时退出。
-      _stopAutoScroll();
-    }
-  }
-
-  void _autoScrollTick(Duration elapsed) {
-    final position = _autoPosition;
-    if (!canAutoScroll ||
-        position == null ||
-        !widget.controller.positions.contains(position)) {
-      _stopAutoScroll();
-      return;
-    }
-    final seconds =
-        ((elapsed - _lastTick).inMicroseconds / Duration.microsecondsPerSecond)
-            .clamp(0.0, .25);
-    _lastTick = elapsed;
-    final displacement = _autoPointer - _autoAnchor;
-    final distance = axisDirectionToAxis(widget.direction) == Axis.vertical
-        ? displacement.dy
-        : displacement.dx;
-    if (distance.abs() <= _deadZone) {
-      _autoRemainder = 0;
-      _autoActivity?.velocity = 0;
-      return;
-    }
-    final speed = (math.pow(distance.abs() - _deadZone, 1.6) * 7).clamp(
-      0.0,
-      100000.0,
-    );
-    final direction = axisDirectionIsReversed(widget.direction) ? -1 : 1;
-    final velocity = distance.sign * direction * speed;
-    final delta = velocity * seconds;
-    if (_autoRemainder * delta < 0) _autoRemainder = 0;
-    final target = position.pixels + delta + _autoRemainder;
-    final next = target
-        .clamp(position.minScrollExtent, position.maxScrollExtent)
-        .toDouble();
-    _autoRemainder = (_window?._canExtendTo(position, target) ?? false)
-        ? (target - next)
-              .clamp(-position.viewportDimension, position.viewportDimension)
-              .toDouble()
-        : 0;
-    if (next != position.pixels) {
-      AppUserScrollNotification(
-        position: position,
-        delta: next - position.pixels,
-      ).dispatch(context);
-      if (position is ScrollPositionWithSingleContext) {
-        if (_autoActivity == null) {
-          final activity = _MiddleScrollActivity(position);
-          _autoActivity = activity;
-          position.beginActivity(activity);
+        if (!mounted || distance == null || _reader != session || !_canRead) {
+          break;
         }
-        if (!_autoActivity!.active) {
-          _stopAutoScroll();
-          return;
-        }
-        _autoActivity!
-          ..velocity = velocity
-          ..moveTo(next);
-      } else {
-        position.jumpTo(next);
+        if (distance == 0) continue;
+        final delta =
+            (axisDirectionIsReversed(widget.direction) ? -distance : distance) /
+            ratio;
+        final position = widget.controller.position;
+        AppUserScrollNotification(
+          position: position,
+          delta: delta,
+        ).dispatch(context);
+        position.pointerScroll(delta);
       }
+      if (_reader == session && !_canRead) _stopReader();
+    } on MissingPluginException {
+      return;
+    } finally {
+      if (_reader == session) _reader = null;
+      if (_activeReader == session) _activeReader = null;
     }
   }
-
-  void _stopAutoScroll() {
-    if (_autoOverlay == null) return;
-    _autoTicker.stop();
-    GestureBinding.instance.pointerRouter.removeGlobalRoute(_autoPointerEvent);
-    HardwareKeyboard.instance.removeHandler(_autoKeyEvent);
-    _autoOverlay!.remove();
-    _autoOverlay!.dispose();
-    _autoOverlay = null;
-    _autoPosition = null;
-    final activity = _autoActivity;
-    _autoActivity = null;
-    _autoRemainder = 0;
-    if (activity != null && activity.active) {
-      if (SchedulerBinding.instance.schedulerPhase ==
-          SchedulerPhase.persistentCallbacks) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => activity.stop());
-      } else {
-        activity.stop();
-      }
-    }
-    _activationEvent = null;
-    if (identical(_activeAutoScroll, this)) _activeAutoScroll = null;
-  }
-
-  double? _target;
-  ScrollPosition? _position;
-  _WheelScrollActivity? _wheelActivity;
-  _WheelSimulation? _wheelSimulation;
-  final _wheelAcceleration = WheelScrollAcceleration();
 
   void _stopWheelScroll({bool afterFrame = false}) {
     final activity = _wheelActivity;
@@ -625,33 +506,6 @@ class _WheelScrollActivity extends DrivenScrollActivity {
   }
 }
 
-class _MiddleScrollActivity extends ScrollActivity {
-  _MiddleScrollActivity(super.delegate);
-
-  bool active = true;
-
-  @override
-  bool get shouldIgnorePointer => false;
-
-  @override
-  bool get isScrolling => true;
-
-  @override
-  double velocity = 0;
-
-  void moveTo(double pixels) => delegate.setPixels(pixels);
-
-  void stop() {
-    if (active) delegate.goIdle();
-  }
-
-  @override
-  void dispose() {
-    active = false;
-    super.dispose();
-  }
-}
-
 /// 新增滚轮输入时，三次 Hermite 曲线段保持当前速度。
 /// 各曲线段共用动画时钟，反向输入会丢弃尚未完成的正向尾段。
 class _WheelSimulation extends Simulation {
@@ -756,17 +610,12 @@ class _WheelRenderRegion extends RenderProxyBox {
   void handleEvent(PointerEvent event, HitTestEntry entry) {
     if (event is PointerDownEvent &&
         event.kind == PointerDeviceKind.mouse &&
-        event.buttons == kMiddleMouseButton) {
-      if (identical(
-        _WheelRegionState._lastMiddleDown,
-        event.original ?? event,
-      )) {
-        return;
-      }
-      _WheelRegionState._lastMiddleDown = event.original ?? event;
+        event.buttons == kMiddleMouseButton &&
+        !kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.windows) {
       for (final region in _regions) {
-        if (region.state.canAutoScroll) {
-          region.state._startAutoScroll(event);
+        if (region.state._canRead) {
+          unawaited(region.state._startReader(event.position));
           break;
         }
       }

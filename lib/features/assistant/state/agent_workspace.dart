@@ -2,6 +2,7 @@
  * @Description: 定义独立子智能体工作空间及模型会话信息。
  */
 import '../domain/agent_link.dart';
+import '../domain/models.dart';
 import '../domain/permissions.dart';
 import '../domain/reasoning.dart';
 import 'provider.dart';
@@ -48,6 +49,32 @@ class AiAgentWorkspace {
   bool get needsAttention =>
       !closed &&
       (assistant.pendingApproval != null || assistant.pendingUserInput != null);
+
+  AiMessage? get latestProcessMessage {
+    AiMessage? compaction;
+    for (final message in assistant.messages.reversed) {
+      if (compaction != null && message.role == 'user') break;
+      if (message.status == null) continue;
+      if (message.role == 'compaction') {
+        compaction ??= message;
+        if (assistant.compacting.value) return compaction;
+      } else if (message.role == 'assistant') {
+        if (compaction == null || assistant.isActiveReply(message.id)) {
+          return message;
+        }
+        final replyEnd = message.finishedAt;
+        final compactionEnd = compaction.finishedAt;
+        if (replyEnd != null &&
+            compactionEnd != null &&
+            replyEnd.isAfter(compactionEnd)) {
+          return message;
+        }
+        break;
+      }
+    }
+    return compaction;
+  }
+
   String get status => closed
       ? 'closed'
       : assistant.workspaceSelectionUnavailable
@@ -60,7 +87,12 @@ class AiAgentWorkspace {
       ? 'running'
       : assistant.error != null
       ? 'failed'
-      : assistant.messages.lastOrNull?.status?.name == 'stopped'
+      : assistant.messages.reversed
+                .where((message) => message.role != 'compaction')
+                .firstOrNull
+                ?.status
+                ?.name ==
+            'stopped'
       ? 'stopped'
       : assistant.messages.isEmpty
       ? 'ready'

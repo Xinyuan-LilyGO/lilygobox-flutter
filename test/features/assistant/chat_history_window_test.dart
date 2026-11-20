@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -109,6 +110,83 @@ Finder _visibleMessage(WidgetTester tester) {
 }
 
 void main() {
+  final wheelMotion = ValueVariant<bool>({false, true});
+  testWidgets(
+    'wheel over the painted history track matches the chat viewport',
+    (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          FakeAccessibilityFeatures(
+            disableAnimations: wheelMotion.currentValue!,
+          );
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      final scroll = ConversationScrollController();
+      final history = GlobalKey<ChatHistoryWindowState>();
+      final focus = FocusNode();
+      addTearDown(scroll.dispose);
+      addTearDown(focus.dispose);
+      await tester.pumpWidget(
+        _app(
+          messages: _messages(10000),
+          controller: scroll,
+          history: history,
+          focus: focus,
+          scrollbar: true,
+          messageHeight: (_) => 100,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final viewport = find.byType(SingleChildScrollView);
+      final middle = tester.getCenter(viewport);
+      final bar = tester.widget<ChatHistoryScrollbar>(
+        find.byType(ChatHistoryScrollbar),
+      );
+      bar.seek(.5, true);
+      await tester.pumpAndSettle();
+      final paint = find.byWidgetPredicate(
+        (widget) =>
+            widget is CustomPaint &&
+            widget.foregroundPainter is ScrollbarPainter,
+      );
+      final painter = tester.widget<CustomPaint>(paint).foregroundPainter!;
+      final bounds = tester.getRect(paint);
+      double readOffset() =>
+          tester
+                  .widget<ChatMessageList>(find.byType(ChatMessageList))
+                  .firstIndex *
+              100.0 +
+          scroll.offset;
+      Future<double> wheel(Offset point) async {
+        final start = readOffset();
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: point,
+            kind: PointerDeviceKind.mouse,
+            scrollDelta: const Offset(0, 80),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.pump();
+        return readOffset() - start;
+      }
+
+      final ordinary = await wheel(middle);
+      expect(ordinary, closeTo(80, .01));
+      final localTrack = [
+        for (var inset = 1; inset <= 24; inset++)
+          Offset(bounds.width - inset, bounds.height / 2),
+      ].firstWhere((point) => painter.hitTest(point) == true);
+      expect(await wheel(bounds.topLeft + localTrack), closeTo(ordinary, .01));
+      expect(
+        await wheel(Offset(bounds.right - 30, middle.dy)),
+        closeTo(ordinary, .01),
+      );
+    },
+    variant: wheelMotion,
+  );
+
   testWidgets(
     'fast wheel bursts through the middle of a ten-thousand-message history match an uninterrupted viewport',
     (tester) async {
@@ -606,66 +684,77 @@ void main() {
     },
   );
 
-  testWidgets(
-    'middle scrolling keeps one activity across chat pages and reversal',
-    (tester) async {
-      final scroll = ConversationScrollController();
-      final history = GlobalKey<ChatHistoryWindowState>();
-      final events = <ScrollNotification>[];
-      addTearDown(scroll.dispose);
-      await tester.pumpWidget(
-        NotificationListener<ScrollNotification>(
-          onNotification: (event) {
-            if (event.depth == 0) events.add(event);
-            return false;
-          },
-          child: _app(
-            messages: _messages(10000),
-            controller: scroll,
-            history: history,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      scroll.jumpTo(50);
-      final anchor = _visibleMessage(tester);
-      final initialTop = tester.getTopLeft(anchor).dy;
-      final point = tester.getCenter(find.byType(SingleChildScrollView));
-      events.clear();
-      final mouse = await tester.createGesture(
-        kind: PointerDeviceKind.mouse,
-        buttons: kMiddleMouseButton,
-      );
-      await mouse.addPointer(location: point);
-      await mouse.down(point);
-      await mouse.up();
-      await tester.pump();
-      final firstPage = _mountedMessageIds(tester).first;
-      await mouse.moveTo(point - const Offset(0, 75));
-      for (var frame = 0; frame < 40; frame++) {
-        await tester.pump(const Duration(milliseconds: 16));
+  testWidgets('Windows reader moves and then stops a 10000-message chat', (
+    tester,
+  ) async {
+    final scroll = ConversationScrollController();
+    final history = GlobalKey<ChatHistoryWindowState>();
+    final focus = FocusNode();
+    addTearDown(scroll.dispose);
+    addTearDown(focus.dispose);
+    await tester.pumpWidget(
+      _app(
+        messages: _messages(10000),
+        controller: scroll,
+        history: history,
+        focus: focus,
+        viewportHeight: 420,
+        scrollbar: true,
+      ),
+    );
+    focus.requestFocus();
+    await tester.pumpAndSettle();
+    final bar = tester.widget<ChatHistoryScrollbar>(
+      find.byType(ChatHistoryScrollbar),
+    );
+    bar.seek((4106 - .5) / 10000, true);
+    await tester.pumpAndSettle();
+    final visible = _visibleMessage(tester);
+    final initialTop = tester.getTopLeft(visible).dy;
+    final start = tester.getCenter(find.byType(SingleChildScrollView));
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    final messenger = tester.binding.defaultBinaryMessenger;
+    const channel = MethodChannel('lilygobox/reader_mode');
+    var samples = 0;
+    int? session;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'start') {
+        final args = call.arguments as List<Object?>;
+        expect(args[1], false);
+        session = args[0] as int;
+        return true;
       }
-      final travel = tester.getTopLeft(anchor).dy - initialTop;
-      expect(travel, greaterThan(3000));
-      expect(_mountedMessageIds(tester).first, isNot(firstPage));
-      await mouse.moveTo(point + const Offset(0, 75));
-      for (var frame = 0; frame < 3; frame++) {
-        await tester.pump(const Duration(milliseconds: 16));
-      }
-      await tester.pump(const Duration(milliseconds: 112));
-      final reversed = tester.getTopLeft(anchor).dy - initialTop;
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(events.whereType<ScrollStartNotification>().length, 1);
-      expect(events.whereType<ScrollEndNotification>().length, 1);
-      expect(reversed, closeTo(travel * .75, 1));
-      expect(scroll.position.isScrollingNotifier.value, isFalse);
-      final stopped = tester.getTopLeft(anchor).dy;
-      await tester.pump(const Duration(milliseconds: 150));
-      expect(tester.getTopLeft(anchor).dy, stopped);
-      await mouse.removePointer();
-    },
-  );
+      expect(call.arguments, session);
+      return ++samples <= 2 ? -12.0 * tester.view.devicePixelRatio : null;
+    });
+    final end = start - const Offset(0, 190);
+    final mouse = await tester.createGesture(
+      kind: PointerDeviceKind.mouse,
+      buttons: kMiddleMouseButton,
+    );
+    await mouse.addPointer(location: start);
+    await mouse.down(start);
+    await tester.pump();
+    await mouse.moveTo(end);
+    await tester.pump();
+    for (var frame = 0; frame < 8; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    debugDefaultTargetPlatformOverride = null;
+    messenger.setMockMethodCallHandler(channel, null);
+    expect(session, isNotNull);
+    expect(samples, 3);
+    expect(tester.getTopLeft(visible).dy, closeTo(initialTop + 24, .01));
+    await mouse.up();
+    await tester.pump();
+    await mouse.moveTo(end);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(tester.getTopLeft(visible).dy, closeTo(initialTop + 24, .01));
+    expect(scroll.position.isScrollingNotifier.value, isFalse);
+    expect(focus.hasFocus, isTrue);
+    await mouse.removePointer();
+  });
 
   testWidgets('preloading preserves the remaining cumulative wheel animation', (
     tester,

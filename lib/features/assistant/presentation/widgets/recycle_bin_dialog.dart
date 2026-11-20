@@ -1,8 +1,10 @@
 import 'package:flutter/services.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../../../../core/context_menu/right_click_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/widgets/action_button.dart';
@@ -25,7 +27,7 @@ Future<void> showAgentRecycleBin(BuildContext context, AppTheme theme) async {
     ),
   );
   await pendingOperation;
-  if (workspace.pendingRecycleRestore case final commit?) await commit;
+  if (workspace.pendingRecycleRestore case final restore?) await restore;
 }
 
 class _RecycleBin extends StatefulWidget {
@@ -56,17 +58,23 @@ class _RecycleBinState extends State<_RecycleBin> {
     super.dispose();
   }
 
-  Future<void> run(Future<void> Function() action) {
+  Future<void> run(
+    Future<void> Function() action, {
+    String? failureMessage,
+  }) {
     if (busy) return Future.value();
-    final pending = _run(action);
+    final pending = _run(action, failureMessage);
     widget.onOperation(pending);
     return pending;
   }
 
-  Future<void> _run(Future<void> Function() action) async {
+  Future<void> _run(
+    Future<void> Function() action,
+    String? failureMessage,
+  ) async {
     final route = ModalRoute.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    final failureMessage = context.l10n.agentStorageFailure;
+    final notice = failureMessage ?? context.l10n.agentStorageFailure;
     setState(() {
       busy = true;
       error = null;
@@ -75,9 +83,9 @@ class _RecycleBinState extends State<_RecycleBin> {
       await action();
     } catch (e) {
       if (mounted && route?.isCurrent == true) {
-        setState(() => error = e);
+        setState(() => error = failureMessage ?? e);
       } else {
-        showAppNotice(messenger, failureMessage);
+        showAppNotice(messenger, notice);
       }
     } finally {
       if (mounted) setState(() => busy = false);
@@ -117,28 +125,23 @@ class _RecycleBinState extends State<_RecycleBin> {
     bool all = false,
   }) async {
     if (busy || workspace.recycleBusy || ids.isEmpty) return;
-    await run(() async {
-      final binRoute = ModalRoute.of<void>(context)!;
-      final messenger = ScaffoldMessenger.of(context);
-      final failureMessage = context.l10n.agentRecycleRestoreFailed;
-      final failure = await showDialog<Object>(
-        context: context,
-        builder: (_) => _RecycleRestoreDialog(
-          theme: widget.theme,
-          workspace: workspace,
-          ids: ids,
-          confirmAll: all,
-          onSaveFailed: () {
-            if (mounted && binRoute.isCurrent) {
-              setState(() => error = failureMessage);
-            } else {
-              showAppNotice(messenger, failureMessage);
-            }
-          },
-        ),
-      );
-      if (failure != null) throw failure;
-    });
+    final l = context.l10n;
+    final label = all ? l.agentRecycleRestoreAll : l.agentRecycleRestore;
+    final confirmed = await showAppConfirmation(
+      context: context,
+      theme: widget.theme,
+      actionKey: 'recycle-restore',
+      title: label,
+      description: all
+          ? l.agentRecycleRestoreAllConfirm(ids.length)
+          : l.agentRecycleRestoreConfirm(ids.length),
+      confirmLabel: label,
+    );
+    if (!confirmed || !mounted || workspace.recycleBusy) return;
+    await run(
+      () => workspace.restoreRecycledAgents(ids),
+      failureMessage: l.agentRecycleRestoreFailed,
+    );
   }
 
   Future<void> empty(AiWorkspaceProvider workspace) async {
@@ -508,6 +511,19 @@ class _RecycleBinState extends State<_RecycleBin> {
                         key: ValueKey(entry.id),
                         id: entry.id,
                         theme: theme,
+                        extraItems: disabled
+                            ? null
+                            : (close) => [
+                                RightClickMenuItem(
+                                  key: ValueKey('recycle-restore-${entry.id}'),
+                                  label: l.agentRecycleRestore,
+                                  icon: Symbols.restore_from_trash,
+                                  onTap: () {
+                                    close();
+                                    restore(workspace, {entry.id});
+                                  },
+                                ),
+                              ],
                         child: Semantics(
                           selected: selection.selected.contains(entry.id),
                           child: GestureDetector(
@@ -658,153 +674,6 @@ class _RecycleBinState extends State<_RecycleBin> {
               onPressed: () => Navigator.pop(context),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RecycleRestoreDialog extends StatefulWidget {
-  const _RecycleRestoreDialog({
-    required this.theme,
-    required this.workspace,
-    required this.ids,
-    required this.confirmAll,
-    required this.onSaveFailed,
-  });
-  final AppTheme theme;
-  final AiWorkspaceProvider workspace;
-  final Set<String> ids;
-  final bool confirmAll;
-  final VoidCallback onSaveFailed;
-
-  @override
-  State<_RecycleRestoreDialog> createState() => _RecycleRestoreDialogState();
-}
-
-class _RecycleRestoreDialogState extends State<_RecycleRestoreDialog> {
-  bool _started = false;
-  bool _cancelled = false;
-  bool _inBackground = false;
-  double _progress = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    if (!widget.confirmAll) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !_cancelled) _start();
-      });
-    }
-  }
-
-  Future<void> _start() async {
-    if (_started || _cancelled) return;
-    setState(() => _started = true);
-    final route = ModalRoute.of<Object>(context)!;
-    final onSaveFailed = widget.onSaveFailed;
-    Object? failure;
-    try {
-      await widget.workspace.restoreRecycledAgents(
-        widget.ids,
-        isCancelled: () => !mounted || _cancelled,
-        onProgress: (value) {
-          if (!mounted) return;
-          if (value == null) {
-            _inBackground = true;
-            if (route.isActive) route.navigator!.removeRoute(route);
-          } else if (value != _progress) {
-            setState(() => _progress = value);
-          }
-        },
-      );
-    } catch (error) {
-      failure = error;
-    }
-    if (_inBackground) {
-      if (failure != null) onSaveFailed();
-    } else if (mounted) {
-      _finish(failure);
-    }
-  }
-
-  void _finish([Object? failure]) {
-    final route = ModalRoute.of<Object>(context)!;
-    if (route.isCurrent) {
-      Navigator.of(context).pop(failure);
-    } else if (route.isActive) {
-      Navigator.of(context).removeRoute(route, failure);
-    }
-  }
-
-  void _cancel() {
-    if (_cancelled || _inBackground) return;
-    setState(() => _cancelled = true);
-    if (!_started) _finish();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l = context.l10n;
-    final theme = widget.theme;
-    final confirming = widget.confirmAll && !_started;
-    final label = _cancelled
-        ? l.agentStorageTransferCancelling
-        : l.agentRecycleRestoring((_progress * 100).floor());
-    return PopScope<Object>(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _cancel();
-      },
-      child: AppDialog(
-        key: const ValueKey('recycle-restore-dialog'),
-        theme: theme,
-        constraints: const BoxConstraints(maxWidth: 440),
-        title: widget.confirmAll
-            ? l.agentRecycleRestoreAll
-            : l.agentRecycleRestore,
-        content: SizedBox(
-          width: 392,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                confirming
-                    ? l.agentRecycleRestoreAllConfirm(widget.ids.length)
-                    : label,
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.5,
-                  color: theme.textColorSecondary,
-                ),
-              ),
-              if (!confirming) ...[
-                const SizedBox(height: 16),
-                LinearProgressIndicator(
-                  value: _progress,
-                  backgroundColor: theme.dividerColor,
-                  semanticsLabel: label,
-                ),
-              ],
-            ],
-          ),
-        ),
-        actions: [
-          AppActionButton.dialog(
-            key: const ValueKey('cancel-recycle-restore'),
-            theme: theme,
-            label: l.settingsCancel,
-            onPressed: _cancelled ? null : _cancel,
-          ),
-          if (confirming)
-            AppActionButton.dialog(
-              key: const ValueKey('confirm-recycle-restore'),
-              theme: theme,
-              label: l.agentRecycleRestoreAll,
-              primary: true,
-              onPressed: _start,
-            ),
         ],
       ),
     );

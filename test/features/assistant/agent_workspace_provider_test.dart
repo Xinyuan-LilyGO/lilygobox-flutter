@@ -557,26 +557,13 @@ void main() {
     final batch = [grandchild.id, child.id];
     workspaces.removeMany(batch);
     await workspaces.flush();
-    final savesBefore = storage.workflowSaves;
-    var cancel = false;
-    await workspaces.restoreRecycledAgents(
-      batch,
-      onProgress: (progress) => cancel = progress == .5,
-      isCancelled: () => cancel,
-    );
-    expect(cancel, isTrue);
-    expect(workspaces.recycleBusy, isFalse);
-    expect(storage.workflowSaves, savesBefore);
-    expect(workspaces.sessions, [primary]);
-    expect(
-      workspaces.recycledAgents.map((entry) => entry.id),
-      unorderedEquals(batch),
-    );
     storage.failNextWorkflowSave = true;
     await expectLater(
       workspaces.restoreRecycledAgents(batch),
       throwsStateError,
     );
+    expect(workspaces.recycleBusy, isFalse);
+    expect(workspaces.pendingRecycleRestore, isNull);
     expect(workspaces.sessions, [primary]);
     expect(workspaces.find(primary.id), same(primary));
     expect(workspaces.find(child.id), isNull);
@@ -643,14 +630,10 @@ void main() {
       await workspaces.initialized;
       expect(workspaces.recycledAgents, hasLength(count));
       final savesBefore = storage.workflowSaves;
-      final progress = <double?>[];
       await workspaces.restoreRecycledAgents([
         for (var index = count - 1; index >= 0; index--) '1000-$index',
-      ], onProgress: progress.add);
+      ]);
       expect(storage.workflowSaves - savesBefore, 1);
-      expect(progress.first, 0);
-      expect(progress.last, isNull);
-      expect(progress.whereType<double>().last, greaterThanOrEqualTo(.99));
       expect(workspaces.recycledAgents, isEmpty);
       expect(workspaces.sessions, hasLength(count));
       expect(workspaces.sessions.first.id, firstId);

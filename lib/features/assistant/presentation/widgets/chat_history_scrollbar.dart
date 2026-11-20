@@ -74,11 +74,10 @@ class _ChatHistoryScrollbarState extends State<ChatHistoryScrollbar> {
       final source = widget.controller.position;
       if (!source.hasContentDimensions || !source.hasViewportDimension) return;
       var position = _position;
-      if (position == null ||
-          !identical(position.sourceContext, source.context)) {
+      if (position == null || !identical(position.source, source)) {
         _detachPosition();
         position = _HistoryScrollbarPosition(
-          sourceContext: source.context,
+          source: source,
           context: _HistoryScrollbarContext(source.context),
         );
         _position = position;
@@ -155,7 +154,13 @@ class _ChatHistoryScrollbarState extends State<ChatHistoryScrollbar> {
   }
 
   @override
-  Widget build(BuildContext context) =>
+  Widget build(BuildContext context) => AppScrollDecoration(
+    controller: widget.controller,
+    builder: _buildScrollbar,
+    child: widget.child,
+  );
+
+  Widget _buildScrollbar(BuildContext context, Widget viewport) =>
       NotificationListener<ScrollMetricsNotification>(
         onNotification: (notification) =>
             notification.metrics is _HistoryScrollbarMetrics,
@@ -177,7 +182,7 @@ class _ChatHistoryScrollbarState extends State<ChatHistoryScrollbar> {
                     }
                     return false;
                   },
-                  child: widget.child,
+                  child: viewport,
                 );
               },
             ),
@@ -187,16 +192,17 @@ class _ChatHistoryScrollbarState extends State<ChatHistoryScrollbar> {
 }
 
 class _HistoryScrollbarPosition extends ScrollPositionWithSingleContext {
-  _HistoryScrollbarPosition({
-    required this.sourceContext,
-    required super.context,
-  }) : super(
-         physics: const ClampingScrollPhysics(),
-         initialPixels: 0,
-         keepScrollOffset: false,
-       );
+  _HistoryScrollbarPosition({required this.source, required super.context})
+    : super(
+        physics: const ClampingScrollPhysics(),
+        initialPixels: 0,
+        keepScrollOffset: false,
+      );
 
-  final ScrollContext sourceContext;
+  final ScrollPosition source;
+
+  @override
+  void pointerScroll(double delta) => source.pointerScroll(delta);
 
   void synchronize(double value) => forcePixels(value);
 

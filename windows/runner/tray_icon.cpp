@@ -9,16 +9,10 @@
 #include <algorithm>
 #include <cmath>
 #include "resource.h"
+#include "window_messages.h"
 
 namespace {
-constexpr UINT kTrayMessage = WM_APP + 71;
-constexpr UINT kDismissMenuMessage = WM_APP + 72;
-constexpr UINT kMenuHostReady = WM_APP + 73;
-constexpr UINT kMenuHostAction = WM_APP + 74;
-constexpr UINT kMenuHostPainted = WM_APP + 75;
-constexpr UINT kOpenMenuMessage = WM_APP + 77;
-constexpr UINT kPrepareMenuMessage = WM_APP + 78;
-constexpr UINT kMenuHostPrepared = WM_APP + 79;
+using namespace lilygobox::messages;
 constexpr UINT_PTR kMenuWarmupTimer = 0x4c4b;
 constexpr UINT_PTR kMenuStartupTimer = 0x4c4a;
 constexpr UINT kMenuStartupTimeoutMs = 15000;

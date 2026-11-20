@@ -102,6 +102,24 @@ abstract class AppLocalizations {
     Locale('zh'),
   ];
 
+  /// No description provided for @aiAverageOutputSpeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Average speed'**
+  String get aiAverageOutputSpeed;
+
+  /// No description provided for @aiOutputTokensPerSecond.
+  ///
+  /// In en, this message translates to:
+  /// **'{rate} tok/s'**
+  String aiOutputTokensPerSecond(String rate);
+
+  /// No description provided for @aiAverageOutputSpeedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Output tokens per second during streaming in the last completed reply for this model.'**
+  String get aiAverageOutputSpeedHint;
+
   /// No description provided for @githubSignInDialogDescription.
   ///
   /// In en, this message translates to:
@@ -1161,8 +1179,38 @@ abstract class AppLocalizations {
   /// No description provided for @aiActionUnknown.
   ///
   /// In en, this message translates to:
-  /// **'Change an application setting'**
+  /// **'Tool operation'**
   String get aiActionUnknown;
+
+  /// No description provided for @aiSearchChatHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Search original chat history'**
+  String get aiSearchChatHistory;
+
+  /// No description provided for @aiReadChatHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Read original chat message'**
+  String get aiReadChatHistory;
+
+  /// No description provided for @aiHistoryMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'Matching messages returned: {count}'**
+  String aiHistoryMatches(int count);
+
+  /// No description provided for @aiHistoryMessageMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Message not found in this conversation.'**
+  String get aiHistoryMessageMissing;
+
+  /// No description provided for @aiHistoryMessageRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Read message {id}'**
+  String aiHistoryMessageRead(String id);
 
   /// No description provided for @aiServiceTitle.
   ///
@@ -5178,6 +5226,12 @@ abstract class AppLocalizations {
   /// **'Configure an available model service before compacting context.'**
   String get agentStorageCompactUnavailable;
 
+  /// No description provided for @aiContextCompactionBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'Context compaction is already in progress.'**
+  String get aiContextCompactionBusy;
+
   /// No description provided for @agentStorageCompactCancelled.
   ///
   /// In en, this message translates to:
@@ -5195,6 +5249,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Context compaction failed. Check the model service and try again.'**
   String get agentStorageCompactFailed;
+
+  /// No description provided for @aiCacheHit.
+  ///
+  /// In en, this message translates to:
+  /// **'Cache hit'**
+  String get aiCacheHit;
+
+  /// No description provided for @aiContextUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Context used'**
+  String get aiContextUsed;
+
+  /// No description provided for @aiCacheUsageDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Cache usage details'**
+  String get aiCacheUsageDetails;
+
+  /// No description provided for @aiCacheNotReported.
+  ///
+  /// In en, this message translates to:
+  /// **'No data'**
+  String get aiCacheNotReported;
+
+  /// No description provided for @aiCacheNotReportedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'No cache usage has been reported for the current model in this chat.'**
+  String get aiCacheNotReportedHint;
+
+  /// No description provided for @aiContextUsageDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Context usage details'**
+  String get aiContextUsageDetails;
+
+  /// No description provided for @aiContextChatHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation history'**
+  String get aiContextChatHistory;
+
+  /// No description provided for @aiContextSummaryUsage.
+  ///
+  /// In en, this message translates to:
+  /// **'Compaction summary'**
+  String get aiContextSummaryUsage;
+
+  /// No description provided for @aiCacheInputTokens.
+  ///
+  /// In en, this message translates to:
+  /// **'Input tokens'**
+  String get aiCacheInputTokens;
+
+  /// No description provided for @aiCacheCachedTokens.
+  ///
+  /// In en, this message translates to:
+  /// **'Cached input tokens'**
+  String get aiCacheCachedTokens;
+
+  /// No description provided for @aiCacheUncachedTokens.
+  ///
+  /// In en, this message translates to:
+  /// **'Uncached input tokens'**
+  String get aiCacheUncachedTokens;
+
+  /// No description provided for @aiCacheOutputTokens.
+  ///
+  /// In en, this message translates to:
+  /// **'Output tokens'**
+  String get aiCacheOutputTokens;
+
+  /// No description provided for @aiMetricTokenCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} tokens'**
+  String aiMetricTokenCount(int count);
+
+  /// No description provided for @aiContextBudgetUsage.
+  ///
+  /// In en, this message translates to:
+  /// **'Estimated usage'**
+  String get aiContextBudgetUsage;
+
+  /// No description provided for @aiContextCompactionThreshold.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-compaction threshold'**
+  String get aiContextCompactionThreshold;
+
+  /// No description provided for @aiContextLastCompaction.
+  ///
+  /// In en, this message translates to:
+  /// **'Last compaction'**
+  String get aiContextLastCompaction;
+
+  /// No description provided for @aiManualCompaction.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual context compaction'**
+  String get aiManualCompaction;
+
+  /// No description provided for @aiAutoCompaction.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic context compaction'**
+  String get aiAutoCompaction;
+
+  /// No description provided for @aiCompactionDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Took {seconds} s'**
+  String aiCompactionDuration(String seconds);
+
+  /// No description provided for @aiCompactionTokenChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Estimated tokens: {before} → {after}'**
+  String aiCompactionTokenChange(int before, int after);
+
+  /// No description provided for @aiCompactionUnchanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Unchanged'**
+  String get aiCompactionUnchanged;
+
+  /// No description provided for @aiCompactionCancelledStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get aiCompactionCancelledStatus;
+
+  /// No description provided for @aiContextNoCompaction.
+  ///
+  /// In en, this message translates to:
+  /// **'Not compacted yet'**
+  String get aiContextNoCompaction;
+
+  /// No description provided for @aiContextCompacting.
+  ///
+  /// In en, this message translates to:
+  /// **'Compacting context…'**
+  String get aiContextCompacting;
+
+  /// No description provided for @aiCancelCompaction.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel compaction'**
+  String get aiCancelCompaction;
+
+  /// No description provided for @aiCompactionCancelHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Right-click to cancel compaction'**
+  String get aiCompactionCancelHint;
 
   /// No description provided for @agentStorageCleanFailed.
   ///
@@ -5667,14 +5877,14 @@ abstract class AppLocalizations {
   /// No description provided for @agentRecycleRestoring.
   ///
   /// In en, this message translates to:
-  /// **'Preparing to restore… {percent}%'**
-  String agentRecycleRestoring(int percent);
+  /// **'Restoring agents…'**
+  String get agentRecycleRestoring;
 
-  /// No description provided for @agentRecycleRestoreFinalizing.
+  /// Confirmation for restoring one or more agents from the recycle bin
   ///
   /// In en, this message translates to:
-  /// **'Finalizing restore…'**
-  String get agentRecycleRestoreFinalizing;
+  /// **'{count, plural, =1{Restore this agent?} other{Restore the {count} selected agents?}}'**
+  String agentRecycleRestoreConfirm(int count);
 
   /// No description provided for @agentRecycleRestoreFailed.
   ///

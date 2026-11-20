@@ -62,6 +62,66 @@ Widget host(
 
 void main() {
   testWidgets(
+    'automatic compaction distinguishes its duration from turn elapsed time',
+    (tester) async {
+      final event = AiProcessEvent(
+        type: AiProcessEventType.action,
+        elapsed: const Duration(seconds: 12),
+        action: AiProcessingStep(
+          name: 'compact_context',
+          arguments: {
+            'trigger': 'auto',
+            'durationMicros': 3200000,
+            'outcome': 'compacted',
+          },
+          succeeded: true,
+        ),
+      );
+      await tester.pumpWidget(host(event, locale: 'zh'));
+      expect(processText('自动压缩上下文 · 耗时 3.2 秒'), findsOneWidget);
+      expect(find.text('00:12:000'), findsOneWidget);
+    },
+  );
+  for (final (tool, label, output, summary) in [
+    ('search_chat_history', '搜索原始聊天记录', '{"matches":[]}', '返回了 0 条匹配消息'),
+    (
+      'read_chat_history',
+      '读取聊天原文',
+      '{"message":{"message_id":"msg-2"}}',
+      '已读取消息 msg-2',
+    ),
+    ('read_chat_history', '读取聊天原文', '{"message":null}', '当前对话中未找到该消息。'),
+  ]) {
+    testWidgets('shows the original history action and result: $summary', (
+      tester,
+    ) async {
+      final stage = AiProcessEvent(
+        type: AiProcessEventType.status,
+        status: AiResponseStatus.executingTools,
+        toolName: tool,
+        operationId: 'op',
+        elapsed: Duration.zero,
+      );
+      final action = AiProcessEvent(
+        type: AiProcessEventType.action,
+        operationId: 'op',
+        elapsed: const Duration(seconds: 1),
+        action: AiProcessingStep(
+          name: tool,
+          arguments: {},
+          succeeded: true,
+          output: output,
+        ),
+      );
+      await tester.pumpWidget(host(action, locale: 'zh', stages: [stage]));
+      expect(processText('已执行：$label'), findsOneWidget);
+      await tester.tap(find.byType(InkWell).first);
+      await tester.pumpAndSettle();
+      expect(processText(label), findsOneWidget);
+      expect(processText(summary), findsOneWidget);
+    });
+  }
+  testWidgets(
     'latest process summary follows steps and final status overrides stale steps',
     (tester) async {
       late BuildContext context;
