@@ -81,11 +81,15 @@ class AppScrollBehavior extends MaterialScrollBehavior {
     ScrollPosition position,
     double correction,
   ) {
+    if (!correction.isFinite || !position.hasPixels) return;
     position.correctBy(correction);
     final region = _WheelRegionState._regionsByPosition[position];
-    if (region != null && (region._wheelActivity?.active ?? false)) {
+    final simulation = region?._wheelSimulation;
+    if (region != null &&
+        (region._wheelActivity?.active ?? false) &&
+        simulation != null) {
       region._target = region._target! + correction;
-      region._wheelSimulation!.shift(correction);
+      simulation.shift(correction);
     }
   }
 
@@ -296,21 +300,27 @@ class _WheelRegionState extends State<_WheelRegion>
     if (session == null) return;
     _reader = null;
     if (_activeReader == session) _activeReader = null;
-    unawaited(_readerChannel.invokeMethod<void>('stop', session));
+    unawaited(
+      _readerChannel
+          .invokeMethod<void>('stop', session)
+          .catchError((Object _, StackTrace _) {}),
+    );
   }
 
   Future<void> _startReader(Offset point) async {
     if (_activeReader != null || !_canRead) return;
     final session = _reader = _activeReader = ++_nextReader;
     final ratio = View.of(context).devicePixelRatio;
+    var accepted = false;
     try {
-      final accepted = await _readerChannel.invokeMethod<bool>('start', [
+      final started = await _readerChannel.invokeMethod<bool>('start', [
         session,
         axisDirectionToAxis(widget.direction) == Axis.horizontal,
         (point.dx * ratio).round(),
         (point.dy * ratio).round(),
       ]);
-      if (accepted != true || _reader != session) return;
+      if (started != true || _reader != session) return;
+      accepted = true;
       _stopWheelScroll();
       while (_reader == session && _canRead) {
         await SchedulerBinding.instance.endOfFrame;
@@ -320,6 +330,7 @@ class _WheelRegionState extends State<_WheelRegion>
           session,
         );
         if (!mounted || distance == null || _reader != session || !_canRead) {
+          if (distance == null && _reader == session) _reader = null;
           break;
         }
         if (distance == 0) continue;
@@ -335,8 +346,13 @@ class _WheelRegionState extends State<_WheelRegion>
       }
       if (_reader == session && !_canRead) _stopReader();
     } on MissingPluginException {
-      return;
+      // Native reader mode is optional on platforms without the runner hook.
+    } catch (_) {
+      // A window can disappear while the native modal reader is active. The
+      // session is cancelled below so that a late channel error cannot leave
+      // the runner in reader mode.
     } finally {
+      if (accepted && _reader == session) _stopReader();
       if (_reader == session) _reader = null;
       if (_activeReader == session) _activeReader = null;
     }

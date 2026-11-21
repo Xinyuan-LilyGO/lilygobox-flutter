@@ -26,6 +26,7 @@ String aiErrorText(AppLocalizations l10n, Object error) => switch (error) {
     AiProblem.busy => l10n.aiServiceBusy,
     AiProblem.invalidResponse => l10n.aiInvalidResponse,
     AiProblem.request => l10n.aiRequestFailed,
+    AiProblem.contextCompaction => l10n.agentStorageCompactFailed,
     AiProblem.timeout => l10n.aiRequestTimeout,
     AiProblem.imageUnsupported => l10n.aiImageUnsupported,
   },

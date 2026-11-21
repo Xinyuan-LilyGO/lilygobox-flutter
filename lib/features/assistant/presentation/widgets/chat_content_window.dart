@@ -70,6 +70,22 @@ class ChatContentRegistry {
     return root != null && _hasLaterAtTail(root);
   }
 
+  bool hasEarlierFor(String messageId) {
+    final root = _messageWindow(messageId);
+    return root != null && _hasEarlierAtHead(root);
+  }
+
+  bool _hasEarlierAtHead(ChatContentWindowState window) {
+    if (window.hasEarlier) return true;
+    final firstChild = _windows
+        .where(
+          (child) =>
+              identical(child._parentWindow, window) && child._parentIndex == 0,
+        )
+        .lastOrNull;
+    return firstChild != null && _hasEarlierAtHead(firstChild);
+  }
+
   bool _hasLaterAtTail(ChatContentWindowState window) {
     if (window.hasLater) return true;
     final lastChild = _windows
@@ -243,7 +259,7 @@ class ChatContentWindowState extends State<ChatContentWindow> {
   }
 
   bool _revealFraction(double fraction) {
-    if (widget.childCount == 0) return false;
+    if (!mounted || widget.childCount == 0) return false;
     _anchor = null;
     _pendingTail = false;
     final target = (fraction * widget.childCount).clamp(
@@ -370,11 +386,20 @@ class ChatContentWindowState extends State<ChatContentWindow> {
 
   _ContentViewport? _viewport() {
     final registry = _registry;
-    if (registry == null || !registry.controller.hasClients || !mounted) {
+    if (registry == null ||
+        !mounted ||
+        !registry.controller.hasClients ||
+        registry.controller.positions.length != 1) {
       return null;
     }
     final position = registry.controller.position;
-    if (!position.hasPixels || !position.hasViewportDimension) return null;
+    if (!position.hasPixels ||
+        !position.hasViewportDimension ||
+        !position.hasContentDimensions ||
+        !position.viewportDimension.isFinite ||
+        position.viewportDimension <= 0) {
+      return null;
+    }
     final viewport = position.context.notificationContext?.findRenderObject();
     final content = context.findRenderObject();
     if (viewport is! RenderBox ||
@@ -384,15 +409,31 @@ class ChatContentWindowState extends State<ChatContentWindow> {
         !content.attached) {
       return null;
     }
-    final transform = content.getTransformTo(viewport);
-    if (transform.determinant() == 0) return null;
-    final visible = MatrixUtils.inverseTransformRect(
-      transform,
-      Rect.fromLTWH(0, 0, 1, position.viewportDimension),
-    );
+    late final Matrix4 transform;
+    try {
+      transform = content.getTransformTo(viewport);
+    } catch (_) {
+      return null;
+    }
+    final determinant = transform.determinant();
+    if (!determinant.isFinite || determinant.abs() < 1e-8) return null;
+    late final Rect visible;
+    late final double origin;
+    try {
+      visible = MatrixUtils.inverseTransformRect(
+        transform,
+        Rect.fromLTWH(0, 0, 1, position.viewportDimension),
+      );
+      origin = MatrixUtils.transformPoint(transform, Offset.zero).dy;
+    } catch (_) {
+      return null;
+    }
+    if (!visible.top.isFinite || !visible.bottom.isFinite || !origin.isFinite) {
+      return null;
+    }
     return _ContentViewport(
       visible: visible,
-      origin: MatrixUtils.transformPoint(transform, Offset.zero).dy,
+      origin: origin,
       extent: position.viewportDimension,
       scrollOffset: position.pixels,
       direction: axisDirectionIsReversed(position.axisDirection) ? -1 : 1,
@@ -461,7 +502,9 @@ class ChatContentWindowState extends State<ChatContentWindow> {
           range.count != widget.childCount ||
           range.start != _start ||
           range.end != _end ||
-          !registry.controller.hasClients) {
+          !registry.controller.hasClients ||
+          registry.controller.positions.length != 1 ||
+          !registry.controller.position.hasPixels) {
         return;
       }
       registry.controller.saveHistoryOffset();

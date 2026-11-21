@@ -37,7 +37,6 @@ import 'package:lilygobox/features/assistant/presentation/widgets/chat_composer.
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_content_window.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_history_scrollbar.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/message_content.dart';
-import 'package:lilygobox/features/assistant/state/provider.dart';
 import 'package:lilygobox/features/settings/presentation/widgets/split_view.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/model_selector.dart';
@@ -547,6 +546,17 @@ void main() {
         expect(latest, findsNothing);
         expect(copy, findsNothing);
         expect(time, findsNothing);
+        for (final metricKey in [
+          const ValueKey('ai-cache-usage-metric'),
+          const ValueKey('ai-context-usage-metric'),
+        ]) {
+          final metric = find.byKey(metricKey);
+          expect(metric, findsOneWidget);
+          await tester.tap(metric);
+          await tester.pumpAndSettle();
+          await tester.tapAt(const Offset(10, 10));
+          await tester.pumpAndSettle();
+        }
         // 新一批输出触发跟随动画后，立即用真实滚轮向上打断。
         output.add(
           utf8.encode(
@@ -1505,6 +1515,117 @@ void main() {
     },
   );
 
+  testWidgets(
+    'guided reply timing stays hidden while preflight compaction stops and resumes',
+    (tester) async {
+      await tester.runAsync(() => scope.provider.initialized);
+      final serviceId = await scope.provider.saveService(
+        name: 'Summary service',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['test-model'],
+        apiKey: 'test-key',
+      );
+      await scope.provider.selectModel(serviceId, 'test-model');
+      scope.provider.restoreWorkspaceConversation({
+        'messages': [],
+        'history': [
+          for (var index = 0; index < 6; index++)
+            {
+              'role': index.isEven ? 'user' : 'assistant',
+              'content': 'Previous history $index ${'context ' * 37}',
+            },
+        ],
+      });
+      scope.provider.contextBudgetTokens = 1000;
+      final originalGate = Completer<void>();
+      final compactionGate = Completer<void>();
+      final resumedCompactionGate = Completer<void>();
+      final guidedReplyGate = Completer<void>();
+      for (final gate in [
+        originalGate,
+        compactionGate,
+        resumedCompactionGate,
+        guidedReplyGate,
+      ]) {
+        addTearDown(() {
+          if (!gate.isCompleted) gate.complete();
+        });
+      }
+      Future<void> pumpUntilRequest(int count) async {
+        for (var attempt = 0; attempt < 100 && requests < count; attempt++) {
+          await tester.pump(const Duration(milliseconds: 20));
+          await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        }
+        expect(requests, count);
+        await tester.pump();
+      }
+
+      await tester.pumpWidget(app(locale: 'zh'));
+      responseGate = originalGate;
+      final turn = scope.provider.sendMessage('Start');
+      await pumpUntilRequest(1);
+      responseGate = compactionGate;
+      await scope.provider.sendMessage(
+        'Change direction ${'follow-up ' * 170}',
+        steer: true,
+      );
+      originalGate.complete();
+      await pumpUntilRequest(2);
+
+      expect(scope.provider.compacting.value, isTrue);
+      final compaction = scope.provider.messages.singleWhere(
+        (message) => message.role == 'compaction',
+      );
+      final guidedReply = scope.provider.messages.last;
+      expect(compaction.toolArguments?['replyId'], guidedReply.id);
+      final compactionTiming = find.byKey(
+        ValueKey('ai-response-details-${compaction.id}'),
+      );
+      final replyTiming = find.byKey(
+        ValueKey('ai-response-details-${guidedReply.id}'),
+      );
+      expect(compactionTiming, findsOneWidget);
+      expect(replyTiming, findsNothing);
+      await tester.pump(const Duration(seconds: 1));
+      expect(replyTiming, findsNothing);
+      expect(requests, 2);
+
+      await tester.tap(find.byKey(const ValueKey('ai-stop-button')));
+      compactionGate.complete();
+      await pumpAssistantUntilIdle(tester);
+      await turn;
+      expect(requests, 2);
+      expect(find.textContaining('自动压缩上下文 · 已取消'), findsOneWidget);
+      expect(replyTiming, findsNothing);
+
+      responseGate = resumedCompactionGate;
+      await tester.tap(find.byKey(const ValueKey('ai-continue-button')));
+      await pumpUntilRequest(3);
+      expect(scope.provider.compacting.value, isTrue);
+      expect(compactionTiming, findsOneWidget);
+      expect(replyTiming, findsNothing);
+      expect(
+        scope.provider.messages.where((item) => item.role == 'compaction'),
+        hasLength(1),
+      );
+
+      responseGate = guidedReplyGate;
+      resumedCompactionGate.complete();
+      await pumpUntilRequest(4);
+      expect(scope.provider.compacting.value, isFalse);
+      expect(compactionTiming, findsOneWidget);
+      expect(replyTiming, findsOneWidget);
+      expect(
+        tester.getTopLeft(compactionTiming).dy,
+        lessThan(tester.getTopLeft(replyTiming).dy),
+      );
+
+      guidedReplyGate.complete();
+      await pumpAssistantUntilIdle(tester);
+    },
+  );
+
   for (final automatic in [false, true]) {
     testWidgets(
       '${automatic ? "automatic" : "manual"} compaction history expands independently of replies',
@@ -1729,6 +1850,136 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('long Markdown retains semantics for mounted text and links', (
+    tester,
+  ) async {
+    await tester.runAsync(() => scope.provider.initialized);
+    scope.provider.restoreWorkspaceConversation({
+      'messages': [
+        ConversationCodec.message(
+          AiMessage(
+            id: 'long-markdown',
+            role: 'assistant',
+            content:
+                '${List.filled(48, 'Earlier paragraph ${'word ' * 35}').join('\n\n')}'
+                '\n\nReadable checkpoint.\n\n[Reference link](https://example.test)',
+          ),
+        ),
+      ],
+      'history': [],
+    });
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+
+      expect(find.bySemanticsLabel('Readable checkpoint.'), findsOneWidget);
+      expect(
+        find.semantics.byPredicate((node) {
+          final data = node.getSemanticsData();
+          return data.label == 'Reference link' &&
+              data.hasAction(ui.SemanticsAction.tap);
+        }),
+        findsOneWidget,
+      );
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('character-streamed Markdown keeps the live viewport anchored', (
+    tester,
+  ) async {
+    scope.dispose();
+    final output = StreamController<List<int>>();
+    scope = await createAssistantTestScope(
+      theme: theme,
+      language: language,
+      shell: shell,
+      splitView: splitView,
+      client: MockClient.streaming((_, body) async {
+        await body.drain<void>();
+        return http.StreamedResponse(output.stream, 200);
+      }),
+    );
+    await tester.runAsync(() => scope.provider.initialized);
+    await scope.provider.saveService(
+      name: 'Test',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://example.test/v1',
+      models: ['test'],
+      apiKey: 'key',
+    );
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(app());
+    unawaited(scope.provider.sendMessage('Stream Markdown'));
+
+    void delta(String text) => output.add(
+      utf8.encode(
+        'data: ${jsonEncode({
+          'choices': [
+            {
+              'delta': {'content': text},
+            },
+          ],
+        })}\n\n',
+      ),
+    );
+
+    final seed = List.generate(
+      85,
+      (index) =>
+          '## Section $index\n\n${'A long paragraph with formatted **text**. ' * 3}\n\n',
+    ).join();
+    delta(seed);
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pumpAndSettle();
+    final viewport = find.byKey(const ValueKey('ai-message-scroll'));
+    final position = tester
+        .widget<SingleChildScrollView>(viewport)
+        .controller!
+        .position;
+    final initialExtent = position.maxScrollExtent;
+    expect(initialExtent, greaterThan(0));
+
+    const suffix =
+        '### Growing heading\n\n'
+        '- First item\n- Second item with **formatting**\n\n'
+        '| Value | Note |\n| --- | --- |\n| 42 | Table body |\n\n'
+        '```text\nA line of code\nAnother line\n```\n\n'
+        'Final **paragraph** with a [link](https://example.test).\n\n';
+    for (final (index, character) in suffix.split('').indexed) {
+      delta(character);
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(
+        position.extentAfter,
+        closeTo(0, 1),
+        reason: 'Streaming frame $index',
+      );
+    }
+    expect(position.maxScrollExtent, isNot(initialExtent));
+    expect(scope.provider.messages.last.content, contains('Growing heading'));
+
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: tester.getCenter(viewport),
+        scrollDelta: const Offset(0, -600),
+        kind: PointerDeviceKind.mouse,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(position.extentAfter, greaterThan(120));
+    delta('### More text while reading history\n\n${'Words. ' * 150}');
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(position.extentAfter, greaterThan(120));
+    output.add(utf8.encode('data: [DONE]\n\n'));
+    unawaited(output.close());
+    await pumpAssistantUntilIdle(tester);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('one latest click reaches the end of mixed image messages', (
     tester,

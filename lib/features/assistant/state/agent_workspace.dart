@@ -97,31 +97,42 @@ class AiAgentWorkspace {
       : assistant.messages.isEmpty
       ? 'ready'
       : 'completed';
-  String get result =>
-      assistant.messages
-          .where((m) => m.role == 'assistant')
-          .map((m) => m.content)
-          .where((text) => text.isNotEmpty)
-          .lastOrNull ??
-      '';
+  String get result {
+    final parts = <String>[];
+    for (final message in assistant.messages.reversed) {
+      if (message.role == 'user' && parts.isNotEmpty) break;
+      if (message.role != 'assistant' ||
+          (parts.isEmpty && message.content.isEmpty)) {
+        continue;
+      }
+      if (parts.isEmpty && !message.continuesReply) return message.content;
+      if (message.content.isNotEmpty) parts.add(message.content);
+      if (!message.continuesReply) break;
+    }
+    return parts.reversed.join();
+  }
+
   static const maximumResultCharacters = 16000;
-  Map<String, Object?> toToolResult() => {
-    'agent_id': id,
-    'url': agentLink(id),
-    'kind': kind.name,
-    'parent_id': parentId,
-    'title': title,
-    'status': status,
-    'model': model,
-    'reasoning_effort': assistant.reasoningEffort?.name,
-    'processing_speed': assistant.processingSpeed.name,
-    'service_id': serviceId,
-    'service_name': assistant.selectedService?.name,
-    'result': result.length > maximumResultCharacters
-        ? result.substring(0, maximumResultCharacters)
-        : result,
-    'result_truncated': result.length > maximumResultCharacters,
-  };
+  Map<String, Object?> toToolResult() {
+    final reply = result;
+    return {
+      'agent_id': id,
+      'url': agentLink(id),
+      'kind': kind.name,
+      'parent_id': parentId,
+      'title': title,
+      'status': status,
+      'model': model,
+      'reasoning_effort': assistant.reasoningEffort?.name,
+      'processing_speed': assistant.processingSpeed.name,
+      'service_id': serviceId,
+      'service_name': assistant.selectedService?.name,
+      'result': reply.length > maximumResultCharacters
+          ? reply.substring(0, maximumResultCharacters)
+          : reply,
+      'result_truncated': reply.length > maximumResultCharacters,
+    };
+  }
 }
 
 /// Independent conversation and configuration snapshot, excluding credentials.

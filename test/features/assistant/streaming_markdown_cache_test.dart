@@ -58,6 +58,56 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'streaming Markdown cancels pending parses when deactivated or completed',
+    (tester) async {
+      final bodyKey = GlobalKey();
+      final longContent = '${_longPrefix()}\n\n${'Tail text. ' * 400}';
+
+      Widget frame({
+        required bool centered,
+        required bool streaming,
+        required String data,
+      }) {
+        final body = ChatMarkdownBody(
+          key: bodyKey,
+          MarkdownBody(data: data),
+          streaming: streaming,
+        );
+        final positioned = centered
+            ? Center(child: body)
+            : Align(alignment: Alignment.topLeft, child: body);
+        return MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 480,
+              height: 320,
+              child: SingleChildScrollView(child: positioned),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(
+        frame(centered: false, streaming: true, data: 'Initial'),
+      );
+      await tester.pumpWidget(
+        frame(centered: true, streaming: true, data: longContent),
+      );
+      await tester.pump(const Duration(milliseconds: 10));
+      await tester.pumpWidget(
+        frame(centered: false, streaming: false, data: longContent),
+      );
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(
+        find.textContaining('Paragraph 0', findRichText: true),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final parentSelection in [false, true]) {
     testWidgets(
       'unchanged Markdown widget survives status updates: parent=$parentSelection',

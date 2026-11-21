@@ -4,6 +4,8 @@
 
 import 'package:flutter/widgets.dart';
 
+const chatTopFadeHeight = 16.0;
+
 /// 将内容渐变融入周围不透明背景，避免使用离屏遮罩。
 class ChatBottomFade extends StatelessWidget {
   const ChatBottomFade({
@@ -12,7 +14,6 @@ class ChatBottomFade extends StatelessWidget {
     required this.child,
     this.fadeHeight = 64,
     this.topFadeHeight = 0,
-    this.scrollController,
   }) : assert(fadeHeight >= 0),
        assert(topFadeHeight >= 0);
 
@@ -20,7 +21,6 @@ class ChatBottomFade extends StatelessWidget {
   final Widget child;
   final double fadeHeight;
   final double topFadeHeight;
-  final ScrollController? scrollController;
 
   @override
   Widget build(BuildContext context) => Stack(
@@ -33,21 +33,7 @@ class ChatBottomFade extends StatelessWidget {
           right: 0,
           top: 0,
           height: topFadeHeight,
-          child: switch (scrollController) {
-            final controller? => AnimatedBuilder(
-              animation: controller,
-              child: _topFade(),
-              builder: (context, child) =>
-                  controller.hasClients &&
-                      controller.position.hasPixels &&
-                      controller.position.hasContentDimensions &&
-                      controller.position.pixels >
-                          controller.position.minScrollExtent
-                  ? child!
-                  : const SizedBox.shrink(),
-            ),
-            null => _topFade(),
-          },
+          child: _topFade(),
         ),
       if (fadeHeight > 0)
         Positioned(

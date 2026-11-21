@@ -94,12 +94,14 @@ class _ProcessDetailsScrollViewState extends State<ProcessDetailsScrollView> {
     final version = ++_followVersion;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
-        // 与主聊天一致：等待布局后平滑跟随，并校正动画期间新增的内容高度。
+        // 详情区等待布局后平滑跟随，并校正动画期间新增的内容高度。
         for (var attempt = 0; attempt < 8; attempt++) {
           if (!mounted ||
               !_scroll.hasClients ||
               !_followLatest ||
-              version != _followVersion) {
+              version != _followVersion ||
+              !_scroll.position.hasContentDimensions ||
+              !_scroll.position.hasViewportDimension) {
             return;
           }
           if (_scroll.position.extentAfter <= 1) return;
@@ -116,7 +118,9 @@ class _ProcessDetailsScrollViewState extends State<ProcessDetailsScrollView> {
           if (!mounted ||
               !_scroll.hasClients ||
               !_followLatest ||
-              version != _followVersion) {
+              version != _followVersion ||
+              !_scroll.position.hasContentDimensions ||
+              !_scroll.position.hasViewportDimension) {
             return;
           }
           await WidgetsBinding.instance.endOfFrame;

@@ -234,7 +234,7 @@ void main() {
     );
   }
   testWidgets(
-    'top fade follows scroll offset without rebuilding chat content',
+    'top fade stays visible while scrolling without rebuilding chat content',
     (tester) async {
       final scroll = ScrollController();
       addTearDown(scroll.dispose);
@@ -249,7 +249,6 @@ void main() {
               child: ChatBottomFade(
                 backgroundColor: const Color(0xffeeeeee),
                 topFadeHeight: 64,
-                scrollController: scroll,
                 child: Builder(
                   builder: (context) {
                     builds++;
@@ -270,7 +269,7 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(find.byKey(const ValueKey('chat-top-fade')), findsNothing);
+      expect(find.byKey(const ValueKey('chat-top-fade')), findsOneWidget);
       final initialBuilds = builds;
       scroll.jumpTo(16);
       await tester.pump();
@@ -280,7 +279,7 @@ void main() {
       expect(find.byKey(const ValueKey('chat-top-fade')), findsOneWidget);
       scroll.jumpTo(0);
       await tester.pump();
-      expect(find.byKey(const ValueKey('chat-top-fade')), findsNothing);
+      expect(find.byKey(const ValueKey('chat-top-fade')), findsOneWidget);
       expect(builds, initialBuilds);
       expect(scroll.position.maxScrollExtent, 408);
       expect(tester.takeException(), isNull);

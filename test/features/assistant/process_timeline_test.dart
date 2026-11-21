@@ -24,6 +24,42 @@ AiProcessEvent completed(String? id, {bool success = true}) => AiProcessEvent(
 );
 
 void main() {
+  test('compaction retains the operation result between turn statuses', () {
+    const operationId = 'compaction-1';
+    final events = [
+      const AiProcessEvent(
+        type: AiProcessEventType.status,
+        status: AiResponseStatus.connecting,
+        elapsed: Duration.zero,
+      ),
+      const AiProcessEvent(
+        type: AiProcessEventType.status,
+        status: AiResponseStatus.thinking,
+        elapsed: Duration(seconds: 1),
+        operationId: operationId,
+      ),
+      const AiProcessEvent(
+        type: AiProcessEventType.action,
+        elapsed: Duration(seconds: 2),
+        operationId: operationId,
+      ),
+      const AiProcessEvent(
+        type: AiProcessEventType.status,
+        status: AiResponseStatus.completed,
+        elapsed: Duration(seconds: 2),
+      ),
+    ];
+
+    final timeline = buildAiProcessTimeline(events);
+
+    expect(timeline, hasLength(3));
+    expect(timeline.first.event.status, AiResponseStatus.connecting);
+    expect(timeline[1].id, 'operation-$operationId');
+    expect(timeline[1].event.type, AiProcessEventType.action);
+    expect(timeline[1].events, hasLength(2));
+    expect(timeline.last.event.status, AiResponseStatus.completed);
+  });
+
   test(
     'one call updates one row without changing its identity or raw events',
     () {

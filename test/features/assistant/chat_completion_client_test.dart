@@ -944,6 +944,43 @@ void main() {
     },
   );
 
+  test(
+    'preserves the context limit code from a Responses failure event',
+    () async {
+      final client = ChatCompletionClient(
+        client: MockClient(
+          (_) async => http.Response(
+            'event: response.failed\n'
+            'data: {"type":"response.failed","response":{"error":'
+            '{"code":"context_length_exceeded","message":"Input exceeds capacity"}}}\n\n',
+            200,
+            headers: {'content-type': 'text/event-stream'},
+          ),
+        ),
+      );
+      addTearDown(client.close);
+      await expectLater(
+        client.complete(
+          configuration: const AiServiceConfiguration(
+            protocol: AiApiProtocol.openAiResponses,
+          ),
+          apiKey: 'test-key',
+          messages: const [
+            {'role': 'user', 'content': 'Keep working'},
+          ],
+          tools: const [],
+        ),
+        throwsA(
+          isA<AiRequestException>().having(
+            (error) => error.code,
+            'code',
+            'context_length_exceeded',
+          ),
+        ),
+      );
+    },
+  );
+
   test('surfaces provider error details', () async {
     final client = ChatCompletionClient(
       client: MockClient(

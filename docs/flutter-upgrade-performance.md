@@ -27,6 +27,16 @@
 
 消息窗口限制挂载和绘制量，数据库仍按会话恢复完整记录。单条巨大表格或极长代码行的首次解析与布局需单独测量。
 
+流式助手正文不按每个增量重建页面。正文和思考先写入 `StringBuffer`，只在界面刷新时生成完整字符串，避免每个 token 反复复制已有内容。正文刷新按长度采用约 16、100、200 ms 的节流，Markdown 解析在输出期间分段节流，结束时立即完成最终解析。流关闭、组件卸载和客户端取消均处理可预期的异步异常，避免流取消变成未处理异常。[同轮压缩与续写](agent-memory-storage.md) · [绘制前的底部跟随](scroll-behavior.md#聊天生成时的底部跟随)
+
+Windows 原生中键阅读器的会话必须和 Flutter 视图一起结束。通道错误、视图卸载或窗口销毁时先发送停止请求并清理 Dart 会话，原生 runner 在模态阅读循环返回后再次校验 HWND，再恢复光标和发送消息。自定义消息绘制层在子节点失效或变换矩阵退化时回退默认绘制，避免把已卸载的 RenderBox 或无效坐标交给引擎。
+
+长 Markdown 位于 `SelectionArea` 内时，消息窗口会按视口替换正文分段。替换期间保留一个稳定的语义容器，避免 Windows 无障碍桥在同一帧收到已脱离父节点的增量语义树。流式解析定时器在 State 停用时取消，重新挂载后再恢复，不能只用 `mounted` 判断 context 是否仍可更新。滚动窗口和自定义滑块读取 `ScrollPosition` 的像素或范围前同时检查单一 client、像素、视口和内容尺寸，窗口切换期间跳过未完成的布局帧。
+
+长消息的无障碍节点跟随当前挂载的正文分段；滚动补载时，新分段的文字与链接随之进入语义树。保留每条消息的显式语义边界，不用截断摘要替代正文或移除链接操作。
+
+上下文详情的左键浮层嵌套在右键菜单锚点内，两者必须由一个显式语义边界隔开。否则两个 `OverlayPortal` 的遍历锚点会合并，打开详情即可能让 Windows 的 `AXTree` 收到未连接的节点；加 `mounted` 判断不能修复这种原生错误。[真实窗口回归](../integration_test/chat_metrics_accessibility_test.dart)在最大化窗口中请求原生无障碍树，保持详情打开并让 Markdown 流跨过自动压缩阈值；用 `tool/test_window_accessibility.ps1` 同时校验测试结果和原生日志。
+
 输入框要分别测**滚动、首次粘贴、持续编辑**。标准 `TextField` 持有全文，外层视口滚动时复用排好版的文字。粘贴经 `ReplaceTextIntent` 走编辑器的焦点、选区与撤销流程。文本、字号或宽度改变仍会触发整段布局。复测时包括中文输入法组合输入、全选复制和拖选越界滚动。[编辑器交互](text-input-style.md#特殊输入框) · [滚动与粘贴测试](../integration_test/chat_composer_performance_test.dart) · [持续编辑测试](../integration_test/chat_composer_editing_performance_test.dart)
 
 ### 仅在窗口最大化时明显变慢
@@ -86,5 +96,6 @@ foreach ($cardCount in 3000, 10000) {
 ## Windows 窗口与升级检查
 
 - **无边框窗口**初始化时设 `hasShadow = false`，保留应用的自绘阴影。打开系统文件对话框时处理 `WM_NCACTIVATE` 与 `WM_NCPAINT`，验证真实 HWND 的顶部像素。最小化时保留 Flutter 子窗口尺寸。最大化按钮投递原生消息切换窗口，移动或贴靠后再读取系统最终布局。[阴影测试](../integration_test/window_shadow_test.dart) · [系统对话框测试](../integration_test/modal_window_frame_test.dart)
+- **窗口拖动或改尺寸时闪白**：主窗口有 Flutter 子视图时不再用 Win32 背景刷擦除客户区，避免主题背景在下一帧之前覆盖画面。调整子视图时用 `SetWindowPos`，不强制同步重绘。回归测试用白色背景刷验证旧像素不被擦除，同时检查每次调整后视图尺寸与客户区一致。[原生重绘测试](../test/windows/window_repaint_native_test.cpp)
 - **托盘窗口**由独立的 `trayMain` 进程承载，通过限制大小并校验对端的 `WM_COPYDATA` 与主进程通信。预热在可绘制的窗口完成，按 `requestId` 收到 `prepared` 后隐藏，用户打开时等 `painted` 再显示。隐藏期间缓存主题，Job Object 让辅助进程随主进程退出。回归实际切换主题、检查最终可见性，并在 Explorer 的隐藏图标面板手动右键一次。[托盘可见性测试](../integration_test/tray_visibility_test.dart) · [主题发布模式验证](../integration_test/theme_release_smoke.dart)
 - **升级 Flutter** 时以依赖清单中的 SDK 与窗口库版本为准。Material 组件需要对应的本地化委托，SQLite 与压缩库通过 code assets 加载。升级后进行 `flutter analyze --no-pub lib`、存储回归和真实 Windows 窗口启动，原生 runner 改动需重新启动编译后的进程。[依赖清单](../pubspec.yaml) · [存储回归](../test/features/assistant/agent_storage_test.dart)

@@ -139,7 +139,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
         find(receiverId) != null &&
         !agent.busy &&
         !agent.closed &&
-        agent.result.isNotEmpty) {
+        (result['result'] as String).isNotEmpty) {
       final reply = agent.assistant.messages
           .where(
             (message) =>
@@ -1148,9 +1148,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
   }
 
   Future<void> _writeSnapshot() async {
-    if (_restoring ||
-        persistenceError != null ||
-        main.storage == null) {
+    if (_restoring || persistenceError != null || main.storage == null) {
       return;
     }
     try {
@@ -1806,7 +1804,14 @@ class AiWorkspaceProvider extends ChangeNotifier {
   }
 
   void _run(AiAgentWorkspace session, String message) {
-    unawaited(session.assistant.sendMessage(message).whenComplete(_notify));
+    unawaited(
+      session.assistant
+          .sendMessage(message)
+          .then<void>(
+            (_) => _notify(),
+            onError: (Object _, StackTrace _) => _notify(),
+          ),
+    );
   }
 
   Future<void> _waitFor(

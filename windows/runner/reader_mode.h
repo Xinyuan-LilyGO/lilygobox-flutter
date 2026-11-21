@@ -12,16 +12,20 @@ class ReaderMode {
   void Run(int session);
   void Stop(int session);
   bool active(int session) const { return session != 0 && session == session_; }
+  bool hasSession() const { return session_ != 0; }
+  bool running() const { return running_; }
   double Take() { return std::exchange(distance_, 0.0); }
 
  private:
   struct Info;
   static BOOL CALLBACK Scroll(Info* info, int horizontal, int vertical);
+  HWND owner_ = nullptr;
   HWND view_ = nullptr;
   RECT anchor_{};
   int session_ = 0;
   bool horizontal_ = false;
   bool running_ = false;
+  DWORD reader_thread_id_ = 0;
   double distance_ = 0;
 };
 

@@ -45,6 +45,7 @@ class _RenderChatMessageList extends RenderFlex {
   final _children = <(RenderBox, Offset, double)>[];
   ValueChanged<List<ChatMessageGeometry>>? onLayout;
   int _firstIndex;
+  bool _layoutCacheReady = false;
 
   set firstIndex(int value) {
     if (_firstIndex == value) return;
@@ -67,7 +68,14 @@ class _RenderChatMessageList extends RenderFlex {
       }
       index++;
     }
+    _layoutCacheReady = true;
     onLayout?.call(geometry);
+  }
+
+  @override
+  void markNeedsLayout() {
+    _layoutCacheReady = false;
+    super.markNeedsLayout();
   }
 
   int _firstChildAfter(double top) {
@@ -84,15 +92,41 @@ class _RenderChatMessageList extends RenderFlex {
     return low;
   }
 
+  bool _childrenAreReady() {
+    for (var child = firstChild; child != null; child = childAfter(child)) {
+      if (!child.attached || !identical(child.parent, this) || !child.hasSize) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   @override
   void paint(PaintingContext context, Offset offset) {
+    if (!_layoutCacheReady) {
+      if (_childrenAreReady()) super.paint(context, offset);
+      return;
+    }
     Rect? visible;
     for (var ancestor = parent; ancestor != null; ancestor = ancestor.parent) {
       if (ancestor is RenderAbstractViewport) {
+        final transform = getTransformTo(ancestor);
+        final determinant = transform.determinant();
+        if (!determinant.isFinite || determinant.abs() < 1e-8) {
+          super.paint(context, offset);
+          return;
+        }
         final bounds = MatrixUtils.inverseTransformRect(
-          getTransformTo(ancestor),
+          transform,
           ancestor.paintBounds,
         );
+        if (!bounds.top.isFinite ||
+            !bounds.bottom.isFinite ||
+            !bounds.left.isFinite ||
+            !bounds.right.isFinite) {
+          super.paint(context, offset);
+          return;
+        }
         visible = visible?.intersect(bounds) ?? bounds;
       }
       if (ancestor.isRepaintBoundary) break;
@@ -114,9 +148,18 @@ class _RenderChatMessageList extends RenderFlex {
 
   @override
   bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    if (!_layoutCacheReady) {
+      return _childrenAreReady()
+          ? super.hitTestChildren(result, position: position)
+          : false;
+    }
     final index = _firstChildAfter(position.dy);
     if (index == _children.length) return false;
     final (child, offset, _) = _children[index];
+    if (position.dy < offset.dy ||
+        position.dy > offset.dy + child.size.height) {
+      return false;
+    }
     return result.addWithPaintOffset(
       offset: offset,
       position: position,

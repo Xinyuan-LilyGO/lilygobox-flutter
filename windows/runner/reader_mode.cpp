@@ -56,6 +56,7 @@ bool ReaderMode::Start(HWND owner, HWND view, int session, bool horizontal,
       owner != GetForegroundWindow() || !IsWindowVisible(view)) return false;
   if (!PostMessageW(owner, lilygobox::messages::kBeginReaderMode,
                     static_cast<WPARAM>(session), 0)) return false;
+  owner_ = owner;
   view_ = view;
   session_ = session;
   distance_ = 0;
@@ -76,15 +77,19 @@ BOOL CALLBACK ReaderMode::Scroll(Info* info, int horizontal, int vertical) {
 
 void ReaderMode::Run(int session) {
   if (!active(session)) return;
-  if (GetAncestor(view_, GA_ROOT) != GetForegroundWindow()) {
+  if (!IsWindow(view_) || GetAncestor(view_, GA_ROOT) != GetForegroundWindow()) {
     Stop(session);
     return;
   }
   const auto previous_cursor = GetCursor();
-  if (GetCapture() == view_) {
+  if (IsWindow(view_) && GetCapture() == view_) {
     POINT anchor{(anchor_.left + anchor_.right) / 2,
                  (anchor_.top + anchor_.bottom) / 2};
     SendMessageW(view_, WM_MBUTTONUP, 0, MAKELPARAM(anchor.x, anchor.y));
+  }
+  if (!active(session) || !IsWindow(view_)) {
+    Stop(session);
+    return;
   }
   running_ = true;
   neutral_area = anchor_;
@@ -95,10 +100,12 @@ void ReaderMode::Run(int session) {
   const DWORD flags = (horizontal_ ? kHorizontalOnly : kVerticalOnly) | kCenterCursor;
   Info info{sizeof(Info), view_, flags, &anchor_, Scroll,
             ReaderMessage, reinterpret_cast<LPARAM>(this)};
+  reader_thread_id_ = GetCurrentThreadId();
   SystemReader()(&info);
+  reader_thread_id_ = 0;
   SetCursor(previous_cursor);
   POINT point{};
-  if (GetCursorPos(&point) && WindowFromPoint(point) == view_) {
+  if (IsWindow(view_) && GetCursorPos(&point) && WindowFromPoint(point) == view_) {
     SendMessageW(view_, WM_SETCURSOR, reinterpret_cast<WPARAM>(view_),
                  MAKELPARAM(HTCLIENT, WM_MOUSEMOVE));
   }
@@ -111,5 +118,17 @@ void ReaderMode::Stop(int session) {
   if (!session_ || (session && !active(session))) return;
   session_ = 0;
   distance_ = 0;
-  if (running_) PostMessageW(view_, WM_KEYDOWN, VK_ESCAPE, 0);
+  if (running_) {
+    // DoReaderMode runs a nested message loop.  Use the owner first because
+    // the child Flutter view can already be in WM_DESTROY while the reader is
+    // still unwinding.
+    const HWND target = IsWindow(owner_) ? owner_ : view_;
+    if (!IsWindow(target) ||
+        !PostMessageW(target, WM_KEYDOWN, VK_ESCAPE, 0)) {
+      const auto thread_id = reader_thread_id_;
+      if (thread_id != 0) {
+        PostThreadMessageW(thread_id, WM_KEYDOWN, VK_ESCAPE, 0);
+      }
+    }
+  }
 }

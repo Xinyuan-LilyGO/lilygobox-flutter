@@ -22,21 +22,43 @@ typedef MotionMouse = ({
   void Function() escape,
 });
 
-Future<void> withNativeMotionMouse(
-  WidgetTester tester,
-  Offset target,
-  Future<void> Function(MotionMouse mouse) measure, {
-  bool positionSystemCursor = false,
-}) async {
+Future<int> _nativeFlutterView(ffi.DynamicLibrary user) async {
   const channel = MethodChannel('lilygobox/window_layout');
   final owner = (await channel.invokeMethod<int>('getWindowHandle'))!;
-  final user = ffi.DynamicLibrary.open('user32.dll');
   final child = user
       .lookupFunction<
         ffi.IntPtr Function(ffi.IntPtr, ffi.Uint32),
         int Function(int, int)
       >('GetWindow')(owner, 5);
   expect(child, isNot(0));
+  return child;
+}
+
+int Function(int, int, int, int) _postWindowMessage(ffi.DynamicLibrary user) =>
+    user.lookupFunction<
+      ffi.Int32 Function(ffi.IntPtr, ffi.Uint32, ffi.UintPtr, ffi.IntPtr),
+      int Function(int, int, int, int)
+    >('PostMessageW');
+
+Future<void> requestNativeAccessibility() async {
+  final user = ffi.DynamicLibrary.open('user32.dll');
+  final child = await _nativeFlutterView(user);
+  const getObject = 0x003d;
+  const clientObjectId = -4;
+  expect(
+    _postWindowMessage(user)(child, getObject, 0, clientObjectId),
+    isNot(0),
+  );
+}
+
+Future<void> withNativeMotionMouse(
+  WidgetTester tester,
+  Offset target,
+  Future<void> Function(MotionMouse mouse) measure, {
+  bool positionSystemCursor = false,
+}) async {
+  final user = ffi.DynamicLibrary.open('user32.dll');
+  final child = await _nativeFlutterView(user);
   final getCursor = user
       .lookupFunction<
         ffi.Int32 Function(ffi.Pointer<ffi.Int32>),
@@ -52,11 +74,7 @@ Future<void> withNativeMotionMouse(
         ffi.Int32 Function(ffi.IntPtr, ffi.Pointer<ffi.Int32>),
         int Function(int, ffi.Pointer<ffi.Int32>)
       >('ClientToScreen');
-  final post = user
-      .lookupFunction<
-        ffi.Int32 Function(ffi.IntPtr, ffi.Uint32, ffi.UintPtr, ffi.IntPtr),
-        int Function(int, int, int, int)
-      >('PostMessageW');
+  final post = _postWindowMessage(user);
   final original = calloc<ffi.Int32>(2);
   final point = calloc<ffi.Int32>(2);
   final previous = tester.binding.shouldPropagateDevicePointerEvents;

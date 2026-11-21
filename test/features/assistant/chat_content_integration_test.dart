@@ -10,6 +10,7 @@ import 'package:lilygobox/features/assistant/data/agent_package.dart';
 import 'package:lilygobox/features/assistant/data/conversation_codec.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_content_window.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/chat_history_scrollbar.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_history_selection.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_history_window.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/code_block.dart';
@@ -458,6 +459,75 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('history thumb reaches the track top on the first page', (
+    tester,
+  ) async {
+    final harness = _ChatContentHarness(
+      List.generate(
+        10000,
+        (index) => AiMessage(
+          id: 'top-$index',
+          role: 'assistant',
+          content: 'TOP-$index ${'A short line. ' * 8}',
+        ),
+      ),
+    )..scrollbar = true;
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      harness.dispose();
+    });
+    await tester.pumpWidget(harness.build());
+    await tester.pumpAndSettle();
+    tester
+        .widget<ChatHistoryScrollbar>(find.byType(ChatHistoryScrollbar))
+        .seek(0, true);
+    await tester.pumpAndSettle();
+    final logical = tester
+        .widget<Scrollbar>(find.byType(Scrollbar))
+        .controller!;
+    expect(harness.history.currentState!.hasEarlier, isFalse);
+    expect(logical.offset, closeTo(0, .01));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('history thumb reaches the top with long message bodies', (
+    tester,
+  ) async {
+    final body = List.generate(120, _paragraph).join('\n\n');
+    final harness = _ChatContentHarness(
+      List.generate(
+        12,
+        (index) =>
+            AiMessage(id: 'long-top-$index', role: 'assistant', content: body),
+      ),
+    )..scrollbar = true;
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      harness.dispose();
+    });
+    await tester.pumpWidget(harness.build());
+    await tester.pumpAndSettle();
+    final viewport = tester.getRect(find.byKey(_viewportKey));
+    final logical = tester
+        .widget<Scrollbar>(find.byType(Scrollbar))
+        .controller!;
+    final gesture = await tester.startGesture(
+      Offset(viewport.right - 4, viewport.bottom - 18),
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.moveBy(Offset(0, -viewport.height * 2));
+    await tester.pumpAndSettle();
+    expect(logical.offset, closeTo(0, .01));
+    expect(
+      find.textContaining('PARA-0000', findRichText: true),
+      findsOneWidget,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(logical.offset, closeTo(0, .01));
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'short and paged histories follow the same continuous wheel trajectory',

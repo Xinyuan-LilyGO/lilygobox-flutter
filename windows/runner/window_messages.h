@@ -17,6 +17,7 @@ enum : UINT {
   kMenuHostPrepared,
   kBeginReaderMode,
   kPrepareMenuMessage,
+  kShowAfterFirstFrame,
 };
 }  // namespace messages
 }  // namespace lilygobox

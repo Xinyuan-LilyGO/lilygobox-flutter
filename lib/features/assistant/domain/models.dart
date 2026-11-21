@@ -189,6 +189,7 @@ enum AiProblem {
   busy,
   invalidResponse,
   request,
+  contextCompaction,
   timeout,
   imageUnsupported,
 }
@@ -251,6 +252,7 @@ class AiMessage {
     required this.id,
     required this.role,
     required this.content,
+    this.continuesReply = false,
     this.createdAt,
     this.finishedAt,
     this.toolName,
@@ -271,6 +273,7 @@ class AiMessage {
   final String id;
   final String role;
   final String content;
+  final bool continuesReply;
   final DateTime? createdAt;
   final DateTime? finishedAt;
   final String? toolName;
@@ -309,6 +312,7 @@ class AiMessage {
     createdAt: createdAt ?? this.createdAt,
     finishedAt: clearFinishedAt ? null : finishedAt ?? this.finishedAt,
     content: content ?? this.content,
+    continuesReply: continuesReply,
     toolName: toolName,
     toolArguments: toolArguments,
     toolDecision: toolDecision ?? this.toolDecision,

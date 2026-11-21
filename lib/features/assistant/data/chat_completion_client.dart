@@ -12,10 +12,16 @@ import '../domain/reasoning.dart';
 import 'reasoning_text_filter.dart';
 
 class AiRequestException implements Exception {
-  const AiRequestException(this.message, {this.statusCode, this.retryAfter});
+  const AiRequestException(
+    this.message, {
+    this.statusCode,
+    this.retryAfter,
+    this.code,
+  });
   final String message;
   final int? statusCode;
   final Duration? retryAfter;
+  final String? code;
 
   @override
   String toString() => message;
@@ -73,9 +79,14 @@ class ChatCompletionClient {
     var cancelled = false;
     var finished = false;
     unawaited(
-      abortTrigger?.then((_) {
-        if (!finished) cancelled = true;
-      }),
+      abortTrigger?.then<void>(
+        (_) {
+          if (!finished) cancelled = true;
+        },
+        onError: (Object _, StackTrace _) {
+          if (!finished) cancelled = true;
+        },
+      ),
     );
     final uri = Uri.parse(configuration.baseUrl);
     try {
@@ -283,6 +294,9 @@ class ChatCompletionClient {
           error is Map
               ? error['message']?.toString() ?? 'Invalid stream response'
               : decoded['message']?.toString() ?? 'Invalid stream response',
+          code: error is Map
+              ? error['code']?.toString()
+              : decoded['code']?.toString(),
         );
       }
       if (responses) {
@@ -315,6 +329,8 @@ class ChatCompletionClient {
           markOutput();
           onStatus?.call(AiResponseStatus.preparingTools);
         } else if (type == 'response.failed' || type == 'response.incomplete') {
+          final response = decoded['response'];
+          if (response is Map) _checkResponsesFailure(response);
           throw const AiConfigurationException(AiProblem.invalidResponse);
         }
         return;
@@ -368,11 +384,16 @@ class ChatCompletionClient {
     _failResponse = fail;
     var reading = true;
     unawaited(
-      abortTrigger?.then((_) {
-        if (reading) {
-          fail(http.RequestAbortedException(uri), StackTrace.current);
-        }
-      }),
+      abortTrigger?.then<void>(
+        (_) {
+          if (reading) {
+            fail(http.RequestAbortedException(uri), StackTrace.current);
+          }
+        },
+        onError: (Object error, StackTrace stack) {
+          if (reading) fail(error, stack);
+        },
+      ),
     );
     var lineTail = '';
     _responseSubscription = response.stream
@@ -442,9 +463,14 @@ class ChatCompletionClient {
         throw _StreamUsageUnsupported(endpoint);
       }
       String? detail;
+      String? code;
       try {
         final error = _decode(body)['error'];
         detail = error is Map ? error['message']?.toString() : null;
+        code = error is Map ? error['code']?.toString() : null;
+        if (code != null && code.isNotEmpty) {
+          detail = detail == null ? code : '$code: $detail';
+        }
       } catch (_) {
         // 非 JSON 网关错误也保留 HTTP 状态，供重试策略判断。
       }
@@ -455,6 +481,7 @@ class ChatCompletionClient {
         retryAfter: retrySeconds == null
             ? null
             : Duration(seconds: retrySeconds.clamp(0, 30)),
+        code: code,
       );
     }
 
@@ -649,7 +676,12 @@ class ChatCompletionClient {
     var abandoned = false;
     final sending = _client.send(request).then((response) {
       if (abandoned) {
-        unawaited(response.stream.listen(null).cancel());
+        unawaited(
+          response.stream
+              .listen(null)
+              .cancel()
+              .catchError((Object _, StackTrace _) {}),
+        );
         throw http.RequestAbortedException(request.url);
       }
       return response;
@@ -686,9 +718,18 @@ class ChatCompletionClient {
 
   Future<void> close() async {
     _responseTimeout?.cancel();
-    _failResponse?.call(http.RequestAbortedException(), StackTrace.current);
+    _responseTimeout = null;
+    final failResponse = _failResponse;
+    _failResponse = null;
+    failResponse?.call(http.RequestAbortedException(), StackTrace.current);
     if (_ownsTransport) _client.close();
-    await _responseSubscription?.cancel();
+    final subscription = _responseSubscription;
+    _responseSubscription = null;
+    try {
+      await subscription?.cancel();
+    } catch (_) {
+      // Closing a response stream is best-effort during provider disposal.
+    }
   }
 
   Map<String, dynamic> _decode(String body) {
@@ -786,7 +827,17 @@ class ChatCompletionClient {
     };
   }
 
+  void _checkResponsesFailure(Map response) {
+    if (response['error'] case final Map error) {
+      final code = error['code']?.toString();
+      final message = error['message']?.toString() ?? code;
+      if (message != null) throw AiRequestException(message, code: code);
+      throw const AiConfigurationException(AiProblem.invalidResponse);
+    }
+  }
+
   AiCompletion _parseResponses(Map<String, dynamic> decoded) {
+    _checkResponsesFailure(decoded);
     final text = StringBuffer();
     final reasoning = StringBuffer();
     final calls = <AiToolCall>[];
@@ -852,16 +903,26 @@ class ChatCompletionClient {
 
     final hit = tokens(raw['prompt_cache_hit_tokens']);
     final miss = tokens(raw['prompt_cache_miss_tokens']);
-    final input = tokens(raw[responses ? 'input_tokens' : 'prompt_tokens']) ??
+    final input =
+        tokens(raw[responses ? 'input_tokens' : 'prompt_tokens']) ??
         tokens(raw[responses ? 'prompt_tokens' : 'input_tokens']) ??
         (hit != null && miss != null ? hit + miss : null);
-    int? cachedIn(Object? details) => details is Map ? tokens(details['cached_tokens']) : null;
+    int? cachedIn(Object? details) =>
+        details is Map ? tokens(details['cached_tokens']) : null;
     final cached = responses
-        ? cachedIn(raw['input_tokens_details']) ?? hit ?? cachedIn(raw['prompt_tokens_details'])
-        : hit ?? cachedIn(raw['prompt_tokens_details']) ?? cachedIn(raw['input_tokens_details']);
+        ? cachedIn(raw['input_tokens_details']) ??
+              hit ??
+              cachedIn(raw['prompt_tokens_details'])
+        : hit ??
+              cachedIn(raw['prompt_tokens_details']) ??
+              cachedIn(raw['input_tokens_details']);
     final output = tokens(raw['output_tokens'] ?? raw['completion_tokens']);
     if (input == null && cached == null && output == null) return null;
-    return AiTokenUsage(inputTokens: input, outputTokens: output, cachedTokens: cached);
+    return AiTokenUsage(
+      inputTokens: input,
+      outputTokens: output,
+      cachedTokens: cached,
+    );
   }
 }
 

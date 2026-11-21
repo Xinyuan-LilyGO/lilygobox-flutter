@@ -27,6 +27,8 @@ class FlutterWindow : public Win32Window {
                          LPARAM const lparam) noexcept override;
 
  private:
+  void CleanupAfterReader();
+
   // The project to run.
   flutter::DartProject project_;
 
@@ -38,6 +40,11 @@ class FlutterWindow : public Win32Window {
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> layout_channel_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> focus_channel_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> image_clipboard_channel_;
+  bool destroying_ = false;
+  bool cleanup_done_ = false;
+  bool close_after_reader_ = false;
+  bool destroy_after_reader_ = false;
+  bool startup_show_pending_ = false;
   bool layout_notification_pending_ = false;
   bool interactive_move_ = false;
   bool interactive_resize_ = false;

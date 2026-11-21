@@ -64,21 +64,37 @@ class ChatHistoryWindowState extends State<ChatHistoryWindow> {
 
   double _logicalScrollFraction() {
     if (!widget.controller.hasClients ||
+        widget.controller.positions.length != 1 ||
         _geometry.isEmpty ||
         widget.messages.isEmpty) {
       return 0;
     }
     final position = widget.controller.position;
-    if (position.extentAfter <= 0 && !hasLater) return 1;
-    if (position.extentBefore <= 0 && !hasEarlier) return 0;
+    if (!position.hasPixels ||
+        !position.hasViewportDimension ||
+        !position.hasContentDimensions) {
+      return 0;
+    }
+    if (position.pixels <= position.minScrollExtent + 1 &&
+        _start == 0 &&
+        !_content.hasEarlierFor(widget.messages.first.id)) {
+      return 0;
+    }
+    if (position.extentAfter <= 1 &&
+        _end == widget.messages.length &&
+        !_content.hasLaterFor(widget.messages.last.id)) {
+      return 1;
+    }
     final center = position.pixels + position.viewportDimension / 2 - 16;
     final entry = _geometry.firstWhere(
       (entry) => entry.bottom > center,
       orElse: () => _geometry.last,
     );
     final index = entry.index;
+    if (index < 0 || index >= widget.messages.length) return 0;
+    final messageId = widget.messages[index].id;
     final within =
-        _content.messageFraction(widget.messages[index].id) ??
+        _content.messageFraction(messageId) ??
         ((center - entry.top) / math.max(1, entry.bottom - entry.top)).clamp(
           0.0,
           1.0,
@@ -88,6 +104,11 @@ class ChatHistoryWindowState extends State<ChatHistoryWindow> {
 
   void _seek(double fraction, bool logicalNavigation) {
     if (widget.messages.isEmpty) return;
+    if (!widget.controller.hasClients ||
+        widget.controller.positions.length != 1 ||
+        !widget.controller.position.hasPixels) {
+      return;
+    }
     if (!logicalNavigation) {
       final position = widget.controller.position;
       widget.controller.jumpTo(fraction * position.maxScrollExtent);
@@ -118,7 +139,14 @@ class ChatHistoryWindowState extends State<ChatHistoryWindow> {
       if (!mounted ||
           fraction == null ||
           !widget.controller.hasClients ||
+          widget.controller.positions.length != 1 ||
           widget.messages.isEmpty) {
+        return;
+      }
+      final position = widget.controller.position;
+      if (!position.hasPixels ||
+          !position.hasViewportDimension ||
+          !position.hasContentDimensions) {
         return;
       }
       final target = (fraction * widget.messages.length).clamp(
@@ -139,7 +167,6 @@ class ChatHistoryWindowState extends State<ChatHistoryWindow> {
         _scheduleUpdate();
         return;
       }
-      final position = widget.controller.position;
       final bodyOffset = _content.messageOffset(message.id, target - index);
       final offset = bodyOffset == null
           ? 16 +
@@ -281,7 +308,9 @@ class ChatHistoryWindowState extends State<ChatHistoryWindow> {
           historyId != widget.historyId ||
           range.firstId != widget.messages.firstOrNull?.id ||
           range.end > widget.messages.length ||
-          !widget.controller.hasClients) {
+          !widget.controller.hasClients ||
+          widget.controller.positions.length != 1 ||
+          !widget.controller.position.hasPixels) {
         return;
       }
       widget.controller.saveHistoryOffset();
@@ -291,7 +320,11 @@ class ChatHistoryWindowState extends State<ChatHistoryWindow> {
   }
 
   void _rememberAnchor() {
-    if (_anchor != null || !widget.controller.hasClients || _geometry.isEmpty) {
+    if (_anchor != null ||
+        !widget.controller.hasClients ||
+        widget.controller.positions.length != 1 ||
+        !widget.controller.position.hasPixels ||
+        _geometry.isEmpty) {
       return;
     }
     final top = widget.controller.offset - 16;
@@ -310,6 +343,7 @@ class ChatHistoryWindowState extends State<ChatHistoryWindow> {
     if (_anchor case final anchor?) {
       _anchor = null;
       for (final entry in geometry) {
+        if (entry.index < 0 || entry.index >= widget.messages.length) continue;
         if (widget.messages[entry.index].id == anchor.$1) {
           final correction = entry.top - anchor.$2;
           if (correction != 0 && widget.controller.hasClients) {
@@ -334,8 +368,11 @@ class ChatHistoryWindowState extends State<ChatHistoryWindow> {
           _trackPointers.isNotEmpty) {
         return;
       }
+      if (widget.controller.positions.length != 1) return;
       final position = widget.controller.position;
-      if (!position.hasContentDimensions || !position.hasViewportDimension) {
+      if (!position.hasPixels ||
+          !position.hasContentDimensions ||
+          !position.hasViewportDimension) {
         return;
       }
       if (_pendingTail) {

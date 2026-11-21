@@ -82,18 +82,29 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 30));
       expect(task.assistant.messages.last.content, 'First');
       final baseline = notifications;
+      final expected = 'First${' delta' * 10}';
+      final rendered = Completer<void>();
+      void checkRendered() {
+        if (!rendered.isCompleted &&
+            task.assistant.messages.last.content == expected) {
+          rendered.complete();
+        }
+      }
+
+      task.assistant.addListener(checkRendered);
+      addTearDown(() => task.assistant.removeListener(checkRendered));
       for (var index = 0; index < 10; index++) {
         emit(' delta');
         await Future<void>.delayed(const Duration(milliseconds: 2));
       }
-      expect(task.assistant.messages.last.content, 'First${' delta' * 10}');
+      await rendered.future.timeout(const Duration(seconds: 2));
       expect(notifications, baseline);
       stream.add(utf8.encode('data: [DONE]\n\n'));
       await stream.close();
       await sending;
       expect(task.status, 'completed');
       expect(notifications, greaterThan(baseline));
-      expect(task.result, 'First${' delta' * 10}');
+      expect(task.result, expected);
     },
   );
 }

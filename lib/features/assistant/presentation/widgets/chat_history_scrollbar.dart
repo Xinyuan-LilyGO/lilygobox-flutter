@@ -60,6 +60,8 @@ class _ChatHistoryScrollbarState extends State<ChatHistoryScrollbar> {
   void _detachPosition() {
     final position = _position;
     if (position == null) return;
+    position.removeListener(_seek);
+    position.isScrollingNotifier.removeListener(_scheduleSync);
     _controller.detach(position);
     position.dispose();
     _position = null;
@@ -70,9 +72,17 @@ class _ChatHistoryScrollbarState extends State<ChatHistoryScrollbar> {
     _scheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scheduled = false;
-      if (!mounted || !widget.controller.hasClients) return;
+      if (!mounted ||
+          !widget.controller.hasClients ||
+          widget.controller.positions.length != 1) {
+        return;
+      }
       final source = widget.controller.position;
-      if (!source.hasContentDimensions || !source.hasViewportDimension) return;
+      if (!source.hasPixels ||
+          !source.hasContentDimensions ||
+          !source.hasViewportDimension) {
+        return;
+      }
       var position = _position;
       if (position == null || !identical(position.source, source)) {
         _detachPosition();
@@ -129,7 +139,15 @@ class _ChatHistoryScrollbarState extends State<ChatHistoryScrollbar> {
 
   void _seek() {
     final position = _position;
-    if (_synchronizing || position == null || position.maxScrollExtent <= 0) {
+    if (!mounted ||
+        _synchronizing ||
+        position == null ||
+        !_controller.hasClients ||
+        !widget.controller.hasClients ||
+        widget.controller.positions.length != 1 ||
+        !position.hasContentDimensions ||
+        !position.hasPixels ||
+        position.maxScrollExtent <= 0) {
       return;
     }
     final fraction = (position.pixels / position.maxScrollExtent).clamp(
@@ -138,8 +156,10 @@ class _ChatHistoryScrollbarState extends State<ChatHistoryScrollbar> {
     );
     final delta = fraction - _fraction;
     _fraction = fraction;
+    final source = widget.controller.position;
+    if (!source.hasPixels) return;
     AppUserScrollNotification(
-      position: widget.controller.position,
+      position: source,
       delta: delta,
     ).dispatch(context);
     widget.seek(fraction, _logicalNavigation);

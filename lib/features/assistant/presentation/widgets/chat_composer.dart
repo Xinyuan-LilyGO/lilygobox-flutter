@@ -759,9 +759,11 @@ class _ComposerMetricState extends State<_ComposerMetric> {
         : percentText;
     final busy = widget.busyHint != null;
     final semanticLabel = busy ? widget.label : '${widget.label}: $reading';
-    final trigger = RawMenuAnchor(
+    final detailsAnchor = RawMenuAnchor(
       controller: _detailsMenu,
-      onOpen: () => setState(() => _openRevision++),
+      onOpen: () {
+        if (mounted) setState(() => _openRevision++);
+      },
       overlayBuilder: (context, info) {
         const inset = 8.0;
         final size = info.overlaySize;
@@ -883,6 +885,11 @@ class _ComposerMetricState extends State<_ComposerMetric> {
           ),
         ),
       ),
+    );
+    final trigger = Semantics(
+      container: true,
+      explicitChildNodes: true,
+      child: detailsAnchor,
     );
     final menuItems = widget.contextMenuItems;
     if (menuItems == null) return trigger;

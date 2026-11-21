@@ -209,6 +209,9 @@ class _ChatMessageBodyState extends State<ChatMessageBody> {
       return ChatMarkdownBody(
         markdown,
         storageId: ('chat-markdown', message.id),
+        streaming:
+            message.status == AiResponseStatus.thinking ||
+            message.status == AiResponseStatus.streaming,
       );
     }
     return markdown;
@@ -268,32 +271,37 @@ class _ChatUserTextState extends State<_ChatUserText> {
 }
 
 class ChatMarkdownBody extends MarkdownBody {
-  ChatMarkdownBody(MarkdownBody body, {super.key, this.storageId})
-    : super(
-        data: body.data,
-        selectable: body.selectable,
-        builders: body.builders,
-        onTapLink: body.onTapLink,
-        styleSheet: body.styleSheet,
-        blockSyntaxes: body.blockSyntaxes,
-        inlineSyntaxes: body.inlineSyntaxes,
-        extensionSet: body.extensionSet,
-        syntaxHighlighter: body.syntaxHighlighter,
-        onSelectionChanged: body.onSelectionChanged,
-        onTapText: body.onTapText,
-        contextMenuBuilder: body.contextMenuBuilder,
-        imageDirectory: body.imageDirectory,
-        imageBuilder: body.imageBuilder,
-        checkboxBuilder: body.checkboxBuilder,
-        bulletBuilder: body.bulletBuilder,
-        paddingBuilders: body.paddingBuilders,
-        listItemCrossAxisAlignment: body.listItemCrossAxisAlignment,
-        shrinkWrap: body.shrinkWrap,
-        fitContent: body.fitContent,
-        softLineBreak: body.softLineBreak,
-      );
+  ChatMarkdownBody(
+    MarkdownBody body, {
+    super.key,
+    this.storageId,
+    this.streaming = false,
+  }) : super(
+         data: body.data,
+         selectable: body.selectable,
+         builders: body.builders,
+         onTapLink: body.onTapLink,
+         styleSheet: body.styleSheet,
+         blockSyntaxes: body.blockSyntaxes,
+         inlineSyntaxes: body.inlineSyntaxes,
+         extensionSet: body.extensionSet,
+         syntaxHighlighter: body.syntaxHighlighter,
+         onSelectionChanged: body.onSelectionChanged,
+         onTapText: body.onTapText,
+         contextMenuBuilder: body.contextMenuBuilder,
+         imageDirectory: body.imageDirectory,
+         imageBuilder: body.imageBuilder,
+         checkboxBuilder: body.checkboxBuilder,
+         bulletBuilder: body.bulletBuilder,
+         paddingBuilders: body.paddingBuilders,
+         listItemCrossAxisAlignment: body.listItemCrossAxisAlignment,
+         shrinkWrap: body.shrinkWrap,
+         fitContent: body.fitContent,
+         softLineBreak: body.softLineBreak,
+       );
 
   final Object? storageId;
+  final bool streaming;
 
   static const _blocksPerGroup = 8;
 
@@ -337,6 +345,9 @@ class _ChatMarkdownBodyState extends State<ChatMarkdownBody>
   bool _windowed = false;
   bool _needsBlockWindow = false;
   final _fallbackStorageId = Object();
+  Timer? _streamParseTimer;
+  bool _active = true;
+  bool _streamParsePending = false;
 
   @override
   void didChangeDependencies() {
@@ -349,12 +360,34 @@ class _ChatMarkdownBodyState extends State<ChatMarkdownBody>
   @override
   void didUpdateWidget(ChatMarkdownBody oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.data != oldWidget.data ||
+    final dataChanged = widget.data != oldWidget.data;
+    final syntaxChanged =
         !listEquals(widget.blockSyntaxes, oldWidget.blockSyntaxes) ||
         !listEquals(widget.inlineSyntaxes, oldWidget.inlineSyntaxes) ||
-        widget.extensionSet != oldWidget.extensionSet) {
-      _nodes = null;
-      _segments = const [];
+        widget.extensionSet != oldWidget.extensionSet;
+    if (dataChanged && widget.streaming && oldWidget.streaming) {
+      // Crossing the windowing threshold must be applied in this frame so a
+      // reader keeps the existing anchor instead of briefly losing its
+      // virtualized content window.
+      if (oldWidget.data.length < 2048 && widget.data.length >= 2048) {
+        _streamParseTimer?.cancel();
+        _streamParseTimer = null;
+        _nodes = null;
+        _segments = const [];
+        _buildMarkdown(force: true);
+      } else {
+        _scheduleStreamingParse();
+      }
+    } else {
+      _streamParseTimer?.cancel();
+      _streamParseTimer = null;
+      _streamParsePending = false;
+      if (dataChanged ||
+          widget.streaming != oldWidget.streaming ||
+          syntaxChanged) {
+        _nodes = null;
+        _segments = const [];
+      }
     }
     if (_nodes == null ||
         widget.styleSheet != oldWidget.styleSheet ||
@@ -377,6 +410,30 @@ class _ChatMarkdownBodyState extends State<ChatMarkdownBody>
     }
   }
 
+  void _scheduleStreamingParse() {
+    if (!_active) {
+      _streamParsePending = true;
+      return;
+    }
+    if (_streamParseTimer != null) return;
+    final delay = widget.data.length >= 32768
+        ? const Duration(milliseconds: 200)
+        : widget.data.length >= 8192
+        ? const Duration(milliseconds: 100)
+        : const Duration(milliseconds: 50);
+    _streamParseTimer = Timer(delay, () {
+      _streamParseTimer = null;
+      if (!mounted || !_active || !widget.streaming) {
+        _streamParsePending = !_active && widget.streaming;
+        return;
+      }
+      _nodes = null;
+      _segments = const [];
+      _buildMarkdown(force: true);
+      setState(() {});
+    });
+  }
+
   void _buildMarkdown({bool force = false}) {
     final styleSheet = _markdownDefaults(context).merge(widget.styleSheet);
     if (!force &&
@@ -386,12 +443,21 @@ class _ChatMarkdownBodyState extends State<ChatMarkdownBody>
       return;
     }
     if (_nodes == null) {
-      final nodes = md.Document(
-        blockSyntaxes: widget.blockSyntaxes,
-        inlineSyntaxes: widget.inlineSyntaxes,
-        extensionSet: widget.extensionSet ?? md.ExtensionSet.gitHubFlavored,
-        encodeHtml: false,
-      ).parseLines(const LineSplitter().convert(widget.data));
+      late final List<md.Node> nodes;
+      try {
+        nodes = md.Document(
+          blockSyntaxes: widget.blockSyntaxes,
+          inlineSyntaxes: widget.inlineSyntaxes,
+          extensionSet: widget.extensionSet ?? md.ExtensionSet.gitHubFlavored,
+          encodeHtml: false,
+        ).parseLines(const LineSplitter().convert(widget.data));
+      } catch (_) {
+        // A partial stream must remain renderable even when a third-party
+        // Markdown extension rejects an incomplete document.
+        nodes = [
+          md.Element('p', [md.Text(widget.data)]),
+        ];
+      }
       _nodes = nodes;
       _needsBlockWindow =
           widget.data.length >= 2048 ||
@@ -477,7 +543,29 @@ class _ChatMarkdownBodyState extends State<ChatMarkdownBody>
   }
 
   @override
+  void deactivate() {
+    _active = false;
+    _streamParsePending =
+        _streamParsePending || (_streamParseTimer != null && widget.streaming);
+    _streamParseTimer?.cancel();
+    _streamParseTimer = null;
+    super.deactivate();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _active = true;
+    if (_streamParsePending) {
+      _streamParsePending = false;
+      if (widget.streaming) _scheduleStreamingParse();
+    }
+  }
+
+  @override
   void dispose() {
+    _active = false;
+    _streamParseTimer?.cancel();
     _disposeRecognizers();
     super.dispose();
   }
@@ -634,6 +722,7 @@ class _ChatMarkdownSegmentState extends State<_ChatMarkdownSegment>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _disposeRecognizers();
     _children = null;
   }
 
@@ -644,6 +733,7 @@ class _ChatMarkdownSegmentState extends State<_ChatMarkdownSegment>
         widget.styleSheet != oldWidget.styleSheet ||
         widget.codeIndex != oldWidget.codeIndex ||
         !identical(widget.body, oldWidget.body)) {
+      _disposeRecognizers();
       _children = null;
     }
   }

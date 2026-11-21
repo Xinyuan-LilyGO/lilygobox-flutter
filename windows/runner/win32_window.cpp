@@ -91,7 +91,6 @@ const wchar_t* WindowClassRegistrar::GetWindowClass() {
     WNDCLASS window_class{};
     window_class.hCursor = LoadCursor(nullptr, IDC_ARROW);
     window_class.lpszClassName = kWindowClassName;
-    window_class.style = CS_HREDRAW | CS_VREDRAW;
     window_class.cbClsExtra = 0;
     window_class.cbWndExtra = 0;
     window_class.hInstance = GetModuleHandle(nullptr);
@@ -123,7 +122,9 @@ Win32Window::~Win32Window() {
 bool Win32Window::Create(const std::wstring& title,
                          const Point& origin,
                          const Size& size) {
-  Destroy();
+  if (window_handle_) {
+    Destroy();
+  }
 
   const wchar_t* window_class =
       WindowClassRegistrar::GetInstance()->GetWindowClass();
@@ -181,6 +182,7 @@ Win32Window::MessageHandler(HWND hwnd,
   switch (message) {
     case WM_DESTROY:
       window_handle_ = nullptr;
+      child_content_ = nullptr;
       Destroy();
       if (quit_on_close_) {
         PostQuitMessage(0);
@@ -197,6 +199,10 @@ Win32Window::MessageHandler(HWND hwnd,
 
       return 0;
     }
+    case WM_ERASEBKGND:
+      if (child_content_ != nullptr) return TRUE;
+      break;
+
     case WM_SIZE: {
       // 最小化窗口可能报告图标大小的客户区，此时保留 Flutter 渲染表面
       // 直到窗口恢复，避免按该尺寸重新布局应用。
@@ -205,8 +211,8 @@ Win32Window::MessageHandler(HWND hwnd,
       const LONG width = rect.right - rect.left;
       const LONG height = rect.bottom - rect.top;
       if (child_content_ != nullptr && width > 0 && height > 0) {
-        // Size and position the child window.
-        MoveWindow(child_content_, rect.left, rect.top, width, height, TRUE);
+        SetWindowPos(child_content_, nullptr, rect.left, rect.top, width,
+                     height, SWP_NOZORDER | SWP_NOACTIVATE);
       }
       return 0;
     }

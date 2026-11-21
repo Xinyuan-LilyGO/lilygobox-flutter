@@ -52,7 +52,12 @@ class AssistantPage extends StatefulWidget {
 
 class _AssistantPageState extends State<AssistantPage> {
   final _input = TextEditingController();
-  final _scroll = ConversationScrollController();
+  late final _scroll = ConversationScrollController(
+    pinToLatest: () =>
+        _initialScrollPositionApplied &&
+        _followLatest &&
+        !(_scrollToEndPending && _animateScrollToEnd),
+  );
   final _inputFocus = FocusNode();
   final _conversationSelectionFocus = FocusNode(skipTraversal: true);
   final _inputScroll = ScrollController();
@@ -63,6 +68,8 @@ class _AssistantPageState extends State<AssistantPage> {
   bool _followLatest = true;
   bool _initialScrollPositionApplied = false;
   bool _scrollToEndPending = false;
+  bool _animateScrollToEnd = false;
+  bool _latestButtonUpdatePending = false;
   int _scrollToEndVersion = 0;
   List<AiImageAttachment> _attachments = const [];
   final _messageViews = <String, (AiMessage, AppTheme, Widget)>{};
@@ -105,7 +112,16 @@ class _AssistantPageState extends State<AssistantPage> {
     final show =
         _scroll.position.extentAfter > 120 ||
         (_historyWindow.currentState?.hasLater ?? false);
-    if (show != _showLatest) setState(() => _showLatest = show);
+    if (show == _showLatest || _latestButtonUpdatePending) return;
+    _latestButtonUpdatePending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _latestButtonUpdatePending = false;
+      if (!mounted || !_scroll.hasClients) return;
+      final latest =
+          _scroll.position.extentAfter > 120 ||
+          (_historyWindow.currentState?.hasLater ?? false);
+      if (latest != _showLatest) setState(() => _showLatest = latest);
+    });
   }
 
   bool _handleScrollNotification(Notification notification) {
@@ -139,8 +155,6 @@ class _AssistantPageState extends State<AssistantPage> {
             notification.direction == ScrollDirection.forward) ||
         (notification is ScrollUpdateNotification &&
             (notification.scrollDelta ?? 0) < 0)) {
-      // 公共滚轮使用程序位移，不一定发送 UserScrollNotification。
-      // 向上位移同样表示退出跟随，同时作废旧动画后等待布局的回底部任务。
       _followLatest = false;
       _scrollToEndVersion++;
       _scrollToEndPending = false;
@@ -158,9 +172,6 @@ class _AssistantPageState extends State<AssistantPage> {
             !(_historyWindow.currentState?.hasLater ?? false);
       }
       _updateLatestButton();
-      if (_followLatest && notification.metrics.extentAfter > 1) {
-        _scrollToEnd();
-      }
     }
     return false;
   }
@@ -213,17 +224,27 @@ class _AssistantPageState extends State<AssistantPage> {
       _inputFocus.unfocus();
     }
     _scrollToEnd(force: true);
-    await request;
+    try {
+      await request;
+    } catch (_) {
+      if (mounted) {
+        showAppNotice(
+          ScaffoldMessenger.of(context),
+          context.l10n.aiRequestFailed,
+        );
+      }
+    }
     if (_followLatest) _scrollToEnd();
   }
 
-  void _scrollToEnd({bool force = false}) {
+  void _scrollToEnd({bool force = false, bool animate = false}) {
     if (force) {
       _followLatest = true;
       _historyWindow.currentState?.showLatest();
     }
     if (!_followLatest || _scrollToEndPending) return;
     _scrollToEndPending = true;
+    _animateScrollToEnd = animate && !MediaQuery.disableAnimationsOf(context);
     final version = ++_scrollToEndVersion;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
@@ -233,12 +254,14 @@ class _AssistantPageState extends State<AssistantPage> {
           if (!mounted ||
               !_scroll.hasClients ||
               !_followLatest ||
-              version != _scrollToEndVersion) {
+              version != _scrollToEndVersion ||
+              !_scroll.position.hasContentDimensions ||
+              !_scroll.position.hasViewportDimension) {
             return;
           }
           final target = _scroll.position.maxScrollExtent;
           if (_scroll.position.extentAfter <= 1) return;
-          if (MediaQuery.disableAnimationsOf(context)) {
+          if (!_animateScrollToEnd) {
             _scroll.jumpTo(target);
           } else {
             await _scroll.animateTo(
@@ -250,7 +273,9 @@ class _AssistantPageState extends State<AssistantPage> {
           if (!mounted ||
               !_scroll.hasClients ||
               !_followLatest ||
-              version != _scrollToEndVersion) {
+              version != _scrollToEndVersion ||
+              !_scroll.position.hasContentDimensions ||
+              !_scroll.position.hasViewportDimension) {
             return;
           }
           await WidgetsBinding.instance.endOfFrame;
@@ -282,6 +307,7 @@ class _AssistantPageState extends State<AssistantPage> {
       (workspaces) => active ? workspaces?.runningCount ?? 0 : -1,
     );
     final messages = assistant.messages;
+    final deferredReplyId = assistant.deferredReplyId;
     final l10n = context.l10n;
     final ready = assistant.credentialLoaded && assistant.hasApiKey;
 
@@ -341,7 +367,9 @@ class _AssistantPageState extends State<AssistantPage> {
                                       false,
                                   onContentRangeChanged: _updateLatestButton,
                                   itemBuilder: (message) =>
-                                      _messageView(message, theme),
+                                      message.id == deferredReplyId
+                                      ? const SizedBox.shrink()
+                                      : _messageView(message, theme),
                                   onRangeChanged: (ids) =>
                                       _messageViews.removeWhere(
                                         (id, _) => !ids.contains(id),
@@ -349,8 +377,7 @@ class _AssistantPageState extends State<AssistantPage> {
                                   viewportBuilder: (context, child) =>
                                       ChatBottomFade(
                                         backgroundColor: theme.secondary,
-                                        topFadeHeight: 64,
-                                        scrollController: _scroll,
+                                        topFadeHeight: chatTopFadeHeight,
                                         child: ScrollConfiguration(
                                           behavior: const AppScrollBehavior(
                                             scrollbars: false,
@@ -362,7 +389,7 @@ class _AssistantPageState extends State<AssistantPage> {
                                             controller: _scroll,
                                             padding: const EdgeInsets.fromLTRB(
                                               24,
-                                              16,
+                                              chatTopFadeHeight,
                                               24,
                                               56,
                                             ),
@@ -457,8 +484,10 @@ class _AssistantPageState extends State<AssistantPage> {
                                               .interactionHoverColor(
                                                 theme.iconBackgroundColor,
                                               ),
-                                          onPressed: () =>
-                                              _scrollToEnd(force: true),
+                                          onPressed: () => _scrollToEnd(
+                                            force: true,
+                                            animate: true,
+                                          ),
                                         ),
                                       ),
                                     )
@@ -684,7 +713,7 @@ class _MessageViewState extends State<_MessageView> {
       AiResponseStatus.stopped => true,
       _ => false,
     };
-    final content = Align(
+    final messageContent = Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Padding(
         padding: const EdgeInsets.only(bottom: 4),
@@ -748,6 +777,11 @@ class _MessageViewState extends State<_MessageView> {
           ),
         ),
       ),
+    );
+    final content = Semantics(
+      container: true,
+      explicitChildNodes: true,
+      child: messageContent,
     );
     if (isUser || (!isCompaction && message.elapsed == null)) {
       return Column(

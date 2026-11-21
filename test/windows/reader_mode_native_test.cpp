@@ -41,7 +41,6 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM key, LPARAM data) 
     distance = distance.load() + change;
     return 0;
   }
-  if (message == WM_TIMER && reader.HandleTimer(key)) return 0;
   if (message == WM_SETCURSOR && LOWORD(data) == HTCLIENT) return TRUE;
   return DefWindowProcW(window, message, key, data);
 }

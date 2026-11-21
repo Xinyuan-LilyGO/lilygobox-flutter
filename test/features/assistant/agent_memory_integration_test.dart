@@ -38,6 +38,7 @@ void main() {
   var replyStatus = 200;
   var reply = 'Done';
   var requestMemoryTool = false;
+  var contextErrorOnce = false;
   var topologyRounds = 0;
   Completer<void>? consolidationGate;
   Completer<void>? consolidationStarted;
@@ -58,6 +59,7 @@ void main() {
     replyStatus = 200;
     reply = 'Done';
     requestMemoryTool = false;
+    contextErrorOnce = false;
     topologyRounds = 0;
     consolidationGate = null;
     consolidationStarted = null;
@@ -80,6 +82,19 @@ void main() {
         if (consolidating) {
           consolidationStarted?.complete();
           await consolidationGate?.future;
+        }
+        if (!consolidating && contextErrorOnce) {
+          contextErrorOnce = false;
+          return http.Response(
+            jsonEncode({
+              'error': {
+                'code': 'context_length_exceeded',
+                'message': 'context window is full',
+              },
+            }),
+            400,
+            headers: {'content-type': 'application/json'},
+          );
         }
         if ((messages.first['content'] as String).startsWith('Summarize')) {
           if (summaryStarted case final started? when !started.isCompleted) {
@@ -1198,7 +1213,11 @@ void main() {
     assistant.restoreWorkspaceConversation({
       ...compactionSnapshot(),
       'contextBudgetTokens': 8192,
-      'messages': [ConversationCodec.message(AiMessage(id: 'first', role: 'user', content: oldText))],
+      'messages': [
+        ConversationCodec.message(
+          AiMessage(id: 'first', role: 'user', content: oldText),
+        ),
+      ],
       'history': [
         {'role': 'user', 'content': oldText},
         {'role': 'assistant', 'content': 'Recorded'},
@@ -1247,9 +1266,10 @@ void main() {
     consolidationGate!.complete();
     await pending;
 
-    final firstSummary = requests.indexWhere((request) =>
-        ((request['messages'] as List).first['content'] as String)
-            .startsWith('Summarize'));
+    final firstSummary = requests.indexWhere(
+      (request) => ((request['messages'] as List).first['content'] as String)
+          .startsWith('Summarize'),
+    );
     expect(firstSummary, 2);
     expect(requests[firstSummary]['model'], 'gpt-6.1-sol');
     expect(assistant.selectedModel, 'new-model');
@@ -1257,17 +1277,27 @@ void main() {
     final response = assistant.messages[assistant.messages.length - 2];
     final record = assistant.messages.last;
     expect(response.content, reply);
-    expect(response.processEvents.where((event) => event.action?.name == 'compact_context'), isEmpty);
+    expect(
+      response.processEvents.where(
+        (event) => event.action?.name == 'compact_context',
+      ),
+      isEmpty,
+    );
     expect(record.role, 'compaction');
     expect(record.toolArguments, {'trigger': 'auto', 'replyId': response.id});
     expect(record.status, AiResponseStatus.completed);
     expect(record.elapsed!.inMicroseconds, greaterThan(0));
     expect(response.elapsed, greaterThanOrEqualTo(record.elapsed!));
     final restored = (await create('Restore auto compaction')).assistant;
-    restored.restoreWorkspaceConversation(assistant.snapshotWorkspaceConversation());
+    restored.restoreWorkspaceConversation(
+      assistant.snapshotWorkspaceConversation(),
+    );
     expect(restored.messages.last.id, record.id);
     expect(restored.messages.last.toolArguments, record.toolArguments);
-    expect(restored.messages.last.processingSteps.single.arguments['outcome'], 'compacted');
+    expect(
+      restored.messages.last.processingSteps.single.arguments['outcome'],
+      'compacted',
+    );
   });
 
   test('failed pre-request summary does not retry at turn end', () async {
@@ -1278,19 +1308,56 @@ void main() {
     summary = '';
     await assistant.sendMessage('Latest question');
 
-    final summaries = requests.where((request) =>
-        ((request['messages'] as List).first['content'] as String)
-            .startsWith('Summarize'));
+    final summaries = requests.where(
+      (request) => ((request['messages'] as List).first['content'] as String)
+          .startsWith('Summarize'),
+    );
     expect(summaries, hasLength(1));
     expect(assistant.messages.last.content, reply);
-    final record = assistant.messages.singleWhere((message) => message.role == 'compaction');
+    final record = assistant.messages.singleWhere(
+      (message) => message.role == 'compaction',
+    );
     expect(record.toolArguments?['replyId'], assistant.messages.last.id);
     expect(record.processingSteps.single.arguments['outcome'], 'unchanged');
     expect(assistant.snapshotWorkspaceConversation()['summary'], isEmpty);
   });
 
-  test('pre-request auto compaction resumes the same reply with its summary', () async {
-    final assistant = (await create('Resume after compaction')).assistant;
+  test(
+    'pre-request auto compaction resumes the same reply with its summary',
+    () async {
+      final assistant = (await create('Resume after compaction')).assistant;
+      assistant.restoreWorkspaceConversation(compactionSnapshot(count: 16));
+      assistant.contextBudgetTokens = 100;
+      assistant.useMemory = false;
+      summaryGate = Completer<void>();
+      summaryStarted = Completer<void>();
+      final pending = assistant.sendMessage('Latest question');
+      await summaryStarted!.future;
+      expect(assistant.messages.map((message) => message.role), [
+        'user',
+        'compaction',
+      ]);
+      summaryGate!.complete();
+      await pending;
+
+      final record = assistant.messages.singleWhere(
+        (message) => message.role == 'compaction',
+      );
+      final response = assistant.messages.last;
+      expect(record.toolArguments?['replyId'], response.id);
+      expect(record.processingSteps.single.arguments['outcome'], 'compacted');
+      expect(response.content, reply);
+      expect(response.createdAt!.isBefore(record.finishedAt!), isFalse);
+      final context = requests.last['messages'] as List;
+      expect(jsonEncode(context), contains(summary));
+      expect(context.last['content'], 'Latest question');
+      expect(context.where((item) => item['role'] == 'compaction'), isEmpty);
+    },
+  );
+
+  test('continuing stopped pre-request compaction reuses its record before replying', () async {
+    final assistant = (await create('Stopped pre-request compaction'))
+        .assistant;
     assistant.restoreWorkspaceConversation(compactionSnapshot(count: 16));
     assistant.contextBudgetTokens = 100;
     assistant.useMemory = false;
@@ -1298,66 +1365,181 @@ void main() {
     summaryStarted = Completer<void>();
     final pending = assistant.sendMessage('Latest question');
     await summaryStarted!.future;
-    expect(assistant.messages.map((message) => message.role), ['user', 'compaction']);
-    summaryGate!.complete();
-    await pending;
-
-    final record = assistant.messages.singleWhere((message) => message.role == 'compaction');
-    final response = assistant.messages.last;
-    expect(record.toolArguments?['replyId'], response.id);
-    expect(record.processingSteps.single.arguments['outcome'], 'compacted');
-    expect(response.content, reply);
-    expect(response.createdAt!.isBefore(record.finishedAt!), isFalse);
-    final context = requests.last['messages'] as List;
-    expect(jsonEncode(context), contains(summary));
-    expect(context.last['content'], 'Latest question');
-    expect(context.where((item) => item['role'] == 'compaction'), isEmpty);
-  });
-
-  test('stopping turn-end compaction keeps the original reply and history', () async {
-    final assistant = (await create('Stop final compaction')).assistant;
-    assistant.restoreWorkspaceConversation(compactionSnapshot(count: 6));
-    assistant.contextBudgetTokens = 2000;
-    assistant.useMemory = false;
-    reply = 'A' * 12000;
-    summaryGate = Completer<void>();
-    summaryStarted = Completer<void>();
-    final pending = assistant.sendMessage('Latest question');
-    await summaryStarted!.future;
-    final started = assistant.messages.last;
-    expect(started.toolArguments?['trigger'], 'auto');
-    expect(started.status, AiResponseStatus.connecting);
     assistant.stopGeneration();
     summaryGate!.complete();
     await pending;
 
-    expect(assistant.messages[assistant.messages.length - 2].content, reply);
-    expect(assistant.messages.last.id, started.id);
-    expect(assistant.messages.last.status, AiResponseStatus.stopped);
-    expect(assistant.snapshotWorkspaceConversation()['summary'], isEmpty);
-    expect(assistant.snapshotWorkspaceConversation()['history'] as List,
-        hasLength(greaterThanOrEqualTo(8)));
+    final cancelled = assistant.messages[1];
+    expect(cancelled.status, AiResponseStatus.stopped);
+    expect(assistant.messages.map((message) => message.role), [
+      'user',
+      'compaction',
+    ]);
+    expect(requests, hasLength(1));
+    summaryGate = Completer<void>();
+    summaryStarted = Completer<void>();
+    final interruptedResume = assistant.continueGeneration();
+    await summaryStarted!.future;
+    expect(assistant.messages[1].id, cancelled.id);
+    assistant.cancelContextCompaction();
+    summaryGate!.complete();
+    await interruptedResume;
+
+    expect(assistant.canContinue, isTrue);
+    expect(assistant.messages[1].status, AiResponseStatus.stopped);
+    expect(assistant.messages, hasLength(2));
+    expect(requests, hasLength(2));
+    await assistant.continueGeneration();
+
+    expect(requests, hasLength(4));
+    expect(assistant.messages.map((message) => message.role), [
+      'user',
+      'compaction',
+      'assistant',
+    ]);
+    expect(assistant.messages[1].id, cancelled.id);
+    expect(assistant.messages[1].status, AiResponseStatus.completed);
+    expect(assistant.messages.last.content, reply);
+    final context = requests.last['messages'] as List;
+    expect(context.last['content'], 'Latest question');
   });
 
-  test('changing live state preserves completed turns as the next request prefix', () async {
-    final root = await create('Stable prefix');
-    final assistant = root.assistant;
-    assistant.useMemory = false;
-    var timer = 1;
-    assistant.workspaceRuntimeContext = () => {'runtimeTick': timer};
-    await assistant.sendMessage('First');
-    timer++;
-    await assistant.sendMessage('Second');
-    timer++;
-    await assistant.sendMessage('Third');
-    final previous = requests[requests.length - 2]['messages'] as List;
-    final next = requests.last['messages'] as List;
-    final volatileAt = previous.indexWhere((item) => (item['content'] as String?).toString().contains('runtimeTick'));
-    expect(volatileAt, greaterThan(1));
-    expect(next.take(volatileAt), previous.take(volatileAt));
-    expect(jsonEncode(next), contains('runtimeTick\\\":3'));
-    expect(next.last['content'], 'Third');
-  });
+  test(
+    'stopping context limit recovery preserves the reply request record',
+    () async {
+      final assistant = (await create('Stop context limit recovery')).assistant;
+      assistant.restoreWorkspaceConversation(compactionSnapshot(count: 6));
+      assistant.contextBudgetTokens = 100000;
+      assistant.useMemory = false;
+      contextErrorOnce = true;
+      summaryGate = Completer<void>();
+      summaryStarted = Completer<void>();
+      final pending = assistant.sendMessage('Latest question');
+      await summaryStarted!.future;
+      final reply = assistant.messages.last;
+      expect(reply.role, 'assistant');
+      expect(requests, hasLength(2));
+
+      assistant.stopGeneration();
+      summaryGate!.complete();
+      await pending;
+
+      expect(assistant.messages.last.id, reply.id);
+      expect(assistant.messages.last.status, AiResponseStatus.stopped);
+      expect(assistant.canContinue, isTrue);
+    },
+  );
+
+  test(
+    'context limit before output compacts once and resumes the same turn',
+    () async {
+      final assistant = (await create('Recover context error')).assistant;
+      assistant.restoreWorkspaceConversation(compactionSnapshot(count: 6));
+      assistant.contextBudgetTokens = 100000;
+      assistant.useMemory = false;
+      contextErrorOnce = true;
+      await assistant.sendMessage('Latest question');
+
+      expect(assistant.messages.map((message) => message.role), [
+        'user',
+        'compaction',
+        'assistant',
+      ]);
+      expect(assistant.messages.last.content, reply);
+      expect(
+        requests.where(
+          (request) =>
+              ((request['messages'] as List).first['content'] as String)
+                  .startsWith('Summarize'),
+        ),
+        hasLength(1),
+      );
+      final record = assistant.messages.singleWhere(
+        (message) => message.role == 'compaction',
+      );
+      expect(record.toolArguments?['trigger'], 'auto');
+      expect(record.processingSteps.single.arguments['outcome'], 'compacted');
+    },
+  );
+
+  test(
+    'continuing stopped turn-end compaction does not request another reply',
+    () async {
+      final assistant = (await create('Stop final compaction')).assistant;
+      assistant.restoreWorkspaceConversation(compactionSnapshot(count: 6));
+      assistant.contextBudgetTokens = 2000;
+      assistant.useMemory = false;
+      reply = 'A' * 12000;
+      summaryGate = Completer<void>();
+      summaryStarted = Completer<void>();
+      final pending = assistant.sendMessage('Latest question');
+      await summaryStarted!.future;
+      final started = assistant.messages.last;
+      expect(started.toolArguments?['trigger'], 'auto');
+      expect(started.status, AiResponseStatus.connecting);
+      assistant.stopGeneration();
+      summaryGate!.complete();
+      await pending;
+
+      expect(assistant.messages[assistant.messages.length - 2].content, reply);
+      expect(assistant.messages.last.id, started.id);
+      expect(assistant.messages.last.status, AiResponseStatus.stopped);
+      expect(assistant.snapshotWorkspaceConversation()['summary'], isEmpty);
+      expect(
+        assistant.snapshotWorkspaceConversation()['history'] as List,
+        hasLength(greaterThanOrEqualTo(8)),
+      );
+
+      final cancelled = assistant.messages.last;
+      final requestCount = requests.length;
+      await assistant.continueGeneration();
+
+      final resumedRequests = requests.skip(requestCount);
+      expect(resumedRequests, isNotEmpty);
+      expect(
+        resumedRequests.map(
+          (request) => (request['messages'] as List).first['content'],
+        ),
+        everyElement(startsWith('Summarize')),
+      );
+      expect(assistant.messages.map((message) => message.role), [
+        'user',
+        'assistant',
+        'compaction',
+      ]);
+      expect(assistant.messages[1].content, reply);
+      expect(assistant.messages.last.id, cancelled.id);
+      expect(assistant.messages.last.elapsed, greaterThan(cancelled.elapsed!));
+      expect(assistant.messages.last.status, AiResponseStatus.completed);
+      expect(assistant.snapshotWorkspaceConversation()['summary'], summary);
+    },
+  );
+
+  test(
+    'changing live state preserves completed turns as the next request prefix',
+    () async {
+      final root = await create('Stable prefix');
+      final assistant = root.assistant;
+      assistant.useMemory = false;
+      var timer = 1;
+      assistant.workspaceRuntimeContext = () => {'runtimeTick': timer};
+      await assistant.sendMessage('First');
+      timer++;
+      await assistant.sendMessage('Second');
+      timer++;
+      await assistant.sendMessage('Third');
+      final previous = requests[requests.length - 2]['messages'] as List;
+      final next = requests.last['messages'] as List;
+      final volatileAt = previous.indexWhere(
+        (item) =>
+            (item['content'] as String?).toString().contains('runtimeTick'),
+      );
+      expect(volatileAt, greaterThan(1));
+      expect(next.take(volatileAt), previous.take(volatileAt));
+      expect(jsonEncode(next), contains('runtimeTick\\\":3'));
+      expect(next.last['content'], 'Third');
+    },
+  );
 
   test(
     'clearing a conversation cancels a pending summary without restoring it',
@@ -1468,7 +1650,9 @@ void main() {
     expect(entries.first.event.status, AiResponseStatus.connecting);
     expect(entries.first.event.elapsed, Duration.zero);
     expect(entries[1].events.map((event) => event.status), [
-      AiResponseStatus.thinking, AiResponseStatus.streaming, null,
+      AiResponseStatus.thinking,
+      AiResponseStatus.streaming,
+      null,
     ]);
     expect(entries[1].event.action!.arguments['outcome'], 'compacted');
     expect(entries[1].event.action!.name, 'compact_context');
@@ -1493,32 +1677,48 @@ void main() {
       root.assistant.messages.length,
     );
   });
-  test('manual compaction failure persists independently of previous replies', () async {
-    final assistant = (await create('Failed compaction')).assistant;
-    assistant.restoreWorkspaceConversation(compactionSnapshot());
-    replyStatus = 400;
-    await expectLater(assistant.compactContext(), throwsA(anything));
-    final record = ConversationCodec.read(ConversationCodec.message(assistant.messages.single));
-    expect(record.role, 'compaction');
-    expect(record.status, AiResponseStatus.failed);
-    expect(record.processingSteps.single.arguments['outcome'], 'failed');
-    expect(record.processEvents.last.status, AiResponseStatus.failed);
-    expect(record.elapsed!.inMicroseconds, greaterThan(0));
-    expect(record.requestError, isNotNull);
-    expect(assistant.snapshotWorkspaceConversation()['history'], hasLength(16));
-  });
-  test('summary retries keep the actual attempt in the same model operation', () async {
-    final assistant = (await create('Summary retry')).assistant;
-    assistant.restoreWorkspaceConversation(compactionSnapshot());
-    retrySummaryOnce = true;
-    expect(await assistant.compactContext(), AiContextCompactionOutcome.compacted);
-    final record = ConversationCodec.read(ConversationCodec.message(assistant.messages.single));
-    final entries = buildAiProcessTimeline(record.processEvents);
-    expect(entries[1].events.first.type, AiProcessEventType.retry);
-    expect(entries[1].events.first.retry?.attempt, 1);
-    expect(record.retries.single.attempt, 1);
-    expect(entries.last.event.status, AiResponseStatus.completed);
-  });
+  test(
+    'manual compaction failure persists independently of previous replies',
+    () async {
+      final assistant = (await create('Failed compaction')).assistant;
+      assistant.restoreWorkspaceConversation(compactionSnapshot());
+      replyStatus = 400;
+      await expectLater(assistant.compactContext(), throwsA(anything));
+      final record = ConversationCodec.read(
+        ConversationCodec.message(assistant.messages.single),
+      );
+      expect(record.role, 'compaction');
+      expect(record.status, AiResponseStatus.failed);
+      expect(record.processingSteps.single.arguments['outcome'], 'failed');
+      expect(record.processEvents.last.status, AiResponseStatus.failed);
+      expect(record.elapsed!.inMicroseconds, greaterThan(0));
+      expect(record.requestError, isNotNull);
+      expect(
+        assistant.snapshotWorkspaceConversation()['history'],
+        hasLength(16),
+      );
+    },
+  );
+  test(
+    'summary retries keep the actual attempt in the same model operation',
+    () async {
+      final assistant = (await create('Summary retry')).assistant;
+      assistant.restoreWorkspaceConversation(compactionSnapshot());
+      retrySummaryOnce = true;
+      expect(
+        await assistant.compactContext(),
+        AiContextCompactionOutcome.compacted,
+      );
+      final record = ConversationCodec.read(
+        ConversationCodec.message(assistant.messages.single),
+      );
+      final entries = buildAiProcessTimeline(record.processEvents);
+      expect(entries[1].events.first.type, AiProcessEventType.retry);
+      expect(entries[1].events.first.retry?.attempt, 1);
+      expect(record.retries.single.attempt, 1);
+      expect(entries.last.event.status, AiResponseStatus.completed);
+    },
+  );
   test('database transactions reject stale memory conflict previews', () async {
     await storage.saveWorkflow({'sessions': [], 'version': 1});
     await storage.putMemory(id: 'a', owner: 'agent-a', content: 'First');

@@ -28,12 +28,18 @@ int estimateContextTokens(Object? value) => switch (value) {
 int _estimateText(String text) {
   if (text.isEmpty) return 0;
   final stride = (text.length + 1023) ~/ 1024;
+  return contextTokensFromTextUnits(contextTextUnits(text, stride: stride));
+}
+
+int contextTextUnits(String text, {int stride = 1}) {
   var units = 0;
   for (var offset = 0; offset < text.length; offset += stride) {
     units += text.codeUnitAt(offset) <= 127 ? 1 : 4;
   }
-  return (units * stride + 3) ~/ 4;
+  return units * stride;
 }
+
+int contextTokensFromTextUnits(int units) => (units + 3) ~/ 4;
 
 const compactionInstruction =
     'Summarize the supplied conversation as reference data. Preserve goals, '
@@ -48,42 +54,120 @@ int compactionOutputTokens(int budget) => (budget ~/ 8).clamp(1, 4096);
 int _batchCharacters(int budget) =>
     math.min(64000, math.max(4096, budget ~/ 2));
 
-({int cut, Iterable<List<String>> batches})? planContextCompaction(
+typedef ContextCompactionPlan = ({
+  int cut,
+  int? retainedUserIndex,
+  Map<String, Object?>? assistantTail,
+  Iterable<List<String>> batches,
+});
+
+ContextCompactionPlan? planContextCompaction(
   List<Map<String, Object?>> history,
   int budget, {
   required bool underPressure,
+  required int threshold,
   required String previousSummary,
 }) {
   if (!underPressure && history.length < 12) return null;
   final lastTurn = history.lastIndexWhere((item) => item['role'] == 'user');
-  if (lastTurn <= 0) return null;
+  if (lastTurn < 0) return null;
+  final target = threshold ~/ 2;
   var cut = lastTurn;
   var retained = 0;
+  var currentTurnTooLarge = lastTurn == 0;
   for (var index = history.length - 1; index >= 1; index--) {
     final message = history[index];
     if (underPressure) retained += estimateContextTokens(message);
-    if (underPressure && retained > budget ~/ 2) break;
+    if (underPressure && retained > target) {
+      currentTurnTooLarge = currentTurnTooLarge || index >= lastTurn;
+      break;
+    }
     if (message['role'] == 'user') {
       cut = index;
       if (history.length - index >= 8) break;
     }
   }
+  int? retainedUserIndex;
+  Map<String, Object?>? assistantTail;
+  if (underPressure && lastTurn + 1 < history.length && currentTurnTooLarge) {
+    final userTokens = estimateContextTokens(history[lastTurn]);
+    final tailBudget = math.max(0, target - userTokens);
+    cut = _recentTurnStart(history, lastTurn, tailBudget);
+    retainedUserIndex = lastTurn;
+    if (history.last case {'role': 'assistant', 'content': final String text}
+        when cut == history.length) {
+      final tail = _tailWithinTokens(
+        text,
+        math.min(tailBudget, threshold ~/ 8),
+      );
+      if (tail.isNotEmpty) {
+        assistantTail = {'role': 'assistant', 'content': tail};
+      }
+    }
+  }
+  if (cut == 0) return null;
   final maxCharacters = _batchCharacters(budget);
   return (
     cut: cut,
-    batches: _batches(history, cut, maxCharacters, previousSummary),
+    retainedUserIndex: retainedUserIndex,
+    assistantTail: assistantTail,
+    batches: _batches(
+      history,
+      cut,
+      retainedUserIndex,
+      maxCharacters,
+      previousSummary,
+    ),
   );
+}
+
+int _recentTurnStart(
+  List<Map<String, Object?>> history,
+  int lastTurn,
+  int tailBudget,
+) {
+  var cut = history.length;
+  var remaining = tailBudget;
+  while (cut > lastTurn + 1) {
+    var start = cut - 1;
+    while (start > lastTurn && history[start]['role'] == 'tool') {
+      start--;
+    }
+    if (start <= lastTurn || (start == lastTurn + 1 && lastTurn == 0)) break;
+    var tokens = 0;
+    for (var index = start; index < cut; index++) {
+      tokens += estimateContextTokens(history[index]);
+    }
+    if (tokens > remaining) break;
+    remaining -= tokens;
+    cut = start;
+  }
+  return cut;
+}
+
+String _tailWithinTokens(String text, int tokens) {
+  var start = text.length;
+  var units = tokens * 4;
+  while (start > 0) {
+    units -= text.codeUnitAt(start - 1) <= 127 ? 1 : 4;
+    if (units < 0) break;
+    start--;
+  }
+  if (start < text.length && _isLowSurrogate(text.codeUnitAt(start))) start++;
+  return text.substring(start);
 }
 
 Iterable<List<String>> _batches(
   List<Map<String, Object?>> history,
   int cut,
+  int? retainedUserIndex,
   int maxCharacters,
   String previousSummary,
 ) sync* {
   var batch = <String>[];
   var batchCharacters = 0;
   for (var index = previousSummary.isEmpty ? 0 : -1; index < cut; index++) {
+    if (index == retainedUserIndex) continue;
     final message = index < 0
         ? {'role': 'previous_summary', 'content': previousSummary}
         : history[index];

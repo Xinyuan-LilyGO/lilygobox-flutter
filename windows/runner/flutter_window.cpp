@@ -31,6 +31,16 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
 
+  destroying_ = false;
+  cleanup_done_ = false;
+  close_after_reader_ = false;
+  destroy_after_reader_ = false;
+  startup_show_pending_ = true;
+  layout_notification_pending_ = false;
+  interactive_move_ = false;
+  interactive_resize_ = false;
+  snapped_before_interaction_ = false;
+
   RECT frame = GetClientArea();
 
   // The size here must match the window dimensions to avoid unnecessary surface
@@ -141,17 +151,22 @@ bool FlutterWindow::OnCreate() {
   tray_ = std::make_unique<TrayIcon>(GetHandle(), flutter_controller_->engine()->messenger(), project_);
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
-  flutter_controller_->engine()->SetNextFrameCallback([&]() {
-    // 首帧到达时窗口才真正显示；显示后再激活，确保启动窗口取得前台焦点。
-    this->Show();
-    SetForegroundWindow(GetHandle());
-    SetFocus(flutter_controller_->view()->GetNativeWindow());
+  const HWND owner = GetHandle();
+  flutter_controller_->engine()->SetNextFrameCallback([owner]() {
+    // 只把首帧通知投递回窗口线程，避免异步回调持有已销毁的 FlutterWindow。
+    if (IsWindow(owner)) PostMessageW(owner, kShowAfterFirstFrame, 0, 0);
   });
 
   // Flutter can complete the first frame before the "show window" callback is
   // registered. The following call ensures a frame is pending to ensure the
   // window is shown. It is a no-op if the first frame hasn't completed yet.
   flutter_controller_->ForceRedraw();
+
+  // A hidden top-level window can prevent the engine from producing the frame
+  // that would invoke SetNextFrameCallback. Queue the same message as a
+  // fallback so the window cannot remain hidden indefinitely. The message is
+  // handled on the window thread and is safe if the callback also posts it.
+  PostMessageW(GetHandle(), kShowAfterFirstFrame, 0, 0);
 
   SetPropW(GetHandle(), lilygobox::kWindowMarker,
            reinterpret_cast<HANDLE>(1));
@@ -160,17 +175,27 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  if (cleanup_done_) return;
+  destroying_ = true;
+  if (reader_mode_.running()) {
+    destroy_after_reader_ = true;
+    reader_mode_.Stop(0);
+    return;
+  }
   reader_mode_.Stop(0);
+  CleanupAfterReader();
+}
+
+void FlutterWindow::CleanupAfterReader() {
+  if (cleanup_done_) return;
+  cleanup_done_ = true;
   reader_channel_.reset();
   RemovePropW(GetHandle(), lilygobox::kWindowMarker);
   tray_.reset();
   focus_channel_.reset();
   layout_channel_.reset();
   image_clipboard_channel_.reset();
-  if (flutter_controller_) {
-    flutter_controller_ = nullptr;
-  }
-
+  flutter_controller_.reset();
   Win32Window::OnDestroy();
 }
 
@@ -180,6 +205,39 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               LPARAM const lparam) noexcept {
   if (message == kBeginReaderMode) {
     reader_mode_.Run(static_cast<int>(wparam));
+    if (destroy_after_reader_) {
+      destroy_after_reader_ = false;
+      CleanupAfterReader();
+    } else if (close_after_reader_) {
+      close_after_reader_ = false;
+      PostMessageW(hwnd, WM_CLOSE, 0, 0);
+    }
+    return 0;
+  }
+  if (message == kShowAfterFirstFrame) {
+    if (startup_show_pending_ && !destroying_ && GetHandle() == hwnd &&
+        flutter_controller_ && flutter_controller_->view()) {
+      startup_show_pending_ = false;
+      // 首帧到达时窗口才真正显示，显示后再激活，确保启动窗口取得前台焦点。
+      if (!IsWindowVisible(hwnd)) Show();
+      SetForegroundWindow(hwnd);
+      SetFocus(flutter_controller_->view()->GetNativeWindow());
+    }
+    return 0;
+  }
+  // Let Win32Window clear its handle and post the quit message even when a
+  // prior Destroy() call already marked the object as tearing down.
+  if (message == WM_DESTROY) {
+    return Win32Window::MessageHandler(hwnd, message, wparam, lparam);
+  }
+  // WM_NCDESTROY is delivered after WM_DESTROY.  Keep the Flutter controller
+  // alive until the message loop has unwound, but never forward teardown
+  // messages to an engine whose native view is already being destroyed.
+  if (destroying_) return DefWindowProcW(hwnd, message, wparam, lparam);
+  if (message == WM_CLOSE &&
+      (reader_mode_.running() || reader_mode_.hasSession())) {
+    close_after_reader_ = true;
+    reader_mode_.Stop(0);
     return 0;
   }
   if ((message == WM_ACTIVATE && LOWORD(wparam) == WA_INACTIVE) ||
@@ -255,7 +313,7 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
 
   switch (message) {
     case WM_FONTCHANGE:
-      flutter_controller_->engine()->ReloadSystemFonts();
+      if (flutter_controller_) flutter_controller_->engine()->ReloadSystemFonts();
       break;
   }
 

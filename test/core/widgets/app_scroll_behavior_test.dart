@@ -95,6 +95,40 @@ void main() {
   });
 
   group('AppScrollBehavior', () {
+    testWidgets('reparenting a scroll view stops its old wheel activity', (
+      tester,
+    ) async {
+      final controller = ScrollController();
+      final viewKey = GlobalKey();
+      addTearDown(controller.dispose);
+
+      Widget frame({required bool centered}) {
+        final view = SingleChildScrollView(
+          key: viewKey,
+          controller: controller,
+          child: const SizedBox(width: 300, height: 2400),
+        );
+        return MaterialApp(
+          scrollBehavior: const AppScrollBehavior(scrollbars: false),
+          home: Scaffold(
+            body: centered ? Center(child: view) : Align(child: view),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(frame(centered: false));
+      await wheel(tester, tester.getCenter(find.byKey(viewKey)), 300);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(controller.offset, inExclusiveRange(0, 300));
+
+      await tester.pumpWidget(frame(centered: true));
+      final retainedOffset = controller.offset;
+      await tester.pumpAndSettle();
+      expect(controller.offset, retainedOffset);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('multiline input respects explicit scrollbar suppression', (
       tester,
     ) async {

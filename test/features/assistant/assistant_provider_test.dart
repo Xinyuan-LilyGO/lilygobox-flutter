@@ -14,6 +14,7 @@ import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/domain/reasoning.dart';
+import 'package:lilygobox/features/assistant/state/agent_workspace.dart';
 
 import 'assistant_test_scope.dart';
 
@@ -377,6 +378,377 @@ void main() {
       );
     },
   );
+
+  Future<void> checkStreamingCompactions({bool stopFirst = false}) async {
+    final theme = ThemeProvider();
+    final language = LanguageProvider();
+    final shell = AppShellProvider();
+    final splitView = SplitViewProvider();
+    final streams = List.generate(2, (_) => StreamController<List<int>>());
+    final requests = <List<dynamic>>[];
+    final summaries = <String>[];
+    final firstSummaryStarted = Completer<void>();
+    final firstSummaryCanReturn = Completer<void>();
+    final scope = await createAssistantTestScope(
+      theme: theme,
+      language: language,
+      shell: shell,
+      splitView: splitView,
+      client: MockClient.streaming((request, body) async {
+        final payload = jsonDecode(
+          utf8.decode(await body.toBytes()),
+        ) as Map<String, dynamic>;
+        final messages = payload['messages'] as List;
+        final firstContent = messages.first['content'] as String;
+        final compacting = firstContent.startsWith('Summarize');
+        if (compacting) {
+          summaries.add(messages.last['content'] as String);
+          if (stopFirst && summaries.length == 1) {
+            firstSummaryStarted.complete();
+            await firstSummaryCanReturn.future;
+          }
+        } else {
+          requests.add(messages);
+          if (requests.length <= streams.length) {
+            return http.StreamedResponse(
+              streams[requests.length - 1].stream,
+              200,
+              headers: {'content-type': 'text/event-stream'},
+            );
+          }
+        }
+        final text = compacting
+            ? 'Preserve decisions and progress.'
+            : 'CONTINUED';
+        return http.StreamedResponse(
+          Stream.value(
+            utf8.encode(
+              'data: ${jsonEncode({
+                'choices': [
+                  {
+                    'delta': {'content': text},
+                  },
+                ],
+              })}\n\n'
+              'data: [DONE]\n\n',
+            ),
+          ),
+          200,
+          headers: {'content-type': 'text/event-stream'},
+        );
+      }),
+    );
+    addTearDown(() {
+      scope.dispose();
+      for (final stream in streams) {
+        unawaited(stream.close());
+      }
+      theme.dispose();
+      language.dispose();
+      shell.dispose();
+      splitView.dispose();
+    });
+    await scope.provider.initialized;
+    final service = await scope.provider.saveService(
+      name: 'Test',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://example.test/v1',
+      models: ['test-model'],
+      apiKey: 'test-key',
+    );
+    await scope.provider.selectModel(service, 'test-model');
+    scope.provider.restoreWorkspaceConversation({
+      'messages': <Object?>[],
+      'history': [
+        for (var index = 0; index < 8; index++)
+          {
+            'role': index.isEven ? 'user' : 'assistant',
+            'content': 'Previous turn $index ${'context ' * 20}',
+          },
+      ],
+    });
+    scope.provider.contextBudgetTokens = 1000;
+    scope.provider.contextCompactionPercent = 90;
+    var pending = scope.provider.sendMessage('Current request');
+    AiMessage? stoppedCompaction;
+    final initialUsage = scope.provider.estimatedContextTokens;
+    for (var index = 0; index < 12; index++) {
+      streams.first.add(
+        utf8.encode('data: {"choices":[{"delta":{"content":"a"}}]}\n\n'),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 2));
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 16));
+    expect(scope.provider.estimatedContextTokens, initialUsage + 3);
+    final outputs = [
+      for (final stage in ['FIRST', 'SECOND'])
+        '${'Streamed $stage output. ' * 210}\n$stage-RESUME-HERE',
+    ];
+    for (final (index, output) in outputs.indexed) {
+      streams[index].add(
+        utf8.encode(
+          'data: ${jsonEncode({
+            'choices': [
+              {
+                'delta': {'content': output},
+              },
+            ],
+          })}\n\n',
+        ),
+      );
+      if (stopFirst && index == 0) {
+        await firstSummaryStarted.future;
+        scope.provider.stopGeneration();
+        await pending;
+        firstSummaryCanReturn.complete();
+        stoppedCompaction = scope.provider.messages.last;
+        expect(stoppedCompaction.role, 'compaction');
+        expect(stoppedCompaction.status, AiResponseStatus.stopped);
+        expect(scope.provider.canContinue, isTrue);
+        expect(scope.provider.messages.length, 3);
+        expect(requests, hasLength(1));
+        expect(
+          scope.provider.snapshotWorkspaceConversation()['summary'],
+          isEmpty,
+        );
+        pending = scope.provider.continueGeneration();
+        expect(scope.provider.messages.last.id, stoppedCompaction.id);
+        expect(
+          scope.provider.messages.last.status,
+          AiResponseStatus.connecting,
+        );
+        expect(scope.provider.messages.last.finishedAt, isNull);
+      }
+      for (
+        var attempt = 0;
+        attempt < 200 && requests.length < index + 2;
+        attempt++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(requests, hasLength(index + 2), reason: 'Rollover ${index + 1}');
+      expect(scope.provider.estimatedContextTokens, lessThan(900));
+    }
+    await pending;
+    expect(scope.provider.messages.map((message) => message.role), [
+      'user',
+      'assistant',
+      'compaction',
+      'assistant',
+      'compaction',
+      'assistant',
+    ]);
+    expect(
+      scope.provider.messages
+          .where((message) => message.role == 'assistant')
+          .map((message) => message.content),
+      ['${'a' * 12}${outputs.first}', outputs.last, 'CONTINUED'],
+    );
+    expect(scope.provider.messages.last.content, 'CONTINUED');
+    final agent = AiAgentWorkspace(
+      id: 'child',
+      title: 'Child',
+      task: 'Current request',
+      assistant: scope.provider,
+      createdAt: DateTime.now(),
+    );
+    final combinedReply = '${'a' * 12}${outputs.join()}CONTINUED';
+    expect(agent.toToolResult()['result'], combinedReply);
+    if (stoppedCompaction != null) {
+      final resumed = scope.provider.messages[2];
+      expect(resumed.id, stoppedCompaction.id);
+      expect(resumed.createdAt, stoppedCompaction.createdAt);
+      expect(resumed.elapsed, greaterThan(stoppedCompaction.elapsed!));
+      expect(resumed.status, AiResponseStatus.completed);
+      expect(resumed.processingSteps.single.arguments['outcome'], 'compacted');
+      expect(summaries[1], summaries[0]);
+    }
+    for (final (index, messages) in requests.skip(1).indexed) {
+      expect(
+        messages
+            .where((item) => item['role'] == 'user')
+            .map((item) => item['content']),
+        ['Current request'],
+      );
+      expect(
+        messages
+            .where((item) => item['role'] == 'system')
+            .map((item) => item['content']),
+        contains(contains('Preserve decisions and progress.')),
+      );
+      final tail =
+          messages.where((item) => item['role'] == 'assistant').last['content']
+              as String;
+      final marker = index == 0 ? 'FIRST-RESUME-HERE' : 'SECOND-RESUME-HERE';
+      expect(tail, endsWith(marker));
+      expect(outputs[index], endsWith(tail));
+      expect(tail.length, lessThan(outputs[index].length));
+    }
+    expect(
+      summaries.where((summary) => summary.contains('Current request')),
+      isEmpty,
+    );
+    final snapshot = scope.provider.snapshotWorkspaceConversation();
+    final fork = scope.provider.snapshotConversationFork();
+    scope.provider.clearConversation();
+    scope.provider.restoreWorkspaceConversation(snapshot);
+    expect(agent.toToolResult()['result'], combinedReply);
+    scope.provider.clearConversation();
+    scope.provider.restoreConversationFork(fork);
+    expect(agent.toToolResult()['result'], combinedReply);
+    await scope.provider.sendMessage('New turn');
+    expect(agent.toToolResult()['result'], 'CONTINUED');
+  }
+
+  test(
+    'compacts twice and resumes the same user turn when streamed output refills context',
+    checkStreamingCompactions,
+  );
+
+  test(
+    'continuing stopped stream compaction reuses its record before more output',
+    () => checkStreamingCompactions(stopFirst: true),
+  );
+
+  for (final reasoningOnly in [false, true]) {
+    test(
+      reasoningOnly
+          ? 'reasoning without new body text does not restart the request'
+          : 'context-limit retry retains the prefix of a resumed reply',
+      () async {
+        final theme = ThemeProvider();
+        final language = LanguageProvider();
+        final shell = AppShellProvider();
+        final split = SplitViewProvider();
+        final stream = StreamController<List<int>>();
+        var replies = 0;
+        var summaries = 0;
+        List<int> delta(String field, String value) => utf8.encode(
+          'data: ${jsonEncode({
+            'choices': [
+              {
+                'delta': {field: value},
+              },
+            ],
+          })}\n\n',
+        );
+        final scope = await createAssistantTestScope(
+          theme: theme,
+          language: language,
+          shell: shell,
+          splitView: split,
+          client: MockClient.streaming((_, body) async {
+            final payload =
+                jsonDecode(utf8.decode(await body.toBytes())) as Map;
+            final messages = payload['messages'] as List;
+            final compacting = (messages.first['content'] as String).startsWith(
+              'Summarize',
+            );
+            if (compacting) {
+              summaries++;
+            } else {
+              replies++;
+              if (replies == 1)
+                return http.StreamedResponse(stream.stream, 200);
+              if (!reasoningOnly && replies == 2) {
+                return http.StreamedResponse(
+                  Stream.value(
+                    utf8.encode(
+                      jsonEncode({
+                        'error': {
+                          'code': 'context_length_exceeded',
+                          'message': 'Context window is full',
+                        },
+                      }),
+                    ),
+                  ),
+                  400,
+                );
+              }
+            }
+            return http.StreamedResponse(
+              Stream.fromIterable([
+                delta('content', compacting ? 'Earlier work.' : 'TAIL'),
+                utf8.encode('data: [DONE]\n\n'),
+              ]),
+              200,
+            );
+          }),
+        );
+        addTearDown(() {
+          scope.dispose();
+          unawaited(stream.close());
+          theme.dispose();
+          language.dispose();
+          shell.dispose();
+          split.dispose();
+        });
+        final assistant = scope.provider;
+        await assistant.initialized;
+        final service = await assistant.saveService(
+          name: 'Test',
+          protocol: AiApiProtocol.openAiChatCompletions,
+          baseUrl: 'https://example.test/v1',
+          models: ['test'],
+          apiKey: 'key',
+        );
+        await assistant.selectModel(service, 'test');
+        assistant.contextBudgetTokens = 1000;
+        assistant.restoreWorkspaceConversation({
+          'messages': [],
+          'history': [
+            for (var index = 0; index < 6; index++)
+              {
+                'role': index.isEven ? 'user' : 'assistant',
+                'content': 'Earlier line $index ${'past content ' * 12}',
+              },
+          ],
+        });
+        final observed = Completer<void>();
+        assistant.addListener(() {
+          if (!observed.isCompleted &&
+              (reasoningOnly
+                  ? assistant.estimatedContextTokens >= 1000
+                  : assistant.messages.lastOrNull?.content == 'PREFIX ')) {
+            observed.complete();
+          }
+        });
+        final send = assistant.sendMessage('Original question');
+        stream.add(
+          reasoningOnly
+              ? delta('reasoning_content', 'analysis ' * 500)
+              : delta('content', 'PREFIX '),
+        );
+        await observed.future.timeout(const Duration(seconds: 5));
+        if (reasoningOnly) {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+          expect(replies, 1);
+          expect(summaries, 0);
+          stream.add(delta('content', 'TAIL'));
+          stream.add(utf8.encode('data: [DONE]\n\n'));
+          unawaited(stream.close());
+          await send;
+          expect(replies, 1);
+          expect(
+            assistant.messages.any((message) => message.content == 'TAIL'),
+            isTrue,
+          );
+        } else {
+          assistant.stopGeneration();
+          await send;
+          final stoppedId = assistant.messages.last.id;
+          await assistant.continueGeneration();
+          expect(replies, 3);
+          expect(summaries, 1);
+          final reply = assistant.messages.singleWhere(
+            (message) => message.id == stoppedId,
+          );
+          expect(reply.content, 'PREFIX TAIL');
+          expect(reply.status, AiResponseStatus.completed);
+        }
+      },
+    );
+  }
 
   for (final mode in [
     'single JSON character',

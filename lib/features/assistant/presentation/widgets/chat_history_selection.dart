@@ -96,7 +96,11 @@ class ChatHistorySelectionState extends State<ChatHistorySelection> {
             if (previous != hasSelection) widget.onSelectionChanged?.call();
           },
           contextMenuBuilder: _contextMenu,
-          child: widget.child,
+          child: Semantics(
+            container: true,
+            explicitChildNodes: true,
+            child: widget.child,
+          ),
         ),
       ),
     ),
