@@ -220,6 +220,7 @@ class SettingsField extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(
             child: Text(title, style: AppDialogStyle.fieldTitleStyle(theme)),

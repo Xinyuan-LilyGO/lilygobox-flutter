@@ -16,6 +16,7 @@ String aiErrorText(AppLocalizations l10n, Object error) => switch (error) {
     l10n,
     problem,
   ),
+  AiCompactionException(:final issue) => aiCompactionIssueText(l10n, issue),
   AiConfigurationException(:final problem) => switch (problem) {
     AiProblem.invalidAddress => l10n.aiInvalidAddress,
     AiProblem.nameRequired => l10n.aiNameRequired,
@@ -62,3 +63,33 @@ String aiErrorText(AppLocalizations l10n, Object error) => switch (error) {
   AiRequestException(:final message) => message,
   _ => l10n.aiRequestFailed,
 };
+
+String aiCompactionIssueText(AppLocalizations l10n, AiCompactionIssue issue) =>
+    switch (issue) {
+      AiCompactionIssue.outputLimit => l10n.aiCompactionOutputLimitReached,
+      AiCompactionIssue.reasoningOnly => l10n.aiCompactionReasoningOnly,
+      AiCompactionIssue.emptySummary => l10n.aiCompactionEmptySummary,
+      AiCompactionIssue.unexpectedToolCall => l10n.aiCompactionUnexpectedToolCall,
+      AiCompactionIssue.filtered => l10n.aiCompactionFiltered,
+      AiCompactionIssue.noTokenSavings => l10n.aiCompactionNoTokenSavings,
+    };
+
+String aiCompactionFailureText(AppLocalizations l10n, AiProcessingStep step) {
+  final args = step.arguments;
+  final issue = switch (args['providerCode']) {
+    'max_output_tokens' => AiCompactionIssue.outputLimit,
+    'content_filter' => AiCompactionIssue.filtered,
+    _ =>
+      AiCompactionIssue.values
+          .where((issue) => issue.name == args['compactionIssue'])
+          .firstOrNull,
+  };
+  if (issue != null) return aiCompactionIssueText(l10n, issue);
+  final problem = AiProblem.values
+      .where((problem) => problem.name == args['requestProblem'])
+      .firstOrNull;
+  if (problem != null) {
+    return aiErrorText(l10n, AiConfigurationException(problem));
+  }
+  return step.output.isEmpty ? l10n.aiCompactionNoRecordedReason : step.output;
+}

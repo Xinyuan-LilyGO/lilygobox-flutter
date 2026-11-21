@@ -85,7 +85,7 @@ void main() {
       );
       history.add({'role': role, 'content': content});
     }
-    final output = File('artifacts/test-data/lilygobox-long-chat-10000.7z');
+    final output = File('artifacts/lilygobox-long-chat-10000.7z');
     await output.parent.create(recursive: true);
     await AgentPackage.write(output.path, {
       'type': 'agent',

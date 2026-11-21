@@ -78,6 +78,21 @@ String? aiResponseStatusLabel(
     },
     AiResponseStatus.accessingWeb => l10n.aiAccessingWeb,
     AiResponseStatus.awaitingApproval => l10n.aiAwaitingApproval,
+    AiResponseStatus.manualApprovalGranted => l10n.aiManualApprovalGranted,
+    AiResponseStatus.manualApprovalDenied => l10n.aiManualApprovalDenied,
+    AiResponseStatus.manualApprovalCancelled => l10n.aiManualApprovalCancelled,
+    AiResponseStatus.manualApprovalTimedOut => l10n.aiManualApprovalTimedOut,
+    AiResponseStatus.customApprovalGranted => l10n.aiCustomApprovalGranted,
+    AiResponseStatus.customApprovalNotGranted =>
+      l10n.aiCustomApprovalNotGranted,
+    AiResponseStatus.reviewingPermission => l10n.aiPermissionReviewing,
+    AiResponseStatus.permissionReviewApproved =>
+      l10n.aiPermissionReviewApproved,
+    AiResponseStatus.permissionReviewDenied => l10n.aiPermissionReviewDenied,
+    AiResponseStatus.permissionReviewFailed => l10n.aiPermissionReviewFailed,
+    AiResponseStatus.permissionReviewSkipped => l10n.aiPermissionReviewSkipped,
+    AiResponseStatus.permissionReviewCancelled =>
+      l10n.aiPermissionReviewCancelled,
     AiResponseStatus.awaitingUserInput => l10n.aiAwaitingUserInput,
     AiResponseStatus.retrying => l10n.aiRetryingRequest(
       retryAttempt,
@@ -132,7 +147,20 @@ String? aiResponseStatusLabel(
     AiResponseStatus.preparingTools => Symbols.pending_actions_rounded,
     AiResponseStatus.executingTools => Symbols.play_circle_rounded,
     AiResponseStatus.accessingWeb => Symbols.language_rounded,
-    AiResponseStatus.awaitingApproval => Symbols.safety_check_rounded,
+    AiResponseStatus.awaitingApproval ||
+    AiResponseStatus.reviewingPermission => Symbols.safety_check_rounded,
+    AiResponseStatus.permissionReviewApproved ||
+    AiResponseStatus.manualApprovalGranted ||
+    AiResponseStatus.customApprovalGranted => Symbols.check_circle_rounded,
+    AiResponseStatus.permissionReviewDenied ||
+    AiResponseStatus.manualApprovalDenied => Symbols.block_rounded,
+    AiResponseStatus.permissionReviewFailed => Symbols.error_outline_rounded,
+    AiResponseStatus.permissionReviewSkipped ||
+    AiResponseStatus.customApprovalNotGranted =>
+      Symbols.remove_circle_outline_rounded,
+    AiResponseStatus.permissionReviewCancelled ||
+    AiResponseStatus.manualApprovalCancelled => Symbols.stop_circle_rounded,
+    AiResponseStatus.manualApprovalTimedOut => Symbols.timer_off_rounded,
     AiResponseStatus.awaitingUserInput => Symbols.help_rounded,
     AiResponseStatus.retrying => Symbols.refresh_rounded,
     AiResponseStatus.completed => Symbols.check_circle_rounded,
@@ -155,12 +183,26 @@ String? aiResponseStatusLabel(
     label: title,
     icon: failed
         ? Symbols.error_outline_rounded
+        : switch (event.status) {
+            AiResponseStatus.awaitingUserInput ||
+            AiResponseStatus.awaitingApproval ||
+            AiResponseStatus.manualApprovalGranted ||
+            AiResponseStatus.manualApprovalDenied ||
+            AiResponseStatus.manualApprovalCancelled ||
+            AiResponseStatus.manualApprovalTimedOut ||
+            AiResponseStatus.customApprovalGranted ||
+            AiResponseStatus.customApprovalNotGranted ||
+            AiResponseStatus.reviewingPermission ||
+            AiResponseStatus.permissionReviewApproved ||
+            AiResponseStatus.permissionReviewDenied ||
+            AiResponseStatus.permissionReviewSkipped ||
+            AiResponseStatus.permissionReviewCancelled ||
+            AiResponseStatus.preparingTools => true,
+            _ => false,
+          }
+        ? statusIcon
         : isWeb
         ? Symbols.language_rounded
-        : event.status == AiResponseStatus.awaitingUserInput ||
-              event.status == AiResponseStatus.awaitingApproval ||
-              event.status == AiResponseStatus.preparingTools
-        ? statusIcon
         : toolName != null
         ? _toolIcon(toolName)
         : modelNote
@@ -212,6 +254,7 @@ String? aiResponseStatusLabel(
       switch (message.processingSteps.lastOrNull?.arguments['outcome']) {
         'unchanged' => l10n.aiCompactionUnchanged,
         'cancelled' => l10n.aiCompactionCancelledStatus,
+        'failed' => l10n.aiCompactionFailed,
         _ => summary.label,
       };
   return (label: '$trigger · $state', icon: summary.icon, fill: summary.fill);
@@ -286,6 +329,9 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
     final resultSummary = action == null
         ? null
         : _operationSummary(context, action);
+    final compactionError = action?.name == 'compact_context' && failed
+        ? _compactionErrorDetails(context, action!)
+        : null;
     final processResult = action == null ? null : _processResult(action);
     final questionDetails = action?.name == 'request_user_input'
         ? _questionAnswerDetails(context, action!)
@@ -311,6 +357,8 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
         (title: l10n.aiOperationSummary, text: resultSummary),
       if (failure != null)
         (title: l10n.aiOperationError, text: aiErrorText(l10n, failure))
+      else if (compactionError != null)
+        (title: l10n.aiOperationError, text: compactionError)
       else if (action != null &&
           !questionCancelled &&
           !requestTimedOut &&
@@ -330,6 +378,7 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
     final hasDetails =
         widget.detailsEnabled &&
         ((toolName == 'compact_context' && resultSummary != null) ||
+            compactionError != null ||
             questionDetails != null ||
             event.text.isNotEmpty ||
             (action != null && target is String) ||
@@ -698,7 +747,7 @@ String _operationResultLabel(
     return [
       l10n.aiAutoCompaction,
       if (args['outcome'] == 'cancelled') l10n.aiCompactionCancelledStatus,
-      if (args['outcome'] == 'failed') l10n.aiWorkspaceFailed,
+      if (args['outcome'] == 'failed') l10n.aiCompactionFailed,
       if (args['outcome'] == 'unchanged') l10n.aiCompactionUnchanged,
       if (args['durationMicros'] case final int micros)
         formatCompactionDuration(context, Duration(microseconds: micros)),
@@ -707,6 +756,7 @@ String _operationResultLabel(
   if (action.name == 'compact_context') {
     if (args['outcome'] == 'cancelled') return l10n.aiCompactionCancelledStatus;
     if (args['outcome'] == 'unchanged') return l10n.aiCompactionUnchanged;
+    if (args['outcome'] == 'failed') return l10n.aiCompactionFailed;
   }
   final rawTarget =
       args['path'] ?? args['url'] ?? args['executable'] ?? args['process_id'];
@@ -789,6 +839,8 @@ String? _operationSummary(BuildContext context, AiProcessingStep action) {
     return switch (action.arguments) {
       {'beforeTokens': final int before, 'afterTokens': final int after} =>
         l10n.aiCompactionTokenChange(before, after),
+      {'noTokenSavings': true} => l10n.aiCompactionNoTokenSavings,
+      {'outcome': 'unchanged'} => l10n.aiCompactionNoRecordedReason,
       _ => null,
     };
   }
@@ -853,6 +905,29 @@ String? _operationSummary(BuildContext context, AiProcessingStep action) {
   };
 }
 
+String _compactionErrorDetails(BuildContext context, AiProcessingStep action) {
+  final l10n = context.l10n;
+  final args = action.arguments;
+  final summary = aiCompactionFailureText(l10n, action);
+  return [
+    summary,
+    if (action.output.isNotEmpty && action.output != summary) action.output,
+    if (args['httpStatus'] case final int status
+        when action.output != 'HTTP $status')
+      'HTTP $status',
+    if (args['providerCode'] case final String code
+        when !action.output.contains(code))
+      l10n.aiCompactionProviderCode(code),
+    if (args['finishReason'] case final String reason)
+      l10n.aiCompactionFinishReason(reason),
+    if (args['outputLimit'] case final int limit)
+      switch (args['outputTokens']) {
+        final int used => l10n.aiCompactionOutputUsage(used, limit),
+        _ => l10n.aiCompactionOutputLimit(limit),
+      },
+  ].join('\n');
+}
+
 /// 只展示用户可读的问题与回答，不把工具协议 JSON 当作错误详情。
 String? _questionAnswerDetails(BuildContext context, AiProcessingStep action) {
   final questions = action.arguments['questions'];
@@ -887,7 +962,10 @@ String? _questionAnswerDetails(BuildContext context, AiProcessingStep action) {
 }
 
 bool _processEventFailed(AiProcessEvent event) {
-  if (event.status == AiResponseStatus.failed) return true;
+  if (event.status == AiResponseStatus.failed ||
+      event.status == AiResponseStatus.permissionReviewFailed) {
+    return true;
+  }
   final action = event.action;
   if (action == null || action.succeeded) return false;
   if (action.name == 'compact_context') {

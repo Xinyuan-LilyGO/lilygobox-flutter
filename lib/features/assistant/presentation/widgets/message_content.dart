@@ -30,7 +30,6 @@ import 'chat_content_window.dart';
 import 'chat_message_list.dart';
 import 'chat_text_segments.dart';
 import 'code_block.dart';
-import 'error_text.dart';
 import 'task_navigation_scope.dart';
 
 class ChatMessageBody extends StatefulWidget {
@@ -880,10 +879,12 @@ class ChatMessageActions extends StatefulWidget {
     super.key,
     required this.message,
     required this.theme,
+    this.visibleError,
   });
 
   final AiMessage message;
   final AppTheme theme;
+  final String? visibleError;
 
   @override
   State<ChatMessageActions> createState() => _ChatMessageActionsState();
@@ -914,23 +915,27 @@ class _ChatMessageActionsState extends State<ChatMessageActions> {
     final message = widget.message;
     final theme = widget.theme;
     final l10n = context.l10n;
-    final text = message.content.isNotEmpty
-        ? message.content
-        : message.requestError == null
-        ? ''
-        : aiErrorText(l10n, message.requestError!);
-    final label = _copied ? l10n.aiMessageCopied : l10n.aiCopyMessage;
+    final body = message.content;
+    final text = switch (widget.visibleError) {
+      final error? when body.trim().isEmpty => error,
+      final error? => '${body.trimRight()}\n\n$error',
+      _ => body,
+    };
+    final canCopy = text.trim().isNotEmpty;
+    final copied = canCopy && _copied;
+    final label = copied ? l10n.aiMessageCopied : l10n.aiCopyMessage;
     final copyButton = AppTooltip(
       message: label,
       child: Semantics(
         label: label,
         button: true,
+        enabled: canCopy,
         child: TitleBarIconButton(
           key: ValueKey('ai-copy-message-${message.id}'),
-          onPressed: text.isEmpty ? null : () => _copy(text),
+          onPressed: canCopy ? () => _copy(text) : null,
           isFocused: true,
           theme: theme,
-          icon: _copied ? Symbols.check_rounded : Symbols.content_copy_rounded,
+          icon: copied ? Symbols.check_rounded : Symbols.content_copy_rounded,
           size: 25,
           iconSize: 15,
           backgroundColor: Colors.transparent,

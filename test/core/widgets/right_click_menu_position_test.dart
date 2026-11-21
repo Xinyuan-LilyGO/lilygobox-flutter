@@ -12,6 +12,8 @@ void main() {
     int itemCount = 7,
     double scale = 1,
     Rect anchor = const Rect.fromLTWH(0, 100, 800, 480),
+    bool fitWidthToItems = false,
+    String? label,
   }) async {
     final theme = ThemeProvider();
     addTearDown(theme.dispose);
@@ -32,11 +34,12 @@ void main() {
                       controller: controller,
                       theme: theme.themeData,
                       openAbove: openAbove,
+                      fitWidthToItems: fitWidthToItems,
                       onSecondaryTap: () {},
                       menuItems: [
                         for (var index = 0; index < itemCount; index++)
                           RightClickMenuItem(
-                            label: 'Action $index',
+                            label: label ?? 'Action $index',
                             onTap: controller.close,
                             showDivider: index == 5,
                           ),
@@ -53,6 +56,55 @@ void main() {
     );
     return controller;
   }
+
+  testWidgets('adaptive menu keeps short labels at the shared minimum', (
+    tester,
+  ) async {
+    await mountMenu(tester, fitWidthToItems: true, label: 'Copy', itemCount: 1);
+    await tester.tapAt(const Offset(400, 200), buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+    final menu = tester.getRect(find.byType(PopupMenuSurface));
+    expect(menu.size, const Size(150, 38));
+  });
+
+  testWidgets('adaptive right-edge positioning uses the measured width', (
+    tester,
+  ) async {
+    await mountMenu(
+      tester,
+      fitWidthToItems: true,
+      label: 'Manage chat history and context',
+      itemCount: 1,
+    );
+    const pointer = Offset(760, 200);
+    await tester.tapAt(pointer, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+    final menu = tester.getRect(find.byType(PopupMenuSurface));
+    expect(menu.width, greaterThan(150));
+    expect(menu.right, closeTo(pointer.dx, .01));
+    expect(menu.height, 38);
+  });
+
+  testWidgets('adaptive menu fits a narrow window without wrapping', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(200, 600);
+    addTearDown(tester.view.reset);
+    await mountMenu(
+      tester,
+      fitWidthToItems: true,
+      label: 'Manage chat history and context',
+      itemCount: 1,
+    );
+    await tester.tapAt(const Offset(100, 200), buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+    final menu = tester.getRect(find.byType(PopupMenuSurface));
+    expect(menu.left, 8);
+    expect(menu.right, 192);
+    expect(menu.height, 38);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'card menu builds its items on demand and uses the current item count',

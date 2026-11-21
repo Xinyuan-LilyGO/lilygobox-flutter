@@ -105,7 +105,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiAverageOutputSpeed.
   ///
   /// In en, this message translates to:
-  /// **'Average speed'**
+  /// **'Stream speed'**
   String get aiAverageOutputSpeed;
 
   /// No description provided for @aiOutputTokensPerSecond.
@@ -117,7 +117,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiAverageOutputSpeedHint.
   ///
   /// In en, this message translates to:
-  /// **'Output tokens per second during streaming in the last completed reply for this model.'**
+  /// **'Estimated from the output received in the last completed reply. Insufficient samples show a dash.'**
   String get aiAverageOutputSpeedHint;
 
   /// No description provided for @githubSignInDialogDescription.
@@ -3699,31 +3699,61 @@ abstract class AppLocalizations {
   /// No description provided for @aiPermissionRequest.
   ///
   /// In en, this message translates to:
-  /// **'Request approval'**
+  /// **'Manual approval'**
   String get aiPermissionRequest;
+
+  /// No description provided for @aiPermissionAutomatic.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic approval'**
+  String get aiPermissionAutomatic;
+
+  /// No description provided for @aiPermissionAutomaticSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Model approves eligible actions.'**
+  String get aiPermissionAutomaticSummary;
+
+  /// No description provided for @aiPermissionApprovalModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Approval model'**
+  String get aiPermissionApprovalModel;
+
+  /// No description provided for @aiPermissionApprovalModelHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Defaults to the current chat model. The model uses this turn’s request and target path to decide whether to allow eligible actions. Actions it does not approve are blocked without a manual prompt.'**
+  String get aiPermissionApprovalModelHelp;
+
+  /// No description provided for @aiAuxiliaryModelUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable: {model}'**
+  String aiAuxiliaryModelUnavailable(String model);
 
   /// No description provided for @aiPermissionCustom.
   ///
   /// In en, this message translates to:
-  /// **'Custom permissions'**
+  /// **'Custom approval'**
   String get aiPermissionCustom;
 
   /// No description provided for @aiPermissionRequestSummary.
   ///
   /// In en, this message translates to:
-  /// **'Ask before restricted actions.'**
+  /// **'Confirm each restricted action.'**
   String get aiPermissionRequestSummary;
 
   /// No description provided for @aiPermissionCustomSummary.
   ///
   /// In en, this message translates to:
-  /// **'Set permissions for commands, files and web access.'**
+  /// **'Follow your approval rules.'**
   String get aiPermissionCustomSummary;
 
   /// No description provided for @aiPermissionRequestHelp.
   ///
   /// In en, this message translates to:
-  /// **'App settings and public HTTPS pages can be accessed directly. Local file operations require approval unless granted in Custom permissions. Each approval applies only to the displayed operation.'**
+  /// **'App settings and public HTTPS pages can be accessed directly. Local file operations require approval unless granted in Custom approval. Each approval applies only to the displayed operation.'**
   String get aiPermissionRequestHelp;
 
   /// No description provided for @aiPermissionNetwork.
@@ -3809,6 +3839,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Waiting for approval'**
   String get aiAwaitingApproval;
+
+  /// No description provided for @aiManualApprovalGranted.
+  ///
+  /// In en, this message translates to:
+  /// **'Manually approved'**
+  String get aiManualApprovalGranted;
+
+  /// No description provided for @aiManualApprovalDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Manually denied'**
+  String get aiManualApprovalDenied;
+
+  /// No description provided for @aiManualApprovalCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual approval cancelled'**
+  String get aiManualApprovalCancelled;
+
+  /// No description provided for @aiManualApprovalTimedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual approval timed out'**
+  String get aiManualApprovalTimedOut;
+
+  /// No description provided for @aiCustomApprovalGranted.
+  ///
+  /// In en, this message translates to:
+  /// **'Allowed by custom rules'**
+  String get aiCustomApprovalGranted;
+
+  /// No description provided for @aiCustomApprovalNotGranted.
+  ///
+  /// In en, this message translates to:
+  /// **'Not allowed directly by custom rules'**
+  String get aiCustomApprovalNotGranted;
+
+  /// No description provided for @aiPermissionReviewing.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking for automatic approval'**
+  String get aiPermissionReviewing;
+
+  /// No description provided for @aiPermissionReviewApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'Approved automatically'**
+  String get aiPermissionReviewApproved;
+
+  /// No description provided for @aiPermissionReviewDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Denied by the approval model'**
+  String get aiPermissionReviewDenied;
+
+  /// No description provided for @aiPermissionReviewFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic approval failed'**
+  String get aiPermissionReviewFailed;
+
+  /// No description provided for @aiPermissionReviewSkipped.
+  ///
+  /// In en, this message translates to:
+  /// **'Not eligible for automatic approval'**
+  String get aiPermissionReviewSkipped;
+
+  /// No description provided for @aiPermissionReviewCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic approval cancelled'**
+  String get aiPermissionReviewCancelled;
 
   /// No description provided for @aiToolTime.
   ///
@@ -4782,12 +4884,6 @@ abstract class AppLocalizations {
   /// **'Execution model'**
   String get aiTopologyModel;
 
-  /// No description provided for @aiTopologyInherit.
-  ///
-  /// In en, this message translates to:
-  /// **'Inherit parent model'**
-  String get aiTopologyInherit;
-
   /// No description provided for @aiWorkspaceDeleteAction.
   ///
   /// In en, this message translates to:
@@ -5375,6 +5471,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unchanged'**
   String get aiCompactionUnchanged;
+
+  /// No description provided for @aiCompactionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Context compaction failed'**
+  String get aiCompactionFailed;
+
+  /// No description provided for @aiCompactionOutputLimitReached.
+  ///
+  /// In en, this message translates to:
+  /// **'The model reached its output token limit before finishing the summary. If thinking is enabled, try lowering it or choosing a different compaction model.'**
+  String get aiCompactionOutputLimitReached;
+
+  /// No description provided for @aiCompactionReasoningOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'The model returned reasoning but no summary. The service did not report an output limit. Try lowering the compaction model’s thinking effort or choosing a different model.'**
+  String get aiCompactionReasoningOnly;
+
+  /// No description provided for @aiCompactionEmptySummary.
+  ///
+  /// In en, this message translates to:
+  /// **'The model returned an empty summary.'**
+  String get aiCompactionEmptySummary;
+
+  /// No description provided for @aiCompactionUnexpectedToolCall.
+  ///
+  /// In en, this message translates to:
+  /// **'The model tried to call a tool instead of returning a summary.'**
+  String get aiCompactionUnexpectedToolCall;
+
+  /// No description provided for @aiCompactionFiltered.
+  ///
+  /// In en, this message translates to:
+  /// **'The model service filtered the summary output.'**
+  String get aiCompactionFiltered;
+
+  /// No description provided for @aiCompactionNoTokenSavings.
+  ///
+  /// In en, this message translates to:
+  /// **'The summary did not reduce the estimated token count, so the context was kept unchanged.'**
+  String get aiCompactionNoTokenSavings;
+
+  /// No description provided for @aiCompactionNoRecordedReason.
+  ///
+  /// In en, this message translates to:
+  /// **'No specific reason was recorded for this attempt.'**
+  String get aiCompactionNoRecordedReason;
+
+  /// No description provided for @aiCompactionFinishReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Model finish reason: {reason}'**
+  String aiCompactionFinishReason(String reason);
+
+  /// No description provided for @aiCompactionProviderCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Service error code: {code}'**
+  String aiCompactionProviderCode(String code);
+
+  /// No description provided for @aiCompactionOutputLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Requested output limit: {limit} tokens'**
+  String aiCompactionOutputLimit(int limit);
+
+  /// No description provided for @aiCompactionOutputUsage.
+  ///
+  /// In en, this message translates to:
+  /// **'Output reported by the model: {used} tokens (requested limit: {limit})'**
+  String aiCompactionOutputUsage(int used, int limit);
 
   /// No description provided for @aiCompactionCancelledStatus.
   ///
@@ -6035,6 +6203,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Summarize older conversation for future requests. Original conversations and attachments are retained.'**
   String get agentStorageCompactHint;
+
+  /// No description provided for @agentStorageCompactionModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Context compaction model'**
+  String get agentStorageCompactionModel;
+
+  /// No description provided for @agentStorageCompactionModelHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Applies to automatic and manual compaction. By default, both use the current chat model and its reasoning effort.'**
+  String get agentStorageCompactionModelHint;
 
   /// No description provided for @agentStorageCompactNow.
   ///

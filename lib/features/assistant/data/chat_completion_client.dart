@@ -152,6 +152,8 @@ class ChatCompletionClient {
             responseItems: completion.responseItems,
             usage: completion.usage,
             streamedOutputDuration: completion.streamedOutputDuration,
+            streamedOutputChunks: completion.streamedOutputChunks,
+            finishReason: completion.finishReason,
           );
         } on _StreamUsageUnsupported catch (error) {
           _withoutStreamUsage.add(error.endpoint);
@@ -253,11 +255,17 @@ class ChatCompletionClient {
     final streamedReasoning = StringBuffer();
     AiCompletion? responseCompletion;
     AiTokenUsage? streamedUsage;
+    String? finishReason;
     final streamClock = Stopwatch()..start();
     var receivedAt = Duration.zero;
     Duration? firstOutputAt;
+    Duration? lastOutputAt;
+    var outputChunks = 0;
     var outputDuration = Duration.zero;
     void markOutput() {
+      if (receivedAt == lastOutputAt) return;
+      lastOutputAt = receivedAt;
+      outputChunks++;
       firstOutputAt ??= receivedAt;
       outputDuration = receivedAt - firstOutputAt!;
     }
@@ -330,7 +338,12 @@ class ChatCompletionClient {
           onStatus?.call(AiResponseStatus.preparingTools);
         } else if (type == 'response.failed' || type == 'response.incomplete') {
           final response = decoded['response'];
-          if (response is Map) _checkResponsesFailure(response);
+          if (response is Map) {
+            _checkResponsesFailure(response);
+            if (_responseIncompleteReason(response) case final reason?) {
+              throw AiRequestException(reason, code: reason);
+            }
+          }
           throw const AiConfigurationException(AiProblem.invalidResponse);
         }
         return;
@@ -338,7 +351,11 @@ class ChatCompletionClient {
       streamedUsage = _parseUsage(decoded['usage']) ?? streamedUsage;
       final choices = decoded['choices'];
       if (choices is! List || choices.isEmpty || choices.first is! Map) return;
-      final delta = (choices.first as Map)['delta'];
+      final choice = choices.first as Map;
+      if (choice['finish_reason'] case final String reason) {
+        finishReason = reason;
+      }
+      final delta = choice['delta'];
       if (delta is! Map) return;
       final reasoning = delta['reasoning_content'] ?? delta['reasoning'];
       if (reasoning is String && reasoning.isNotEmpty) {
@@ -498,6 +515,8 @@ class ChatCompletionClient {
         reasoning: streamedReasoning.toString(),
         usage: completion.usage,
         streamedOutputDuration: outputDuration,
+        streamedOutputChunks: outputChunks,
+        finishReason: completion.finishReason,
       );
     }
     if (!body.startsWith('data:') && !body.contains('\ndata:')) {
@@ -541,6 +560,8 @@ class ChatCompletionClient {
       reasoning: streamedReasoning.toString(),
       usage: streamedUsage,
       streamedOutputDuration: outputDuration,
+      streamedOutputChunks: outputChunks,
+      finishReason: finishReason,
     );
   }
 
@@ -549,7 +570,8 @@ class ChatCompletionClient {
     if (choices is! List || choices.isEmpty || choices.first is! Map) {
       throw const AiConfigurationException(AiProblem.invalidResponse);
     }
-    final message = (choices.first as Map)['message'];
+    final choice = choices.first as Map;
+    final message = choice['message'];
     if (message is! Map) {
       throw const AiConfigurationException(AiProblem.invalidResponse);
     }
@@ -588,6 +610,10 @@ class ChatCompletionClient {
           ? message['reasoning'] as String
           : '',
       usage: _parseUsage(decoded['usage']),
+      finishReason: switch (choice['finish_reason']) {
+        final String reason => reason,
+        _ => null,
+      },
     );
   }
 
@@ -836,6 +862,12 @@ class ChatCompletionClient {
     }
   }
 
+  String? _responseIncompleteReason(Map response) =>
+      switch (response['incomplete_details']) {
+        {'reason': final String reason} => reason,
+        _ => null,
+      };
+
   AiCompletion _parseResponses(Map<String, dynamic> decoded) {
     _checkResponsesFailure(decoded);
     final text = StringBuffer();
@@ -890,6 +922,7 @@ class ChatCompletionClient {
       reasoning: reasoning.toString(),
       toolCalls: calls,
       usage: _parseUsage(decoded['usage'], responses: true),
+      finishReason: _responseIncompleteReason(decoded),
       responseItems: [
         for (final item in output.whereType<Map>())
           Map<String, Object?>.from(item),

@@ -366,11 +366,6 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
                       maxLines: 5,
                     ),
                   ),
-                  if (_working)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 12),
-                      child: LinearProgressIndicator(),
-                    ),
                   if (_error case final error?)
                     Padding(
                       padding: const EdgeInsets.only(top: 12),

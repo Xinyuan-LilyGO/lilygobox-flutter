@@ -15,6 +15,7 @@ import 'package:lilygobox/features/assistant/domain/agent_package_progress.dart'
 import 'package:lilygobox/features/assistant/domain/memory_conflict.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/domain/process_timeline.dart';
+import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
 import 'package:lilygobox/features/assistant/state/provider.dart';
 import 'package:lilygobox/features/assistant/state/storage_controller.dart';
@@ -32,6 +33,7 @@ void main() {
   late SplitViewProvider split;
   late String service;
   final requests = <Map<String, dynamic>>[];
+  final routes = <({String host, String? authorization})>[];
   var summary = 'Retained goals and unresolved work.';
   var consolidation = '{"memories":[]}';
   var consolidationStatus = 200;
@@ -44,6 +46,7 @@ void main() {
   Completer<void>? consolidationStarted;
   Completer<void>? summaryGate;
   Completer<void>? summaryStarted;
+  http.Response? summaryResponse;
   var retrySummaryOnce = false;
   setUp(() async {
     directory = await Directory.systemTemp.createTemp('lilygobox-memory-');
@@ -53,6 +56,7 @@ void main() {
     shell = AppShellProvider();
     split = SplitViewProvider();
     requests.clear();
+    routes.clear();
     summary = 'Retained goals and unresolved work.';
     consolidation = '{"memories":[]}';
     consolidationStatus = 200;
@@ -65,6 +69,7 @@ void main() {
     consolidationStarted = null;
     summaryGate = null;
     summaryStarted = null;
+    summaryResponse = null;
     retrySummaryOnce = false;
     scope = await createAssistantTestScope(
       theme: theme,
@@ -75,6 +80,10 @@ void main() {
       client: MockClient((request) async {
         final body = jsonDecode(request.body) as Map<String, dynamic>;
         requests.add(body);
+        routes.add((
+          host: request.url.host,
+          authorization: request.headers['authorization'],
+        ));
         final messages = body['messages'] as List;
         final consolidating = (messages.first['content'] as String).startsWith(
           'Consolidate durable',
@@ -105,6 +114,7 @@ void main() {
             retrySummaryOnce = false;
             return http.Response('Busy', 429, headers: {'retry-after': '0'});
           }
+          if (summaryResponse case final response?) return response;
         }
         if (!consolidating && topologyRounds > 0) {
           topologyRounds--;
@@ -735,6 +745,24 @@ void main() {
   });
 
   test(
+    'stream compaction fixture imports below its automatic trigger',
+    () async {
+      final controller = AgentStorageController(workspaces);
+      addTearDown(controller.dispose);
+      final package = await controller.inspect(
+        'artifacts/lilygobox-auto-compaction-conversation-test.7z',
+      );
+      await controller.import(package);
+      final assistant = workspaces.sessions.single.assistant;
+      expect(assistant.contextBudgetTokens, 12000);
+      expect(assistant.contextCompactionPercent, 28);
+      expect(assistant.contextCompactionThresholdTokens, 3360);
+      expect(assistant.estimatedContextTokens, inInclusiveRange(2400, 2900));
+      expect(requests, isEmpty);
+    },
+  );
+
+  test(
     'workflow import cancellation during staging publishes no agent or data',
     () async {
       final source = await create('Source');
@@ -1163,6 +1191,112 @@ void main() {
   };
 
   test(
+    'manual compaction uses the selected service without switching chat models',
+    () async {
+      final root = await create('Dedicated compaction');
+      final assistant = root.assistant;
+      assistant.restoreWorkspaceConversation(compactionSnapshot());
+      final compactionService = await scope.provider.saveService(
+        name: 'Summarizer',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://summary.example.test/v1',
+        models: ['summary-gpt-6.1-sol'],
+        apiKey: 'summary-key',
+      );
+      final chatEffort = assistant.reasoningEffort;
+      assistant.selectApprovalModel((
+        serviceId: service,
+        model: 'gpt-6.1-sol',
+        reasoningEffort: AiReasoningEffort.high,
+      ));
+      assistant.selectCompactionModel((
+        serviceId: compactionService,
+        model: 'summary-gpt-6.1-sol',
+        reasoningEffort: AiReasoningEffort.ultra,
+      ));
+
+      expect(
+        await assistant.compactContext(),
+        AiContextCompactionOutcome.compacted,
+      );
+      expect(requests.single['model'], 'summary-gpt-6.1-sol');
+      expect(requests.single['reasoning_effort'], 'ultra');
+      expect(routes.single, (
+        host: 'summary.example.test',
+        authorization: 'Bearer summary-key',
+      ));
+      expect(assistant.messages.single.model, 'summary-gpt-6.1-sol');
+      expect(assistant.selectedModel, 'gpt-6.1-sol');
+      expect(assistant.reasoningEffort, chatEffort);
+
+      final restored = (await create('Restored models')).assistant;
+      restored.restoreWorkspaceConversation(
+        assistant.snapshotWorkspaceConversation(),
+      );
+      expect(restored.auxiliaryModels, assistant.auxiliaryModels);
+      restored.selectCompactionModel(null);
+      expect(
+        restored.auxiliaryModels.approval,
+        assistant.auxiliaryModels.approval,
+      );
+      expect(restored.auxiliaryModels.compaction, isNull);
+    },
+  );
+
+  test('missing dedicated compaction model does not send history to another provider', () async {
+    final assistant = (await create('Missing dedicated compaction')).assistant;
+    assistant.restoreWorkspaceConversation(compactionSnapshot());
+    assistant.selectCompactionModel((
+      serviceId: 'removed',
+      model: 'summarizer',
+      reasoningEffort: null,
+    ));
+
+    expect(
+      await assistant.compactContext(),
+      AiContextCompactionOutcome.unavailableModel,
+    );
+    expect(requests, isEmpty);
+    expect(assistant.snapshotWorkspaceConversation()['history'], hasLength(16));
+  });
+
+  test(
+    'workflow import cannot set local approval or compaction models',
+    () async {
+      final active = await create('Active');
+      final recycled = await create('Recycled');
+      final selection = (
+        serviceId: service,
+        model: 'gpt-6.1-sol',
+        reasoningEffort: AiReasoningEffort.high,
+      );
+      for (final agent in [active, recycled]) {
+        agent.assistant.auxiliaryModels = (
+          approval: selection,
+          compaction: selection,
+        );
+      }
+      workspaces.removeMany([recycled.id]);
+      final mapping = await workspaces.importData(workspaces.exportData());
+      final importedActive = workspaces.find(mapping[active.id])!;
+      expect(importedActive.assistant.auxiliaryModels, (
+        approval: null,
+        compaction: null,
+      ));
+      final importedRecycled = mapping[recycled.id]!;
+      await workspaces.restoreRecycledAgent(importedRecycled);
+      expect(workspaces.find(importedRecycled)!.assistant.auxiliaryModels, (
+        approval: null,
+        compaction: null,
+      ));
+      expect(active.assistant.auxiliaryModels, (
+        approval: selection,
+        compaction: selection,
+      ));
+    },
+  );
+
+  test(
     'manual compaction reports insufficient history without requesting a model',
     () async {
       final root = await create('Short history');
@@ -1192,19 +1326,63 @@ void main() {
     },
   );
 
-  test('manual compaction reports empty model output as unchanged', () async {
+  test('manual compaction records empty model output as a failure', () async {
     final root = await create('Empty summary');
     root.assistant.restoreWorkspaceConversation(compactionSnapshot());
     summary = ' ';
-    expect(
-      await root.assistant.compactContext(),
-      AiContextCompactionOutcome.unchanged,
+    await expectLater(
+      root.assistant.compactContext(),
+      throwsA(
+        isA<AiCompactionException>().having(
+          (error) => error.issue,
+          'issue',
+          AiCompactionIssue.emptySummary,
+        ),
+      ),
     );
     expect(
       root.assistant.snapshotWorkspaceConversation()['history'],
       hasLength(16),
     );
   });
+
+  test('a valid summary without savings keeps the context unchanged', () async {
+    final assistant = (await create('No savings')).assistant;
+    assistant.restoreWorkspaceConversation(compactionSnapshot());
+    summary = 'Summary ' * 100;
+    expect(
+      await assistant.compactContext(),
+      AiContextCompactionOutcome.unchanged,
+    );
+    final record = assistant.messages.single;
+    expect(record.status, AiResponseStatus.completed);
+    expect(record.processingSteps.single.arguments['noTokenSavings'], isTrue);
+    expect(assistant.snapshotWorkspaceConversation()['history'], hasLength(16));
+  });
+
+  test(
+    'context-limit recovery fails when the summary saves no tokens',
+    () async {
+      final assistant = (await create('Recovery without savings')).assistant;
+      assistant.restoreWorkspaceConversation(compactionSnapshot());
+      assistant.useMemory = false;
+      contextErrorOnce = true;
+      summary = 'Summary ' * 100;
+
+      await assistant.sendMessage('Latest question');
+
+      expect(requests, hasLength(2));
+      final record = assistant.messages.singleWhere(
+        (message) => message.role == 'compaction',
+      );
+      expect(record.status, AiResponseStatus.failed);
+      expect(
+        record.processingSteps.single.arguments,
+        containsPair('compactionIssue', 'noTokenSavings'),
+      );
+      expect(assistant.snapshotWorkspaceConversation()['summary'], isEmpty);
+    },
+  );
 
   test('one compression covers long conversations, shares in-flight work and retains raw turns', () async {
     final root = await create('Batched summary');
@@ -1300,7 +1478,7 @@ void main() {
     );
   });
 
-  test('failed pre-request summary does not retry at turn end', () async {
+  test('failed pre-request summary does not send the reply request', () async {
     final assistant = (await create('Single attempt')).assistant;
     assistant.restoreWorkspaceConversation(compactionSnapshot(count: 16));
     assistant.contextBudgetTokens = 100;
@@ -1308,25 +1486,138 @@ void main() {
     summary = '';
     await assistant.sendMessage('Latest question');
 
-    final summaries = requests.where(
-      (request) => ((request['messages'] as List).first['content'] as String)
-          .startsWith('Summarize'),
-    );
-    expect(summaries, hasLength(1));
-    expect(assistant.messages.last.content, reply);
+    expect(requests, hasLength(1));
+    expect(assistant.messages.map((message) => message.role), [
+      'user',
+      'compaction',
+    ]);
+    expect(assistant.canContinue, isFalse);
+    await assistant.continueGeneration();
+    expect(requests, hasLength(1));
     final record = assistant.messages.singleWhere(
       (message) => message.role == 'compaction',
     );
-    expect(record.toolArguments?['replyId'], assistant.messages.last.id);
-    expect(record.processingSteps.single.arguments['outcome'], 'unchanged');
+    expect(record.status, AiResponseStatus.failed);
+    expect(
+      record.processingSteps.single.arguments,
+      containsPair('compactionIssue', 'emptySummary'),
+    );
     expect(assistant.snapshotWorkspaceConversation()['summary'], isEmpty);
   });
 
+  test('failed turn-end compaction keeps the reply and queued input', () async {
+    final assistant = (await create('Failed turn-end compaction')).assistant;
+    assistant.restoreWorkspaceConversation(compactionSnapshot(count: 6));
+    assistant.contextBudgetTokens = 2000;
+    assistant.useMemory = false;
+    reply = 'Long answer ' * 1000;
+    summary = '';
+    summaryStarted = Completer<void>();
+    summaryGate = Completer<void>();
+    final pending = assistant.sendMessage('Latest question');
+    await summaryStarted!.future;
+    await assistant.sendMessage('Queued question');
+    summaryGate!.complete();
+    await pending;
+
+    expect(requests, hasLength(2));
+    final response = assistant.messages.singleWhere((item) => item.role == 'assistant');
+    expect(response.content, reply.trimRight());
+    expect(response.status, AiResponseStatus.completed);
+    expect(assistant.messages.last.status, AiResponseStatus.failed);
+    expect(assistant.pendingGuidance.single.content, 'Queued question');
+  });
+
+  for (final (finishReason, content, issue) in [
+    ('length', 'Partial summary', AiCompactionIssue.outputLimit),
+    ('stop', '', AiCompactionIssue.reasoningOnly),
+    ('stop', 'Goals retained.', null),
+  ]) {
+    test('GPT and DeepSeek automatic compaction: ${issue?.name ?? 'success'}', () async {
+      final assistant = (await create('Cross-service compaction')).assistant;
+      assistant.restoreWorkspaceConversation(compactionSnapshot());
+      assistant.contextBudgetTokens = 100;
+      assistant.useMemory = false;
+      final summaryService = await scope.provider.saveService(
+        name: 'DeepSeek fixture',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://summary.example.test/v1',
+        models: ['deepseek-flash'],
+        apiKey: 'summary-key',
+      );
+      assistant.selectCompactionModel((
+        serviceId: summaryService,
+        model: 'deepseek-flash',
+        reasoningEffort: AiReasoningEffort.low,
+      ));
+      summaryResponse = http.Response(
+        [
+          {'choices': [{'delta': {'reasoning_content': 'Thinking'}}]},
+          if (content.isNotEmpty) {'choices': [{'delta': {'content': content}}]},
+          {'choices': [{'finish_reason': finishReason}]},
+          {'choices': [], 'usage': {'completion_tokens': 12}},
+        ].map((chunk) => 'data: ${jsonEncode(chunk)}\n\n').join() +
+        'data: [DONE]\n\n',
+        200,
+        headers: {'content-type': 'text/event-stream'},
+      );
+
+      await assistant.sendMessage('Latest question');
+
+      expect(requests.map((request) => request['model']), [
+        'deepseek-flash',
+        if (issue == AiCompactionIssue.outputLimit) 'deepseek-flash',
+        if (issue == null) 'gpt-6.1-sol',
+      ]);
+      expect(routes.first.host, 'summary.example.test');
+      expect(requests.first['thinking'], {'type': 'enabled'});
+      expect(requests.first['reasoning_effort'], 'low');
+      expect(requests.first['max_tokens'], 2048);
+      expect(assistant.selectedModel, 'gpt-6.1-sol');
+      final record = ConversationCodec.read(ConversationCodec.message(
+        assistant.messages.singleWhere((message) => message.role == 'compaction'),
+      ));
+      expect(record.model, 'deepseek-flash');
+      expect(record.toolArguments?['trigger'], 'auto');
+      final snapshot = assistant.snapshotWorkspaceConversation();
+      if (issue == null) {
+        expect(assistant.messages.last.content, reply);
+        expect(record.status, AiResponseStatus.completed);
+        expect(snapshot['summary'], content);
+      } else {
+        expect(record.status, AiResponseStatus.failed);
+        expect(record.processEvents.last.status, AiResponseStatus.failed);
+        expect(record.processingSteps.single.arguments, containsPair('compactionIssue', issue.name));
+        expect(record.processingSteps.single.arguments, containsPair('finishReason', finishReason));
+        expect(record.processingSteps.single.arguments, containsPair('outputTokens', 12));
+        expect(record.processingSteps.single.arguments, containsPair(
+          'outputLimit',
+          issue == AiCompactionIssue.outputLimit ? 4096 : 2048,
+        ));
+        expect(assistant.messages.where((item) => item.role == 'assistant'), isEmpty);
+        expect(snapshot['summary'], isEmpty);
+        expect(snapshot['history'], hasLength(17));
+      }
+    });
+  }
+
   test(
-    'pre-request auto compaction resumes the same reply with its summary',
+    'pre-request auto compaction uses its own model and resumes the same reply',
     () async {
       final assistant = (await create('Resume after compaction')).assistant;
       assistant.restoreWorkspaceConversation(compactionSnapshot(count: 16));
+      final compactionService = await scope.provider.saveService(
+        name: 'Summarizer',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://summary.example.test/v1',
+        models: ['summary-gpt-6.1-sol'],
+        apiKey: 'summary-key',
+      );
+      assistant.selectCompactionModel((
+        serviceId: compactionService,
+        model: 'summary-gpt-6.1-sol',
+        reasoningEffort: AiReasoningEffort.high,
+      ));
       assistant.contextBudgetTokens = 100;
       assistant.useMemory = false;
       summaryGate = Completer<void>();
@@ -1344,6 +1635,11 @@ void main() {
         (message) => message.role == 'compaction',
       );
       final response = assistant.messages.last;
+      expect(record.model, 'summary-gpt-6.1-sol');
+      expect(requests.first['model'], 'summary-gpt-6.1-sol');
+      expect(requests.first['reasoning_effort'], 'high');
+      expect(requests.last['model'], 'gpt-6.1-sol');
+      expect(requests.last['reasoning_effort'], assistant.reasoningEffort?.name);
       expect(record.toolArguments?['replyId'], response.id);
       expect(record.processingSteps.single.arguments['outcome'], 'compacted');
       expect(response.content, reply);
@@ -1682,7 +1978,13 @@ void main() {
     () async {
       final assistant = (await create('Failed compaction')).assistant;
       assistant.restoreWorkspaceConversation(compactionSnapshot());
-      replyStatus = 400;
+      summaryResponse = http.Response(
+        jsonEncode({
+          'error': {'code': 'invalid_model', 'message': 'Model unavailable'},
+        }),
+        400,
+        headers: {'content-type': 'application/json'},
+      );
       await expectLater(assistant.compactContext(), throwsA(anything));
       final record = ConversationCodec.read(
         ConversationCodec.message(assistant.messages.single),
@@ -1690,6 +1992,15 @@ void main() {
       expect(record.role, 'compaction');
       expect(record.status, AiResponseStatus.failed);
       expect(record.processingSteps.single.arguments['outcome'], 'failed');
+      expect(record.processingSteps.single.arguments['httpStatus'], 400);
+      expect(
+        record.processingSteps.single.arguments['providerCode'],
+        'invalid_model',
+      );
+      expect(
+        record.processingSteps.single.output,
+        contains('Model unavailable'),
+      );
       expect(record.processEvents.last.status, AiResponseStatus.failed);
       expect(record.elapsed!.inMicroseconds, greaterThan(0));
       expect(record.requestError, isNotNull);

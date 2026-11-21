@@ -14,7 +14,7 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
-  String get aiAverageOutputSpeed => '平均速度';
+  String get aiAverageOutputSpeed => '流式输出速度';
 
   @override
   String aiOutputTokensPerSecond(String rate) {
@@ -22,7 +22,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get aiAverageOutputSpeedHint => '此模型上次完成回复时，每秒流式输出的 token 数。';
+  String get aiAverageOutputSpeedHint => '根据上次完成回复时收到的流式输出估算。采样不足时不显示速度。';
 
   @override
   String get githubSignInDialogDescription =>
@@ -1936,20 +1936,38 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiPermissions => '权限';
 
   @override
-  String get aiPermissionRequest => '请求批准';
+  String get aiPermissionRequest => '人工审批';
 
   @override
-  String get aiPermissionCustom => '自定义权限';
+  String get aiPermissionAutomatic => '自动审批';
 
   @override
-  String get aiPermissionRequestSummary => '执行受限操作前请求批准。';
+  String get aiPermissionAutomaticSummary => '由模型审批符合条件的操作。';
 
   @override
-  String get aiPermissionCustomSummary => '设置命令、文件和网页访问权限。';
+  String get aiPermissionApprovalModel => '审批模型';
+
+  @override
+  String get aiPermissionApprovalModelHelp =>
+      '默认使用当前聊天模型。模型根据本轮请求和目标路径审批符合条件的操作；未获通过的操作不会执行，也不会转为人工审批。';
+
+  @override
+  String aiAuxiliaryModelUnavailable(String model) {
+    return '不可用：$model';
+  }
+
+  @override
+  String get aiPermissionCustom => '自定义审批';
+
+  @override
+  String get aiPermissionRequestSummary => '受限操作由你逐次确认。';
+
+  @override
+  String get aiPermissionCustomSummary => '按你设置的规则放行或询问。';
 
   @override
   String get aiPermissionRequestHelp =>
-      '软件设置与公开 HTTPS 网页可直接访问。本地文件操作需要逐次批准，或在自定义权限中授权。每次批准仅适用于展示的操作。';
+      '软件设置与公开 HTTPS 网页可直接访问。本地文件操作需要逐次确认，或在自定义审批中授权。每次确认仅适用于展示的操作。';
 
   @override
   String get aiPermissionNetwork => '允许联网';
@@ -1993,6 +2011,42 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiAwaitingApproval => '等待批准';
+
+  @override
+  String get aiManualApprovalGranted => '人工审批通过';
+
+  @override
+  String get aiManualApprovalDenied => '人工审批拒绝';
+
+  @override
+  String get aiManualApprovalCancelled => '人工审批已取消';
+
+  @override
+  String get aiManualApprovalTimedOut => '人工审批超时';
+
+  @override
+  String get aiCustomApprovalGranted => '自定义审批通过';
+
+  @override
+  String get aiCustomApprovalNotGranted => '自定义规则未直接放行';
+
+  @override
+  String get aiPermissionReviewing => '正在自动审批';
+
+  @override
+  String get aiPermissionReviewApproved => '自动审批通过';
+
+  @override
+  String get aiPermissionReviewDenied => '自动审批拒绝';
+
+  @override
+  String get aiPermissionReviewFailed => '自动审批失败';
+
+  @override
+  String get aiPermissionReviewSkipped => '不符合自动审批条件';
+
+  @override
+  String get aiPermissionReviewCancelled => '自动审批已取消';
 
   @override
   String get aiToolTime => '读取当前时间';
@@ -2510,9 +2564,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiTopologyModel => '执行模型';
 
   @override
-  String get aiTopologyInherit => '继承上级模型';
-
-  @override
   String get aiWorkspaceDeleteAction => '删除子智能体';
 
   @override
@@ -2830,6 +2881,52 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiCompactionUnchanged => '上下文未改变';
+
+  @override
+  String get aiCompactionFailed => '上下文压缩失败';
+
+  @override
+  String get aiCompactionOutputLimitReached =>
+      '模型达到输出 token 上限，未能完整生成摘要。若启用了思考，可尝试降低思考强度或更换压缩模型。';
+
+  @override
+  String get aiCompactionReasoningOnly =>
+      '模型只返回了思考内容，没有给出摘要。服务未报告达到输出上限。可尝试降低压缩模型的思考强度或更换模型。';
+
+  @override
+  String get aiCompactionEmptySummary => '模型返回的摘要为空。';
+
+  @override
+  String get aiCompactionUnexpectedToolCall => '模型尝试调用工具，没有按要求返回摘要。';
+
+  @override
+  String get aiCompactionFiltered => '模型服务过滤了摘要输出。';
+
+  @override
+  String get aiCompactionNoTokenSavings => '摘要未减少估算 token 数，已保留原上下文。';
+
+  @override
+  String get aiCompactionNoRecordedReason => '这次压缩没有记录具体原因。';
+
+  @override
+  String aiCompactionFinishReason(String reason) {
+    return '模型结束原因：$reason';
+  }
+
+  @override
+  String aiCompactionProviderCode(String code) {
+    return '服务错误码：$code';
+  }
+
+  @override
+  String aiCompactionOutputLimit(int limit) {
+    return '请求的输出上限：$limit token';
+  }
+
+  @override
+  String aiCompactionOutputUsage(int used, int limit) {
+    return '模型报告的输出量：$used token（请求上限：$limit）';
+  }
 
   @override
   String get aiCompactionCancelledStatus => '已取消';
@@ -3185,6 +3282,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agentStorageCompactHint => '总结较早的对话供后续请求使用，原始聊天记录和附件保留。';
+
+  @override
+  String get agentStorageCompactionModel => '压缩上下文模型';
+
+  @override
+  String get agentStorageCompactionModelHint =>
+      '用于自动和手动压缩上下文。默认使用当前聊天模型及其思考强度。';
 
   @override
   String get agentStorageCompactNow => '立即压缩';

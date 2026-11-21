@@ -27,6 +27,13 @@ abstract final class ConversationCodec {
           )
         : null,
   );
+  static Map<String, Object?> _writeRetry(AiRequestRetry retry) => {
+    'attempt': retry.attempt,
+    'error': retry.error.toString(),
+    if (retry.error case AiCompactionException(:final issue))
+      'compactionIssue': issue.name,
+  };
+
   static Map<String, Object?> message(AiMessage m) => {
     'id': m.id,
     'role': m.role,
@@ -44,10 +51,7 @@ abstract final class ConversationCodec {
     'status': m.status?.name,
     'error': m.requestError?.toString(),
     'steps': m.processingSteps.map(step).toList(),
-    'retries': [
-      for (final r in m.retries)
-        {'attempt': r.attempt, 'error': r.error.toString()},
-    ],
+    'retries': m.retries.map(_writeRetry).toList(),
     'attachments': [
       for (final a in m.attachments)
         {'name': a.name, 'mime': a.mimeType, 'bytes': base64Encode(a.bytes)},
@@ -63,12 +67,7 @@ abstract final class ConversationCodec {
           'arguments': e.toolArguments,
           'text': e.text,
           'action': e.action == null ? null : step(e.action!),
-          'retry': e.retry == null
-              ? null
-              : {
-                  'attempt': e.retry!.attempt,
-                  'error': e.retry!.error.toString(),
-                },
+          'retry': e.retry == null ? null : _writeRetry(e.retry!),
         },
     ],
   };
@@ -87,8 +86,15 @@ abstract final class ConversationCodec {
         : AiResponseStatus.stopped;
   }
 
-  static AiRequestRetry retry(Map r) =>
-      AiRequestRetry(r['attempt'] as int, r['error']?.toString() ?? '');
+  static AiRequestRetry retry(Map r) {
+    final issue = value(AiCompactionIssue.values, r['compactionIssue']);
+    return AiRequestRetry(
+      r['attempt'] as int,
+      issue == null
+          ? r['error']?.toString() ?? ''
+          : AiCompactionException(issue),
+    );
+  }
   static AiMessage read(Map m) {
     if (!m.keys.toSet().containsAll({
           'createdAt',

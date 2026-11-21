@@ -1304,6 +1304,11 @@ class AiWorkspaceProvider extends ChangeNotifier {
     _scheduleSave(canvasOnly: true);
   }
 
+  Map<String, dynamic> _importConversation(Map conversation) =>
+      Map<String, dynamic>.from(conversation)
+        ..remove('approvalModel')
+        ..remove('compactionModel');
+
   Future<Map<String, String>> importData(
     Map<String, dynamic> data, {
     List<Map<String, Object?>> Function(Map<String, String>)? memoriesFor,
@@ -1399,9 +1404,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     try {
       for (final raw in records) {
         await checkpoint?.call();
-        final conversation = Map<String, dynamic>.from(
-          raw['conversation'] as Map,
-        );
+        final conversation = _importConversation(raw['conversation'] as Map);
         final serviceId = conversation['serviceId'];
         final model = conversation['model'];
         if (serviceId is! String || model is! String) {
@@ -1607,6 +1610,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     AiProcessingSpeed? processingSpeed,
     int? contextBudgetTokens,
     int? contextCompactionPercent,
+    AiAuxiliaryModels? auxiliaryModels,
   }) => create(
     title: title,
     task: task,
@@ -1618,6 +1622,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     processingSpeed: processingSpeed,
     contextBudgetTokens: contextBudgetTokens,
     contextCompactionPercent: contextCompactionPercent,
+    auxiliaryModels: auxiliaryModels,
   );
 
   Future<AiAgentWorkspace> create({
@@ -1632,6 +1637,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     AiProcessingSpeed? processingSpeed,
     int? contextBudgetTokens,
     int? contextCompactionPercent,
+    AiAuxiliaryModels? auxiliaryModels,
     bool modelInitiated = false,
     bool startImmediately = true,
     bool Function()? isCancelled,
@@ -1752,6 +1758,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
         contextBudgetTokens ?? template.contextBudgetTokens;
     worker.contextCompactionPercent =
         contextCompactionPercent ?? template.contextCompactionPercent;
+    if (auxiliaryModels != null) worker.auxiliaryModels = auxiliaryModels;
     if (permissions != null) worker.setPermissions(permissions);
     final session = AiAgentWorkspace(
       id: '${DateTime.now().microsecondsSinceEpoch}-${_sequence++}',

@@ -61,6 +61,49 @@ class RightClickMenuController {
 
 /// 右键菜单构建器
 class RightClickMenuBuilder {
+  static const _defaultWidth = 150.0;
+  static const _menuPadding = 5.0;
+  static const _itemPadding = 6.0;
+  static const _iconSize = 16.0;
+  static const _iconGap = 4.0;
+  static const _edgeInset = 8.0;
+
+  static TextStyle _labelStyle(RightClickMenuItem item) => TextStyle(
+    fontSize: 13,
+    fontWeight: item.isEnabled ? FontWeight.normal : FontWeight.w300,
+  );
+
+  static double _fittedWidth(
+    BuildContext context,
+    List<RightClickMenuItem> items,
+    double minWidth,
+  ) {
+    final textStyle = Theme.of(context).textTheme.bodyMedium!;
+    final painter = TextPainter(
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      locale: Localizations.maybeLocaleOf(context),
+      maxLines: 1,
+    );
+    var width = minWidth;
+    for (final item in items) {
+      painter.text = TextSpan(
+        text: item.label,
+        style: textStyle.merge(_labelStyle(item)),
+      );
+      painter.layout();
+      final itemWidth =
+          painter.width.ceilToDouble() +
+          2 * (_menuPadding + _itemPadding) +
+          (item.icon != null ? _iconSize + _iconGap : 0) +
+          (item.isSelected ? _iconGap + _iconSize : 0) +
+          2;
+      if (itemWidth > width) width = itemWidth;
+    }
+    painter.dispose();
+    return width;
+  }
+
   /// 构建右键菜单锚点
   static Widget buildMenuAnchor({
     required BuildContext context,
@@ -74,12 +117,12 @@ class RightClickMenuBuilder {
     Object? menuTapRegionGroupId,
     bool openAbove = false,
     Offset alignmentOffset = Offset.zero,
-    double menuWidth = 150,
+    double menuWidth = _defaultWidth,
+    bool fitWidthToItems = false,
   }) {
-    const double menuPadding = 5.0; // 菜单内边距
     // 高度与下方菜单项、间距和分隔线保持一致，向上展开时留出 8 像素间隙。
     double heightFor(List<RightClickMenuItem> items) =>
-        menuPadding * 2 +
+        _menuPadding * 2 +
         items.length * 28 +
         items
             .take(items.isNotEmpty ? items.length - 1 : 0)
@@ -94,6 +137,17 @@ class RightClickMenuBuilder {
     final maxHeight = (windowHeight - 48).clamp(0.0, 640.0);
     double gutterFor(double height) => height > maxHeight ? 20 : 0;
     double visibleHeight(double height) => height.clamp(0.0, maxHeight);
+    double panelWidthFor(
+      BuildContext context,
+      List<RightClickMenuItem> items,
+      double gutter,
+      double availableWidth,
+    ) => fitWidthToItems
+        ? (_fittedWidth(context, items, menuWidth) + gutter).clamp(
+            0.0,
+            (availableWidth - 2 * _edgeInset).clamp(0.0, double.infinity),
+          )
+        : menuWidth + gutter;
     return MenuAnchor(
       controller: controller._menuController,
       clipBehavior: Clip.none,
@@ -149,7 +203,12 @@ class RightClickMenuBuilder {
                 return buildMenuPanel(
                   menuItems: items,
                   theme: theme,
-                  width: menuWidth + gutter,
+                  width: panelWidthFor(
+                    context,
+                    items,
+                    gutter,
+                    MediaQuery.sizeOf(context).width,
+                  ),
                   trailingInset: gutter,
                 );
               },
@@ -191,38 +250,41 @@ class RightClickMenuBuilder {
                     );
                     var menuOrigin = pointerPosition - const Offset(0, 8);
                     if (!openAbove) {
-                      final contentHeight = heightFor(
-                        menuItemsBuilder?.call() ?? menuItems,
-                      );
+                      final items = menuItemsBuilder?.call() ?? menuItems;
+                      final contentHeight = heightFor(items);
                       final menuHeight = visibleHeight(contentHeight);
-                      final panelWidth = menuWidth + gutterFor(contentHeight);
+                      final panelWidth = panelWidthFor(
+                        anchorContext,
+                        items,
+                        gutterFor(contentHeight),
+                        overlayBox.size.width,
+                      );
                       // Flutter 溢出时会相对整张锚点卡片翻转，长卡片会让菜单
                       // 跳到远离鼠标的位置。先在覆盖层内围绕鼠标翻转并限位，
                       // 再转回锚点偏移，避免触发框架的二次翻转。
-                      const edgeInset = 8.0;
                       if (menuOrigin.dy + menuHeight >
-                          overlayBox.size.height - edgeInset) {
+                          overlayBox.size.height - _edgeInset) {
                         menuOrigin = Offset(
                           menuOrigin.dx,
-                          pointerPosition.dy + edgeInset - menuHeight,
+                          pointerPosition.dy + _edgeInset - menuHeight,
                         );
                       }
                       if (menuOrigin.dx + panelWidth >
-                          overlayBox.size.width - edgeInset) {
+                          overlayBox.size.width - _edgeInset) {
                         menuOrigin = Offset(
                           pointerPosition.dx - panelWidth,
                           menuOrigin.dy,
                         );
                       }
                       final maxX =
-                          (overlayBox.size.width - panelWidth - edgeInset)
-                              .clamp(edgeInset, double.infinity);
+                          (overlayBox.size.width - panelWidth - _edgeInset)
+                              .clamp(_edgeInset, double.infinity);
                       final maxY =
-                          (overlayBox.size.height - menuHeight - edgeInset)
-                              .clamp(edgeInset, double.infinity);
+                          (overlayBox.size.height - menuHeight - _edgeInset)
+                              .clamp(_edgeInset, double.infinity);
                       menuOrigin = Offset(
-                        menuOrigin.dx.clamp(edgeInset, maxX),
-                        menuOrigin.dy.clamp(edgeInset, maxY),
+                        menuOrigin.dx.clamp(_edgeInset, maxX),
+                        menuOrigin.dy.clamp(_edgeInset, maxY),
                       );
                     }
                     // 向上展开的工具栏菜单沿用锚点定位，避免鼠标位置覆盖上方偏移。
@@ -242,7 +304,7 @@ class RightClickMenuBuilder {
     Key? key,
     required List<RightClickMenuItem> menuItems,
     required AppTheme theme,
-    double width = 150,
+    double width = _defaultWidth,
     double trailingInset = 0,
     List<BoxShadow>? shadows,
     Color? surfaceColor,
@@ -269,7 +331,7 @@ class RightClickMenuBuilder {
             children: _buildMenuItemsWithDividers(
               menuItems: menuItems,
               theme: theme,
-              menuWidth: width - 10 - trailingInset,
+              menuWidth: width - 2 * _menuPadding - trailingInset,
               itemColor: itemColor,
               selectedColor: selectedColor,
               selectedForegroundColor: selectedForegroundColor,
@@ -372,36 +434,31 @@ class RightClickMenuBuilder {
       child: Container(
         width: menuWidth,
         height: 28,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
+        padding: const EdgeInsets.symmetric(horizontal: _itemPadding),
         child: Row(
           children: [
             if (item.icon != null) ...[
               Icon(
                 item.icon,
-                size: 16,
+                size: _iconSize,
                 fill: 1,
                 grade: 200,
                 opticalSize: 20,
                 weight: 300,
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: _iconGap),
             ],
             Expanded(
               child: DefaultTextStyle.merge(
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: item.isEnabled
-                      ? FontWeight.normal
-                      : FontWeight.w300,
-                ),
+                style: _labelStyle(item),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 child: item.labelWidget ?? Text(item.label),
               ),
             ),
             if (item.isSelected) ...[
-              const SizedBox(width: 4),
-              const Icon(Icons.check, size: 16),
+              const SizedBox(width: _iconGap),
+              const Icon(Icons.check, size: _iconSize),
             ],
           ],
         ),

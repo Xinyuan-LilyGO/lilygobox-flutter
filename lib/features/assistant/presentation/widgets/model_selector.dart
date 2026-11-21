@@ -2,6 +2,7 @@
  * @Description: 为主页提供右键菜单风格的服务分组模型菜单与设备风格搜索框。
  */
 
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:material_symbols_icons/symbols.dart';
@@ -33,10 +34,10 @@ class ModelSelector extends StatefulWidget {
     this.selectedServiceId,
     this.selectedModel,
     this.onSelected,
-    this.inheritLabel,
-    this.onInherit,
+    this.auxiliarySelection,
+    this.onAuxiliarySelected,
     this.fieldSurfaceColor,
-  }) : assert(onInherit == null || inheritLabel != null);
+  }) : assert(onAuxiliarySelected == null || onSelected == null);
   final AppTheme theme;
   final AiAssistantProvider assistant;
 
@@ -44,8 +45,8 @@ class ModelSelector extends StatefulWidget {
   final String? selectedServiceId;
   final String? selectedModel;
   final void Function(String serviceId, String model)? onSelected;
-  final String? inheritLabel;
-  final VoidCallback? onInherit;
+  final AiModelSelection? auxiliarySelection;
+  final ValueChanged<AiModelSelection>? onAuxiliarySelected;
   final Color? fieldSurfaceColor;
 
   @override
@@ -53,7 +54,10 @@ class ModelSelector extends StatefulWidget {
 }
 
 class _ModelSelectorState extends State<ModelSelector> {
+  static const _modelIcon = Icon(Symbols.blur_on, size: 16, fill: 1);
+
   final _menu = MenuController();
+  final _dismissGroup = Object();
   final _buttonKey = GlobalKey();
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
@@ -69,16 +73,32 @@ class _ModelSelectorState extends State<ModelSelector> {
   String? _reasoningModel;
   int _effortIndex = 0;
 
-  bool get _external => widget.onSelected != null;
-  String? get _selectedServiceId => _external
+  bool get _auxiliary => widget.onAuxiliarySelected != null;
+  bool get _external => _auxiliary || widget.onSelected != null;
+  bool get _followsChatModel => _auxiliary && widget.auxiliarySelection == null;
+  String? get _selectedServiceId => _auxiliary && !_followsChatModel
+      ? widget.auxiliarySelection?.serviceId
+      : widget.onSelected != null
       ? widget.selectedServiceId
       : widget.assistant.selectedService?.id;
-  String? get _selectedModel =>
-      _external ? widget.selectedModel : widget.assistant.selectedModel;
+  String? get _selectedModel => _auxiliary && !_followsChatModel
+      ? widget.auxiliarySelection?.model
+      : widget.onSelected != null
+      ? widget.selectedModel
+      : widget.assistant.selectedModel;
+  AiReasoningEffort? get _selectedEffort => _auxiliary && !_followsChatModel
+      ? switch (widget.auxiliarySelection) {
+          final selection? => widget.assistant.auxiliaryModelEffort(selection),
+          null => null,
+        }
+      : widget.assistant.reasoningEffort;
   Iterable<AiModelService> get _services => widget.assistant.services.where(
     (service) => !_external || widget.assistant.hasServiceKey(service.id),
   );
   bool get _canSelect => _external || widget.assistant.canChangeService;
+
+  bool _isSelectedModel(AiModelService service, String model) =>
+      _selectedServiceId == service.id && _selectedModel == model;
 
   // 吸顶标题保留半透明底色，让下方经过的模型项仍能被看见。
   Color get _serviceHeadingColor =>
@@ -206,6 +226,27 @@ class _ModelSelectorState extends State<ModelSelector> {
   }
 
   Future<void> _select(AiModelService service, String model) async {
+    if (widget.onAuxiliarySelected case final pick?) {
+      final effort = _selectedServiceId == service.id && _selectedModel == model
+          ? _selectedEffort
+          : widget.assistant.auxiliaryModelEffort((
+              serviceId: service.id,
+              model: model,
+              reasoningEffort: null,
+            ));
+      pick((serviceId: service.id, model: model, reasoningEffort: effort));
+      final options = AiReasoningCapabilities.forModel(model).levels;
+      if (options.isEmpty) {
+        _menu.close();
+      } else {
+        _searchFocus.unfocus();
+        setState(() {
+          _reasoningModel = model;
+          _effortIndex = options.indexWhere((option) => option == effort);
+        });
+      }
+      return;
+    }
     try {
       await widget.assistant.selectModel(service.id, model);
       if (!mounted) return;
@@ -231,6 +272,17 @@ class _ModelSelectorState extends State<ModelSelector> {
       AiReasoningCapabilities.forModel(_reasoningModel ?? '').levels;
 
   Future<void> _saveEffort() async {
+    if (widget.onAuxiliarySelected case final pick?) {
+      final serviceId = _selectedServiceId;
+      final model = _selectedModel;
+      if (serviceId == null || model == null || model != _reasoningModel) {
+        return;
+      }
+      final effort = _effortOptions[_effortIndex];
+      if (_followsChatModel && effort == _selectedEffort) return;
+      pick((serviceId: serviceId, model: model, reasoningEffort: effort));
+      return;
+    }
     try {
       await widget.assistant.setReasoningEffort(_effortOptions[_effortIndex]);
       if (mounted) setState(() => _error = null);
@@ -340,6 +392,11 @@ class _ModelSelectorState extends State<ModelSelector> {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
               child: Row(
                 children: [
+                  IconTheme.merge(
+                    data: IconThemeData(color: theme.textColorPrimary),
+                    child: _modelIcon,
+                  ),
+                  const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       _reasoningModel!,
@@ -373,7 +430,7 @@ class _ModelSelectorState extends State<ModelSelector> {
                     ),
                   ),
                 ),
-                if (widget.assistant.processingSpeeds.isNotEmpty)
+                if (!_auxiliary && widget.assistant.processingSpeeds.isNotEmpty)
                   Align(
                     alignment: Alignment.centerRight,
                     child: Padding(
@@ -407,7 +464,7 @@ class _ModelSelectorState extends State<ModelSelector> {
               l10n,
               options[(value * (options.length - 1)).round()],
             ),
-            onChanged: widget.assistant.canChangeService
+            onChanged: _auxiliary || widget.assistant.canChangeService
                 ? (value) => setState(() {
                     _effortIndex = (value * (options.length - 1)).round();
                   })
@@ -584,54 +641,6 @@ class _ModelSelectorState extends State<ModelSelector> {
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                if (widget.onInherit != null &&
-                                    _search.text.isEmpty) ...[
-                                  MenuItemSurface(
-                                    key: const ValueKey('ai-model-inherit'),
-                                    theme: theme,
-                                    backgroundColor: theme.popupSurfaceColor,
-                                    selectedColor: theme.primaryTextHoverColor,
-                                    hoverColor: theme.basePrimary,
-                                    hoverForegroundColor:
-                                        theme.materialColors.onPrimary,
-                                    foregroundColor: _selectedModel == null
-                                        ? theme.type == ThemeType.light
-                                              ? Colors.black
-                                              : theme.materialColors.onPrimary
-                                        : theme.textColorSecondary,
-                                    isSelected: _selectedModel == null,
-                                    disableWhenSelected: false,
-                                    onPressed: () {
-                                      widget.onInherit!();
-                                      _menu.close();
-                                    },
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 6,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              widget.inheritLabel!,
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ),
-                                          if (_selectedModel == null)
-                                            const Icon(
-                                              Symbols.check_rounded,
-                                              size: 17,
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                ],
                                 if (groups.isEmpty)
                                   Padding(
                                     padding: const EdgeInsets.symmetric(
@@ -684,25 +693,23 @@ class _ModelSelectorState extends State<ModelSelector> {
                                           theme.primaryTextHoverColor,
                                       hoverColor: theme.basePrimary,
                                       foregroundColor:
-                                          _selectedServiceId == service.id &&
-                                              _selectedModel == model
+                                          _isSelectedModel(service, model)
                                           ? theme.type == ThemeType.light
                                                 ? Colors.black
                                                 : theme.materialColors.onPrimary
                                           : theme.textColorSecondary,
                                       hoverForegroundColor:
                                           theme.materialColors.onPrimary,
-                                      isSelected:
-                                          _selectedServiceId == service.id &&
-                                          _selectedModel == model,
+                                      isSelected: _isSelectedModel(
+                                        service,
+                                        model,
+                                      ),
                                       onPressed: _canSelect
                                           ? () => _select(service, model)
                                           : null,
                                       borderRadius: BorderRadius.circular(4),
                                       child: ConstrainedBox(
-                                        key:
-                                            _selectedServiceId == service.id &&
-                                                _selectedModel == model
+                                        key: _isSelectedModel(service, model)
                                             ? _selectedModelKey
                                             : null,
                                         constraints: const BoxConstraints(
@@ -715,6 +722,8 @@ class _ModelSelectorState extends State<ModelSelector> {
                                           ),
                                           child: Row(
                                             children: [
+                                              _modelIcon,
+                                              const SizedBox(width: 4),
                                               Expanded(
                                                 child: Text(
                                                   model,
@@ -730,9 +739,10 @@ class _ModelSelectorState extends State<ModelSelector> {
                                               SizedBox(
                                                 width: 17,
                                                 child:
-                                                    _selectedServiceId ==
-                                                            service.id &&
-                                                        _selectedModel == model
+                                                    _isSelectedModel(
+                                                      service,
+                                                      model,
+                                                    )
                                                     ? Icon(
                                                         Symbols.check_rounded,
                                                         size: 17,
@@ -792,11 +802,37 @@ class _ModelSelectorState extends State<ModelSelector> {
     );
   }
 
+  Widget _dismissRegion(Widget child, {bool anchor = false}) => _auxiliary
+      ? TapRegion(
+          groupId: _dismissGroup,
+          onTapOutside: anchor && _menu.isOpen ? (_) => _menu.close() : null,
+          child: child,
+        )
+      : child;
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final theme = widget.theme;
     final assistant = widget.assistant;
+    final selectedModel = _selectedModel;
+    final effort = _selectedEffort;
+    final unavailable =
+        _auxiliary &&
+        !_followsChatModel &&
+        selectedModel != null &&
+        !_services.any(
+          (service) =>
+              service.id == _selectedServiceId &&
+              service.models.contains(selectedModel),
+        );
+    final label = selectedModel == null
+        ? l10n.aiSelectModel
+        : unavailable
+        ? l10n.aiAuxiliaryModelUnavailable(selectedModel)
+        : effort == null
+        ? selectedModel
+        : '$selectedModel · ${reasoningEffortLabel(l10n, effort)}';
     final available = MediaQuery.sizeOf(context);
     const edgeGap = 16.0;
     final menuWidth = (available.width - edgeGap * 4).clamp(0.0, 280.0);
@@ -825,14 +861,15 @@ class _ModelSelectorState extends State<ModelSelector> {
       onOpen: () => setState(() {
         if (widget.fieldSurfaceColor != null) {
           final box = _buttonKey.currentContext?.findRenderObject();
-          if (box is RenderBox) {
-            _fieldMenuHeight =
-                ((Overlay.of(context).context.findRenderObject()! as RenderBox)
-                            .size
-                            .height -
-                        box.localToGlobal(Offset(0, box.size.height)).dy -
-                        32)
-                    .clamp(0.0, 440.0);
+          final overlay = Overlay.of(context).context.findRenderObject();
+          if (box is RenderBox && overlay is RenderBox) {
+            final top = box.localToGlobal(Offset.zero, ancestor: overlay).dy;
+            final bottom = box
+                .localToGlobal(Offset(0, box.size.height), ancestor: overlay)
+                .dy;
+            final below = overlay.size.height - bottom;
+            final space = _auxiliary ? math.max(top, below) : below;
+            _fieldMenuHeight = (space - edgeGap * 2).clamp(0.0, 440.0);
           }
         }
         _openRevision++;
@@ -843,12 +880,13 @@ class _ModelSelectorState extends State<ModelSelector> {
         _error = null;
         final model = _selectedModel;
         _reasoningModel =
-            model != null &&
+            !unavailable &&
+                model != null &&
                 AiReasoningCapabilities.forModel(model).levels.isNotEmpty
             ? model
             : null;
         _effortIndex = _effortOptions.indexWhere(
-          (effort) => effort == assistant.reasoningEffort,
+          (effort) => effort == _selectedEffort,
         );
       }),
       onClose: () {
@@ -867,37 +905,39 @@ class _ModelSelectorState extends State<ModelSelector> {
             child: SizedBox(
               key: const ValueKey('ai-model-menu-surface'),
               width: menuWidth,
-              child: PopupMenuSurface(
-                theme: theme,
-                padding: const EdgeInsets.fromLTRB(10, 10, 4, 8),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: widget.fieldSurfaceColor == null
-                        ? (available.height - 80).clamp(0.0, 440.0)
-                        : _fieldMenuHeight ?? 440,
-                  ),
-                  child: ListenableBuilder(
-                    listenable: assistant,
-                    builder: (context, _) => AnimatedSize(
-                      key: const ValueKey('ai-model-menu-size-transition'),
-                      duration: MediaQuery.disableAnimationsOf(context)
-                          ? Duration.zero
-                          : PopupMenuTransition.duration,
-                      curve: InteractionDecoration.animationCurve,
-                      alignment: widget.fieldSurfaceColor == null
-                          ? Alignment.bottomRight
-                          : Alignment.topLeft,
-                      child: SingleChildScrollView(
-                        primary: false,
-                        child: PopupMenuPageTransition(
-                          child:
-                              _reasoningModel != null &&
-                                  _reasoningModel == _selectedModel
-                              ? _reasoningContent()
-                              : KeyedSubtree(
-                                  key: const ValueKey('ai-model-list-panel'),
-                                  child: _menuContent(),
-                                ),
+              child: _dismissRegion(
+                PopupMenuSurface(
+                  theme: theme,
+                  padding: const EdgeInsets.fromLTRB(10, 10, 4, 8),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: widget.fieldSurfaceColor == null
+                          ? (available.height - 80).clamp(0.0, 440.0)
+                          : _fieldMenuHeight ?? 440,
+                    ),
+                    child: ListenableBuilder(
+                      listenable: assistant,
+                      builder: (context, _) => AnimatedSize(
+                        key: const ValueKey('ai-model-menu-size-transition'),
+                        duration: MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : PopupMenuTransition.duration,
+                        curve: InteractionDecoration.animationCurve,
+                        alignment: widget.fieldSurfaceColor == null
+                            ? Alignment.bottomRight
+                            : Alignment.topLeft,
+                        child: SingleChildScrollView(
+                          primary: false,
+                          child: PopupMenuPageTransition(
+                            child:
+                                _reasoningModel != null &&
+                                    _reasoningModel == _selectedModel
+                                ? _reasoningContent()
+                                : KeyedSubtree(
+                                    key: const ValueKey('ai-model-list-panel'),
+                                    child: _menuContent(),
+                                  ),
+                          ),
                         ),
                       ),
                     ),
@@ -908,81 +948,78 @@ class _ModelSelectorState extends State<ModelSelector> {
           ),
         ),
       ],
-      builder: (context, controller, _) => MenuItemSurface(
-        key: const ValueKey('ai-model-selector'),
-        borderRadius: BorderRadius.circular(
-          widget.fieldSurfaceColor == null ? 8 : 4,
-        ),
-        theme: theme,
-        surfaceColor: widget.fieldSurfaceColor == null
-            ? theme.primary
-            : theme.selectControlColorForSurface(widget.fieldSurfaceColor!),
-        backgroundColor: widget.fieldSurfaceColor == null
-            ? theme.primary
-            : theme.selectControlColorForSurface(widget.fieldSurfaceColor!),
-        onPressed: assistant.credentialLoaded
-            ? () => controller.isOpen ? controller.close() : controller.open()
-            : null,
-        child: Padding(
-          key: _buttonKey,
-          padding: EdgeInsets.symmetric(
-            horizontal: widget.fieldSurfaceColor == null ? 8 : 6,
-            vertical: 5,
+      builder: (context, controller, _) => _dismissRegion(
+        MenuItemSurface(
+          key: const ValueKey('ai-model-selector'),
+          borderRadius: BorderRadius.circular(
+            widget.fieldSurfaceColor == null ? 8 : 4,
           ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 20),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (widget.fieldSurfaceColor != null) ...[
-                  Icon(
-                    Symbols.blur_on,
-                    size: 16,
-                    fill: 1,
-                    color: theme.textColorSecondary,
+          theme: theme,
+          surfaceColor: widget.fieldSurfaceColor == null
+              ? theme.primary
+              : theme.selectControlColorForSurface(widget.fieldSurfaceColor!),
+          backgroundColor: widget.fieldSurfaceColor == null
+              ? theme.primary
+              : theme.selectControlColorForSurface(widget.fieldSurfaceColor!),
+          onPressed: assistant.credentialLoaded
+              ? () => controller.isOpen ? controller.close() : controller.open()
+              : null,
+          child: Padding(
+            key: _buttonKey,
+            padding: EdgeInsets.symmetric(
+              horizontal: widget.fieldSurfaceColor == null ? 8 : 6,
+              vertical: 5,
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 20),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconTheme.merge(
+                    data: IconThemeData(color: theme.textColorSecondary),
+                    child: _modelIcon,
                   ),
                   const SizedBox(width: 4),
-                ],
-                Flexible(
-                  fit: FlexFit.loose,
-                  child: Text(
-                    _selectedModel == null
-                        ? widget.inheritLabel ?? l10n.aiSelectModel
-                        : '$_selectedModel${assistant.reasoningEffort == null ? '' : ' · ${reasoningEffortLabel(l10n, assistant.reasoningEffort!)}'}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: theme.textColorSecondary,
+                  Flexible(
+                    fit: FlexFit.loose,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.textColorSecondary,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 3),
-                AnimatedRotation(
-                  key: const ValueKey('ai-model-selector-arrow'),
-                  turns: widget.fieldSurfaceColor == null
-                      ? (controller.isOpen ? 0.5 : 0)
-                      : (controller.isOpen ? 0 : -.25),
-                  duration: MediaQuery.disableAnimationsOf(context)
-                      ? Duration.zero
-                      : PopupMenuTransition.duration,
-                  curve: widget.fieldSurfaceColor == null
-                      ? Curves.easeInOut
-                      : Curves.linear,
-                  child: Icon(
-                    widget.fieldSurfaceColor == null
-                        ? Symbols.keyboard_arrow_down_rounded
-                        : Symbols.expand_more_rounded,
-                    size: widget.fieldSurfaceColor == null ? 15 : 14,
-                    color: widget.fieldSurfaceColor == null
-                        ? theme.textColorTertiary
-                        : theme.textColorSecondary,
+                  const SizedBox(width: 3),
+                  AnimatedRotation(
+                    key: const ValueKey('ai-model-selector-arrow'),
+                    turns: widget.fieldSurfaceColor == null
+                        ? (controller.isOpen ? 0.5 : 0)
+                        : (controller.isOpen ? 0 : -.25),
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : PopupMenuTransition.duration,
+                    curve: widget.fieldSurfaceColor == null
+                        ? Curves.easeInOut
+                        : Curves.linear,
+                    child: Icon(
+                      widget.fieldSurfaceColor == null
+                          ? Symbols.keyboard_arrow_down_rounded
+                          : Symbols.expand_more_rounded,
+                      size: widget.fieldSurfaceColor == null ? 15 : 14,
+                      color: widget.fieldSurfaceColor == null
+                          ? theme.textColorTertiary
+                          : theme.textColorSecondary,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
+        anchor: true,
       ),
     );
   }

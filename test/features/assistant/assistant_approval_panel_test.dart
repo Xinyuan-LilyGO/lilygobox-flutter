@@ -226,6 +226,21 @@ void main() {
           }
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 400));
+          if (timedOut) {
+            final events = scope.provider.messages.last.processEvents;
+            final waiting = events.singleWhere(
+              (event) => event.status == AiResponseStatus.awaitingApproval,
+            );
+            final timeout = events.singleWhere(
+              (event) =>
+                  event.status == AiResponseStatus.manualApprovalTimedOut,
+            );
+            expect(timeout.operationId, waiting.operationId);
+            expect(
+              events.indexOf(timeout),
+              greaterThan(events.indexOf(waiting)),
+            );
+          }
           expect(find.byKey(const ValueKey('ai-approval-panel')), findsNothing);
           expect(find.byType(TextField), findsOneWidget);
           expect(input.text, 'unsent draft');

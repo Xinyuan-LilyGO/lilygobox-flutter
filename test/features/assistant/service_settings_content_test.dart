@@ -32,12 +32,23 @@ import 'package:provider/provider.dart';
 
 import 'assistant_test_scope.dart';
 
+class _ServicePreferencesStorage extends MemoryAssistantPreferencesStorage {
+  Completer<void>? writeGate;
+
+  @override
+  Future<void> write(String value) async {
+    await writeGate?.future;
+    await super.write(value);
+  }
+}
+
 void main() {
   late ThemeProvider theme;
   late LanguageProvider language;
   late AppShellProvider shell;
   late SplitViewProvider splitView;
   late AssistantTestScope scope;
+  late _ServicePreferencesStorage preferencesStorage;
   var requests = 0;
   var invalidChatResponse = false;
   var declareImageInput = true;
@@ -48,6 +59,7 @@ void main() {
     language = LanguageProvider();
     shell = AppShellProvider();
     splitView = SplitViewProvider();
+    preferencesStorage = _ServicePreferencesStorage();
     requests = 0;
     invalidChatResponse = false;
     declareImageInput = true;
@@ -74,6 +86,7 @@ void main() {
       language: language,
       shell: shell,
       splitView: splitView,
+      preferencesStorage: preferencesStorage,
       client: MockClient((request) async {
         requests++;
         expect(request.headers['authorization'], 'Bearer test-key');
@@ -375,12 +388,20 @@ void main() {
       expect(scope.provider.services, isEmpty);
       await open(tester);
       await fill(tester);
-      await tester.tap(find.byKey(const ValueKey('ai-confirm-service')));
+      final confirm = find.byKey(const ValueKey('ai-confirm-service'));
+      final saveGate = Completer<void>();
+      preferencesStorage.writeGate = saveGate;
+      addTearDown(() {
+        if (!saveGate.isCompleted) saveGate.complete();
+      });
+      await tester.tap(confirm);
       await tester.pump();
-      for (var frame = 0; frame < 8 && scope.provider.saving; frame++) {
-        await tester.pump(const Duration(milliseconds: 16));
-      }
-      await tester.pump(const Duration(milliseconds: 250));
+      expect(scope.provider.saving, isTrue);
+      expect(tester.widget<AppActionButton>(confirm).onPressed, isNull);
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(scope.provider.services, isEmpty);
+      saveGate.complete();
+      await tester.pumpAndSettle();
       expect(scope.provider.services.single.name, 'My gateway');
       expect(scope.provider.hasApiKey, isTrue);
       expect(requests, 0);

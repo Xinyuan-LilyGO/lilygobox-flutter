@@ -21,6 +21,16 @@ class AiImageAttachment {
 
 enum AiApiProtocol { openAiChatCompletions, openAiResponses }
 
+typedef AiModelSelection = ({
+  String serviceId,
+  String model,
+  AiReasoningEffort? reasoningEffort,
+});
+typedef AiAuxiliaryModels = ({
+  AiModelSelection? approval,
+  AiModelSelection? compaction,
+});
+
 /// 未声明不等于不支持；第三方模型不根据名称猜测图片能力。
 enum AiImageInput { unknown, supported, unsupported }
 
@@ -199,6 +209,32 @@ class AiConfigurationException implements Exception {
   final AiProblem problem;
 }
 
+enum AiCompactionIssue {
+  outputLimit,
+  reasoningOnly,
+  emptySummary,
+  unexpectedToolCall,
+  filtered,
+  noTokenSavings,
+}
+
+class AiCompactionException implements Exception {
+  const AiCompactionException(
+    this.issue, {
+    this.outputTokens,
+    this.outputLimit,
+    this.finishReason,
+  });
+
+  final AiCompactionIssue issue;
+  final int? outputTokens;
+  final int? outputLimit;
+  final String? finishReason;
+
+  @override
+  String toString() => issue.name;
+}
+
 enum AiResponseStatus {
   connecting,
   awaitingReply,
@@ -208,6 +244,18 @@ enum AiResponseStatus {
   executingTools,
   accessingWeb,
   awaitingApproval,
+  manualApprovalGranted,
+  manualApprovalDenied,
+  manualApprovalCancelled,
+  manualApprovalTimedOut,
+  customApprovalGranted,
+  customApprovalNotGranted,
+  reviewingPermission,
+  permissionReviewApproved,
+  permissionReviewDenied,
+  permissionReviewFailed,
+  permissionReviewSkipped,
+  permissionReviewCancelled,
   awaitingUserInput,
   retrying,
   completed,
@@ -365,6 +413,8 @@ class AiCompletion {
     this.reasoning = '',
     this.usage,
     this.streamedOutputDuration = Duration.zero,
+    this.streamedOutputChunks = 0,
+    this.finishReason,
   });
 
   final String text;
@@ -373,6 +423,8 @@ class AiCompletion {
   final String reasoning;
   final AiTokenUsage? usage;
   final Duration streamedOutputDuration;
+  final int streamedOutputChunks;
+  final String? finishReason;
 }
 
 class AiTokenUsage {

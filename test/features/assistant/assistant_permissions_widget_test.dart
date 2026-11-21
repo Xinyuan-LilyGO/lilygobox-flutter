@@ -1,4 +1,5 @@
 import 'package:lilygobox/core/l10n/delegates.dart';
+
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -13,7 +14,9 @@ import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/widgets/app_scroll_behavior.dart';
 import 'package:lilygobox/core/widgets/menu_item_surface.dart';
 import 'package:lilygobox/core/widgets/settings/select.dart';
+import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/domain/permissions.dart';
+import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_composer.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/permissions_button.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
@@ -22,6 +25,223 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'assistant_test_scope.dart';
 
 void main() {
+  testWidgets(
+    'automatic approval follows chat by default and supports an independent model',
+    (tester) async {
+      final theme = ThemeProvider();
+      final language = LanguageProvider();
+      final shell = AppShellProvider();
+      final split = SplitViewProvider();
+      final scope = await createAssistantTestScope(
+        theme: theme,
+        language: language,
+        shell: shell,
+        splitView: split,
+      );
+      addTearDown(() {
+        scope.dispose();
+        theme.dispose();
+        language.dispose();
+        shell.dispose();
+        split.dispose();
+      });
+      await scope.provider.initialized;
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: appLocalizationDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.bottomCenter,
+              child: AssistantPermissionsButton(
+                theme: theme.themeData,
+                assistant: scope.provider,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byType(AssistantPermissionsButton));
+      await tester.pumpAndSettle();
+      final automatic = find.byKey(
+        const ValueKey('ai-permission-mode-automatic'),
+      );
+      final custom = find.byKey(const ValueKey('ai-permission-mode-custom'));
+      expect(
+        tester.getTopLeft(automatic).dy,
+        lessThan(tester.getTopLeft(custom).dy),
+      );
+      final l10n = AppLocalizations.of(tester.element(automatic));
+      expect(
+        find.descendant(
+          of: automatic,
+          matching: find.text(l10n.aiPermissionAutomaticSummary),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.getSize(automatic).height, tester.getSize(custom).height);
+
+      await tester.tap(automatic);
+      await tester.pumpAndSettle();
+      final trigger = find.byKey(const ValueKey('ai-permissions-button'));
+      expect(scope.provider.permissions.mode, AiApprovalMode.automatic);
+      expect(
+        find.descendant(
+          of: trigger,
+          matching: find.text(l10n.aiPermissionAutomatic),
+        ),
+        findsOneWidget,
+      );
+      final selector = find.byKey(const ValueKey('ai-approval-model-select'));
+      final label = find.text(l10n.aiPermissionApprovalModel);
+      expect(
+        tester.getRect(label).right,
+        lessThan(tester.getRect(selector).left),
+      );
+      expect(
+        tester.getCenter(selector).dy,
+        closeTo(tester.getCenter(label).dy, 1),
+      );
+      Finder selectorLabel(String value) =>
+          find.descendant(of: selector, matching: find.text(value));
+      expect(selectorLabel(l10n.aiSelectModel), findsOneWidget);
+      await tester.tap(selector);
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.aiNoServices), findsOneWidget);
+      final inherit = find.byKey(const ValueKey('ai-model-inherit'));
+      expect(inherit, findsNothing);
+      await tester.tap(label);
+      await tester.pumpAndSettle();
+
+      final service = (await tester.runAsync(
+        () => scope.provider.saveService(
+          name: 'Fixture',
+          protocol: AiApiProtocol.openAiChatCompletions,
+          baseUrl: 'https://example.test/v1',
+          models: ['chat-model', 'review-gpt-6.1-sol'],
+          apiKey: 'fixture-key',
+        ),
+      ))!;
+      await tester.pumpAndSettle();
+      expect(selectorLabel('chat-model'), findsOneWidget);
+      expect(scope.provider.auxiliaryModels.approval, isNull);
+      expect(find.text(l10n.aiAddModelService), findsNothing);
+      await tester.tap(selector);
+      await tester.pumpAndSettle();
+      final search = find.byKey(const ValueKey('ai-model-search'));
+      expect(search, findsOneWidget);
+      expect(inherit, findsNothing);
+      final chatModel = find.byKey(ValueKey('ai-model-$service-chat-model'));
+      expect(tester.widget<MenuItemSurface>(chatModel).isSelected, isTrue);
+      expect(find.text(l10n.aiAddModelService), findsNothing);
+      expect(find.text('Fixture'), findsOneWidget);
+      await tester.enterText(search, 'review');
+      await tester.pumpAndSettle();
+      expect(chatModel, findsNothing);
+      final reviewModel = find.byKey(
+        ValueKey('ai-model-$service-review-gpt-6.1-sol'),
+      );
+      expect(
+        find.descendant(
+          of: reviewModel,
+          matching: find.byIcon(Symbols.chevron_right_rounded),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(reviewModel);
+      await tester.pumpAndSettle();
+      final slider = find.byKey(const ValueKey('ai-reasoning-slider'));
+      expect(slider, findsOneWidget);
+      final track = tester.getRect(slider);
+      await tester.tapAt(Offset(track.right - 2, track.center.dy));
+      await tester.pumpAndSettle();
+      expect(scope.provider.auxiliaryModels.approval, (
+        serviceId: service,
+        model: 'review-gpt-6.1-sol',
+        reasoningEffort: AiReasoningEffort.ultra,
+      ));
+      expect(scope.provider.selectedModel, 'chat-model');
+      expect(scope.provider.reasoningEffort, isNull);
+      expect(scope.provider.permissions.mode, AiApprovalMode.automatic);
+
+      await tester.tap(label);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('ai-model-menu-surface')), findsNothing);
+      expect(selector, findsOneWidget);
+
+      await tester.tap(selector);
+      await tester.pumpAndSettle();
+      expect(slider, findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('ai-reasoning-models')));
+      await tester.pumpAndSettle();
+      expect(inherit, findsNothing);
+      expect(tester.widget<MenuItemSurface>(reviewModel).isSelected, isTrue);
+      await tester.tap(chatModel);
+      await tester.pumpAndSettle();
+      expect(scope.provider.auxiliaryModels.approval?.model, 'chat-model');
+      expect(selectorLabel('chat-model'), findsOneWidget);
+
+      await tester.runAsync(() async {
+        await scope.provider.selectModel(service, 'review-gpt-6.1-sol');
+        await scope.provider.setReasoningEffort(AiReasoningEffort.low);
+      });
+      await tester.pumpAndSettle();
+      expect(selectorLabel('chat-model'), findsOneWidget);
+
+      scope.provider.selectApprovalModel(null);
+      await tester.pumpAndSettle();
+      expect(
+        selectorLabel('review-gpt-6.1-sol · ${l10n.aiReasoningLow}'),
+        findsOneWidget,
+      );
+      await tester.tap(selector);
+      await tester.pumpAndSettle();
+      expect(slider, findsOneWidget);
+      expect(scope.provider.auxiliaryModels.approval, isNull);
+      final inheritedTrack = tester.getRect(slider);
+      await tester.tapAt(
+        Offset(inheritedTrack.right - 2, inheritedTrack.center.dy),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        scope.provider.auxiliaryModels.approval?.reasoningEffort,
+        AiReasoningEffort.ultra,
+      );
+      expect(scope.provider.reasoningEffort, AiReasoningEffort.low);
+      await tester.tap(label);
+      await tester.pumpAndSettle();
+      final back = find.byKey(const ValueKey('ai-permissions-back'));
+      await tester.tapAt(const Offset(4, 4));
+      await tester.pumpAndSettle();
+      expect(selector, findsNothing);
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      expect(selector, findsOneWidget);
+      expect(automatic, findsNothing);
+      await tester.tap(back);
+      await tester.pumpAndSettle();
+      expect(tester.widget<MenuItemSurface>(automatic).isSelected, isTrue);
+      await tester.tap(
+        find.byKey(const ValueKey('ai-permission-mode-request')),
+      );
+      await tester.pumpAndSettle();
+      expect(scope.provider.permissions.mode, AiApprovalMode.onRequest);
+      expect(
+        find.descendant(
+          of: trigger,
+          matching: find.text(l10n.aiPermissionRequest),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      expect(automatic, findsOneWidget);
+      expect(back, findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   for (final dark in [false, true]) {
     for (final locale in ['en', 'zh']) {
       for (final narrow in [false, true]) {
@@ -157,6 +377,16 @@ void main() {
             final custom = find.byKey(
               const ValueKey('ai-permission-mode-custom'),
             );
+            final manual = find.byKey(
+              const ValueKey('ai-permission-mode-request'),
+            );
+            final automatic = find.byKey(
+              const ValueKey('ai-permission-mode-automatic'),
+            );
+            final rowHeight = tester.getSize(manual).height;
+            expect(tester.getSize(automatic).height, rowHeight);
+            expect(tester.getSize(custom).height, rowHeight);
+            await tester.ensureVisible(custom);
             await tester.tap(custom);
             await tester.pumpAndSettle();
             await capture('custom');
@@ -236,9 +466,8 @@ void main() {
             await tester.tap(
               find
                   .text(
-                    AppLocalizations.of(
-                      tester.element(access),
-                    ).aiPermissionReadWrite,
+                    AppLocalizations.of(tester.element(access))
+                        .aiPermissionReadWrite,
                   )
                   .last,
             );
@@ -331,9 +560,8 @@ void main() {
               await tester.tap(
                 find
                     .text(
-                      AppLocalizations.of(
-                        tester.element(folderSelect),
-                      ).aiPermissionReadOnly,
+                      AppLocalizations.of(tester.element(folderSelect))
+                          .aiPermissionReadOnly,
                     )
                     .last,
               );
@@ -409,10 +637,11 @@ void main() {
               find.byKey(const ValueKey('ai-permissions-button')),
             );
             await tester.pumpAndSettle();
-            await tester.tap(
-              find.byKey(const ValueKey('ai-permission-mode-custom')),
+            expect(custom, findsNothing);
+            expect(
+              find.byKey(const ValueKey('ai-permission-execution')),
+              findsOneWidget,
             );
-            await tester.pumpAndSettle();
             expect(
               find.byKey(const ValueKey('ai-permissions-back')),
               findsOneWidget,

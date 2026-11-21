@@ -68,10 +68,10 @@ void main() {
           );
           await tester.tap(find.byKey(const ValueKey('ai-permissions-button')));
           await tester.pumpAndSettle();
-          await tester.tap(
+          expect(
             find.byKey(const ValueKey('ai-permission-mode-custom')),
+            findsNothing,
           );
-          await tester.pumpAndSettle();
           for (final name in ['execution', 'network']) {
             final toggle = find.byKey(ValueKey('ai-permission-$name'));
             await tester.ensureVisible(toggle);
@@ -84,7 +84,7 @@ void main() {
           );
           expect(find.text(l10n.aiPermissionExecutionHelp), findsOneWidget);
           expect(find.textContaining('烧录固件'), findsNothing);
-          expect(find.byType(Switch), findsNWidgets(3));
+          expect(find.byType(Switch), findsNWidgets(4));
           for (final removed in ['devices', 'firmware', 'installation']) {
             expect(
               find.byKey(ValueKey('ai-permission-$removed')),
@@ -95,6 +95,17 @@ void main() {
           await tester.ensureVisible(full);
           await tester.tap(full);
           await tester.pumpAndSettle();
+          expect(scope.provider.permissions.fullFiles, isFalse);
+          await tester.tap(
+            find.byKey(const ValueKey('confirm-enable-full-files')),
+          );
+          await tester.pumpAndSettle();
+          if (full.evaluate().isEmpty) {
+            await tester.tap(
+              find.byKey(const ValueKey('ai-permissions-button')),
+            );
+            await tester.pumpAndSettle();
+          }
           expect(scope.provider.permissions.fullFiles, isTrue);
           expect(
             find.byKey(const ValueKey('ai-permission-files')),
@@ -109,6 +120,7 @@ void main() {
             findsNothing,
           );
           expect(scope.provider.permissions.folders, ['C:/projects/board']);
+          await tester.ensureVisible(full);
           await tester.tap(full);
           await tester.pumpAndSettle();
           expect(

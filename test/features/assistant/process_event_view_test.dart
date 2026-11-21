@@ -82,6 +82,33 @@ void main() {
       expect(find.text('00:12:000'), findsOneWidget);
     },
   );
+  testWidgets('compaction details preserve the service error and HTTP status', (
+    tester,
+  ) async {
+    final event = AiProcessEvent(
+      type: AiProcessEventType.action,
+      elapsed: const Duration(seconds: 1),
+      action: AiProcessingStep(
+        name: 'compact_context',
+        arguments: {
+          'trigger': 'manual',
+          'outcome': 'failed',
+          'httpStatus': 404,
+          'providerCode': 'model_not_found',
+        },
+        output: 'The requested model was not found.',
+        succeeded: false,
+      ),
+    );
+    await tester.pumpWidget(host(event));
+    await tester.tap(processText('Context compaction failed'));
+    await tester.pumpAndSettle();
+    final block = tester.widget<ChatCodeBlock>(find.byType(ChatCodeBlock));
+    expect(block.text, contains('The requested model was not found.'));
+    expect(block.text, contains('HTTP 404'));
+    expect(block.text, contains('Service error code: model_not_found'));
+  });
+
   for (final (tool, label, output, summary) in [
     ('search_chat_history', '搜索原始聊天记录', '{"matches":[]}', '返回了 0 条匹配消息'),
     (
@@ -591,6 +618,76 @@ void main() {
     expect(processText('Read the file content.'), findsOneWidget);
     expect(processText('A short note.'), findsNothing);
   });
+
+  for (final (status, label) in [
+    (AiResponseStatus.permissionReviewApproved, '自动审批通过'),
+    (AiResponseStatus.permissionReviewDenied, '自动审批拒绝'),
+    (AiResponseStatus.permissionReviewFailed, '自动审批失败'),
+    (AiResponseStatus.manualApprovalGranted, '人工审批通过'),
+    (AiResponseStatus.manualApprovalDenied, '人工审批拒绝'),
+    (AiResponseStatus.manualApprovalCancelled, '人工审批已取消'),
+    (AiResponseStatus.manualApprovalTimedOut, '人工审批超时'),
+    (AiResponseStatus.customApprovalGranted, '自定义审批通过'),
+    (AiResponseStatus.customApprovalNotGranted, '自定义规则未直接放行'),
+  ]) {
+    testWidgets('a file operation shows $label in its elapsed details', (
+      tester,
+    ) async {
+      final (stageStatus, stageLabel) = switch (status) {
+        AiResponseStatus.manualApprovalGranted ||
+        AiResponseStatus.manualApprovalDenied ||
+        AiResponseStatus.manualApprovalCancelled ||
+        AiResponseStatus.manualApprovalTimedOut => (
+          AiResponseStatus.awaitingApproval,
+          '等待批准',
+        ),
+        AiResponseStatus.customApprovalGranted ||
+        AiResponseStatus.customApprovalNotGranted => (
+          AiResponseStatus.preparingTools,
+          '正在准备工具调用',
+        ),
+        _ => (AiResponseStatus.reviewingPermission, '正在自动审批'),
+      };
+      final reviewing = AiProcessEvent(
+        type: AiProcessEventType.status,
+        elapsed: const Duration(seconds: 1),
+        status: stageStatus,
+        operationId: 'file',
+        toolName: 'read_file',
+      );
+      final outcome = AiProcessEvent(
+        type: AiProcessEventType.status,
+        elapsed: const Duration(seconds: 2),
+        status: status,
+        operationId: 'file',
+        toolName: 'read_file',
+      );
+      final finish = AiProcessEvent(
+        type: AiProcessEventType.action,
+        elapsed: const Duration(seconds: 3),
+        operationId: 'file',
+        action: AiProcessingStep(
+          name: 'read_file',
+          arguments: {'path': 'note.txt'},
+          succeeded:
+              status == AiResponseStatus.permissionReviewApproved ||
+              status == AiResponseStatus.manualApprovalGranted ||
+              status == AiResponseStatus.customApprovalGranted,
+        ),
+      );
+      await tester.pumpWidget(
+        host(finish, locale: 'zh', stages: [reviewing, outcome, finish]),
+      );
+      expect(processText(label), findsNothing);
+      await tester.tap(find.byType(InkWell));
+      await tester.pumpAndSettle();
+      expect(processText(stageLabel), findsOneWidget);
+      expect(processText(label), findsOneWidget);
+      expect(find.text('00:01:000'), findsOneWidget);
+      expect(find.text('00:02:000'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('a web operation expands its stages, not HTTP content or JSON', (
     tester,

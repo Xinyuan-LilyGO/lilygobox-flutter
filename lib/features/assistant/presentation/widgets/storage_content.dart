@@ -34,6 +34,7 @@ import 'agent_direct_transfer.dart';
 import 'agent_transfer_error.dart';
 import 'agent_transfer_progress_dialog.dart';
 import 'memory_import_review.dart';
+import 'model_selector.dart';
 import 'recycle_bin_dialog.dart';
 import 'usage_chart_colors.dart';
 
@@ -894,6 +895,28 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
               () => _compact(selected),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               enabled: !selected.busy,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SettingsField(
+            theme: theme,
+            title: l.agentStorageCompactionModel,
+            description: l.agentStorageCompactionModelHint,
+            trailing: Flexible(
+              child: ListenableBuilder(
+                listenable: selected.assistant,
+                builder: (context, _) {
+                  final assistant = selected.assistant;
+                  return ModelSelector(
+                    key: ValueKey('storage-compaction-model-${selected.id}'),
+                    theme: theme,
+                    assistant: assistant,
+                    auxiliarySelection: assistant.auxiliaryModels.compaction,
+                    fieldSurfaceColor: theme.secondary,
+                    onAuxiliarySelected: assistant.selectCompactionModel,
+                  );
+                },
+              ),
             ),
           ),
           const SizedBox(height: 16),

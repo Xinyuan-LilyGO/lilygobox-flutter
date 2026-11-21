@@ -49,6 +49,7 @@ class ChatComposer extends StatelessWidget {
     required this.onSend,
     required this.attachments,
     required this.onAttachmentsChanged,
+    this.onManageContext,
     this.readClipboardImage = ImageClipboard.readPng,
   });
 
@@ -61,6 +62,7 @@ class ChatComposer extends StatelessWidget {
   final ValueChanged<bool> onSend;
   final List<AiImageAttachment> attachments;
   final ValueChanged<List<AiImageAttachment>> onAttachmentsChanged;
+  final VoidCallback? onManageContext;
   final Future<Uint8List?> Function() readClipboardImage;
 
   Future<void> _pickImages(BuildContext context) async {
@@ -572,17 +574,26 @@ class ChatComposer extends StatelessWidget {
             ),
           ),
         ),
-        _ComposerMetrics(theme: theme, assistant: assistant),
+        _ComposerMetrics(
+          theme: theme,
+          assistant: assistant,
+          onManageContext: onManageContext,
+        ),
       ],
     );
   }
 }
 
 class _ComposerMetrics extends StatelessWidget {
-  const _ComposerMetrics({required this.theme, required this.assistant});
+  const _ComposerMetrics({
+    required this.theme,
+    required this.assistant,
+    required this.onManageContext,
+  });
 
   final AppTheme theme;
   final AiAssistantProvider assistant;
+  final VoidCallback? onManageContext;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -659,6 +670,16 @@ class _ComposerMetrics extends StatelessWidget {
               ratio: assistant.contextUsageRatio,
               detailBarColor: UsageChartColors.green,
               contextMenuItems: (close) => [
+                if (onManageContext case final manageContext?)
+                  RightClickMenuItem(
+                    key: const ValueKey('ai-context-menu-manage-chat'),
+                    label: l10n.agentStorageManageContext,
+                    icon: Symbols.chat_rounded,
+                    onTap: () {
+                      close();
+                      manageContext();
+                    },
+                  ),
                 RightClickMenuItem(
                   key: const ValueKey('ai-compaction-context-menu-action'),
                   label: compacting
@@ -898,7 +919,7 @@ class _ComposerMetricState extends State<_ComposerMetric> {
       controller: _contextMenu,
       menuItems: menuItems(_contextMenu.close),
       theme: theme,
-      menuWidth: 174,
+      fitWidthToItems: true,
       onSecondaryTap: _detailsMenu.close,
       child: trigger,
     );

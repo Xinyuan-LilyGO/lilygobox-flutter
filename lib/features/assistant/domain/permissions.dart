@@ -5,7 +5,7 @@
 import 'dart:io';
 
 /// 批准策略与文件访问范围独立，未命中授权范围时仍需要逐次批准。
-enum AiApprovalMode { onRequest, custom }
+enum AiApprovalMode { onRequest, automatic, custom }
 
 enum AiFileAccess { none, readOnly, readWrite }
 
@@ -73,7 +73,7 @@ class AiPermissions {
     folderAccess: folderAccess ?? this.folderAccess,
   );
 
-  bool allowsNetwork() => mode == AiApprovalMode.onRequest || network;
+  bool allowsNetwork() => mode != AiApprovalMode.custom || network;
 
   Future<bool> allowsFile(String path, {required bool write}) async {
     if (mode != AiApprovalMode.custom) return false;

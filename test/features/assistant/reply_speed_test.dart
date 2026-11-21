@@ -82,6 +82,7 @@ void main() {
       await stream.close();
       final result = await future;
       expect(result.usage?.outputTokens, 15);
+      expect(result.streamedOutputChunks, 2);
       expect(
         result.streamedOutputDuration.inMilliseconds,
         greaterThanOrEqualTo(10),
@@ -106,7 +107,6 @@ void main() {
       final sampledTime = Stopwatch();
       Stream<List<int>> respond(int index) async* {
         if (index == 1) {
-          sampledTime.start();
           yield _sse(
             _chatDelta({
               'tool_calls': [
@@ -119,7 +119,6 @@ void main() {
             }),
           );
           await Future<void>.delayed(const Duration(milliseconds: 15));
-          sampledTime.stop();
           yield _sse(
             _chatDelta({
               'tool_calls': [
@@ -135,9 +134,20 @@ void main() {
           await endReply.future;
           sampledTime.start();
           yield _sse(_chatDelta({'content': 'A'}));
-          await Future<void>.delayed(const Duration(milliseconds: 15));
-          sampledTime.stop();
+          await Future<void>.delayed(const Duration(milliseconds: 550));
           yield _sse(_chatDelta({'content': 'B'}));
+          await Future<void>.delayed(const Duration(milliseconds: 550));
+          sampledTime.stop();
+          yield _sse(_chatDelta({'content': 'C'}));
+        } else if (index == 4) {
+          for (final part in ['Short', ' buffered', ' burst']) {
+            yield _sse(_chatDelta({'content': part}));
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+        } else if (index == 5) {
+          yield _sse(_chatDelta({'content': 'First chunk'}));
+          await Future<void>.delayed(const Duration(milliseconds: 1050));
+          yield _sse(_chatDelta({'content': 'Second chunk'}));
         } else {
           yield [
             ..._sse(_chatDelta({'content': 'Batch'})),
@@ -195,7 +205,7 @@ void main() {
       endReply.complete();
       await pending;
       final rate = provider.latestReplySpeed;
-      final expectedRate = 205 * Duration.microsecondsPerSecond / sampledTime.elapsedMicroseconds;
+      final expectedRate = 5 * Duration.microsecondsPerSecond / sampledTime.elapsedMicroseconds;
       expect(rate, closeTo(expectedRate, expectedRate * .35));
       expect(observed, [null, rate]);
       await provider.selectModel(first, 'other');
@@ -205,6 +215,10 @@ void main() {
       await provider.selectModel(first, 'test');
       expect(provider.latestReplySpeed, rate);
       await provider.sendMessage('One buffered chunk');
+      expect(provider.latestReplySpeed, isNull);
+      await provider.sendMessage('Short buffered burst');
+      expect(provider.latestReplySpeed, isNull);
+      await provider.sendMessage('Only two chunks');
       expect(provider.latestReplySpeed, isNull);
     },
   );

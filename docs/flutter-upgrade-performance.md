@@ -51,7 +51,7 @@ Windows 主窗口在 runner 中通过 `DartProject::set_impeller_switch` 默认�
 
 ```powershell
 flutter test --no-pub tool/long_chat_fixture_test.dart
-$env:LILYGOBOX_MOTION_PACKAGE = (Resolve-Path 'artifacts/test-data/lilygobox-long-chat-10000.7z').Path
+$env:LILYGOBOX_MOTION_PACKAGE = (Resolve-Path 'artifacts/lilygobox-long-chat-10000.7z').Path
 $env:LILYGOBOX_MOTION_CASE = 'both'
 foreach ($cardCount in 3000, 10000) {
   $env:LILYGOBOX_MOTION_CARDS = "$cardCount"

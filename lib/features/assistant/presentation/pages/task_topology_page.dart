@@ -1829,28 +1829,6 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     }
   }
 
-  ({double normal, double makeMain}) _nodeMenuWidths() {
-    final l10n = context.l10n;
-    final menuLabel = TextPainter(
-      text: TextSpan(
-        text: l10n.agentStorageManageContext,
-        style: const TextStyle(fontSize: 13),
-      ),
-      textDirection: Directionality.of(context),
-      textScaler: MediaQuery.textScalerOf(context),
-    )..layout();
-    final normal = math.max(190.0, menuLabel.width + 48);
-    menuLabel
-      ..text = TextSpan(
-        text: l10n.aiTopologyMakeWorkflowMain,
-        style: const TextStyle(fontSize: 13),
-      )
-      ..layout();
-    final makeMain = math.max(normal, menuLabel.width + 48);
-    menuLabel.dispose();
-    return (normal: normal, makeMain: makeMain);
-  }
-
   List<RightClickMenuItem> _nodeMenuItems(
     AiWorkspaceProvider workspaces,
     AiAgentWorkspace session,
@@ -2124,12 +2102,9 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     Widget child,
     Set<String> connectedIds,
     ({bool hasStop, bool hasDisconnect}) selectedActions,
-    ({double normal, double makeMain}) menuWidths,
   ) => RightClickMenuBuilder.buildMenuAnchor(
     context: context,
-    menuWidth: session.kind != AiWorkspaceKind.primary
-        ? menuWidths.makeMain
-        : menuWidths.normal,
+    fitWidthToItems: true,
     onMenuPointerEvent: _menuPointerEvent,
     controller: _nodeMenus.putIfAbsent(
       session.id,
@@ -2857,7 +2832,6 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     Widget child,
     Set<String> connectedIds,
     ({bool hasStop, bool hasDisconnect}) selectedActions,
-    ({double normal, double makeMain}) menuWidths,
   ) {
     final l10n = context.l10n;
     final sessions = workspaces.sessions.toList();
@@ -2881,7 +2855,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       context: context,
       onMenuPointerEvent: _menuPointerEvent,
       controller: _canvasMenu,
-      menuWidth: _overviewMenuId == null ? 150 : menuWidths.makeMain,
+      fitWidthToItems: _overviewMenuId != null,
       theme: theme,
       onSecondaryTap: () {
         if (workspaces.find(_overviewMenuId) case final session?) {
@@ -3138,8 +3112,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     AiWorkspaceProvider workspaces,
     AiAgentWorkspace session,
     Set<String> connectedIds,
-    ({bool hasStop, bool hasDisconnect}) selectedActions,
-    ({double normal, double makeMain}) menuWidths, {
+    ({bool hasStop, bool hasDisconnect}) selectedActions, {
     bool overview = false,
   }) {
     if (overview) {
@@ -3196,7 +3169,6 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       ),
       connectedIds,
       selectedActions,
-      menuWidths,
     );
   }
 
@@ -3314,7 +3286,6 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     final l10n = context.l10n;
     final parent = _selectedIds.length == 1 ? _parentFor(workspaces) : null;
     final sessions = workspaces.sessions;
-    final menuWidths = _nodeMenuWidths();
     final connectedIds = {
       for (final connection in workspaces.connections) ...[
         connection.fromId,
@@ -3359,7 +3330,6 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
             session,
             connectedIds,
             selectedActions,
-            menuWidths,
             overview: overview,
           ),
         ),
@@ -3607,7 +3577,6 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
                         ),
                         connectedIds,
                         selectedActions,
-                        menuWidths,
                       ),
                     ),
                     Positioned(
@@ -4695,6 +4664,8 @@ class _TopologyConversation extends StatelessWidget {
             initialDraft: session.assistant.messages.isEmpty
                 ? session.task
                 : '',
+            onManageContext: () =>
+                showAgentContextStorage(context, theme, session.id),
           ),
         ),
       ],
@@ -4806,6 +4777,7 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
               processingSpeed: _draft.processingSpeed,
               contextBudgetTokens: budget,
               contextCompactionPercent: percent,
+              auxiliaryModels: _draft.auxiliaryModels,
             )
           : await widget.workspaces.create(
               title: _title.text.trim(),
@@ -4817,6 +4789,7 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
               processingSpeed: _draft.processingSpeed,
               contextBudgetTokens: budget,
               contextCompactionPercent: percent,
+              auxiliaryModels: _draft.auxiliaryModels,
               parentId: widget.parent!.id,
             );
       if (mounted) {
@@ -4897,77 +4870,45 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
                   enabled: !_working,
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  l10n.aiTopologyModel,
-                  style: AppDialogStyle.fieldTitleStyle(theme),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  l10n.aiTopologyModelHelp,
-                  style: AppDialogStyle.descriptionStyle(theme),
-                ),
-                const SizedBox(height: 8),
-                IgnorePointer(
-                  ignoring: _working,
-                  child: ExcludeFocus(
-                    excluding: _working,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: ModelSelector(
-                        key: const ValueKey('topology-model-select'),
-                        theme: theme,
-                        assistant: _draft,
-                        fieldSurfaceColor: AppDialogStyle.backgroundColor(
-                          theme,
-                        ),
-                        selectedServiceId: _model.isEmpty
-                            ? null
-                            : (jsonDecode(_model) as List)[0] as String,
-                        selectedModel: _model.isEmpty
-                            ? null
-                            : (jsonDecode(_model) as List)[1] as String,
-                        inheritLabel: widget.parent == null
-                            ? null
-                            : l10n.aiTopologyInherit,
-                        onInherit:
-                            widget.parent != null &&
-                                widget.parent!.assistant.hasApiKey
-                            ? () async {
-                                final parent = widget.parent!.assistant;
-                                await _draft.selectModel(
-                                  parent.selectedService!.id,
-                                  parent.selectedModel!,
-                                );
-                                await _draft.setReasoningEffort(
-                                  parent.reasoningEffort,
-                                );
-                                if (mounted) setState(() => _model = '');
-                              }
-                            : null,
-                        onSelected: (serviceId, model) => setState(
-                          () => _model = jsonEncode([serviceId, model]),
+                SettingsField(
+                  theme: theme,
+                  title: l10n.aiTopologyModel,
+                  description: l10n.aiTopologyModelHelp,
+                  trailing: Flexible(
+                    child: IgnorePointer(
+                      ignoring: _working,
+                      child: ExcludeFocus(
+                        excluding: _working,
+                        child: ModelSelector(
+                          key: const ValueKey('topology-model-select'),
+                          theme: theme,
+                          assistant: _draft,
+                          fieldSurfaceColor: AppDialogStyle.backgroundColor(
+                            theme,
+                          ),
+                          selectedServiceId: _model.isEmpty
+                              ? _draft.selectedService?.id
+                              : (jsonDecode(_model) as List)[0] as String,
+                          selectedModel: _model.isEmpty
+                              ? _draft.selectedModel
+                              : (jsonDecode(_model) as List)[1] as String,
+                          onSelected: (serviceId, model) => setState(
+                            () => _model = jsonEncode([serviceId, model]),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  l10n.aiPermissions,
-                  style: AppDialogStyle.fieldTitleStyle(theme),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  l10n.aiTopologyPermissionsHelp,
-                  style: AppDialogStyle.descriptionStyle(theme),
-                ),
-                const SizedBox(height: 8),
-                IgnorePointer(
-                  ignoring: _working,
-                  child: ExcludeFocus(
-                    excluding: _working,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
+                SettingsField(
+                  theme: theme,
+                  title: l10n.aiPermissions,
+                  description: l10n.aiTopologyPermissionsHelp,
+                  trailing: IgnorePointer(
+                    ignoring: _working,
+                    child: ExcludeFocus(
+                      excluding: _working,
                       child: ListenableBuilder(
                         listenable: _draft,
                         builder: (context, _) => AssistantPermissionsButton(

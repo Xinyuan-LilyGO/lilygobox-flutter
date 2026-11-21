@@ -14,7 +14,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get aiAverageOutputSpeed => 'Average speed';
+  String get aiAverageOutputSpeed => 'Stream speed';
 
   @override
   String aiOutputTokensPerSecond(String rate) {
@@ -23,7 +23,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiAverageOutputSpeedHint =>
-      'Output tokens per second during streaming in the last completed reply for this model.';
+      'Estimated from the output received in the last completed reply. Insufficient samples show a dash.';
 
   @override
   String get githubSignInDialogDescription =>
@@ -2073,21 +2073,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiPermissions => 'Permissions';
 
   @override
-  String get aiPermissionRequest => 'Request approval';
+  String get aiPermissionRequest => 'Manual approval';
 
   @override
-  String get aiPermissionCustom => 'Custom permissions';
+  String get aiPermissionAutomatic => 'Automatic approval';
 
   @override
-  String get aiPermissionRequestSummary => 'Ask before restricted actions.';
+  String get aiPermissionAutomaticSummary => 'Model approves eligible actions.';
 
   @override
-  String get aiPermissionCustomSummary =>
-      'Set permissions for commands, files and web access.';
+  String get aiPermissionApprovalModel => 'Approval model';
+
+  @override
+  String get aiPermissionApprovalModelHelp =>
+      'Defaults to the current chat model. The model uses this turn’s request and target path to decide whether to allow eligible actions. Actions it does not approve are blocked without a manual prompt.';
+
+  @override
+  String aiAuxiliaryModelUnavailable(String model) {
+    return 'Unavailable: $model';
+  }
+
+  @override
+  String get aiPermissionCustom => 'Custom approval';
+
+  @override
+  String get aiPermissionRequestSummary => 'Confirm each restricted action.';
+
+  @override
+  String get aiPermissionCustomSummary => 'Follow your approval rules.';
 
   @override
   String get aiPermissionRequestHelp =>
-      'App settings and public HTTPS pages can be accessed directly. Local file operations require approval unless granted in Custom permissions. Each approval applies only to the displayed operation.';
+      'App settings and public HTTPS pages can be accessed directly. Local file operations require approval unless granted in Custom approval. Each approval applies only to the displayed operation.';
 
   @override
   String get aiPermissionNetwork => 'Allow network access';
@@ -2134,6 +2151,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiAwaitingApproval => 'Waiting for approval';
+
+  @override
+  String get aiManualApprovalGranted => 'Manually approved';
+
+  @override
+  String get aiManualApprovalDenied => 'Manually denied';
+
+  @override
+  String get aiManualApprovalCancelled => 'Manual approval cancelled';
+
+  @override
+  String get aiManualApprovalTimedOut => 'Manual approval timed out';
+
+  @override
+  String get aiCustomApprovalGranted => 'Allowed by custom rules';
+
+  @override
+  String get aiCustomApprovalNotGranted =>
+      'Not allowed directly by custom rules';
+
+  @override
+  String get aiPermissionReviewing => 'Checking for automatic approval';
+
+  @override
+  String get aiPermissionReviewApproved => 'Approved automatically';
+
+  @override
+  String get aiPermissionReviewDenied => 'Denied by the approval model';
+
+  @override
+  String get aiPermissionReviewFailed => 'Automatic approval failed';
+
+  @override
+  String get aiPermissionReviewSkipped => 'Not eligible for automatic approval';
+
+  @override
+  String get aiPermissionReviewCancelled => 'Automatic approval cancelled';
 
   @override
   String get aiToolTime => 'Read current time';
@@ -2686,9 +2740,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiTopologyModel => 'Execution model';
 
   @override
-  String get aiTopologyInherit => 'Inherit parent model';
-
-  @override
   String get aiWorkspaceDeleteAction => 'Delete child agent';
 
   @override
@@ -3022,6 +3073,56 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiCompactionUnchanged => 'Unchanged';
+
+  @override
+  String get aiCompactionFailed => 'Context compaction failed';
+
+  @override
+  String get aiCompactionOutputLimitReached =>
+      'The model reached its output token limit before finishing the summary. If thinking is enabled, try lowering it or choosing a different compaction model.';
+
+  @override
+  String get aiCompactionReasoningOnly =>
+      'The model returned reasoning but no summary. The service did not report an output limit. Try lowering the compaction model’s thinking effort or choosing a different model.';
+
+  @override
+  String get aiCompactionEmptySummary => 'The model returned an empty summary.';
+
+  @override
+  String get aiCompactionUnexpectedToolCall =>
+      'The model tried to call a tool instead of returning a summary.';
+
+  @override
+  String get aiCompactionFiltered =>
+      'The model service filtered the summary output.';
+
+  @override
+  String get aiCompactionNoTokenSavings =>
+      'The summary did not reduce the estimated token count, so the context was kept unchanged.';
+
+  @override
+  String get aiCompactionNoRecordedReason =>
+      'No specific reason was recorded for this attempt.';
+
+  @override
+  String aiCompactionFinishReason(String reason) {
+    return 'Model finish reason: $reason';
+  }
+
+  @override
+  String aiCompactionProviderCode(String code) {
+    return 'Service error code: $code';
+  }
+
+  @override
+  String aiCompactionOutputLimit(int limit) {
+    return 'Requested output limit: $limit tokens';
+  }
+
+  @override
+  String aiCompactionOutputUsage(int used, int limit) {
+    return 'Output reported by the model: $used tokens (requested limit: $limit)';
+  }
 
   @override
   String get aiCompactionCancelledStatus => 'Cancelled';
@@ -3404,6 +3505,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get agentStorageCompactHint =>
       'Summarize older conversation for future requests. Original conversations and attachments are retained.';
+
+  @override
+  String get agentStorageCompactionModel => 'Context compaction model';
+
+  @override
+  String get agentStorageCompactionModelHint =>
+      'Applies to automatic and manual compaction. By default, both use the current chat model and its reasoning effort.';
 
   @override
   String get agentStorageCompactNow => 'Compact now';

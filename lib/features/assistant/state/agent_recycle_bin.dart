@@ -138,22 +138,32 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
     }
     return [
       for (final entry in entries)
-        AiRecycledAgent(
-          record: {
-            ...entry.record,
-            'id': mapping[entry.id],
-            'parentId': mapping[entry.record['parentId']],
-          },
-          deletedAt: entry.deletedAt,
-          position: entry.position,
-          connections: [
-            for (final c in entry.connections)
-              if (mapping.containsKey(c['fromId']) &&
-                  mapping.containsKey(c['toId']))
-                {'fromId': mapping[c['fromId']], 'toId': mapping[c['toId']]},
-          ],
-        ),
+        _remapImportedRecycledAgent(entry, mapping),
     ];
+  }
+
+  AiRecycledAgent _remapImportedRecycledAgent(
+    AiRecycledAgent entry,
+    Map<String, String> mapping,
+  ) {
+    final record = entry.record;
+    record['id'] = mapping[entry.id];
+    record['parentId'] = mapping[entry.parentId];
+    record['conversation'] = _importConversation(record['conversation'] as Map);
+    return AiRecycledAgent(
+      record: record,
+      deletedAt: entry.deletedAt,
+      position: entry.position,
+      connections: [
+        for (final connection in entry.connections)
+          if (mapping.containsKey(connection['fromId']) &&
+              mapping.containsKey(connection['toId']))
+            {
+              'fromId': mapping[connection['fromId']],
+              'toId': mapping[connection['toId']],
+            },
+      ],
+    );
   }
 
   void _invalidateRecycleHistory() {

@@ -24,8 +24,10 @@ import '../../../../core/widgets/popup_menu_transition.dart';
 import '../../../../core/widgets/settings/compact_switch.dart';
 import '../../../../core/widgets/settings/select.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
+import '../../../settings/presentation/widgets/content_layout.dart';
 import '../../domain/permissions.dart';
 import '../../state/provider.dart';
+import 'model_selector.dart';
 import 'permission_labels.dart';
 
 /// 权限按会话配置，批准一次只放行当前工具调用。
@@ -57,7 +59,12 @@ class _AssistantPermissionsButtonState
   double? _fieldMenuHeight;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.assistant,
+    builder: (context, _) => _buildButton(context),
+  );
+
+  Widget _buildButton(BuildContext context) {
     final theme = widget.theme;
     final assistant = widget.assistant;
     final compact = widget.compact;
@@ -66,12 +73,24 @@ class _AssistantPermissionsButtonState
         ? theme.selectControlColorForSurface(widget.fieldSurfaceColor!)
         : null;
 
-    final label = assistant.permissions.mode == AiApprovalMode.onRequest
-        ? context.l10n.aiPermissionRequest
-        : context.l10n.aiPermissionCustom;
-    final modeIcon = assistant.permissions.mode == AiApprovalMode.onRequest
-        ? Symbols.front_hand_rounded
-        : Symbols.tune_rounded;
+    final l10n = context.l10n;
+    final (label, modeIcon, initialPage) = switch (assistant.permissions.mode) {
+      AiApprovalMode.onRequest => (
+        l10n.aiPermissionRequest,
+        Symbols.front_hand_rounded,
+        _PermissionsPage.modes,
+      ),
+      AiApprovalMode.automatic => (
+        l10n.aiPermissionAutomatic,
+        Symbols.verified_user_rounded,
+        _PermissionsPage.automatic,
+      ),
+      AiApprovalMode.custom => (
+        l10n.aiPermissionCustom,
+        Symbols.tune_rounded,
+        _PermissionsPage.custom,
+      ),
+    };
     final available = MediaQuery.sizeOf(context);
     final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
     final width = math
@@ -130,6 +149,7 @@ class _AssistantPermissionsButtonState
                 width: width + 4,
                 child: _PermissionsPanel(
                   key: ValueKey(_revision),
+                  initialPage: initialPage,
                   theme: theme,
                   assistant: assistant,
                   menuController: _menu,
@@ -205,12 +225,14 @@ class _AssistantPermissionsButtonState
 class _PermissionsPanel extends StatefulWidget {
   const _PermissionsPanel({
     super.key,
+    required this.initialPage,
     required this.theme,
     required this.assistant,
     required this.menuController,
     required this.maxHeight,
     required this.onClose,
   });
+  final _PermissionsPage initialPage;
   final AppTheme theme;
   final AiAssistantProvider assistant;
   final MenuController menuController;
@@ -221,10 +243,13 @@ class _PermissionsPanel extends StatefulWidget {
   State<_PermissionsPanel> createState() => _PermissionsPanelState();
 }
 
+enum _PermissionsPage { modes, automatic, custom }
+
 class _PermissionsPanelState extends State<_PermissionsPanel> {
   final _scroll = ScrollController();
   final _foldersScroll = ScrollController();
-  bool _custom = false;
+  late _PermissionsPage _page = widget.initialPage;
+  bool get _subpage => _page != _PermissionsPage.modes;
   bool _picking = false;
 
   void _update({
@@ -298,9 +323,12 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
       ),
   ];
 
-  void _showCustom() {
-    _update(mode: AiApprovalMode.custom);
-    setState(() => _custom = true);
+  void _showPage(_PermissionsPage page) {
+    if (page == _PermissionsPage.automatic) {
+      _update(mode: AiApprovalMode.automatic);
+    }
+    if (page == _PermissionsPage.custom) _update(mode: AiApprovalMode.custom);
+    setState(() => _page = page);
     if (_scroll.hasClients) _scroll.jumpTo(0);
   }
 
@@ -393,6 +421,11 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
             highlighted,
             progress,
           );
+          final descriptionStyle = TextStyle(
+            fontSize: 11,
+            color: descriptionColor,
+            height: 1.4,
+          );
           return ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 28),
             child: Padding(
@@ -411,6 +444,8 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                       children: [
                         Text(
                           title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: AppDialogStyle.fieldTitleStyle(theme)
                               .copyWith(color: foreground),
                         ),
@@ -418,11 +453,9 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                           const SizedBox(height: 4),
                           Text(
                             description,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: descriptionColor,
-                              height: 1.4,
-                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: descriptionStyle,
                           ),
                         ],
                       ],
@@ -453,25 +486,9 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
     );
   }
 
-  Widget _section(String title, {String? description}) => Padding(
+  Widget _section(String title) => Padding(
     padding: const EdgeInsets.only(top: 16, bottom: 8),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(title, style: AppDialogStyle.fieldTitleStyle(widget.theme)),
-        if (description != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            description,
-            style: TextStyle(
-              fontSize: 11,
-              height: 1.4,
-              color: widget.theme.textColorTertiary,
-            ),
-          ),
-        ],
-      ],
-    ),
+    child: Text(title, style: AppDialogStyle.fieldTitleStyle(widget.theme)),
   );
 
   Future<void> _confirmSensitivePermission({required bool commands}) async {
@@ -662,6 +679,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
       final theme = widget.theme;
       final l10n = context.l10n;
       final permissions = widget.assistant.permissions;
+      final approvalModel = widget.assistant.auxiliaryModels.approval;
       final descriptionStyle = TextStyle(
         fontSize: 11,
         color: theme.textColorTertiary,
@@ -672,8 +690,8 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
         constraints: BoxConstraints(maxHeight: widget.maxHeight),
         child: PopupMenuPageTransition(
           child: Padding(
-            key: ValueKey(_custom),
-            padding: _custom
+            key: ValueKey(_page),
+            padding: _subpage
                 ? const EdgeInsets.fromLTRB(8, 8, 4, 12)
                 : const EdgeInsets.fromLTRB(8, 8, 4, 8),
             child: Column(
@@ -684,7 +702,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
                     children: [
-                      if (_custom) ...[
+                      if (_subpage) ...[
                         AppTooltip(
                           message: l10n.back,
                           child: TitleBarIconButton(
@@ -695,19 +713,19 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                             size: 26,
                             iconSize: 16,
                             backgroundColor: theme.popupSurfaceColor,
-                            onPressed: () {
-                              setState(() => _custom = false);
-                              if (_scroll.hasClients) _scroll.jumpTo(0);
-                            },
+                            onPressed: () => _showPage(_PermissionsPage.modes),
                           ),
                         ),
                         const SizedBox(width: 8),
                       ],
                       Expanded(
                         child: Text(
-                          _custom
-                              ? l10n.aiPermissionCustom
-                              : l10n.aiPermissions,
+                          switch (_page) {
+                            _PermissionsPage.modes => l10n.aiPermissions,
+                            _PermissionsPage.automatic =>
+                              l10n.aiPermissionAutomatic,
+                            _PermissionsPage.custom => l10n.aiPermissionCustom,
+                          },
                           key: const ValueKey('ai-permissions-heading'),
                           style: TextStyle(
                             fontSize: 13,
@@ -735,14 +753,14 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                         child: SingleChildScrollView(
                           key: const ValueKey('ai-permissions-scroll'),
                           controller: _scroll,
-                          padding: _custom
+                          padding: _subpage
                               ? const EdgeInsets.only(left: 4, right: 16)
                               : const EdgeInsets.only(right: 16),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              if (!_custom) ...[
+                              if (_page == _PermissionsPage.modes) ...[
                                 _option(
                                   key: const ValueKey(
                                     'ai-permission-mode-request',
@@ -761,6 +779,22 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                                 const SizedBox(height: 8),
                                 _option(
                                   key: const ValueKey(
+                                    'ai-permission-mode-automatic',
+                                  ),
+                                  icon: Symbols.verified_user_rounded,
+                                  title: l10n.aiPermissionAutomatic,
+                                  description:
+                                      l10n.aiPermissionAutomaticSummary,
+                                  selected:
+                                      permissions.mode ==
+                                      AiApprovalMode.automatic,
+                                  onPressed: () =>
+                                      _showPage(_PermissionsPage.automatic),
+                                  next: true,
+                                ),
+                                const SizedBox(height: 8),
+                                _option(
+                                  key: const ValueKey(
                                     'ai-permission-mode-custom',
                                   ),
                                   icon: Symbols.tune_rounded,
@@ -768,8 +802,35 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                                   description: l10n.aiPermissionCustomSummary,
                                   selected:
                                       permissions.mode == AiApprovalMode.custom,
-                                  onPressed: _showCustom,
+                                  onPressed: () =>
+                                      _showPage(_PermissionsPage.custom),
                                   next: true,
+                                ),
+                              ] else if (_page ==
+                                  _PermissionsPage.automatic) ...[
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 16),
+                                  child: SettingsField(
+                                    theme: theme,
+                                    title: l10n.aiPermissionApprovalModel,
+                                    description:
+                                        l10n.aiPermissionApprovalModelHelp,
+                                    trailing: Flexible(
+                                      child: ModelSelector(
+                                        key: const ValueKey(
+                                          'ai-approval-model-select',
+                                        ),
+                                        theme: theme,
+                                        assistant: widget.assistant,
+                                        auxiliarySelection: approvalModel,
+                                        fieldSurfaceColor:
+                                            theme.popupSurfaceColor,
+                                        onAuxiliarySelected: widget
+                                            .assistant
+                                            .selectApprovalModel,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ] else ...[
                                 for (final category

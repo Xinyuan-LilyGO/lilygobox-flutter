@@ -211,6 +211,9 @@ void main() {
         expect(done.events.map((event) => event.status), [
           AiResponseStatus.preparingTools,
           AiResponseStatus.awaitingApproval,
+          allow
+              ? AiResponseStatus.manualApprovalGranted
+              : AiResponseStatus.manualApprovalDenied,
           if (allow) AiResponseStatus.executingTools,
           null,
         ]);

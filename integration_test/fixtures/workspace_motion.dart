@@ -11,7 +11,7 @@ import 'package:lilygobox/features/assistant/data/agent_storage.dart';
 
 String motionPackagePath() =>
     Platform.environment['LILYGOBOX_MOTION_PACKAGE'] ??
-    File('artifacts/test-data/lilygobox-long-chat-10000.7z').absolute.path;
+    File('artifacts/lilygobox-long-chat-10000.7z').absolute.path;
 
 typedef MotionMouse = ({
   void Function() wheel,

@@ -41,10 +41,12 @@ class AssistantPage extends StatefulWidget {
     super.key,
     this.readOnly = false,
     this.initialDraft = '',
+    this.onManageContext,
   });
 
   final bool readOnly;
   final String initialDraft;
+  final VoidCallback? onManageContext;
 
   @override
   State<AssistantPage> createState() => _AssistantPageState();
@@ -425,6 +427,7 @@ class _AssistantPageState extends State<AssistantPage> {
                                   theme: theme,
                                   assistant: assistant,
                                   ready: ready,
+                                  onManageContext: widget.onManageContext,
                                   onSend: (fromKeyboard) => _send(
                                     assistant,
                                     fromKeyboard: fromKeyboard,
@@ -692,6 +695,16 @@ class _MessageViewState extends State<_MessageView> {
     final message = widget.message;
     final isUser = message.role == 'user';
     final isCompaction = message.role == 'compaction';
+    final l10n = context.l10n;
+    final requestError = message.requestError;
+    final errorText = isCompaction && message.status == AiResponseStatus.failed
+        ? '${l10n.aiCompactionFailed}  ${switch (message.processingSteps.lastOrNull) {
+            final step? => aiCompactionFailureText(l10n, step).split('\n').first,
+            _ => requestError == null ? l10n.aiCompactionNoRecordedReason : aiErrorText(l10n, requestError),
+          }}'
+        : requestError == null
+        ? null
+        : '${l10n.aiTurnFailed}  ${aiErrorText(l10n, requestError)}';
     final events = isCompaction && message.processEvents.isEmpty
         ? [
             AiProcessEvent(
@@ -706,7 +719,17 @@ class _MessageViewState extends State<_MessageView> {
             ),
           ]
         : message.processEvents;
-    final timeline = buildAiProcessTimeline(events);
+    final unchanged =
+        isCompaction &&
+        message.processingSteps.lastOrNull?.arguments['outcome'] == 'unchanged';
+    final timeline = buildAiProcessTimeline(
+      unchanged
+          ? [
+              for (final event in events)
+                if (event.status != AiResponseStatus.completed) event,
+            ]
+          : events,
+    );
     final turnFinished = switch (message.status) {
       AiResponseStatus.completed ||
       AiResponseStatus.failed ||
@@ -793,7 +816,6 @@ class _MessageViewState extends State<_MessageView> {
         ],
       );
     }
-    final l10n = context.l10n;
     final processSummary = aiMessageProcessSummary(context, message);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -945,7 +967,7 @@ class _MessageViewState extends State<_MessageView> {
                 ),
         ),
         if (message.content.isNotEmpty) content,
-        if (message.requestError case final error?)
+        if (errorText != null)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 14),
             child: Row(
@@ -960,7 +982,7 @@ class _MessageViewState extends State<_MessageView> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '${l10n.aiTurnFailed}  ${aiErrorText(l10n, error)}',
+                    errorText,
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.error,
                       fontSize: 13,
@@ -972,7 +994,11 @@ class _MessageViewState extends State<_MessageView> {
             ),
           ),
         if (turnFinished)
-          ChatMessageActions(message: message, theme: widget.theme),
+          ChatMessageActions(
+            message: message,
+            theme: widget.theme,
+            visibleError: errorText,
+          ),
       ],
     );
   }

@@ -251,6 +251,8 @@ void main() {
     double textScale = 1,
     TextScaler? textScaler,
     AiWorkspaceProvider? restored,
+    Locale locale = const Locale('zh'),
+    String? fontFamily,
   }) => MultiProvider(
     providers: [
       ChangeNotifierProvider<ThemeProvider>.value(value: theme),
@@ -274,11 +276,13 @@ void main() {
           ),
           child: child!,
         ),
-        locale: const Locale('zh'),
+        locale: locale,
         theme: ThemeData(
-          fontFamily: const bool.fromEnvironment('CAPTURE_ASSISTANT_UI')
-              ? 'WorkspaceChinese'
-              : null,
+          fontFamily:
+              fontFamily ??
+              (const bool.fromEnvironment('CAPTURE_ASSISTANT_UI')
+                  ? 'WorkspaceChinese'
+                  : null),
         ),
         localizationsDelegates: appLocalizationDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
@@ -4360,9 +4364,7 @@ void main() {
       }))!;
       final messenger = tester.binding.defaultBinaryMessenger;
       const picker = MethodChannel('plugins.flutter.io/file_selector');
-      final archive = File('artifacts/test-data/lilygobox-long-chat-10000.7z')
-          .absolute
-          .path;
+      final archive = File('artifacts/lilygobox-long-chat-10000.7z').absolute.path;
       messenger.setMockMethodCallHandler(picker, (_) async => [archive]);
       String? clipboard;
       messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
@@ -5032,6 +5034,85 @@ void main() {
     },
   );
 
+  testWidgets('card and chat context menus show the full English label', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1180, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final agent = (await tester.runAsync(() async {
+      await (FontLoader('LilygoBoxGoogleSansFlex')..addFont(
+            rootBundle.load(
+              'assets/fonts/GoogleSansFlex/GoogleSansFlex-Regular.ttf',
+            ),
+          ))
+          .load();
+      await workspaces.createPrimary(title: 'Other agent', task: 'Other task');
+      return workspaces.createPrimary(title: 'Current agent', task: 'Task');
+    }))!;
+    await tester.pumpWidget(
+      app(locale: const Locale('en'), fontFamily: 'LilygoBoxGoogleSansFlex'),
+    );
+    await tick(tester);
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(TaskTopologyPage)),
+    );
+
+    double verifyMenuLabel(Finder menuItem) {
+      final label = find.descendant(
+        of: menuItem,
+        matching: find.text(l10n.agentStorageManageContext),
+      );
+      final text = tester.renderObject<RenderParagraph>(label);
+      final length = l10n.agentStorageManageContext.length;
+      final lastCharacter = text.getBoxesForSelection(
+        TextSelection(baseOffset: length - 1, extentOffset: length),
+      );
+      expect(lastCharacter, isNotEmpty);
+      final bounds = tester.getRect(menuItem);
+      expect(bounds.height, 28);
+      final labelRight = text.localToGlobal(
+        lastCharacter.last.toRect().topRight,
+      );
+      expect(bounds.right - labelRight.dx, inInclusiveRange(6, 11));
+      return bounds.width;
+    }
+
+    await tester.tap(
+      find.byKey(ValueKey('topology-node-${agent.id}')),
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    final canvasWidth = verifyMenuLabel(
+      find.byKey(const ValueKey('topology-context-manage-chat')),
+    );
+    await tester.tap(find.byKey(const ValueKey('topology-context-open')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('ai-context-usage-metric')),
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    final manage = find.byKey(const ValueKey('ai-context-menu-manage-chat'));
+    final compact = find.byKey(
+      const ValueKey('ai-compaction-context-menu-action'),
+    );
+    expect(verifyMenuLabel(manage), canvasWidth);
+    expect(
+      tester.getTopLeft(manage).dy,
+      lessThan(tester.getTopLeft(compact).dy),
+    );
+    await tester.tap(manage);
+    await tester.pumpAndSettle();
+    expect(manage, findsNothing);
+    expect(compact, findsNothing);
+    expect(
+      find.byKey(ValueKey('storage-compaction-model-${agent.id}')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
   testWidgets(
     'card chat deletion confirms in red and clears only the clicked agent',
     (tester) async {
@@ -5082,6 +5163,82 @@ void main() {
         find.byKey(const ValueKey('storage-context-budget')),
         findsOneWidget,
       );
+      final compactionSelector = find.byKey(
+        ValueKey('storage-compaction-model-${child.id}'),
+      );
+      await tester.ensureVisible(compactionSelector);
+      final label = find.text(l.agentStorageCompactionModel);
+      final modelSurface = find
+          .descendant(
+            of: compactionSelector,
+            matching: find.byType(InteractionDecoration),
+          )
+          .first;
+      final compactButton = find.widgetWithText(
+        AppActionButton,
+        l.agentStorageCompactNow,
+      );
+      final deleteButton = find.widgetWithText(AppActionButton, l.delete);
+      expect(
+        tester.getRect(label).right,
+        lessThan(tester.getRect(modelSurface).left),
+      );
+      expect(
+        tester.getRect(modelSurface).right,
+        closeTo(tester.getRect(compactButton).right, .01),
+      );
+      expect(
+        tester.getRect(modelSurface).right,
+        closeTo(tester.getRect(deleteButton).right, .01),
+      );
+      expect(find.text(l.agentStorageCompactionModelHint), findsOneWidget);
+      final service = child.assistant.selectedService!.id;
+      final chatModel = child.assistant.selectedModel!;
+      final chatEffort = child.assistant.reasoningEffort;
+      expect(
+        find.descendant(
+          of: compactionSelector,
+          matching: find.textContaining(chatModel),
+        ),
+        findsOneWidget,
+      );
+      expect(child.assistant.auxiliaryModels.compaction, isNull);
+      await tester.tap(compactionSelector);
+      await tester.pumpAndSettle();
+      final models = find.byKey(const ValueKey('ai-reasoning-models'));
+      if (models.evaluate().isNotEmpty) {
+        await tester.tap(models);
+        await tester.pumpAndSettle();
+      }
+      expect(find.byKey(const ValueKey('ai-model-search')), findsOneWidget);
+      expect(find.text(l.aiAddModelService), findsNothing);
+      expect(find.byKey(const ValueKey('ai-model-inherit')), findsNothing);
+      expect(
+        tester.widget<MenuItemSurface>(
+          find.byKey(ValueKey('ai-model-$service-$chatModel')),
+        ).isSelected,
+        isTrue,
+      );
+      await tester.tap(
+        find.byKey(ValueKey('ai-model-$service-deepseek-flash')),
+      );
+      await tester.pumpAndSettle();
+      final slider = find.byKey(const ValueKey('ai-reasoning-slider'));
+      final track = tester.getRect(slider);
+      await tester.tapAt(Offset(track.right - 2, track.center.dy));
+      await tester.pumpAndSettle();
+      expect(child.assistant.auxiliaryModels.compaction, (
+        serviceId: service,
+        model: 'deepseek-flash',
+        reasoningEffort: AiReasoningEffort.max,
+      ));
+      expect(child.assistant.selectedModel, chatModel);
+      expect(child.assistant.reasoningEffort, chatEffort);
+      expect(root.assistant.auxiliaryModels.compaction, isNull);
+      await tester.tap(label);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('ai-model-menu-surface')), findsNothing);
+      expect(compactionSelector, findsOneWidget);
       Future<void> openDeletion() async {
         final deleteButton = find.widgetWithText(AppActionButton, l.delete);
         await tester.ensureVisible(deleteButton);
@@ -7054,9 +7211,10 @@ void main() {
       for (final type in ThemeType.values) {
         theme.setTheme(type);
         final narrow = type == ThemeType.light;
-        await tester.binding.setSurfaceSize(
-          narrow ? const Size(560, 850) : const Size(1180, 850),
-        );
+        final windowSize = narrow
+            ? const Size(560, 850)
+            : const Size(1180, 850);
+        await tester.binding.setSurfaceSize(windowSize);
         await tester.pumpWidget(app());
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('topology-empty-create')));
@@ -7068,6 +7226,35 @@ void main() {
         final permissionButton = find.byKey(
           const ValueKey('ai-permissions-button'),
         );
+        final l10n = AppLocalizations.of(tester.element(modelButton));
+        final formRight = tester
+            .getRect(find.byKey(const ValueKey('topology-title-input')))
+            .right;
+        for (final (title, description, button) in [
+          (l10n.aiTopologyModel, l10n.aiTopologyModelHelp, modelButton),
+          (
+            l10n.aiPermissions,
+            l10n.aiTopologyPermissionsHelp,
+            permissionButton,
+          ),
+        ]) {
+          final heading = tester.getRect(find.text(title));
+          final control = tester.getRect(
+            find
+                .descendant(
+                  of: button,
+                  matching: find.byType(InteractionDecoration),
+                )
+                .first,
+          );
+          expect(control.left, greaterThan(heading.right));
+          expect(control.center.dy, closeTo(heading.center.dy, .01));
+          expect(control.right, closeTo(formRight, .01));
+          expect(
+            tester.getTopLeft(find.text(description)).dy,
+            greaterThan(control.bottom),
+          );
+        }
         final modelSurface = tester.widget<MenuItemSurface>(modelButton);
         final permissionSurface = tester.widget<MenuItemSurface>(
           permissionButton,
@@ -7148,7 +7335,8 @@ void main() {
         final modelMenu = tester.getRect(
           find.byKey(const ValueKey('ai-model-menu-surface')),
         );
-        expect(modelMenu.left, closeTo(modelBounds.left, .01));
+        expect(modelMenu.right, lessThan(windowSize.width));
+        expect(modelMenu.left, lessThanOrEqualTo(modelBounds.left + .01));
         expect(modelMenu.top, closeTo(modelBounds.bottom + 8, .01));
         expect(
           tester
@@ -7233,7 +7421,11 @@ void main() {
         final permissionMenu = tester.getRect(
           find.byKey(const ValueKey('ai-permissions-menu-surface')),
         );
-        expect(permissionMenu.left, closeTo(permissionBounds.left, .01));
+        expect(permissionMenu.right, lessThan(windowSize.width));
+        expect(
+          permissionMenu.left,
+          lessThanOrEqualTo(permissionBounds.left + .01),
+        );
         expect(permissionMenu.top, closeTo(permissionBounds.bottom + 8, .01));
         expect(
           tester
@@ -7419,10 +7611,28 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('topology-new-child')));
       await tick(tester);
-      await tester.tap(find.byKey(const ValueKey('topology-model-select')));
+      final modelSelector = find.byKey(const ValueKey('topology-model-select'));
+      final inheritedModel = child.assistant.selectedModel!;
+      expect(
+        find.descendant(
+          of: modelSelector,
+          matching: find.textContaining(inheritedModel),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(modelSelector);
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('ai-model-inherit')), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('ai-model-inherit')));
+      final models = find.byKey(const ValueKey('ai-reasoning-models'));
+      if (models.evaluate().isNotEmpty) {
+        await tester.tap(models);
+        await tester.pumpAndSettle();
+      }
+      expect(find.byKey(const ValueKey('ai-model-inherit')), findsNothing);
+      final inheritedRow = find.byKey(
+        ValueKey('ai-model-${child.assistant.selectedService!.id}-$inheritedModel'),
+      );
+      expect(tester.widget<MenuItemSurface>(inheritedRow).isSelected, isTrue);
+      await tester.tap(modelSelector);
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('topology-title-input')),
@@ -7438,6 +7648,7 @@ void main() {
       final nested = workspaces.sessions.last;
       expect(nested.parentId, child.id);
       expect(nested.kind, AiWorkspaceKind.permanent);
+      expect(nested.assistant.selectedModel, inheritedModel);
       await tester.tap(find.byKey(const ValueKey('topology-back')));
       await tester.pumpAndSettle();
       Positioned position(String id) => tester.widget<Positioned>(

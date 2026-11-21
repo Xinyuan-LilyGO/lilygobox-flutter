@@ -36,6 +36,7 @@ import 'package:lilygobox/features/assistant/presentation/pages/page.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_composer.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_content_window.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_history_scrollbar.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/code_block.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/message_content.dart';
 import 'package:lilygobox/features/settings/presentation/widgets/split_view.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
@@ -249,7 +250,7 @@ void main() {
     (tester) async {
       final package = (await tester.runAsync(
         () => AgentPackage.read(
-          'artifacts/test-data/lilygobox-long-chat-10000.7z',
+          'artifacts/lilygobox-long-chat-10000.7z',
         ),
       ))!;
       final record = (package['workflow']['sessions'] as List).single;
@@ -1773,6 +1774,121 @@ void main() {
     );
   }
 
+  for (final (outcome, title, status) in [
+    ('failed', '上下文压缩失败', AiResponseStatus.failed),
+    ('unchanged', '上下文未改变', AiResponseStatus.completed),
+  ]) {
+    testWidgets('automatic compaction timing shows $outcome, not completion', (
+      tester,
+    ) async {
+      await tester.runAsync(() => scope.provider.initialized);
+      const id = 'compaction-result';
+      const duration = Duration(milliseconds: 3200);
+      final failed = outcome == 'failed';
+      final start = DateTime(2026, 11, 20, 10);
+      final step = AiProcessingStep(
+        name: 'compact_context',
+        succeeded: false,
+        arguments: {
+          'trigger': 'auto',
+          'outcome': outcome,
+          if (failed) ...{
+            'compactionIssue': 'outputLimit',
+            'finishReason': 'length',
+            'outputTokens': 2048,
+            'outputLimit': 2048,
+          } else
+            'noTokenSavings': true,
+        },
+      );
+      final record = AiMessage(
+        id: id,
+        role: 'compaction',
+        model: 'deepseek-flash',
+        content: '',
+        toolName: 'compact_context',
+        toolArguments: const {'trigger': 'auto'},
+        createdAt: start,
+        finishedAt: start.add(duration),
+        elapsed: duration,
+        status: status,
+        processingSteps: [step],
+        processEvents: [
+          const AiProcessEvent(
+            type: AiProcessEventType.status,
+            status: AiResponseStatus.thinking,
+            operationId: id,
+            elapsed: Duration(milliseconds: 400),
+          ),
+          AiProcessEvent(
+            type: AiProcessEventType.action,
+            operationId: id,
+            elapsed: duration,
+            action: step,
+          ),
+          AiProcessEvent(
+            type: AiProcessEventType.status,
+            status: status,
+            elapsed: duration,
+          ),
+        ],
+      );
+      scope.provider.restoreWorkspaceConversation({
+        'messages': [ConversationCodec.message(record)],
+        'history': <Map<String, Object?>>[],
+      });
+      await tester.pumpWidget(app(locale: 'zh'));
+      await tester.pumpAndSettle();
+      final bodyError = find.textContaining('上下文压缩失败  模型达到输出 token 上限');
+      expect(bodyError, failed ? findsOneWidget : findsNothing);
+      if (failed) {
+        final color = Theme.of(tester.element(bodyError)).colorScheme.error;
+        expect(tester.widget<Text>(bodyError).style?.color, color);
+      }
+      final copy = find.byKey(const ValueKey('ai-copy-message-$id'));
+      expect(
+        tester.widget<TitleBarIconButton>(copy).onPressed,
+        failed ? isNotNull : isNull,
+      );
+      if (failed) {
+        final messenger = tester.binding.defaultBinaryMessenger;
+        String? copied;
+        messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied = (call.arguments as Map)['text'] as String?;
+          }
+          return null;
+        });
+        addTearDown(
+          () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+        );
+        await tester.tap(copy);
+        await tester.pump();
+        expect(copied, tester.widget<Text>(bodyError).data);
+      }
+      await tester.tap(find.text('自动压缩上下文 · $title · 用时 00:03:200'));
+      await tester.pumpAndSettle();
+      expect(find.text('已完成'), findsNothing);
+      expect(find.text('处理失败'), failed ? findsOneWidget : findsNothing);
+      final operation = find.byKey(const ValueKey('operation-$id'));
+      await tester.tap(
+        find.descendant(of: operation, matching: find.byType(InkWell)).first,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('正在思考…'), findsOneWidget);
+      if (failed) {
+        expect(find.text('错误详情'), findsOneWidget);
+        final block = tester.widget<ChatCodeBlock>(find.byType(ChatCodeBlock));
+        expect(block.text, contains('模型达到输出 token 上限'));
+        expect(block.text, contains('模型结束原因：length'));
+        expect(block.text, contains('2048 token'));
+      } else {
+        expect(find.text('摘要未减少估算 token 数，已保留原上下文。'), findsOneWidget);
+        expect(find.text('错误详情'), findsNothing);
+      }
+    });
+  }
+
   testWidgets('composer metrics sit close to the bottom of the chat page', (
     tester,
   ) async {
@@ -2902,6 +3018,11 @@ void main() {
       await tester.pumpWidget(app());
       await tester.pumpAndSettle();
       final modelButton = find.byKey(const ValueKey('ai-model-selector'));
+      final modelIcon = find.byIcon(Symbols.blur_on);
+      expect(
+        find.descendant(of: modelButton, matching: modelIcon),
+        findsOneWidget,
+      );
       final permissionButton = find.byKey(
         const ValueKey('ai-permissions-button'),
       );
@@ -2928,6 +3049,17 @@ void main() {
       expect(navigation.currentPage, AppPage.home);
       expect(find.text('For next messages'), findsNothing);
       expect(find.text('Add model service'), findsNothing);
+      for (final (service, model) in [
+        (first, 'deepseek-chat'),
+        (first, 'deepseek-reasoner'),
+        (second, 'custom-model'),
+      ]) {
+        final row = find.byKey(ValueKey('ai-model-$service-$model'));
+        final icon = find.descendant(of: row, matching: modelIcon);
+        expect(icon, findsOneWidget);
+        final label = find.descendant(of: row, matching: find.text(model));
+        expect(tester.getRect(icon).right, lessThan(tester.getRect(label).left));
+      }
       await capture(tester, 'model-selector-dark');
       final search = find.byKey(const ValueKey('ai-model-search'));
       expect(find.text('Filter by model name or service name.'), findsNothing);
@@ -3224,6 +3356,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('ai-model-list-panel')), findsNothing);
       expect(find.byKey(const ValueKey('ai-reasoning-panel')), findsOneWidget);
+      final header = find.byKey(const ValueKey('ai-reasoning-models'));
+      final icon = find.descendant(
+        of: header,
+        matching: find.byIcon(Symbols.blur_on),
+      );
+      final label = find.descendant(of: header, matching: find.text('o3'));
+      expect(tester.getRect(icon).right, lessThan(tester.getRect(label).left));
       final slider = find.byType(Slider);
       expect(
         tester

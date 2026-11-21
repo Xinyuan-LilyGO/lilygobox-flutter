@@ -91,7 +91,7 @@ void main() {
     final cache = find.byKey(const ValueKey('ai-cache-usage-metric'));
     final speed = find.byKey(const ValueKey('ai-output-speed-metric'));
     expect(
-      find.descendant(of: speed, matching: find.text('平均速度')),
+      find.descendant(of: speed, matching: find.text('流式输出速度')),
       findsOneWidget,
     );
     expect(
