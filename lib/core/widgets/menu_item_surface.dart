@@ -55,6 +55,10 @@ class MenuItemSurface extends StatefulWidget {
   static const animationDuration = InteractionDecoration.animationDuration;
   static const animationCurve = InteractionDecoration.animationCurve;
 
+  static bool isHoveredOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_MenuItemHover>()?.hovered ??
+      false;
+
   final AppTheme theme;
   final VoidCallback? onPressed;
   final Widget child;
@@ -91,19 +95,20 @@ class _MenuItemSurfaceState extends State<MenuItemSurface> {
     final enabled =
         widget.onPressed != null &&
         !(widget.isSelected && widget.disableWhenSelected);
+    final hovered = _isHovered && enabled;
     final stateColors = theme.buttonColorsForSurface(
       widget.surfaceColor ?? widget.backgroundColor ?? theme.primary,
     );
     final selectedBackground = widget.selectedColor ?? stateColors.selected;
-    final backgroundColor = _isHovered && enabled
+    final backgroundColor = hovered
         ? widget.hoverColor ?? stateColors.hover
         : widget.isSelected
         ? selectedBackground
         : widget.backgroundColor ?? theme.primary;
-    final foregroundColor = _isHovered && enabled
+    final foregroundColor = hovered
         ? widget.hoverForegroundColor ?? widget.foregroundColor
         : widget.foregroundColor;
-    final content = foregroundColor == null
+    final foreground = foregroundColor == null
         ? widget.child
         : InteractionDecoration.color(
             palette: theme,
@@ -116,6 +121,7 @@ class _MenuItemSurfaceState extends State<MenuItemSurface> {
               ),
             ),
           );
+    final content = _MenuItemHover(hovered: hovered, child: foreground);
     final feedback = InkWell(
       onTap: enabled ? widget.onPressed : null,
       mouseCursor: enabled
@@ -176,4 +182,14 @@ class _MenuItemSurfaceState extends State<MenuItemSurface> {
       ),
     );
   }
+}
+
+class _MenuItemHover extends InheritedWidget {
+  const _MenuItemHover({required this.hovered, required super.child});
+
+  final bool hovered;
+
+  @override
+  bool updateShouldNotify(_MenuItemHover oldWidget) =>
+      hovered != oldWidget.hovered;
 }

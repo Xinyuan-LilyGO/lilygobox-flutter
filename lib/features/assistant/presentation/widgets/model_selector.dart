@@ -24,6 +24,7 @@ import '../../domain/models.dart';
 import '../../domain/reasoning.dart';
 import '../../state/provider.dart';
 import 'error_text.dart';
+import 'model_brand_icon.dart';
 import 'reasoning_effort_label.dart';
 
 class ModelSelector extends StatefulWidget {
@@ -56,8 +57,6 @@ class ModelSelector extends StatefulWidget {
 }
 
 class _ModelSelectorState extends State<ModelSelector> {
-  static const _modelIcon = Icon(Symbols.blur_on, size: 16, fill: 1);
-
   final _menu = MenuController();
   final _dismissGroup = Object();
   final _buttonKey = GlobalKey();
@@ -396,7 +395,7 @@ class _ModelSelectorState extends State<ModelSelector> {
                 children: [
                   IconTheme.merge(
                     data: IconThemeData(color: theme.textColorPrimary),
-                    child: _modelIcon,
+                    child: ModelBrandIcon(model: _reasoningModel),
                   ),
                   const SizedBox(width: 4),
                   Expanded(
@@ -572,6 +571,16 @@ class _ModelSelectorState extends State<ModelSelector> {
     final l10n = context.l10n;
     final theme = widget.theme;
     final assistant = widget.assistant;
+    final hoverForeground = theme.materialColors.onPrimary;
+    const modelFontSize = 13.0;
+    const modelLineHeight = 1.5;
+    const rowPadding = EdgeInsets.symmetric(horizontal: 6, vertical: 4);
+    final rowHeight = math.max(
+      28.0,
+      (MediaQuery.textScalerOf(context).scale(modelFontSize) * modelLineHeight +
+              rowPadding.vertical)
+          .ceilToDouble(),
+    );
     final query = _search.text.trim().toLowerCase();
     final groups = [
       for (final service in _services)
@@ -700,8 +709,7 @@ class _ModelSelectorState extends State<ModelSelector> {
                                                 ? Colors.black
                                                 : theme.materialColors.onPrimary
                                           : theme.textColorSecondary,
-                                      hoverForegroundColor:
-                                          theme.materialColors.onPrimary,
+                                      hoverForegroundColor: hoverForeground,
                                       isSelected: _isSelectedModel(
                                         service,
                                         model,
@@ -710,21 +718,19 @@ class _ModelSelectorState extends State<ModelSelector> {
                                           ? () => _select(service, model)
                                           : null,
                                       borderRadius: BorderRadius.circular(4),
-                                      child: ConstrainedBox(
+                                      child: SizedBox(
                                         key: _isSelectedModel(service, model)
                                             ? _selectedModelKey
                                             : null,
-                                        constraints: const BoxConstraints(
-                                          minHeight: 28,
-                                        ),
+                                        height: rowHeight,
                                         child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 4,
-                                          ),
+                                          padding: rowPadding,
                                           child: Row(
                                             children: [
-                                              _modelIcon,
+                                              ModelBrandIcon(
+                                                model: model,
+                                                menuHoverColor: hoverForeground,
+                                              ),
                                               const SizedBox(width: 4),
                                               Expanded(
                                                 child: Text(
@@ -733,7 +739,8 @@ class _ModelSelectorState extends State<ModelSelector> {
                                                   overflow:
                                                       TextOverflow.ellipsis,
                                                   style: const TextStyle(
-                                                    fontSize: 13,
+                                                    fontSize: modelFontSize,
+                                                    height: modelLineHeight,
                                                   ),
                                                 ),
                                               ),
@@ -979,7 +986,7 @@ class _ModelSelectorState extends State<ModelSelector> {
                 children: [
                   IconTheme.merge(
                     data: IconThemeData(color: theme.textColorSecondary),
-                    child: _modelIcon,
+                    child: ModelBrandIcon(model: selectedModel),
                   ),
                   const SizedBox(width: 4),
                   Flexible(

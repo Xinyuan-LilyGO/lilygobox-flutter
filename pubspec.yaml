@@ -54,6 +54,7 @@ flutter:
   generate: true
   assets:
     - assets/images/branding/lilygobox_logo.svg
+    - assets/images/model_brands/
     - assets/fonts/Inter/OFL.txt
     - assets/fonts/Roboto/OFL.txt
     - assets/fonts/GoogleSansFlex/OFL.txt

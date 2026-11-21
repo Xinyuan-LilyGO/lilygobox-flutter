@@ -21,16 +21,24 @@ class AiReasoningCapabilities {
     AiReasoningEffort.medium,
     AiReasoningEffort.high,
   ];
-  static const _extended = AiReasoningCapabilities([
+  static const _maxLevels = [
     ..._standard,
     AiReasoningEffort.xhigh,
     AiReasoningEffort.max,
+  ];
+  static const _extended = AiReasoningCapabilities([
+    ..._maxLevels,
     AiReasoningEffort.ultra,
   ]);
-  static const _upToMax = AiReasoningCapabilities([
-    ..._standard,
-    AiReasoningEffort.xhigh,
-    AiReasoningEffort.max,
+  static const _upToMax = AiReasoningCapabilities(_maxLevels);
+  static const _offToMax = AiReasoningCapabilities([
+    AiReasoningEffort.none,
+    ..._maxLevels,
+  ]);
+  static const _offToUltra = AiReasoningCapabilities([
+    AiReasoningEffort.none,
+    ..._maxLevels,
+    AiReasoningEffort.ultra,
   ]);
   static const _gpt5 = AiReasoningCapabilities([
     AiReasoningEffort.minimal,
@@ -45,15 +53,16 @@ class AiReasoningCapabilities {
   static const _models = <String, AiReasoningCapabilities>{
     'deepseek-flash': _deepSeek,
     'deepseek-v4-pro': _deepSeek,
-    'gpt-6-sol': _extended,
+    'gpt-6.2-astra': _upToMax,
+    'gpt-6.2-sol': _upToMax,
+    'gpt-6-sol': _offToUltra,
     'gpt-6.1-sol': _extended,
-    'gpt-6.1-terra': _extended,
-    'gpt-5.6-sol': _extended,
-    'gpt-5.6-terra': _extended,
+    'gpt-6.1-terra': _offToMax,
+    'gpt-5.6': _offToMax,
     // 当前 gpt-6-astra 接口拒绝 ultra，带前后缀时也保持最高 max。
     'gpt-6-astra': _upToMax,
-    'gpt-6-luna': _upToMax,
-    'gpt-5.6-luna': _upToMax,
+    'gpt-6-luna': _offToMax,
+    'gpt-5.6-luna': _offToMax,
     'gpt-5.5': AiReasoningCapabilities([..._standard, AiReasoningEffort.xhigh]),
     'o1': AiReasoningCapabilities(_standard),
     'o3': AiReasoningCapabilities(_standard),
@@ -79,11 +88,28 @@ class AiReasoningCapabilities {
       final byLength = b.length.compareTo(a.length);
       return byLength != 0 ? byLength : a.compareTo(b);
     });
+  static final _gatewayGpt62 = RegExp(
+    r'^(?:auto|group|magicai)/gpt-6\.2-(?:astra|sol)(?:[-_]|$)',
+  );
+  static final _gatewayGpt6 = RegExp(
+    r'^(?:auto|group|magicai)/gpt-6(?:-\d{4}-\d{2}-\d{2})?$',
+  );
+  static final _gatewayTerra = RegExp(
+    r'^(?:auto|group|magicai)/gpt-6\.1-terra(?:[-_]|$)',
+  );
+  static final _gpt56Variants = RegExp(r'gpt-5\.6-(?:sol|terra)(?:[-_]|$)');
+  static final _gpt5Version = RegExp(r'gpt-5(?:\d|\.\d)');
 
-  /// 连续子字符串匹配；前缀、后缀和大小写不改变能力，长标识优先。
+  /// 已知网关档位优先，其余按不区分大小写的最长连续标识匹配。
   static AiReasoningCapabilities forModel(String model) {
     final id = model.toLowerCase();
+    if (_gatewayGpt62.hasMatch(id)) return _extended;
+    if (_gatewayGpt6.hasMatch(id)) return _offToMax;
+    if (_gatewayTerra.hasMatch(id) || _gpt56Variants.hasMatch(id)) {
+      return _offToUltra;
+    }
     for (final identifier in _modelIdentifiers) {
+      if (identifier == 'gpt-5' && _gpt5Version.hasMatch(id)) continue;
       if (id.contains(identifier)) return _models[identifier]!;
     }
     return const AiReasoningCapabilities([]);

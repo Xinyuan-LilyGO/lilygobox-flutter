@@ -7404,7 +7404,7 @@ void main() {
         expect(
           find.descendant(
             of: modelButton,
-            matching: find.byIcon(Symbols.blur_on),
+            matching: find.byKey(const ValueKey('ai-model-brand-openai')),
           ),
           findsOneWidget,
         );

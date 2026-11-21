@@ -18,13 +18,15 @@
 
 ## 能力范围
 
-当前识别 OpenAI 的 o1、o3、o3-mini、o4-mini，以及代码中明确列出的 GPT-5 和 Codex 模型系列；DeepSeek 识别 `deepseek-flash` 和 `deepseek-v4-pro`。OpenAI 不同型号的可用等级不同；DeepSeek 提供关闭、低、高、最大，不将服务端接受的 `medium` 等映射别名作为独立档位展示。参见 [DeepSeek 思考模式文档](https://api-docs.deepseek.com/guides/thinking_mode)。
+当前识别 GPT-6.2 Astra、GPT-6.2 Sol、代码中明确列出的 GPT-6、GPT-5.6、早期 GPT-5 型号，以及 o1、o3、o3-mini 和 o4-mini。GPT-6.2 Astra / Sol 提供 `low`、`medium`、`high`、`xhigh` 和 `max`，不支持关闭思考。已验证的 Magpie `auto/`、`group/` 和 `magicai/` GPT-6.2 路由额外提供 `ultra`。DeepSeek 的 `deepseek-flash` 和 `deepseek-v4-pro` 提供关闭、低、高、最大，不将服务端接受的 `medium` 等映射别名作为独立档位展示。
 
-标准模型发现接口不保证返回思考强度能力。软件自行维护已知模型标识及能力表，不依赖 Magpie 等第三方服务的 `reasoning_levels` 或 `supported_reasoning_levels` 扩展字段。统一入口 `AiReasoningCapabilities.forModel` 将名称转为小写后进行连续子字符串搜索：只要完整连续包含已知标识就识别，不限制前后边界。例如 `gpt-6.1-sol`、`auto/gpt-6.1-sol`、`ai-apizn/gpt-6.1-sol` 和 `custom-gpt-6.1-sol-test` 使用相同能力；`gpt-6.1-xxx-sol` 不匹配该标识。
+标准模型发现接口不保证返回思考强度能力。软件自行维护已知模型标识及能力表，不依赖 Magpie 等第三方服务的 `reasoning_levels` 或 `supported_reasoning_levels` 扩展字段。统一入口 `AiReasoningCapabilities.forModel` 先识别已知网关路由，再对其余模型名进行不区分大小写的连续子字符串搜索。例如 `gpt-6.2-sol` 与 `ai-apizn/gpt-6.2-sol` 使用相同的通用档位；`gpt-6.2-xxx-sol` 不匹配该标识。
 
-按标识长度从长到短匹配，较具体型号优先于 `gpt-5` 等通用标识。同一长度按标识字典序保持确定结果。此规则适用于能力表内所有 GPT、o 系列和 DeepSeek 标识；名称不含任何已知标识时不显示强度选择。包含通用标识的名称也会使用其通用规则，例如 `o1-pro` 匹配 `o1`，不再要求整个名称完全相等。旧版 `deepseek-chat`／`deepseek-reasoner` 不包含当前支持的 DeepSeek 标识，继续不提供强度。
+按标识长度从长到短匹配，较具体型号优先于 `gpt-5` 等通用标识。同一长度按标识字典序保持确定结果。未知的 GPT-5 小版本不沿用初代 `gpt-5` 的档位。其他包含通用标识的名称仍使用其通用规则，例如 `o1-pro` 匹配 `o1`。名称不含已知标识时不显示强度选择；旧版 `deepseek-chat`／`deepseek-reasoner` 也继续不提供强度。
 
 界面、默认强度、持久化校验和请求参数编码共用这一个入口。识别不改写实际模型 ID，发送请求和保存配置时保留完整名称；不将不同前缀的模型合并。新增能力仍需核实支持档位，不能从名称推导新档位。第三方别名可能不对应真实型号或限制参数，实际兼容性取决于服务端。
+
+模型选择器的按钮、列表和强度面板标题共用 16px 图标位置。可识别的 GPT、OpenAI、o 系列及 Codex 模型显示居中的 14px OpenAI 标志，随界面前景色切换；DeepSeek 标志平时保留 `#4D6BFE` 品牌蓝，鼠标悬停在可点击的模型项时随高亮前景变白；其他模型仍显示默认点阵图标。默认字号下模型项统一为 28px 高，放大文字时行高统一增长，不受图标或选中状态影响。品牌识别不影响能力判断。标志来自 [Lobe Icons](https://github.com/lobehub/lobe-icons)，MIT 许可证随资源保留。
 
 ## 请求参数
 
@@ -37,11 +39,13 @@
 
 未指定强度或当前模型不支持的等级不写入请求。等级选择按“服务 ID + 模型 ID”保存在现有 `ai.services.v2` 配置中；切换模型后分别恢复，删除服务或从服务移除模型时清除相应记录。写入失败恢复原先的选择，不覆盖密钥。不在加载时迁移或改写旧档位记录。
 
+直连 OpenAI 时，GPT-6.2 的工具调用需要使用 OpenAI Responses 协议；更改强度不会自动切换已配置的协议。第三方网关是否支持 Chat Completions 的工具调用以该网关为准。
+
 每轮发送时冻结服务、模型和强度配置。生成期间可修改下一轮的强度；本轮重试、工具调用后的后续请求继续使用本轮快照。展开消息的“用时”栏时，模型名称下方显示本轮实际使用的思考强度；不支持强度或没有强度记录的消息不显示该行。切换模型或强度不会回写旧消息。
 
 ## 参考来源
 
-- [OpenAI reasoning 文档](https://developers.openai.com/api/docs/guides/reasoning/)：参数结构及各型号能力存在差异。
+- [OpenAI 模型目录](https://developers.openai.com/api/docs/models)、[GPT-6.2 迁移指南](https://developers.openai.com/api/docs/guides/latest-model) 和 [reasoning 文档](https://developers.openai.com/api/docs/guides/reasoning/)：模型档位、工具调用协议与请求参数。
 - [DeepSeek thinking mode 文档](https://api-docs.deepseek.com/guides/thinking_mode)：思考开关、有效强度和 Responses 映射。
 - 用户提供的 Codex 仓库 `codex-rs/models-manager/models.json` 与 `codex-rs/protocol/src/openai_models.rs`：按模型声明可用档位，避免全局使用同一组强度选项。
 

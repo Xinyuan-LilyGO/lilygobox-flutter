@@ -340,9 +340,16 @@ void main() {
     },
   );
   for (final protocol in AiApiProtocol.values) {
-    for (final effort in [null, AiReasoningEffort.high]) {
+    for (final (model, effort, encodedEffort) in const [
+      ('o3', null, null),
+      ('o3', AiReasoningEffort.high, 'high'),
+      ('gpt-6.2-astra', AiReasoningEffort.high, 'high'),
+      ('gpt-6.2-sol', AiReasoningEffort.none, null),
+      ('gpt-6.2-sol', AiReasoningEffort.ultra, null),
+      ('auto/gpt-6.2-sol', AiReasoningEffort.ultra, 'ultra'),
+    ]) {
       test(
-        'serializes reasoning effort for ${protocol.name}: $effort',
+        'serializes reasoning effort for ${protocol.name}: $model $effort',
         () async {
           Map<String, dynamic>? body;
           final client = ChatCompletionClient(
@@ -378,7 +385,7 @@ void main() {
             configuration: AiServiceConfiguration(
               protocol: protocol,
               baseUrl: 'https://example.test/v1',
-              model: 'o3',
+              model: model,
               reasoningEffort: effort,
             ),
             apiKey: 'key',
@@ -387,14 +394,15 @@ void main() {
             ],
             tools: const [],
           );
-          if (effort == null) {
+          expect(body!['model'], model);
+          if (encodedEffort == null) {
             expect(body!.containsKey('reasoning'), isFalse);
             expect(body!.containsKey('reasoning_effort'), isFalse);
           } else if (protocol == AiApiProtocol.openAiResponses) {
-            expect(body!['reasoning'], {'effort': 'high'});
+            expect(body!['reasoning'], {'effort': encodedEffort});
             expect(body!.containsKey('reasoning_effort'), isFalse);
           } else {
-            expect(body!['reasoning_effort'], 'high');
+            expect(body!['reasoning_effort'], encodedEffort);
             expect(body!.containsKey('reasoning'), isFalse);
           }
         },

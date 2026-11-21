@@ -4,14 +4,10 @@ import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 void main() {
   test('models default to the second slider position including off', () {
     for (final model in [
-      'gpt-6-sol',
       'gpt-6.1-sol',
-      'gpt-6.1-terra',
-      'gpt-5.6-sol',
-      'gpt-5.6-terra',
+      'gpt-6.2-astra',
+      'gpt-6.2-sol',
       'gpt-6-astra',
-      'gpt-6-luna',
-      'gpt-5.6-luna',
       'gpt-5.5',
       'o1',
       'o3',
@@ -41,6 +37,14 @@ void main() {
       'gpt-5.1',
       'gpt-5.2',
       'gpt-5.4',
+      'gpt-5.6',
+      'gpt-5.6-sol',
+      'gpt-5.6-terra',
+      'gpt-5.6-luna',
+      'gpt-6-sol',
+      'gpt-6-luna',
+      'gpt-6.1-terra',
+      'magicai/gpt-6',
     ]) {
       expect(
         AiReasoningCapabilities.forModel(model).initialEffort,
@@ -96,7 +100,6 @@ void main() {
       final original = AiReasoningCapabilities.forModel(model);
       for (final alias in [
         'ai-apizn/$model',
-        'auto/$model',
         'custom-$model-test',
         'CUSTOM-${model.toUpperCase()}-TEST',
         '$model-2026-11-13',
@@ -116,6 +119,37 @@ void main() {
       }
     });
   }
+
+  test('GPT-6.2 has no off level and only known routes offer ultra', () {
+    const standard = [
+      AiReasoningEffort.low,
+      AiReasoningEffort.medium,
+      AiReasoningEffort.high,
+      AiReasoningEffort.xhigh,
+      AiReasoningEffort.max,
+    ];
+    for (final model in ['gpt-6.2-astra', 'gpt-6.2-sol']) {
+      for (final id in [model, '$model-2026-11-19', 'custom-$model-test']) {
+        final capabilities = AiReasoningCapabilities.forModel(id);
+        expect(capabilities.levels, standard, reason: id);
+        expect(capabilities.initialEffort, AiReasoningEffort.medium);
+        expect(
+          capabilities.requestParameters(
+            AiReasoningEffort.none,
+            responses: true,
+          ),
+          isEmpty,
+        );
+      }
+      for (final route in ['auto', 'group', 'magicai']) {
+        final id = '$route/${model.toUpperCase()}';
+        expect(AiReasoningCapabilities.forModel(id).levels, [
+          ...standard,
+          AiReasoningEffort.ultra,
+        ], reason: id);
+      }
+    }
+  });
   test('longest continuous identifier wins over the generic GPT-5 rule', () {
     expect(
       AiReasoningCapabilities.forModel('custom-gpt-5.6-sol-test').levels.last,
@@ -147,6 +181,8 @@ void main() {
       'deepseek-reasoner',
       'gpt-4o',
       'gpt-6.1-so',
+      'gpt-6.2',
+      'gpt-5.9',
     ]) {
       expect(
         AiReasoningCapabilities.forModel(name).levels,

@@ -14,6 +14,7 @@ import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -3014,15 +3015,17 @@ void main() {
         name: 'Gateway',
         protocol: AiApiProtocol.openAiChatCompletions,
         baseUrl: 'https://example.test/v1',
-        models: ['custom-model'],
+        models: ['custom-model', 'group/gpt-6.2-sol'],
         apiKey: 'second-key',
       );
       await tester.pumpWidget(app());
       await tester.pumpAndSettle();
       final modelButton = find.byKey(const ValueKey('ai-model-selector'));
-      final modelIcon = find.byIcon(Symbols.blur_on);
+      final deepSeekIcon = find.byKey(const ValueKey('ai-model-brand-deepseek'));
+      final openAiIcon = find.byKey(const ValueKey('ai-model-brand-openai'));
+      final defaultIcon = find.byIcon(Symbols.blur_on);
       expect(
-        find.descendant(of: modelButton, matching: modelIcon),
+        find.descendant(of: modelButton, matching: deepSeekIcon),
         findsOneWidget,
       );
       final permissionButton = find.byKey(
@@ -3051,19 +3054,44 @@ void main() {
       expect(navigation.currentPage, AppPage.home);
       expect(find.text('For next messages'), findsNothing);
       expect(find.text('Add model service'), findsNothing);
-      for (final (service, model) in [
-        (first, 'deepseek-chat'),
-        (first, 'deepseek-reasoner'),
-        (second, 'custom-model'),
+      for (final (service, model, brandIcon, iconSize) in [
+        (first, 'deepseek-chat', deepSeekIcon, 16.0),
+        (first, 'deepseek-reasoner', deepSeekIcon, 16.0),
+        (second, 'custom-model', defaultIcon, 16.0),
+        (second, 'group/gpt-6.2-sol', openAiIcon, 14.0),
       ]) {
         final row = find.byKey(ValueKey('ai-model-$service-$model'));
-        final icon = find.descendant(of: row, matching: modelIcon);
+        final icon = find.descendant(of: row, matching: brandIcon);
         expect(icon, findsOneWidget);
+        expect(tester.getSize(row).height, 28);
+        expect(tester.getSize(icon), Size.square(iconSize));
+        expect(
+          tester.getCenter(icon).dy,
+          closeTo(tester.getCenter(row).dy, .01),
+        );
         final label = find.descendant(of: row, matching: find.text(model));
         expect(tester.getRect(icon).right, lessThan(tester.getRect(label).left));
       }
       await capture(tester, 'model-selector-dark');
       final search = find.byKey(const ValueKey('ai-model-search'));
+      final selectedRow = find.byKey(ValueKey('ai-model-$first-deepseek-chat'));
+      final selectedIcon = find.descendant(
+        of: selectedRow,
+        matching: deepSeekIcon,
+      );
+      expect(tester.widget<SvgPicture>(selectedIcon).colorFilter, isNull);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: tester.getCenter(search));
+      await mouse.moveTo(tester.getCenter(selectedRow));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<SvgPicture>(selectedIcon).colorFilter,
+        const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+      );
+      await mouse.moveTo(tester.getCenter(search));
+      await tester.pumpAndSettle();
+      expect(tester.widget<SvgPicture>(selectedIcon).colorFilter, isNull);
+      await mouse.removePointer();
       expect(find.text('Filter by model name or service name.'), findsNothing);
       final searchInput = search;
       expect(
@@ -3113,6 +3141,10 @@ void main() {
       expect(scope.provider.selectedService?.id, second);
       expect(scope.provider.selectedModel, 'custom-model');
       expect(
+        find.descendant(of: modelButton, matching: defaultIcon),
+        findsOneWidget,
+      );
+      expect(
         tester.widget<TextField>(input).controller!.text,
         'Keep this draft',
       );
@@ -3130,6 +3162,14 @@ void main() {
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 720));
       addTearDown(() => tester.binding.setSurfaceSize(null));
+      const models = ['deepseek-chat', 'group/gpt-6.2-sol', '自定义模型'];
+      final service = await scope.provider.saveService(
+        name: 'Gateway',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: models,
+        apiKey: 'key',
+      );
       for (final locale in ['en', 'zh']) {
         await tester.pumpWidget(app(scale: 1.6, locale: locale));
         await tester.pumpAndSettle();
@@ -3139,6 +3179,14 @@ void main() {
           find.byKey(const ValueKey('ai-model-search')),
         );
         expect(search.focusNode!.hasFocus, isFalse);
+        final heights = {
+          for (final model in models)
+            tester
+                .getSize(find.byKey(ValueKey('ai-model-$service-$model')))
+                .height,
+        };
+        expect(heights, hasLength(1));
+        expect(heights.single, greaterThan(28));
         expect(tester.takeException(), isNull);
         await tester.tapAt(const Offset(10, 10));
         await tester.pumpAndSettle();
@@ -3344,11 +3392,12 @@ void main() {
     'reasoning opens first, fades to models and preserves concrete effort choices',
     (tester) async {
       await tester.runAsync(() => scope.provider.initialized);
+      const model = 'auto/gpt-6.2-sol';
       final service = await scope.provider.saveService(
         name: 'Reasoning service',
         protocol: AiApiProtocol.openAiChatCompletions,
         baseUrl: 'https://example.test/v1',
-        models: ['o3', 'plain'],
+        models: [model, 'plain'],
         apiKey: 'key',
       );
       await tester.pumpWidget(app());
@@ -3361,9 +3410,9 @@ void main() {
       final header = find.byKey(const ValueKey('ai-reasoning-models'));
       final icon = find.descendant(
         of: header,
-        matching: find.byIcon(Symbols.blur_on),
+        matching: find.byKey(const ValueKey('ai-model-brand-openai')),
       );
-      final label = find.descendant(of: header, matching: find.text('o3'));
+      final label = find.descendant(of: header, matching: find.text(model));
       expect(tester.getRect(icon).right, lessThan(tester.getRect(label).left));
       final slider = find.byType(Slider);
       expect(
@@ -3372,15 +3421,15 @@ void main() {
               find.byKey(const ValueKey('ai-reasoning-slider')),
             )
             .divisions,
-        2,
+        5,
       );
       expect(find.text('Default'), findsNothing);
       expect(find.byKey(const ValueKey('ai-reasoning-reset')), findsNothing);
       final rect = tester.getRect(slider);
       await tester.tapAt(Offset(rect.right - 2, rect.center.dy));
       await tester.pumpAndSettle();
-      expect(scope.provider.reasoningEffort, AiReasoningEffort.high);
-      expect(find.text('o3 · High'), findsOneWidget);
+      expect(scope.provider.reasoningEffort, AiReasoningEffort.ultra);
+      expect(find.text('$model · Ultra'), findsOneWidget);
 
       final beforeHeight = tester
           .getSize(find.byKey(const ValueKey('ai-model-menu-surface')))
@@ -3420,9 +3469,9 @@ void main() {
       expect(scope.provider.reasoningEffort, isNull);
       await tester.tap(trigger);
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(ValueKey('ai-model-$service-o3')));
+      await tester.tap(find.byKey(ValueKey('ai-model-$service-$model')));
       await tester.pumpAndSettle();
-      expect(scope.provider.reasoningEffort, AiReasoningEffort.high);
+      expect(scope.provider.reasoningEffort, AiReasoningEffort.ultra);
       expect(find.byKey(const ValueKey('ai-reasoning-reset')), findsNothing);
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
@@ -3430,7 +3479,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('ai-reasoning-panel')), findsOneWidget);
       expect(tester.widget<Slider>(slider).value, 1);
-      expect(scope.provider.selectedModel, 'o3');
+      expect(scope.provider.selectedModel, model);
       expect(tester.takeException(), isNull);
     },
   );
