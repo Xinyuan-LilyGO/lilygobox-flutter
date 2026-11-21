@@ -1180,6 +1180,15 @@
   "aiPermissionAutomatic": "Automatic approval",
   "aiPermissionAutomaticSummary": "Model approves eligible actions.",
   "aiPermissionApprovalModel": "Approval model",
+  "aiPermissionApprovalModelNotUsed": "Configured approval model: {model} (not called)",
+  "@aiPermissionApprovalModelNotUsed": {
+    "description": "Shows which approval model was configured for a tool decision made without calling the model.",
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
   "aiPermissionApprovalModelHelp": "Defaults to the current chat model. The model uses this turn’s request and target path to decide whether to allow eligible actions. Actions it does not approve are blocked without a manual prompt.",
   "aiAuxiliaryModelUnavailable": "Unavailable: {model}",
   "@aiAuxiliaryModelUnavailable": {
@@ -1201,7 +1210,7 @@
   "aiPermissionNoFolders": "No folders added. Every file operation requires approval.",
   "aiPermissionAddFolder": "Add folder",
   "aiPermissionRemoveFolder": "Remove authorization",
-  "aiPermissionSessionHelp": "Permissions reset when the conversation is cleared or the app restarts. File contents and command output may be sent to the configured model service. Local commands are not sandboxed and can access files, networks and devices.",
+  "aiPermissionSessionHelp": "The approval mode and custom rules are saved for this agent and reset when the conversation is cleared. File contents and command output may be sent to the configured model service. Local commands are not sandboxed and can access files, networks and devices.",
   "aiAwaitingApproval": "Waiting for approval",
   "aiManualApprovalGranted": "Manually approved",
   "aiManualApprovalDenied": "Manually denied",
@@ -1544,11 +1553,11 @@
   "agentStorageManageContext": "Manage chat history and context",
   "agentStorageManage": "Manage memories",
   "agentStorageImport": "Import package",
-  "agentStorageExportMemory": "Export long-term memories",
-  "agentStorageImportMemory": "Import long-term memories",
-  "agentStorageExportAgent": "Export agent",
+  "agentStorageExportMemory": "Export long-term memory package",
+  "agentStorageImportMemory": "Import long-term memory package",
+  "agentStorageExportAgent": "Export agent package",
   "agentStorageExportBranch": "Export agent branch",
-  "agentStorageExportChat": "Export conversations",
+  "agentStorageExportChat": "Export chat history and context package",
   "agentStorageExportWorkflow": "Export agent workflow",
   "agentStorageExportAll": "Back up all agent data",
   "agentStorageDeleteChat": "Delete conversation and context",
@@ -1711,9 +1720,9 @@
   "agentStorageWorkflowPackage": "Workflow package",
   "agentStorageBackupPackage": "Complete data package",
   "agentStorageMemoryPackageHint": "Export the selected agent’s long-term memories. Import them into another agent.",
-  "agentStorageChatPackageHint": "Export the selected agent’s complete conversation, context history and compaction summary, message bodies, reasoning, tool calls, activity records, images and attachments, without long-term memories.",
-  "agentStorageAgentPackageHint": "Export one agent’s name, model reference, conversation, context summary, long-term memories and attachments. Optionally include its children.",
-  "agentStorageWorkflowPackageHint": "Export all workflow agents, connections, canvas layout, conversations, context history and compaction summaries, long-term memories and attachments.",
+  "agentStorageChatPackageHint": "Export the selected agent’s chat history, context and compaction summary, activity records, attachments, and model, compaction, and approval settings. Does not include long-term memories.",
+  "agentStorageAgentPackageHint": "Export one agent’s name, model selections, approval settings, chat, context, long-term memories, and attachments. Optionally include its children.",
+  "agentStorageWorkflowPackageHint": "Export all agents with their model selections, approval settings, chats, context, long-term memories, attachments, connections, and canvas layout.",
   "agentStorageBackupPackageHint": "Includes the workflow and the conversations, attachments and memories in the recycle bin.",
   "agentStorageIncludeChildren": "Include child agents",
   "agentStorageChooseAgent": "Choose an agent to export",

@@ -149,7 +149,10 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
     final record = entry.record;
     record['id'] = mapping[entry.id];
     record['parentId'] = mapping[entry.parentId];
-    record['conversation'] = _importConversation(record['conversation'] as Map);
+    final permissions = AiPermissions.fromJson(record.remove('permissions'));
+    if (!permissions.isDefault) {
+      record['permissions'] = permissions.toJson();
+    }
     return AiRecycledAgent(
       record: record,
       deletedAt: entry.deletedAt,
@@ -369,7 +372,7 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
           model: model,
         );
       }
-      assistant.setPermissions(AiPermissions());
+      assistant.setPermissions(AiPermissions.fromJson(raw['permissions']));
       assistant.restoreWorkspaceConversation(conversation);
       return AiAgentWorkspace(
         id: entry.id,

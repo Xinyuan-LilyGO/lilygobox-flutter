@@ -1648,6 +1648,7 @@ void main() {
           id: 'manual-history',
           role: 'compaction',
           model: 'deepseek-flash',
+          reasoningEffort: AiReasoningEffort.none,
           content: '',
           toolName: 'compact_context',
           toolArguments: automatic
@@ -1739,6 +1740,7 @@ void main() {
         expect(detail, findsOneWidget);
         expect(find.textContaining('开始时间'), findsNothing);
         final model = find.textContaining('deepseek-flash');
+        expect(find.text('思考强度：关闭'), findsOneWidget);
         final left = tester
             .getTopLeft(
               find.byKey(const ValueKey('ai-response-details-manual-history')),
@@ -3441,10 +3443,10 @@ void main() {
         name: 'Reasoning service',
         protocol: AiApiProtocol.openAiChatCompletions,
         baseUrl: 'https://example.test/v1',
-        models: ['o3', 'plain'],
+        models: ['deepseek-flash', 'plain'],
         apiKey: 'key',
       );
-      await scope.provider.setReasoningEffort(AiReasoningEffort.high);
+      await scope.provider.setReasoningEffort(AiReasoningEffort.none);
       await tester.pumpWidget(app());
       await tester.pumpAndSettle();
       await tester.runAsync(() => scope.provider.sendMessage('Hello'));
@@ -3458,11 +3460,11 @@ void main() {
       );
       await tester.tap(find.byKey(ValueKey('ai-response-details-${reply.id}')));
       await tester.pumpAndSettle();
-      expect(find.text('Model: o3'), findsOneWidget);
-      expect(find.text('Reasoning effort: High'), findsOneWidget);
+      expect(find.text('Model: deepseek-flash'), findsOneWidget);
+      expect(find.text('Reasoning effort: Off'), findsOneWidget);
       expect(find.text('Reasoning effort: Low'), findsNothing);
-      final modelRect = tester.getRect(find.text('Model: o3'));
-      final effortRect = tester.getRect(find.text('Reasoning effort: High'));
+      final modelRect = tester.getRect(find.text('Model: deepseek-flash'));
+      final effortRect = tester.getRect(find.text('Reasoning effort: Off'));
       expect(effortRect.left, modelRect.left);
       expect(effortRect.top, greaterThan(modelRect.bottom));
       expect(tester.takeException(), isNull);

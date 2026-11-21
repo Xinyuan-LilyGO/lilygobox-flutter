@@ -141,6 +141,8 @@ AiMessage _copyForkMessage(AiMessage message, String Function() newId) =>
             toolArguments: event.toolArguments == null
                 ? null
                 : _copyConversationMap(event.toolArguments!),
+            model: event.model,
+            reasoningEffort: event.reasoningEffort,
             text: event.text,
             action: event.action == null ? null : _copyForkStep(event.action!),
             retry: event.retry,
@@ -1048,7 +1050,7 @@ class AiAssistantProvider extends ChangeNotifier {
         ),
       ],
       model: configuration.model,
-      reasoningEffort: configuration.reasoningEffort,
+      reasoningEffort: configuration.effectiveReasoningEffort,
       protocol: configuration.protocol,
     );
     final activeIndex = ownerId == null
@@ -1634,6 +1636,8 @@ class AiAssistantProvider extends ChangeNotifier {
         toolName: tool.name,
         operationId: operationId,
         toolArguments: tool.arguments,
+        model: configuration.model,
+        reasoningEffort: configuration.effectiveReasoningEffort,
       );
       if (cancelled()) return AiResponseStatus.permissionReviewCancelled;
       final completion = await _awaitTurn(
@@ -3232,6 +3236,13 @@ class AiAssistantProvider extends ChangeNotifier {
               // 每次批准只适用于本次固化的操作，不会打开自定义权限开关。
               AiResponseStatus? review;
               if (_permissions.mode == AiApprovalMode.automatic) {
+                final selection = auxiliaryModels.approval;
+                final chatConfiguration = _activeConfiguration ?? configuration;
+                final reviewModel = selection?.model ?? chatConfiguration.model;
+                final reviewEffort = selection == null
+                    ? chatConfiguration.effectiveReasoningEffort
+                    : AiReasoningCapabilities.forModel(reviewModel)
+                          .supportedEffort(auxiliaryModelEffort(selection));
                 review = await _reviewPermission(
                   prepared,
                   operationId: operationId,
@@ -3241,6 +3252,8 @@ class AiAssistantProvider extends ChangeNotifier {
                   toolName: prepared.name,
                   operationId: operationId,
                   toolArguments: prepared.arguments,
+                  model: reviewModel.isEmpty ? null : reviewModel,
+                  reasoningEffort: reviewEffort,
                 );
               }
               if (_pendingSteerOrStop || _disposed) {
@@ -3550,6 +3563,8 @@ class AiAssistantProvider extends ChangeNotifier {
     String? toolName,
     String? operationId,
     Map<String, Object?>? toolArguments,
+    String? model,
+    AiReasoningEffort? reasoningEffort,
   }) {
     _flushActiveReasoning();
     _discardActiveReasoning();
@@ -3563,6 +3578,8 @@ class AiAssistantProvider extends ChangeNotifier {
         toolArguments: toolArguments == null
             ? null
             : Map.unmodifiable(toolArguments),
+        model: model,
+        reasoningEffort: reasoningEffort,
       ),
     );
   }
@@ -3572,6 +3589,8 @@ class AiAssistantProvider extends ChangeNotifier {
     String? toolName,
     String? operationId,
     Map<String, Object?>? toolArguments,
+    String? model,
+    AiReasoningEffort? reasoningEffort,
   }) {
     if (operationId == null &&
         _activeStatus == status &&
@@ -3585,6 +3604,8 @@ class AiAssistantProvider extends ChangeNotifier {
       toolName: toolName,
       operationId: operationId,
       toolArguments: toolArguments,
+      model: model,
+      reasoningEffort: reasoningEffort,
     );
     _refreshElapsed();
   }
@@ -3746,7 +3767,7 @@ class AiAssistantProvider extends ChangeNotifier {
     createdAt: message.createdAt ?? _activeMessageCreatedAt,
     elapsed: _segmentElapsed,
     model: _activeConfiguration?.model,
-    reasoningEffort: _activeConfiguration?.reasoningEffort,
+    reasoningEffort: _activeConfiguration?.effectiveReasoningEffort,
     protocol: _activeConfiguration?.protocol,
     processingSteps: List.unmodifiable(_activeProcessingSteps),
     status: _activeStatus,

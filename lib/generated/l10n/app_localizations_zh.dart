@@ -1948,6 +1948,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiPermissionApprovalModel => '审批模型';
 
   @override
+  String aiPermissionApprovalModelNotUsed(String model) {
+    return '配置的审批模型：$model（未调用）';
+  }
+
+  @override
   String get aiPermissionApprovalModelHelp =>
       '默认使用当前聊天模型。模型根据本轮请求和目标路径审批符合条件的操作；未获通过的操作不会执行，也不会转为人工审批。';
 
@@ -2007,7 +2012,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiPermissionSessionHelp =>
-      '权限在清空会话或重启软件后重置。文件内容和命令输出可能发送至配置的模型服务。本机命令未使用系统沙箱，可访问文件、网络和设备。';
+      '审批模式和自定义规则随智能体保存，清空会话时重置。文件内容和命令输出可能发送至配置的模型服务。本机命令未使用系统沙箱，可访问文件、网络和设备。';
 
   @override
   String get aiAwaitingApproval => '等待批准';
@@ -2739,19 +2744,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStorageImport => '导入数据包';
 
   @override
-  String get agentStorageExportMemory => '导出长期记忆';
+  String get agentStorageExportMemory => '导出长期记忆包';
 
   @override
-  String get agentStorageImportMemory => '导入长期记忆';
+  String get agentStorageImportMemory => '导入长期记忆包';
 
   @override
-  String get agentStorageExportAgent => '导出智能体';
+  String get agentStorageExportAgent => '导出智能体包';
 
   @override
   String get agentStorageExportBranch => '导出智能体分支';
 
   @override
-  String get agentStorageExportChat => '导出聊天记录';
+  String get agentStorageExportChat => '导出聊天记录与上下文包';
 
   @override
   String get agentStorageExportWorkflow => '导出智能体工作流';
@@ -3111,15 +3116,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agentStorageChatPackageHint =>
-      '导出所选智能体的完整聊天记录、上下文历史与压缩摘要，以及正文、思考内容、工具调用、用时记录、图片和附件，不包含长期记忆。';
+      '导出所选智能体的聊天记录、用时和附件，以及模型、上下文压缩与审批设置。不包含长期记忆。';
 
   @override
   String get agentStorageAgentPackageHint =>
-      '导出一个智能体的名称、模型引用、聊天、上下文摘要、长期记忆和附件。可选择包含下级智能体。';
+      '导出一个智能体的名称、模型选择、审批设置、聊天记录、上下文、长期记忆和附件。可选择包含下级智能体。';
 
   @override
   String get agentStorageWorkflowPackageHint =>
-      '导出整个工作流的智能体、连接、画布布局、聊天记录、上下文历史与压缩摘要、长期记忆和附件。';
+      '导出整个工作流的智能体及其模型选择、审批设置、聊天记录、上下文、长期记忆和附件，以及连接和画布布局。';
 
   @override
   String get agentStorageBackupPackageHint => '包含智能体工作流和回收站中的聊天记录、附件及记忆。';

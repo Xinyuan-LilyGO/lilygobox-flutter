@@ -65,6 +65,8 @@ abstract final class ConversationCodec {
           'toolName': e.toolName,
           'operationId': e.operationId,
           'arguments': e.toolArguments,
+          if (e.model != null) 'model': e.model,
+          if (e.reasoningEffort case final effort?) 'effort': effort.name,
           'text': e.text,
           'action': e.action == null ? null : step(e.action!),
           'retry': e.retry == null ? null : _writeRetry(e.retry!),
@@ -151,6 +153,8 @@ abstract final class ConversationCodec {
             toolArguments: e['arguments'] == null
                 ? null
                 : Map<String, Object?>.from(e['arguments'] as Map),
+            model: e['model'] as String?,
+            reasoningEffort: value(AiReasoningEffort.values, e['effort']),
             text: e['text'] as String? ?? '',
             action: e['action'] == null ? null : readStep(e['action'] as Map),
             retry: e['retry'] == null ? null : retry(e['retry'] as Map),

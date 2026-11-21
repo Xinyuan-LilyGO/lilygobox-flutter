@@ -28,6 +28,68 @@ class AiPermissions {
          for (final folder in folders) folder: folderAccess[folder] ?? files,
        });
 
+  factory AiPermissions.fromJson(Object? value) {
+    if (value case {
+      'mode': final String modeName,
+      'network': final bool network,
+      'execution': final bool execution,
+      'commandNoApproval': final bool commandNoApproval,
+      'fullFiles': final bool fullFiles,
+      'files': final String filesName,
+      'folderAccess': final Map folders,
+    }) {
+      final mode = _byName(AiApprovalMode.values, modeName);
+      final files = _byName(AiFileAccess.values, filesName);
+      if (mode == null || files == null || (commandNoApproval && !execution)) {
+        return AiPermissions();
+      }
+      final access = <String, AiFileAccess>{};
+      for (final entry in folders.entries) {
+        final path = entry.key;
+        final level = _byName(AiFileAccess.values, entry.value);
+        if (path is! String || !File(path).isAbsolute || level == null) {
+          return AiPermissions();
+        }
+        access[path] = level;
+      }
+      return AiPermissions(
+        mode: mode,
+        network: network,
+        execution: execution,
+        commandNoApproval: commandNoApproval,
+        fullFiles: fullFiles,
+        files: files,
+        folders: access.keys.toList(),
+        folderAccess: access,
+      );
+    }
+    return AiPermissions();
+  }
+
+  static Value? _byName<Value extends Enum>(List<Value> values, Object? name) =>
+      values.where((value) => value.name == name).firstOrNull;
+
+  bool get isDefault =>
+      mode == AiApprovalMode.onRequest &&
+      network &&
+      !execution &&
+      !commandNoApproval &&
+      !fullFiles &&
+      files == AiFileAccess.readOnly &&
+      folders.isEmpty;
+
+  Map<String, Object?> toJson() => {
+    'mode': mode.name,
+    'network': network,
+    'execution': execution,
+    'commandNoApproval': commandNoApproval,
+    'fullFiles': fullFiles,
+    'files': files.name,
+    'folderAccess': {
+      for (final folder in folders) folder: accessForFolder(folder).name,
+    },
+  };
+
   final AiApprovalMode mode;
   final bool network;
   final bool execution;

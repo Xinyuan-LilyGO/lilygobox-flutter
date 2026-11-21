@@ -15,6 +15,7 @@ import 'package:lilygobox/features/assistant/data/conversation_codec.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/domain/permissions.dart';
 import 'package:lilygobox/features/assistant/domain/process_timeline.dart';
+import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 
 import 'assistant_test_scope.dart';
 
@@ -147,17 +148,19 @@ void main() {
   for (final decision in ['APPROVE', 'DENY']) {
     test('automatic approval applies an explicit $decision result', () async {
       final path = await prepareRead();
+      final model = decision == 'APPROVE' ? 'gpt-5.4' : 'review-model';
+      final effort = decision == 'APPROVE' ? AiReasoningEffort.none : null;
       final serviceId = await scope.provider.saveService(
         name: 'Reviewer',
         protocol: AiApiProtocol.openAiChatCompletions,
         baseUrl: 'https://reviewer.test/v1',
-        models: ['review-model'],
+        models: [model],
         apiKey: 'review-key',
       );
       scope.provider.selectApprovalModel((
         serviceId: serviceId,
-        model: 'review-model',
-        reasoningEffort: null,
+        model: model,
+        reasoningEffort: effort,
       ));
       reviewReply = () async => decision;
       await scope.provider
@@ -166,10 +169,11 @@ void main() {
       expect(awaiting.isCompleted, isFalse);
       expect(requests.map((request) => request['model']), [
         'test-model',
-        'review-model',
+        model,
         'test-model',
       ]);
       expect(requests[1]['tools'], anyOf(isNull, isEmpty));
+      expect(requests[1]['reasoning_effort'], effort?.name);
       expect(
         jsonDecode((requests[1]['messages'] as List).last['content'] as String),
         {'request': 'Read `$path`', 'operation': 'read_file', 'path': path},
@@ -178,6 +182,7 @@ void main() {
         toolResult(),
         contains(decision == 'APPROVE' ? 'fixture text' : 'did not approve'),
       );
+      scope.provider.selectApprovalModel(null);
       final operation = recordedOperation();
       expect(operation.event.action?.succeeded, decision == 'APPROVE');
       expect(operation.events.map((event) => event.status), [
@@ -194,6 +199,8 @@ void main() {
         operation.events[2].elapsed,
         greaterThanOrEqualTo(operation.events[1].elapsed),
       );
+      expect(operation.events[1].model, model);
+      expect(operation.events[1].reasoningEffort, effort);
     });
   }
 
@@ -209,12 +216,15 @@ void main() {
       expect(requests, hasLength(3));
       expect(requests[1]['model'], 'test-model');
       expect(toolResult(), contains('did not approve'));
-      expect(recordedOperation().events.map((event) => event.status), [
+      final operation = recordedOperation();
+      expect(operation.events.map((event) => event.status), [
         AiResponseStatus.preparingTools,
         AiResponseStatus.reviewingPermission,
         AiResponseStatus.permissionReviewFailed,
         null,
       ]);
+      expect(operation.events[1].model, 'test-model');
+      expect(operation.events[1].reasoningEffort, isNull);
     },
   );
 
@@ -244,6 +254,15 @@ void main() {
 
   test('automatic mode does not extend a named path to children', () async {
     await prepareRead();
+    final serviceId = await scope.provider.saveService(
+      name: 'Chat with reasoning options',
+      protocol: AiApiProtocol.openAiChatCompletions,
+      baseUrl: 'https://example.test/v1',
+      models: ['deepseek-flash'],
+      apiKey: 'key',
+    );
+    await scope.provider.selectModel(serviceId, 'deepseek-flash');
+    await scope.provider.setReasoningEffort(AiReasoningEffort.none);
     final directory = await root.resolveSymbolicLinks();
     await scope.provider
         .sendMessage('List `$directory`')
@@ -251,6 +270,12 @@ void main() {
     expect(awaiting.isCompleted, isFalse);
     expect(requests, hasLength(2));
     expect(toolResult(), contains('did not approve'));
+    final operation = recordedOperation();
+    final skipped = operation.events.singleWhere(
+      (event) => event.status == AiResponseStatus.permissionReviewSkipped,
+    );
+    expect(skipped.model, 'deepseek-flash');
+    expect(skipped.reasoningEffort, AiReasoningEffort.none);
   });
 
   test(
@@ -293,6 +318,7 @@ void main() {
       AiResponseStatus.permissionReviewFailed,
       null,
     ]);
+    expect(recordedOperation().events[1].model, 'review-model');
   });
 
   test(

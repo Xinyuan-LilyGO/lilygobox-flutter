@@ -286,14 +286,11 @@ class AgentStorageController extends ChangeNotifier {
     workflow['sessions'] = [
       for (final r in records.where((r) => ids.contains(r['id'])))
         {
-          ...r,
+          ..._copyPackageSession(r),
           'parentId': ids.contains(r['parentId']) ? r['parentId'] : null,
           'kind': ids.contains(r['parentId'])
               ? r['kind']
               : AiWorkspaceKind.primary.name,
-          'conversation': Map<String, Object?>.from(r['conversation'] as Map)
-            ..remove('workspaceRelationship')
-            ..remove('pendingWorkspaceEvents'),
         },
     ];
     workflow['connections'] = [
@@ -337,6 +334,15 @@ class AgentStorageController extends ChangeNotifier {
   );
   Future<List<MemoryImportItem>> plan(Map<String, dynamic> package) =>
       runTransfer(() => _plan(package));
+
+  Map<String, Object?> _copyPackageSession(Map record) {
+    final session = Map<String, Object?>.from(record);
+    final conversation =
+        Map<String, Object?>.from(record['conversation'] as Map)
+          ..remove('workspaceRelationship')
+          ..remove('pendingWorkspaceEvents');
+    return session..['conversation'] = conversation;
+  }
 
   /// 将画布上的独立记忆导入暂存为一个新的空闲主智能体。
   /// 复用工作流导入事务，同时提交智能体及其记忆。
@@ -532,8 +538,18 @@ class AgentStorageController extends ChangeNotifier {
       _checkCancelled();
       var checkpoints = 0;
       _reportProgress(const AgentPackageProgress(AgentPackageStage.analyzing));
+      final workflow = Map<String, dynamic>.from(package['workflow'] as Map);
+      if (package['type'] == 'chat') {
+        workflow.remove('recycleBin');
+        if (workflow['sessions'] case final List records) {
+          workflow['sessions'] = [
+            for (final record in records)
+              _copyPackageSession(record as Map),
+          ];
+        }
+      }
       await workspaces.importData(
-        Map<String, dynamic>.from(package['workflow'] as Map),
+        workflow,
         memoriesFor: prepare,
         checkpoint: () async {
           _checkCancelled();

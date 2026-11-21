@@ -86,6 +86,9 @@ class AiServiceConfiguration {
   final AiProcessingSpeed processingSpeed;
   final List<String>? serviceTiers;
 
+  AiReasoningEffort? get effectiveReasoningEffort =>
+      AiReasoningCapabilities.forModel(model).supportedEffort(reasoningEffort);
+
   AiServiceConfiguration copyWith({
     AiApiProtocol? protocol,
     String? baseUrl,
@@ -279,6 +282,8 @@ class AiProcessEvent {
     this.toolName,
     this.operationId,
     this.toolArguments,
+    this.model,
+    this.reasoningEffort,
     this.text = '',
     this.action,
     this.retry,
@@ -290,6 +295,8 @@ class AiProcessEvent {
   final String? toolName;
   final String? operationId;
   final Map<String, Object?>? toolArguments;
+  final String? model;
+  final AiReasoningEffort? reasoningEffort;
   final String text;
   final AiProcessingStep? action;
   final AiRequestRetry? retry;

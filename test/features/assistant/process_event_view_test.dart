@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/core/theme/definition.dart';
 import 'package:lilygobox/core/theme/material_palette.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
+import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/code_block.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/command_display.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/process_event_view.dart';
@@ -648,12 +649,22 @@ void main() {
         ),
         _ => (AiResponseStatus.reviewingPermission, '正在自动审批'),
       };
+      final model = switch (status) {
+        AiResponseStatus.permissionReviewApproved => 'gpt-5.4',
+        AiResponseStatus.permissionReviewDenied => 'review-model',
+        _ => null,
+      };
+      final effort = status == AiResponseStatus.permissionReviewApproved
+          ? AiReasoningEffort.none
+          : null;
       final reviewing = AiProcessEvent(
         type: AiProcessEventType.status,
         elapsed: const Duration(seconds: 1),
         status: stageStatus,
         operationId: 'file',
         toolName: 'read_file',
+        model: model,
+        reasoningEffort: effort,
       );
       final outcome = AiProcessEvent(
         type: AiProcessEventType.status,
@@ -679,15 +690,54 @@ void main() {
         host(finish, locale: 'zh', stages: [reviewing, outcome, finish]),
       );
       expect(processText(label), findsNothing);
+      expect(find.textContaining('模型：'), findsNothing);
       await tester.tap(find.byType(InkWell));
       await tester.pumpAndSettle();
       expect(processText(stageLabel), findsOneWidget);
       expect(processText(label), findsOneWidget);
+      if (model != null) {
+        final modelLine = find.text('模型：$model');
+        expect(modelLine, findsOneWidget);
+        expect(
+          tester.getTopLeft(modelLine).dy,
+          lessThan(tester.getTopLeft(processText(stageLabel)).dy),
+        );
+      } else {
+        expect(find.textContaining('模型：'), findsNothing);
+      }
+      expect(
+        find.text('思考强度：关闭'),
+        effort == null ? findsNothing : findsOneWidget,
+      );
       expect(find.text('00:01:000'), findsOneWidget);
       expect(find.text('00:02:000'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets(
+    'a skipped approval shows the configured reviewer as not called',
+    (tester) async {
+      const skipped = AiProcessEvent(
+        type: AiProcessEventType.status,
+        status: AiResponseStatus.permissionReviewSkipped,
+        operationId: 'file',
+        toolName: 'read_file',
+        model: 'deepseek-flash',
+        reasoningEffort: AiReasoningEffort.none,
+        elapsed: Duration(seconds: 1),
+      );
+      await tester.pumpWidget(host(skipped, stages: [skipped]));
+      await tester.tap(find.byType(InkWell));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Configured approval model: deepseek-flash (not called)'),
+        findsOneWidget,
+      );
+      expect(find.text('Reasoning effort: Off'), findsOneWidget);
+      expect(find.text('Model: deepseek-flash'), findsNothing);
+    },
+  );
 
   testWidgets('a web operation expands its stages, not HTTP content or JSON', (
     tester,

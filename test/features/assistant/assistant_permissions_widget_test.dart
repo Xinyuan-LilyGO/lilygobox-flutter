@@ -191,9 +191,15 @@ void main() {
 
       scope.provider.selectApprovalModel(null);
       await tester.pumpAndSettle();
+      final selectedLabel = selectorLabel(
+        'review-gpt-6.1-sol · ${l10n.aiReasoningLow}',
+      );
+      expect(selectedLabel, findsOneWidget);
+      final paragraph = tester.renderObject<RenderParagraph>(selectedLabel);
+      expect(paragraph.didExceedMaxLines, isFalse);
       expect(
-        selectorLabel('review-gpt-6.1-sol · ${l10n.aiReasoningLow}'),
-        findsOneWidget,
+        tester.getRect(label).right,
+        lessThan(tester.getRect(selector).left),
       );
       await tester.tap(selector);
       await tester.pumpAndSettle();

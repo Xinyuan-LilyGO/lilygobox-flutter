@@ -13,6 +13,9 @@ class AiReasoningCapabilities {
   AiReasoningEffort? get initialEffort =>
       levels.length > 1 ? levels[1] : levels.firstOrNull;
 
+  AiReasoningEffort? supportedEffort(AiReasoningEffort? effort) =>
+      levels.contains(effort) ? effort : null;
+
   static const _standard = [
     AiReasoningEffort.low,
     AiReasoningEffort.medium,

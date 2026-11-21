@@ -381,6 +381,9 @@ void main() {
       expect(workspaces.find(primary.id), same(primary));
       expect(workspaces.find(child.id), same(child));
       expect(workspaces.sessions, [primary, child]);
+      child.assistant.setPermissions(
+        AiPermissions(mode: AiApprovalMode.automatic),
+      );
       workspaces.remove(child.id);
       expect(workspaces.find(child.id), isNull);
       expect(workspaces.find(primary.id), same(primary));
@@ -390,6 +393,7 @@ void main() {
       expect(restored, isNot(same(child)));
       expect(workspaces.find(child.id), same(restored));
       expect(restored.parentId, primary.id);
+      expect(restored.assistant.permissions.mode, AiApprovalMode.automatic);
       expect(workspaces.recycledAgents, isEmpty);
     },
   );
@@ -3392,7 +3396,7 @@ void main() {
       expect(root.assistant.permissions, same(inherited));
     },
   );
-  test('canvas style persists independently while restored tasks have no authorization', () async {
+  test('canvas style persists independently of the workflow', () async {
     await workspaces.initialized;
     expect(workspaces.canvasStyle, AiTaskCanvasStyle.dots);
     var changes = 0;
@@ -3405,12 +3409,6 @@ void main() {
     final root = await workspaces.createPrimary(
       title: 'Saved task',
       task: 'Keep text only',
-      permissions: AiPermissions(
-        mode: AiApprovalMode.custom,
-        fullFiles: true,
-        execution: true,
-        commandNoApproval: true,
-      ),
     );
     await finish(root.id);
     await workspaces.flush();
@@ -3429,16 +3427,98 @@ void main() {
     await workspaces.initialized;
     expect(workspaces.canvasStyle, AiTaskCanvasStyle.grid);
     final restored = workspaces.find(root.id)!;
-    expect(restored.assistant.permissions.mode, AiApprovalMode.onRequest);
-    expect(restored.assistant.permissions.fullFiles, isFalse);
-    expect(restored.assistant.permissions.execution, isFalse);
-    expect(restored.assistant.permissions.commandNoApproval, isFalse);
+    expect(restored.assistant.permissions.isDefault, isTrue);
     workspaces.setCanvasStyle(AiTaskCanvasStyle.plain);
     await workspaces.flush();
     workspaces.dispose();
     workspaces = AiWorkspaceProvider(scope.provider);
     await workspaces.initialized;
     expect(workspaces.canvasStyle, AiTaskCanvasStyle.plain);
+  });
+
+  test('reopen restores saved approval modes and rules', () async {
+    final automatic = await workspaces.create(
+      title: 'Automatic',
+      task: 'Review tools',
+      startImmediately: false,
+    );
+    final custom = await workspaces.create(
+      title: 'Custom',
+      task: 'Use selected folders',
+      startImmediately: false,
+    );
+    final folder = Directory.systemTemp.absolute.path;
+    final child = '$folder${Platform.pathSeparator}restricted';
+    final customSettings = AiPermissions(
+      mode: AiApprovalMode.custom,
+      network: false,
+      execution: true,
+      commandNoApproval: true,
+      files: AiFileAccess.readWrite,
+      folders: [folder, child],
+      folderAccess: {child: AiFileAccess.none},
+    );
+    await workspaces.flush();
+    automatic.assistant.setPermissions(
+      AiPermissions(mode: AiApprovalMode.automatic),
+    );
+    custom.assistant.setPermissions(customSettings);
+    await workspaces.flush();
+    workspaces.dispose();
+    workspaces = AiWorkspaceProvider(scope.provider);
+    await workspaces.initialized;
+    expect(workspaces.persistenceError, isNull);
+    expect(
+      workspaces.find(automatic.id)!.assistant.permissions.mode,
+      AiApprovalMode.automatic,
+    );
+    final restored = workspaces.find(custom.id)!.assistant;
+    expect(restored.permissions.toJson(), customSettings.toJson());
+    expect(restored.permissions.folders, [folder, child]);
+    expect(restored.pendingApproval, isNull);
+  });
+
+  test('import restores only valid permission settings', () async {
+    final source = await workspaces.create(
+      title: 'Source agent',
+      task: 'Do not start on import',
+      startImmediately: false,
+      permissions: AiPermissions(mode: AiApprovalMode.custom, network: false),
+    );
+    final permissions = source.assistant.permissions;
+    Map<String, dynamic> exported() =>
+        Map<String, dynamic>.from(workspaces.exportData(agentId: source.id));
+    expect(
+      (exported()['sessions'] as List).single['permissions'],
+      permissions.toJson(),
+    );
+    final valid = await workspaces.importData(exported());
+    final legacy = exported();
+    ((legacy['sessions'] as List).single as Map).remove('permissions');
+    final fromLegacy = await workspaces.importData(legacy);
+    final corrupt = exported();
+    (corrupt['sessions'] as List).single['permissions'] = {
+      ...permissions.toJson(),
+      'network': 'invalid',
+      'fullFiles': true,
+    };
+    final fromCorrupt = await workspaces.importData(corrupt);
+    final imported = workspaces.find(valid[source.id])!.assistant;
+    expect(imported.permissions.toJson(), permissions.toJson());
+    for (final mapping in [fromLegacy, fromCorrupt]) {
+      final agent = workspaces.find(mapping[source.id])!.assistant;
+      expect(agent.permissions.isDefault, isTrue);
+      expect(agent.pendingApproval, isNull);
+    }
+    expect(requests, isEmpty);
+    await workspaces.flush();
+    final stored = await storage.request('readWorkflowData') as Map;
+    final byId = {
+      for (final record in (stored['sessions'] as List).cast<Map>())
+        record['id']: record['permissions'],
+    };
+    expect(byId[source.id], permissions.toJson());
+    expect(byId[valid[source.id]], permissions.toJson());
   });
 
   test('unknown saved canvas style falls back to dots without changing task storage', () async {

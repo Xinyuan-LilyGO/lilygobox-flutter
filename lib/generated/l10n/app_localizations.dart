@@ -3720,6 +3720,12 @@ abstract class AppLocalizations {
   /// **'Approval model'**
   String get aiPermissionApprovalModel;
 
+  /// Shows which approval model was configured for a tool decision made without calling the model.
+  ///
+  /// In en, this message translates to:
+  /// **'Configured approval model: {model} (not called)'**
+  String aiPermissionApprovalModelNotUsed(String model);
+
   /// No description provided for @aiPermissionApprovalModelHelp.
   ///
   /// In en, this message translates to:
@@ -3831,7 +3837,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiPermissionSessionHelp.
   ///
   /// In en, this message translates to:
-  /// **'Permissions reset when the conversation is cleared or the app restarts. File contents and command output may be sent to the configured model service. Local commands are not sandboxed and can access files, networks and devices.'**
+  /// **'The approval mode and custom rules are saved for this agent and reset when the conversation is cleared. File contents and command output may be sent to the configured model service. Local commands are not sandboxed and can access files, networks and devices.'**
   String get aiPermissionSessionHelp;
 
   /// No description provided for @aiAwaitingApproval.
@@ -5205,19 +5211,19 @@ abstract class AppLocalizations {
   /// No description provided for @agentStorageExportMemory.
   ///
   /// In en, this message translates to:
-  /// **'Export long-term memories'**
+  /// **'Export long-term memory package'**
   String get agentStorageExportMemory;
 
   /// No description provided for @agentStorageImportMemory.
   ///
   /// In en, this message translates to:
-  /// **'Import long-term memories'**
+  /// **'Import long-term memory package'**
   String get agentStorageImportMemory;
 
   /// No description provided for @agentStorageExportAgent.
   ///
   /// In en, this message translates to:
-  /// **'Export agent'**
+  /// **'Export agent package'**
   String get agentStorageExportAgent;
 
   /// No description provided for @agentStorageExportBranch.
@@ -5229,7 +5235,7 @@ abstract class AppLocalizations {
   /// No description provided for @agentStorageExportChat.
   ///
   /// In en, this message translates to:
-  /// **'Export conversations'**
+  /// **'Export chat history and context package'**
   String get agentStorageExportChat;
 
   /// No description provided for @agentStorageExportWorkflow.
@@ -5889,19 +5895,19 @@ abstract class AppLocalizations {
   /// No description provided for @agentStorageChatPackageHint.
   ///
   /// In en, this message translates to:
-  /// **'Export the selected agent’s complete conversation, context history and compaction summary, message bodies, reasoning, tool calls, activity records, images and attachments, without long-term memories.'**
+  /// **'Export the selected agent’s chat history, context and compaction summary, activity records, attachments, and model, compaction, and approval settings. Does not include long-term memories.'**
   String get agentStorageChatPackageHint;
 
   /// No description provided for @agentStorageAgentPackageHint.
   ///
   /// In en, this message translates to:
-  /// **'Export one agent’s name, model reference, conversation, context summary, long-term memories and attachments. Optionally include its children.'**
+  /// **'Export one agent’s name, model selections, approval settings, chat, context, long-term memories, and attachments. Optionally include its children.'**
   String get agentStorageAgentPackageHint;
 
   /// No description provided for @agentStorageWorkflowPackageHint.
   ///
   /// In en, this message translates to:
-  /// **'Export all workflow agents, connections, canvas layout, conversations, context history and compaction summaries, long-term memories and attachments.'**
+  /// **'Export all agents with their model selections, approval settings, chats, context, long-term memories, attachments, connections, and canvas layout.'**
   String get agentStorageWorkflowPackageHint;
 
   /// No description provided for @agentStorageBackupPackageHint.

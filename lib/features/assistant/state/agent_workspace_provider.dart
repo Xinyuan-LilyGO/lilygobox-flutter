@@ -1051,7 +1051,9 @@ class AiWorkspaceProvider extends ChangeNotifier {
               assistant.dispose();
               return;
             }
-            assistant.setPermissions(AiPermissions());
+            assistant.setPermissions(
+              AiPermissions.fromJson(raw['permissions']),
+            );
             assistant.restoreWorkspaceConversation(conversation);
             final session = AiAgentWorkspace(
               id: raw['id'] as String,
@@ -1117,6 +1119,8 @@ class AiWorkspaceProvider extends ChangeNotifier {
     'parentId': session.parentId,
     'createdAt': session.createdAt.toIso8601String(),
     'conversation': conversation,
+    if (!session.assistant.permissions.isDefault)
+      'permissions': session.assistant.permissions.toJson(),
   };
 
   Map<String, Object?> _workflowForStorage({
@@ -1171,7 +1175,6 @@ class AiWorkspaceProvider extends ChangeNotifier {
   Map<String, Object?> exportData({
     String? agentId,
     bool includeChildren = false,
-    bool chatsOnly = false,
   }) {
     final selected = <String>{};
     if (agentId == null) {
@@ -1196,7 +1199,9 @@ class AiWorkspaceProvider extends ChangeNotifier {
       'version': 1,
       'selectedId': null,
       'recycleRetentionDays': _recycleRetentionDays,
-      'recycleBin': [for (final entry in _recycledAgents) entry.toJson()],
+      'recycleBin': [
+        for (final entry in _recycledAgents) entry.toJson(),
+      ],
       'canvas': canvasPositions,
       'canvasOrigin': [canvasOrigin.dx, canvasOrigin.dy],
       'connections': [
@@ -1240,16 +1245,17 @@ class AiWorkspaceProvider extends ChangeNotifier {
   Map<String, Object?> _snapshotSession(
     AiAgentWorkspace session,
     String? parentId,
-  ) => {
-    ..._sessionForStorage(
+  ) {
+    final snapshot = _sessionForStorage(
       session,
       session.assistant.snapshotWorkspaceConversation(),
-    ),
-    'kind': parentId == null
+    );
+    snapshot['kind'] = parentId == null
         ? AiWorkspaceKind.primary.name
-        : AiWorkspaceKind.permanent.name,
-    'parentId': parentId,
-  };
+        : AiWorkspaceKind.permanent.name;
+    snapshot['parentId'] = parentId;
+    return snapshot;
+  }
 
   void normalizeWorkflowData(Map<String, Object?> workflow) {
     final records = (workflow['sessions'] as List).cast<Map>();
@@ -1303,11 +1309,6 @@ class AiWorkspaceProvider extends ChangeNotifier {
     if (origin != null) canvasOrigin = origin;
     _scheduleSave(canvasOnly: true);
   }
-
-  Map<String, dynamic> _importConversation(Map conversation) =>
-      Map<String, dynamic>.from(conversation)
-        ..remove('approvalModel')
-        ..remove('compactionModel');
 
   Future<Map<String, String>> importData(
     Map<String, dynamic> data, {
@@ -1404,7 +1405,9 @@ class AiWorkspaceProvider extends ChangeNotifier {
     try {
       for (final raw in records) {
         await checkpoint?.call();
-        final conversation = _importConversation(raw['conversation'] as Map);
+        final conversation = Map<String, dynamic>.from(
+          raw['conversation'] as Map,
+        );
         final serviceId = conversation['serviceId'];
         final model = conversation['model'];
         if (serviceId is! String || model is! String) {
@@ -1446,7 +1449,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
             model: model,
           );
         }
-        assistant.setPermissions(AiPermissions());
+        assistant.setPermissions(AiPermissions.fromJson(raw['permissions']));
         assistant.restoreWorkspaceConversation(conversation);
         onStaging?.call(staged.length, records.length);
         await checkpoint?.call();
@@ -1481,16 +1484,10 @@ class AiWorkspaceProvider extends ChangeNotifier {
       combined['sessions'] = [
         ...combined['sessions'] as List,
         for (final session in staged)
-          {
-            'id': session.id,
-            'title': session.title,
-            'task': session.task,
-            'kind': session.kind.name,
-            'closed': session.closed,
-            'parentId': session.parentId,
-            'createdAt': session.createdAt.toIso8601String(),
-            'conversation': session.assistant.snapshotWorkspaceConversation(),
-          },
+          _sessionForStorage(
+            session,
+            session.assistant.snapshotWorkspaceConversation(),
+          ),
       ];
       combined['connections'] = [
         ...combined['connections'] as List,

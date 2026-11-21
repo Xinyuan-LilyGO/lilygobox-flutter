@@ -13,6 +13,7 @@ import 'code_block.dart';
 import 'command_display.dart';
 import 'command_policy_text.dart';
 import 'error_text.dart';
+import 'reasoning_effort_label.dart';
 
 String? aiResponseStatusLabel(
   BuildContext context,
@@ -336,6 +337,24 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
     final questionDetails = action?.name == 'request_user_input'
         ? _questionAnswerDetails(context, action!)
         : null;
+    final approvalStages = widget.operationEvents.where(
+      (step) =>
+          step.model != null &&
+          switch (step.status) {
+            AiResponseStatus.reviewingPermission ||
+            AiResponseStatus.permissionReviewFailed ||
+            AiResponseStatus.permissionReviewSkipped ||
+            AiResponseStatus.permissionReviewCancelled => true,
+            _ => false,
+          },
+    );
+    final approvalStage =
+        approvalStages
+            .where(
+              (step) => step.status == AiResponseStatus.reviewingPermission,
+            )
+            .firstOrNull ??
+        approvalStages.firstOrNull;
     final stages = widget.operationEvents.where(
       (step) =>
           (widget.inlineCompaction || !identical(step, event)) &&
@@ -380,6 +399,7 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
         ((toolName == 'compact_context' && resultSummary != null) ||
             compactionError != null ||
             questionDetails != null ||
+            approvalStage != null ||
             event.text.isNotEmpty ||
             (action != null && target is String) ||
             failure != null ||
@@ -531,6 +551,35 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          if (approvalStage?.model case final model?) ...[
+                            Text(
+                              approvalStage?.status ==
+                                      AiResponseStatus.reviewingPermission
+                                  ? l10n.aiResponseModel(model)
+                                  : l10n.aiPermissionApprovalModelNotUsed(
+                                      model,
+                                    ),
+                              style: TextStyle(
+                                color: theme.textColorSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                            if (approvalStage?.reasoningEffort
+                                case final effort?)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  l10n.aiResponseReasoningEffort(
+                                    reasoningEffortLabel(l10n, effort),
+                                  ),
+                                  style: TextStyle(
+                                    color: theme.textColorSecondary,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(height: 8),
+                          ],
                           for (final stage in stages)
                             AiProcessEventView(
                               event: stage,

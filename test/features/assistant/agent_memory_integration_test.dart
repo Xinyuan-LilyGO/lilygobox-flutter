@@ -14,6 +14,7 @@ import 'package:lilygobox/features/assistant/data/conversation_codec.dart';
 import 'package:lilygobox/features/assistant/domain/agent_package_progress.dart';
 import 'package:lilygobox/features/assistant/domain/memory_conflict.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
+import 'package:lilygobox/features/assistant/domain/permissions.dart';
 import 'package:lilygobox/features/assistant/domain/process_timeline.dart';
 import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
@@ -1260,41 +1261,164 @@ void main() {
     expect(assistant.snapshotWorkspaceConversation()['history'], hasLength(16));
   });
 
-  test(
-    'workflow import cannot set local approval or compaction models',
-    () async {
-      final active = await create('Active');
-      final recycled = await create('Recycled');
-      final selection = (
-        serviceId: service,
-        model: 'gpt-6.1-sol',
-        reasoningEffort: AiReasoningEffort.high,
-      );
-      for (final agent in [active, recycled]) {
-        agent.assistant.auxiliaryModels = (
-          approval: selection,
-          compaction: selection,
-        );
-      }
-      workspaces.removeMany([recycled.id]);
-      final mapping = await workspaces.importData(workspaces.exportData());
-      final importedActive = workspaces.find(mapping[active.id])!;
-      expect(importedActive.assistant.auxiliaryModels, (
-        approval: null,
-        compaction: null,
-      ));
-      final importedRecycled = mapping[recycled.id]!;
-      await workspaces.restoreRecycledAgent(importedRecycled);
-      expect(workspaces.find(importedRecycled)!.assistant.auxiliaryModels, (
-        approval: null,
-        compaction: null,
-      ));
-      expect(active.assistant.auxiliaryModels, (
+  test('workflow snapshot restores approval and compaction models including recycle entries', () async {
+    final active = await create('Active');
+    final recycled = await create('Recycled');
+    final selection = (
+      serviceId: service,
+      model: 'gpt-6.1-sol',
+      reasoningEffort: AiReasoningEffort.high,
+    );
+    for (final agent in [active, recycled]) {
+      agent.assistant.auxiliaryModels = (
         approval: selection,
         compaction: selection,
-      ));
-    },
-  );
+      );
+    }
+    workspaces.removeMany([recycled.id]);
+    final mapping = await workspaces.importData(workspaces.exportData());
+    final importedActive = workspaces.find(mapping[active.id])!;
+    expect(importedActive.assistant.auxiliaryModels, (
+      approval: selection,
+      compaction: selection,
+    ));
+    final importedRecycled = mapping[recycled.id]!;
+    await workspaces.restoreRecycledAgent(importedRecycled);
+    expect(workspaces.find(importedRecycled)!.assistant.auxiliaryModels, (
+      approval: selection,
+      compaction: selection,
+    ));
+    expect(active.assistant.auxiliaryModels, (
+      approval: selection,
+      compaction: selection,
+    ));
+  });
+
+  for (final type in ['chat', 'agent', 'workflow']) {
+    test(
+      '$type archive round-trips approval and context settings',
+      () async {
+        final source = await create('Scoped package');
+        final key = 'export-private-key';
+        final auxiliaryService = await scope.provider.saveService(
+          name: 'Auxiliary models',
+          protocol: AiApiProtocol.openAiChatCompletions,
+          baseUrl: 'https://auxiliary.example.test/v1',
+          models: ['deepseek-flash', 'deepseek-v4-pro'],
+          apiKey: key,
+        );
+        final approval = (
+          serviceId: auxiliaryService,
+          model: 'deepseek-v4-pro',
+          reasoningEffort: AiReasoningEffort.none,
+        );
+        final compaction = (
+          serviceId: auxiliaryService,
+          model: 'deepseek-flash',
+          reasoningEffort: AiReasoningEffort.high,
+        );
+        final permissions = AiPermissions(
+          mode: AiApprovalMode.custom,
+          network: false,
+          execution: true,
+          commandNoApproval: true,
+          fullFiles: true,
+          files: AiFileAccess.none,
+          folders: [directory.path],
+          folderAccess: {directory.path: AiFileAccess.readWrite},
+        );
+        final reviewRecord = ConversationCodec.message(
+          const AiMessage(
+            id: 'review-record',
+            role: 'assistant',
+            content: 'The read was approved.',
+            processEvents: [
+              AiProcessEvent(
+                type: AiProcessEventType.status,
+                status: AiResponseStatus.reviewingPermission,
+                elapsed: Duration.zero,
+                model: 'deepseek-v4-pro',
+                reasoningEffort: AiReasoningEffort.none,
+              ),
+            ],
+          ),
+        );
+        source.assistant.restoreWorkspaceConversation({
+          'messages': [reviewRecord],
+          'history': [
+            {'role': 'assistant', 'content': 'The read was approved.'},
+          ],
+          'summary': 'Saved context summary',
+        });
+        source.assistant
+          ..selectApprovalModel(approval)
+          ..selectCompactionModel(compaction)
+          ..contextBudgetTokens = 12000
+          ..contextCompactionPercent = 28
+          ..setPermissions(permissions);
+        await source.assistant.setReasoningEffort(AiReasoningEffort.high);
+
+        final controller = AgentStorageController(workspaces)
+          ..owner = source.id;
+        addTearDown(controller.dispose);
+        await controller.saveMemory('Long-term memory fixture');
+        final path = '${directory.path}/scoped-$type.7z';
+        await controller.export(path, type);
+        final package = await controller.inspect(path);
+        final workflow = package['workflow'] as Map;
+        final record = (workflow['sessions'] as List).single as Map;
+        final conversation = record['conversation'] as Map;
+        expect(conversation['approvalModel'], {
+          'serviceId': auxiliaryService,
+          'model': approval.model,
+          'effort': approval.reasoningEffort.name,
+        });
+        expect(conversation['compactionModel'], {
+          'serviceId': auxiliaryService,
+          'model': compaction.model,
+          'effort': compaction.reasoningEffort.name,
+        });
+        expect(record['permissions'], permissions.toJson());
+        expect(workflow, isNot(contains('recycleBin')));
+        expect(package['memories'], hasLength(type == 'chat' ? 0 : 1));
+        expect(jsonEncode(package), isNot(contains(key)));
+        expect((conversation['messages'] as List).single, reviewRecord);
+
+        await controller.import(package);
+        final imported = workspaces.sessions.singleWhere(
+          (session) => session.id != source.id,
+        );
+        expect(imported.busy, isFalse);
+        expect(
+          imported.assistant.selectedModel,
+          source.assistant.selectedModel,
+        );
+        expect(imported.assistant.reasoningEffort, AiReasoningEffort.high);
+        expect(imported.assistant.contextBudgetTokens, 12000);
+        expect(imported.assistant.contextCompactionPercent, 28);
+        expect(
+          imported.assistant.snapshotWorkspaceConversation(),
+          allOf(
+            containsPair('summary', conversation['summary']),
+            containsPair('history', conversation['history']),
+          ),
+        );
+        expect(
+          imported.assistant.messages.single.processEvents.single.model,
+          'deepseek-v4-pro',
+        );
+        expect(imported.assistant.auxiliaryModels, (
+          approval: approval,
+          compaction: compaction,
+        ));
+        expect(
+          imported.assistant.permissions.toJson(),
+          permissions.toJson(),
+        );
+        expect(source.assistant.permissions.toJson(), permissions.toJson());
+      },
+    );
+  }
 
   test(
     'manual compaction reports insufficient history without requesting a model',
@@ -1610,13 +1734,13 @@ void main() {
         name: 'Summarizer',
         protocol: AiApiProtocol.openAiChatCompletions,
         baseUrl: 'https://summary.example.test/v1',
-        models: ['summary-gpt-6.1-sol'],
+        models: ['summary-gpt-5.4'],
         apiKey: 'summary-key',
       );
       assistant.selectCompactionModel((
         serviceId: compactionService,
-        model: 'summary-gpt-6.1-sol',
-        reasoningEffort: AiReasoningEffort.high,
+        model: 'summary-gpt-5.4',
+        reasoningEffort: AiReasoningEffort.none,
       ));
       assistant.contextBudgetTokens = 100;
       assistant.useMemory = false;
@@ -1635,11 +1759,15 @@ void main() {
         (message) => message.role == 'compaction',
       );
       final response = assistant.messages.last;
-      expect(record.model, 'summary-gpt-6.1-sol');
-      expect(requests.first['model'], 'summary-gpt-6.1-sol');
-      expect(requests.first['reasoning_effort'], 'high');
+      expect(record.model, 'summary-gpt-5.4');
+      expect(record.reasoningEffort, AiReasoningEffort.none);
+      expect(requests.first['model'], 'summary-gpt-5.4');
+      expect(requests.first['reasoning_effort'], 'none');
       expect(requests.last['model'], 'gpt-6.1-sol');
-      expect(requests.last['reasoning_effort'], assistant.reasoningEffort?.name);
+      expect(
+        requests.last['reasoning_effort'],
+        assistant.reasoningEffort?.name,
+      );
       expect(record.toolArguments?['replyId'], response.id);
       expect(record.processingSteps.single.arguments['outcome'], 'compacted');
       expect(response.content, reply);

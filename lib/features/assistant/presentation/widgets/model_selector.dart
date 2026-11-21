@@ -37,6 +37,7 @@ class ModelSelector extends StatefulWidget {
     this.auxiliarySelection,
     this.onAuxiliarySelected,
     this.fieldSurfaceColor,
+    this.wrapLabel = false,
   }) : assert(onAuxiliarySelected == null || onSelected == null);
   final AppTheme theme;
   final AiAssistantProvider assistant;
@@ -48,6 +49,7 @@ class ModelSelector extends StatefulWidget {
   final AiModelSelection? auxiliarySelection;
   final ValueChanged<AiModelSelection>? onAuxiliarySelected;
   final Color? fieldSurfaceColor;
+  final bool wrapLabel;
 
   @override
   State<ModelSelector> createState() => _ModelSelectorState();
@@ -984,8 +986,10 @@ class _ModelSelectorState extends State<ModelSelector> {
                     fit: FlexFit.loose,
                     child: Text(
                       label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: widget.wrapLabel ? null : 1,
+                      overflow: widget.wrapLabel
+                          ? TextOverflow.clip
+                          : TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 12,
                         color: theme.textColorSecondary,

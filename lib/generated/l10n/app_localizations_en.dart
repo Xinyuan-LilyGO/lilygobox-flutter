@@ -2085,6 +2085,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiPermissionApprovalModel => 'Approval model';
 
   @override
+  String aiPermissionApprovalModelNotUsed(String model) {
+    return 'Configured approval model: $model (not called)';
+  }
+
+  @override
   String get aiPermissionApprovalModelHelp =>
       'Defaults to the current chat model. The model uses this turn’s request and target path to decide whether to allow eligible actions. Actions it does not approve are blocked without a manual prompt.';
 
@@ -2147,7 +2152,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiPermissionSessionHelp =>
-      'Permissions reset when the conversation is cleared or the app restarts. File contents and command output may be sent to the configured model service. Local commands are not sandboxed and can access files, networks and devices.';
+      'The approval mode and custom rules are saved for this agent and reset when the conversation is cleared. File contents and command output may be sent to the configured model service. Local commands are not sandboxed and can access files, networks and devices.';
 
   @override
   String get aiAwaitingApproval => 'Waiting for approval';
@@ -2923,19 +2928,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentStorageImport => 'Import package';
 
   @override
-  String get agentStorageExportMemory => 'Export long-term memories';
+  String get agentStorageExportMemory => 'Export long-term memory package';
 
   @override
-  String get agentStorageImportMemory => 'Import long-term memories';
+  String get agentStorageImportMemory => 'Import long-term memory package';
 
   @override
-  String get agentStorageExportAgent => 'Export agent';
+  String get agentStorageExportAgent => 'Export agent package';
 
   @override
   String get agentStorageExportBranch => 'Export agent branch';
 
   @override
-  String get agentStorageExportChat => 'Export conversations';
+  String get agentStorageExportChat =>
+      'Export chat history and context package';
 
   @override
   String get agentStorageExportWorkflow => 'Export agent workflow';
@@ -3315,15 +3321,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentStorageChatPackageHint =>
-      'Export the selected agent’s complete conversation, context history and compaction summary, message bodies, reasoning, tool calls, activity records, images and attachments, without long-term memories.';
+      'Export the selected agent’s chat history, context and compaction summary, activity records, attachments, and model, compaction, and approval settings. Does not include long-term memories.';
 
   @override
   String get agentStorageAgentPackageHint =>
-      'Export one agent’s name, model reference, conversation, context summary, long-term memories and attachments. Optionally include its children.';
+      'Export one agent’s name, model selections, approval settings, chat, context, long-term memories, and attachments. Optionally include its children.';
 
   @override
   String get agentStorageWorkflowPackageHint =>
-      'Export all workflow agents, connections, canvas layout, conversations, context history and compaction summaries, long-term memories and attachments.';
+      'Export all agents with their model selections, approval settings, chats, context, long-term memories, attachments, connections, and canvas layout.';
 
   @override
   String get agentStorageBackupPackageHint =>

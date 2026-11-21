@@ -5057,13 +5057,18 @@ void main() {
       tester.element(find.byType(TaskTopologyPage)),
     );
 
-    double verifyMenuLabel(Finder menuItem) {
+    double verifyMenuLabel(
+      Finder menuItem,
+      String title, {
+      bool longest = true,
+    }) {
       final label = find.descendant(
         of: menuItem,
-        matching: find.text(l10n.agentStorageManageContext),
+        matching: find.text(title),
       );
       final text = tester.renderObject<RenderParagraph>(label);
-      final length = l10n.agentStorageManageContext.length;
+      expect(text.didExceedMaxLines, isFalse);
+      final length = title.length;
       final lastCharacter = text.getBoxesForSelection(
         TextSelection(baseOffset: length - 1, extentOffset: length),
       );
@@ -5073,7 +5078,9 @@ void main() {
       final labelRight = text.localToGlobal(
         lastCharacter.last.toRect().topRight,
       );
-      expect(bounds.right - labelRight.dx, inInclusiveRange(6, 11));
+      final rightInset = bounds.right - labelRight.dx;
+      expect(rightInset, greaterThanOrEqualTo(6));
+      if (longest) expect(rightInset, lessThanOrEqualTo(11));
       return bounds.width;
     }
 
@@ -5083,7 +5090,13 @@ void main() {
     );
     await tester.pumpAndSettle();
     final canvasWidth = verifyMenuLabel(
+      find.byKey(const ValueKey('topology-context-export-chat')),
+      l10n.agentStorageExportChat,
+    );
+    verifyMenuLabel(
       find.byKey(const ValueKey('topology-context-manage-chat')),
+      l10n.agentStorageManageContext,
+      longest: false,
     );
     await tester.tap(find.byKey(const ValueKey('topology-context-open')));
     await tester.pumpAndSettle();
@@ -5096,7 +5109,10 @@ void main() {
     final compact = find.byKey(
       const ValueKey('ai-compaction-context-menu-action'),
     );
-    expect(verifyMenuLabel(manage), canvasWidth);
+    expect(
+      verifyMenuLabel(manage, l10n.agentStorageManageContext),
+      lessThan(canvasWidth),
+    );
     expect(
       tester.getTopLeft(manage).dy,
       lessThan(tester.getTopLeft(compact).dy),

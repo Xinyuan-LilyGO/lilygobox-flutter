@@ -816,6 +816,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                                     description:
                                         l10n.aiPermissionApprovalModelHelp,
                                     trailing: Flexible(
+                                      flex: 2,
                                       child: ModelSelector(
                                         key: const ValueKey(
                                           'ai-approval-model-select',
@@ -823,6 +824,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                                         theme: theme,
                                         assistant: widget.assistant,
                                         auxiliarySelection: approvalModel,
+                                        wrapLabel: true,
                                         fieldSurfaceColor:
                                             theme.popupSurfaceColor,
                                         onAuxiliarySelected: widget
