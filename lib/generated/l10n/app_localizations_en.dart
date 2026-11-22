@@ -961,6 +961,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Update download failed. Check your network and free disk space, then retry.';
 
   @override
+  String get appUpdateInstallerNotFound =>
+      'The installer is missing from the release (HTTP 404). Try again once it has been published.';
+
+  @override
   String get appUpdateIntegrityFailure =>
       'The installer size or SHA-256 does not match. Installation was stopped.';
 

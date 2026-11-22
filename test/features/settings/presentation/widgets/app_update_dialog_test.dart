@@ -12,6 +12,8 @@ void main() {
   for (final failure in [
     AppUpdateFailureKind.integrity,
     AppUpdateFailureKind.network,
+    AppUpdateFailureKind.installerNotFound,
+    AppUpdateFailureKind.installerLaunch,
   ]) {
     testWidgets('application failure has one recovery action ($failure)', (
       tester,
@@ -39,6 +41,13 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      if (failure == AppUpdateFailureKind.installerLaunch) {
+        expect(find.text(l10n.appUpdateInstallerLaunchFailure), findsOneWidget);
+        expect(find.text(l10n.appUpdateDownloadFailure), findsNothing);
+      }
+      if (failure == AppUpdateFailureKind.installerNotFound) {
+        expect(find.text(l10n.appUpdateInstallerNotFound), findsOneWidget);
+      }
       expect(
         find.text(
           failure == AppUpdateFailureKind.integrity

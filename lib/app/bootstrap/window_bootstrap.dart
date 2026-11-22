@@ -26,6 +26,8 @@ Future<void> configureDesktopWindow() async {
   window.hasShadow = false;
   window.setFrameless(true);
   window.center();
-  window.show();
-  window.focus();
+  if (defaultTargetPlatform != TargetPlatform.windows) {
+    window.show();
+    window.focus();
+  }
 }

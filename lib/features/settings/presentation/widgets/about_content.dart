@@ -219,23 +219,44 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
     if (installer == null || _installing) return;
     final windowProvider = context.read<WindowProvider>();
     setState(() => _installing = true);
+    Future<void> Function()? cancelLaunch;
     try {
-      await const AppUpdateService().launchInstallerAfterExit(installer);
-      await windowProvider.exit(discardUnsaved: true);
-    } on AppUpdateException catch (error) {
+      final closing = await windowProvider.exit(
+        beforeNativeClose: () async {
+          if (!mounted) {
+            throw const AppUpdateException(
+              AppUpdateFailureKind.installerLaunch,
+            );
+          }
+          cancelLaunch = await const AppUpdateService()
+              .launchInstallerAfterExit(installer);
+          if (!mounted) {
+            throw const AppUpdateException(
+              AppUpdateFailureKind.installerLaunch,
+            );
+          }
+        },
+      );
+      if (!closing) {
+        throw const AppUpdateException(AppUpdateFailureKind.installerLaunch);
+      }
+    } catch (error, stackTrace) {
+      debugPrint('App update handoff failed: $error\n$stackTrace');
+      try {
+        await cancelLaunch?.call();
+      } on FileSystemException catch (cancelError) {
+        debugPrint('Cannot cancel installer handoff: $cancelError');
+      }
       if (mounted) {
         setState(() {
-          _installing = false;
-          _failure = error.kind;
+          _failure = error is AppUpdateException
+              ? error.kind
+              : AppUpdateFailureKind.installerLaunch;
+          if (_failure == AppUpdateFailureKind.download) _installer = null;
         });
       }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _installing = false;
-          _failure = AppUpdateFailureKind.download;
-        });
-      }
+    } finally {
+      if (mounted) setState(() => _installing = false);
     }
   }
 
@@ -410,6 +431,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
     AppUpdateFailureKind.server => l10n.updateCheckServerFailure,
     AppUpdateFailureKind.http => l10n.updateCheckHttpFailure,
     AppUpdateFailureKind.invalidManifest => l10n.updateCheckInvalidManifest,
+    AppUpdateFailureKind.installerNotFound => l10n.appUpdateInstallerNotFound,
     AppUpdateFailureKind.download => l10n.appUpdateDownloadFailure,
     AppUpdateFailureKind.integrity => l10n.appUpdateIntegrityFailure,
     AppUpdateFailureKind.installerLaunch =>

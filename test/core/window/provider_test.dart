@@ -202,17 +202,38 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
   testWidgets('failed saving retains window and allows retry', (tester) async {
     var success = false;
+    var prepared = false;
+    Future<void> prepare() async => prepared = true;
     final provider = WindowProvider(
       window: window,
       beforeClose: () async => success,
     );
     addTearDown(provider.dispose);
-    await provider.exit();
+    expect(await provider.exit(beforeNativeClose: prepare), isFalse);
+    expect(prepared, isFalse);
     expect(window.calls, ['show', 'focus']);
     window.calls.clear();
     success = true;
-    await provider.exit();
+    expect(await provider.exit(beforeNativeClose: prepare), isTrue);
+    expect(prepared, isTrue);
     expect(window.calls, ['close']);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+  testWidgets('installer preparation must finish before native close', (
+    tester,
+  ) async {
+    final ready = Completer<void>();
+    final provider = WindowProvider(window: window);
+    addTearDown(provider.dispose);
+
+    final closing = provider.exit(beforeNativeClose: () => ready.future);
+    expect(window.calls, isEmpty);
+    expect(window.requestClose().cancelled, isTrue);
+
+    final failed = expectLater(closing, throwsStateError);
+    ready.completeError(StateError('Installer is not ready'));
+    await failed;
+    expect(window.calls, ['show', 'focus']);
+    expect(window.requestClose().cancelled, isTrue);
   }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
   testWidgets('ordinary close hides without saving and failed tray minimizes', (
     tester,

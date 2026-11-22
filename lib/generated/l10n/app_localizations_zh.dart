@@ -913,6 +913,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appUpdateDownloadFailure => '下载更新失败，请检查网络和磁盘空间后重试。';
 
   @override
+  String get appUpdateInstallerNotFound => '发布页找不到更新安装包（HTTP 404）。请等待安装包发布后重试。';
+
+  @override
   String get appUpdateIntegrityFailure => '安装包大小或 SHA-256 校验不匹配，已取消安装。';
 
   @override

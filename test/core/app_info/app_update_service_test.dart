@@ -9,55 +9,78 @@ import 'package:lilygobox/core/app_info/app_update_service.dart';
 
 void main() {
   group('AppUpdateService', () {
-    test(
-      'startup removes installed, stale and partial packages, keeping latest per channel',
-      () async {
-        final directory = await Directory.systemTemp.createTemp(
-          'update-cleanup-',
+    test('a missing release installer is reported as HTTP 404', () async {
+      final directory = await Directory.systemTemp.createTemp('update-404-');
+      addTearDown(() => directory.delete(recursive: true));
+      final client = MockClient((_) async => http.Response('Not Found', 404));
+      addTearDown(client.close);
+      final service = AppUpdateService(
+        client: client,
+        updateDirectory: directory,
+      );
+      final update = AppUpdate(
+        version: '1.0.0-beta.1',
+        fileName: 'test-installer.exe',
+        downloadUrl: Uri.https('github.com', '/test.exe'),
+        sizeBytes: 3,
+        sha256: 'a' * 64,
+      );
+      await expectLater(
+        service.downloadInstaller(update),
+        throwsA(
+          isA<AppUpdateException>()
+              .having(
+                (error) => error.kind,
+                'kind',
+                AppUpdateFailureKind.installerNotFound,
+              )
+              .having((error) => error.statusCode, 'statusCode', 404),
+        ),
+      );
+    }, skip: !Platform.isWindows);
+
+    test('startup removes installed, stale and partial packages, keeping latest per channel', () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'update-cleanup-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final now = DateTime(2026, 10, 22);
+      Future<File> seed(
+        String version, {
+        bool partial = false,
+        bool old = false,
+      }) async {
+        final file = File(
+          '${directory.path}/LilygoBox-$version-windows-x64-setup.exe${partial ? '.part' : ''}',
         );
-        addTearDown(() => directory.delete(recursive: true));
-        final now = DateTime(2026, 10, 22);
-        Future<File> seed(
-          String version, {
-          bool partial = false,
-          bool old = false,
-        }) async {
-          final file = File(
-            '${directory.path}/LilygoBox-$version-windows-x64-setup.exe${partial ? '.part' : ''}',
-          );
-          await file.writeAsString('test');
-          await file.setLastModified(
-            now.subtract(Duration(days: old ? 31 : 1)),
-          );
-          return file;
-        }
+        await file.writeAsString('test');
+        await file.setLastModified(now.subtract(Duration(days: old ? 31 : 1)));
+        return file;
+      }
 
-        final installed = await seed('1.0.0-beta.1');
-        final previous = await seed('1.0.0-alpha.9');
-        final olderBeta = await seed('1.0.0-beta.2');
-        final latestBeta = await seed('1.0.0-beta.10');
-        final stable = await seed('1.0.0');
-        final expired = await seed('2.0.0-beta.1', old: true);
-        final partial = await seed('3.0.0', partial: true);
-        final unrelated = await File(
-          '${directory.path}/other-installer.exe',
-        ).writeAsString('keep');
-        final unknown = await File(
-          '${directory.path}/LilygoBox-bad-windows-x64-setup.exe',
-        ).writeAsString('keep');
+      final installed = await seed('1.0.0-beta.1');
+      final previous = await seed('1.0.0-alpha.9');
+      final olderBeta = await seed('1.0.0-beta.2');
+      final latestBeta = await seed('1.0.0-beta.10');
+      final stable = await seed('1.0.0');
+      final expired = await seed('2.0.0-beta.1', old: true);
+      final partial = await seed('3.0.0', partial: true);
+      final unrelated = await File('${directory.path}/other-installer.exe')
+          .writeAsString('keep');
+      final unknown = await File(
+        '${directory.path}/LilygoBox-bad-windows-x64-setup.exe',
+      ).writeAsString('keep');
 
-        await AppUpdateService(
-          updateDirectory: directory,
-        ).cleanInstallerCache(currentVersion: '1.0.0-beta.1', now: now);
+      await AppUpdateService(updateDirectory: directory)
+          .cleanInstallerCache(currentVersion: '1.0.0-beta.1', now: now);
 
-        for (final file in [installed, previous, olderBeta, expired, partial]) {
-          expect(await file.exists(), isFalse, reason: file.path);
-        }
-        for (final file in [latestBeta, stable, unrelated, unknown]) {
-          expect(await file.exists(), isTrue, reason: file.path);
-        }
-      },
-    );
+      for (final file in [installed, previous, olderBeta, expired, partial]) {
+        expect(await file.exists(), isFalse, reason: file.path);
+      }
+      for (final file in [latestBeta, stable, unrelated, unknown]) {
+        expect(await file.exists(), isTrue, reason: file.path);
+      }
+    });
 
     test(
       'a cancelled future installer is retained until that version runs',
@@ -124,9 +147,7 @@ void main() {
     test('uses the explicitly selected Beta channel', () {
       expect(
         AppUpdateService.manifestUri(AppReleaseChannel.beta).path,
-        endsWith(
-          '/app-update-beta/lilygobox-app-update-manifest-beta-v1.json',
-        ),
+        endsWith('/app-update-beta/lilygobox-app-update-manifest-beta-v1.json'),
       );
     });
 
@@ -218,9 +239,8 @@ void main() {
       addTearDown(client.close);
 
       await expectLater(
-        AppUpdateService(
-          client: client,
-        ).check(currentVersion: '1.1.9', channel: AppReleaseChannel.beta),
+        AppUpdateService(client: client)
+            .check(currentVersion: '1.1.9', channel: AppReleaseChannel.beta),
         throwsA(
           isA<AppUpdateException>().having(
             (error) => error.kind,
@@ -242,9 +262,8 @@ void main() {
       });
       addTearDown(client.close);
 
-      final update = await AppUpdateService(
-        client: client,
-      ).check(currentVersion: '1.1.9', channel: AppReleaseChannel.beta);
+      final update = await AppUpdateService(client: client)
+          .check(currentVersion: '1.1.9', channel: AppReleaseChannel.beta);
 
       expect(update?.version, '1.2.0-beta.1');
       expect(requests, hasLength(2));

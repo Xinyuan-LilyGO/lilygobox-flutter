@@ -187,21 +187,27 @@ class WindowProvider with ChangeNotifier {
   }
 
   // 仅显式退出才等待配置保存，并进入原有系统关闭流程。
-  Future<void> exit({bool discardUnsaved = false}) async {
-    if (_closing) return;
+  Future<bool> exit({
+    bool discardUnsaved = false,
+    Future<void> Function()? beforeNativeClose,
+  }) async {
+    final window = _window;
+    if (_closing || _disposed || window == null) return false;
     _closing = true;
     try {
       if (!discardUnsaved && beforeClose != null && !await beforeClose!()) {
         _closing = false;
         await show();
-        return;
+        return false;
       }
+      if (beforeNativeClose != null) await beforeNativeClose();
       // 保存完成后走系统正常关闭流程，避免直接退出消息循环时窗口
       // 仍停留在屏幕上等待引擎释放；保持关闭标记以忽略二次关闭事件。
       _nativeCloseAllowed = true;
-      if (_window?.close() == false) {
+      if (!window.close()) {
         throw StateError('Window close was cancelled');
       }
+      return true;
     } catch (_) {
       _nativeCloseAllowed = false;
       _closing = false;

@@ -96,6 +96,7 @@ foreach ($cardCount in 3000, 10000) {
 ## Windows 窗口与升级检查
 
 - **无边框窗口**初始化时设 `hasShadow = false`，保留应用的自绘阴影。打开系统文件对话框时处理 `WM_NCACTIVATE` 与 `WM_NCPAINT`，验证真实 HWND 的顶部像素。最小化时保留 Flutter 子窗口尺寸。最大化按钮投递原生消息切换窗口，移动或贴靠后再读取系统最终布局。[阴影测试](../integration_test/window_shadow_test.dart) · [系统对话框测试](../integration_test/modal_window_frame_test.dart)
+- **Windows 冷启动闪白**：原生主窗口在 DWM 中保持不可见且可绘制，等 Flutter 首帧完成再显示和激活。Dart 启动阶段只配置窗口位置和样式，不提前显示。手动验证时完全退出应用（含托盘），从安装位置启动，检查屏幕左上角不会先闪出空窗口。
 - **窗口拖动或改尺寸时闪白**：主窗口有 Flutter 子视图时不再用 Win32 背景刷擦除客户区，避免主题背景在下一帧之前覆盖画面。调整子视图时用 `SetWindowPos`，不强制同步重绘。回归测试用白色背景刷验证旧像素不被擦除，同时检查每次调整后视图尺寸与客户区一致。[原生重绘测试](../test/windows/window_repaint_native_test.cpp)
 - **托盘窗口**由独立的 `trayMain` 进程承载，通过限制大小并校验对端的 `WM_COPYDATA` 与主进程通信。预热在可绘制的窗口完成，按 `requestId` 收到 `prepared` 后隐藏，用户打开时等 `painted` 再显示。隐藏期间缓存主题，Job Object 让辅助进程随主进程退出。回归实际切换主题、检查最终可见性，并在 Explorer 的隐藏图标面板手动右键一次。[托盘可见性测试](../integration_test/tray_visibility_test.dart) · [主题发布模式验证](../integration_test/theme_release_smoke.dart)
 - **升级 Flutter** 时以依赖清单中的 SDK 与窗口库版本为准。Material 组件需要对应的本地化委托，SQLite 与压缩库通过 code assets 加载。升级后进行 `flutter analyze --no-pub lib`、存储回归和真实 Windows 窗口启动，原生 runner 改动需重新启动编译后的进程。[依赖清单](../pubspec.yaml) · [存储回归](../test/features/assistant/agent_storage_test.dart)

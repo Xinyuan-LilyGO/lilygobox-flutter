@@ -45,6 +45,7 @@ class FlutterWindow : public Win32Window {
   bool close_after_reader_ = false;
   bool destroy_after_reader_ = false;
   bool startup_show_pending_ = false;
+  bool startup_cloaked_ = false;
   bool layout_notification_pending_ = false;
   bool interactive_move_ = false;
   bool interactive_resize_ = false;

@@ -1770,6 +1770,12 @@ abstract class AppLocalizations {
   /// **'Update download failed. Check your network and free disk space, then retry.'**
   String get appUpdateDownloadFailure;
 
+  /// Shown when the release exists but the installer URL returns HTTP 404.
+  ///
+  /// In en, this message translates to:
+  /// **'The installer is missing from the release (HTTP 404). Try again once it has been published.'**
+  String get appUpdateInstallerNotFound;
+
   /// No description provided for @appUpdateIntegrityFailure.
   ///
   /// In en, this message translates to:

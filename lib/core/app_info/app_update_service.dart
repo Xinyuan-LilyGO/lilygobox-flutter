@@ -51,6 +51,7 @@ enum AppUpdateFailureKind {
   server,
   http,
   invalidManifest,
+  installerNotFound,
   download,
   integrity,
   installerLaunch,
@@ -283,7 +284,9 @@ class AppUpdateService {
       if (response.statusCode != HttpStatus.ok) {
         await response.stream.listen((_) {}).cancel();
         throw AppUpdateException(
-          response.statusCode >= HttpStatus.internalServerError
+          response.statusCode == HttpStatus.notFound
+              ? AppUpdateFailureKind.installerNotFound
+              : response.statusCode >= HttpStatus.internalServerError
               ? AppUpdateFailureKind.server
               : AppUpdateFailureKind.http,
           statusCode: response.statusCode,
@@ -367,30 +370,33 @@ class AppUpdateService {
     }
   }
 
-  Future<void> launchInstallerAfterExit(File installer) async {
+  Future<Future<void> Function()> launchInstallerAfterExit(
+    File installer,
+  ) async {
     if (!Platform.isWindows) {
-      throw const AppUpdateException(AppUpdateFailureKind.download);
+      throw const AppUpdateException(AppUpdateFailureKind.installerLaunch);
     }
     if (!await installer.exists()) {
       throw const AppUpdateException(AppUpdateFailureKind.download);
     }
-    final script = File(
-      '${Directory.systemTemp.path}/lilygobox-update-$pid.vbs',
-    );
-    final log = File('${Directory.systemTemp.path}/lilygobox-update-$pid.log');
-    final application = Platform.resolvedExecutable;
-    if (await log.exists()) await log.delete();
-    await script.writeAsString(r'''
+    try {
+      final attempt = await Directory.systemTemp.createTemp(
+        'lilygobox-update-',
+      );
+      final script = File('${attempt.path}/install.vbs');
+      final ready = File('${attempt.path}/ready');
+      final armed = File('${attempt.path}/armed');
+      await script.writeAsString(r'''
 Option Explicit
-Dim args, parentPid, installerPath, applicationPath, logPath, attempt
-Dim fileSystem, logFile, shell, wmi, applicationProcess, installerExitCode
+Dim args, parentPid, installerPath, applicationPath, workPath, attempt
+Dim fileSystem, logFile, shell, wmi, applicationProcess, installerExitCode, ready
 Set args = WScript.Arguments
 parentPid = CLng(args(0))
 installerPath = args(1)
 applicationPath = args(2)
-logPath = args(3)
+workPath = args(3)
 Set fileSystem = CreateObject("Scripting.FileSystemObject")
-Set logFile = fileSystem.OpenTextFile(logPath, 8, True)
+Set logFile = fileSystem.OpenTextFile(workPath & "\install.log", 8, True)
 Set shell = CreateObject("WScript.Shell")
 Sub WriteLog(message)
   logFile.WriteLine Now & " " & message
@@ -411,42 +417,35 @@ Sub RestartApplication()
     WriteLog "Application relaunch requested."
   End If
 End Sub
-On Error Resume Next
-WriteLog "Updater started. ParentPid=" & parentPid
-Set wmi = GetObject("winmgmts:\\.\root\cimv2")
-If Err.Number <> 0 Then
-  WriteLog "Could not query the application process: " & Err.Description
-  Err.Clear
-  RestartApplication
+Sub Fail(message)
+  WriteLog message
   logFile.Close
   WScript.Quit 1
+End Sub
+On Error Resume Next
+Set wmi = GetObject("winmgmts:\\.\root\cimv2")
+If Err.Number <> 0 Then
+  Fail "Could not connect to WMI: " & Err.Description
 End If
-For attempt = 1 To 20
+Set applicationProcess = FindApplicationProcess(wmi, parentPid, applicationPath)
+If Err.Number <> 0 Then Fail "Could not query the application process: " & Err.Description
+If applicationProcess Is Nothing Then Fail "Application process not found."
+If Not fileSystem.FileExists(installerPath) Then Fail "Downloaded installer is missing."
+Set ready = fileSystem.CreateTextFile(workPath & "\ready", False)
+If Err.Number <> 0 Then Fail "Could not signal installer readiness: " & Err.Description
+ready.Close
+
+For attempt = 1 To 120
   Set applicationProcess = FindApplicationProcess(wmi, parentPid, applicationPath)
-  If Err.Number <> 0 Then Exit For
+  If Err.Number <> 0 Then Fail "Could not wait for the application process: " & Err.Description
   If applicationProcess Is Nothing Then Exit For
   WScript.Sleep 500
 Next
-If Err.Number <> 0 Then
-  WriteLog "Could not wait for the application process: " & Err.Description
-  Err.Clear
-ElseIf Not applicationProcess Is Nothing Then
-  WriteLog "Application did not exit after 10 seconds; terminating its process."
-  applicationProcess.Terminate
-  If Err.Number <> 0 Then
-    WriteLog "Could not terminate the application process: " & Err.Description
-    Err.Clear
-    RestartApplication
-    logFile.Close
-    WScript.Quit 1
-  End If
-End If
-WriteLog "Application process exited."
+If Not applicationProcess Is Nothing Then Fail "Application did not exit in time."
+If Not fileSystem.FileExists(workPath & "\armed") Then Fail "Installation was not authorized to start."
 If Not fileSystem.FileExists(installerPath) Then
-  WriteLog "Downloaded installer is missing."
   RestartApplication
-  logFile.Close
-  WScript.Quit 1
+  Fail "Downloaded installer is missing."
 End If
 installerExitCode = shell.Run(Chr(34) & installerPath & Chr(34), 1, True)
 If Err.Number <> 0 Then
@@ -460,28 +459,28 @@ WriteLog "Installer exited. ExitCode=" & installerExitCode
 logFile.Close
 WScript.Quit 0
 ''');
-    try {
       await Process.start('wscript.exe', [
         '//B',
         '//NoLogo',
         script.path,
         pid.toString(),
         installer.path,
-        application,
-        log.path,
+        Platform.resolvedExecutable,
+        attempt.path,
       ], mode: ProcessStartMode.detached);
+      final deadline = Stopwatch()..start();
+      while (deadline.elapsed < const Duration(seconds: 20)) {
+        if (await ready.exists()) {
+          await armed.create();
+          return armed.delete;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
     } on ProcessException {
-      if (await script.exists()) await script.delete();
+      throw const AppUpdateException(AppUpdateFailureKind.installerLaunch);
+    } on FileSystemException {
       throw const AppUpdateException(AppUpdateFailureKind.installerLaunch);
     }
-    for (var attempt = 0; attempt < 200; attempt++) {
-      if (await log.exists()) {
-        final output = await log.readAsString();
-        if (output.contains('Updater started.')) return;
-      }
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-    }
-    if (await script.exists()) await script.delete();
     throw const AppUpdateException(AppUpdateFailureKind.installerLaunch);
   }
 

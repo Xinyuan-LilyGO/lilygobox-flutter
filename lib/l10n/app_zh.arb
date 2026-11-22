@@ -445,6 +445,7 @@
   "appUpdateDownloadProgress": "{received} MB / {total} MB",
   "appUpdateDownloaded": "下载完成，安装程序已通过完整性校验。",
   "appUpdateDownloadFailure": "下载更新失败，请检查网络和磁盘空间后重试。",
+  "appUpdateInstallerNotFound": "发布页找不到更新安装包（HTTP 404）。请等待安装包发布后重试。",
   "appUpdateIntegrityFailure": "安装包大小或 SHA-256 校验不匹配，已取消安装。",
   "appUpdateInstallerLaunchFailure": "无法启动更新安装程序，请重试。也可以手动打开已下载的安装包。",
   "checkingForUpdates": "正在检查更新…",

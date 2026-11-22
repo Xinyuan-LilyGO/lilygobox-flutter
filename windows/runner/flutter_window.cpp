@@ -1,5 +1,6 @@
 #include "flutter_window.h"
 
+#include <dwmapi.h>
 #include <optional>
 #include <flutter/standard_method_codec.h>
 
@@ -36,6 +37,9 @@ bool FlutterWindow::OnCreate() {
   close_after_reader_ = false;
   destroy_after_reader_ = false;
   startup_show_pending_ = true;
+  const BOOL cloak = TRUE;
+  startup_cloaked_ = SUCCEEDED(DwmSetWindowAttribute(
+      GetHandle(), DWMWA_CLOAK, &cloak, sizeof(cloak)));
   layout_notification_pending_ = false;
   interactive_move_ = false;
   interactive_resize_ = false;
@@ -162,11 +166,7 @@ bool FlutterWindow::OnCreate() {
   // window is shown. It is a no-op if the first frame hasn't completed yet.
   flutter_controller_->ForceRedraw();
 
-  // A hidden top-level window can prevent the engine from producing the frame
-  // that would invoke SetNextFrameCallback. Queue the same message as a
-  // fallback so the window cannot remain hidden indefinitely. The message is
-  // handled on the window thread and is safe if the callback also posts it.
-  PostMessageW(GetHandle(), kShowAfterFirstFrame, 0, 0);
+  if (startup_cloaked_) ShowWindow(owner, SW_SHOWNOACTIVATE);
 
   SetPropW(GetHandle(), lilygobox::kWindowMarker,
            reinterpret_cast<HANDLE>(1));
@@ -219,6 +219,11 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
         flutter_controller_ && flutter_controller_->view()) {
       startup_show_pending_ = false;
       // 首帧到达时窗口才真正显示，显示后再激活，确保启动窗口取得前台焦点。
+      if (startup_cloaked_) {
+        const BOOL cloak = FALSE;
+        DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &cloak, sizeof(cloak));
+        startup_cloaked_ = false;
+      }
       if (!IsWindowVisible(hwnd)) Show();
       SetForegroundWindow(hwnd);
       SetFocus(flutter_controller_->view()->GetNativeWindow());
@@ -296,6 +301,7 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
   // 已有窗口响应重复启动：从托盘显示或恢复最小化，并保留最大化状态。
   if (message == lilygobox::ActivateWindowMessage()) {
+    if (startup_show_pending_) return 0;
     ShowWindow(hwnd, IsIconic(hwnd) ? SW_RESTORE : SW_SHOW);
     SetForegroundWindow(hwnd);
     return 0;
