@@ -688,7 +688,7 @@ class _ComposerMetrics extends StatelessWidget {
                   icon: compacting
                       ? Symbols.stop_rounded
                       : Symbols.compress_rounded,
-                  isEnabled: compacting || !assistant.busy,
+                  isEnabled: !assistant.stopRequested,
                   onTap: () {
                     close();
                     if (compacting) {

@@ -16,6 +16,8 @@ String aiCommandPolicyFailureText(
   AiCommandPolicyProblem problem,
 ) => switch (problem) {
   AiCommandPolicyProblem.forbidden => l10n.aiCommandPolicyForbidden,
+  AiCommandPolicyProblem.automaticDiskWrite =>
+    l10n.aiCommandPolicyAutomaticDiskWrite,
   AiCommandPolicyProblem.invalidRules => l10n.aiCommandPolicyInvalidRules,
   AiCommandPolicyProblem.approvalRequired =>
     l10n.aiCommandPolicyApprovalRequired,

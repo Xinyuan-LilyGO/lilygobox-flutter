@@ -1191,6 +1191,13 @@ void main() {
     ],
   };
 
+  AiProcessEntry inlineCompaction(AiMessage reply) =>
+      buildAiProcessTimeline(reply.processEvents).singleWhere(
+        (entry) =>
+            entry.event.action?.name == 'compact_context' ||
+            entry.event.toolName == 'compact_context',
+      );
+
   test(
     'manual compaction uses the selected service without switching chat models',
     () async {
@@ -1496,12 +1503,11 @@ void main() {
       await assistant.sendMessage('Latest question');
 
       expect(requests, hasLength(2));
-      final record = assistant.messages.singleWhere(
-        (message) => message.role == 'compaction',
-      );
-      expect(record.status, AiResponseStatus.failed);
+      final response = assistant.messages.last;
+      expect(response.role, 'assistant');
+      expect(response.status, AiResponseStatus.failed);
       expect(
-        record.processingSteps.single.arguments,
+        inlineCompaction(response).event.action!.arguments,
         containsPair('compactionIssue', 'noTokenSavings'),
       );
       expect(assistant.snapshotWorkspaceConversation()['summary'], isEmpty);
@@ -1576,30 +1582,27 @@ void main() {
     expect(requests[firstSummary]['model'], 'gpt-6.1-sol');
     expect(assistant.selectedModel, 'new-model');
     expect(assistant.snapshotWorkspaceConversation()['summary'], summary);
-    final response = assistant.messages[assistant.messages.length - 2];
-    final record = assistant.messages.last;
+    expect(assistant.messages.map((message) => message.role), [
+      'user',
+      'assistant',
+    ]);
+    final response = assistant.messages.last;
+    final record = inlineCompaction(response);
     expect(response.content, reply);
-    expect(
-      response.processEvents.where(
-        (event) => event.action?.name == 'compact_context',
-      ),
-      isEmpty,
-    );
-    expect(record.role, 'compaction');
-    expect(record.toolArguments, {'trigger': 'auto', 'replyId': response.id});
-    expect(record.status, AiResponseStatus.completed);
-    expect(record.elapsed!.inMicroseconds, greaterThan(0));
-    expect(response.elapsed, greaterThanOrEqualTo(record.elapsed!));
+    expect(response.status, AiResponseStatus.completed);
+    expect(record.events.first.model, 'gpt-6.1-sol');
+    expect(record.events.first.toolArguments, {'trigger': 'auto'});
+    expect(record.event.elapsed, greaterThan(Duration.zero));
+    expect(response.elapsed, greaterThanOrEqualTo(record.event.elapsed));
     final restored = (await create('Restore auto compaction')).assistant;
     restored.restoreWorkspaceConversation(
       assistant.snapshotWorkspaceConversation(),
     );
-    expect(restored.messages.last.id, record.id);
-    expect(restored.messages.last.toolArguments, record.toolArguments);
-    expect(
-      restored.messages.last.processingSteps.single.arguments['outcome'],
-      'compacted',
-    );
+    expect(restored.messages.last.id, response.id);
+    final restoredRecord = inlineCompaction(restored.messages.last);
+    expect(restoredRecord.id, record.id);
+    expect(restoredRecord.events.first.model, record.events.first.model);
+    expect(restoredRecord.event.action!.arguments['outcome'], 'compacted');
   });
 
   test('failed pre-request summary does not send the reply request', () async {
@@ -1613,17 +1616,16 @@ void main() {
     expect(requests, hasLength(1));
     expect(assistant.messages.map((message) => message.role), [
       'user',
-      'compaction',
+      'assistant',
     ]);
     expect(assistant.canContinue, isFalse);
     await assistant.continueGeneration();
     expect(requests, hasLength(1));
-    final record = assistant.messages.singleWhere(
-      (message) => message.role == 'compaction',
-    );
-    expect(record.status, AiResponseStatus.failed);
+    final response = assistant.messages.last;
+    expect(response.status, AiResponseStatus.failed);
+    expect(response.content, isEmpty);
     expect(
-      record.processingSteps.single.arguments,
+      inlineCompaction(response).event.action!.arguments,
       containsPair('compactionIssue', 'emptySummary'),
     );
     expect(assistant.snapshotWorkspaceConversation()['summary'], isEmpty);
@@ -1645,10 +1647,16 @@ void main() {
     await pending;
 
     expect(requests, hasLength(2));
-    final response = assistant.messages.singleWhere((item) => item.role == 'assistant');
+    final response = assistant.messages.singleWhere(
+      (item) => item.role == 'assistant',
+    );
     expect(response.content, reply.trimRight());
-    expect(response.status, AiResponseStatus.completed);
-    expect(assistant.messages.last.status, AiResponseStatus.failed);
+    expect(response.status, AiResponseStatus.failed);
+    expect(assistant.messages.last.id, response.id);
+    expect(
+      inlineCompaction(response).event.action!.arguments['outcome'],
+      'failed',
+    );
     expect(assistant.pendingGuidance.single.content, 'Queued question');
   });
 
@@ -1657,72 +1665,109 @@ void main() {
     ('stop', '', AiCompactionIssue.reasoningOnly),
     ('stop', 'Goals retained.', null),
   ]) {
-    test('GPT and DeepSeek automatic compaction: ${issue?.name ?? 'success'}', () async {
-      final assistant = (await create('Cross-service compaction')).assistant;
-      assistant.restoreWorkspaceConversation(compactionSnapshot());
-      assistant.contextBudgetTokens = 100;
-      assistant.useMemory = false;
-      final summaryService = await scope.provider.saveService(
-        name: 'DeepSeek fixture',
-        protocol: AiApiProtocol.openAiChatCompletions,
-        baseUrl: 'https://summary.example.test/v1',
-        models: ['deepseek-flash'],
-        apiKey: 'summary-key',
-      );
-      assistant.selectCompactionModel((
-        serviceId: summaryService,
-        model: 'deepseek-flash',
-        reasoningEffort: AiReasoningEffort.low,
-      ));
-      summaryResponse = http.Response(
-        [
-          {'choices': [{'delta': {'reasoning_content': 'Thinking'}}]},
-          if (content.isNotEmpty) {'choices': [{'delta': {'content': content}}]},
-          {'choices': [{'finish_reason': finishReason}]},
-          {'choices': [], 'usage': {'completion_tokens': 12}},
-        ].map((chunk) => 'data: ${jsonEncode(chunk)}\n\n').join() +
-        'data: [DONE]\n\n',
-        200,
-        headers: {'content-type': 'text/event-stream'},
-      );
-
-      await assistant.sendMessage('Latest question');
-
-      expect(requests.map((request) => request['model']), [
-        'deepseek-flash',
-        if (issue == AiCompactionIssue.outputLimit) 'deepseek-flash',
-        if (issue == null) 'gpt-6.1-sol',
-      ]);
-      expect(routes.first.host, 'summary.example.test');
-      expect(requests.first['thinking'], {'type': 'enabled'});
-      expect(requests.first['reasoning_effort'], 'low');
-      expect(requests.first['max_tokens'], 2048);
-      expect(assistant.selectedModel, 'gpt-6.1-sol');
-      final record = ConversationCodec.read(ConversationCodec.message(
-        assistant.messages.singleWhere((message) => message.role == 'compaction'),
-      ));
-      expect(record.model, 'deepseek-flash');
-      expect(record.toolArguments?['trigger'], 'auto');
-      final snapshot = assistant.snapshotWorkspaceConversation();
-      if (issue == null) {
-        expect(assistant.messages.last.content, reply);
-        expect(record.status, AiResponseStatus.completed);
-        expect(snapshot['summary'], content);
-      } else {
-        expect(record.status, AiResponseStatus.failed);
-        expect(record.processEvents.last.status, AiResponseStatus.failed);
-        expect(record.processingSteps.single.arguments, containsPair('compactionIssue', issue.name));
-        expect(record.processingSteps.single.arguments, containsPair('finishReason', finishReason));
-        expect(record.processingSteps.single.arguments, containsPair('outputTokens', 12));
-        expect(record.processingSteps.single.arguments, containsPair(
-          'outputLimit',
-          issue == AiCompactionIssue.outputLimit ? 4096 : 2048,
+    test(
+      'GPT and DeepSeek automatic compaction: ${issue?.name ?? 'success'}',
+      () async {
+        final assistant = (await create('Cross-service compaction')).assistant;
+        assistant.restoreWorkspaceConversation(compactionSnapshot());
+        assistant.contextBudgetTokens = 100;
+        assistant.useMemory = false;
+        final summaryService = await scope.provider.saveService(
+          name: 'DeepSeek fixture',
+          protocol: AiApiProtocol.openAiChatCompletions,
+          baseUrl: 'https://summary.example.test/v1',
+          models: ['deepseek-flash'],
+          apiKey: 'summary-key',
+        );
+        assistant.selectCompactionModel((
+          serviceId: summaryService,
+          model: 'deepseek-flash',
+          reasoningEffort: AiReasoningEffort.low,
         ));
-        expect(assistant.messages.where((item) => item.role == 'assistant'), isEmpty);
-        expect(snapshot['summary'], isEmpty);
-        expect(snapshot['history'], hasLength(17));
-      }
-    });
+        summaryResponse = http.Response(
+          [
+                {
+                  'choices': [
+                    {
+                      'delta': {'reasoning_content': 'Thinking'},
+                    },
+                  ],
+                },
+                if (content.isNotEmpty)
+                  {
+                    'choices': [
+                      {
+                        'delta': {'content': content},
+                      },
+                    ],
+                  },
+                {
+                  'choices': [
+                    {'finish_reason': finishReason},
+                  ],
+                },
+                {
+                  'choices': [],
+                  'usage': {'completion_tokens': 12},
+                },
+              ].map((chunk) => 'data: ${jsonEncode(chunk)}\n\n').join() +
+              'data: [DONE]\n\n',
+          200,
+          headers: {'content-type': 'text/event-stream'},
+        );
+
+        await assistant.sendMessage('Latest question');
+
+        expect(requests.map((request) => request['model']), [
+          'deepseek-flash',
+          if (issue == AiCompactionIssue.outputLimit) 'deepseek-flash',
+          if (issue == null) 'gpt-6.1-sol',
+        ]);
+        expect(routes.first.host, 'summary.example.test');
+        expect(requests.first['thinking'], {'type': 'enabled'});
+        expect(requests.first['reasoning_effort'], 'low');
+        expect(requests.first['max_tokens'], 2048);
+        expect(assistant.selectedModel, 'gpt-6.1-sol');
+        expect(assistant.messages.map((message) => message.role), [
+          'user',
+          'assistant',
+        ]);
+        final response = ConversationCodec.read(
+          ConversationCodec.message(assistant.messages.last),
+        );
+        final record = inlineCompaction(response);
+        expect(response.model, 'gpt-6.1-sol');
+        expect(record.events.first.model, 'deepseek-flash');
+        expect(record.events.first.reasoningEffort, AiReasoningEffort.low);
+        expect(record.events.first.toolArguments?['trigger'], 'auto');
+        final snapshot = assistant.snapshotWorkspaceConversation();
+        if (issue == null) {
+          expect(response.content, reply);
+          expect(response.status, AiResponseStatus.completed);
+          expect(record.event.action!.succeeded, isTrue);
+          expect(snapshot['summary'], content);
+        } else {
+          expect(response.status, AiResponseStatus.failed);
+          expect(response.processEvents.last.status, AiResponseStatus.failed);
+          expect(response.content, isEmpty);
+          expect(record.event.action!.succeeded, isFalse);
+          expect(
+            record.event.action!.arguments,
+            allOf(
+              containsPair('compactionIssue', issue.name),
+              containsPair('finishReason', finishReason),
+              containsPair('outputTokens', 12),
+              containsPair(
+                'outputLimit',
+                issue == AiCompactionIssue.outputLimit ? 4096 : 2048,
+              ),
+            ),
+          );
+          expect(snapshot['summary'], isEmpty);
+          expect(snapshot['history'], hasLength(17));
+        }
+      },
+    );
   }
 
   test(
@@ -1750,17 +1795,22 @@ void main() {
       await summaryStarted!.future;
       expect(assistant.messages.map((message) => message.role), [
         'user',
-        'compaction',
+        'assistant',
       ]);
+      final started = assistant.messages.last;
+      final startedRecord = inlineCompaction(started);
+      expect(started.content, isEmpty);
+      expect(startedRecord.event.status, AiResponseStatus.connecting);
+      expect(startedRecord.event.elapsed, Duration.zero);
       summaryGate!.complete();
       await pending;
 
-      final record = assistant.messages.singleWhere(
-        (message) => message.role == 'compaction',
-      );
       final response = assistant.messages.last;
-      expect(record.model, 'summary-gpt-5.4');
-      expect(record.reasoningEffort, AiReasoningEffort.none);
+      final record = inlineCompaction(response);
+      expect(response.id, started.id);
+      expect(record.id, startedRecord.id);
+      expect(record.events.first.model, 'summary-gpt-5.4');
+      expect(record.events.first.reasoningEffort, AiReasoningEffort.none);
       expect(requests.first['model'], 'summary-gpt-5.4');
       expect(requests.first['reasoning_effort'], 'none');
       expect(requests.last['model'], 'gpt-6.1-sol');
@@ -1768,10 +1818,9 @@ void main() {
         requests.last['reasoning_effort'],
         assistant.reasoningEffort?.name,
       );
-      expect(record.toolArguments?['replyId'], response.id);
-      expect(record.processingSteps.single.arguments['outcome'], 'compacted');
+      expect(record.event.action!.arguments['outcome'], 'compacted');
       expect(response.content, reply);
-      expect(response.createdAt!.isBefore(record.finishedAt!), isFalse);
+      expect(response.elapsed, greaterThanOrEqualTo(record.event.elapsed));
       final context = requests.last['messages'] as List;
       expect(jsonEncode(context), contains(summary));
       expect(context.last['content'], 'Latest question');
@@ -1794,10 +1843,12 @@ void main() {
     await pending;
 
     final cancelled = assistant.messages[1];
+    final cancelledRecord = inlineCompaction(cancelled);
     expect(cancelled.status, AiResponseStatus.stopped);
+    expect(cancelledRecord.event.action!.arguments['outcome'], 'cancelled');
     expect(assistant.messages.map((message) => message.role), [
       'user',
-      'compaction',
+      'assistant',
     ]);
     expect(requests, hasLength(1));
     summaryGate = Completer<void>();
@@ -1805,6 +1856,7 @@ void main() {
     final interruptedResume = assistant.continueGeneration();
     await summaryStarted!.future;
     expect(assistant.messages[1].id, cancelled.id);
+    expect(inlineCompaction(assistant.messages[1]).id, cancelledRecord.id);
     assistant.cancelContextCompaction();
     summaryGate!.complete();
     await interruptedResume;
@@ -1818,11 +1870,17 @@ void main() {
     expect(requests, hasLength(4));
     expect(assistant.messages.map((message) => message.role), [
       'user',
-      'compaction',
       'assistant',
     ]);
     expect(assistant.messages[1].id, cancelled.id);
     expect(assistant.messages[1].status, AiResponseStatus.completed);
+    final resumedRecord = inlineCompaction(assistant.messages[1]);
+    expect(resumedRecord.id, cancelledRecord.id);
+    expect(resumedRecord.event.action!.arguments['outcome'], 'compacted');
+    expect(
+      resumedRecord.event.elapsed,
+      greaterThan(cancelledRecord.event.elapsed),
+    );
     expect(assistant.messages.last.content, reply);
     final context = requests.last['messages'] as List;
     expect(context.last['content'], 'Latest question');
@@ -1866,7 +1924,6 @@ void main() {
 
       expect(assistant.messages.map((message) => message.role), [
         'user',
-        'compaction',
         'assistant',
       ]);
       expect(assistant.messages.last.content, reply);
@@ -1878,11 +1935,9 @@ void main() {
         ),
         hasLength(1),
       );
-      final record = assistant.messages.singleWhere(
-        (message) => message.role == 'compaction',
-      );
-      expect(record.toolArguments?['trigger'], 'auto');
-      expect(record.processingSteps.single.arguments['outcome'], 'compacted');
+      final record = inlineCompaction(assistant.messages.last);
+      expect(record.events.first.toolArguments?['trigger'], 'auto');
+      expect(record.event.action!.arguments['outcome'], 'compacted');
     },
   );
 
@@ -1899,15 +1954,24 @@ void main() {
       final pending = assistant.sendMessage('Latest question');
       await summaryStarted!.future;
       final started = assistant.messages.last;
-      expect(started.toolArguments?['trigger'], 'auto');
-      expect(started.status, AiResponseStatus.connecting);
+      final startedRecord = inlineCompaction(started);
+      expect(started.content, reply);
+      expect(startedRecord.event.toolArguments?['trigger'], 'auto');
+      expect(startedRecord.event.status, AiResponseStatus.connecting);
       assistant.stopGeneration();
       summaryGate!.complete();
       await pending;
 
-      expect(assistant.messages[assistant.messages.length - 2].content, reply);
+      expect(assistant.messages.last.content, reply);
       expect(assistant.messages.last.id, started.id);
       expect(assistant.messages.last.status, AiResponseStatus.stopped);
+      expect(
+        inlineCompaction(assistant.messages.last)
+            .event
+            .action!
+            .arguments['outcome'],
+        'cancelled',
+      );
       expect(assistant.snapshotWorkspaceConversation()['summary'], isEmpty);
       expect(
         assistant.snapshotWorkspaceConversation()['history'] as List,
@@ -1929,12 +1993,14 @@ void main() {
       expect(assistant.messages.map((message) => message.role), [
         'user',
         'assistant',
-        'compaction',
       ]);
       expect(assistant.messages[1].content, reply);
       expect(assistant.messages.last.id, cancelled.id);
       expect(assistant.messages.last.elapsed, greaterThan(cancelled.elapsed!));
       expect(assistant.messages.last.status, AiResponseStatus.completed);
+      final resumedRecord = inlineCompaction(assistant.messages.last);
+      expect(resumedRecord.id, startedRecord.id);
+      expect(resumedRecord.event.action!.arguments['outcome'], 'compacted');
       expect(assistant.snapshotWorkspaceConversation()['summary'], summary);
     },
   );

@@ -7,6 +7,7 @@ enum AiCommandRisk { forceDelete, discardChanges, diskWrite, opaqueScript }
 
 enum AiCommandPolicyProblem {
   forbidden,
+  automaticDiskWrite,
   invalidRules,
   approvalRequired,
   changed,

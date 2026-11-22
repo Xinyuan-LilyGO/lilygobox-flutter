@@ -94,6 +94,7 @@ void main() {
   var askApproval = false;
   var failNaming = false;
   var parentResponseCount = 0;
+  FutureOr<Map<String, Object?>?> Function(List<dynamic>)? routeConversation;
   setUp(() async {
     theme = ThemeProvider();
     language = LanguageProvider();
@@ -109,6 +110,7 @@ void main() {
     askApproval = false;
     failNaming = false;
     parentResponseCount = 0;
+    routeConversation = null;
     storage = _WorkflowSaveFailureStorage();
     await storage.ready;
     scope = await createAssistantTestScope(
@@ -124,6 +126,16 @@ void main() {
         observeRequest?.call();
         requests.add(body);
         final messages = body['messages'] as List;
+        if (await routeConversation?.call(messages) case final response?) {
+          return http.Response(
+            jsonEncode({
+              'choices': [
+                {'message': response},
+              ],
+            }),
+            200,
+          );
+        }
         if (messages.first['content'].toString().startsWith(
           'Generate a concise task title',
         )) {
@@ -233,6 +245,152 @@ void main() {
     shell.dispose();
     split.dispose();
   });
+
+  for (final (existing, revoke) in [
+    (false, false),
+    (true, false),
+    (false, true),
+  ]) {
+    test(
+      'delegated tool review uses the original user request (existing: $existing, revoked: $revoke)',
+      () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'delegated-review-',
+        );
+        addTearDown(() => directory.delete(recursive: true));
+        final output = File(
+          '${directory.path}${Platform.pathSeparator}result.txt',
+        );
+        final root = await workspaces.create(
+          title: 'Coordinator',
+          task: 'Coordinator',
+          startImmediately: false,
+        );
+        root.assistant.setPermissions(
+          AiPermissions(mode: AiApprovalMode.automatic),
+        );
+        final existingWorker = existing
+            ? await workspaces.create(
+                title: 'Worker',
+                task: 'Worker',
+                parentId: root.id,
+                startImmediately: false,
+              )
+            : null;
+        final human =
+            'Ask the worker to create ${output.path} and report back.';
+        const assignment = 'Write the requested file and report back.';
+        const report = 'Worker has finished.';
+        final reviews = <Map<String, dynamic>>[];
+        final writeReviewStarted = Completer<void>();
+        final writeReviewDecision = Completer<void>();
+        addTearDown(() {
+          if (!writeReviewDecision.isCompleted) writeReviewDecision.complete();
+        });
+        Map<String, Object?> call(
+          String name,
+          Map<String, Object?> arguments,
+        ) => {
+          'content': '',
+          'tool_calls': [
+            {
+              'id': 'call-$name',
+              'type': 'function',
+              'function': {'name': name, 'arguments': jsonEncode(arguments)},
+            },
+          ],
+        };
+        routeConversation = (messages) async {
+          final user =
+              messages.lastWhere((item) => item['role'] == 'user')['content']
+                  as String;
+          if ((messages.first['content'] as String).startsWith(
+            'Review one proposed tool operation.',
+          )) {
+            final review = jsonDecode(user) as Map<String, dynamic>;
+            reviews.add(review);
+            if (review['operation'] == 'write_file') {
+              writeReviewStarted.complete();
+              if (revoke) await writeReviewDecision.future;
+            }
+            return {'content': 'APPROVE'};
+          }
+          final used = messages
+              .where((message) => message['role'] == 'tool')
+              .length;
+          if (user == human) {
+            if (used != 0) return {'content': 'Waiting for worker'};
+            return existingWorker == null
+                ? call('spawn_agent', {'title': 'Worker', 'task': assignment})
+                : call('send_agent_message', {
+                    'agent_id': existingWorker.id,
+                    'message': assignment,
+                  });
+          }
+          final envelope = jsonDecode(user) as Map<String, dynamic>;
+          if (envelope['content'] == assignment) {
+            if (used == 0) {
+              return call('write_file', {
+                'path': output.path,
+                'content': 'delegated result',
+                'expected_content': null,
+              });
+            }
+            if (used == 1) {
+              return call('send_agent_message', {
+                'agent_id': root.id,
+                'message': report,
+              });
+            }
+          }
+          return {'content': 'Done'};
+        };
+
+        final running = root.assistant.sendMessage(human);
+        await writeReviewStarted.future.timeout(const Duration(seconds: 5));
+        final child = workspaces.sessions.singleWhere(
+          (item) => item.parentId == root.id,
+        );
+        expect(output.existsSync(), isFalse);
+        if (revoke) root.assistant.stopGeneration();
+        writeReviewDecision.complete();
+        await running;
+        final finished = Completer<void>();
+        void checkFinished() {
+          if (!child.busy && !finished.isCompleted) finished.complete();
+        }
+
+        child.assistant.addListener(checkFinished);
+        try {
+          checkFinished();
+          await finished.future.timeout(const Duration(seconds: 5));
+        } finally {
+          child.assistant.removeListener(checkFinished);
+        }
+
+        final childReviews = reviews.where(
+          (item) => item.containsKey('agent_messages'),
+        );
+        expect(childReviews.map((item) => item['operation']), [
+          'write_file',
+          if (!revoke) 'send_agent_message',
+        ]);
+        for (final review in childReviews) {
+          expect(review['request'], human);
+          expect(review['agent_messages'], [assignment]);
+        }
+        if (revoke) {
+          expect(await output.exists(), isFalse);
+        } else {
+          expect(await output.readAsString(), 'delegated result');
+          expect(
+            root.assistant.messages.any((message) => message.content == report),
+            isTrue,
+          );
+        }
+      },
+    );
+  }
   Future<void> finish(String id) async {
     await workspaces.executeTool('wait_agents', {
       'agent_ids': [id],

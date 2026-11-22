@@ -63,11 +63,12 @@ Widget host(
 
 void main() {
   testWidgets(
-    'automatic compaction distinguishes its duration from turn elapsed time',
+    'inline compaction shows its own duration and expander model metadata',
     (tester) async {
       final event = AiProcessEvent(
         type: AiProcessEventType.action,
-        elapsed: const Duration(seconds: 12),
+        elapsed: const Duration(milliseconds: 3200),
+        operationId: 'compaction',
         action: AiProcessingStep(
           name: 'compact_context',
           arguments: {
@@ -78,9 +79,30 @@ void main() {
           succeeded: true,
         ),
       );
-      await tester.pumpWidget(host(event, locale: 'zh'));
-      expect(processText('自动压缩上下文 · 耗时 3.2 秒'), findsOneWidget);
-      expect(find.text('00:12:000'), findsOneWidget);
+      await tester.pumpWidget(
+        host(
+          event,
+          locale: 'zh',
+          stages: [
+            const AiProcessEvent(
+              type: AiProcessEventType.status,
+              elapsed: Duration.zero,
+              operationId: 'compaction',
+              toolName: 'compact_context',
+              status: AiResponseStatus.connecting,
+              toolArguments: {'trigger': 'auto'},
+              model: 'summary-model',
+              reasoningEffort: AiReasoningEffort.none,
+            ),
+            event,
+          ],
+        ),
+      );
+      expect(find.text('00:03:200'), findsOneWidget);
+      await tester.tap(processText('自动压缩上下文 · 已完成'));
+      await tester.pumpAndSettle();
+      expect(find.text('自动压缩模型：summary-model'), findsOneWidget);
+      expect(find.text('思考强度：关闭'), findsOneWidget);
     },
   );
   testWidgets('compaction details preserve the service error and HTTP status', (
@@ -102,13 +124,105 @@ void main() {
       ),
     );
     await tester.pumpWidget(host(event));
-    await tester.tap(processText('Context compaction failed'));
+    await tester.tap(
+      processText('Manual context compaction · Context compaction failed'),
+    );
     await tester.pumpAndSettle();
     final block = tester.widget<ChatCodeBlock>(find.byType(ChatCodeBlock));
     expect(block.text, contains('The requested model was not found.'));
     expect(block.text, contains('HTTP 404'));
     expect(block.text, contains('Service error code: model_not_found'));
   });
+
+  testWidgets('approval details display the reviewer reason instead of JSON', (
+    tester,
+  ) async {
+    const reason = 'The user authorized the HTML file, not a probe file.';
+    await tester.pumpWidget(
+      host(
+        AiProcessEvent(
+          type: AiProcessEventType.action,
+          elapsed: Duration.zero,
+          action: AiProcessingStep(
+            name: 'write_file',
+            arguments: {'path': 'probe.txt'},
+            succeeded: false,
+            output: jsonEncode({
+              'ok': false,
+              'error_code': 'automatic_approval_not_granted',
+              'reason_code': 'denied_by_reviewer',
+              'untrusted_reviewer_reason': reason,
+            }),
+          ),
+        ),
+      ),
+    );
+    final detail = find.byType(AiProcessEventView);
+    await tester.tap(
+      find.descendant(of: detail, matching: find.byType(InkWell)).first,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<ChatCodeBlock>(find.byType(ChatCodeBlock)).text,
+      reason,
+    );
+  });
+
+  for (final (code, details, expected)
+      in <(String, Map<String, Object>, String)>[
+        (
+          'invalid_review_response',
+          {'review_response_issue': 'decision_format'},
+          '自动审批模型返回的决定不符合预期格式。',
+        ),
+        ('invalid_review_response', {}, '未收到有效的自动审批决定。'),
+        ('incomplete_review_response', {}, '自动审批模型未完整返回审批决定。'),
+        (
+          'incomplete_review_response',
+          {'finish_reason': 'content_filter', 'output_limit': 512},
+          '自动审批模型未完整返回审批决定。\n模型结束原因：content_filter\n请求的输出上限：512 token',
+        ),
+        (
+          'incomplete_review_response',
+          {
+            'finish_reason': 'length',
+            'output_tokens': 512,
+            'output_limit': 512,
+          },
+          '自动审批模型达到输出 token 上限，未能完整返回决定。\n'
+              '模型结束原因：length\n模型报告的输出量：512 token（请求上限：512）',
+        ),
+      ]) {
+    testWidgets('approval error details distinguish $code $details', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        host(
+          AiProcessEvent(
+            type: AiProcessEventType.action,
+            elapsed: Duration.zero,
+            action: AiProcessingStep(
+              name: 'write_file',
+              arguments: {'path': 'example.html'},
+              succeeded: false,
+              output: jsonEncode({
+                'error_code': 'automatic_approval_not_granted',
+                'reason_code': code,
+                ...details,
+              }),
+            ),
+          ),
+          locale: 'zh',
+        ),
+      );
+      await tester.tap(find.byType(InkWell).first);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<ChatCodeBlock>(find.byType(ChatCodeBlock)).text,
+        expected,
+      );
+    });
+  }
 
   for (final (tool, label, output, summary) in [
     ('search_chat_history', '搜索原始聊天记录', '{"matches":[]}', '返回了 0 条匹配消息'),
@@ -696,7 +810,7 @@ void main() {
       expect(processText(stageLabel), findsOneWidget);
       expect(processText(label), findsOneWidget);
       if (model != null) {
-        final modelLine = find.text('模型：$model');
+        final modelLine = find.text('自动审批模型：$model');
         expect(modelLine, findsOneWidget);
         expect(
           tester.getTopLeft(modelLine).dy,
@@ -731,13 +845,45 @@ void main() {
       await tester.tap(find.byType(InkWell));
       await tester.pumpAndSettle();
       expect(
-        find.text('Configured approval model: deepseek-flash (not called)'),
+        find.text('Automatic approval model: deepseek-flash (not called)'),
         findsOneWidget,
       );
       expect(find.text('Reasoning effort: Off'), findsOneWidget);
       expect(find.text('Model: deepseek-flash'), findsNothing);
     },
   );
+
+  for (final (locale, reason) in [
+    (
+      'en',
+      'This command involves disk or partition operations and is blocked in automatic approval mode.',
+    ),
+    ('zh', '命令涉及磁盘或分区操作，自动审批模式下不会执行。'),
+  ]) {
+    testWidgets('a blocked disk command explains the reason in $locale', (
+      tester,
+    ) async {
+      final event = AiProcessEvent(
+        type: AiProcessEventType.action,
+        elapsed: const Duration(seconds: 1),
+        action: AiProcessingStep(
+          name: 'run_command',
+          arguments: {'executable': 'diskpart.exe'},
+          succeeded: false,
+          output: '{"ok":false,"error_code":"command_automaticDiskWrite"}',
+        ),
+      );
+      await tester.pumpWidget(host(event, locale: locale));
+      await tester.tap(find.byType(InkWell));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widgetList<ChatCodeBlock>(find.byType(ChatCodeBlock))
+            .map((block) => block.text),
+        contains(reason),
+      );
+    });
+  }
 
   testWidgets('a web operation expands its stages, not HTTP content or JSON', (
     tester,

@@ -309,7 +309,6 @@ class _AssistantPageState extends State<AssistantPage> {
       (workspaces) => active ? workspaces?.runningCount ?? 0 : -1,
     );
     final messages = assistant.messages;
-    final deferredReplyId = assistant.deferredReplyId;
     final l10n = context.l10n;
     final ready = assistant.credentialLoaded && assistant.hasApiKey;
 
@@ -369,9 +368,7 @@ class _AssistantPageState extends State<AssistantPage> {
                                       false,
                                   onContentRangeChanged: _updateLatestButton,
                                   itemBuilder: (message) =>
-                                      message.id == deferredReplyId
-                                      ? const SizedBox.shrink()
-                                      : _messageView(message, theme),
+                                      _messageView(message, theme),
                                   onRangeChanged: (ids) =>
                                       _messageViews.removeWhere(
                                         (id, _) => !ids.contains(id),

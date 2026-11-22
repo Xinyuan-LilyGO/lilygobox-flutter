@@ -54,6 +54,11 @@ class ChatMessageBody extends StatefulWidget {
 }
 
 class _ChatMessageBodyState extends State<ChatMessageBody> {
+  static final _htmlDocumentStart = RegExp(
+    r'^\s*(?:<!doctype\s+html\b|<html(?:\s|>))',
+    caseSensitive: false,
+  );
+
   late final _selectionFocus = FocusNode(
     skipTraversal: widget.message.role == 'user',
   );
@@ -145,13 +150,19 @@ class _ChatMessageBodyState extends State<ChatMessageBody> {
         ),
       );
     }
-    final markdown = _markdown ??= _buildMarkdown(context, text);
-    if (widget.useParentSelectionArea) return markdown;
-    final body = EmptyLineSelection(child: markdown);
+    final body = _htmlDocumentStart.hasMatch(message.content)
+        ? ChatCodeBlock(
+            key: PageStorageKey('ai-message-html-${message.id}'),
+            text: message.content,
+            language: 'html',
+            theme: theme,
+          )
+        : _markdown ??= _buildMarkdown(context, text);
+    if (widget.useParentSelectionArea) return body;
     return SelectionArea(
       focusNode: _selectionFocus,
       contextMenuBuilder: AppTextSelectionMenu.buildRegion,
-      child: body,
+      child: EmptyLineSelection(child: body),
     );
   }
 

@@ -894,7 +894,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
               Symbols.compress,
               () => _compact(selected),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              enabled: !selected.busy,
+              enabled: !selected.assistant.stopRequested,
             ),
           ),
           const SizedBox(height: 16),

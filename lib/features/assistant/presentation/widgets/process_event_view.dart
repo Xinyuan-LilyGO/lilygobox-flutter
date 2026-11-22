@@ -123,9 +123,11 @@ String? aiResponseStatusLabel(
   final failed = _processEventFailed(event);
   final label = switch (event.type) {
     AiProcessEventType.status
-        when toolName == 'compact_context' &&
-            event.toolArguments?['trigger'] == 'auto' =>
-      l10n.aiAutoCompaction,
+        when inlineCompaction &&
+            toolName == 'compact_context' &&
+            event.toolArguments?['trigger'] != null =>
+      '${event.toolArguments?['trigger'] == 'auto' ? l10n.aiAutoCompaction : l10n.aiManualCompaction} · '
+          '${aiResponseStatusLabel(context, event.status) ?? l10n.aiProcessCompleted}',
     AiProcessEventType.status =>
       aiResponseStatusLabel(context, event.status, toolName: toolName) ??
           l10n.aiProcessCompleted,
@@ -334,6 +336,9 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
         ? _compactionErrorDetails(context, action!)
         : null;
     final processResult = action == null ? null : _processResult(action);
+    final approvalError = failed && action != null
+        ? _approvalErrorDetails(context, action.output)
+        : null;
     final questionDetails = action?.name == 'request_user_input'
         ? _questionAnswerDetails(context, action!)
         : null;
@@ -355,6 +360,12 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
             )
             .firstOrNull ??
         approvalStages.firstOrNull;
+    final compactionStage =
+        widget.inlineCompaction && toolName == 'compact_context'
+        ? widget.operationEvents
+              .where((stage) => stage.model != null)
+              .lastOrNull
+        : null;
     final stages = widget.operationEvents.where(
       (step) =>
           (widget.inlineCompaction || !identical(step, event)) &&
@@ -378,6 +389,8 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
         (title: l10n.aiOperationError, text: aiErrorText(l10n, failure))
       else if (compactionError != null)
         (title: l10n.aiOperationError, text: compactionError)
+      else if (approvalError != null)
+        (title: l10n.aiOperationError, text: approvalError)
       else if (action != null &&
           !questionCancelled &&
           !requestTimedOut &&
@@ -400,6 +413,7 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
             compactionError != null ||
             questionDetails != null ||
             approvalStage != null ||
+            compactionStage != null ||
             event.text.isNotEmpty ||
             (action != null && target is String) ||
             failure != null ||
@@ -551,11 +565,18 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          if (approvalStage?.model case final model?) ...[
+                          if ((compactionStage ?? approvalStage)?.model
+                              case final model?) ...[
                             Text(
-                              approvalStage?.status ==
-                                      AiResponseStatus.reviewingPermission
-                                  ? l10n.aiResponseModel(model)
+                              compactionStage != null
+                                  ? (compactionStage
+                                                .toolArguments?['trigger'] ==
+                                            'auto'
+                                        ? l10n.aiAutoCompactionModel(model)
+                                        : l10n.aiManualCompactionModel(model))
+                                  : approvalStage?.status ==
+                                        AiResponseStatus.reviewingPermission
+                                  ? l10n.aiPermissionApprovalModelUsed(model)
                                   : l10n.aiPermissionApprovalModelNotUsed(
                                       model,
                                     ),
@@ -564,7 +585,8 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
                                 fontSize: 12,
                               ),
                             ),
-                            if (approvalStage?.reasoningEffort
+                            if ((compactionStage ?? approvalStage)
+                                    ?.reasoningEffort
                                 case final effort?)
                               Padding(
                                 padding: const EdgeInsets.only(top: 4),
@@ -585,6 +607,7 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
                               event: stage,
                               theme: theme,
                               detailsEnabled: false,
+                              inlineCompaction: false,
                             ),
                           for (final section in sections) ...[
                             if (section.title case final sectionTitle?)
@@ -686,11 +709,64 @@ String formatAiElapsed(Duration duration) {
   return hours == 0 ? time : '${twoDigits(hours)}:$time';
 }
 
-String formatCompactionDuration(BuildContext context, Duration duration) =>
-    context.l10n.aiCompactionDuration(
-      (duration.inMicroseconds / Duration.microsecondsPerSecond)
-          .toStringAsFixed(1),
-    );
+String? _approvalErrorDetails(BuildContext context, String output) {
+  if (!output.startsWith('{')) return null;
+  final l10n = context.l10n;
+  try {
+    final value = jsonDecode(output);
+    if (value case {
+      'error_code': 'automatic_approval_not_granted',
+      'reason_code': final String code,
+    }) {
+      final finishReason = value['finish_reason'];
+      final reason = switch (code) {
+        'denied_by_reviewer' => switch (value['untrusted_reviewer_reason']) {
+          final String reason when reason.isNotEmpty => reason,
+          _ => l10n.aiPermissionReviewNoReason,
+        },
+        'protected_target' => l10n.aiPermissionReviewProtectedTarget,
+        'missing_human_authorization' ||
+        'missing_delegated_authorization' ||
+        'delegated_authorization_expired' =>
+          l10n.aiPermissionReviewNoAuthorization,
+        'review_evidence_too_large' => l10n.aiPermissionReviewEvidenceTooLarge,
+        'review_model_unavailable' => l10n.aiPermissionReviewModelUnavailable,
+        'invalid_review_response' => switch (value['review_response_issue']) {
+          'unexpected_tool_calls' => l10n.aiPermissionReviewUnexpectedToolCalls,
+          'empty_decision' => l10n.aiPermissionReviewEmptyDecision,
+          'decision_format' => l10n.aiPermissionReviewDecisionFormat,
+          'invalid_service_response' =>
+            l10n.aiPermissionReviewInvalidServiceResponse,
+          _ => l10n.aiPermissionReviewInvalidResponse,
+        },
+        'incomplete_review_response' => switch (finishReason) {
+          'length' || 'max_output_tokens' => l10n.aiPermissionReviewOutputLimit,
+          _ => l10n.aiPermissionReviewIncompleteResponse,
+        },
+        'review_timed_out' => l10n.aiPermissionReviewTimedOut,
+        'review_service_error' => l10n.aiPermissionReviewServiceError,
+        'review_cancelled' => l10n.aiPermissionReviewCancelled,
+        _ => l10n.aiPermissionReviewFailed,
+      };
+      return [
+        reason,
+        if (value['http_status'] case final int status) 'HTTP $status',
+        if (code == 'incomplete_review_response') ...[
+          if (finishReason case final String reason)
+            l10n.aiModelFinishReason(reason),
+          if (value['output_limit'] case final int limit)
+            switch (value['output_tokens']) {
+              final int used => l10n.aiModelOutputUsage(used, limit),
+              _ => l10n.aiModelOutputLimit(limit),
+            },
+        ],
+      ].join('\n');
+    }
+  } on FormatException {
+    return null;
+  }
+  return null;
+}
 
 String _aiActionSummary(
   BuildContext context,
@@ -790,19 +866,19 @@ String _operationResultLabel(
         : l10n.aiApprovalTimedOut;
   }
   final args = action.arguments;
-  if (action.name == 'compact_context' &&
-      inlineCompaction &&
-      args['trigger'] == 'auto') {
-    return [
-      l10n.aiAutoCompaction,
-      if (args['outcome'] == 'cancelled') l10n.aiCompactionCancelledStatus,
-      if (args['outcome'] == 'failed') l10n.aiCompactionFailed,
-      if (args['outcome'] == 'unchanged') l10n.aiCompactionUnchanged,
-      if (args['durationMicros'] case final int micros)
-        formatCompactionDuration(context, Duration(microseconds: micros)),
-    ].join(' · ');
-  }
   if (action.name == 'compact_context') {
+    if (inlineCompaction && args['trigger'] != null) {
+      final trigger = args['trigger'] == 'auto'
+          ? l10n.aiAutoCompaction
+          : l10n.aiManualCompaction;
+      final result = switch (args['outcome']) {
+        'cancelled' => l10n.aiCompactionCancelledStatus,
+        'failed' => l10n.aiCompactionFailed,
+        'unchanged' => l10n.aiCompactionUnchanged,
+        _ => l10n.aiProcessCompleted,
+      };
+      return '$trigger · $result';
+    }
     if (args['outcome'] == 'cancelled') return l10n.aiCompactionCancelledStatus;
     if (args['outcome'] == 'unchanged') return l10n.aiCompactionUnchanged;
     if (args['outcome'] == 'failed') return l10n.aiCompactionFailed;
@@ -968,11 +1044,11 @@ String _compactionErrorDetails(BuildContext context, AiProcessingStep action) {
         when !action.output.contains(code))
       l10n.aiCompactionProviderCode(code),
     if (args['finishReason'] case final String reason)
-      l10n.aiCompactionFinishReason(reason),
+      l10n.aiModelFinishReason(reason),
     if (args['outputLimit'] case final int limit)
       switch (args['outputTokens']) {
-        final int used => l10n.aiCompactionOutputUsage(used, limit),
-        _ => l10n.aiCompactionOutputLimit(limit),
+        final int used => l10n.aiModelOutputUsage(used, limit),
+        _ => l10n.aiModelOutputLimit(limit),
       },
   ].join('\n');
 }

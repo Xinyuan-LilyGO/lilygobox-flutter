@@ -27,6 +27,14 @@ class AiRequestException implements Exception {
   String toString() => message;
 }
 
+class AiIncompleteResponseException extends AiRequestException {
+  const AiIncompleteResponseException({this.finishReason, this.usage})
+    : super(finishReason ?? 'Incomplete response', code: finishReason);
+
+  final String? finishReason;
+  final AiTokenUsage? usage;
+}
+
 class ChatCompletionClient {
   ChatCompletionClient({
     http.Client? client,
@@ -340,9 +348,15 @@ class ChatCompletionClient {
           final response = decoded['response'];
           if (response is Map) {
             _checkResponsesFailure(response);
-            if (_responseIncompleteReason(response) case final reason?) {
-              throw AiRequestException(reason, code: reason);
+            if (type == 'response.incomplete') {
+              throw AiIncompleteResponseException(
+                finishReason: _responseIncompleteReason(response),
+                usage: _parseUsage(response['usage'], responses: true),
+              );
             }
+          }
+          if (type == 'response.incomplete') {
+            throw const AiIncompleteResponseException();
           }
           throw const AiConfigurationException(AiProblem.invalidResponse);
         }
@@ -922,7 +936,9 @@ class ChatCompletionClient {
       reasoning: reasoning.toString(),
       toolCalls: calls,
       usage: _parseUsage(decoded['usage'], responses: true),
-      finishReason: _responseIncompleteReason(decoded),
+      finishReason:
+          _responseIncompleteReason(decoded) ??
+          (decoded['status'] == 'incomplete' ? 'incomplete' : null),
       responseItems: [
         for (final item in output.whereType<Map>())
           Map<String, Object?>.from(item),

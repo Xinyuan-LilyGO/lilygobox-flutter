@@ -3711,25 +3711,31 @@ abstract class AppLocalizations {
   /// No description provided for @aiPermissionAutomaticSummary.
   ///
   /// In en, this message translates to:
-  /// **'Model approves eligible actions.'**
+  /// **'Model reviews tool actions.'**
   String get aiPermissionAutomaticSummary;
 
   /// No description provided for @aiPermissionApprovalModel.
   ///
   /// In en, this message translates to:
-  /// **'Approval model'**
+  /// **'Automatic approval model'**
   String get aiPermissionApprovalModel;
 
-  /// Shows which approval model was configured for a tool decision made without calling the model.
+  /// Identifies the model used to automatically review a tool action.
   ///
   /// In en, this message translates to:
-  /// **'Configured approval model: {model} (not called)'**
+  /// **'Automatic approval model: {model}'**
+  String aiPermissionApprovalModelUsed(String model);
+
+  /// Identifies the automatic approval model that was configured but not called.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic approval model: {model} (not called)'**
   String aiPermissionApprovalModelNotUsed(String model);
 
   /// No description provided for @aiPermissionApprovalModelHelp.
   ///
   /// In en, this message translates to:
-  /// **'Defaults to the current chat model. The model uses this turn’s request and target path to decide whether to allow eligible actions. Actions it does not approve are blocked without a manual prompt.'**
+  /// **'Defaults to the current chat model. The reviewer uses the user’s request and the proposed operation to decide whether to allow tool actions, including commands. Actions blocked by app rules or not approved by the model do not run and do not prompt for manual approval.'**
   String get aiPermissionApprovalModelHelp;
 
   /// No description provided for @aiAuxiliaryModelUnavailable.
@@ -3897,7 +3903,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiPermissionReviewDenied.
   ///
   /// In en, this message translates to:
-  /// **'Denied by the approval model'**
+  /// **'Denied by the automatic approval model'**
   String get aiPermissionReviewDenied;
 
   /// No description provided for @aiPermissionReviewFailed.
@@ -4235,6 +4241,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A forbidden rule blocked this command. It was not executed.'**
   String get aiCommandPolicyForbidden;
+
+  /// No description provided for @aiCommandPolicyAutomaticDiskWrite.
+  ///
+  /// In en, this message translates to:
+  /// **'This command involves disk or partition operations and is blocked in automatic approval mode.'**
+  String get aiCommandPolicyAutomaticDiskWrite;
 
   /// No description provided for @aiCommandPolicyInvalidRules.
   ///
@@ -5460,6 +5472,102 @@ abstract class AppLocalizations {
   /// **'Automatic context compaction'**
   String get aiAutoCompaction;
 
+  /// No description provided for @aiPermissionReviewNoReason.
+  ///
+  /// In en, this message translates to:
+  /// **'The approval model denied the operation without giving a reason.'**
+  String get aiPermissionReviewNoReason;
+
+  /// No description provided for @aiPermissionReviewProtectedTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'The target is protected by application policy. The operation was not sent for review.'**
+  String get aiPermissionReviewProtectedTarget;
+
+  /// No description provided for @aiPermissionReviewNoAuthorization.
+  ///
+  /// In en, this message translates to:
+  /// **'This operation has no current authorization from the user. The operation was not sent for review.'**
+  String get aiPermissionReviewNoAuthorization;
+
+  /// No description provided for @aiPermissionReviewEvidenceTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'The operation details exceed the review size limit. The operation was not sent for review.'**
+  String get aiPermissionReviewEvidenceTooLarge;
+
+  /// No description provided for @aiPermissionReviewModelUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The selected approval model is unavailable. Check its service and API key.'**
+  String get aiPermissionReviewModelUnavailable;
+
+  /// No description provided for @aiPermissionReviewInvalidResponse.
+  ///
+  /// In en, this message translates to:
+  /// **'No valid automatic approval decision was received.'**
+  String get aiPermissionReviewInvalidResponse;
+
+  /// No description provided for @aiPermissionReviewUnexpectedToolCalls.
+  ///
+  /// In en, this message translates to:
+  /// **'The automatic approval model returned a tool call instead of a decision.'**
+  String get aiPermissionReviewUnexpectedToolCalls;
+
+  /// No description provided for @aiPermissionReviewEmptyDecision.
+  ///
+  /// In en, this message translates to:
+  /// **'The automatic approval response did not contain a decision.'**
+  String get aiPermissionReviewEmptyDecision;
+
+  /// No description provided for @aiPermissionReviewDecisionFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'The automatic approval decision did not match the expected format.'**
+  String get aiPermissionReviewDecisionFormat;
+
+  /// No description provided for @aiPermissionReviewInvalidServiceResponse.
+  ///
+  /// In en, this message translates to:
+  /// **'The automatic approval service returned an unreadable response.'**
+  String get aiPermissionReviewInvalidServiceResponse;
+
+  /// No description provided for @aiPermissionReviewIncompleteResponse.
+  ///
+  /// In en, this message translates to:
+  /// **'The automatic approval model did not finish returning its decision.'**
+  String get aiPermissionReviewIncompleteResponse;
+
+  /// No description provided for @aiPermissionReviewOutputLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'The automatic approval model reached its output token limit before finishing its decision.'**
+  String get aiPermissionReviewOutputLimit;
+
+  /// No description provided for @aiPermissionReviewTimedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'The approval model did not respond in time.'**
+  String get aiPermissionReviewTimedOut;
+
+  /// No description provided for @aiPermissionReviewServiceError.
+  ///
+  /// In en, this message translates to:
+  /// **'The approval model service returned an error.'**
+  String get aiPermissionReviewServiceError;
+
+  /// No description provided for @aiAutoCompactionModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic compaction model: {model}'**
+  String aiAutoCompactionModel(String model);
+
+  /// No description provided for @aiManualCompactionModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual compaction model: {model}'**
+  String aiManualCompactionModel(String model);
+
   /// No description provided for @aiCompactionDuration.
   ///
   /// In en, this message translates to:
@@ -5526,11 +5634,11 @@ abstract class AppLocalizations {
   /// **'No specific reason was recorded for this attempt.'**
   String get aiCompactionNoRecordedReason;
 
-  /// No description provided for @aiCompactionFinishReason.
+  /// No description provided for @aiModelFinishReason.
   ///
   /// In en, this message translates to:
   /// **'Model finish reason: {reason}'**
-  String aiCompactionFinishReason(String reason);
+  String aiModelFinishReason(String reason);
 
   /// No description provided for @aiCompactionProviderCode.
   ///
@@ -5538,17 +5646,17 @@ abstract class AppLocalizations {
   /// **'Service error code: {code}'**
   String aiCompactionProviderCode(String code);
 
-  /// No description provided for @aiCompactionOutputLimit.
+  /// No description provided for @aiModelOutputLimit.
   ///
   /// In en, this message translates to:
   /// **'Requested output limit: {limit} tokens'**
-  String aiCompactionOutputLimit(int limit);
+  String aiModelOutputLimit(int limit);
 
-  /// No description provided for @aiCompactionOutputUsage.
+  /// No description provided for @aiModelOutputUsage.
   ///
   /// In en, this message translates to:
   /// **'Output reported by the model: {used} tokens (requested limit: {limit})'**
-  String aiCompactionOutputUsage(int used, int limit);
+  String aiModelOutputUsage(int used, int limit);
 
   /// No description provided for @aiCompactionCancelledStatus.
   ///

@@ -2079,19 +2079,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiPermissionAutomatic => 'Automatic approval';
 
   @override
-  String get aiPermissionAutomaticSummary => 'Model approves eligible actions.';
+  String get aiPermissionAutomaticSummary => 'Model reviews tool actions.';
 
   @override
-  String get aiPermissionApprovalModel => 'Approval model';
+  String get aiPermissionApprovalModel => 'Automatic approval model';
+
+  @override
+  String aiPermissionApprovalModelUsed(String model) {
+    return 'Automatic approval model: $model';
+  }
 
   @override
   String aiPermissionApprovalModelNotUsed(String model) {
-    return 'Configured approval model: $model (not called)';
+    return 'Automatic approval model: $model (not called)';
   }
 
   @override
   String get aiPermissionApprovalModelHelp =>
-      'Defaults to the current chat model. The model uses this turn’s request and target path to decide whether to allow eligible actions. Actions it does not approve are blocked without a manual prompt.';
+      'Defaults to the current chat model. The reviewer uses the user’s request and the proposed operation to decide whether to allow tool actions, including commands. Actions blocked by app rules or not approved by the model do not run and do not prompt for manual approval.';
 
   @override
   String aiAuxiliaryModelUnavailable(String model) {
@@ -2183,7 +2188,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiPermissionReviewApproved => 'Approved automatically';
 
   @override
-  String get aiPermissionReviewDenied => 'Denied by the approval model';
+  String get aiPermissionReviewDenied =>
+      'Denied by the automatic approval model';
 
   @override
   String get aiPermissionReviewFailed => 'Automatic approval failed';
@@ -2367,6 +2373,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get aiCommandPolicyForbidden =>
       'A forbidden rule blocked this command. It was not executed.';
+
+  @override
+  String get aiCommandPolicyAutomaticDiskWrite =>
+      'This command involves disk or partition operations and is blocked in automatic approval mode.';
 
   @override
   String get aiCommandPolicyInvalidRules =>
@@ -3068,6 +3078,72 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiAutoCompaction => 'Automatic context compaction';
 
   @override
+  String get aiPermissionReviewNoReason =>
+      'The approval model denied the operation without giving a reason.';
+
+  @override
+  String get aiPermissionReviewProtectedTarget =>
+      'The target is protected by application policy. The operation was not sent for review.';
+
+  @override
+  String get aiPermissionReviewNoAuthorization =>
+      'This operation has no current authorization from the user. The operation was not sent for review.';
+
+  @override
+  String get aiPermissionReviewEvidenceTooLarge =>
+      'The operation details exceed the review size limit. The operation was not sent for review.';
+
+  @override
+  String get aiPermissionReviewModelUnavailable =>
+      'The selected approval model is unavailable. Check its service and API key.';
+
+  @override
+  String get aiPermissionReviewInvalidResponse =>
+      'No valid automatic approval decision was received.';
+
+  @override
+  String get aiPermissionReviewUnexpectedToolCalls =>
+      'The automatic approval model returned a tool call instead of a decision.';
+
+  @override
+  String get aiPermissionReviewEmptyDecision =>
+      'The automatic approval response did not contain a decision.';
+
+  @override
+  String get aiPermissionReviewDecisionFormat =>
+      'The automatic approval decision did not match the expected format.';
+
+  @override
+  String get aiPermissionReviewInvalidServiceResponse =>
+      'The automatic approval service returned an unreadable response.';
+
+  @override
+  String get aiPermissionReviewIncompleteResponse =>
+      'The automatic approval model did not finish returning its decision.';
+
+  @override
+  String get aiPermissionReviewOutputLimit =>
+      'The automatic approval model reached its output token limit before finishing its decision.';
+
+  @override
+  String get aiPermissionReviewTimedOut =>
+      'The approval model did not respond in time.';
+
+  @override
+  String get aiPermissionReviewServiceError =>
+      'The approval model service returned an error.';
+
+  @override
+  String aiAutoCompactionModel(String model) {
+    return 'Automatic compaction model: $model';
+  }
+
+  @override
+  String aiManualCompactionModel(String model) {
+    return 'Manual compaction model: $model';
+  }
+
+  @override
   String aiCompactionDuration(String seconds) {
     return 'Took $seconds s';
   }
@@ -3111,7 +3187,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'No specific reason was recorded for this attempt.';
 
   @override
-  String aiCompactionFinishReason(String reason) {
+  String aiModelFinishReason(String reason) {
     return 'Model finish reason: $reason';
   }
 
@@ -3121,12 +3197,12 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String aiCompactionOutputLimit(int limit) {
+  String aiModelOutputLimit(int limit) {
     return 'Requested output limit: $limit tokens';
   }
 
   @override
-  String aiCompactionOutputUsage(int used, int limit) {
+  String aiModelOutputUsage(int used, int limit) {
     return 'Output reported by the model: $used tokens (requested limit: $limit)';
   }
 

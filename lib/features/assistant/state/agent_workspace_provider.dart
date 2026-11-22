@@ -1199,9 +1199,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
       'version': 1,
       'selectedId': null,
       'recycleRetentionDays': _recycleRetentionDays,
-      'recycleBin': [
-        for (final entry in _recycledAgents) entry.toJson(),
-      ],
+      'recycleBin': [for (final entry in _recycledAgents) entry.toJson()],
       'canvas': canvasPositions,
       'canvasOrigin': [canvasOrigin.dx, canvasOrigin.dy],
       'connections': [
@@ -1786,6 +1784,11 @@ class AiWorkspaceProvider extends ChangeNotifier {
               sourceTitle: sender?.title ?? 'main',
               sourceKind: sender?.kind.name,
               content: session.task,
+              delegatedApproval: _delegateApproval(
+                senderId,
+                session,
+                session.task,
+              ),
             )
             .whenComplete(_notify),
       );
@@ -2272,6 +2275,53 @@ class AiWorkspaceProvider extends ChangeNotifier {
     _notify();
   }
 
+  AiDelegatedApproval? _delegateApproval(
+    String? sourceId,
+    AiAgentWorkspace target,
+    String text,
+  ) {
+    if (sourceId == null || sourceId == target.id) return null;
+    final source = find(sourceId);
+    final caller = sourceId == 'main' ? main : source?.assistant;
+    final approval = caller?.captureDelegatedApproval();
+    if (approval == null || approval.assignments.length >= 8) return null;
+    final rootId = _rootId(sourceId);
+    bool isCurrent() {
+      if (_disposed ||
+          !identical(find(target.id), target) ||
+          target.closed ||
+          (sourceId != 'main' &&
+              (source == null ||
+                  source.closed ||
+                  !identical(find(sourceId), source))) ||
+          _rootId(sourceId) != rootId ||
+          _rootId(target.id) != rootId ||
+          !approval.isCurrent()) {
+        return false;
+      }
+      if (target.parentId == sourceId || sourceId == rootId) return true;
+      if (source?.parentId != target.id || approval.assignments.isEmpty) {
+        return false;
+      }
+      AiAgentWorkspace? ancestor = target;
+      while (ancestor != null) {
+        if (identical(ancestor.assistant, approval.origin)) return true;
+        final parentId = ancestor.parentId;
+        if (parentId == 'main') return identical(main, approval.origin);
+        ancestor = parentId == null ? null : find(parentId);
+      }
+      return false;
+    }
+
+    if (!isCurrent()) return null;
+    return (
+      origin: approval.origin,
+      request: approval.request,
+      assignments: List.unmodifiable([...approval.assignments, text]),
+      isCurrent: isCurrent,
+    );
+  }
+
   // 公共入口供界面与测试查询；模型始终使用绑定来源主智能体的私有闭包。
   Future<Map<String, Object?>> executeTool(
     String name,
@@ -2595,6 +2645,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
                 sourceTitle: source?.title ?? 'main',
                 sourceKind: source?.kind.name,
                 content: text,
+                delegatedApproval: _delegateApproval(sourceId, target, text),
                 steer: guide,
               )
               .whenComplete(_notify),

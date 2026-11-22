@@ -17,6 +17,7 @@ import 'package:lilygobox/features/assistant/data/conversation_codec.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 import 'package:lilygobox/features/assistant/state/agent_workspace.dart';
+import 'package:lilygobox/features/assistant/state/provider.dart';
 
 import 'assistant_test_scope.dart';
 
@@ -381,27 +382,31 @@ void main() {
     },
   );
 
-  test('DeepSeek compaction budgets output by batch, including prior summary', () {
-    final small = compactionBatchBudget(
-      compactionPayload('', ['"Brief context"']),
-      baseLimit: 625,
-      deepSeekThinking: true,
-    );
-    final withSummary = compactionBatchBudget(
-      compactionPayload('Prior decision. ' * 650, ['"Brief context"']),
-      baseLimit: 625,
-      deepSeekThinking: true,
-    );
-    expect(small.maxTokens, 2048);
-    expect(withSummary.maxTokens, greaterThan(small.maxTokens));
-    expect(withSummary.maxTokens, lessThanOrEqualTo(4096));
-    expect(withSummary.instruction, contains('at most 312 tokens'));
-  });
+  test(
+    'DeepSeek compaction budgets output by batch, including prior summary',
+    () {
+      final small = compactionBatchBudget(
+        compactionPayload('', ['"Brief context"']),
+        baseLimit: 625,
+        deepSeekThinking: true,
+      );
+      final withSummary = compactionBatchBudget(
+        compactionPayload('Prior decision. ' * 650, ['"Brief context"']),
+        baseLimit: 625,
+        deepSeekThinking: true,
+      );
+      expect(small.maxTokens, 2048);
+      expect(withSummary.maxTokens, greaterThan(small.maxTokens));
+      expect(withSummary.maxTokens, lessThanOrEqualTo(4096));
+      expect(withSummary.instruction, contains('at most 312 tokens'));
+    },
+  );
 
   Future<void> checkStreamingCompactions({
     bool stopFirst = false,
     bool failSecond = false,
     bool recoverSecond = false,
+    bool manualFirst = false,
   }) async {
     final theme = ThemeProvider();
     final language = LanguageProvider();
@@ -529,6 +534,11 @@ void main() {
     scope.provider.contextCompactionPercent = 90;
     var pending = scope.provider.sendMessage('Current request');
     AiMessage? stoppedCompaction;
+    String? stoppedOperationId;
+    List<AiProcessEvent> compactEvents(AiMessage message) => message
+        .processEvents
+        .where((event) => event.action?.name == 'compact_context')
+        .toList();
     final initialUsage = scope.provider.estimatedContextTokens;
     for (var index = 0; index < 12; index++) {
       streams.first.add(
@@ -554,16 +564,25 @@ void main() {
           })}\n\n',
         ),
       );
+      final manual = manualFirst && index == 0
+          ? scope.provider.compactContext()
+          : null;
+      if (manual != null) {
+        expect(await manual, AiContextCompactionOutcome.compacted);
+      }
       if (stopFirst && index == 0) {
         await firstSummaryStarted.future;
         scope.provider.stopGeneration();
         await pending;
         firstSummaryCanReturn.complete();
         stoppedCompaction = scope.provider.messages.last;
-        expect(stoppedCompaction.role, 'compaction');
+        expect(stoppedCompaction.role, 'assistant');
+        stoppedOperationId = compactEvents(stoppedCompaction)
+            .single
+            .operationId;
         expect(stoppedCompaction.status, AiResponseStatus.stopped);
         expect(scope.provider.canContinue, isTrue);
-        expect(scope.provider.messages.length, 3);
+        expect(scope.provider.messages.length, 2);
         expect(requests, hasLength(1));
         expect(
           scope.provider.snapshotWorkspaceConversation()['summary'],
@@ -596,15 +615,30 @@ void main() {
       expect(firstLimit, inInclusiveRange(2048, 4096));
       expect(retry['max_tokens'], firstLimit * 2);
       expect(retry['messages'], first['messages']);
-      expect(jsonEncode(retry['messages']), isNot(contains('Truncated summary')));
-      expect(jsonEncode(first['messages']), contains('Preserve decisions and progress.'));
-      final record = scope.provider.messages.where(
-        (message) => message.role == 'compaction',
-      ).last;
-      expect(record.retries.single.error, isA<AiCompactionException>());
+      expect(
+        jsonEncode(retry['messages']),
+        isNot(contains('Truncated summary')),
+      );
+      expect(
+        jsonEncode(first['messages']),
+        contains('Preserve decisions and progress.'),
+      );
+      final record = scope.provider.messages.last;
+      final event = compactEvents(record).last;
+      expect(
+        record.processEvents
+            .singleWhere(
+              (candidate) =>
+                  candidate.operationId == event.operationId &&
+                  candidate.retry != null,
+            )
+            .retry!
+            .error,
+        isA<AiCompactionException>(),
+      );
       if (failSecond) {
         expect(secondAttempts, hasLength(2));
-        expect(record.processingSteps.single.arguments['outputLimit'], firstLimit * 2);
+        expect(event.action!.arguments['outputLimit'], firstLimit * 2);
       } else {
         expect(record.status, AiResponseStatus.completed);
         expect(requests, hasLength(3));
@@ -613,25 +647,18 @@ void main() {
     if (failSecond) {
       expect(requests, hasLength(2));
       expect(summaries.last, contains('Preserve decisions and progress.'));
-      final compactions = scope.provider.messages.where(
-        (message) => message.role == 'compaction',
-      );
-      expect(compactions.map((message) => message.status), [
-        AiResponseStatus.completed,
-        AiResponseStatus.failed,
+      final response = scope.provider.messages.last;
+      final compactions = compactEvents(response);
+      expect(compactions.map((event) => event.action!.succeeded), [
+        true,
+        false,
       ]);
       expect(
-        compactions.last.processingSteps.single.arguments,
+        compactions.last.action!.arguments,
         containsPair('compactionIssue', 'outputLimit'),
       );
-      final replies = scope.provider.messages.where(
-        (message) => message.role == 'assistant',
-      );
-      expect(replies.map((message) => message.content), [
-        '${'a' * 12}${outputs.first}',
-        outputs.last,
-      ]);
-      expect(replies.last.status, AiResponseStatus.failed);
+      expect(response.content, '${'a' * 12}${outputs.join()}');
+      expect(response.status, AiResponseStatus.failed);
       expect(scope.provider.canContinue, isFalse);
       expect(
         scope.provider.snapshotWorkspaceConversation()['summary'],
@@ -642,18 +669,20 @@ void main() {
     expect(scope.provider.messages.map((message) => message.role), [
       'user',
       'assistant',
-      'compaction',
-      'assistant',
-      'compaction',
-      'assistant',
+    ]);
+    final response = scope.provider.messages.last;
+    final compactions = compactEvents(response);
+    expect(compactions.map((event) => event.operationId).toSet(), hasLength(2));
+    expect(compactions.map((event) => event.action!.arguments['trigger']), [
+      manualFirst ? 'manual' : 'auto',
+      'auto',
     ]);
     expect(
-      scope.provider.messages
-          .where((message) => message.role == 'assistant')
-          .map((message) => message.content),
-      ['${'a' * 12}${outputs.first}', outputs.last, 'CONTINUED'],
+      response.elapsed!,
+      greaterThanOrEqualTo(
+        compactions.first.elapsed + compactions.last.elapsed,
+      ),
     );
-    expect(scope.provider.messages.last.content, 'CONTINUED');
     final agent = AiAgentWorkspace(
       id: 'child',
       title: 'Child',
@@ -662,14 +691,16 @@ void main() {
       createdAt: DateTime.now(),
     );
     final combinedReply = '${'a' * 12}${outputs.join()}CONTINUED';
+    expect(response.content, combinedReply);
     expect(agent.toToolResult()['result'], combinedReply);
     if (stoppedCompaction != null) {
-      final resumed = scope.provider.messages[2];
+      final resumed = response;
       expect(resumed.id, stoppedCompaction.id);
       expect(resumed.createdAt, stoppedCompaction.createdAt);
       expect(resumed.elapsed, greaterThan(stoppedCompaction.elapsed!));
       expect(resumed.status, AiResponseStatus.completed);
-      expect(resumed.processingSteps.single.arguments['outcome'], 'compacted');
+      expect(compactions.first.operationId, stoppedOperationId);
+      expect(compactions.first.action!.arguments['outcome'], 'compacted');
       expect(summaries[1], summaries[0]);
     }
     for (final (index, messages) in requests.skip(1).indexed) {
@@ -714,118 +745,161 @@ void main() {
     checkStreamingCompactions,
   );
 
-  test('history search keeps the reply checkpoint and finishes before compaction', () async {
-    final theme = ThemeProvider();
-    final language = LanguageProvider();
-    final shell = AppShellProvider();
-    final splitView = SplitViewProvider();
-    final partial = StreamController<List<int>>();
-    final duringCompaction = Completer<void>();
-    final finishCompaction = Completer<void>();
-    final requests = <List<dynamic>>[];
-    var compactions = 0;
-    List<int> delta(Map<String, Object?> value) => utf8.encode(
-      'data: ${jsonEncode({'choices': [ {'delta': value} ]})}\n\n',
-    );
-    final scope = await createAssistantTestScope(
-      theme: theme,
-      language: language,
-      shell: shell,
-      splitView: splitView,
-      client: MockClient.streaming((request, body) async {
-        final payload = jsonDecode(utf8.decode(await body.toBytes())) as Map<String, dynamic>;
-        final messages = payload['messages'] as List;
-        if ((messages.first['content'] as String).startsWith('Summarize')) {
-          if (++compactions == 2) {
-            duringCompaction.complete();
-            await finishCompaction.future;
-          }
-          return http.StreamedResponse(Stream.value(delta({'content': 'Compact handoff.'})), 200);
-        }
-        requests.add(messages);
-        if (requests.length == 1) return http.StreamedResponse(partial.stream, 200);
-        final output = switch (requests.length) {
-          2 || 3 => {
-            'tool_calls': [
-              {
-                'index': 0,
-                'id': 'search-${requests.length}',
-                'function': {
-                  'name': 'search_chat_history',
-                  'arguments': jsonEncode({'query': requests.length == 2 ? 'no-match' : 'retrievable'}),
-                },
-              },
-            ],
-          },
-          _ => {'content': 'ONLY THE NEXT TEXT'},
-        };
-        return http.StreamedResponse(Stream.value(delta(output)), 200);
-      }),
-    );
-    addTearDown(() {
-      if (!finishCompaction.isCompleted) finishCompaction.complete();
-      scope.dispose();
-      unawaited(partial.close());
-      theme.dispose();
-      language.dispose();
-      shell.dispose();
-      splitView.dispose();
-    });
-    final provider = scope.provider;
-    await provider.initialized;
-    final service = await provider.saveService(
-      name: 'Test',
-      protocol: AiApiProtocol.openAiChatCompletions,
-      baseUrl: 'https://example.test/v1',
-      models: ['test-model'],
-      apiKey: 'test-key',
-    );
-    await provider.selectModel(service, 'test-model');
-    provider.restoreWorkspaceConversation({
-      'messages': [
-        for (var index = 0; index < 6; index++)
-          ConversationCodec.message(
-            AiMessage(id: 'archived-$index', role: 'assistant', content: 'retrievable ${'界' * 700}'),
-          ),
-      ],
-      'history': [
-        {'role': 'user', 'content': 'Archived request'},
-        {'role': 'assistant', 'content': 'Archived reply'},
-      ],
-    });
-    provider.contextBudgetTokens = 1000;
-    provider.contextCompactionPercent = 90;
-    final pending = provider.sendMessage('Continue the document');
-    partial.add(delta({'content': 'DOCUMENT START\n${'界' * 1000}\nPARTIAL-END'}));
-    await duringCompaction.future.timeout(const Duration(seconds: 5));
-    final searches = provider.messages.lastWhere((message) => message.processingSteps.any(
-      (step) => step.name == 'search_chat_history',
-    ));
-    expect(searches.processingSteps.map((step) => step.succeeded), [true, true]);
-    expect(searches.finishedAt, isNotNull);
-    final searchIndex = provider.messages.indexOf(searches);
-    expect(provider.messages[searchIndex + 1].role, 'compaction');
-    expect(provider.messages[searchIndex + 1].finishedAt, isNull);
-    await Future<void>.delayed(const Duration(milliseconds: 1050));
-    expect(requests, hasLength(3));
-    expect(provider.messages[searchIndex].elapsed, searches.elapsed);
-    expect(provider.messages[searchIndex + 1].elapsed, greaterThan(Duration.zero));
+  test(
+    'manual compaction pauses and resumes the same streamed reply',
+    () => checkStreamingCompactions(manualFirst: true),
+  );
 
-    finishCompaction.complete();
-    await pending.timeout(const Duration(seconds: 5));
-    expect(compactions, 2);
-    expect(requests, hasLength(4));
-    expect(requests[2].last, containsPair('tool_call_id', 'search-2'));
-    for (final messages in requests.skip(1)) {
-      expect(jsonEncode(messages), contains('Resume the same in-progress user turn'));
-      expect(jsonEncode(messages), contains('PARTIAL-END'));
-    }
-    expect(jsonEncode(requests.last), contains('Last visible assistant excerpt'));
-    expect(jsonEncode(requests.last), isNot(contains('DOCUMENT START')));
-    expect(provider.messages.last.content, 'ONLY THE NEXT TEXT');
-    await provider.sendMessage('New turn');
-    expect(jsonEncode(requests.last), isNot(contains('Resume the same in-progress user turn')));
-  });
+  test(
+    'history search keeps the reply checkpoint and finishes before compaction',
+    () async {
+      final theme = ThemeProvider();
+      final language = LanguageProvider();
+      final shell = AppShellProvider();
+      final splitView = SplitViewProvider();
+      final partial = StreamController<List<int>>();
+      final duringCompaction = Completer<void>();
+      final finishCompaction = Completer<void>();
+      final requests = <List<dynamic>>[];
+      var compactions = 0;
+      List<int> delta(Map<String, Object?> value) => utf8.encode(
+        'data: ${jsonEncode({
+          'choices': [
+            {'delta': value},
+          ],
+        })}\n\n',
+      );
+      final scope = await createAssistantTestScope(
+        theme: theme,
+        language: language,
+        shell: shell,
+        splitView: splitView,
+        client: MockClient.streaming((request, body) async {
+          final payload = jsonDecode(
+            utf8.decode(await body.toBytes()),
+          ) as Map<String, dynamic>;
+          final messages = payload['messages'] as List;
+          if ((messages.first['content'] as String).startsWith('Summarize')) {
+            if (++compactions == 2) {
+              duringCompaction.complete();
+              await finishCompaction.future;
+            }
+            return http.StreamedResponse(
+              Stream.value(delta({'content': 'Compact handoff.'})),
+              200,
+            );
+          }
+          requests.add(messages);
+          if (requests.length == 1)
+            return http.StreamedResponse(partial.stream, 200);
+          final output = switch (requests.length) {
+            2 || 3 => {
+              'tool_calls': [
+                {
+                  'index': 0,
+                  'id': 'search-${requests.length}',
+                  'function': {
+                    'name': 'search_chat_history',
+                    'arguments': jsonEncode({
+                      'query': requests.length == 2
+                          ? 'no-match'
+                          : 'retrievable',
+                    }),
+                  },
+                },
+              ],
+            },
+            _ => {'content': 'ONLY THE NEXT TEXT'},
+          };
+          return http.StreamedResponse(Stream.value(delta(output)), 200);
+        }),
+      );
+      addTearDown(() {
+        if (!finishCompaction.isCompleted) finishCompaction.complete();
+        scope.dispose();
+        unawaited(partial.close());
+        theme.dispose();
+        language.dispose();
+        shell.dispose();
+        splitView.dispose();
+      });
+      final provider = scope.provider;
+      await provider.initialized;
+      final service = await provider.saveService(
+        name: 'Test',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['test-model'],
+        apiKey: 'test-key',
+      );
+      await provider.selectModel(service, 'test-model');
+      provider.restoreWorkspaceConversation({
+        'messages': [
+          for (var index = 0; index < 6; index++)
+            ConversationCodec.message(
+              AiMessage(
+                id: 'archived-$index',
+                role: 'assistant',
+                content: 'retrievable ${'界' * 700}',
+              ),
+            ),
+        ],
+        'history': [
+          {'role': 'user', 'content': 'Archived request'},
+          {'role': 'assistant', 'content': 'Archived reply'},
+        ],
+      });
+      provider.contextBudgetTokens = 1000;
+      provider.contextCompactionPercent = 90;
+      final pending = provider.sendMessage('Continue the document');
+      partial.add(
+        delta({'content': 'DOCUMENT START\n${'界' * 1000}\nPARTIAL-END'}),
+      );
+      await duringCompaction.future.timeout(const Duration(seconds: 5));
+      final searches = provider.messages.lastWhere(
+        (message) => message.processingSteps.any(
+          (step) => step.name == 'search_chat_history',
+        ),
+      );
+      expect(searches.processingSteps.map((step) => step.succeeded), [
+        true,
+        true,
+      ]);
+      expect(searches.finishedAt, isNull);
+      final searchIndex = provider.messages.indexOf(searches);
+      expect(searches.processEvents.last.toolName, 'compact_context');
+      await Future<void>.delayed(const Duration(milliseconds: 1050));
+      expect(requests, hasLength(3));
+      expect(
+        provider.messages[searchIndex].elapsed,
+        greaterThan(searches.elapsed!),
+      );
+
+      finishCompaction.complete();
+      await pending.timeout(const Duration(seconds: 5));
+      expect(compactions, 2);
+      expect(requests, hasLength(4));
+      expect(requests[2].last, containsPair('tool_call_id', 'search-2'));
+      for (final messages in requests.skip(1)) {
+        expect(
+          jsonEncode(messages),
+          contains('Resume the same in-progress user turn'),
+        );
+        expect(jsonEncode(messages), contains('PARTIAL-END'));
+      }
+      expect(
+        jsonEncode(requests.last),
+        contains('Last visible assistant excerpt'),
+      );
+      expect(jsonEncode(requests.last), isNot(contains('DOCUMENT START')));
+      expect(provider.messages.last.content, 'ONLY THE NEXT TEXT');
+      await provider.sendMessage('New turn');
+      expect(
+        jsonEncode(requests.last),
+        isNot(contains('Resume the same in-progress user turn')),
+      );
+    },
+  );
 
   test(
     'continuing stopped stream compaction reuses its record before more output',

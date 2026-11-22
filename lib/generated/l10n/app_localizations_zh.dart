@@ -1942,19 +1942,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiPermissionAutomatic => '自动审批';
 
   @override
-  String get aiPermissionAutomaticSummary => '由模型审批符合条件的操作。';
+  String get aiPermissionAutomaticSummary => '由模型审核工具操作。';
 
   @override
-  String get aiPermissionApprovalModel => '审批模型';
+  String get aiPermissionApprovalModel => '自动审批模型';
+
+  @override
+  String aiPermissionApprovalModelUsed(String model) {
+    return '自动审批模型：$model';
+  }
 
   @override
   String aiPermissionApprovalModelNotUsed(String model) {
-    return '配置的审批模型：$model（未调用）';
+    return '自动审批模型：$model（未调用）';
   }
 
   @override
   String get aiPermissionApprovalModelHelp =>
-      '默认使用当前聊天模型。模型根据本轮请求和目标路径审批符合条件的操作；未获通过的操作不会执行，也不会转为人工审批。';
+      '默认使用当前聊天模型。根据用户请求和操作内容审核工具调用，包括本机命令。应用规则禁止或模型未批准的操作不会执行，也不会转为人工审批。';
 
   @override
   String aiAuxiliaryModelUnavailable(String model) {
@@ -2213,6 +2218,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiCommandPolicyForbidden => '命令被禁止规则拦截，未执行。';
+
+  @override
+  String get aiCommandPolicyAutomaticDiskWrite => '命令涉及磁盘或分区操作，自动审批模式下不会执行。';
 
   @override
   String get aiCommandPolicyInvalidRules =>
@@ -2875,6 +2883,58 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiAutoCompaction => '自动压缩上下文';
 
   @override
+  String get aiPermissionReviewNoReason => '自动审批模型拒绝了操作，但没有说明原因。';
+
+  @override
+  String get aiPermissionReviewProtectedTarget => '目标受应用策略保护，操作未送审。';
+
+  @override
+  String get aiPermissionReviewNoAuthorization => '该操作没有有效的用户授权，未送审。';
+
+  @override
+  String get aiPermissionReviewEvidenceTooLarge => '操作详情超出审批大小限制，未送审。';
+
+  @override
+  String get aiPermissionReviewModelUnavailable => '自动审批模型不可用，请检查服务配置和 API 密钥。';
+
+  @override
+  String get aiPermissionReviewInvalidResponse => '未收到有效的自动审批决定。';
+
+  @override
+  String get aiPermissionReviewUnexpectedToolCalls => '自动审批模型返回了工具调用，没有给出审批决定。';
+
+  @override
+  String get aiPermissionReviewEmptyDecision => '自动审批响应中没有审批决定。';
+
+  @override
+  String get aiPermissionReviewDecisionFormat => '自动审批模型返回的决定不符合预期格式。';
+
+  @override
+  String get aiPermissionReviewInvalidServiceResponse => '自动审批服务返回了无法解析的响应。';
+
+  @override
+  String get aiPermissionReviewIncompleteResponse => '自动审批模型未完整返回审批决定。';
+
+  @override
+  String get aiPermissionReviewOutputLimit => '自动审批模型达到输出 token 上限，未能完整返回决定。';
+
+  @override
+  String get aiPermissionReviewTimedOut => '自动审批模型未在时限内返回结果。';
+
+  @override
+  String get aiPermissionReviewServiceError => '自动审批模型服务出错。';
+
+  @override
+  String aiAutoCompactionModel(String model) {
+    return '自动压缩模型：$model';
+  }
+
+  @override
+  String aiManualCompactionModel(String model) {
+    return '手动压缩模型：$model';
+  }
+
+  @override
   String aiCompactionDuration(String seconds) {
     return '耗时 $seconds 秒';
   }
@@ -2914,7 +2974,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiCompactionNoRecordedReason => '这次压缩没有记录具体原因。';
 
   @override
-  String aiCompactionFinishReason(String reason) {
+  String aiModelFinishReason(String reason) {
     return '模型结束原因：$reason';
   }
 
@@ -2924,12 +2984,12 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String aiCompactionOutputLimit(int limit) {
+  String aiModelOutputLimit(int limit) {
     return '请求的输出上限：$limit token';
   }
 
   @override
-  String aiCompactionOutputUsage(int used, int limit) {
+  String aiModelOutputUsage(int used, int limit) {
     return '模型报告的输出量：$used token（请求上限：$limit）';
   }
 

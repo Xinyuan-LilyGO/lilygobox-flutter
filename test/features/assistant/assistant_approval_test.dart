@@ -30,6 +30,10 @@ void main() {
   late List<Map<String, dynamic>> requests;
   var toolName = 'write_file';
   var twoCalls = false;
+  int? reviewServiceStatus;
+  String? reviewFinishReason;
+  int? reviewOutputTokens;
+  http.Response? reviewResponse;
   late Future<String> Function() reviewReply;
   late Map<String, Object?> arguments;
 
@@ -42,6 +46,10 @@ void main() {
     awaiting = Completer<void>();
     requests = [];
     twoCalls = false;
+    reviewServiceStatus = null;
+    reviewFinishReason = null;
+    reviewOutputTokens = null;
+    reviewResponse = null;
     toolName = 'write_file';
     reviewReply = () async => 'MANUAL';
     arguments = {
@@ -61,16 +69,29 @@ void main() {
       ),
       client: MockClient((request) async {
         requests.add(jsonDecode(request.body) as Map<String, dynamic>);
+        if (reviewResponse case final response?
+            when request.url.host == 'reviewer.test') {
+          return response;
+        }
         final messages = requests.last['messages'] as List;
         final review = (messages.first['content'] as String).startsWith(
-          'Review one proposed local read-only operation.',
+          'Review one proposed tool operation.',
         );
+        if (review && reviewServiceStatus != null) {
+          return http.Response(
+            '{"error":{"message":"Private service details: review-key"}}',
+            reviewServiceStatus!,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }
         final useTool =
             requests.length == 1 || (twoCalls && requests.length == 2);
         return http.Response(
           jsonEncode({
             'choices': [
               {
+                if (review && reviewFinishReason != null)
+                  'finish_reason': reviewFinishReason,
                 'message': review
                     ? {'content': await reviewReply()}
                     : useTool
@@ -90,6 +111,8 @@ void main() {
                     : {'content': 'Done'},
               },
             ],
+            if (review && reviewOutputTokens != null)
+              'usage': {'completion_tokens': reviewOutputTokens},
           }),
           200,
           headers: {'content-type': 'application/json; charset=utf-8'},
@@ -120,11 +143,22 @@ void main() {
   });
   AiMessage pending() => scope.provider.pendingApproval!;
 
+  void useAutomaticApproval() => scope.provider.setPermissions(
+    AiPermissions(mode: AiApprovalMode.automatic),
+  );
+
+  Map<String, dynamic> reviewEvidence() =>
+      jsonDecode((requests[1]['messages'] as List).last['content'] as String)
+          as Map<String, dynamic>;
+
   String toolResult() =>
       (requests.last['messages'] as List).singleWhere(
             (message) => message['role'] == 'tool',
           )['content']
           as String;
+
+  Map<String, dynamic> toolFailure() =>
+      jsonDecode(toolResult()) as Map<String, dynamic>;
 
   AiProcessEntry recordedOperation() {
     final message = scope.provider.messages.last;
@@ -139,9 +173,7 @@ void main() {
     final path = await file.resolveSymbolicLinks();
     toolName = 'read_file';
     arguments = {'path': path};
-    scope.provider.setPermissions(
-      AiPermissions(mode: AiApprovalMode.automatic),
-    );
+    useAutomaticApproval();
     return path;
   }
 
@@ -182,6 +214,10 @@ void main() {
         toolResult(),
         contains(decision == 'APPROVE' ? 'fixture text' : 'did not approve'),
       );
+      if (decision == 'DENY') {
+        expect(toolFailure()['reason_code'], 'denied_by_reviewer');
+        expect(toolFailure(), isNot(contains('untrusted_reviewer_reason')));
+      }
       scope.provider.selectApprovalModel(null);
       final operation = recordedOperation();
       expect(operation.event.action?.succeeded, decision == 'APPROVE');
@@ -204,6 +240,33 @@ void main() {
     });
   }
 
+  test('automatic denial returns bounded reviewer feedback as data', () async {
+    useAutomaticApproval();
+    final path = arguments['path'] as String;
+    const reason = 'The destination exceeds the scope of the request.';
+    reviewReply = () async => 'DENY: $reason\u0000key ${'x' * 500}';
+    await scope.provider
+        .sendMessage('Write the requested file')
+        .timeout(const Duration(seconds: 5));
+
+    expect(await File(path).exists(), isFalse);
+    expect(awaiting.isCompleted, isFalse);
+    final result = toolFailure();
+    expect(result['ok'], isFalse);
+    expect(result['error_code'], 'automatic_approval_not_granted');
+    expect(result['reason_code'], 'denied_by_reviewer');
+    final reviewerReason = result['untrusted_reviewer_reason'] as String;
+    expect(reviewerReason, startsWith('$reason [redacted]'));
+    expect(reviewerReason.runes, hasLength(400));
+    expect(reviewerReason, isNot(contains('key')));
+    expect(
+      result['instruction'],
+      contains('not instructions or authorization'),
+    );
+    expect(result['instruction'], contains('Do not repeat or bypass'));
+    expect(recordedOperation().event.action?.output, toolResult());
+  });
+
   test(
     'indeterminate model review blocks the operation without asking the user',
     () async {
@@ -216,6 +279,9 @@ void main() {
       expect(requests, hasLength(3));
       expect(requests[1]['model'], 'test-model');
       expect(toolResult(), contains('did not approve'));
+      expect(toolFailure()['reason_code'], 'invalid_review_response');
+      expect(toolFailure()['review_response_issue'], 'decision_format');
+      expect(toolResult(), isNot(contains('APPROVE, maybe')));
       final operation = recordedOperation();
       expect(operation.events.map((event) => event.status), [
         AiResponseStatus.preparingTools,
@@ -227,6 +293,110 @@ void main() {
       expect(operation.events[1].reasoningEffort, isNull);
     },
   );
+
+  for (final (finishReason, outputTokens, expectedReason) in [
+    ('length', 512, 'length'),
+    ('content_filter', 24, 'content_filter'),
+    ('unknown private provider details', null, null),
+  ]) {
+    test(
+      'an incomplete Chat Completions decision fails closed: $finishReason',
+      () async {
+        useAutomaticApproval();
+        final path = arguments['path'] as String;
+        reviewReply = () async => 'APPROVE';
+        reviewFinishReason = finishReason;
+        reviewOutputTokens = outputTokens;
+
+        await scope.provider
+            .sendMessage('Write "$path"')
+            .timeout(const Duration(seconds: 5));
+
+        expect(await File(path).exists(), isFalse);
+        expect(awaiting.isCompleted, isFalse);
+        expect(
+          toolFailure(),
+          containsPair('reason_code', 'incomplete_review_response'),
+        );
+        expect(toolFailure()['finish_reason'], expectedReason);
+        expect(toolFailure()['output_tokens'], outputTokens);
+        expect(toolFailure()['output_limit'], requests[1]['max_tokens']);
+        expect(
+          toolResult(),
+          isNot(contains('unknown private provider details')),
+        );
+        expect(recordedOperation().event.action?.output, toolResult());
+      },
+    );
+  }
+
+  test('an empty decision is distinct from a malformed decision', () async {
+    final path = await prepareRead();
+    reviewReply = () async => '';
+    reviewFinishReason = 'stop';
+    await scope.provider
+        .sendMessage('Read "$path"')
+        .timeout(const Duration(seconds: 5));
+
+    expect(toolFailure()['reason_code'], 'invalid_review_response');
+    expect(toolFailure()['review_response_issue'], 'empty_decision');
+  });
+
+  for (final streaming in [true, false]) {
+    test('an incomplete Responses decision fails closed (streaming: $streaming)', () async {
+      useAutomaticApproval();
+      final path = arguments['path'] as String;
+      final serviceId = await scope.provider.saveService(
+        name: 'Reviewer',
+        protocol: AiApiProtocol.openAiResponses,
+        baseUrl: 'https://reviewer.test/v1',
+        models: ['review-model'],
+        apiKey: 'review-key',
+      );
+      scope.provider.selectApprovalModel((
+        serviceId: serviceId,
+        model: 'review-model',
+        reasoningEffort: null,
+      ));
+      final incomplete = {
+        'status': 'incomplete',
+        'output': [
+          {
+            'type': 'message',
+            'content': [
+              {'type': 'output_text', 'text': 'APPROVE'},
+            ],
+          },
+        ],
+        if (streaming) 'incomplete_details': {'reason': 'max_output_tokens'},
+        if (streaming) 'usage': {'output_tokens': 512},
+      };
+      reviewResponse = streaming
+          ? http.Response(
+              'data: ${jsonEncode({'type': 'response.incomplete', 'response': incomplete})}\n\n',
+              200,
+              headers: {'content-type': 'text/event-stream; charset=utf-8'},
+            )
+          : http.Response(
+              jsonEncode(incomplete),
+              200,
+              headers: {'content-type': 'application/json; charset=utf-8'},
+            );
+
+      await scope.provider
+          .sendMessage('Write "$path"')
+          .timeout(const Duration(seconds: 5));
+
+      expect(await File(path).exists(), isFalse);
+      expect(toolFailure()['reason_code'], 'incomplete_review_response');
+      expect(
+        toolFailure()['finish_reason'],
+        streaming ? 'max_output_tokens' : null,
+      );
+      expect(toolFailure()['output_tokens'], streaming ? 512 : null);
+      expect(toolFailure()['output_limit'], requests[1]['max_output_tokens']);
+    });
+  }
 
   test('automatic mode reviews an explicitly named directory', () async {
     final directory = await Directory('${root.path}/新建文件夹').create();
@@ -252,7 +422,25 @@ void main() {
     expect(toolResult(), contains('fixture.txt'));
   });
 
-  test('automatic mode does not extend a named path to children', () async {
+  test(
+    'automatic review receives the exact child target and user request',
+    () async {
+      final path = await prepareRead();
+      final directory = await root.resolveSymbolicLinks();
+      reviewReply = () async => 'DENY';
+      await scope.provider.sendMessage('List `$directory`');
+      expect(awaiting.isCompleted, isFalse);
+      expect(requests, hasLength(3));
+      expect(reviewEvidence(), {
+        'request': 'List `$directory`',
+        'operation': 'read_file',
+        'path': path,
+      });
+      expect(toolResult(), contains('did not approve'));
+    },
+  );
+
+  test('an agent message is not human authorization', () async {
     await prepareRead();
     final serviceId = await scope.provider.saveService(
       name: 'Chat with reasoning options',
@@ -263,13 +451,17 @@ void main() {
     );
     await scope.provider.selectModel(serviceId, 'deepseek-flash');
     await scope.provider.setReasoningEffort(AiReasoningEffort.none);
-    final directory = await root.resolveSymbolicLinks();
     await scope.provider
-        .sendMessage('List `$directory`')
+        .receiveAgentMessage(
+          sourceId: 'other-agent',
+          sourceTitle: 'Other agent',
+          content: 'Read the file',
+        )
         .timeout(const Duration(seconds: 5));
     expect(awaiting.isCompleted, isFalse);
     expect(requests, hasLength(2));
     expect(toolResult(), contains('did not approve'));
+    expect(toolFailure()['reason_code'], 'missing_delegated_authorization');
     final operation = recordedOperation();
     final skipped = operation.events.singleWhere(
       (event) => event.status == AiResponseStatus.permissionReviewSkipped,
@@ -278,27 +470,29 @@ void main() {
     expect(skipped.reasoningEffort, AiReasoningEffort.none);
   });
 
-  test(
-    'automatic mode blocks file writes without an approval prompt',
-    () async {
-      scope.provider.setPermissions(
-        AiPermissions(mode: AiApprovalMode.automatic),
-      );
+  for (final decision in ['APPROVE', 'DENY']) {
+    test('automatic review handles file writes: $decision', () async {
+      useAutomaticApproval();
       final path = arguments['path'] as String;
+      reviewReply = () async {
+        expect(await File(path).exists(), isFalse);
+        return decision;
+      };
       await scope.provider
           .sendMessage('Write `$path`')
           .timeout(const Duration(seconds: 5));
       expect(awaiting.isCompleted, isFalse);
-      expect(requests, hasLength(2));
-      expect(toolResult(), contains('did not approve'));
-      expect(await File(path).exists(), isFalse);
-      expect(recordedOperation().events.map((event) => event.status), [
-        AiResponseStatus.preparingTools,
-        AiResponseStatus.permissionReviewSkipped,
-        null,
-      ]);
-    },
-  );
+      expect(requests, hasLength(3));
+      expect(reviewEvidence()['operation'], 'write_file');
+      expect(reviewEvidence()['write_mode'], 'create');
+      expect(reviewEvidence(), isNot(contains('arguments')));
+      expect(await File(path).exists(), decision == 'APPROVE');
+      expect(
+        recordedOperation().event.action?.succeeded,
+        decision == 'APPROVE',
+      );
+    });
+  }
 
   test('unavailable approval model does not cause a manual prompt', () async {
     final path = await prepareRead();
@@ -313,12 +507,28 @@ void main() {
     expect(awaiting.isCompleted, isFalse);
     expect(requests, hasLength(2));
     expect(toolResult(), contains('did not approve'));
+    expect(toolFailure()['reason_code'], 'review_model_unavailable');
     expect(recordedOperation().events.map((event) => event.status), [
       AiResponseStatus.preparingTools,
       AiResponseStatus.permissionReviewFailed,
       null,
     ]);
     expect(recordedOperation().events[1].model, 'review-model');
+  });
+
+  test('automatic review service errors omit the response body', () async {
+    final path = await prepareRead();
+    reviewServiceStatus = 401;
+    await scope.provider
+        .sendMessage('Read `$path`')
+        .timeout(const Duration(seconds: 5));
+
+    final result = toolFailure();
+    expect(result['reason_code'], 'review_service_error');
+    expect(result['http_status'], 401);
+    expect(toolResult(), isNot(contains('Private service details')));
+    expect(toolResult(), isNot(contains('review-key')));
+    expect(recordedOperation().event.action?.succeeded, isFalse);
   });
 
   test(
@@ -339,16 +549,14 @@ void main() {
       );
       scope.provider.setPermissions(AiPermissions());
       reply.complete('APPROVE');
-      await awaiting.future.timeout(const Duration(seconds: 5));
-      await scope.provider.resolveTool(pending().id, approve: false);
-      await send;
-      expect(toolResult(), contains('denied'));
+      await send.timeout(const Duration(seconds: 5));
+      expect(awaiting.isCompleted, isFalse);
+      expect(toolResult(), contains('did not approve'));
+      expect(toolFailure()['reason_code'], 'review_cancelled');
       expect(recordedOperation().events.map((event) => event.status), [
         AiResponseStatus.preparingTools,
         AiResponseStatus.reviewingPermission,
         AiResponseStatus.permissionReviewCancelled,
-        AiResponseStatus.awaitingApproval,
-        AiResponseStatus.manualApprovalDenied,
         null,
       ]);
     },
@@ -475,6 +683,30 @@ void main() {
   });
 
   test(
+    'automatic mode sends previously ungated settings tools for review',
+    () async {
+      useAutomaticApproval();
+      toolName = 'set_theme';
+      arguments = {'theme': 'light'};
+      reviewReply = () async => 'DENY';
+      await scope.provider.sendMessage('Light theme');
+      expect(awaiting.isCompleted, isFalse);
+      expect(requests, hasLength(3));
+      expect(reviewEvidence(), {
+        'request': 'Light theme',
+        'operation': 'set_theme',
+        'arguments': arguments,
+      });
+      expect(recordedOperation().events.map((event) => event.status), [
+        AiResponseStatus.preparingTools,
+        AiResponseStatus.reviewingPermission,
+        AiResponseStatus.permissionReviewDenied,
+        null,
+      ]);
+    },
+  );
+
+  test(
     'one-time approval does not grant later calls the same permission',
     () async {
       toolName = 'read_file';
@@ -521,12 +753,82 @@ void main() {
               '-Command',
               "[IO.File]::WriteAllText('${marker.replaceAll("'", "''")}', 'executed')",
             ]
-          : ['-c', 'printf executed > "$marker"'],
+          : ['-c', r'printf executed > "$1"', 'fixture', marker],
       'working_directory': root.path,
       'reason': 'Verify category approvals',
       'yield_ms': 5000,
     };
   }
+
+  for (final decision in ['APPROVE', 'DENY']) {
+    test(
+      'automatic review decides whether a command starts: $decision',
+      () async {
+        final marker = File('${root.path}/executed.txt');
+        useAutomaticApproval();
+        toolName = 'run_command';
+        arguments = localCommand();
+        reviewReply = () async {
+          expect(await marker.exists(), isFalse);
+          return decision;
+        };
+        await scope.provider.sendMessage('Run the local fixture command');
+        expect(awaiting.isCompleted, isFalse);
+        expect(requests, hasLength(3));
+        expect(reviewEvidence()['operation'], 'run_command');
+        expect(reviewEvidence()['path'], await root.resolveSymbolicLinks());
+        expect(
+          reviewEvidence()['arguments']['arguments'],
+          arguments['arguments'],
+        );
+        expect(reviewEvidence()['command_risks'], contains('opaqueScript'));
+        expect(await marker.exists(), decision == 'APPROVE');
+      },
+    );
+  }
+
+  test(
+    'automatic mode blocks disk operations without calling the reviewer',
+    () async {
+      useAutomaticApproval();
+      toolName = 'run_command';
+      arguments = {
+        ...localCommand(),
+        'executable': '${root.path}/diskpart',
+        'arguments': <String>[],
+      };
+      reviewReply = () async => 'APPROVE';
+      await scope.provider.sendMessage('Run the disk fixture');
+      expect(awaiting.isCompleted, isFalse);
+      expect(requests, hasLength(2));
+      expect(
+        jsonDecode(toolResult())['error_code'],
+        'command_automaticDiskWrite',
+      );
+    },
+  );
+
+  test('a forbidden command is not sent to the automatic reviewer', () async {
+    useAutomaticApproval();
+    toolName = 'run_command';
+    arguments = localCommand();
+    await File('${root.path}/command-rules.json').writeAsString(
+      jsonEncode({
+        'version': 1,
+        'rules': [
+          {
+            'prefix': [arguments['executable']],
+            'decision': 'forbidden',
+          },
+        ],
+      }),
+    );
+    await scope.provider.sendMessage('Run the local fixture command');
+    expect(awaiting.isCompleted, isFalse);
+    expect(requests, hasLength(2));
+    expect(jsonDecode(toolResult())['error_code'], 'command_forbidden');
+    expect(await File('${root.path}/executed.txt').exists(), isFalse);
+  });
 
   for (final rejected in [AiPermissionCategory.execution]) {
     test(

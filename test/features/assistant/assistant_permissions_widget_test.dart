@@ -94,7 +94,7 @@ void main() {
         findsOneWidget,
       );
       final selector = find.byKey(const ValueKey('ai-approval-model-select'));
-      final label = find.text(l10n.aiPermissionApprovalModel);
+      final label = find.text('Automatic approval model');
       expect(
         tester.getRect(label).right,
         lessThan(tester.getRect(selector).left),

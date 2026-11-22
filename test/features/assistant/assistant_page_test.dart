@@ -430,6 +430,75 @@ void main() {
     });
   }
 
+  testWidgets('raw HTML reply between agent messages remains visible', (
+    tester,
+  ) async {
+    final createdAt = DateTime(2026, 11, 22, 1, 44, 25);
+    final finishedAt = createdAt.add(const Duration(seconds: 86));
+    final source = [
+      '<!DOCTYPE html>',
+      '<html>',
+      '<body>',
+      for (var index = 0; index < 177; index++)
+        '  <p data-index="$index">A line of literal HTML source.</p>',
+    ].join('\n');
+    AiMessage incoming(String id, String text, DateTime time) => AiMessage(
+      id: id,
+      role: 'user',
+      content: text,
+      createdAt: time,
+      toolName: 'agent_message',
+      toolArguments: const {
+        'source_agent_id': 'writer-0',
+        'source_agent_title': 'Writer',
+        'source_agent_kind': 'primary',
+      },
+    );
+    scope.provider.restoreWorkspaceConversation({
+      'history': [],
+      'messages': [
+        ConversationCodec.message(
+          incoming('request-html', 'Send the HTML source.', createdAt),
+        ),
+        ConversationCodec.message(
+          AiMessage(
+            id: 'html-reply',
+            role: 'assistant',
+            content: source,
+            createdAt: createdAt,
+            finishedAt: finishedAt,
+            elapsed: finishedAt.difference(createdAt),
+            status: AiResponseStatus.stopped,
+          ),
+        ),
+        ConversationCodec.message(
+          incoming('stop-html', 'Stop sending the source.', finishedAt),
+        ),
+      ],
+    });
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    final sourceBlock = find.byType(ChatCodeBlock);
+    expect(sourceBlock, findsOneWidget);
+    expect(tester.widget<ChatCodeBlock>(sourceBlock).text, source);
+    expect(tester.widget<ChatCodeBlock>(sourceBlock).language, 'html');
+    expect(
+      find.byKey(const ValueKey('ai-message-time-html-reply')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('agent-message-source-request-html')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('agent-message-source-stop-html')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'async restored conversation opens at the latest message and preserves a valid reading position',
     (tester) async {
@@ -1518,14 +1587,14 @@ void main() {
   );
 
   testWidgets(
-    'guided reply timing stays hidden while preflight compaction stops and resumes',
+    'guided reply timing groups preflight compaction through stop and resume',
     (tester) async {
       await tester.runAsync(() => scope.provider.initialized);
       final serviceId = await scope.provider.saveService(
         name: 'Summary service',
         protocol: AiApiProtocol.openAiChatCompletions,
         baseUrl: 'https://example.test/v1',
-        models: ['test-model'],
+        models: ['test-model', 'summary-gpt-5.4'],
         apiKey: 'test-key',
       );
       await scope.provider.selectModel(serviceId, 'test-model');
@@ -1539,6 +1608,11 @@ void main() {
             },
         ],
       });
+      scope.provider.selectCompactionModel((
+        serviceId: serviceId,
+        model: 'summary-gpt-5.4',
+        reasoningEffort: AiReasoningEffort.none,
+      ));
       scope.provider.contextBudgetTokens = 1000;
       final originalGate = Completer<void>();
       final compactionGate = Completer<void>();
@@ -1576,22 +1650,36 @@ void main() {
       await pumpUntilRequest(2);
 
       expect(scope.provider.compacting.value, isTrue);
-      final compaction = scope.provider.messages.singleWhere(
-        (message) => message.role == 'compaction',
-      );
       final guidedReply = scope.provider.messages.last;
-      expect(compaction.toolArguments?['replyId'], guidedReply.id);
+      expect(guidedReply.role, 'assistant');
+      final compaction = guidedReply.processEvents.firstWhere(
+        (event) => event.toolName == 'compact_context',
+      );
       final compactionTiming = find.byKey(
-        ValueKey('ai-response-details-${compaction.id}'),
+        ValueKey('operation-${compaction.operationId}'),
       );
       final replyTiming = find.byKey(
         ValueKey('ai-response-details-${guidedReply.id}'),
       );
+      expect(replyTiming, findsOneWidget);
+      expect(compactionTiming, findsNothing);
+      await tester.ensureVisible(replyTiming);
+      await tester.tap(replyTiming);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
       expect(compactionTiming, findsOneWidget);
-      expect(replyTiming, findsNothing);
-      await tester.pump(const Duration(seconds: 1));
-      expect(replyTiming, findsNothing);
-      expect(requests, 2);
+      final compactionModel = find.text('自动压缩模型：summary-gpt-5.4');
+      expect(compactionModel, findsNothing);
+      await tester.ensureVisible(compactionTiming);
+      await tester.tap(
+        find
+            .descendant(of: compactionTiming, matching: find.byType(InkWell))
+            .first,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(compactionModel, findsOneWidget);
+      expect(find.text('思考强度：关闭'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('ai-stop-button')));
       compactionGate.complete();
@@ -1599,17 +1687,17 @@ void main() {
       await turn;
       expect(requests, 2);
       expect(find.textContaining('自动压缩上下文 · 已取消'), findsOneWidget);
-      expect(replyTiming, findsNothing);
+      expect(replyTiming, findsOneWidget);
 
       responseGate = resumedCompactionGate;
       await tester.tap(find.byKey(const ValueKey('ai-continue-button')));
       await pumpUntilRequest(3);
       expect(scope.provider.compacting.value, isTrue);
       expect(compactionTiming, findsOneWidget);
-      expect(replyTiming, findsNothing);
+      expect(replyTiming, findsOneWidget);
       expect(
         scope.provider.messages.where((item) => item.role == 'compaction'),
-        hasLength(1),
+        isEmpty,
       );
 
       responseGate = guidedReplyGate;
@@ -1618,13 +1706,15 @@ void main() {
       expect(scope.provider.compacting.value, isFalse);
       expect(compactionTiming, findsOneWidget);
       expect(replyTiming, findsOneWidget);
-      expect(
-        tester.getTopLeft(compactionTiming).dy,
-        lessThan(tester.getTopLeft(replyTiming).dy),
-      );
+      expect(find.textContaining('自动压缩上下文 · 已完成'), findsOneWidget);
 
       guidedReplyGate.complete();
       await pumpAssistantUntilIdle(tester);
+      expect(scope.provider.messages.last.id, guidedReply.id);
+      expect(
+        scope.provider.messages.last.content,
+        'Ready to help with LilygoBox.',
+      );
     },
   );
 
