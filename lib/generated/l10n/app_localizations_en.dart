@@ -3796,9 +3796,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiLeadershipUndo => 'Undo leadership transfer';
 
   @override
-  String get aiTimer => 'Timer';
-
-  @override
   String get aiTimerStart => 'Start timer';
 
   @override

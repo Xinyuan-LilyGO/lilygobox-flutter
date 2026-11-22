@@ -3551,9 +3551,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiLeadershipUndo => '撤销管理权移交';
 
   @override
-  String get aiTimer => '计时器';
-
-  @override
   String get aiTimerStart => '开始计时';
 
   @override

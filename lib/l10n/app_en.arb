@@ -1939,7 +1939,6 @@
   "aiAgentTopologyQuery": "Read agent topology",
   "aiLeadershipTransfer": "Transfer leadership",
   "aiLeadershipUndo": "Undo leadership transfer",
-  "aiTimer": "Timer",
   "aiTimerStart": "Start timer",
   "aiTimerQuery": "Check timer status",
   "aiTimerWait": "Wait for timer",

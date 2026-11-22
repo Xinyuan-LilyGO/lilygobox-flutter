@@ -133,31 +133,6 @@ void main() {
     expect(forwarded.every((event) => !event.synthesized), isTrue);
   });
 
-  test('rewrites the legacy sequence while preserving empty probes', () {
-    final fix = WindowsClipboardHistoryKeyDataFix();
-    final received = [
-      _event(ui.KeyEventType.down, control, synthesized: false),
-      _event(ui.KeyEventType.down, 0, physical: 0),
-      _event(ui.KeyEventType.up, control, synthesized: false),
-      _event(ui.KeyEventType.down, control, synthesized: true),
-      _event(ui.KeyEventType.up, control, synthesized: true),
-    ];
-    final forwarded = [
-      for (final event in received)
-        if (fix.rewrite(event) case final rewritten?) rewritten,
-    ];
-    expect(
-      forwarded.map((event) => (event.type, event.physical, event.logical)),
-      [
-        (ui.KeyEventType.down, controlPhysical, control),
-        (ui.KeyEventType.down, 0, 0),
-        (ui.KeyEventType.down, vPhysical, v),
-        (ui.KeyEventType.up, vPhysical, v),
-        (ui.KeyEventType.up, controlPhysical, control),
-      ],
-    );
-  });
-
   test('preserves empty transit probes between clipboard history events', () {
     final fix = WindowsClipboardHistoryKeyDataFix();
     fix.rewrite(_event(ui.KeyEventType.down, control, synthesized: false));

@@ -6660,12 +6660,6 @@ abstract class AppLocalizations {
   /// **'Undo leadership transfer'**
   String get aiLeadershipUndo;
 
-  /// No description provided for @aiTimer.
-  ///
-  /// In en, this message translates to:
-  /// **'Timer'**
-  String get aiTimer;
-
   /// No description provided for @aiTimerStart.
   ///
   /// In en, this message translates to:

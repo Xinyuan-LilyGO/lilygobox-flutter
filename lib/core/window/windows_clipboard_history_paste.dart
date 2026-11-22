@@ -63,31 +63,6 @@ class WindowsClipboardHistoryKeyDataFix {
 
     final isControl = data.logical == _controlLogical;
     final isV = data.logical == _vLogical;
-    if (_step == 1 &&
-        isControl &&
-        data.type == ui.KeyEventType.up &&
-        !data.synthesized) {
-      // 旧版引擎把 V 的按下也映射为 Ctrl 松开。
-      _step = 6;
-      return _copy(
-        data,
-        type: ui.KeyEventType.down,
-        physical: _vPhysical,
-        logical: _vLogical,
-      );
-    }
-    if (_step == 6 &&
-        isControl &&
-        data.type == ui.KeyEventType.down &&
-        data.synthesized) {
-      _step = 5;
-      return _copy(
-        data,
-        type: ui.KeyEventType.up,
-        physical: _vPhysical,
-        logical: _vLogical,
-      );
-    }
     final rewritten = switch (_step) {
       0
           when isControl &&

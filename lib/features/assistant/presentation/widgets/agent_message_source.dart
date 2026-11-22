@@ -26,21 +26,15 @@ class AgentMessageSource extends StatelessWidget {
     final title = arguments?['source_agent_title'] as String? ?? sourceId;
     if (title == null) return const SizedBox.shrink();
     final l10n = context.l10n;
-    final isTimer = sourceId?.startsWith('timer:') ?? false;
-    final (label, icon) = isTimer
-        ? (l10n.aiTimer, Symbols.timer_rounded)
-        : switch (arguments?['source_agent_kind']) {
-            'primary' => (
-              l10n.aiTopologyMessageFromMain(title),
-              Symbols.hub_rounded,
-            ),
-            'permanent' => (
-              l10n.aiTopologyMessageFromChild(title),
-              Symbols.account_tree_rounded,
-            ),
-            _ => (l10n.aiTopologyMessageFrom(title), null),
-          };
-    final navigation = linkToAgent && !isTimer && sourceId != null
+    final (label, icon) = switch (arguments?['source_agent_kind']) {
+      'primary' => (l10n.aiTopologyMessageFromMain(title), Symbols.hub_rounded),
+      'permanent' => (
+        l10n.aiTopologyMessageFromChild(title),
+        Symbols.account_tree_rounded,
+      ),
+      _ => (l10n.aiTopologyMessageFrom(title), null),
+    };
+    final navigation = linkToAgent && sourceId != null
         ? TaskNavigationScope.maybeOf(context)
         : null;
     final style = TextStyle(
@@ -78,7 +72,7 @@ class AgentMessageSource extends StatelessWidget {
           )
         else
           heading,
-        if (!isTimer && sourceId != null && sourceId.isNotEmpty)
+        if (sourceId != null && sourceId.isNotEmpty)
           Text(
             l10n.aiAgentIdValue(sourceId),
             key: ValueKey('agent-message-source-id-${message.id}'),

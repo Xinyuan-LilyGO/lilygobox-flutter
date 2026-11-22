@@ -1564,7 +1564,6 @@
   "aiAgentTopologyQuery": "读取智能体拓扑",
   "aiLeadershipTransfer": "移交管理权",
   "aiLeadershipUndo": "撤销管理权移交",
-  "aiTimer": "计时器",
   "aiTimerStart": "开始计时",
   "aiTimerQuery": "查看计时状态",
   "aiTimerWait": "等待计时结束",

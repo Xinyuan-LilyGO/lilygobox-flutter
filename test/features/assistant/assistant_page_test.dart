@@ -384,50 +384,6 @@ void main() {
         );
       });
     }
-    testWidgets('timer notification is not labeled as an agent in $locale', (
-      tester,
-    ) async {
-      await tester.runAsync(() => scope.provider.initialized);
-      await scope.provider.saveService(
-        name: 'Test',
-        protocol: AiApiProtocol.openAiChatCompletions,
-        baseUrl: 'https://example.test/v1',
-        models: ['test'],
-        apiKey: 'key',
-      );
-      await tester.runAsync(
-        () => scope.provider.receiveAgentMessage(
-          sourceId: 'timer:123-1',
-          sourceTitle: 'Timer',
-          content: 'Timer expired.',
-        ),
-      );
-      await tester.pumpWidget(app(locale: locale));
-      await tester.pumpAndSettle();
-      final message = scope.provider.messages.firstWhere(
-        (message) => message.toolName == 'agent_message',
-      );
-      final heading = find.byKey(
-        ValueKey('agent-message-source-${message.id}'),
-      );
-      expect(
-        tester.widget<Text>(heading).data,
-        locale == 'zh' ? '计时器' : 'Timer',
-      );
-      expect(
-        find.byKey(ValueKey('agent-message-source-id-${message.id}')),
-        findsNothing,
-      );
-      expect(
-        tester
-            .widget<InkWell>(
-              find.ancestor(of: heading, matching: find.byType(InkWell)).first,
-            )
-            .onTap,
-        isNull,
-      );
-      expect(message.toolArguments?['source_agent_id'], 'timer:123-1');
-    });
   }
 
   testWidgets('raw HTML reply between agent messages remains visible', (
