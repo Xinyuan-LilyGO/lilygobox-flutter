@@ -33,11 +33,20 @@ import 'agent_message_source.dart';
 import 'approval_panel.dart';
 import 'model_selector.dart';
 import 'permissions_button.dart';
+import 'roleplay_card_controls.dart';
 import 'usage_chart_colors.dart';
 import 'user_input_panel.dart';
 
+enum _ComposerTool { permissions, model, roleplay }
+
 /// 后层承载队列与附件，前层保留独立文字输入区。
 class ChatComposer extends StatelessWidget {
+  static const _attachmentButtonSize = 28.0;
+  static const _toolGap = 4.0;
+  static const _sendGap = 6.0;
+  static const _sendButtonSize = 30.0;
+  static const _labelPreviewWidth = 96.0;
+
   const ChatComposer({
     super.key,
     required this.input,
@@ -50,6 +59,7 @@ class ChatComposer extends StatelessWidget {
     required this.attachments,
     required this.onAttachmentsChanged,
     this.onManageContext,
+    this.roleplayMenuBuilder,
     this.readClipboardImage = ImageClipboard.readPng,
   });
 
@@ -63,6 +73,7 @@ class ChatComposer extends StatelessWidget {
   final List<AiImageAttachment> attachments;
   final ValueChanged<List<AiImageAttachment>> onAttachmentsChanged;
   final VoidCallback? onManageContext;
+  final Widget Function(bool compact)? roleplayMenuBuilder;
   final Future<Uint8List?> Function() readClipboardImage;
 
   Future<void> _pickImages(BuildContext context) async {
@@ -307,6 +318,96 @@ class ChatComposer extends StatelessWidget {
     ),
   );
 
+  ({bool permissionCompact, bool modelCompact, double? roleplayWidth})
+  _toolbarLayout(BuildContext context, double width) {
+    final l10n = context.l10n;
+    final binding = assistant.roleplayBinding;
+    final roleplayIconWidth = roleplayMenuBuilder == null
+        ? 0.0
+        : RoleplayMenuButton.compactWidth(binding);
+    var space =
+        width -
+        (_attachmentButtonSize +
+            _toolGap +
+            AssistantPermissionsButton.compactWidth +
+            ModelSelector.compactWidth +
+            _sendGap +
+            _sendButtonSize +
+            (roleplayMenuBuilder == null ? 0 : _toolGap + roleplayIconWidth));
+    final labelStyle = DefaultTextStyle.of(context).style.copyWith(
+      fontSize: 12,
+      fontWeight: MediaQuery.boldTextOf(context) ? FontWeight.bold : null,
+    );
+    final painter = TextPainter(
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      locale: Localizations.maybeLocaleOf(context),
+      maxLines: 1,
+      ellipsis: '…',
+    );
+    double measure(String label) {
+      painter.text = TextSpan(text: label, style: labelStyle);
+      painter.layout();
+      return painter.width.ceilToDouble();
+    }
+
+    final permissionWidth =
+        measure(
+          AssistantPermissionsButton.labelFor(l10n, assistant.permissions.mode),
+        ) +
+        AssistantPermissionsButton.labelChromeWidth;
+    final modelLabelWidth = measure(
+      ModelSelector.labelFor(
+        l10n,
+        assistant.selectedModel,
+        assistant.reasoningEffort,
+      ),
+    );
+    final roleplayLabelWidth = roleplayMenuBuilder == null
+        ? 0.0
+        : measure(RoleplayMenuButton.labelFor(l10n, binding));
+    painter.dispose();
+
+    final modelPreview = math.min(modelLabelWidth, _labelPreviewWidth);
+    final roleplayMinimum =
+        math.min(roleplayLabelWidth, _labelPreviewWidth) +
+        RoleplayMenuButton.labelChromeWidth;
+    final candidates = [
+      (tool: _ComposerTool.permissions, width: permissionWidth),
+      (
+        tool: _ComposerTool.model,
+        width: modelPreview + ModelSelector.labelChromeWidth,
+      ),
+      if (roleplayMenuBuilder != null)
+        (tool: _ComposerTool.roleplay, width: roleplayMinimum),
+    ]..sort((first, second) => first.width.compareTo(second.width));
+    final expanded = <_ComposerTool>{};
+    for (final (:tool, :width) in candidates) {
+      if (space < width) break;
+      expanded.add(tool);
+      space -= width;
+    }
+
+    final modelCompact = !expanded.contains(_ComposerTool.model);
+    double? roleplayWidth;
+    if (expanded.contains(_ComposerTool.roleplay)) {
+      final modelExtra = modelCompact ? 0.0 : modelLabelWidth - modelPreview;
+      final roleplayExtra =
+          roleplayLabelWidth +
+          RoleplayMenuButton.labelChromeWidth -
+          roleplayMinimum;
+      roleplayWidth =
+          roleplayIconWidth +
+          roleplayMinimum +
+          (space - modelExtra).clamp(0.0, roleplayExtra);
+    }
+    return (
+      permissionCompact: !expanded.contains(_ComposerTool.permissions),
+      modelCompact: modelCompact,
+      roleplayWidth: roleplayWidth,
+    );
+  }
+
   Widget _buildInput(BuildContext context) {
     final l10n = context.l10n;
     return Column(
@@ -466,6 +567,14 @@ class ChatComposer extends StatelessWidget {
                         const SizedBox(height: 16),
                         LayoutBuilder(
                           builder: (context, constraints) {
+                            final (
+                              :permissionCompact,
+                              :modelCompact,
+                              :roleplayWidth,
+                            ) = _toolbarLayout(
+                              context,
+                              constraints.maxWidth,
+                            );
                             return Row(
                               children: [
                                 AppTooltip(
@@ -481,8 +590,8 @@ class ChatComposer extends StatelessWidget {
                                       onPressed: () => _pickImages(context),
                                       borderRadius: BorderRadius.circular(14),
                                       child: SizedBox(
-                                        width: 28,
-                                        height: 28,
+                                        width: _attachmentButtonSize,
+                                        height: _attachmentButtonSize,
                                         child: Center(
                                           child: Transform.rotate(
                                             angle: math.pi / 4,
@@ -497,26 +606,34 @@ class ChatComposer extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 4),
+                                const SizedBox(width: _toolGap),
                                 AssistantPermissionsButton(
                                   theme: theme,
                                   assistant: assistant,
-                                  compact:
-                                      constraints.maxWidth < 520 ||
-                                      MediaQuery.textScalerOf(context)
-                                              .scale(12) >
-                                          16,
+                                  compact: permissionCompact,
                                 ),
+                                if (roleplayMenuBuilder
+                                    case final builder?) ...[
+                                  const SizedBox(width: _toolGap),
+                                  ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxWidth:
+                                          roleplayWidth ?? double.infinity,
+                                    ),
+                                    child: builder(roleplayWidth == null),
+                                  ),
+                                ],
                                 Expanded(
                                   child: Align(
                                     alignment: Alignment.centerRight,
                                     child: ModelSelector(
                                       theme: theme,
                                       assistant: assistant,
+                                      compact: modelCompact,
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 6),
+                                const SizedBox(width: _sendGap),
                                 ValueListenableBuilder<TextEditingValue>(
                                   valueListenable: input,
                                   builder: (context, value, _) =>
@@ -528,7 +645,7 @@ class ChatComposer extends StatelessWidget {
                                           key: const ValueKey('ai-stop-button'),
                                           label: l10n.aiStop,
                                           icon: Symbols.stop_rounded,
-                                          size: 30,
+                                          size: _sendButtonSize,
                                           onPressed: assistant.stopGeneration,
                                         )
                                       : assistant.canContinue &&
@@ -541,7 +658,7 @@ class ChatComposer extends StatelessWidget {
                                           ),
                                           label: l10n.aiContinue,
                                           icon: Symbols.play_arrow_rounded,
-                                          size: 30,
+                                          size: _sendButtonSize,
                                           onPressed: () => onSend(false),
                                         )
                                       : _actionButton(
@@ -553,7 +670,7 @@ class ChatComposer extends StatelessWidget {
                                               ? l10n.aiSend
                                               : l10n.aiSetupAction,
                                           icon: Symbols.arrow_upward_rounded,
-                                          size: 30,
+                                          size: _sendButtonSize,
                                           onPressed:
                                               !assistant.canSendMessage ||
                                                   value.text.trim().isEmpty &&

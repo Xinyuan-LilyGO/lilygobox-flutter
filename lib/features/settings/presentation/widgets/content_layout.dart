@@ -2,10 +2,12 @@
  * @Description: 统一应用设置的紧凑内容布局、设置字段和局部深浅配色。
  */
 
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/theme/definition.dart';
 import '../../../../core/theme/material_palette.dart';
+import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/dialog_style.dart';
 
 class SettingsColors {
@@ -97,6 +99,102 @@ class SettingsContentHeader extends StatelessWidget {
       Divider(height: 1, color: SettingsColors(theme).divider),
       const SizedBox(height: 14),
     ],
+  );
+}
+
+class SettingsCollectionHeader extends StatelessWidget {
+  const SettingsCollectionHeader({
+    super.key,
+    required this.theme,
+    required this.title,
+    required this.description,
+    this.actionLabel,
+    this.onAction,
+    this.actionKey,
+    this.extraAction,
+  });
+
+  final AppTheme theme;
+  final String title;
+  final String description;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  final Key? actionKey;
+  final Widget? extraAction;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final heading = Text(
+        title,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: theme.textColorPrimary,
+        ),
+      );
+      final buttons = [
+        if (actionLabel case final label?)
+          AppActionButton(
+            key: actionKey,
+            theme: theme,
+            label: label,
+            icon: Symbols.add_rounded,
+            iconSize: 18,
+            iconSpacing: 6,
+            fontSize: 12,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+            onPressed: onAction,
+          ),
+        ?extraAction,
+      ];
+      final actions = switch (buttons) {
+        [] => null,
+        [final button] => button,
+        _ => Wrap(
+          alignment: WrapAlignment.end,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: buttons,
+        ),
+      };
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (actions == null)
+            heading
+          else if (constraints.maxWidth < 480 && actionLabel != null) ...[
+            heading,
+            const SizedBox(height: 8),
+            Align(alignment: AlignmentDirectional.centerEnd, child: actions),
+          ] else
+            Row(
+              children: [
+                Expanded(child: heading),
+                const SizedBox(width: 12),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth:
+                        constraints.maxWidth *
+                        (actionLabel == null ? .55 : .75),
+                  ),
+                  child: actions,
+                ),
+              ],
+            ),
+          const SizedBox(height: 3),
+          Text(
+            description,
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              color: theme.textColorTertiary,
+            ),
+          ),
+        ],
+      );
+    },
   );
 }
 

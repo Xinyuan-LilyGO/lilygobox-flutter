@@ -24,6 +24,7 @@ class AppActionButton extends StatelessWidget {
     this.hoverColor,
     this.surfaceColor,
     this.icon,
+    this.iconFill,
     this.iconSize = 20,
     this.iconSpacing = 8,
     double? fontSize,
@@ -70,6 +71,22 @@ class AppActionButton extends StatelessWidget {
     onPressed: onPressed,
   );
 
+  factory AppActionButton.compact({
+    Key? key,
+    required AppTheme theme,
+    required String label,
+    required VoidCallback? onPressed,
+    bool destructive = false,
+  }) => AppActionButton(
+    key: key,
+    theme: theme,
+    label: label,
+    onPressed: onPressed,
+    destructive: destructive,
+    fontSize: 12,
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+  );
+
   final AppTheme theme;
   final String label;
   final VoidCallback? onPressed;
@@ -88,6 +105,7 @@ class AppActionButton extends StatelessWidget {
   final Color? hoverColor;
   final Color? surfaceColor;
   final IconData? icon;
+  final double? iconFill;
   final double iconSize;
   final double iconSpacing;
   final double fontSize;
@@ -191,7 +209,12 @@ class AppActionButton extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(icon, size: iconSize, color: foreground),
+                    Icon(
+                      icon,
+                      size: iconSize,
+                      fill: iconFill,
+                      color: foreground,
+                    ),
                     if (label.isNotEmpty) ...[
                       SizedBox(width: iconSpacing),
                       Flexible(child: text),

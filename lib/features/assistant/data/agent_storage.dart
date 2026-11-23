@@ -425,25 +425,24 @@ void _databaseWorker(List<dynamic> initialization) {
     ]);
   }
 
+  void collectObjectHashes(Object? value, Set<String> hashes) {
+    if (value is Map) {
+      if (value['@object'] case final String hash) hashes.add(hash);
+      for (final child in value.values) {
+        collectObjectHashes(child, hashes);
+      }
+    } else if (value is List) {
+      for (final child in value) {
+        collectObjectHashes(child, hashes);
+      }
+    }
+  }
+
   int collectObjects() {
     var removed = 0;
     final live = <String>{};
-    void visit(Object? v) {
-      if (v is Map) {
-        if (v['@object'] is String) live.add(v['@object'] as String);
-        for (final child in v.values) {
-          visit(child);
-        }
-      }
-      if (v is List) {
-        for (final child in v) {
-          visit(child);
-        }
-      }
-    }
-
     for (final row in db.select('SELECT value FROM state')) {
-      visit(jsonDecode(row['value'] as String));
+      collectObjectHashes(jsonDecode(row['value'] as String), live);
     }
     for (final row in db.select('SELECT hash FROM objects')) {
       if (!live.contains(row['hash'])) {
@@ -765,8 +764,12 @@ void _databaseWorker(List<dynamic> initialization) {
                         .select("SELECT value FROM state WHERE key='workflow'")
                         .firstOrNull?['value']
                     as String?;
+            final workflow = saved == null ? null : jsonDecode(saved);
+            if (workflow is Map && a['includeRoleplayLibrary'] == false) {
+              workflow.remove('roleplayLibrary');
+            }
             return {
-              'workflow': saved == null ? null : expand(jsonDecode(saved)),
+              'workflow': workflow == null ? null : expand(workflow),
               'memories': db
                   .select('SELECT * FROM memories ORDER BY updated DESC')
                   .map((r) => Map<String, Object?>.from(r))
@@ -786,6 +789,8 @@ void _databaseWorker(List<dynamic> initialization) {
           var contextBytes = 0;
           var workflowBytes = 0;
           var recycleBinBytes = 0;
+          var roleplayLibraryBytes = 0;
+          final roleplayHashes = <String>{};
           for (final row in db.select('SELECT key,value FROM state')) {
             final text = row['value'] as String;
             final bytes = utf8.encode(text).length;
@@ -814,11 +819,32 @@ void _databaseWorker(List<dynamic> initialization) {
                   // 键和空列表结构仍计入工作流元数据。
                   recycled = utf8.encode(jsonEncode(entries)).length - 2;
                 }
+                final cards = snapshot['roleplayLibrary'];
+                if (cards is List && cards.isNotEmpty) {
+                  roleplayLibraryBytes =
+                      utf8.encode(jsonEncode(cards)).length - 2;
+                  collectObjectHashes(cards, roleplayHashes);
+                }
               }
               recycleBinBytes += recycled;
               workflowBytes += bytes - recycled;
             }
           }
+          final objectBytes =
+              db
+                      .select(
+                        'SELECT COALESCE(SUM(length(body)),0) AS n FROM objects',
+                      )
+                      .first['n']
+                  as int;
+          final roleplayObjectBytes = roleplayHashes.isEmpty
+              ? 0
+              : db.select(
+                      'SELECT COALESCE(SUM(length(body)),0) AS n FROM objects '
+                      'WHERE hash IN (SELECT value FROM json_each(?))',
+                      [jsonEncode(roleplayHashes.toList())],
+                    ).first['n']
+                    as int;
           result = {
             'memories': db
                 .select('SELECT COUNT(*) AS n FROM memories')
@@ -832,11 +858,8 @@ void _databaseWorker(List<dynamic> initialization) {
             // 字节长度对应实际保存的载荷；剩余数据库页
             // 包含索引、记录开销和可复用空间。
             'breakdown': {
-              'objects': db
-                  .select(
-                    'SELECT COALESCE(SUM(length(body)),0) AS n FROM objects',
-                  )
-                  .first['n'],
+              'objects': objectBytes - roleplayObjectBytes,
+              'roleplayObjects': roleplayObjectBytes,
               'state': db
                   .select(
                     'SELECT COALESCE(SUM(length(CAST(value AS BLOB))),0) AS n FROM state',
@@ -851,8 +874,9 @@ void _databaseWorker(List<dynamic> initialization) {
             'stateBreakdown': {
               'conversations': conversationBytes,
               'context': contextBytes,
-              'workflow': workflowBytes,
+              'workflow': workflowBytes - roleplayLibraryBytes,
               'recycleBin': recycleBinBytes,
+              'roleplayLibrary': roleplayLibraryBytes,
             },
           };
         case 'clean':

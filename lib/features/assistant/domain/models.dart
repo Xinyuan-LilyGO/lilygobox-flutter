@@ -308,6 +308,7 @@ class AiMessage {
     required this.role,
     required this.content,
     this.continuesReply = false,
+    this.isRoleplayOpening = false,
     this.createdAt,
     this.finishedAt,
     this.toolName,
@@ -329,6 +330,7 @@ class AiMessage {
   final String role;
   final String content;
   final bool continuesReply;
+  final bool isRoleplayOpening;
   final DateTime? createdAt;
   final DateTime? finishedAt;
   final String? toolName;
@@ -368,6 +370,7 @@ class AiMessage {
     finishedAt: clearFinishedAt ? null : finishedAt ?? this.finishedAt,
     content: content ?? this.content,
     continuesReply: continuesReply,
+    isRoleplayOpening: isRoleplayOpening,
     toolName: toolName,
     toolArguments: toolArguments,
     toolDecision: toolDecision ?? this.toolDecision,

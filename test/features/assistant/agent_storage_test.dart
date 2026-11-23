@@ -533,6 +533,76 @@ void main() {
       parts['state'],
     );
   });
+  test('storage overview counts card library objects only once', () async {
+    final store = AgentStorage(path: ':memory:');
+    addTearDown(store.close);
+    final sharedText = '共享的角色描述 ' * 60;
+    final chatText = 'Unrelated chat content ' * 60;
+    final cardAvatar = 'Imported avatar data ' * 60;
+    Map<String, Object?> workflow(List<Object?> library) => {
+      'roleplayLibrary': library,
+      'sessions': [
+        {
+          'id': 'agent',
+          'conversation': {
+            'messages': [
+              {'content': sharedText},
+              {'content': chatText},
+            ],
+          },
+        },
+      ],
+    };
+    await store.saveWorkflow(workflow([]));
+    final empty = await store.readStats();
+    final beforeState = empty['stateBreakdown'] as Map;
+    final beforeParts = empty['breakdown'] as Map;
+    expect(beforeState['roleplayLibrary'], 0);
+    expect(beforeParts['roleplayObjects'], 0);
+
+    final cards = [
+      for (final name in ['角色一', '角色二'])
+        {
+          'card': {
+            'name': name,
+            'description': sharedText,
+            'avatar': cardAvatar,
+          },
+        },
+    ];
+    await store.saveWorkflow(workflow(cards));
+    final populated = await store.readStats();
+    final state = populated['stateBreakdown'] as Map;
+    final parts = populated['breakdown'] as Map;
+    final conversationObjects = parts['objects'] as int;
+    expect(state['roleplayLibrary'], greaterThan(0));
+    expect(state['workflow'], beforeState['workflow']);
+    expect(state['conversations'], beforeState['conversations']);
+    expect(conversationObjects, inExclusiveRange(0, beforeParts['objects']));
+    expect(parts['roleplayObjects'], greaterThan(0));
+    expect(populated['objects'], 3);
+    expect(
+      state.values.cast<int>().fold<int>(0, (sum, size) => sum + size),
+      parts['state'],
+    );
+
+    await store.saveWorkflow(workflow([cards.first]));
+    final oneCard = await store.readStats();
+    expect(
+      (oneCard['breakdown'] as Map)['roleplayObjects'],
+      parts['roleplayObjects'],
+    );
+    expect(
+      (oneCard['stateBreakdown'] as Map)['roleplayLibrary'],
+      lessThan(state['roleplayLibrary']),
+    );
+
+    await store.saveWorkflow(workflow([]));
+    await store.request('clean');
+    final cleared = await store.readStats();
+    expect(cleared['stateBreakdown'], beforeState);
+    expect(cleared['breakdown'], beforeParts);
+  });
   test(
     'recycle bin payload is separate from workflow and counted once',
     () async {

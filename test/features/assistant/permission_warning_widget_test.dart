@@ -169,8 +169,8 @@ void main() {
             final lastRect = tester.getRect(
               find.byKey(const ValueKey('ai-permission-mode-custom')),
             );
-            expect(firstRect.left - panelRect.left, closeTo(8, .01));
-            expect(panelRect.right - lastRect.right, closeTo(20, .01));
+            expect(firstRect.left - panelRect.left, closeTo(12, .01));
+            expect(panelRect.right - lastRect.right, closeTo(12, .01));
             expect(panelRect.bottom - lastRect.bottom, closeTo(8, .01));
             await capture('menu');
             await openCustom();

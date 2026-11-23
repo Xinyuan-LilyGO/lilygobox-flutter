@@ -4680,6 +4680,474 @@ abstract class AppLocalizations {
   /// **'Open conversation'**
   String get aiTopologyOpen;
 
+  /// No description provided for @aiRoleplayFileType.
+  ///
+  /// In en, this message translates to:
+  /// **'Character card files (PNG, JSON, 7z)'**
+  String get aiRoleplayFileType;
+
+  /// No description provided for @aiRoleplayCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Character card'**
+  String get aiRoleplayCard;
+
+  /// No description provided for @aiRoleplayCardSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Character card settings'**
+  String get aiRoleplayCardSettings;
+
+  /// No description provided for @aiRoleplaySaveSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Save settings'**
+  String get aiRoleplaySaveSettings;
+
+  /// No description provided for @aiRoleplayImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Import character card'**
+  String get aiRoleplayImport;
+
+  /// No description provided for @aiSearchRoleplayCards.
+  ///
+  /// In en, this message translates to:
+  /// **'Search character names or creators'**
+  String get aiSearchRoleplayCards;
+
+  /// No description provided for @aiNoRoleplayCards.
+  ///
+  /// In en, this message translates to:
+  /// **'No character cards yet'**
+  String get aiNoRoleplayCards;
+
+  /// No description provided for @aiNoMatchingRoleplayCards.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching character cards'**
+  String get aiNoMatchingRoleplayCards;
+
+  /// No description provided for @aiRoleplayAuthor.
+  ///
+  /// In en, this message translates to:
+  /// **'Author: {value}'**
+  String aiRoleplayAuthor(String value);
+
+  /// No description provided for @aiRoleplayCardVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Card version: {value}'**
+  String aiRoleplayCardVersion(String value);
+
+  /// No description provided for @aiRoleplayFormatVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Format: V{value}'**
+  String aiRoleplayFormatVersion(String value);
+
+  /// No description provided for @aiRoleplayTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Tags: {value}'**
+  String aiRoleplayTags(String value);
+
+  /// No description provided for @aiRoleplayCreatorNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Author’s notes'**
+  String get aiRoleplayCreatorNotes;
+
+  /// No description provided for @aiRoleplayImportProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Character profile'**
+  String get aiRoleplayImportProfile;
+
+  /// No description provided for @aiRoleplayImportProfileDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Identity, background, and personality'**
+  String get aiRoleplayImportProfileDetail;
+
+  /// No description provided for @aiRoleplayImportWorldBook.
+  ///
+  /// In en, this message translates to:
+  /// **'World book'**
+  String get aiRoleplayImportWorldBook;
+
+  /// No description provided for @aiRoleplayImportWorldBookDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 entry} other{{count} entries}} · Matched by keywords'**
+  String aiRoleplayImportWorldBookDetail(int count);
+
+  /// No description provided for @aiRoleplayImportAdvanced.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced prompts'**
+  String get aiRoleplayImportAdvanced;
+
+  /// No description provided for @aiRoleplayImportAdvancedDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Card author’s guidance for roleplay'**
+  String get aiRoleplayImportAdvancedDetail;
+
+  /// No description provided for @aiRoleplayContentUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved content for this option'**
+  String get aiRoleplayContentUnavailable;
+
+  /// No description provided for @aiRoleplayNotInCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Not included in this card'**
+  String get aiRoleplayNotInCard;
+
+  /// No description provided for @aiRoleplaySelectOpening.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a story opening'**
+  String get aiRoleplaySelectOpening;
+
+  /// No description provided for @aiRoleplayStartStory.
+  ///
+  /// In en, this message translates to:
+  /// **'Start story'**
+  String get aiRoleplayStartStory;
+
+  /// No description provided for @aiRoleplayOpeningPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview: {opening}'**
+  String aiRoleplayOpeningPreview(String opening);
+
+  /// No description provided for @aiRoleplayRestartWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting this story will delete all messages in this agent’s current chat. This cannot be undone.'**
+  String get aiRoleplayRestartWarning;
+
+  /// No description provided for @aiRoleplayClearAndStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear chat and start'**
+  String get aiRoleplayClearAndStart;
+
+  /// No description provided for @aiRoleplayOpeningNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening {number}'**
+  String aiRoleplayOpeningNumber(int number);
+
+  /// No description provided for @aiRoleplayConfirmImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get aiRoleplayConfirmImport;
+
+  /// No description provided for @aiRoleplayImportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t import character cards. Choose valid PNG, JSON, or 7z files.'**
+  String get aiRoleplayImportFailed;
+
+  /// Shown when a batch of selected character card files includes unreadable files.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 unreadable file was skipped.} other{{count} unreadable files were skipped.}}'**
+  String aiRoleplayImportSkippedFiles(int count);
+
+  /// No description provided for @aiRoleplayCardActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Card active'**
+  String get aiRoleplayCardActive;
+
+  /// No description provided for @aiRoleplayCardPaused.
+  ///
+  /// In en, this message translates to:
+  /// **'Card paused'**
+  String get aiRoleplayCardPaused;
+
+  /// No description provided for @aiRoleplayEnableCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable character card'**
+  String get aiRoleplayEnableCard;
+
+  /// No description provided for @aiRoleplayPlayer.
+  ///
+  /// In en, this message translates to:
+  /// **'Guest'**
+  String get aiRoleplayPlayer;
+
+  /// No description provided for @aiRoleplayTemplateOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Character card template (optional)'**
+  String get aiRoleplayTemplateOptional;
+
+  /// Subtitle for the character card template field when creating an agent.
+  ///
+  /// In en, this message translates to:
+  /// **'The character’s identity, personality, and background.'**
+  String get aiRoleplayTemplateHelp;
+
+  /// No description provided for @aiRoleplayNoCard.
+  ///
+  /// In en, this message translates to:
+  /// **'No character card'**
+  String get aiRoleplayNoCard;
+
+  /// No description provided for @aiRoleplayNoCardSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Use default settings and keep the chat.'**
+  String get aiRoleplayNoCardSummary;
+
+  /// No description provided for @aiRoleplayLibraryDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete from library'**
+  String get aiRoleplayLibraryDelete;
+
+  /// No description provided for @aiRoleplayLibraryViewDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'View details'**
+  String get aiRoleplayLibraryViewDetails;
+
+  /// No description provided for @aiRoleplayLibraryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Character card library'**
+  String get aiRoleplayLibraryTitle;
+
+  /// No description provided for @aiRoleplayLibraryDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage the character cards available to your agents.'**
+  String get aiRoleplayLibraryDescription;
+
+  /// Heading above the list of imported character cards in settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported character cards'**
+  String get aiRoleplayLibraryAddedTitle;
+
+  /// Subtitle for the list of imported character cards in settings.
+  ///
+  /// In en, this message translates to:
+  /// **'SillyTavern character cards · PNG / JSON'**
+  String get aiRoleplayLibraryAddedDescription;
+
+  /// No description provided for @aiRoleplayPackageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Character card packages'**
+  String get aiRoleplayPackageTitle;
+
+  /// No description provided for @aiRoleplayPackageDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Import PNG, JSON, or 7z files and export selected cards in a 7z package.'**
+  String get aiRoleplayPackageDescription;
+
+  /// No description provided for @aiRoleplayPackageFileType.
+  ///
+  /// In en, this message translates to:
+  /// **'Character card package (7z)'**
+  String get aiRoleplayPackageFileType;
+
+  /// No description provided for @aiRoleplayPackageExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Export card package'**
+  String get aiRoleplayPackageExport;
+
+  /// No description provided for @aiRoleplayPackageSelectExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Select the cards to include in the package.'**
+  String get aiRoleplayPackageSelectExport;
+
+  /// No description provided for @aiRoleplayPackageSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{total} cards found · {added} new · {duplicates} duplicates'**
+  String aiRoleplayPackageSummary(int total, int added, int duplicates);
+
+  /// No description provided for @aiRoleplayPackageImportSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Import selected ({count})'**
+  String aiRoleplayPackageImportSelected(int count);
+
+  /// No description provided for @aiRoleplayPackageExportSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Export selected ({count})'**
+  String aiRoleplayPackageExportSelected(int count);
+
+  /// No description provided for @aiRoleplayPackageImported.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported {count, plural, one{1 character card} other{{count} character cards}}.'**
+  String aiRoleplayPackageImported(int count);
+
+  /// No description provided for @aiRoleplayPackageExported.
+  ///
+  /// In en, this message translates to:
+  /// **'Exported {count, plural, one{1 character card} other{{count} character cards}}.'**
+  String aiRoleplayPackageExported(int count);
+
+  /// No description provided for @aiRoleplayPackageExportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t export the character card package.'**
+  String get aiRoleplayPackageExportFailed;
+
+  /// No description provided for @aiRoleplayLibraryEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Import a SillyTavern PNG or JSON card to get started.'**
+  String get aiRoleplayLibraryEmpty;
+
+  /// No description provided for @aiRoleplayLibraryUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The character card library is currently unavailable. Please try again later.'**
+  String get aiRoleplayLibraryUnavailable;
+
+  /// No description provided for @aiRoleplayLibraryBoundCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Bound to 1 agent} other{Bound to {count} agents}}'**
+  String aiRoleplayLibraryBoundCount(int count);
+
+  /// No description provided for @aiRoleplayLibraryDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete “{name}” from the library?'**
+  String aiRoleplayLibraryDeleteTitle(String name);
+
+  /// No description provided for @aiRoleplayLibraryDeleteBoundTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete “{name}” and unbind {count, plural, one{1 agent} other{{count} agents}}?'**
+  String aiRoleplayLibraryDeleteBoundTitle(String name, int count);
+
+  /// No description provided for @aiRoleplayLibraryDeleteWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Your chat history and the original PNG or JSON file will be kept.'**
+  String get aiRoleplayLibraryDeleteWarning;
+
+  /// No description provided for @aiRoleplayLibraryDeleteBoundWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'After deletion, the agents below will use their default settings, and chat history and the original PNG or JSON files will be kept.'**
+  String get aiRoleplayLibraryDeleteBoundWarning;
+
+  /// Heading for the cards selected for deletion.
+  ///
+  /// In en, this message translates to:
+  /// **'Character cards to delete ({count})'**
+  String aiRoleplayLibraryCardsToDelete(int count);
+
+  /// Heading for the agents that will lose their character card binding.
+  ///
+  /// In en, this message translates to:
+  /// **'Agents to unbind ({count})'**
+  String aiRoleplayLibraryAgentsToUnbind(int count);
+
+  /// No description provided for @aiRoleplayLibraryDeleteAndUnbind.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete and unbind'**
+  String get aiRoleplayLibraryDeleteAndUnbind;
+
+  /// No description provided for @aiRoleplayLibraryRecycledAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} (recycle bin)'**
+  String aiRoleplayLibraryRecycledAgent(String name);
+
+  /// No description provided for @aiRoleplayLibraryBusyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This card is in use'**
+  String get aiRoleplayLibraryBusyTitle;
+
+  /// No description provided for @aiRoleplayLibraryBusyDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Wait for these agents to finish or stop them before trying again:'**
+  String get aiRoleplayLibraryBusyDetail;
+
+  /// No description provided for @aiRoleplayLibraryChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'The card’s bindings changed. Review the affected agents and confirm again.'**
+  String get aiRoleplayLibraryChanged;
+
+  /// No description provided for @aiRoleplayCardDetailsSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'View character card details.'**
+  String get aiRoleplayCardDetailsSummary;
+
+  /// No description provided for @aiRoleplayOpeningOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Story opening (optional)'**
+  String get aiRoleplayOpeningOptional;
+
+  /// Subtitle for the story opening field when creating an agent.
+  ///
+  /// In en, this message translates to:
+  /// **'The character’s first message in the conversation.'**
+  String get aiRoleplayOpeningHelp;
+
+  /// No description provided for @aiRoleplayManualOpening.
+  ///
+  /// In en, this message translates to:
+  /// **'Start without a greeting'**
+  String get aiRoleplayManualOpening;
+
+  /// No description provided for @aiRoleplayManualOpeningSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip the card greeting and start the conversation yourself.'**
+  String get aiRoleplayManualOpeningSummary;
+
+  /// No description provided for @aiRoleplayUseOpening.
+  ///
+  /// In en, this message translates to:
+  /// **'Use this opening'**
+  String get aiRoleplayUseOpening;
+
+  /// No description provided for @aiRoleplayOptionalTask.
+  ///
+  /// In en, this message translates to:
+  /// **'Work content (optional)'**
+  String get aiRoleplayOptionalTask;
+
+  /// No description provided for @aiRoleplayOptionalTaskHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave blank to open the chat without sending a message.'**
+  String get aiRoleplayOptionalTaskHelp;
+
+  /// No description provided for @aiTopologyWorkflowActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Workflow'**
+  String get aiTopologyWorkflowActions;
+
   /// No description provided for @aiTopologyInspect.
   ///
   /// In en, this message translates to:
@@ -5874,6 +6342,18 @@ abstract class AppLocalizations {
   /// **'Deselect'**
   String get cardDeselect;
 
+  /// No description provided for @settingsDeleteSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete selected ({count})'**
+  String settingsDeleteSelected(int count);
+
+  /// No description provided for @aiDeleteServicesMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove the selected model services and their locally stored API keys? Existing chat history is kept.'**
+  String get aiDeleteServicesMessage;
+
   /// No description provided for @cardSelectAll.
   ///
   /// In en, this message translates to:
@@ -6167,12 +6647,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Restoring agents…'**
   String get agentRecycleRestoring;
-
-  /// Confirmation for restoring one or more agents from the recycle bin
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, =1{Restore this agent?} other{Restore the {count} selected agents?}}'**
-  String agentRecycleRestoreConfirm(int count);
 
   /// No description provided for @agentRecycleRestoreFailed.
   ///

@@ -90,7 +90,10 @@ class Win32Window {
   // Update the window frame's theme to match the system theme.
   static void UpdateTheme(HWND const window);
 
+  void ResizeChildContent(LONG width, LONG height);
+
   bool quit_on_close_ = false;
+  bool live_resize_ = false;
 
   // window handle for top level window.
   HWND window_handle_ = nullptr;

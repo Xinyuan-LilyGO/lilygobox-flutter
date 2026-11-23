@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
@@ -8,7 +10,9 @@ import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/features/assistant/data/agent_storage.dart';
 import 'package:lilygobox/features/assistant/data/conversation_codec.dart';
+import 'package:lilygobox/features/assistant/data/roleplay_card_importer.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
+import 'package:lilygobox/features/assistant/domain/roleplay_card.dart';
 import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
 import 'package:lilygobox/features/assistant/state/storage_controller.dart';
 
@@ -185,6 +189,149 @@ void main() {
         );
       }
       expect(workspaces.canvasPositions[importedFirst.id], [100, 100]);
+    },
+  );
+
+  test(
+    'chat, agent and workflow packages include only their bound cards',
+    () async {
+      const rawCard =
+          '{"name":"Shared card","description":"",'
+          '"personality":"","scenario":"","first_mes":"Hi {{user}}!",'
+          '"mes_example":""}\n';
+      final card = await AiRoleplayCardImporter.parse(
+        Uint8List.fromList(utf8.encode(rawCard)),
+        retainOriginal: true,
+      );
+      final childCard = AiRoleplayCard.fromFields({'name': 'Child-only card'});
+      final unusedCard = AiRoleplayCard.fromFields({
+        'name': 'Shared card',
+        'description': 'Unrelated local roleplay data',
+      });
+      final primary = await create('Primary');
+      final child = await create('Child', parent: primary.id);
+      final peer = await create('Peer');
+      workspaces.addRoleplayTemplate(
+        AiRoleplayBinding(card: unusedCard, playerName: 'Guest'),
+      );
+      primary.assistant.bindRoleplay(
+        AiRoleplayBinding(
+          card: card,
+          playerName: 'Reader',
+          includeProfile: true,
+        ),
+      );
+      expect(
+        primary.assistant.startRoleplayOpening(0, clearExisting: true),
+        isTrue,
+      );
+      primary.assistant.setRoleplayEnabled(false);
+      child.assistant.bindRoleplay(
+        AiRoleplayBinding(card: childCard, playerName: 'Guest'),
+      );
+      peer.assistant.bindRoleplay(
+        AiRoleplayBinding(card: card, playerName: 'Second reader'),
+      );
+      controller.owner = primary.id;
+
+      final reference = sha256.convert(utf8.encode(rawCard)).toString();
+      final childReference = sha256
+          .convert(utf8.encode(jsonEncode(childCard.toTavernJson())))
+          .toString();
+      final expected = {
+        'chat': {reference},
+        'agent': {reference, childReference},
+        'workflow': {reference},
+      };
+      for (final entry in expected.entries) {
+        final type = entry.key;
+        final path = '${directory.path}/$type.7z';
+        await controller.export(
+          path,
+          type,
+          children: type == 'agent',
+          selectedIds: type == 'workflow' ? {primary.id, peer.id} : null,
+        );
+        final package = await controller.inspect(path);
+        final workflow = package['workflow'] as Map;
+        expect(workflow.containsKey('roleplayLibrary'), isFalse);
+        expect(jsonEncode(package), isNot(contains(unusedCard.description)));
+        final cards = workflow['roleplayCards'] as Map;
+        expect(cards.keys.toSet(), entry.value);
+        expect(cards[reference], base64Encode(utf8.encode(rawCard)));
+        if (type == 'agent') {
+          final childData = jsonDecode(
+            utf8.decode(base64Decode(cards[childReference] as String)),
+          ) as Map;
+          expect(childData['spec'], 'chara_card_v2');
+          expect(childData['data']['name'], childCard.name);
+        }
+        final records = (workflow['sessions'] as List).cast<Map>();
+        final primaryRecord = records.singleWhere(
+          (record) => record['id'] == primary.id,
+        );
+        final roleplay = primaryRecord['conversation']['roleplay'] as Map;
+        expect(roleplay['enabled'], isFalse);
+        expect(roleplay['binding']['cardRef'], reference);
+        expect((roleplay['binding'] as Map).containsKey('card'), isFalse);
+      }
+
+      final memoryPath = '${directory.path}/memory.7z';
+      await controller.export(memoryPath, 'memory');
+      final memoryPackage = await controller.inspect(memoryPath);
+      expect(memoryPackage['workflow'], isNull);
+      expect(jsonEncode(memoryPackage), isNot(contains(reference)));
+
+      final incoming = await controller.inspect(
+        '${directory.path}/workflow.7z',
+      );
+      final destination = AgentStorage(path: '${directory.path}/target.db');
+      final targetScope = await createAssistantTestScope(
+        theme: theme,
+        language: language,
+        shell: shell,
+        splitView: split,
+        storage: destination,
+      );
+      final target = AiWorkspaceProvider(targetScope.provider);
+      final importer = AgentStorageController(target);
+      try {
+        await target.initialized;
+        final corrupted =
+            jsonDecode(jsonEncode(incoming)) as Map<String, dynamic>;
+        final corruptedCards = corrupted['workflow']['roleplayCards'] as Map;
+        corruptedCards[reference] = base64Encode(utf8.encode('altered card'));
+        await expectLater(importer.import(corrupted), throwsFormatException);
+        expect(target.sessions, isEmpty);
+        expect(target.roleplayTemplates, isEmpty);
+
+        await importer.import(incoming);
+        final saved = await destination.request('readWorkflowData') as Map;
+        final savedLibrary = (saved['roleplayLibrary'] as List).cast<Map>();
+        expect(savedLibrary, hasLength(1));
+        expect(
+          savedLibrary.single['card']['originalFile'],
+          base64Encode(utf8.encode(rawCard)),
+        );
+        final importedPrimary = target.sessions
+            .singleWhere((session) => session.title == primary.title)
+            .assistant;
+        final importedPeer = target.sessions
+            .singleWhere((session) => session.title == peer.title)
+            .assistant;
+        expect(importedPrimary.roleplayEnabled, isFalse);
+        expect(importedPrimary.roleplayBinding!.includeProfile, isTrue);
+        expect(importedPrimary.roleplayBinding!.storyActive, isTrue);
+        expect(importedPrimary.messages.single.content, 'Hi Reader!');
+        expect(importedPeer.roleplayEnabled, isTrue);
+        expect(importedPeer.roleplayBinding!.includeProfile, isFalse);
+        expect(importedPeer.roleplayBinding!.playerName, 'Second reader');
+      } finally {
+        importer.dispose();
+        target.dispose();
+        targetScope.dispose();
+        await destination.close();
+      }
     },
   );
 

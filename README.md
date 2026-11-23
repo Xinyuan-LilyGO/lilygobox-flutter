@@ -31,6 +31,10 @@ On Windows, closing the window (including Alt+F4) keeps LilygoBox running in the
 
 LAN devices use the shared device page by default. A dedicated device page is added only when a model requires distinct UI or behavior.
 
+### LilyGoBox Assistant
+
+Import the [LilyGoBox Assistant character card](./character-cards/README.md) for task planning, software guidance, and device troubleshooting.
+
 ### Shared Core Modules
 
 Common services and reusable UI building blocks are placed under `lib/core`, including theme, localization helpers, window state, context menus, and shared split-view widgets.

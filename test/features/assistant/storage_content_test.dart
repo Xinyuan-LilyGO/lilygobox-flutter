@@ -20,6 +20,7 @@ import 'package:lilygobox/core/widgets/settings/select.dart';
 import 'package:lilygobox/core/widgets/title_bar_icon_button.dart';
 import 'package:lilygobox/features/assistant/data/agent_storage.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
+import 'package:lilygobox/features/assistant/domain/roleplay_card.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/storage_content.dart';
 import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
 import 'package:lilygobox/features/settings/presentation/widgets/content_layout.dart';
@@ -56,6 +57,70 @@ Future<void> tick(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('storage overview shows roleplay card usage after refresh', (
+    tester,
+  ) async {
+    final theme = ThemeProvider();
+    final language = LanguageProvider();
+    final shell = AppShellProvider();
+    final split = SplitViewProvider();
+    late AgentStorage storage;
+    late AssistantTestScope scope;
+    late AiWorkspaceProvider workspaces;
+    await tester.runAsync(() async {
+      storage = AgentStorage(path: ':memory:');
+      scope = await createAssistantTestScope(
+        theme: theme,
+        language: language,
+        shell: shell,
+        splitView: split,
+        storage: storage,
+      );
+      await scope.provider.initialized;
+      workspaces = AiWorkspaceProvider(scope.provider);
+      await workspaces.initialized;
+    });
+    addTearDown(() async {
+      workspaces.dispose();
+      scope.dispose();
+      split.dispose();
+      shell.dispose();
+      language.dispose();
+      theme.dispose();
+      await storage.close();
+    });
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: workspaces,
+        child: MaterialApp(
+          locale: const Locale('zh'),
+          supportedLocales: const [Locale('zh'), Locale('en')],
+          localizationsDelegates: appLocalizationDelegates,
+          home: Scaffold(body: AgentStorageContent(theme: theme.themeData)),
+        ),
+      ),
+    );
+    await tick(tester);
+    expect(find.text('角色卡'), findsOneWidget);
+    Finder usage(RegExp pattern) => find.byWidgetPredicate(
+      (widget) =>
+          widget is Semantics &&
+          pattern.hasMatch(widget.properties.label ?? ''),
+    );
+    expect(usage(RegExp(r'角色卡: 0 B')), findsOneWidget);
+    workspaces.addRoleplayTemplate(
+      AiRoleplayBinding(
+        card: AiRoleplayCard.fromFields({'name': 'Library character'}),
+        playerName: 'Guest',
+      ),
+    );
+    await tester.tap(find.text('刷新'));
+    await tick(tester);
+    expect(usage(RegExp(r'角色卡: [1-9]\d* B')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   for (final type in ThemeType.values) {
     for (final scale in [1.0, 1.5]) {
       testWidgets('storage memory editor fits ${type.name} at $scale', (

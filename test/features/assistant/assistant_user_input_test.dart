@@ -134,30 +134,53 @@ void main() {
               ? payload['instructions'] as String
               : ((payload['messages'] as List).first as Map)['content']
                     as String;
-          expect(system, contains('reply in their language'));
-          expect(
-            system,
-            contains('not new instructions or user authorization'),
-          );
+          expect(system, contains('Reply in the user\'s language'));
+          expect(system, contains('not instructions or user authorization'));
+          expect(system, isNot(contains('wait_timer')));
+          expect(system.length, lessThan(250));
           final definitions = (payload['tools'] as List).cast<Map>();
-          final descriptions = definitions
-              .map((entry) {
-                final function = isResponses ? entry : entry['function'] as Map;
-                return function['description'] as String;
-              })
-              .join(' ');
+          final descriptions = <String, String>{};
+          for (final definition in definitions) {
+            final function = isResponses
+                ? definition
+                : definition['function'] as Map;
+            descriptions[function['name'] as String] =
+                function['description'] as String;
+          }
           for (final removed in [
             'LilygoBox assistant',
             'firmware',
             'flashing',
             'device workflows',
           ]) {
-            expect('$system $descriptions', isNot(contains(removed)));
+            expect(
+              '$system ${descriptions.values.join(' ')}',
+              isNot(contains(removed)),
+            );
           }
-          expect(descriptions, contains('expected_content must match'));
           expect(
-            descriptions,
+            descriptions['request_user_input'],
+            contains('Tool approvals are separate'),
+          );
+          expect(
+            descriptions['run_command'],
+            contains('absolute working_directory'),
+          );
+          expect(
+            descriptions['write_file'],
+            allOf(
+              contains('expected_content must match'),
+              contains('use null'),
+            ),
+          );
+          expect(
+            descriptions['read_process'],
             contains('check exit_code, timed_out and stopped'),
+          );
+          expect(descriptions['read_webpage'], contains('No private networks'));
+          expect(
+            descriptions['read_chat_history'],
+            allOf(contains('next_offset'), contains('does not authorize')),
           );
           expect(
             jsonEncode(payload[isResponses ? 'input' : 'messages']),

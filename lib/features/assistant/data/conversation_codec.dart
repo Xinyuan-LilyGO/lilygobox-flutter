@@ -39,6 +39,7 @@ abstract final class ConversationCodec {
     'role': m.role,
     'content': m.content,
     if (m.continuesReply) 'continuesReply': true,
+    if (m.isRoleplayOpening) 'isRoleplayOpening': true,
     'createdAt': m.createdAt?.toIso8601String(),
     'finishedAt': m.finishedAt?.toIso8601String(),
     'toolName': m.toolName,
@@ -97,6 +98,7 @@ abstract final class ConversationCodec {
           : AiCompactionException(issue),
     );
   }
+
   static AiMessage read(Map m) {
     if (!m.keys.toSet().containsAll({
           'createdAt',
@@ -117,6 +119,7 @@ abstract final class ConversationCodec {
       role: m['role'] as String,
       content: m['content'] as String,
       continuesReply: m['continuesReply'] == true,
+      isRoleplayOpening: m['isRoleplayOpening'] == true,
       createdAt: DateTime.tryParse(m['createdAt'] as String? ?? ''),
       finishedAt: DateTime.tryParse(m['finishedAt'] as String? ?? ''),
       toolName: m['toolName'] as String?,

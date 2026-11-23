@@ -6,6 +6,7 @@ import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -19,11 +20,13 @@ import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
 import '../../../../core/widgets/dialog_style.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
+import '../../../../core/widgets/popup_menu_option.dart';
 import '../../../../core/widgets/popup_menu_surface.dart';
 import '../../../../core/widgets/popup_menu_transition.dart';
 import '../../../../core/widgets/settings/compact_switch.dart';
 import '../../../../core/widgets/settings/select.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
+import '../../../../generated/l10n/app_localizations.dart';
 import '../../../settings/presentation/widgets/content_layout.dart';
 import '../../domain/permissions.dart';
 import '../../state/provider.dart';
@@ -43,6 +46,16 @@ class AssistantPermissionsButton extends StatefulWidget {
   final AiAssistantProvider assistant;
   final bool compact;
 
+  static const compactWidth = 28.0;
+  static const labelChromeWidth = 18.0;
+
+  static String labelFor(AppLocalizations l10n, AiApprovalMode mode) =>
+      switch (mode) {
+        AiApprovalMode.onRequest => l10n.aiPermissionRequest,
+        AiApprovalMode.automatic => l10n.aiPermissionAutomatic,
+        AiApprovalMode.custom => l10n.aiPermissionCustom,
+      };
+
   /// 创建等标准弹窗中使用紧凑字段按钮，下方左对齐展开。
   final Color? fieldSurfaceColor;
 
@@ -54,9 +67,7 @@ class AssistantPermissionsButton extends StatefulWidget {
 class _AssistantPermissionsButtonState
     extends State<AssistantPermissionsButton> {
   final _menu = MenuController();
-  final _buttonKey = GlobalKey();
   int _revision = 0;
-  double? _fieldMenuHeight;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -74,95 +85,27 @@ class _AssistantPermissionsButtonState
         : null;
 
     final l10n = context.l10n;
-    final (label, modeIcon, initialPage) = switch (assistant.permissions.mode) {
+    final mode = assistant.permissions.mode;
+    final label = AssistantPermissionsButton.labelFor(l10n, mode);
+    final (modeIcon, initialPage) = switch (mode) {
       AiApprovalMode.onRequest => (
-        l10n.aiPermissionRequest,
         Symbols.front_hand_rounded,
         _PermissionsPage.modes,
       ),
       AiApprovalMode.automatic => (
-        l10n.aiPermissionAutomatic,
         Symbols.verified_user_rounded,
         _PermissionsPage.automatic,
       ),
-      AiApprovalMode.custom => (
-        l10n.aiPermissionCustom,
-        Symbols.tune_rounded,
-        _PermissionsPage.custom,
-      ),
+      AiApprovalMode.custom => (Symbols.tune_rounded, _PermissionsPage.custom),
     };
-    final available = MediaQuery.sizeOf(context);
-    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
-    final width = math
-        .min(math.max(0, available.width - 64), 320 * math.max(1, textScale))
-        .toDouble();
-    return MenuAnchor(
+    return RawMenuAnchor(
       controller: _menu,
-      clipBehavior: Clip.none,
-      crossAxisUnconstrained: true,
-      alignmentOffset: field ? const Offset(-16, -8) : const Offset(0, -8),
-      style: MenuStyle(
-        alignment: field
-            ? AlignmentDirectional.bottomStart
-            : AlignmentDirectional.topStart,
-        backgroundColor: WidgetStatePropertyAll(Colors.transparent),
-        elevation: WidgetStatePropertyAll(0),
-        shadowColor: WidgetStatePropertyAll(Colors.transparent),
-        surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
-        padding: WidgetStatePropertyAll(EdgeInsets.zero),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(8)),
-          ),
-        ),
-      ),
-      onOpen: () => setState(() {
-        if (field) {
-          final box = _buttonKey.currentContext?.findRenderObject();
-          if (box is RenderBox) {
-            _fieldMenuHeight =
-                ((Overlay.of(context).context.findRenderObject()! as RenderBox)
-                            .size
-                            .height -
-                        box.localToGlobal(Offset(0, box.size.height)).dy -
-                        32)
-                    .clamp(0.0, 480.0);
-          }
-        }
-        _revision++;
-      }),
+      onOpen: () => setState(() => _revision++),
       onClose: () {
         if (mounted) setState(() {});
       },
-      menuChildren: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: PopupMenuTransition(
-            key: ValueKey(_revision),
-            alignment: field ? Alignment.topLeft : Alignment.bottomLeft,
-            child: PopupMenuSurface(
-              key: const ValueKey('ai-permissions-menu-surface'),
-              theme: theme,
-              borderRadius: BorderRadius.circular(8),
-              padding: EdgeInsets.zero,
-              child: SizedBox(
-                width: width + 4,
-                child: _PermissionsPanel(
-                  key: ValueKey(_revision),
-                  initialPage: initialPage,
-                  theme: theme,
-                  assistant: assistant,
-                  menuController: _menu,
-                  maxHeight: field
-                      ? _fieldMenuHeight ?? 480
-                      : (available.height - 100).clamp(0.0, 480.0),
-                  onClose: _menu.close,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+      overlayBuilder: (context, info) =>
+          _buildPanel(context, info, initialPage, field: field),
       builder: (context, controller, _) => AppTooltip(
         message: '${context.l10n.aiPermissions} · $label',
         child: MenuItemSurface(
@@ -174,7 +117,6 @@ class _AssistantPermissionsButtonState
           onPressed: () =>
               controller.isOpen ? controller.close() : controller.open(),
           child: Padding(
-            key: _buttonKey,
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 20),
@@ -219,23 +161,97 @@ class _AssistantPermissionsButtonState
       ),
     );
   }
+
+  Widget _buildPanel(
+    BuildContext context,
+    RawMenuOverlayInfo info,
+    _PermissionsPage initialPage, {
+    required bool field,
+  }) {
+    const inset = PopupMenuSurface.verticalInset;
+    final gap = field ? PopupMenuSurface.fieldAnchorGap : 8.0;
+    const preferredHeight = 240.0;
+    final bounds =
+        (const EdgeInsets.all(inset) +
+                MediaQuery.paddingOf(context) +
+                MediaQuery.viewInsetsOf(context))
+            .deflateRect(Offset.zero & info.overlaySize);
+    if (bounds.isEmpty) return const SizedBox.shrink();
+
+    final anchor = info.anchorRect;
+    final aboveEdge = (anchor.top - gap).clamp(bounds.top, bounds.bottom);
+    final belowEdge = (anchor.bottom + gap).clamp(bounds.top, bounds.bottom);
+    final above = aboveEdge - bounds.top;
+    final below = bounds.bottom - belowEdge;
+    final opensAbove = field
+        ? below < preferredHeight && above > below
+        : above >= preferredHeight || above >= below;
+    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    final contentWidth = (info.overlaySize.width - 64)
+        .clamp(0.0, 320 * math.max(1.0, textScale))
+        .toDouble();
+    final width = math.min(bounds.width, contentWidth + 4);
+    final left = (anchor.left + (field ? 0 : inset)).clamp(
+      bounds.left,
+      bounds.right - width,
+    );
+    return Positioned(
+      left: left,
+      width: width,
+      top: opensAbove ? null : belowEdge,
+      bottom: opensAbove ? info.overlaySize.height - aboveEdge : null,
+      child: TapRegion(
+        groupId: info.tapRegionGroupId,
+        onTapOutside: (_) => _menu.close(),
+        child: Focus(
+          autofocus: true,
+          onKeyEvent: (_, event) {
+            if (event.logicalKey != LogicalKeyboardKey.escape) {
+              return KeyEventResult.ignored;
+            }
+            if (event is KeyDownEvent) _menu.close();
+            return KeyEventResult.handled;
+          },
+          child: Material(
+            type: MaterialType.transparency,
+            child: PopupMenuTransition(
+              key: ValueKey(_revision),
+              alignment: opensAbove ? Alignment.bottomLeft : Alignment.topLeft,
+              child: PopupMenuSurface(
+                key: const ValueKey('ai-permissions-menu-surface'),
+                theme: widget.theme,
+                padding: EdgeInsets.zero,
+                child: _PermissionsPanel(
+                  initialPage: initialPage,
+                  theme: widget.theme,
+                  assistant: widget.assistant,
+                  tapRegionGroupId: info.tapRegionGroupId,
+                  maxHeight: math.min(480.0, opensAbove ? above : below),
+                  onClose: _menu.close,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// 模式选择和自定义配置共用同一个菜单，避免独立浮层被判定为外部点击。
 class _PermissionsPanel extends StatefulWidget {
   const _PermissionsPanel({
-    super.key,
     required this.initialPage,
     required this.theme,
     required this.assistant,
-    required this.menuController,
+    required this.tapRegionGroupId,
     required this.maxHeight,
     required this.onClose,
   });
   final _PermissionsPage initialPage;
   final AppTheme theme;
   final AiAssistantProvider assistant;
-  final MenuController menuController;
+  final Object tapRegionGroupId;
   final double maxHeight;
   final VoidCallback onClose;
 
@@ -377,114 +393,24 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
     required Key key,
     required IconData icon,
     required String title,
-    String? description,
+    required String description,
     required bool selected,
     required VoidCallback onPressed,
     bool next = false,
-  }) {
-    final theme = widget.theme;
-    final background = theme.popupSurfaceColor;
-    return MenuItemSurface(
-      key: key,
-      theme: theme,
-      isSelected: selected,
-      disableWhenSelected: false,
-      backgroundColor: background,
-      selectedColor: theme.primaryTextHoverColor,
-      hoverColor: theme.basePrimary,
-      foregroundColor: selected
-          ? theme.type == ThemeType.light
-                ? Colors.black
-                : theme.materialColors.onPrimary
-          : theme.textColorSecondary,
-      hoverForegroundColor: theme.materialColors.onPrimary,
-      borderRadius: BorderRadius.circular(6),
-      onPressed: onPressed,
-      child: Builder(
-        builder: (context) {
-          final foreground =
-              DefaultTextStyle.of(context).style.color ??
-              theme.textColorSecondary;
-          final normal = theme.textColorSecondary;
-          final highlighted = theme.materialColors.onPrimary;
-          double distance(Color a, Color b) =>
-              math.pow(a.r - b.r, 2).toDouble() +
-              math.pow(a.g - b.g, 2).toDouble() +
-              math.pow(a.b - b.b, 2).toDouble();
-          // 沿用公共菜单的前景渐变进度，让二级说明同步切换浅色。
-          final total = distance(normal, highlighted);
-          final progress = total == 0
-              ? 0.0
-              : math.sqrt(distance(normal, foreground) / total).clamp(0.0, 1.0);
-          final descriptionColor = Color.lerp(
-            theme.textColorTertiary,
-            highlighted,
-            progress,
-          );
-          final descriptionStyle = TextStyle(
-            fontSize: 11,
-            color: descriptionColor,
-            height: 1.4,
-          );
-          return ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 28),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              child: Row(
-                children: [
-                  Icon(
-                    icon,
-                    size: 16,
-                    fill: icon == Symbols.front_hand_rounded ? 0 : 1,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppDialogStyle.fieldTitleStyle(theme)
-                              .copyWith(color: foreground),
-                        ),
-                        if (description != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            description,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: descriptionStyle,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 17,
-                    child: selected
-                        ? const Icon(Symbols.check_rounded, size: 17)
-                        : null,
-                  ),
-                  if (next) ...[
-                    const SizedBox(width: 4),
-                    SizedBox(
-                      width: 17,
-                      child: next
-                          ? const Icon(Symbols.chevron_right_rounded, size: 16)
-                          : null,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
+  }) => buildPopupMenuOption(
+    key: key,
+    theme: widget.theme,
+    leading: Icon(
+      icon,
+      size: 16,
+      fill: icon == Symbols.front_hand_rounded ? 0 : 1,
+    ),
+    title: title,
+    description: description,
+    selected: selected,
+    onPressed: onPressed,
+    next: next,
+  );
 
   Widget _section(String title) => Padding(
     padding: const EdgeInsets.only(top: 16, bottom: 8),
@@ -740,7 +666,6 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                 Flexible(
                   child: ScrollbarTheme(
                     data: ScrollbarTheme.of(context).copyWith(
-                      // 菜单右侧已有 4 px 留白，与选择模型保持相同的靠边距离。
                       crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset - 4,
                     ),
                     child: Scrollbar(
@@ -754,8 +679,13 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                           key: const ValueKey('ai-permissions-scroll'),
                           controller: _scroll,
                           padding: _subpage
-                              ? const EdgeInsets.only(left: 4, right: 16)
-                              : const EdgeInsets.only(right: 16),
+                              ? const EdgeInsets.only(
+                                  left: 4,
+                                  right: popupMenuOptionsTrailingInset - 4,
+                                )
+                              : const EdgeInsets.only(
+                                  right: popupMenuOptionsTrailingInset - 4,
+                                ),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -776,7 +706,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                                     widget.onClose();
                                   },
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: popupMenuOptionSpacing),
                                 _option(
                                   key: const ValueKey(
                                     'ai-permission-mode-automatic',
@@ -792,7 +722,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                                       _showPage(_PermissionsPage.automatic),
                                   next: true,
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: popupMenuOptionSpacing),
                                 _option(
                                   key: const ValueKey(
                                     'ai-permission-mode-custom',
@@ -850,7 +780,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                                     theme: theme,
                                     surfaceColor: theme.popupSurfaceColor,
                                     dropdownTapRegionGroupId:
-                                        widget.menuController,
+                                        widget.tapRegionGroupId,
                                     value: permissions.files,
                                     items: _fileAccessItems(),
                                     onChanged: (value) {
@@ -999,7 +929,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
                                                                     .popupSurfaceColor,
                                                                 dropdownTapRegionGroupId:
                                                                     widget
-                                                                        .menuController,
+                                                                        .tapRegionGroupId,
                                                                 dropdownWidth:
                                                                     240 *
                                                                     MediaQuery.textScalerOf(

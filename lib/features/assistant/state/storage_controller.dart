@@ -1,9 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 import '../data/agent_package.dart';
+import '../data/roleplay_card_exporter.dart';
+import '../data/roleplay_card_importer.dart';
 import '../domain/memory_conflict.dart';
+import '../domain/roleplay_card.dart';
 import 'agent_workspace_provider.dart';
 
 class AgentStorageController extends ChangeNotifier {
@@ -250,11 +255,14 @@ class AgentStorageController extends ChangeNotifier {
     _checkCancelled();
     final storage = workspaces.main.storage!;
     final snapshot = Map<String, dynamic>.from(
-      await storage.request('exportSnapshot') as Map,
+      await storage.request('exportSnapshot', {'includeRoleplayLibrary': false})
+          as Map,
     );
     _checkCancelled();
     final workflow = Map<String, Object?>.from(snapshot['workflow'] as Map);
-    workflow.remove('recycleBin');
+    workflow
+      ..remove('recycleBin')
+      ..remove('roleplayLibrary');
     final records = (workflow['sessions'] as List).cast<Map>();
     final ids = <String>{};
     if (selectedIds != null) {
@@ -293,6 +301,7 @@ class AgentStorageController extends ChangeNotifier {
               : AiWorkspaceKind.primary.name,
         },
     ];
+    if (type != 'memory') _packRoleplayCards(workflow);
     workflow['connections'] = [
       for (final e in workflow['connections'] as List)
         if (ids.contains(e['fromId']) && ids.contains(e['toId'])) e,
@@ -342,6 +351,100 @@ class AgentStorageController extends ChangeNotifier {
           ..remove('workspaceRelationship')
           ..remove('pendingWorkspaceEvents');
     return session..['conversation'] = conversation;
+  }
+
+  void _packRoleplayCards(Map<String, Object?> workflow) {
+    final originals = {
+      for (final binding in workspaces.roleplayTemplates)
+        if (binding.sourceCard.originalFile != null)
+          binding.sourceCard.templateFingerprint: binding.sourceCard,
+    };
+    final cards = <String, String>{};
+    final references = <String, String>{};
+    for (final session in workflow['sessions'] as List) {
+      final conversation = session['conversation'] as Map;
+      if (conversation['roleplay'] case {'binding': final Map binding}) {
+        final card = AiRoleplayCard.fromSnapshot(binding['card'] as Map);
+        final fingerprint = card.templateFingerprint;
+        final reference = references.putIfAbsent(fingerprint, () {
+          final bytes = AiRoleplayCardExporter.encode(
+            originals[fingerprint] ?? card,
+          );
+          final hash = sha256.convert(bytes).toString();
+          cards.putIfAbsent(hash, () => base64Encode(bytes));
+          return hash;
+        });
+        conversation['roleplay'] = {
+          ...conversation['roleplay'] as Map,
+          'binding': {
+            ...(Map.of(binding)..remove('card')),
+            'cardRef': reference,
+          },
+        };
+      }
+    }
+    if (cards.isNotEmpty) workflow['roleplayCards'] = cards;
+  }
+
+  Future<void> _restorePackagedRoleplayCards(
+    Map<String, dynamic> workflow,
+  ) async {
+    final cards = workflow.remove('roleplayCards') ?? const <String, String>{};
+    if (cards is! Map) throw const FormatException('Invalid character cards');
+    final restored = <String, AiRoleplayCard>{};
+    workflow['sessions'] = [
+      for (final record in workflow['sessions'] as List)
+        await _restorePackagedRoleplaySession(record as Map, cards, restored),
+    ];
+    if (restored.length != cards.length) {
+      throw const FormatException('Unreferenced packaged character card');
+    }
+  }
+
+  Future<Map<String, Object?>> _restorePackagedRoleplaySession(
+    Map record,
+    Map cards,
+    Map<String, AiRoleplayCard> restored,
+  ) async {
+    _checkCancelled();
+    final session = _copyPackageSession(record);
+    final conversation = session['conversation'] as Map;
+    if (!conversation.containsKey('roleplay')) return session;
+    if (conversation['roleplay'] case final Map roleplay
+        when roleplay['binding'] is Map) {
+      final binding = roleplay['binding'] as Map;
+      final reference = binding['cardRef'];
+      if (reference is String && !binding.containsKey('card')) {
+        final previous = restored[reference];
+        final card =
+            previous ?? await _decodePackagedCard(reference, cards[reference]);
+        restored[reference] = card;
+        conversation['roleplay'] = {
+          ...roleplay,
+          'binding': {
+            ...(Map.of(binding)..remove('cardRef')),
+            'card': card.toSnapshot(includeOriginal: previous == null),
+          },
+        };
+        return session;
+      }
+    }
+    throw const FormatException('Missing packaged character card reference');
+  }
+
+  Future<AiRoleplayCard> _decodePackagedCard(
+    String reference,
+    Object? encoded,
+  ) async {
+    if (encoded is! String ||
+        encoded.length > AiRoleplayCardImporter.maxFileBytes ~/ 3 * 4) {
+      throw const FormatException('Invalid packaged character card');
+    }
+    final bytes = base64Decode(encoded);
+    if (sha256.convert(bytes).toString() != reference) {
+      throw const FormatException('Character card checksum mismatch');
+    }
+    return AiRoleplayCardImporter.parse(bytes, retainOriginal: true);
   }
 
   /// 将画布上的独立记忆导入暂存为一个新的空闲主智能体。
@@ -539,15 +642,13 @@ class AgentStorageController extends ChangeNotifier {
       var checkpoints = 0;
       _reportProgress(const AgentPackageProgress(AgentPackageStage.analyzing));
       final workflow = Map<String, dynamic>.from(package['workflow'] as Map);
-      if (package['type'] == 'chat') {
-        workflow.remove('recycleBin');
-        if (workflow['sessions'] case final List records) {
-          workflow['sessions'] = [
-            for (final record in records)
-              _copyPackageSession(record as Map),
-          ];
-        }
+      final library = workflow.remove('roleplayLibrary');
+      final recycleBin = workflow.remove('recycleBin');
+      if (!(library == null || library is List && library.isEmpty) ||
+          !(recycleBin == null || recycleBin is List && recycleBin.isEmpty)) {
+        throw const FormatException('Invalid packaged workflow');
       }
+      await _restorePackagedRoleplayCards(workflow);
       await workspaces.importData(
         workflow,
         memoriesFor: prepare,

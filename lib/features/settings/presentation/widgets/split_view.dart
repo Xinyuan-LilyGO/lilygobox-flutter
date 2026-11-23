@@ -16,6 +16,7 @@ import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../../account/presentation/widgets/avatar.dart';
 import '../../../account/state/provider.dart';
+import '../../../assistant/presentation/widgets/roleplay_library_content.dart';
 import '../../../assistant/presentation/widgets/service_settings_content.dart';
 import '../../../assistant/presentation/widgets/storage_content.dart';
 import 'about_content.dart';
@@ -25,7 +26,14 @@ import 'language_and_region_content.dart';
 import 'personalization_content.dart';
 import 'profile_content.dart';
 
-enum _SettingsCategory { appearance, language, general, aiService, storage }
+enum _SettingsCategory {
+  appearance,
+  language,
+  general,
+  aiService,
+  storage,
+  roleplayLibrary,
+}
 
 class SettingsSplitView extends StatefulWidget {
   const SettingsSplitView({super.key});
@@ -343,6 +351,10 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
                     l10n.agentStorageTitle,
                     Symbols.storage_rounded,
                   ),
+                  _SettingsCategory.roleplayLibrary: (
+                    l10n.aiRoleplayLibraryTitle,
+                    Symbols.badge_rounded,
+                  ),
                 }.entries)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4),
@@ -449,6 +461,7 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
       _SettingsCategory.general: l10n.general,
       _SettingsCategory.aiService: l10n.aiServiceTitle,
       _SettingsCategory.storage: l10n.agentStorageTitle,
+      _SettingsCategory.roleplayLibrary: l10n.aiRoleplayLibraryTitle,
     };
     final page = _profile
         ? ProfileContent(theme: theme)
@@ -463,6 +476,9 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
             ),
             _SettingsCategory.general => GeneralSettingsContent(theme: theme),
             _SettingsCategory.storage => AgentStorageContent(theme: theme),
+            _SettingsCategory.roleplayLibrary => RoleplayLibraryContent(
+              theme: theme,
+            ),
             _SettingsCategory.aiService => AiServiceSettingsContent(
               theme: theme,
             ),

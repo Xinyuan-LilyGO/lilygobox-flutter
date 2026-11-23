@@ -253,17 +253,6 @@ void main() {
         await tester.tap(firstCard, buttons: kSecondaryMouseButton);
         await tester.pumpAndSettle();
         expect(region.selection.selected, isEmpty);
-        await tester.tap(
-          find.byKey(ValueKey('recycle-restore-${ordered[0].id}')),
-        );
-        await tester.pumpAndSettle();
-        expect(confirmation, findsOneWidget);
-        expect(find.text('Restore this agent?'), findsOneWidget);
-        await tester.tap(cancelRestore);
-        await tester.pumpAndSettle();
-        expect(workspace.recycledAgents, hasLength(12));
-        await tester.tap(firstCard, buttons: kSecondaryMouseButton);
-        await tester.pumpAndSettle();
         await tester.tap(find.text('Select all'));
         await tester.pumpAndSettle();
         expect(
@@ -355,16 +344,7 @@ void main() {
           find.byKey(const ValueKey('recycle-restore-selected')),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Restore the 2 selected agents?'), findsOneWidget);
-        expect(workspace.pendingRecycleRestore, isNull);
-        await tester.tap(cancelRestore);
-        await tester.pumpAndSettle();
-        expect(region.selection.selected, {ordered[0].id, ordered[1].id});
-        await tester.tap(
-          find.byKey(const ValueKey('recycle-restore-selected')),
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(confirmation);
+        expect(confirmation, findsNothing);
         Future<void> settleRecycleCount(int count) async {
           for (var attempt = 0; attempt < 100; attempt++) {
             await tester.runAsync(
@@ -475,7 +455,23 @@ void main() {
         workspace.removeMany(workspace.sessions.map((session) => session.id));
         await tester.tap(find.text('Open bin'));
         await tester.pumpAndSettle();
+        final entry = workspace.recycledAgents.first;
+        final entryCard = find.byKey(
+          ValueKey('recycle-agent-card-${entry.id}'),
+        );
+        await tester.scrollUntilVisible(entryCard, 120, scrollable: scrollable);
+        await tester.pumpAndSettle();
+        await tester.tap(entryCard, buttons: kSecondaryMouseButton);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(ValueKey('recycle-restore-${entry.id}')));
+        await tester.pumpAndSettle();
+        expect(confirmation, findsNothing);
+        await settleRecycleCount(9);
+        await tester.pumpAndSettle();
+        expect(workspace.recycledAgents, hasLength(9));
+        expect(workspace.find(entry.id), isNotNull);
         await tester.ensureVisible(emptyAll);
+        await tester.pumpAndSettle();
         await tester.tap(emptyAll);
         await tester.pumpAndSettle();
         storage.deletion = Completer<void>();
@@ -496,7 +492,7 @@ void main() {
           await tester.tap(close);
           await tester.pumpAndSettle();
           expect(find.byType(AppDialog), findsNothing);
-          expect(workspace.recycledAgents, hasLength(10));
+          expect(workspace.recycledAgents, hasLength(9));
         } finally {
           storage.deletion!.complete();
         }
@@ -506,5 +502,4 @@ void main() {
       },
     );
   }
-
 }

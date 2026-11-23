@@ -2630,6 +2630,334 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiTopologyOpen => 'Open conversation';
 
   @override
+  String get aiRoleplayFileType => 'Character card files (PNG, JSON, 7z)';
+
+  @override
+  String get aiRoleplayCard => 'Character card';
+
+  @override
+  String get aiRoleplayCardSettings => 'Character card settings';
+
+  @override
+  String get aiRoleplaySaveSettings => 'Save settings';
+
+  @override
+  String get aiRoleplayImport => 'Import character card';
+
+  @override
+  String get aiSearchRoleplayCards => 'Search character names or creators';
+
+  @override
+  String get aiNoRoleplayCards => 'No character cards yet';
+
+  @override
+  String get aiNoMatchingRoleplayCards => 'No matching character cards';
+
+  @override
+  String aiRoleplayAuthor(String value) {
+    return 'Author: $value';
+  }
+
+  @override
+  String aiRoleplayCardVersion(String value) {
+    return 'Card version: $value';
+  }
+
+  @override
+  String aiRoleplayFormatVersion(String value) {
+    return 'Format: V$value';
+  }
+
+  @override
+  String aiRoleplayTags(String value) {
+    return 'Tags: $value';
+  }
+
+  @override
+  String get aiRoleplayCreatorNotes => 'Author’s notes';
+
+  @override
+  String get aiRoleplayImportProfile => 'Character profile';
+
+  @override
+  String get aiRoleplayImportProfileDetail =>
+      'Identity, background, and personality';
+
+  @override
+  String get aiRoleplayImportWorldBook => 'World book';
+
+  @override
+  String aiRoleplayImportWorldBookDetail(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entries',
+      one: '1 entry',
+    );
+    return '$_temp0 · Matched by keywords';
+  }
+
+  @override
+  String get aiRoleplayImportAdvanced => 'Advanced prompts';
+
+  @override
+  String get aiRoleplayImportAdvancedDetail =>
+      'Card author’s guidance for roleplay';
+
+  @override
+  String get aiRoleplayContentUnavailable => 'No saved content for this option';
+
+  @override
+  String get aiRoleplayNotInCard => 'Not included in this card';
+
+  @override
+  String get aiRoleplaySelectOpening => 'Choose a story opening';
+
+  @override
+  String get aiRoleplayStartStory => 'Start story';
+
+  @override
+  String aiRoleplayOpeningPreview(String opening) {
+    return 'Preview: $opening';
+  }
+
+  @override
+  String get aiRoleplayRestartWarning =>
+      'Starting this story will delete all messages in this agent’s current chat. This cannot be undone.';
+
+  @override
+  String get aiRoleplayClearAndStart => 'Clear chat and start';
+
+  @override
+  String aiRoleplayOpeningNumber(int number) {
+    return 'Opening $number';
+  }
+
+  @override
+  String get aiRoleplayConfirmImport => 'Import';
+
+  @override
+  String get aiRoleplayImportFailed =>
+      'Couldn’t import character cards. Choose valid PNG, JSON, or 7z files.';
+
+  @override
+  String aiRoleplayImportSkippedFiles(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count unreadable files were skipped.',
+      one: '1 unreadable file was skipped.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get aiRoleplayCardActive => 'Card active';
+
+  @override
+  String get aiRoleplayCardPaused => 'Card paused';
+
+  @override
+  String get aiRoleplayEnableCard => 'Enable character card';
+
+  @override
+  String get aiRoleplayPlayer => 'Guest';
+
+  @override
+  String get aiRoleplayTemplateOptional => 'Character card template (optional)';
+
+  @override
+  String get aiRoleplayTemplateHelp =>
+      'The character’s identity, personality, and background.';
+
+  @override
+  String get aiRoleplayNoCard => 'No character card';
+
+  @override
+  String get aiRoleplayNoCardSummary =>
+      'Use default settings and keep the chat.';
+
+  @override
+  String get aiRoleplayLibraryDelete => 'Delete from library';
+
+  @override
+  String get aiRoleplayLibraryViewDetails => 'View details';
+
+  @override
+  String get aiRoleplayLibraryTitle => 'Character card library';
+
+  @override
+  String get aiRoleplayLibraryDescription =>
+      'Manage the character cards available to your agents.';
+
+  @override
+  String get aiRoleplayLibraryAddedTitle => 'Imported character cards';
+
+  @override
+  String get aiRoleplayLibraryAddedDescription =>
+      'SillyTavern character cards · PNG / JSON';
+
+  @override
+  String get aiRoleplayPackageTitle => 'Character card packages';
+
+  @override
+  String get aiRoleplayPackageDescription =>
+      'Import PNG, JSON, or 7z files and export selected cards in a 7z package.';
+
+  @override
+  String get aiRoleplayPackageFileType => 'Character card package (7z)';
+
+  @override
+  String get aiRoleplayPackageExport => 'Export card package';
+
+  @override
+  String get aiRoleplayPackageSelectExport =>
+      'Select the cards to include in the package.';
+
+  @override
+  String aiRoleplayPackageSummary(int total, int added, int duplicates) {
+    return '$total cards found · $added new · $duplicates duplicates';
+  }
+
+  @override
+  String aiRoleplayPackageImportSelected(int count) {
+    return 'Import selected ($count)';
+  }
+
+  @override
+  String aiRoleplayPackageExportSelected(int count) {
+    return 'Export selected ($count)';
+  }
+
+  @override
+  String aiRoleplayPackageImported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count character cards',
+      one: '1 character card',
+    );
+    return 'Imported $_temp0.';
+  }
+
+  @override
+  String aiRoleplayPackageExported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count character cards',
+      one: '1 character card',
+    );
+    return 'Exported $_temp0.';
+  }
+
+  @override
+  String get aiRoleplayPackageExportFailed =>
+      'Couldn’t export the character card package.';
+
+  @override
+  String get aiRoleplayLibraryEmpty =>
+      'Import a SillyTavern PNG or JSON card to get started.';
+
+  @override
+  String get aiRoleplayLibraryUnavailable =>
+      'The character card library is currently unavailable. Please try again later.';
+
+  @override
+  String aiRoleplayLibraryBoundCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Bound to $count agents',
+      one: 'Bound to 1 agent',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String aiRoleplayLibraryDeleteTitle(String name) {
+    return 'Delete “$name” from the library?';
+  }
+
+  @override
+  String aiRoleplayLibraryDeleteBoundTitle(String name, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count agents',
+      one: '1 agent',
+    );
+    return 'Delete “$name” and unbind $_temp0?';
+  }
+
+  @override
+  String get aiRoleplayLibraryDeleteWarning =>
+      'Your chat history and the original PNG or JSON file will be kept.';
+
+  @override
+  String get aiRoleplayLibraryDeleteBoundWarning =>
+      'After deletion, the agents below will use their default settings, and chat history and the original PNG or JSON files will be kept.';
+
+  @override
+  String aiRoleplayLibraryCardsToDelete(int count) {
+    return 'Character cards to delete ($count)';
+  }
+
+  @override
+  String aiRoleplayLibraryAgentsToUnbind(int count) {
+    return 'Agents to unbind ($count)';
+  }
+
+  @override
+  String get aiRoleplayLibraryDeleteAndUnbind => 'Delete and unbind';
+
+  @override
+  String aiRoleplayLibraryRecycledAgent(String name) {
+    return '$name (recycle bin)';
+  }
+
+  @override
+  String get aiRoleplayLibraryBusyTitle => 'This card is in use';
+
+  @override
+  String get aiRoleplayLibraryBusyDetail =>
+      'Wait for these agents to finish or stop them before trying again:';
+
+  @override
+  String get aiRoleplayLibraryChanged =>
+      'The card’s bindings changed. Review the affected agents and confirm again.';
+
+  @override
+  String get aiRoleplayCardDetailsSummary => 'View character card details.';
+
+  @override
+  String get aiRoleplayOpeningOptional => 'Story opening (optional)';
+
+  @override
+  String get aiRoleplayOpeningHelp =>
+      'The character’s first message in the conversation.';
+
+  @override
+  String get aiRoleplayManualOpening => 'Start without a greeting';
+
+  @override
+  String get aiRoleplayManualOpeningSummary =>
+      'Skip the card greeting and start the conversation yourself.';
+
+  @override
+  String get aiRoleplayUseOpening => 'Use this opening';
+
+  @override
+  String get aiRoleplayOptionalTask => 'Work content (optional)';
+
+  @override
+  String get aiRoleplayOptionalTaskHelp =>
+      'Leave blank to open the chat without sending a message.';
+
+  @override
+  String get aiTopologyWorkflowActions => 'Workflow';
+
+  @override
   String get aiTopologyInspect => 'Inspect activity';
 
   @override
@@ -3324,6 +3652,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cardDeselect => 'Deselect';
 
   @override
+  String settingsDeleteSelected(int count) {
+    return 'Delete selected ($count)';
+  }
+
+  @override
+  String get aiDeleteServicesMessage =>
+      'Remove the selected model services and their locally stored API keys? Existing chat history is kept.';
+
+  @override
   String get cardSelectAll => 'Select all';
 
   @override
@@ -3488,17 +3825,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentRecycleRestoring => 'Restoring agents…';
-
-  @override
-  String agentRecycleRestoreConfirm(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: 'Restore the $count selected agents?',
-      one: 'Restore this agent?',
-    );
-    return '$_temp0';
-  }
 
   @override
   String get agentRecycleRestoreFailed =>

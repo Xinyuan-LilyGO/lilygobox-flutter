@@ -570,18 +570,24 @@ void main() {
     },
   );
 
-  test('failed removal restores key and retains selected service', () async {
-    final id = await add('first', 'secret-first');
-    storage.fail = true;
-    await expectLater(
-      repository.remove(id),
-      throwsA(isA<AiConfigurationException>()),
-    );
-    expect(repository.selectedService?.id, id);
-    expect(keys.values[id], 'secret-first');
-    storage.fail = false;
-    await preferences.flush();
-  });
+  test(
+    'failed batch removal restores keys and retains selected service',
+    () async {
+      final id = await add('first', 'secret-first');
+      final second = await add('second', 'secret-second');
+      storage.fail = true;
+      await expectLater(
+        repository.removeAll({id, second}),
+        throwsA(isA<AiConfigurationException>()),
+      );
+      expect(repository.selectedService?.id, id);
+      expect(repository.services.map((service) => service.id), [id, second]);
+      expect(keys.values[id], 'secret-first');
+      expect(keys.values[second], 'secret-second');
+      storage.fail = false;
+      await preferences.flush();
+    },
+  );
 
   test(
     'malformed saved catalog fails without replacing original data',

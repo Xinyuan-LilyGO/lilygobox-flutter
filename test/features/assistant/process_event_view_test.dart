@@ -809,6 +809,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(processText(stageLabel), findsOneWidget);
       expect(processText(label), findsOneWidget);
+      if (status == AiResponseStatus.permissionReviewDenied ||
+          status == AiResponseStatus.manualApprovalDenied) {
+        expect(tester.widget<Icon>(find.byIcon(Symbols.block_rounded)).fill, 0);
+      }
       if (model != null) {
         final modelLine = find.text('自动审批模型：$model');
         expect(modelLine, findsOneWidget);

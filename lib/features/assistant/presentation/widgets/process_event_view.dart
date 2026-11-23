@@ -214,7 +214,7 @@ String? aiResponseStatusLabel(
         ? Symbols.refresh_rounded
         : statusIcon,
     fill:
-        (!failed && isWeb) ||
+        (!failed && (isWeb || statusIcon == Symbols.block_rounded)) ||
             (modelNote && isThinking) ||
             event.status == AiResponseStatus.thinking
         ? 0

@@ -16,6 +16,7 @@ import 'package:lilygobox/features/assistant/domain/agent_link.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/domain/permissions.dart';
 import 'package:lilygobox/features/assistant/domain/reasoning.dart';
+import 'package:lilygobox/features/assistant/domain/roleplay_card.dart';
 import 'package:lilygobox/features/assistant/domain/task_canvas_style.dart';
 import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
 
@@ -59,6 +60,81 @@ void main() {
   late List<Map<String, dynamic>> requests;
   Completer<void>? gate;
   Completer<void>? namingGate;
+  test(
+    'roleplay library migrates bound cards and saves independent entries',
+    () async {
+      final card = AiRoleplayCard.fromFields({
+        'name': 'Library card',
+        'first_mes': 'Welcome to the library.',
+      });
+      final imported = AiRoleplayBinding(card: card, playerName: 'Guest');
+      final agent = await workspaces.createPrimary(
+        title: 'Agent',
+        task: '',
+        roleplay: imported,
+        roleplayOpening: 0,
+      );
+      await workspaces.flush();
+
+      final previous = await storage.request('readWorkflowData') as Map;
+      previous.remove('roleplayLibrary');
+      await storage.saveWorkflow(previous);
+      final restored = AiWorkspaceProvider(scope.provider);
+      await restored.initialized;
+      final fingerprint = card.templateFingerprint;
+      try {
+        final assistant = restored.find(agent.id)!.assistant;
+        expect(restored.roleplayTemplates.single.card.name, 'Library card');
+        assistant.setRoleplayEnabled(false);
+        expect(
+          restored.deleteRoleplayTemplate(fingerprint, confirmedAgents: []),
+          AiRoleplayLibraryDeleteResult.changed,
+        );
+        final affected = restored.roleplayLibraryUsage[fingerprint]!;
+        expect(affected.single.id, agent.id);
+        expect(
+          restored.deleteRoleplayTemplate(
+            fingerprint,
+            confirmedAgents: affected,
+          ),
+          AiRoleplayLibraryDeleteResult.deleted,
+        );
+        expect(assistant.roleplayBinding, isNull);
+        expect(assistant.messages.single.content, 'Welcome to the library.');
+        expect(restored.roleplayTemplates, isEmpty);
+        restored.addRoleplayTemplate(imported);
+        restored.addRoleplayTemplate(imported);
+        expect(restored.roleplayTemplates, hasLength(1));
+        restored.addRoleplayTemplate(
+          AiRoleplayBinding(
+            card: AiRoleplayCard.fromFields({'name': 'Unused import'}),
+            playerName: 'Guest',
+          ),
+        );
+        await restored.flush();
+        final reloaded = AiWorkspaceProvider(scope.provider);
+        try {
+          await reloaded.initialized;
+          expect(reloaded.find(agent.id)!.assistant.roleplayBinding, isNull);
+          expect(reloaded.roleplayTemplates.map((item) => item.card.name), [
+            'Library card',
+            'Unused import',
+          ]);
+          expect(
+            reloaded.deleteRoleplayTemplate(fingerprint, confirmedAgents: []),
+            AiRoleplayLibraryDeleteResult.deleted,
+          );
+          await reloaded.flush();
+          final saved = await storage.request('readWorkflowData') as Map;
+          expect(saved['roleplayLibrary'], hasLength(1));
+        } finally {
+          reloaded.dispose();
+        }
+      } finally {
+        restored.dispose();
+      }
+    },
+  );
   test(
     'agent creation and card forks retain independent processing speed',
     () async {

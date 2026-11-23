@@ -33,6 +33,7 @@ import '../../../../core/widgets/tilt_card.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../../../generated/l10n/app_localizations.dart';
 import '../../../settings/presentation/widgets/content_layout.dart';
+import '../../domain/roleplay_card.dart';
 import '../../domain/task_canvas_style.dart';
 import '../../state/agent_workspace_provider.dart';
 import '../../state/provider.dart';
@@ -42,6 +43,7 @@ import '../widgets/error_text.dart';
 import '../widgets/model_selector.dart';
 import '../widgets/permissions_button.dart';
 import '../widgets/process_event_view.dart';
+import '../widgets/roleplay_card_controls.dart';
 import '../widgets/storage_content.dart';
 import '../widgets/task_canvas_background.dart';
 import '../widgets/task_navigation_scope.dart';
@@ -64,6 +66,15 @@ const _taskKindTitleStyle = TextStyle(
   fontWeight: FontWeight.w600,
 );
 const _taskKindIconSize = 18.0;
+const _topologyHeaderTitleStyle = TextStyle(
+  fontSize: 16,
+  fontWeight: FontWeight.w600,
+);
+const _topologyHeaderTitlePadding = EdgeInsets.symmetric(
+  horizontal: 12,
+  vertical: 8,
+);
+const _topologyHeaderTitleRadius = BorderRadius.all(Radius.circular(10));
 const _sceneSize = Size(1060, 700);
 
 class TaskTopologyPage extends StatefulWidget {
@@ -75,6 +86,9 @@ class TaskTopologyPage extends StatefulWidget {
 class _TaskTopologyPageState extends State<TaskTopologyPage>
     with SingleTickerProviderStateMixin {
   static const _graphKey = 'topology-graph';
+  static const _windowFocusChannel = OptionalMethodChannel(
+    'lilygobox/window_focus',
+  );
   final _transform = TransformationController();
   late final AnimationController _viewMotion = AnimationController(
     vsync: this,
@@ -164,6 +178,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   bool _nodeDragged = false;
   String? _openId;
   final List<String?> _conversationHistory = [];
+  final _editingRoleplay = <String>{};
   final _visitedChats = <String>{};
   int _lastNavigationRevision = 0;
   AiWorkspaceProvider? _navigationWorkspace;
@@ -207,6 +222,8 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   bool _controlHints = false;
   bool _shiftHints = false;
   bool _spaceHints = false;
+  bool _ignoreStaleShift = false;
+  Timer? _shiftReleaseCheck;
 
   _TopologyEditFrame _captureEdit(AiWorkspaceProvider workspaces) {
     _historyWorkspace = workspaces;
@@ -368,7 +385,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
 
   Size _size(String? id) => _nodeSizes[id] ?? _nodeSize;
 
-  final _measuredNodes = <String, (String, Size)>{};
+  final _measuredNodes = <String, ((String, bool), Size)>{};
   final _nodeCards = <String, (Object, Widget)>{};
   final _textHeights = <(String, TextStyle), double>{};
   Object? _measurementEnvironment;
@@ -408,11 +425,17 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     late final small = sharedHeight('M', const TextStyle(fontSize: 10));
     late final kind = sharedHeight('M', _taskKindTitleStyle);
     late final status = sharedHeight('M', const TextStyle(fontSize: 11));
+    late final roleRow = math.max(
+      27.0,
+      sharedHeight('M', const TextStyle(fontSize: 11)) + 8,
+    );
     final minimum = _nodeSize.height * math.max(1, scaler.scale(13) / 13);
     final sizes = <String, Size>{};
     for (final session in sessions) {
+      final hasRole = session.assistant.roleplayBinding != null;
+      final signature = (session.title, hasRole);
       final cached = _measuredNodes[session.id];
-      if (cached != null && cached.$1 == session.title) {
+      if (cached != null && cached.$1 == signature) {
         sizes[session.id] = cached.$2;
         continue;
       }
@@ -435,11 +458,12 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       final size = Size(
         _nodeSize.width,
         math
-            .max(minimum + math.max(0, title - twoLines), content)
-            .ceilToDouble(),
+                .max(minimum + math.max(0, title - twoLines), content)
+                .ceilToDouble() +
+            (hasRole ? roleRow + 6 : 0),
       );
       sizes[session.id] = size;
-      _measuredNodes[session.id] = (session.title, size);
+      _measuredNodes[session.id] = (signature, size);
     }
     return sizes;
   }
@@ -454,6 +478,8 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
 
   @override
   void dispose() {
+    _shiftReleaseCheck?.cancel();
+    _shiftReleaseCheck = null;
     _transform.removeListener(_saveViewport);
     if (_hasSavedViewport) {
       unawaited(_navigationWorkspace?.main.workspacePreferences.flush());
@@ -523,10 +549,69 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     setState(() => _openId = target);
   }
 
+  Future<void> _chooseRoleplayOpening(
+    AiWorkspaceProvider workspaces,
+    AiAgentWorkspace session,
+    AppTheme theme,
+    AiRoleplayBinding binding,
+  ) async {
+    final assistant = session.assistant;
+    bool current() =>
+        mounted &&
+        _openId == session.id &&
+        identical(workspaces.find(session.id), session) &&
+        identical(assistant.roleplayBinding, binding) &&
+        assistant.canChooseRoleplayOpening;
+    if (!current()) return;
+    final chosen = await pickRoleplayOpening(
+      context,
+      theme,
+      binding,
+      hasConversationToRestart: () => assistant.hasConversationToRestart,
+    );
+    if (chosen == null || !current()) return;
+    assistant.startRoleplayOpening(
+      chosen.index,
+      clearExisting: chosen.clearExisting,
+    );
+  }
+
+  Future<void> _editRoleplaySettings(
+    AiWorkspaceProvider workspaces,
+    AiAgentWorkspace session,
+    AppTheme theme,
+  ) async {
+    final assistant = session.assistant;
+    final previous = assistant.roleplayBinding;
+    if (previous == null || !_editingRoleplay.add(session.id)) return;
+    try {
+      final updated = await showDialog<AiRoleplayBinding>(
+        context: context,
+        builder: (_) =>
+            RoleplayCardOptionsDialog(binding: previous, theme: theme),
+      );
+      if (updated != null &&
+          mounted &&
+          identical(workspaces.find(session.id), session)) {
+        assistant.updateRoleplayOptions(previous, updated);
+      }
+    } finally {
+      _editingRoleplay.remove(session.id);
+    }
+  }
+
+  bool get _canvasShortcutModifierPressed {
+    final keyboard = HardwareKeyboard.instance;
+    return keyboard.isControlPressed ||
+        (defaultTargetPlatform != TargetPlatform.windows &&
+            keyboard.isMetaPressed);
+  }
+
   bool get _extendSelection =>
-      HardwareKeyboard.instance.isControlPressed ||
-      HardwareKeyboard.instance.isMetaPressed ||
-      HardwareKeyboard.instance.isShiftPressed;
+      _canvasShortcutModifierPressed || _canvasShiftPressed;
+
+  bool get _canvasShiftPressed =>
+      !_ignoreStaleShift && HardwareKeyboard.instance.isShiftPressed;
 
   void _selectNode(
     AiWorkspaceProvider workspaces,
@@ -1127,14 +1212,36 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     return hints.isEmpty ? null : hints.join('  ·  ');
   }
 
-  void _updateShortcutHints({bool clear = false}) {
+  bool get _canvasOwnsKeyboard =>
+      _openId == null && _canvasFocus.hasPrimaryFocus;
+
+  void _watchShiftRelease(bool shift) {
+    if (!shift || kIsWeb || defaultTargetPlatform != TargetPlatform.windows) {
+      _shiftReleaseCheck?.cancel();
+      _shiftReleaseCheck = null;
+      return;
+    }
+    _shiftReleaseCheck ??= Timer(const Duration(milliseconds: 80), () async {
+      final check = _shiftReleaseCheck;
+      final pressed = await _windowFocusChannel.invokeMethod<bool>(
+        'isPhysicalShiftDown',
+      );
+      if (check != _shiftReleaseCheck) return;
+      _shiftReleaseCheck = null;
+      if (pressed == null) return;
+      _ignoreStaleShift = !pressed;
+      _updateShortcutHints();
+    });
+  }
+
+  void _updateShortcutHints() {
     final keyboard = HardwareKeyboard.instance;
-    final active = !clear && _openId == null && _canvasFocus.hasPrimaryFocus;
-    final control =
-        active && (keyboard.isControlPressed || keyboard.isMetaPressed);
-    final shift = active && keyboard.isShiftPressed;
+    final active = _canvasOwnsKeyboard;
+    final control = active && _canvasShortcutModifierPressed;
+    final shift = active && _canvasShiftPressed;
     final space =
         active && keyboard.isLogicalKeyPressed(LogicalKeyboardKey.space);
+    _watchShiftRelease(shift);
     if (_controlHints == control &&
         _shiftHints == shift &&
         _spaceHints == space) {
@@ -1159,10 +1266,17 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   }
 
   KeyEventResult _canvasKey(AiWorkspaceProvider workspaces, KeyEvent event) {
+    if (event.logicalKey == LogicalKeyboardKey.shiftLeft ||
+        event.logicalKey == LogicalKeyboardKey.shiftRight) {
+      _watchShiftRelease(false);
+      if (!event.synthesized || !HardwareKeyboard.instance.isShiftPressed) {
+        _ignoreStaleShift = false;
+      }
+    }
     _updateShortcutHints();
+    final shortcutModifier = _canvasShortcutModifierPressed;
     final shortcut =
-        (HardwareKeyboard.instance.isControlPressed ||
-            HardwareKeyboard.instance.isMetaPressed) &&
+        shortcutModifier &&
         {
           LogicalKeyboardKey.keyA,
           LogicalKeyboardKey.keyC,
@@ -1175,11 +1289,10 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         (shortcut ||
             event.logicalKey == LogicalKeyboardKey.escape ||
             event.logicalKey == LogicalKeyboardKey.delete ||
-            event.logicalKey == LogicalKeyboardKey.backspace ||
             event.logicalKey == LogicalKeyboardKey.space)) {
       _closeCanvasMenus();
     }
-    if (_openId != null || !_canvasFocus.hasPrimaryFocus) {
+    if (!_canvasOwnsKeyboard) {
       return KeyEventResult.ignored;
     }
     if (event.logicalKey == LogicalKeyboardKey.space) {
@@ -1188,14 +1301,11 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
-    if ((HardwareKeyboard.instance.isControlPressed ||
-            HardwareKeyboard.instance.isMetaPressed) &&
-        event.logicalKey == LogicalKeyboardKey.keyA) {
+    if (shortcutModifier && event.logicalKey == LogicalKeyboardKey.keyA) {
       _selectAll(workspaces);
       return KeyEventResult.handled;
     }
-    if (HardwareKeyboard.instance.isControlPressed ||
-        HardwareKeyboard.instance.isMetaPressed) {
+    if (shortcutModifier) {
       if (event.logicalKey == LogicalKeyboardKey.keyZ ||
           event.logicalKey == LogicalKeyboardKey.keyY) {
         if (event is KeyDownEvent) {
@@ -1203,7 +1313,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
             workspaces,
             redo:
                 event.logicalKey == LogicalKeyboardKey.keyY ||
-                HardwareKeyboard.instance.isShiftPressed,
+                _canvasShiftPressed,
           );
         }
         return KeyEventResult.handled;
@@ -1221,8 +1331,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         return KeyEventResult.handled;
       }
     }
-    if (event.logicalKey == LogicalKeyboardKey.delete ||
-        event.logicalKey == LogicalKeyboardKey.backspace) {
+    if (event.logicalKey == LogicalKeyboardKey.delete) {
       if (_selectedIds.isNotEmpty) {
         _delete(
           workspaces,
@@ -1500,17 +1609,14 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       setState(() {
         _placeNodes({session.id: Offset.zero}, topLeft);
         if (wasEmpty) {
-          _sceneOrigin.value = _positions[session.id]! +
-              _size(session.id).center(Offset.zero);
+          _sceneOrigin.value =
+              _positions[session.id]! + _size(session.id).center(Offset.zero);
         }
       });
-      workspaces.updateCanvasPositions(
-        {
-          for (final entry in _positions.entries)
-            entry.key: [entry.value.dx, entry.value.dy],
-        },
-        origin: _sceneOrigin.value,
-      );
+      workspaces.updateCanvasPositions({
+        for (final entry in _positions.entries)
+          entry.key: [entry.value.dx, entry.value.dy],
+      }, origin: _sceneOrigin.value);
     }
     _open(workspaces, session);
   }
@@ -1856,8 +1962,6 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         !workspaces.isConnected(session.id, connectTarget);
     final hasParentCandidate =
         !multipleTargets && _parentCandidates(workspaces, session).isNotEmpty;
-    final hasRole =
-        session.kind != AiWorkspaceKind.primary || hasParentCandidate;
     return [
       if (!multipleTargets)
         RightClickMenuItem(
@@ -1922,58 +2026,64 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
             );
           },
         )
-      else ...[
+      else
         RightClickMenuItem(
-          label: l10n.agentStorageManage,
+          key: const ValueKey('topology-context-storage'),
+          label: l10n.agentStorageTitle,
           icon: Symbols.memory,
-          onTap: () {
-            closeMenu();
-            showAgentStorage(context, theme, session.id);
-          },
+          children: [
+            RightClickMenuItem(
+              label: l10n.agentStorageManage,
+              icon: Symbols.memory,
+              onTap: () {
+                closeMenu();
+                showAgentStorage(context, theme, session.id);
+              },
+            ),
+            RightClickMenuItem(
+              key: const ValueKey('topology-context-manage-chat'),
+              label: l10n.agentStorageManageContext,
+              icon: Symbols.chat_rounded,
+              onTap: () {
+                closeMenu();
+                showAgentContextStorage(context, theme, session.id);
+              },
+            ),
+            RightClickMenuItem(
+              label: l10n.agentStorageImportMemory,
+              icon: Symbols.file_open,
+              onTap: () {
+                closeMenu();
+                showAgentStorage(context, theme, session.id, action: 'import');
+              },
+            ),
+            RightClickMenuItem(
+              label: l10n.agentStorageExportMemory,
+              icon: Symbols.file_save,
+              onTap: () {
+                closeMenu();
+                showAgentStorage(context, theme, session.id, action: 'memory');
+              },
+            ),
+            RightClickMenuItem(
+              key: const ValueKey('topology-context-export-chat'),
+              label: l10n.agentStorageExportChat,
+              icon: Symbols.file_save,
+              onTap: () {
+                closeMenu();
+                showAgentStorage(context, theme, session.id, action: 'chat');
+              },
+            ),
+            RightClickMenuItem(
+              label: l10n.agentStorageExportAgent,
+              icon: Symbols.archive,
+              onTap: () {
+                closeMenu();
+                showAgentStorage(context, theme, session.id, action: 'agent');
+              },
+            ),
+          ],
         ),
-        RightClickMenuItem(
-          key: const ValueKey('topology-context-manage-chat'),
-          label: l10n.agentStorageManageContext,
-          icon: Symbols.chat_rounded,
-          onTap: () {
-            closeMenu();
-            showAgentContextStorage(context, theme, session.id);
-          },
-        ),
-        RightClickMenuItem(
-          label: l10n.agentStorageImportMemory,
-          icon: Symbols.file_open,
-          onTap: () {
-            closeMenu();
-            showAgentStorage(context, theme, session.id, action: 'import');
-          },
-        ),
-        RightClickMenuItem(
-          label: l10n.agentStorageExportMemory,
-          icon: Symbols.file_save,
-          onTap: () {
-            closeMenu();
-            showAgentStorage(context, theme, session.id, action: 'memory');
-          },
-        ),
-        RightClickMenuItem(
-          key: const ValueKey('topology-context-export-chat'),
-          label: l10n.agentStorageExportChat,
-          icon: Symbols.file_save,
-          onTap: () {
-            closeMenu();
-            showAgentStorage(context, theme, session.id, action: 'chat');
-          },
-        ),
-        RightClickMenuItem(
-          label: l10n.agentStorageExportAgent,
-          icon: Symbols.archive,
-          onTap: () {
-            closeMenu();
-            showAgentStorage(context, theme, session.id, action: 'agent');
-          },
-        ),
-      ],
       if (!multipleTargets)
         RightClickMenuItem(
           key: const ValueKey('topology-context-rename'),
@@ -2012,46 +2122,51 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         ),
       if (!multipleTargets)
         RightClickMenuItem(
-          key: const ValueKey('topology-context-create'),
-          showDivider: !hasRole && !hasStop && !hasDisconnect,
-          label: l10n.aiTopologyCreateChild,
+          key: const ValueKey('topology-context-workflow'),
+          label: l10n.aiTopologyWorkflowActions,
           icon: Symbols.account_tree_rounded,
-          onTap: () {
-            closeMenu();
-            _create(workspaces, parent: session);
-          },
-        ),
-      if (!multipleTargets && canMakeMain)
-        RightClickMenuItem(
-          key: const ValueKey('topology-context-make-workflow-main'),
-          label: l10n.aiTopologyMakeWorkflowMain,
-          icon: Symbols.hub_rounded,
-          onTap: () {
-            closeMenu();
-            _makeWorkflowMain(workspaces, session);
-          },
-        ),
-      if (!multipleTargets && session.kind != AiWorkspaceKind.primary)
-        RightClickMenuItem(
-          key: const ValueKey('topology-context-make-root'),
           showDivider: !hasStop && !hasDisconnect,
-          label: l10n.aiTopologyMakeRoot,
-          icon: Symbols.hub_rounded,
-          onTap: () {
-            closeMenu();
-            _makeRoot(workspaces, session);
-          },
-        ),
-      if (hasParentCandidate)
-        RightClickMenuItem(
-          key: const ValueKey('topology-context-make-child'),
-          showDivider: !hasStop && !hasDisconnect,
-          label: l10n.aiTopologyMakeChild,
-          icon: Symbols.subdirectory_arrow_right_rounded,
-          onTap: () {
-            closeMenu();
-            _makeChild(workspaces, session);
-          },
+          children: [
+            RightClickMenuItem(
+              key: const ValueKey('topology-context-create'),
+              label: l10n.aiTopologyCreateChild,
+              icon: Symbols.account_tree_rounded,
+              onTap: () {
+                closeMenu();
+                _create(workspaces, parent: session);
+              },
+            ),
+            if (canMakeMain)
+              RightClickMenuItem(
+                key: const ValueKey('topology-context-make-workflow-main'),
+                label: l10n.aiTopologyMakeWorkflowMain,
+                icon: Symbols.hub_rounded,
+                onTap: () {
+                  closeMenu();
+                  _makeWorkflowMain(workspaces, session);
+                },
+              ),
+            if (session.kind != AiWorkspaceKind.primary)
+              RightClickMenuItem(
+                key: const ValueKey('topology-context-make-root'),
+                label: l10n.aiTopologyMakeRoot,
+                icon: Symbols.hub_rounded,
+                onTap: () {
+                  closeMenu();
+                  _makeRoot(workspaces, session);
+                },
+              ),
+            if (hasParentCandidate)
+              RightClickMenuItem(
+                key: const ValueKey('topology-context-make-child'),
+                label: l10n.aiTopologyMakeChild,
+                icon: Symbols.subdirectory_arrow_right_rounded,
+                onTap: () {
+                  closeMenu();
+                  _makeChild(workspaces, session);
+                },
+              ),
+          ],
         ),
       if (hasStop)
         RightClickMenuItem(
@@ -2105,6 +2220,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   ) => RightClickMenuBuilder.buildMenuAnchor(
     context: context,
     fitWidthToItems: true,
+    fitHeightToWindow: true,
     onMenuPointerEvent: _menuPointerEvent,
     controller: _nodeMenus.putIfAbsent(
       session.id,
@@ -2266,8 +2382,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         final anchorPosition = automatic[anchor.id];
         if (anchorPosition != null) {
           _defaultOriginAnchorId = anchor.id;
-          final origin =
-              anchorPosition + _size(anchor.id).center(Offset.zero);
+          final origin = anchorPosition + _size(anchor.id).center(Offset.zero);
           if (_sceneOrigin.value != origin) {
             _sceneOrigin.value = origin;
             workspace.updateCanvasPositions(
@@ -2500,7 +2615,9 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     _measureNodes(const []);
     final pending = [
       for (final session in sessions)
-        if (_measuredNodes[session.id]?.$1 != session.title) session,
+        if (_measuredNodes[session.id]?.$1 !=
+            (session.title, session.assistant.roleplayBinding != null))
+          session,
     ];
     if (pending.isEmpty) return null;
 
@@ -2552,10 +2669,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         theme,
         workspaces,
         Center(
-          child: _canvasLoading(
-            theme,
-            context.l10n.agentRecycleRestoring,
-          ),
+          child: _canvasLoading(theme, context.l10n.agentRecycleRestoring),
         ),
       );
     }
@@ -2739,6 +2853,13 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
                   child: _TopologyConversation(
                     key: ValueKey('topology-chat-${session.id}'),
                     session: session,
+                    onRename: () => _rename(workspaces, session),
+                    onChooseOpening: (binding) => _chooseRoleplayOpening(
+                      workspaces,
+                      session,
+                      theme,
+                      binding,
+                    ),
                     onBack: () => _backToConversation(workspaces),
                   ),
                 ),
@@ -2856,6 +2977,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       onMenuPointerEvent: _menuPointerEvent,
       controller: _canvasMenu,
       fitWidthToItems: _overviewMenuId != null,
+      fitHeightToWindow: true,
       theme: theme,
       onSecondaryTap: () {
         if (workspaces.find(_overviewMenuId) case final session?) {
@@ -2966,7 +3088,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
             action(
               'topology-canvas-auto-layout',
               l10n.aiTopologyAutoLayout,
-              Symbols.auto_awesome_mosaic_rounded,
+              Symbols.grid_view_rounded,
               () => _autoLayout(sessions),
             ),
             action(
@@ -2999,7 +3121,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
               } else {
                 _panByWheel(
                   _wheelPanAcceleration.apply(
-                    keyboard.isShiftPressed
+                    _canvasShiftPressed
                         ? Offset(
                             -event.scrollDelta.dy - event.scrollDelta.dx,
                             0,
@@ -3258,6 +3380,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       session,
       session.title,
       session.kind,
+      session.assistant.roleplayBinding,
       session.model,
       session.serviceId,
       session.assistant.selectedService?.name,
@@ -3275,6 +3398,9 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         session: session,
         selected: selected,
         onOpen: () => _open(workspaces, session),
+        onRoleplayPointerUp: (_) => _nodePrimaryDown = false,
+        onRoleplaySettings: () =>
+            unawaited(_editRoleplaySettings(workspaces, session, theme)),
         theme: theme,
       ),
     );
@@ -3338,7 +3464,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
 
     return Focus(
       focusNode: _canvasFocus,
-      onFocusChange: (focused) => _updateShortcutHints(clear: !focused),
+      onFocusChange: (_) => _updateShortcutHints(),
       onKeyEvent: (_, event) => _canvasKey(workspaces, event),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3624,7 +3750,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
                                 child: _viewButton(
                                   theme,
                                   l10n.aiTopologyAutoLayout,
-                                  Symbols.auto_awesome_mosaic_rounded,
+                                  Symbols.grid_view_rounded,
                                   () => _autoLayout(sessions),
                                   iconFill: 1,
                                 ),
@@ -3692,7 +3818,6 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     AiAgentWorkspace? parent,
   ) {
     final l10n = context.l10n;
-    const titleStyle = TextStyle(fontSize: 16, fontWeight: FontWeight.w600);
     double textWidth(String text, TextStyle style) {
       final painter = TextPainter(
         text: TextSpan(text: text, style: style),
@@ -3714,16 +3839,17 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       (width, label) =>
           width + textWidth(label, const TextStyle(fontSize: 12)) + 49,
     );
-    final titleWidth = textWidth(l10n.aiTopologyTitle, titleStyle) + 48;
+    final titleWidth =
+        textWidth(l10n.aiTopologyTitle, _topologyHeaderTitleStyle) + 48;
     final title = IgnorePointer(
       child: DecoratedBox(
         key: const ValueKey('topology-canvas-title'),
         decoration: BoxDecoration(
           color: theme.primary,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: _topologyHeaderTitleRadius,
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: _topologyHeaderTitlePadding,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -3737,7 +3863,9 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
               Flexible(
                 child: Text(
                   l10n.aiTopologyTitle,
-                  style: titleStyle.copyWith(color: theme.textColorPrimary),
+                  style: _topologyHeaderTitleStyle.copyWith(
+                    color: theme.textColorPrimary,
+                  ),
                 ),
               ),
             ],
@@ -4096,9 +4224,15 @@ class _TopologyEditFrame {
 
 /// 会话顶部名称限高两行，超出后独立滚动。
 class _TaskTitleScroll extends StatefulWidget {
-  const _TaskTitleScroll({super.key, required this.title, required this.style});
+  const _TaskTitleScroll({
+    super.key,
+    required this.title,
+    required this.theme,
+    required this.onRename,
+  });
   final String title;
-  final TextStyle style;
+  final AppTheme theme;
+  final VoidCallback onRename;
 
   @override
   State<_TaskTitleScroll> createState() => _TaskTitleScrollState();
@@ -4123,60 +4257,80 @@ class _TaskTitleScrollState extends State<_TaskTitleScroll> {
 
   @override
   Widget build(BuildContext context) {
-    final painter = TextPainter(
-      text: TextSpan(
-        text: 'M\nM',
-        style: DefaultTextStyle.of(context).style.merge(widget.style),
-      ),
-      textDirection: Directionality.of(context),
-      textScaler: MediaQuery.textScalerOf(context),
-      locale: Localizations.maybeLocaleOf(context),
-    )..layout();
-    final height = painter.height.ceilToDouble();
-    painter.dispose();
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final content = TextPainter(
-          text: TextSpan(
-            text: widget.title,
-            style: DefaultTextStyle.of(context).style.merge(widget.style),
-          ),
-          textDirection: Directionality.of(context),
-          textScaler: MediaQuery.textScalerOf(context),
-          locale: Localizations.maybeLocaleOf(context),
-        )..layout(maxWidth: constraints.maxWidth);
-        final rightInset = content.height > height ? 20.0 : 0.0;
-        final width = math.min(
-          constraints.maxWidth,
-          content.width + rightInset,
-        );
-        content.dispose();
-        return SizedBox(
-          width: width,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: height),
-            child: ScrollConfiguration(
-              behavior: const AppScrollBehavior(scrollbars: false),
-              child: ScrollbarTheme(
-                data: ScrollbarTheme.of(context).copyWith(
-                  crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
-                  mainAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
-                ),
-                child: Scrollbar(
-                  controller: _scroll,
-                  thumbVisibility: false,
-                  child: SingleChildScrollView(
-                    controller: _scroll,
-                    primary: false,
-                    padding: EdgeInsets.only(right: rightInset),
-                    child: Text(widget.title, style: widget.style),
+    final theme = widget.theme;
+    final hoverColor = theme.secondaryTextHoverColor;
+    final titleStyle = _topologyHeaderTitleStyle.copyWith(
+      color: theme.textColorPrimary,
+    );
+    return AppTooltip(
+      message: context.l10n.aiTopologyRename,
+      child: Semantics(
+        button: true,
+        child: MenuItemSurface(
+          theme: theme,
+          onPressed: widget.onRename,
+          backgroundColor: hoverColor.withValues(alpha: 0),
+          surfaceColor: theme.primary,
+          hoverColor: hoverColor,
+          borderRadius: _topologyHeaderTitleRadius,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final style = DefaultTextStyle.of(context).style
+                    .merge(titleStyle);
+                TextPainter measure(
+                  String text, {
+                  double maxWidth = double.infinity,
+                }) => TextPainter(
+                  text: TextSpan(text: text, style: style),
+                  textDirection: Directionality.of(context),
+                  textScaler: MediaQuery.textScalerOf(context),
+                  locale: Localizations.maybeLocaleOf(context),
+                )..layout(maxWidth: maxWidth);
+                final lines = measure('M\nM');
+                final height = lines.height.ceilToDouble();
+                lines.dispose();
+                final content = measure(
+                  widget.title,
+                  maxWidth: constraints.maxWidth,
+                );
+                final scrollbarInset = content.height > height ? 20.0 : 0.0;
+                final width = math.min(
+                  constraints.maxWidth,
+                  content.width + scrollbarInset,
+                );
+                content.dispose();
+                return ConstrainedBox(
+                  constraints: BoxConstraints.tightFor(width: width)
+                      .copyWith(maxHeight: height),
+                  child: ScrollConfiguration(
+                    behavior: const AppScrollBehavior(scrollbars: false),
+                    child: ScrollbarTheme(
+                      data: ScrollbarTheme.of(context).copyWith(
+                        crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
+                        mainAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
+                      ),
+                      child: Scrollbar(
+                        controller: _scroll,
+                        thumbVisibility: false,
+                        child: SingleChildScrollView(
+                          controller: _scroll,
+                          primary: false,
+                          padding: EdgeInsetsDirectional.only(
+                            end: scrollbarInset,
+                          ),
+                          child: Text(widget.title, style: titleStyle),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -4186,11 +4340,15 @@ class _TaskNode extends StatelessWidget {
     required this.session,
     required this.selected,
     required this.onOpen,
+    required this.onRoleplayPointerUp,
+    required this.onRoleplaySettings,
     required this.theme,
   });
   final AiAgentWorkspace session;
   final bool selected;
   final VoidCallback onOpen;
+  final PointerUpEventListener onRoleplayPointerUp;
+  final VoidCallback onRoleplaySettings;
   final AppTheme theme;
 
   @override
@@ -4342,6 +4500,59 @@ class _TaskNode extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (session.assistant.roleplayBinding?.card
+                      case final card?) ...[
+                    const SizedBox(height: 6),
+                    AppTooltip(
+                      message: '${l10n.aiRoleplayCardSettings} · ${card.name}',
+                      child: Listener(
+                        onPointerUp: onRoleplayPointerUp,
+                        child: MenuItemSurface(
+                          key: ValueKey('topology-roleplay-${session.id}'),
+                          theme: theme,
+                          onPressed: onRoleplaySettings,
+                          borderRadius: BorderRadius.circular(6),
+                          backgroundColor: theme
+                              .buttonColorsForSurface(theme.primary)
+                              .hover
+                              .withValues(alpha: 0),
+                          surfaceColor: theme.primary,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            child: Row(
+                              children: [
+                                RoleplayAvatar(
+                                  card: card,
+                                  theme: theme,
+                                  size: 19,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    card.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: theme.textColorSecondary,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  Symbols.chevron_right_rounded,
+                                  size: 14,
+                                  color: theme.iconColor,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -4421,8 +4632,8 @@ IconData _kindIcon(AiWorkspaceKind kind) => switch (kind) {
   return session.assistant.messages.isEmpty
       ? (
           label: l10n.aiWorkspaceIdle,
-          icon: Symbols.chat_bubble_outline_rounded,
-          fill: 0,
+          icon: Symbols.chat_bubble_rounded,
+          fill: 1,
         )
       : (
           label: l10n.aiWorkspaceCompleted,
@@ -4563,9 +4774,14 @@ class _TopologyConversation extends StatelessWidget {
     super.key,
     required this.session,
     required this.onBack,
+    required this.onRename,
+    required this.onChooseOpening,
   });
   final AiAgentWorkspace session;
   final VoidCallback onBack;
+  final VoidCallback onRename;
+  final Future<void> Function(AiRoleplayBinding) onChooseOpening;
+
   @override
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeProvider>().themeData;
@@ -4598,16 +4814,15 @@ class _TopologyConversation extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 flex: 3,
-                child: _TaskTitleScroll(
-                  key: ValueKey(
-                    'topology-conversation-title-scroll-${session.id}',
-                  ),
-                  title: session.title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.3,
-                    fontWeight: FontWeight.w600,
-                    color: theme.textColorPrimary,
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: _TaskTitleScroll(
+                    key: ValueKey(
+                      'topology-conversation-title-scroll-${session.id}',
+                    ),
+                    title: session.title,
+                    theme: theme,
+                    onRename: onRename,
                   ),
                 ),
               ),
@@ -4661,11 +4876,20 @@ class _TopologyConversation extends StatelessWidget {
         ),
         Expanded(
           child: AssistantPage(
-            initialDraft: session.assistant.messages.isEmpty
+            initialDraft:
+                session.assistant.messages.every(
+                  (message) => message.isRoleplayOpening,
+                )
                 ? session.task
                 : '',
             onManageContext: () =>
                 showAgentContextStorage(context, theme, session.id),
+            roleplayMenuBuilder: (compact) => RoleplayMenuButton(
+              theme: theme,
+              assistant: session.assistant,
+              compact: compact,
+              onChooseOpening: onChooseOpening,
+            ),
           ),
         ),
       ],
@@ -4693,6 +4917,8 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
   bool _missing = false;
   Object? _error;
   String _model = '';
+  AiRoleplayBinding? _roleplay;
+  int? _roleplayOpening;
   late final AiAssistantProvider _draft;
   @override
   void initState() {
@@ -4746,6 +4972,7 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
   }
 
   Future<void> _save() async {
+    if (_working) return;
     final budget = int.tryParse(_contextBudget.text.trim());
     final percent = int.tryParse(_contextPercent.text.trim());
     setState(() {
@@ -4753,7 +4980,7 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
       _invalidPercent = percent == null || percent < 1 || percent > 100;
     });
     if (_invalidBudget || _invalidPercent) return;
-    if (_task.text.trim().isEmpty) {
+    if (_task.text.trim().isEmpty && _roleplay == null) {
       setState(() => _missing = true);
       return;
     }
@@ -4778,6 +5005,8 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
               contextBudgetTokens: budget,
               contextCompactionPercent: percent,
               auxiliaryModels: _draft.auxiliaryModels,
+              roleplay: _roleplay,
+              roleplayOpening: _roleplayOpening,
             )
           : await widget.workspaces.create(
               title: _title.text.trim(),
@@ -4790,6 +5019,8 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
               contextBudgetTokens: budget,
               contextCompactionPercent: percent,
               auxiliaryModels: _draft.auxiliaryModels,
+              roleplay: _roleplay,
+              roleplayOpening: _roleplayOpening,
               parentId: widget.parent!.id,
             );
       if (mounted) {
@@ -4803,6 +5034,90 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
         });
       }
     }
+  }
+
+  void _setRoleplay(AiRoleplayBinding? binding) => setState(() {
+    if (!identical(_roleplay, binding)) _roleplayOpening = null;
+    _roleplay = binding;
+    _missing = false;
+  });
+
+  Future<void> _editRoleplaySettings(
+    AppTheme theme,
+    AiRoleplayBinding binding,
+  ) async {
+    final updated = await showDialog<AiRoleplayBinding>(
+      context: context,
+      builder: (_) => RoleplayCardOptionsDialog(binding: binding, theme: theme),
+    );
+    if (mounted && updated != null && identical(_roleplay, binding)) {
+      setState(() => _roleplay = updated);
+    }
+  }
+
+  Future<void> _chooseOpening(AppTheme theme, AiRoleplayBinding binding) async {
+    final selected = await pickRoleplayOpening(
+      context,
+      theme,
+      binding,
+      hasConversationToRestart: () => false,
+      forCreation: true,
+      selectedOpening: _roleplayOpening,
+      onClearSelection: _roleplayOpening == null
+          ? null
+          : () => setState(() => _roleplayOpening = null),
+    );
+    if (mounted && selected != null && identical(_roleplay, binding)) {
+      setState(() => _roleplayOpening = selected.index);
+    }
+  }
+
+  List<Widget> _roleplayFields(AppTheme theme) {
+    final l10n = context.l10n;
+    final binding = _roleplay;
+    final enabled = !_working;
+    return [
+      SettingsField(
+        theme: theme,
+        title: l10n.aiRoleplayTemplateOptional,
+        description: l10n.aiRoleplayTemplateHelp,
+        trailing: Flexible(
+          child: RoleplayTemplateMenu(
+            key: const ValueKey('topology-roleplay-template'),
+            theme: theme,
+            binding: binding,
+            templates: widget.workspaces.roleplayTemplates,
+            onSelected: enabled ? _setRoleplay : null,
+            onSettings: (binding) =>
+                unawaited(_editRoleplaySettings(theme, binding)),
+          ),
+        ),
+      ),
+      if (binding != null && binding.sourceCard.openings.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        SettingsField(
+          theme: theme,
+          title: l10n.aiRoleplayOpeningOptional,
+          description: l10n.aiRoleplayOpeningHelp,
+          trailing: Flexible(
+            child: RoleplayFieldButton(
+              key: const ValueKey('topology-roleplay-opening'),
+              theme: theme,
+              label: _roleplayOpening == null
+                  ? l10n.aiRoleplayManualOpening
+                  : l10n.aiRoleplayOpeningNumber(_roleplayOpening! + 1),
+              icon: Icon(
+                _roleplayOpening == null
+                    ? Symbols.edit_note_rounded
+                    : Symbols.auto_stories_rounded,
+                fill: 1,
+              ),
+              onPressed: enabled ? () => _chooseOpening(theme, binding) : null,
+            ),
+          ),
+        ),
+      ],
+    ];
   }
 
   Widget _contextUnit(AppTheme theme, String unit) => Padding(
@@ -4923,6 +5238,8 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                ..._roleplayFields(theme),
+                const SizedBox(height: 16),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -5015,12 +5332,16 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
                 ],
                 const SizedBox(height: 16),
                 Text(
-                  l10n.aiWorkspaceTaskPrompt,
+                  _roleplay == null
+                      ? l10n.aiWorkspaceTaskPrompt
+                      : l10n.aiRoleplayOptionalTask,
                   style: AppDialogStyle.fieldTitleStyle(theme),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  l10n.aiTopologyTaskHelp,
+                  _roleplay == null
+                      ? l10n.aiTopologyTaskHelp
+                      : l10n.aiRoleplayOptionalTaskHelp,
                   style: AppDialogStyle.descriptionStyle(theme),
                 ),
                 const SizedBox(height: 8),

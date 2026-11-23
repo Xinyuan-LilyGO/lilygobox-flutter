@@ -136,7 +136,7 @@ bool Win32Window::Create(const std::wstring& title,
   double scale_factor = dpi / 96.0;
 
   HWND window = CreateWindow(
-      window_class, title.c_str(), WS_OVERLAPPEDWINDOW,
+      window_class, title.c_str(), WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
       Scale(origin.x, scale_factor), Scale(origin.y, scale_factor),
       Scale(size.width, scale_factor), Scale(size.height, scale_factor),
       nullptr, nullptr, GetModuleHandle(nullptr), this);
@@ -183,6 +183,7 @@ Win32Window::MessageHandler(HWND hwnd,
     case WM_DESTROY:
       window_handle_ = nullptr;
       child_content_ = nullptr;
+      live_resize_ = false;
       Destroy();
       if (quit_on_close_) {
         PostQuitMessage(0);
@@ -203,17 +204,49 @@ Win32Window::MessageHandler(HWND hwnd,
       if (child_content_ != nullptr) return TRUE;
       break;
 
+    case WM_SIZING:
+      live_resize_ = true;
+      break;
+
+    case WM_MOVING:
+    case WM_CANCELMODE:
+    case WM_EXITSIZEMOVE:
+      live_resize_ = false;
+      break;
+
+    case WM_WINDOWPOSCHANGING: {
+      auto* position = reinterpret_cast<WINDOWPOS*>(lparam);
+      if (!child_content_ || !position || (position->flags & SWP_NOSIZE)) {
+        break;
+      }
+      position->flags |= SWP_NOCOPYBITS | SWP_DEFERERASE;
+      if (!live_resize_ || (position->flags & SWP_FRAMECHANGED) ||
+          IsZoomed(hwnd) || IsIconic(hwnd)) {
+        break;
+      }
+
+      const LRESULT result = DefWindowProc(hwnd, message, wparam, lparam);
+      RECT window_rect{}, client_rect{};
+      if (GetWindowRect(hwnd, &window_rect) && GetClientRect(hwnd, &client_rect)) {
+        const LONG width_delta =
+            position->cx - (window_rect.right - window_rect.left);
+        const LONG height_delta =
+            position->cy - (window_rect.bottom - window_rect.top);
+        if (width_delta >= 0 && height_delta >= 0 &&
+            (width_delta > 0 || height_delta > 0)) {
+          ResizeChildContent(client_rect.right + width_delta,
+                             client_rect.bottom + height_delta);
+        }
+      }
+      return result;
+    }
+
     case WM_SIZE: {
       // 最小化窗口可能报告图标大小的客户区，此时保留 Flutter 渲染表面
       // 直到窗口恢复，避免按该尺寸重新布局应用。
       if (wparam == SIZE_MINIMIZED) return 0;
-      RECT rect = GetClientArea();
-      const LONG width = rect.right - rect.left;
-      const LONG height = rect.bottom - rect.top;
-      if (child_content_ != nullptr && width > 0 && height > 0) {
-        SetWindowPos(child_content_, nullptr, rect.left, rect.top, width,
-                     height, SWP_NOZORDER | SWP_NOACTIVATE);
-      }
+      const RECT rect = GetClientArea();
+      ResizeChildContent(rect.right, rect.bottom);
       return 0;
     }
 
@@ -230,6 +263,17 @@ Win32Window::MessageHandler(HWND hwnd,
   }
 
   return DefWindowProc(window_handle_, message, wparam, lparam);
+}
+
+void Win32Window::ResizeChildContent(LONG width, LONG height) {
+  if (child_content_ == nullptr || width <= 0 || height <= 0) return;
+  RECT child_rect{};
+  if (GetClientRect(child_content_, &child_rect) && child_rect.right == width &&
+      child_rect.bottom == height) {
+    return;
+  }
+  SetWindowPos(child_content_, nullptr, 0, 0, width, height,
+               SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS | SWP_DEFERERASE);
 }
 
 void Win32Window::Destroy() {

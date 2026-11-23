@@ -209,11 +209,12 @@ class _SettingSelectState<T> extends State<SettingSelect<T>>
           constraints.maxHeight / 2,
         );
         final bottomEdge = constraints.maxHeight - inset;
-        final below = (origin.dy + trigger.size.height + 3).clamp(
+        const gap = 3.0;
+        final below = (origin.dy + trigger.size.height + gap).clamp(
           inset,
           bottomEdge,
         );
-        final above = (origin.dy - 3).clamp(inset, bottomEdge);
+        final above = (origin.dy - gap).clamp(inset, bottomEdge);
         final available = bottomEdge - below;
         final naturalHeight = 6.0 + widget.items.length * _optionExtent;
         final desired = math.min(naturalHeight, PopupMenuSurface.listMaxHeight);

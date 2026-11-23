@@ -2459,6 +2459,281 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiTopologyOpen => '打开对话';
 
   @override
+  String get aiRoleplayFileType => '角色卡文件（PNG、JSON、7z）';
+
+  @override
+  String get aiRoleplayCard => '角色卡';
+
+  @override
+  String get aiRoleplayCardSettings => '角色卡设定';
+
+  @override
+  String get aiRoleplaySaveSettings => '保存设定';
+
+  @override
+  String get aiRoleplayImport => '导入角色卡';
+
+  @override
+  String get aiSearchRoleplayCards => '搜索角色名或作者';
+
+  @override
+  String get aiNoRoleplayCards => '暂无角色卡';
+
+  @override
+  String get aiNoMatchingRoleplayCards => '没有匹配的角色卡';
+
+  @override
+  String aiRoleplayAuthor(String value) {
+    return '作者：$value';
+  }
+
+  @override
+  String aiRoleplayCardVersion(String value) {
+    return '角色卡版本：$value';
+  }
+
+  @override
+  String aiRoleplayFormatVersion(String value) {
+    return '格式：V$value';
+  }
+
+  @override
+  String aiRoleplayTags(String value) {
+    return '标签：$value';
+  }
+
+  @override
+  String get aiRoleplayCreatorNotes => '作者说明';
+
+  @override
+  String get aiRoleplayImportProfile => '角色设定';
+
+  @override
+  String get aiRoleplayImportProfileDetail => '身份、人物背景和性格';
+
+  @override
+  String get aiRoleplayImportWorldBook => '世界书';
+
+  @override
+  String aiRoleplayImportWorldBookDetail(int count) {
+    return '$count 条设定 · 按关键词带入';
+  }
+
+  @override
+  String get aiRoleplayImportAdvanced => '高级提示词';
+
+  @override
+  String get aiRoleplayImportAdvancedDetail => '卡片作者提供的角色扮演指引';
+
+  @override
+  String get aiRoleplayContentUnavailable => '当前没有已保存的内容';
+
+  @override
+  String get aiRoleplayNotInCard => '这张卡片未包含此内容';
+
+  @override
+  String get aiRoleplaySelectOpening => '选择故事开场';
+
+  @override
+  String get aiRoleplayStartStory => '开始剧情';
+
+  @override
+  String aiRoleplayOpeningPreview(String opening) {
+    return '预览：$opening';
+  }
+
+  @override
+  String get aiRoleplayRestartWarning => '开始剧情会清空当前智能体的全部聊天记录，且无法撤销。';
+
+  @override
+  String get aiRoleplayClearAndStart => '清空并开始';
+
+  @override
+  String aiRoleplayOpeningNumber(int number) {
+    return '开场 $number';
+  }
+
+  @override
+  String get aiRoleplayConfirmImport => '导入';
+
+  @override
+  String get aiRoleplayImportFailed => '无法导入角色卡。请选择有效的 PNG、JSON 或 7z 文件。';
+
+  @override
+  String aiRoleplayImportSkippedFiles(int count) {
+    return '已跳过 $count 个无法读取的文件。';
+  }
+
+  @override
+  String get aiRoleplayCardActive => '角色卡已启用';
+
+  @override
+  String get aiRoleplayCardPaused => '角色卡已暂停';
+
+  @override
+  String get aiRoleplayEnableCard => '启用角色卡';
+
+  @override
+  String get aiRoleplayPlayer => '访客';
+
+  @override
+  String get aiRoleplayTemplateOptional => '角色卡模板（可选）';
+
+  @override
+  String get aiRoleplayTemplateHelp => '角色的身份、性格与背景。';
+
+  @override
+  String get aiRoleplayNoCard => '不使用角色卡';
+
+  @override
+  String get aiRoleplayNoCardSummary => '使用默认设定，保留聊天记录。';
+
+  @override
+  String get aiRoleplayLibraryDelete => '从卡库删除';
+
+  @override
+  String get aiRoleplayLibraryViewDetails => '查看详情';
+
+  @override
+  String get aiRoleplayLibraryTitle => '角色卡库';
+
+  @override
+  String get aiRoleplayLibraryDescription => '管理智能体可以使用的角色卡。';
+
+  @override
+  String get aiRoleplayLibraryAddedTitle => '已导入的角色卡';
+
+  @override
+  String get aiRoleplayLibraryAddedDescription =>
+      'SillyTavern 角色卡 · PNG / JSON';
+
+  @override
+  String get aiRoleplayPackageTitle => '角色卡包';
+
+  @override
+  String get aiRoleplayPackageDescription =>
+      '支持导入 PNG、JSON 或 7z 文件，并将所选角色卡导出为 7z 卡片包。';
+
+  @override
+  String get aiRoleplayPackageFileType => '角色卡包（7z）';
+
+  @override
+  String get aiRoleplayPackageExport => '导出卡片包';
+
+  @override
+  String get aiRoleplayPackageSelectExport => '选择要放入卡片包的角色卡。';
+
+  @override
+  String aiRoleplayPackageSummary(int total, int added, int duplicates) {
+    return '共 $total 张，新增 $added 张，重复 $duplicates 张';
+  }
+
+  @override
+  String aiRoleplayPackageImportSelected(int count) {
+    return '导入所选（$count）';
+  }
+
+  @override
+  String aiRoleplayPackageExportSelected(int count) {
+    return '导出所选（$count）';
+  }
+
+  @override
+  String aiRoleplayPackageImported(int count) {
+    return '已导入 $count 张角色卡。';
+  }
+
+  @override
+  String aiRoleplayPackageExported(int count) {
+    return '已导出 $count 张角色卡。';
+  }
+
+  @override
+  String get aiRoleplayPackageExportFailed => '无法导出角色卡包。';
+
+  @override
+  String get aiRoleplayLibraryEmpty => '导入 SillyTavern 的 PNG 或 JSON 角色卡即可开始使用。';
+
+  @override
+  String get aiRoleplayLibraryUnavailable => '角色卡库暂时不可用，请稍后重试。';
+
+  @override
+  String aiRoleplayLibraryBoundCount(int count) {
+    return '已绑定 $count 个智能体';
+  }
+
+  @override
+  String aiRoleplayLibraryDeleteTitle(String name) {
+    return '从卡库删除「$name」？';
+  }
+
+  @override
+  String aiRoleplayLibraryDeleteBoundTitle(String name, int count) {
+    return '删除「$name」并解绑 $count 个智能体？';
+  }
+
+  @override
+  String get aiRoleplayLibraryDeleteWarning => '聊天记录和原始 PNG 或 JSON 文件都会保留。';
+
+  @override
+  String get aiRoleplayLibraryDeleteBoundWarning =>
+      '删除后，以下智能体将恢复默认设定，聊天记录和原始 PNG 或 JSON 文件都会保留。';
+
+  @override
+  String aiRoleplayLibraryCardsToDelete(int count) {
+    return '将删除的角色卡（$count）';
+  }
+
+  @override
+  String aiRoleplayLibraryAgentsToUnbind(int count) {
+    return '将解绑的智能体（$count）';
+  }
+
+  @override
+  String get aiRoleplayLibraryDeleteAndUnbind => '删除并解绑';
+
+  @override
+  String aiRoleplayLibraryRecycledAgent(String name) {
+    return '$name（回收站）';
+  }
+
+  @override
+  String get aiRoleplayLibraryBusyTitle => '这张角色卡正在使用中';
+
+  @override
+  String get aiRoleplayLibraryBusyDetail => '请等待以下智能体结束运行，或停止运行后再试。';
+
+  @override
+  String get aiRoleplayLibraryChanged => '卡片的绑定情况已变化，请重新查看受影响的智能体后再确认。';
+
+  @override
+  String get aiRoleplayCardDetailsSummary => '查看角色卡详情。';
+
+  @override
+  String get aiRoleplayOpeningOptional => '开场白（可选）';
+
+  @override
+  String get aiRoleplayOpeningHelp => '角色在对话中的第一条消息。';
+
+  @override
+  String get aiRoleplayManualOpening => '手动开场';
+
+  @override
+  String get aiRoleplayManualOpeningSummary => '不发送卡片开场白，由你先发消息。';
+
+  @override
+  String get aiRoleplayUseOpening => '使用此开场白';
+
+  @override
+  String get aiRoleplayOptionalTask => '工作内容（可选）';
+
+  @override
+  String get aiRoleplayOptionalTaskHelp => '留空时只打开对话，不自动发送消息。';
+
+  @override
+  String get aiTopologyWorkflowActions => '工作流';
+
+  @override
   String get aiTopologyInspect => '查看执行记录';
 
   @override
@@ -3106,6 +3381,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cardDeselect => '取消选定';
 
   @override
+  String settingsDeleteSelected(int count) {
+    return '删除选中（$count）';
+  }
+
+  @override
+  String get aiDeleteServicesMessage => '删除选中的模型服务及其本机密钥？已有聊天记录会保留。';
+
+  @override
   String get cardSelectAll => '全选';
 
   @override
@@ -3260,17 +3543,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agentRecycleRestoring => '正在还原智能体…';
-
-  @override
-  String agentRecycleRestoreConfirm(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '还原选中的 $count 个智能体？',
-      one: '还原此智能体？',
-    );
-    return '$_temp0';
-  }
 
   @override
   String get agentRecycleRestoreFailed => '还原失败，可在回收站重试。';

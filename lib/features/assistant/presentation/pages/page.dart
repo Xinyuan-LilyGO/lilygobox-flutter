@@ -42,11 +42,13 @@ class AssistantPage extends StatefulWidget {
     this.readOnly = false,
     this.initialDraft = '',
     this.onManageContext,
+    this.roleplayMenuBuilder,
   });
 
   final bool readOnly;
   final String initialDraft;
   final VoidCallback? onManageContext;
+  final Widget Function(bool compact)? roleplayMenuBuilder;
 
   @override
   State<AssistantPage> createState() => _AssistantPageState();
@@ -425,6 +427,8 @@ class _AssistantPageState extends State<AssistantPage> {
                                   assistant: assistant,
                                   ready: ready,
                                   onManageContext: widget.onManageContext,
+                                  roleplayMenuBuilder:
+                                      widget.roleplayMenuBuilder,
                                   onSend: (fromKeyboard) => _send(
                                     assistant,
                                     fromKeyboard: fromKeyboard,
@@ -790,6 +794,7 @@ class _MessageViewState extends State<_MessageView> {
                   ChatMessageBody(
                     message: message,
                     theme: widget.theme,
+                    allowExternalContent: !message.isRoleplayOpening,
                     useParentSelectionArea: true,
                   ),
               ],

@@ -146,7 +146,9 @@ extension _AiTimers on AiWorkspaceProvider {
     if (timer == null || timer.status != 'running') return null;
     return {
       'event': 'active_timers',
-      'instruction': 'This timer belongs only to you. Guidance does not reset it. If the task requires a deadline-dependent action, use wait_timer before ending your turn. Only expired means the deadline was reached. Expiry does not send messages or start a turn.',
+      'instruction':
+          'For deadline actions, call wait_timer before ending this turn. '
+          'Only expired means the deadline was reached.',
       'timers': [_timerResult(timer)],
     };
   }

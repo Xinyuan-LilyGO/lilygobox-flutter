@@ -21,6 +21,7 @@ class RightClickMenuItem {
   final bool isEnabled;
   final bool showDivider; // 是否在该项后显示分割线
   final bool isSelected;
+  final List<RightClickMenuItem> children;
 
   const RightClickMenuItem({
     this.key,
@@ -31,6 +32,7 @@ class RightClickMenuItem {
     this.isEnabled = true,
     this.showDivider = false, // 默认不显示分割线
     this.isSelected = false,
+    this.children = const [],
   });
 }
 
@@ -59,6 +61,47 @@ class RightClickMenuController {
   bool get isOpen => _menuController.isOpen;
 }
 
+class _ContextMenuGesture extends StatelessWidget {
+  const _ContextMenuGesture({
+    required this.exclusive,
+    required this.onSecondaryTapUp,
+    required this.child,
+  });
+
+  final bool exclusive;
+  final GestureTapUpCallback? onSecondaryTapUp;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!exclusive || onSecondaryTapUp == null) {
+      return GestureDetector(onSecondaryTapUp: onSecondaryTapUp, child: child);
+    }
+    return RawGestureDetector(
+      gestures: {
+        _ExclusiveSecondaryTapRecognizer:
+            GestureRecognizerFactoryWithHandlers<
+              _ExclusiveSecondaryTapRecognizer
+            >(_ExclusiveSecondaryTapRecognizer.new, (recognizer) {
+              recognizer.onSecondaryTapDown = (_) {
+                ContextMenuController.removeAny();
+              };
+              recognizer.onSecondaryTapUp = onSecondaryTapUp;
+            }),
+      },
+      child: child,
+    );
+  }
+}
+
+class _ExclusiveSecondaryTapRecognizer extends TapGestureRecognizer {
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    super.addAllowedPointer(event);
+    resolve(GestureDisposition.accepted);
+  }
+}
+
 /// 右键菜单构建器
 class RightClickMenuBuilder {
   static const _defaultWidth = 150.0;
@@ -67,6 +110,7 @@ class RightClickMenuBuilder {
   static const _iconSize = 16.0;
   static const _iconGap = 4.0;
   static const _edgeInset = 8.0;
+  static const _submenuGap = 8.0;
 
   static TextStyle _labelStyle(RightClickMenuItem item) => TextStyle(
     fontSize: 13,
@@ -75,7 +119,7 @@ class RightClickMenuBuilder {
 
   static double _fittedWidth(
     BuildContext context,
-    List<RightClickMenuItem> items,
+    Iterable<RightClickMenuItem> items,
     double minWidth,
   ) {
     final textStyle = Theme.of(context).textTheme.bodyMedium!;
@@ -96,13 +140,41 @@ class RightClickMenuBuilder {
           painter.width.ceilToDouble() +
           2 * (_menuPadding + _itemPadding) +
           (item.icon != null ? _iconSize + _iconGap : 0) +
-          (item.isSelected ? _iconGap + _iconSize : 0) +
+          (item.isSelected || item.children.isNotEmpty
+              ? _iconGap + _iconSize
+              : 0) +
           2;
       if (itemWidth > width) width = itemWidth;
     }
     painter.dispose();
     return width;
   }
+
+  static double _submenuWidth(
+    BuildContext context,
+    Iterable<RightClickMenuItem> items,
+    double parentWidth,
+    double availableWidth,
+  ) => _fittedWidth(context, items, _defaultWidth).clamp(
+    0.0,
+    (availableWidth - parentWidth - _submenuGap - 2 * _edgeInset).clamp(
+      0.0,
+      double.infinity,
+    ),
+  );
+
+  static const _panelStyle = MenuStyle(
+    backgroundColor: WidgetStatePropertyAll(Colors.transparent),
+    elevation: WidgetStatePropertyAll(0),
+    shadowColor: WidgetStatePropertyAll(Colors.black),
+    surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
+    shape: WidgetStatePropertyAll(
+      RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+      ),
+    ),
+    padding: WidgetStatePropertyAll(EdgeInsets.zero),
+  );
 
   /// 构建右键菜单锚点
   static Widget buildMenuAnchor({
@@ -113,12 +185,14 @@ class RightClickMenuBuilder {
     required AppTheme theme,
     required Widget child,
     VoidCallback? onSecondaryTap,
+    bool exclusiveSecondaryTap = false,
     ValueChanged<PointerEvent>? onMenuPointerEvent,
     Object? menuTapRegionGroupId,
     bool openAbove = false,
     Offset alignmentOffset = Offset.zero,
     double menuWidth = _defaultWidth,
     bool fitWidthToItems = false,
+    bool fitHeightToWindow = false,
   }) {
     // 高度与下方菜单项、间距和分隔线保持一致，向上展开时留出 8 像素间隙。
     double heightFor(List<RightClickMenuItem> items) =>
@@ -134,7 +208,9 @@ class RightClickMenuBuilder {
     // 菜单超出窗口时，MenuAnchor 会自行添加滚动视图。
     // 为滚动条留出空间，避免遮挡菜单项的点击区域和文字。
     final windowHeight = MediaQuery.sizeOf(context).height;
-    final maxHeight = (windowHeight - 48).clamp(0.0, 640.0);
+    final maxHeight = fitHeightToWindow
+        ? (windowHeight - 2 * _edgeInset).clamp(0.0, double.infinity)
+        : (windowHeight - 48).clamp(0.0, 640.0);
     double gutterFor(double height) => height > maxHeight ? 20 : 0;
     double visibleHeight(double height) => height.clamp(0.0, maxHeight);
     double panelWidthFor(
@@ -142,12 +218,24 @@ class RightClickMenuBuilder {
       List<RightClickMenuItem> items,
       double gutter,
       double availableWidth,
-    ) => fitWidthToItems
-        ? (_fittedWidth(context, items, menuWidth) + gutter).clamp(
-            0.0,
-            (availableWidth - 2 * _edgeInset).clamp(0.0, double.infinity),
-          )
-        : menuWidth + gutter;
+    ) {
+      final width =
+          (fitWidthToItems
+              ? _fittedWidth(context, items, menuWidth)
+              : menuWidth) +
+          gutter;
+      final hasSubmenu = items.any((item) => item.children.isNotEmpty);
+      if (!fitWidthToItems && !hasSubmenu) return width;
+      final available = (availableWidth - 2 * _edgeInset).clamp(
+        0.0,
+        double.infinity,
+      );
+      final limit = hasSubmenu && available >= 2 * _defaultWidth + _submenuGap
+          ? available - _defaultWidth - _submenuGap
+          : available;
+      return width.clamp(0.0, limit);
+    }
+
     return MenuAnchor(
       controller: controller._menuController,
       clipBehavior: Clip.none,
@@ -161,17 +249,9 @@ class RightClickMenuBuilder {
                 ) +
                 alignmentOffset
           : alignmentOffset,
-      style: MenuStyle(
+      style: _panelStyle.copyWith(
         maximumSize: WidgetStatePropertyAll(Size(double.infinity, maxHeight)),
         alignment: openAbove ? AlignmentDirectional.topStart : null,
-        backgroundColor: WidgetStateProperty.all(Colors.transparent),
-        elevation: WidgetStateProperty.all(0),
-        shadowColor: WidgetStateProperty.all(Colors.black),
-        surfaceTintColor: WidgetStateProperty.all(Colors.transparent),
-        shape: WidgetStateProperty.all(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-        padding: WidgetStateProperty.all(EdgeInsets.zero),
       ),
       menuChildren: [
         TapRegion(
@@ -230,7 +310,8 @@ class RightClickMenuBuilder {
                     controller.close();
                   }
                 },
-          child: GestureDetector(
+          child: _ContextMenuGesture(
+            exclusive: exclusiveSecondaryTap,
             // 遵循桌面上下文菜单的松手触发方式，按住右键时不提前覆盖原控件。
             onSecondaryTapUp: onSecondaryTap == null
                 ? null
@@ -282,8 +363,30 @@ class RightClickMenuBuilder {
                       final maxY =
                           (overlayBox.size.height - menuHeight - _edgeInset)
                               .clamp(_edgeInset, double.infinity);
+                      var left = menuOrigin.dx.clamp(_edgeInset, maxX);
+                      final submenuItems = items.expand(
+                        (item) => item.children,
+                      );
+                      if (submenuItems.isNotEmpty) {
+                        final submenuWidth = _submenuWidth(
+                          anchorContext,
+                          submenuItems,
+                          panelWidth,
+                          overlayBox.size.width,
+                        );
+                        final rightLimit = maxX - _submenuGap - submenuWidth;
+                        final leftLimit =
+                            _edgeInset + _submenuGap + submenuWidth;
+                        if (rightLimit >= _edgeInset &&
+                            left > rightLimit &&
+                            left < leftLimit) {
+                          left = left - rightLimit <= leftLimit - left
+                              ? rightLimit
+                              : leftLimit;
+                        }
+                      }
                       menuOrigin = Offset(
-                        menuOrigin.dx.clamp(_edgeInset, maxX),
+                        left,
                         menuOrigin.dy.clamp(_edgeInset, maxY),
                       );
                     }
@@ -331,6 +434,7 @@ class RightClickMenuBuilder {
             children: _buildMenuItemsWithDividers(
               menuItems: menuItems,
               theme: theme,
+              panelWidth: width,
               menuWidth: width - 2 * _menuPadding - trailingInset,
               itemColor: itemColor,
               selectedColor: selectedColor,
@@ -347,6 +451,7 @@ class RightClickMenuBuilder {
   static List<Widget> _buildMenuItemsWithDividers({
     required List<RightClickMenuItem> menuItems,
     required AppTheme theme,
+    required double panelWidth,
     required double menuWidth,
     Color? itemColor,
     Color? selectedColor,
@@ -354,24 +459,43 @@ class RightClickMenuBuilder {
     Color? hoverColor,
   }) {
     List<Widget> widgets = [];
+    final hasSubmenu = menuItems.any((item) => item.children.isNotEmpty);
 
     for (int i = 0; i < menuItems.length; i++) {
       final item = menuItems[i];
       final isLast = i == menuItems.length - 1;
+      final action = buildMenuItem(
+        item: item,
+        theme: theme,
+        menuWidth: menuWidth,
+        itemColor: itemColor,
+        selectedColor: selectedColor,
+        selectedForegroundColor: selectedForegroundColor,
+        hoverColor: hoverColor,
+      );
 
       // 添加菜单项
       widgets.add(
         // 悬停渐变与波纹只重绘当前项，避免快速切换时反复重绘整块浮层和阴影。
         RepaintBoundary(
-          child: buildMenuItem(
-            item: item,
-            theme: theme,
-            menuWidth: menuWidth,
-            itemColor: itemColor,
-            selectedColor: selectedColor,
-            selectedForegroundColor: selectedForegroundColor,
-            hoverColor: hoverColor,
-          ),
+          child: item.children.isNotEmpty
+              ? _RightClickSubmenu(
+                  key: item.key,
+                  item: item,
+                  theme: theme,
+                  rowWidth: menuWidth,
+                  parentWidth: panelWidth,
+                  hoverColor: hoverColor,
+                )
+              : hasSubmenu
+              ? Builder(
+                  builder: (context) => MouseRegion(
+                    onHover: (_) =>
+                        MenuController.maybeOf(context)?.closeChildren(),
+                    child: action,
+                  ),
+                )
+              : action,
         ),
       );
 
@@ -462,6 +586,123 @@ class RightClickMenuBuilder {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _RightClickSubmenu extends StatefulWidget {
+  const _RightClickSubmenu({
+    super.key,
+    required this.item,
+    required this.theme,
+    required this.rowWidth,
+    required this.parentWidth,
+    this.hoverColor,
+  });
+
+  final RightClickMenuItem item;
+  final AppTheme theme;
+  final double rowWidth;
+  final double parentWidth;
+  final Color? hoverColor;
+
+  @override
+  State<_RightClickSubmenu> createState() => _RightClickSubmenuState();
+}
+
+class _RightClickSubmenuState extends State<_RightClickSubmenu> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    final theme = widget.theme;
+    bool highlighted(Set<WidgetState> states) =>
+        _open || states.contains(WidgetState.hovered);
+    final foreground = WidgetStateProperty.resolveWith(
+      (states) => highlighted(states)
+          ? theme.materialColors.onPrimary
+          : theme.textColorSecondary,
+    );
+    return SizedBox(
+      width: widget.rowWidth,
+      height: 28,
+      child: SubmenuButton(
+        hoverOpenDelay: const Duration(milliseconds: 120),
+        onOpen: () => setState(() => _open = true),
+        onClose: () => setState(() => _open = false),
+        clipBehavior: Clip.none,
+        alignmentOffset: Offset(
+          RightClickMenuBuilder._submenuGap +
+              (widget.parentWidth - widget.rowWidth) / 2,
+          -RightClickMenuBuilder._menuPadding,
+        ),
+        menuStyle: RightClickMenuBuilder._panelStyle,
+        style: ButtonStyle(
+          backgroundBuilder: (_, _, child) => GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            excludeFromSemantics: true,
+            onTap: _open ? () {} : null,
+            child: child,
+          ),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(
+              horizontal: RightClickMenuBuilder._itemPadding,
+            ),
+          ),
+          minimumSize: const WidgetStatePropertyAll(Size.zero),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          alignment: AlignmentDirectional.centerStart,
+          textStyle: WidgetStatePropertyAll(
+            RightClickMenuBuilder._labelStyle(item),
+          ),
+          foregroundColor: foreground,
+          iconColor: foreground,
+          overlayColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.pressed)
+                ? null
+                : Colors.transparent,
+          ),
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => highlighted(states)
+                ? widget.hoverColor ?? theme.basePrimary
+                : Colors.transparent,
+          ),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          ),
+        ),
+        leadingIcon: item.icon == null
+            ? null
+            : Icon(
+                item.icon,
+                size: RightClickMenuBuilder._iconSize,
+                fill: 1,
+                grade: 200,
+                opticalSize: 20,
+                weight: 300,
+              ),
+        submenuIcon: const WidgetStatePropertyAll(
+          Icon(Icons.chevron_right, size: RightClickMenuBuilder._iconSize),
+        ),
+        menuChildren: [
+          PopupMenuTransition(
+            child: RightClickMenuBuilder.buildMenuPanel(
+              menuItems: item.children,
+              theme: theme,
+              width: RightClickMenuBuilder._submenuWidth(
+                context,
+                item.children,
+                widget.parentWidth,
+                MediaQuery.sizeOf(context).width,
+              ),
+            ),
+          ),
+        ],
+        child:
+            item.labelWidget ??
+            Text(item.label, maxLines: 1, overflow: TextOverflow.ellipsis),
       ),
     );
   }

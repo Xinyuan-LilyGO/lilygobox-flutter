@@ -38,12 +38,14 @@ class ChatMessageBody extends StatefulWidget {
     required this.message,
     required this.theme,
     this.useParentSelectionArea = false,
+    this.allowExternalContent = true,
     this.linkOpener = const MessageLinkOpener(),
   });
 
   final AiMessage message;
   final AppTheme theme;
   final bool useParentSelectionArea;
+  final bool allowExternalContent;
   final MessageLinkOpener linkOpener;
 
   static bool usesContentSegments(AiMessage message) =>
@@ -80,7 +82,8 @@ class _ChatMessageBodyState extends State<ChatMessageBody> {
         message.content != oldWidget.message.content ||
         message.role != oldWidget.message.role ||
         theme != oldWidget.theme ||
-        widget.useParentSelectionArea != oldWidget.useParentSelectionArea) {
+        widget.useParentSelectionArea != oldWidget.useParentSelectionArea ||
+        widget.allowExternalContent != oldWidget.allowExternalContent) {
       _markdown = null;
     }
   }
@@ -174,7 +177,12 @@ class _ChatMessageBodyState extends State<ChatMessageBody> {
         'code': codeBuilder,
         'pre': _CodeBlockBuilder(theme, codeBuilder, message.id),
       },
-      onTapLink: (_, href, _) => unawaited(_openLink(context, href)),
+      onTapLink: widget.allowExternalContent
+          ? (_, href, _) => unawaited(_openLink(context, href))
+          : null,
+      imageBuilder: widget.allowExternalContent
+          ? null
+          : (_, _, alt) => Text(alt ?? '', style: text),
       styleSheet: MarkdownStyleSheet(
         p: text,
         a: text.copyWith(

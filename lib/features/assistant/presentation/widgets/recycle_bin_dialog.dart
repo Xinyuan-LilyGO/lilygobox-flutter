@@ -126,18 +126,17 @@ class _RecycleBinState extends State<_RecycleBin> {
   }) async {
     if (busy || workspace.recycleBusy || ids.isEmpty) return;
     final l = context.l10n;
-    final label = all ? l.agentRecycleRestoreAll : l.agentRecycleRestore;
-    final confirmed = await showAppConfirmation(
-      context: context,
-      theme: widget.theme,
-      actionKey: 'recycle-restore',
-      title: label,
-      description: all
-          ? l.agentRecycleRestoreAllConfirm(ids.length)
-          : l.agentRecycleRestoreConfirm(ids.length),
-      confirmLabel: label,
-    );
-    if (!confirmed || !mounted || workspace.recycleBusy) return;
+    if (all) {
+      final confirmed = await showAppConfirmation(
+        context: context,
+        theme: widget.theme,
+        actionKey: 'recycle-restore',
+        title: l.agentRecycleRestoreAll,
+        description: l.agentRecycleRestoreAllConfirm(ids.length),
+        confirmLabel: l.agentRecycleRestoreAll,
+      );
+      if (!confirmed || !mounted || workspace.recycleBusy) return;
+    }
     await run(
       () => workspace.restoreRecycledAgents(ids),
       failureMessage: l.agentRecycleRestoreFailed,
@@ -298,24 +297,20 @@ class _RecycleBinState extends State<_RecycleBin> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          AppActionButton(
+          AppActionButton.compact(
             key: const ValueKey('recycle-restore-selected'),
             theme: theme,
             label: '${l.agentRecycleRestore} (${selection.selected.length})',
-            fontSize: 12,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
             onPressed: disabled
                 ? null
                 : () => restore(workspace, selection.selected.toSet()),
           ),
           const SizedBox(width: 6),
-          AppActionButton(
+          AppActionButton.compact(
             key: const ValueKey('recycle-delete-selected'),
             theme: theme,
             label: '${l.agentRecycleDelete} (${selection.selected.length})',
             destructive: true,
-            fontSize: 12,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
             onPressed: disabled
                 ? null
                 : () => delete(workspace, selection.selected),

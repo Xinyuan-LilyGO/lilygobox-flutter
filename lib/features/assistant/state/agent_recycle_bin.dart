@@ -22,6 +22,33 @@ class AiRecycledAgent {
   final String title;
   final String task;
   final String? parentId;
+  late final String? _roleplayFingerprint = _readRoleplayFingerprint();
+
+  String? _readRoleplayFingerprint() {
+    final conversation = record['conversation'];
+    if (conversation case {'roleplay': {'binding': {'card': final Map card}}}) {
+      try {
+        return AiRoleplayCard.fromSnapshot(card).templateFingerprint;
+      } on FormatException {
+        return null;
+      } on TypeError {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  AiRecycledAgent _withoutRoleplay() {
+    final updated = record;
+    (updated['conversation'] as Map).remove('roleplay');
+    return AiRecycledAgent(
+      record: updated,
+      deletedAt: deletedAt,
+      position: position,
+      connections: connections,
+    );
+  }
+
   Map<String, Object?> toJson() => {
     'record': record,
     'deletedAt': deletedAt.toIso8601String(),
@@ -137,8 +164,7 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
           '${DateTime.now().microsecondsSinceEpoch}-${_sequence++}';
     }
     return [
-      for (final entry in entries)
-        _remapImportedRecycledAgent(entry, mapping),
+      for (final entry in entries) _remapImportedRecycledAgent(entry, mapping),
     ];
   }
 

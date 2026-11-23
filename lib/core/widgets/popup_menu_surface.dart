@@ -11,6 +11,7 @@ import '../theme/material_palette.dart';
 class PopupMenuSurface extends StatelessWidget {
   static const listMaxHeight = 326.0;
   static const verticalInset = 16.0;
+  static const fieldAnchorGap = 8.0;
 
   const PopupMenuSurface({
     super.key,

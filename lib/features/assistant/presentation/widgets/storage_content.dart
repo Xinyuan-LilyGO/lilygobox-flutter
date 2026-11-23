@@ -1674,8 +1674,10 @@ class _StorageOverview extends StatelessWidget {
     final stateParts = stats['stateBreakdown'] as Map? ?? const {};
     int stateValue(String key) => (stateParts[key] as num? ?? 0).toInt();
     final content = value('objects');
+    final roleplayObjects = value('roleplayObjects');
     final memory = value('memories');
-    final other = (total - content - value('state') - memory).clamp(0, total);
+    final other = (total - content - roleplayObjects - value('state') - memory)
+        .clamp(0, total);
     final categories = [
       (
         l.agentStorageChatDataTitle,
@@ -1686,6 +1688,11 @@ class _StorageOverview extends StatelessWidget {
         l.agentStorageWorkflowCategory,
         stateValue('workflow'),
         UsageChartColors.blue,
+      ),
+      (
+        l.aiRoleplayCard,
+        stateValue('roleplayLibrary') + roleplayObjects,
+        theme.basePrimary,
       ),
       (l.agentRecycleBin, stateValue('recycleBin'), const Color(0xffef748e)),
       (l.agentStorageMemoryCategory, memory, const Color(0xffffcd36)),

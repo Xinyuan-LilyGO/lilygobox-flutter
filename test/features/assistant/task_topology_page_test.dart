@@ -7,6 +7,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
@@ -22,23 +23,32 @@ import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/material_palette.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/widgets/action_button.dart';
+import 'package:lilygobox/core/widgets/app_scroll_behavior.dart';
+import 'package:lilygobox/core/widgets/app_tooltip.dart';
 import 'package:lilygobox/core/widgets/card_shadow.dart';
 import 'package:lilygobox/core/widgets/interaction_decoration.dart';
 import 'package:lilygobox/core/widgets/menu_item_surface.dart';
 import 'package:lilygobox/core/widgets/popup_menu_surface.dart';
+import 'package:lilygobox/core/widgets/popup_menu_transition.dart';
+import 'package:lilygobox/core/widgets/search_clear_button.dart';
 import 'package:lilygobox/core/widgets/settings/select.dart';
 import 'package:lilygobox/core/widgets/tilt_card.dart';
 import 'package:lilygobox/core/widgets/title_bar_icon_button.dart';
 import 'package:lilygobox/features/assistant/data/agent_storage.dart';
 import 'package:lilygobox/features/assistant/data/conversation_codec.dart';
+import 'package:lilygobox/features/assistant/data/roleplay_card_package.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/domain/permissions.dart';
 import 'package:lilygobox/features/assistant/domain/reasoning.dart';
+import 'package:lilygobox/features/assistant/domain/roleplay_card.dart';
 import 'package:lilygobox/features/assistant/domain/task_canvas_style.dart';
 import 'package:lilygobox/features/assistant/presentation/pages/page.dart';
 import 'package:lilygobox/features/assistant/presentation/pages/task_topology_page.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/agent_transfer_error.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/chat_composer.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/recycle_bin_dialog.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/roleplay_card_controls.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/roleplay_library_content.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/storage_content.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/task_canvas_background.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/task_topology_connection.dart';
@@ -52,6 +62,57 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import 'assistant_test_scope.dart';
+
+class _RoleplayFileSelector extends FileSelectorPlatform {
+  @override
+  Future<List<XFile>> openFiles({
+    List<XTypeGroup>? acceptedTypeGroups,
+    String? initialDirectory,
+    String? confirmButtonText,
+  }) async => [
+    XFile.fromData(
+      Uint8List.fromList(
+        utf8.encode(
+          jsonEncode({
+            'name': 'Imported character',
+            'creator': 'Library Author',
+            'description': 'A quiet navigator',
+            'first_mes': 'Hello, traveler.',
+          }),
+        ),
+      ),
+      name: 'character.json',
+    ),
+  ];
+}
+
+class _RoleplayPackageFileSelector extends FileSelectorPlatform {
+  _RoleplayPackageFileSelector(this.path, {this.additionalSources = const []});
+
+  final String path;
+  final List<XFile> additionalSources;
+  int openCalls = 0;
+  int saveCalls = 0;
+
+  @override
+  Future<List<XFile>> openFiles({
+    List<XTypeGroup>? acceptedTypeGroups,
+    String? initialDirectory,
+    String? confirmButtonText,
+  }) async {
+    openCalls++;
+    return [XFile(path), ...additionalSources];
+  }
+
+  @override
+  Future<FileSaveLocation?> getSaveLocation({
+    List<XTypeGroup>? acceptedTypeGroups,
+    SaveDialogOptions options = const SaveDialogOptions(),
+  }) async {
+    saveCalls++;
+    return FileSaveLocation(path);
+  }
+}
 
 class _RasterFailure implements ui.PictureRasterizationException {
   @override
@@ -119,6 +180,10 @@ class _DelayedTransferStorage extends AgentStorage {
     return super.request(operation, args);
   }
 }
+
+bool _canCopySelection(SelectableRegionState selection) => selection
+    .contextMenuButtonItems
+    .any((item) => item.type == ContextMenuButtonType.copy);
 
 void main() {
   late ThemeProvider theme;
@@ -253,6 +318,7 @@ void main() {
     AiWorkspaceProvider? restored,
     Locale locale = const Locale('zh'),
     String? fontFamily,
+    Widget? content,
   }) => MultiProvider(
     providers: [
       ChangeNotifierProvider<ThemeProvider>.value(value: theme),
@@ -287,7 +353,10 @@ void main() {
         localizationsDelegates: appLocalizationDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
-          body: RepaintBoundary(key: boundary, child: const TaskTopologyPage()),
+          body: RepaintBoundary(
+            key: boundary,
+            child: content ?? const TaskTopologyPage(),
+          ),
         ),
       ),
     ),
@@ -315,6 +384,550 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 500));
   }
+
+  Future<void> finish(WidgetTester tester) async {
+    workspaces.stopAll();
+    for (final gate in requestGates.values) {
+      if (!gate.isCompleted) gate.complete();
+    }
+    await tick(tester);
+  }
+
+  Future<void> openNodeSubmenu(WidgetTester tester, String group) async {
+    await tester.tap(find.byKey(ValueKey('topology-context-$group')));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('character templates deduplicate by source card, not name', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(900, 675));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(() async {
+      for (final (title, description, includeProfile) in [
+        ('First', 'A quiet navigator', true),
+        ('Second', 'A quiet navigator', false),
+        ('Third', 'An enthusiastic astronomer', true),
+      ]) {
+        await workspaces.createPrimary(
+          title: title,
+          task: '',
+          roleplay: AiRoleplayBinding(
+            card: AiRoleplayCard.fromFields({
+              'name': 'Yuna',
+              'description': description,
+              if (title != 'Third') ...{
+                'creator': 'Observatory',
+                'character_version': '1.2',
+                'spec_version': '3.0',
+              },
+            }),
+            playerName: title,
+            includeProfile: includeProfile,
+          ),
+        );
+      }
+    });
+    await tester.pumpWidget(app());
+    await tick(tester);
+    await tester.tap(find.byKey(const ValueKey('topology-new-primary')));
+    await tick(tester);
+
+    final trigger = find.byKey(const ValueKey('topology-roleplay-template'));
+    final l10n = tester.element(trigger).l10n;
+    final triggerIcon = find.descendant(
+      of: trigger,
+      matching: find.byIcon(Symbols.block_rounded),
+    );
+    expect(tester.widget<Icon>(triggerIcon).fill, 0);
+    await tester.tap(trigger);
+    await tester.pumpAndSettle();
+    final panel = find.byKey(const ValueKey('roleplay-template-panel'));
+    final popup = tester.getRect(panel);
+    expect(
+      find.descendant(of: panel, matching: find.text('Yuna')),
+      findsNWidgets(2),
+    );
+    expect(
+      find.descendant(of: panel, matching: find.text(l10n.aiRoleplayCard)),
+      findsOneWidget,
+    );
+    final noCard = find.byKey(const ValueKey('roleplay-template-option-0'));
+    expect(tester.widget<MenuItemSurface>(noCard).isSelected, isTrue);
+    expect(find.text(l10n.aiRoleplayImport), findsNothing);
+    expect(
+      find.byKey(const ValueKey('roleplay-template-search')),
+      findsOneWidget,
+    );
+    final noCardIcon = find.descendant(
+      of: noCard,
+      matching: find.byIcon(Symbols.block_rounded),
+    );
+    expect(tester.widget<Icon>(noCardIcon).fill, 0);
+    expect(popup.top - tester.getRect(trigger).bottom, closeTo(8, .01));
+
+    final firstCard = find.byKey(const ValueKey('roleplay-template-option-1'));
+    final secondCard = find.byKey(const ValueKey('roleplay-template-option-2'));
+    final back = find.byKey(const ValueKey('roleplay-template-back'));
+    final noCardTitle = find.descendant(
+      of: noCard,
+      matching: find.text(l10n.aiRoleplayNoCard),
+    );
+    expect(
+      find.descendant(
+        of: noCard,
+        matching: find.text(l10n.aiRoleplayNoCardSummary),
+      ),
+      findsOneWidget,
+    );
+    final chevron = find.byIcon(Symbols.chevron_right_rounded);
+    expect(find.descendant(of: noCard, matching: chevron), findsNothing);
+    expect(find.descendant(of: firstCard, matching: chevron), findsOneWidget);
+    final noCardBounds = tester.getRect(noCard);
+    final firstBounds = tester.getRect(firstCard);
+    final secondBounds = tester.getRect(secondCard);
+    expect(noCardBounds.height, closeTo(firstBounds.height, .01));
+    expect(firstBounds.height, closeTo(secondBounds.height, .01));
+    expect(firstBounds.top - noCardBounds.bottom, closeTo(6, .01));
+    expect(secondBounds.top - firstBounds.bottom, closeTo(6, .01));
+    expect(firstBounds.left - popup.left, closeTo(8, .01));
+    expect(popup.right - firstBounds.right, closeTo(20, .01));
+    final selectedOption = tester.widget<MenuItemSurface>(noCard);
+    expect(selectedOption.borderRadius, BorderRadius.circular(6));
+    expect(selectedOption.selectedColor, theme.themeData.primaryTextHoverColor);
+    final firstTitle = find.descendant(
+      of: firstCard,
+      matching: find.text('Yuna'),
+    );
+    final metadata = find.descendant(
+      of: firstCard,
+      matching: find.text(
+        [
+          l10n.aiRoleplayAuthor('Observatory'),
+          l10n.aiRoleplayCardVersion('1.2'),
+          l10n.aiRoleplayFormatVersion('3.0'),
+        ].join(' · '),
+      ),
+    );
+    expect(
+      tester.getRect(metadata).top,
+      greaterThan(tester.getRect(firstTitle).bottom),
+    );
+    expect(
+      find.descendant(of: firstCard, matching: find.byType(ClipOval)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: secondCard,
+        matching: find.text(l10n.aiRoleplayCardDetailsSummary),
+      ),
+      findsOneWidget,
+    );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: tester.getCenter(trigger));
+    bool hasHoverColor(Finder option) => tester
+        .widgetList<InteractionDecoration>(
+          find.descendant(
+            of: option,
+            matching: find.byType(InteractionDecoration),
+          ),
+        )
+        .any((item) => item.decoration.color == theme.themeData.basePrimary);
+    for (final option in [noCard, firstCard]) {
+      await mouse.moveTo(tester.getCenter(option));
+      await tester.pumpAndSettle();
+      expect(hasHoverColor(option), isTrue);
+      final label = option == noCard ? noCardTitle : firstTitle;
+      expect(
+        DefaultTextStyle.of(tester.element(label)).style.color,
+        theme.themeData.materialColors.onPrimary,
+      );
+    }
+    expect(
+      tester.widget<Text>(metadata).style?.color,
+      theme.themeData.materialColors.onPrimary,
+    );
+    expect(hasHoverColor(noCard), isFalse);
+    expect(tester.widget<MenuItemSurface>(noCard).isSelected, isTrue);
+    await mouse.removePointer();
+    await tester.pumpAndSettle();
+    expect(hasHoverColor(firstCard), isFalse);
+
+    Future<void> expectPageTransition(Finder outgoing, Finder incoming) async {
+      await tester.pump();
+      await tester.pump(PopupMenuTransition.duration ~/ 2);
+      for (final item in [outgoing, incoming]) {
+        final fade = find.ancestor(
+          of: item,
+          matching: find.byType(FadeTransition),
+        );
+        expect(
+          tester.widget<FadeTransition>(fade.first).opacity.value,
+          allOf(greaterThan(0), lessThan(1)),
+        );
+      }
+      expect(outgoing.hitTestable(), findsNothing);
+      expect(incoming.hitTestable(), findsOneWidget);
+      expect(tester.getTopLeft(panel), popup.topLeft);
+      await tester.pumpAndSettle();
+      expect(outgoing, findsNothing);
+    }
+
+    await tester.tap(firstCard);
+    await expectPageTransition(noCard, back);
+    await tester.tap(back);
+    await expectPageTransition(back, noCard);
+    expect(tester.widget<MenuItemSurface>(noCard).isSelected, isFalse);
+    expect(tester.widget<MenuItemSurface>(firstCard).isSelected, isTrue);
+    final selectedCheck = find.descendant(
+      of: firstCard,
+      matching: find.byIcon(Symbols.check_rounded),
+    );
+    final selectedChevron = find.descendant(of: firstCard, matching: chevron);
+    expect(
+      tester.getRect(selectedChevron).left,
+      greaterThan(tester.getRect(selectedCheck).right),
+    );
+    expect(find.text(l10n.aiRoleplayImport), findsNothing);
+    await tester.tap(secondCard);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<RoleplayTemplateMenu>(trigger)
+          .binding
+          ?.sourceCard
+          .description,
+      'An enthusiastic astronomer',
+    );
+    await tester.tap(back);
+    await tester.pumpAndSettle();
+    await tester.tap(noCard);
+    await tester.pumpAndSettle();
+    expect(tester.widget<RoleplayTemplateMenu>(trigger).binding, isNull);
+    expect(workspaces.sessions, hasLength(3));
+    expect(
+      workspaces.sessions.every(
+        (item) => item.assistant.roleplayBinding != null,
+      ),
+      isTrue,
+    );
+  });
+
+  for (final child in [false, true]) {
+    final kind = child ? 'child' : 'main';
+    testWidgets('creates a $kind agent from a character template', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(900, 675));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final template = AiRoleplayBinding(
+        card: AiRoleplayCard.fromFields({
+          'name': 'Yuna',
+          'description': 'A quiet navigator',
+          'scenario': 'At the observatory',
+          'first_mes': 'A quiet hello, {{user}}.',
+          'alternate_greetings': ['Welcome to the observatory, {{user}}.'],
+          'creator': 'Observatory',
+          'character_version': '1.2',
+          'spec_version': '3.0',
+          'system_prompt': 'Speak calmly.',
+        }),
+        playerName: 'Traveler',
+        includeProfile: true,
+      );
+      final source = (await tester.runAsync(
+        () => workspaces.createPrimary(
+          title: 'Source agent',
+          task: '',
+          roleplay: template,
+          roleplayOpening: 0,
+        ),
+      ))!;
+      await tester.pumpWidget(app());
+      await tick(tester);
+      if (child) {
+        await tester.tap(find.byKey(ValueKey('topology-node-${source.id}')));
+        await tester.pump();
+      }
+      await tester.tap(
+        find.byKey(
+          ValueKey(child ? 'topology-new-child' : 'topology-new-primary'),
+        ),
+      );
+      await tick(tester);
+      final templateField = find.byKey(
+        const ValueKey('topology-roleplay-template'),
+      );
+      final openingField = find.byKey(
+        const ValueKey('topology-roleplay-opening'),
+      );
+      final l10n = tester.element(templateField).l10n;
+      expect(find.text(l10n.aiRoleplayTemplateHelp), findsOneWidget);
+      expect(find.text(l10n.aiRoleplayOpeningHelp), findsNothing);
+      expect(openingField, findsNothing);
+      await tester.tap(templateField);
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.aiRoleplayImport), findsNothing);
+      await tester.tap(
+        find.byKey(const ValueKey('roleplay-template-option-1')),
+      );
+      await tester.pumpAndSettle();
+      final panel = find.byKey(const ValueKey('roleplay-template-panel'));
+      expect(panel, findsOneWidget);
+      await tester.tap(templateField);
+      await tester.pumpAndSettle();
+      expect(panel, findsNothing);
+      final modelField = find.byKey(const ValueKey('ai-model-selector'));
+      final permissionField = find.byKey(
+        const ValueKey('ai-permissions-button'),
+      );
+      final referenceLabel = tester.widget<Text>(
+        find.descendant(of: permissionField, matching: find.byType(Text)),
+      );
+      for (final (field, label, leadingIcon) in [
+        (templateField, 'Yuna', Symbols.badge_rounded),
+        (openingField, l10n.aiRoleplayManualOpening, Symbols.edit_note_rounded),
+      ]) {
+        final bounds = tester.getRect(field);
+        expect(bounds.height, tester.getSize(modelField).height);
+        expect(bounds.height, tester.getSize(permissionField).height);
+        expect(
+          bounds.right,
+          closeTo(tester.getRect(permissionField).right, .01),
+        );
+        final buttonLabel = tester.widget<Text>(
+          find.descendant(of: field, matching: find.text(label)),
+        );
+        expect(buttonLabel.style?.fontSize, referenceLabel.style?.fontSize);
+        final icon = find.descendant(
+          of: field,
+          matching: find.byIcon(leadingIcon),
+        );
+        expect(tester.getSize(icon), const Size.square(16));
+        expect(tester.widget<Icon>(icon).fill, 1);
+        final arrow = find.descendant(
+          of: field,
+          matching: find.byIcon(Symbols.expand_more_rounded),
+        );
+        expect(tester.getSize(arrow), const Size.square(14));
+      }
+      final permissionsHelpStyle = tester
+          .widget<Text>(find.text(l10n.aiTopologyPermissionsHelp))
+          .style;
+      for (final (title, help) in [
+        (l10n.aiRoleplayTemplateOptional, l10n.aiRoleplayTemplateHelp),
+        (l10n.aiRoleplayOpeningOptional, l10n.aiRoleplayOpeningHelp),
+      ]) {
+        final subtitle = find.text(help);
+        expect(tester.widget<Text>(subtitle).style, permissionsHelpStyle);
+        final titleBounds = tester.getRect(find.text(title));
+        final subtitleBounds = tester.getRect(subtitle);
+        expect(subtitleBounds.left, titleBounds.left);
+        expect(subtitleBounds.top, greaterThan(titleBounds.bottom));
+      }
+      expect(
+        find.descendant(
+          of: openingField,
+          matching: find.text(l10n.aiRoleplayManualOpening),
+        ),
+        findsOneWidget,
+      );
+      if (!child) {
+        await tester.tap(openingField);
+        await tester.pumpAndSettle();
+        final manual = find.byKey(
+          const ValueKey('roleplay-opening-clear-selection'),
+        );
+        final firstOpening = find.byKey(const ValueKey('roleplay-opening-0'));
+        final alternate = find.byKey(const ValueKey('roleplay-opening-1'));
+        final confirm = find.byKey(
+          const ValueKey('roleplay-opening-preview-confirm'),
+        );
+        expect(
+          find.descendant(
+            of: manual,
+            matching: find.text(l10n.aiRoleplayManualOpeningSummary),
+          ),
+          findsOneWidget,
+        );
+        expect(tester.widget<MenuItemSurface>(manual).isSelected, isTrue);
+        expect(
+          tester.widget<MenuItemSurface>(firstOpening).isSelected,
+          isFalse,
+        );
+        final chevron = find.byIcon(Symbols.chevron_right_rounded);
+        expect(find.descendant(of: manual, matching: chevron), findsNothing);
+        expect(
+          find.descendant(of: firstOpening, matching: chevron),
+          findsOneWidget,
+        );
+        expect(
+          tester.getSize(manual).height,
+          tester.getSize(firstOpening).height,
+        );
+        expect(
+          tester.getRect(firstOpening).top - tester.getRect(manual).bottom,
+          closeTo(6, .01),
+        );
+        await tester.tap(alternate);
+        await tester.pumpAndSettle();
+        final preview = find.byKey(
+          const ValueKey('roleplay-opening-preview-text'),
+        );
+        expect(
+          tester.widget<Text>(preview).data,
+          'Welcome to the observatory, Traveler.',
+        );
+        expect(find.text(l10n.aiRoleplayRestartWarning), findsNothing);
+        await tester.tap(confirm);
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(
+            of: openingField,
+            matching: find.text(l10n.aiRoleplayOpeningNumber(2)),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: openingField,
+            matching: find.byIcon(Symbols.auto_stories_rounded),
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(openingField);
+        await tester.pumpAndSettle();
+        expect(tester.widget<MenuItemSurface>(manual).isSelected, isFalse);
+        expect(tester.widget<MenuItemSurface>(alternate).isSelected, isTrue);
+        await tester.tap(manual);
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(
+            of: openingField,
+            matching: find.text(l10n.aiRoleplayManualOpening),
+          ),
+          findsOneWidget,
+        );
+        expect(preview, findsNothing);
+        await tester.tap(openingField);
+        await tester.pumpAndSettle();
+        await tester.tap(alternate);
+        await tester.pumpAndSettle();
+        await tester.tap(confirm);
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(templateField);
+      await tester.pumpAndSettle();
+      Finder inPanel(Finder matching) =>
+          find.descendant(of: panel, matching: matching);
+      expect(inPanel(find.byType(RoleplayAvatar)), findsOneWidget);
+      expect(inPanel(find.text('Yuna')), findsOneWidget);
+      expect(
+        inPanel(
+          find.text(
+            [
+              l10n.aiRoleplayAuthor('Observatory'),
+              l10n.aiRoleplayCardVersion('1.2'),
+              l10n.aiRoleplayFormatVersion('3.0'),
+            ].join(' · '),
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(inPanel(find.byType(AppActionButton)), findsOneWidget);
+      expect(inPanel(find.text(l10n.aiRoleplayCardSettings)), findsOneWidget);
+      expect(inPanel(find.text(l10n.aiRoleplayEnableCard)), findsNothing);
+      expect(inPanel(find.text(l10n.aiRoleplayStartStory)), findsNothing);
+      await tester.tap(
+        find.byKey(const ValueKey('roleplay-template-settings')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('roleplay-import-advanced')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('roleplay-import-confirm')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topology-create-confirm')));
+      await tick(tester);
+      final created = workspaces.sessions.singleWhere((item) => item != source);
+      expect(created.parentId, child ? source.id : null);
+      expect(created.title, 'Yuna');
+      expect(created.assistant.roleplayEnabled, isTrue);
+      expect(created.assistant.roleplayBinding?.includeAdvancedPrompts, isTrue);
+      expect(source.assistant.roleplayBinding?.includeAdvancedPrompts, isFalse);
+      expect(created.assistant.roleplayBinding?.storyActive, !child);
+      expect(created.assistant.busy, isFalse);
+      if (child) {
+        expect(created.assistant.messages, isEmpty);
+      } else {
+        expect(
+          created.assistant.messages.single.content,
+          'Welcome to the observatory, Traveler.',
+        );
+        expect(created.assistant.messages.single.isRoleplayOpening, isTrue);
+      }
+      expect(
+        source.assistant.messages.single.content,
+        'A quiet hello, Traveler.',
+      );
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    });
+  }
+
+  testWidgets(
+    'canvas menu omits roleplay actions and chat still edits the card',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(500, 400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final agent = (await tester.runAsync(
+        () => workspaces.createPrimary(
+          title: 'Card owner',
+          task: '',
+          roleplay: AiRoleplayBinding(
+            card: AiRoleplayCard.fromFields({
+              'name': 'Yuna',
+              'description': 'A quiet navigator',
+              'first_mes': 'Hello.',
+              'system_prompt': 'Speak softly.',
+            }),
+            playerName: 'Traveler',
+            includeProfile: true,
+            includeAdvancedPrompts: true,
+          ),
+          roleplayOpening: 0,
+        ),
+      ))!;
+      await tester.pumpWidget(app(locale: const Locale('en')));
+      await tick(tester);
+      final node = find.byKey(ValueKey('topology-node-${agent.id}'));
+      final nodeBounds = tester.getRect(node);
+      await tester.tapAt(
+        nodeBounds.bottomRight - const Offset(8, 8),
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      final open = find.byKey(const ValueKey('topology-context-open'));
+      expect(open.hitTestable(), findsOneWidget);
+      final l10n = tester.element(open).l10n;
+      expect(find.text(l10n.aiRoleplayCard), findsNothing);
+      await tester.tap(open);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('roleplay-chat-menu')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('roleplay-menu-settings')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('roleplay-import-profile')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('roleplay-import-confirm')));
+      await tester.pumpAndSettle();
+      expect(agent.assistant.roleplayBinding?.includeProfile, isFalse);
+      expect(agent.assistant.roleplayBinding?.storyActive, isTrue);
+      expect(agent.assistant.messages.single.content, 'Hello.');
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    },
+  );
 
   for (final automatic in [false, true]) {
     final trigger = automatic ? 'automatic' : 'manual';
@@ -537,10 +1150,6 @@ void main() {
             matching: find.widgetWithText(AppActionButton, '还原'),
           ),
         );
-        await tester.pumpAndSettle();
-        expect(find.text('还原此智能体？'), findsOneWidget);
-        expect(workspace.pendingRecycleRestore, isNull);
-        await tester.tap(confirmRestore);
         await awaitHandoff();
         expect(workspace.recycledAgents, hasLength(count));
         storage.saveGate = null;
@@ -840,14 +1449,6 @@ void main() {
     expect(navigation.settingsSection, AppSettingsSection.aiServices);
     expect(tester.takeException(), isNull);
   });
-
-  Future<void> finish(WidgetTester tester) async {
-    workspaces.stopAll();
-    for (final gate in requestGates.values) {
-      if (!gate.isCompleted) gate.complete();
-    }
-    await tick(tester);
-  }
 
   bool selected(WidgetTester tester, String id) =>
       ((tester
@@ -1216,6 +1817,1535 @@ void main() {
     expect(tester.takeException(), isNull);
     await finish(tester);
   });
+
+  testWidgets('story opening dialogs keep scrollbars outside their content', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(521, 389));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const home = ValueKey('roleplay-opening-test-home');
+    final longOpening = List.filled(
+      20,
+      'A long line of an opening that wraps at the available dialog width.',
+    ).join('\n\n');
+    final binding = AiRoleplayBinding(
+      card: AiRoleplayCard.fromFields({
+        'name': 'Rowan',
+        'first_mes': longOpening,
+        'alternate_greetings': List.filled(8, longOpening),
+      }),
+      playerName: 'Guest',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(
+          platform: TargetPlatform.windows,
+          scrollbarTheme: const ScrollbarThemeData(
+            crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
+          ),
+        ),
+        scrollBehavior: const AppScrollBehavior(),
+        localizationsDelegates: appLocalizationDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const SizedBox.shrink(key: home),
+      ),
+    );
+    final result = pickRoleplayOpening(
+      tester.element(find.byKey(home)),
+      theme.themeData,
+      binding,
+      hasConversationToRestart: () => true,
+    );
+    await tester.pumpAndSettle();
+
+    ScrollPosition checkGutter(Finder target) {
+      final dialog = find.ancestor(
+        of: target,
+        matching: find.byType(AlertDialog),
+      );
+      final scrollbar = find.descendant(
+        of: dialog,
+        matching: find.byType(Scrollbar),
+      );
+      final surface = find
+          .ancestor(of: scrollbar, matching: find.byType(Material))
+          .first;
+      final viewport = tester.getRect(scrollbar);
+      final content = tester.getRect(target);
+      expect(viewport.right, closeTo(tester.getRect(surface).right, .01));
+      expect(viewport.right - content.right, greaterThanOrEqualTo(23.99));
+      final position = Scrollable.of(tester.element(target)).position;
+      expect(position.maxScrollExtent, greaterThan(0));
+      return position;
+    }
+
+    final first = find.byKey(const ValueKey('roleplay-opening-0'));
+    final list = checkGutter(first);
+    list.jumpTo(list.maxScrollExtent);
+    await tester.pumpAndSettle();
+    final last = find.byKey(const ValueKey('roleplay-opening-8'));
+    expect(last.hitTestable(), findsOneWidget);
+    final option = tester.getRect(last);
+    await tester.tapAt(Offset(option.right - 8, option.center.dy));
+    await tester.pumpAndSettle();
+
+    final preview = find.byKey(const ValueKey('roleplay-opening-preview-text'));
+    final body = checkGutter(preview);
+    body.jumpTo(body.maxScrollExtent);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('roleplay-opening-preview-confirm')),
+    );
+    await tester.pumpAndSettle();
+    expect(await result, (index: 8, clearExisting: true));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('opening preview confirms before replacing the current chat', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1180, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final agent = (await tester.runAsync(
+      () => workspaces.create(
+        title: 'Primary agent',
+        task: 'Keep the main task',
+        startImmediately: false,
+      ),
+    ))!;
+    await tester.runAsync(
+      () => agent.assistant.sendMessage('Keep until confirmed'),
+    );
+    final previous = agent.assistant.messages.toList();
+    final longOpening = [
+      for (var line = 1; line <= 52; line++) 'Opening paragraph $line.',
+      'The last line of the alternate opening.',
+    ].join('\n\n');
+    agent.assistant.bindRoleplay(
+      AiRoleplayBinding(
+        card: AiRoleplayCard.fromFields({
+          'name': 'Rowan',
+          'first_mes': 'The main opening.',
+          'alternate_greetings': [longOpening],
+        }),
+        playerName: 'Guest',
+      ),
+    );
+    await tester.pumpWidget(app());
+    await tick(tester);
+
+    final roleRow = find.byKey(ValueKey('topology-roleplay-${agent.id}'));
+    await tester.tap(roleRow, buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('topology-context-open')));
+    await tester.pumpAndSettle();
+
+    final menu = find.byKey(const ValueKey('roleplay-chat-menu')).hitTestable();
+    final chooseOpening = find.byKey(const ValueKey('roleplay-menu-opening'));
+    final alternate = find.byKey(const ValueKey('roleplay-opening-1'));
+    final preview = find.byKey(const ValueKey('roleplay-opening-preview-text'));
+    final confirm = find.byKey(
+      const ValueKey('roleplay-opening-preview-confirm'),
+    );
+    final cancel = find.byKey(
+      const ValueKey('roleplay-opening-preview-cancel'),
+    );
+
+    await tester.tap(menu);
+    await tester.pumpAndSettle();
+    await tester.tap(chooseOpening);
+    await tester.pumpAndSettle();
+    expect(find.text('The main opening.'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('roleplay-opening-clear-selection')),
+      findsNothing,
+    );
+    final l10n = AppLocalizations.of(tester.element(alternate));
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: tester.getCenter(alternate));
+    await tester.pumpAndSettle();
+    final highlighted = tester.widgetList<InteractionDecoration>(
+      find.descendant(
+        of: alternate,
+        matching: find.byType(InteractionDecoration),
+      ),
+    );
+    expect(
+      highlighted.any(
+        (item) =>
+            item.decoration.color == theme.themeData.basePrimary &&
+            item.decoration.borderRadius == BorderRadius.circular(6),
+      ),
+      isTrue,
+    );
+    await mouse.removePointer();
+
+    await tester.tap(alternate);
+    await tester.pumpAndSettle();
+    expect(find.text(l10n.aiRoleplayRestartWarning), findsOneWidget);
+    expect(tester.widget<Text>(preview).data, longOpening);
+    expect(tester.widget<Text>(preview).maxLines, isNull);
+    expect(
+      Scrollable.of(tester.element(preview)).position.maxScrollExtent,
+      greaterThan(0),
+    );
+    expect(tester.widget<AppActionButton>(confirm).destructive, isTrue);
+    expect(agent.assistant.messages, orderedEquals(previous));
+
+    final previewSelection = tester.state<SelectableRegionState>(
+      find.ancestor(of: preview, matching: find.byType(SelectableRegion)),
+    );
+    previewSelection.selectAll(SelectionChangedCause.keyboard);
+    expect(_canCopySelection(previewSelection), isTrue);
+    await tester.tap(
+      find.text(l10n.aiRoleplayRestartWarning),
+      kind: PointerDeviceKind.mouse,
+    );
+    await tester.pumpAndSettle();
+    expect(_canCopySelection(previewSelection), isFalse);
+    expect(agent.assistant.messages, orderedEquals(previous));
+
+    await tester.tap(cancel);
+    await tester.pumpAndSettle();
+    expect(alternate.hitTestable(), findsOneWidget);
+    expect(agent.assistant.messages, orderedEquals(previous));
+
+    await tester.tap(alternate);
+    await tester.pumpAndSettle();
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+    expect(agent.assistant.messages.single.content, longOpening);
+    expect(workspaces.activeConversationId, agent.id);
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets(
+    'roleplay imports only in settings and keeps search fixed in chat',
+    (tester) async {
+      final original = FileSelectorPlatform.instance;
+      FileSelectorPlatform.instance = _RoleplayFileSelector();
+      addTearDown(() => FileSelectorPlatform.instance = original);
+      final active = AiRoleplayBinding(
+        card: AiRoleplayCard.fromFields({'name': 'Active character'}),
+        playerName: 'Guest',
+      );
+      final agent = (await tester.runAsync(
+        () => workspaces.createPrimary(
+          title: 'Agent',
+          task: '',
+          roleplay: active,
+        ),
+      ))!;
+      final binding = agent.assistant.roleplayBinding;
+      await tester.pumpWidget(
+        app(
+          locale: const Locale('en'),
+          content: RoleplayLibraryContent(theme: theme.themeData),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.runAsync(
+        () => tester.tap(find.byKey(const ValueKey('roleplay-library-import'))),
+      );
+      await tick(tester);
+      await tester.pumpAndSettle();
+      expect(find.text('Imported character'), findsOneWidget);
+      expect(find.text('Character profile'), findsOneWidget);
+      expect(find.text('World book'), findsOneWidget);
+      expect(find.text('Advanced prompts'), findsOneWidget);
+      expect(find.text('Not included in this card'), findsNWidgets(2));
+      expect(find.byType(Switch), findsNothing);
+      expect(find.byType(RoleplayCardOptionsDialog), findsNothing);
+      expect(workspaces.roleplayTemplates, hasLength(1));
+      await tester.runAsync(
+        () => tester.tap(find.byKey(const ValueKey('roleplay-confirm-import'))),
+      );
+      await tick(tester);
+      expect(agent.assistant.roleplayBinding, same(binding));
+      final imported = workspaces.roleplayTemplates.singleWhere(
+        (template) => template.card.name == 'Imported character',
+      );
+      expect(imported.includeProfile, isTrue);
+      expect(imported.sourceCard.openings, ['Hello, traveler.']);
+      expect(imported.storyActive, isFalse);
+
+      await tester.pumpWidget(app(locale: const Locale('en')));
+      await tick(tester);
+      await tester.tap(find.byKey(ValueKey('topology-open-${agent.id}')));
+      await tester.pumpAndSettle();
+
+      for (var index = 0; index < 8; index++) {
+        workspaces.addRoleplayTemplate(
+          AiRoleplayBinding(
+            card: AiRoleplayCard.fromFields({'name': 'Other character $index'}),
+            playerName: 'Guest',
+          ),
+        );
+      }
+      await tester.pumpAndSettle();
+      final menu = find.byKey(const ValueKey('roleplay-chat-menu'));
+      final back = find.byKey(const ValueKey('roleplay-template-back'));
+      final heading = find.byKey(const ValueKey('roleplay-template-heading'));
+      final panel = find.byKey(const ValueKey('roleplay-template-panel'));
+      final search = find.byKey(const ValueKey('roleplay-template-search'));
+      final activeResult = find.descendant(
+        of: panel,
+        matching: find.text('Active character'),
+      );
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      await tester.tap(back);
+      await tester.pumpAndSettle();
+      expect(find.text('Import character card'), findsNothing);
+      for (final query in [' ImportED ', 'LIBRARY AUTHOR']) {
+        await tester.enterText(search, query);
+        await tester.pumpAndSettle();
+        expect(find.text('Imported character'), findsOneWidget);
+        expect(activeResult, findsNothing);
+        expect(
+          find.byKey(const ValueKey('roleplay-template-option-0')),
+          findsOneWidget,
+        );
+      }
+      await tester.enterText(search, 'unknown character');
+      await tester.pumpAndSettle();
+      expect(find.text('No matching character cards'), findsOneWidget);
+      expect(find.text('Imported character'), findsNothing);
+      await tester.tap(find.byType(SearchClearButton));
+      await tester.pumpAndSettle();
+      expect(activeResult, findsOneWidget);
+      final scroll = find.descendant(
+        of: panel,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              widget.axisDirection == AxisDirection.down,
+        ),
+      );
+      final titlePosition = tester.getTopLeft(heading);
+      final searchPosition = tester.getRect(search);
+      expect(searchPosition.bottom, lessThan(tester.getRect(scroll).top));
+      tester.binding.handlePointerEvent(
+        PointerScrollEvent(
+          position: tester.getCenter(scroll),
+          scrollDelta: const Offset(0, 160),
+          kind: PointerDeviceKind.mouse,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.state<ScrollableState>(scroll).position.pixels,
+        greaterThan(0),
+      );
+      expect(tester.getTopLeft(heading), titlePosition);
+      expect(heading.hitTestable(), findsOneWidget);
+      expect(tester.getRect(search), searchPosition);
+      expect(search.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    },
+  );
+
+  Future<File> roleplayPackageFile(WidgetTester tester) async {
+    final directory = (await tester.runAsync(
+      () => Directory.systemTemp.createTemp('roleplay-package-widget-'),
+    ))!;
+    final file = File('${directory.path}/selection.7z');
+    addTearDown(() async {
+      if (await file.exists()) await file.delete();
+      await directory.delete();
+    });
+    return file;
+  }
+
+  testWidgets('roleplay package export saves only checked cards', (
+    tester,
+  ) async {
+    final destination = await roleplayPackageFile(tester);
+    final original = FileSelectorPlatform.instance;
+    final picker = _RoleplayPackageFileSelector(destination.path);
+    FileSelectorPlatform.instance = picker;
+    addTearDown(() => FileSelectorPlatform.instance = original);
+    await tester.runAsync(() => workspaces.initialized);
+
+    final included = AiRoleplayCard.fromFields({
+      'name': 'Included character',
+      'spec_version': '2.0',
+    });
+    final excluded = AiRoleplayCard.fromFields({
+      'name': 'Excluded character',
+      'spec_version': '2.0',
+    });
+    for (final card in [included, excluded]) {
+      workspaces.addRoleplayTemplate(
+        AiRoleplayBinding(card: card, playerName: 'Guest'),
+      );
+    }
+    await tester.pumpWidget(
+      app(
+        locale: const Locale('en'),
+        content: RoleplayLibraryContent(theme: theme.themeData),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final export = find.byKey(const ValueKey('roleplay-library-export'));
+    await tester.runAsync(() => tester.tap(export));
+    await tester.pumpAndSettle();
+    final confirm = find.byKey(const ValueKey('roleplay-package-confirm'));
+    final excludedRow = find.byKey(
+      ValueKey('roleplay-package-card-${excluded.templateFingerprint}'),
+    );
+    final l10n = tester.element(confirm).l10n;
+    expect(
+      tester.widget<AppActionButton>(confirm).label,
+      l10n.aiRoleplayPackageExportSelected(2),
+    );
+    expect(picker.saveCalls, 0);
+    await tester.tap(excludedRow);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<AppActionButton>(confirm).label,
+      l10n.aiRoleplayPackageExportSelected(1),
+    );
+
+    await tester.runAsync(() => tester.tap(confirm));
+    await tester.pump();
+    final exported = await tester.runAsync(() async {
+      final timeout = Stopwatch()..start();
+      while (!await destination.exists()) {
+        if (timeout.elapsed > const Duration(seconds: 5)) {
+          throw StateError('The selected card archive was not written.');
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      return RoleplayCardPackage.read(destination.path);
+    });
+    expect(picker.saveCalls, 1);
+    expect(exported?.map((card) => card.templateFingerprint), [
+      included.templateFingerprint,
+    ]);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets(
+    'roleplay package import accepts mixed files and skips duplicates',
+    (tester) async {
+      final source = await roleplayPackageFile(tester);
+      final existing = AiRoleplayCard.fromFields({
+        'name': 'Existing character',
+        'spec_version': '2.0',
+      });
+      final included = AiRoleplayCard.fromFields({
+        'name': 'Included character',
+        'spec_version': '2.0',
+      });
+      final excluded = AiRoleplayCard.fromFields({
+        'name': 'Excluded character',
+        'spec_version': '2.0',
+      });
+      final standalone = AiRoleplayCard.fromFields({
+        'name': 'Loose character',
+        'spec_version': '2.0',
+      });
+      await tester.runAsync(() async {
+        await workspaces.initialized;
+        await RoleplayCardPackage.write(source.path, [
+          existing,
+          included,
+          excluded,
+        ]);
+        workspaces.addRoleplayTemplate(
+          AiRoleplayBinding(card: existing, playerName: 'Guest'),
+        );
+      });
+      final original = FileSelectorPlatform.instance;
+      final picker = _RoleplayPackageFileSelector(
+        source.path,
+        additionalSources: [
+          XFile.fromData(
+            Uint8List.fromList(
+              utf8.encode(jsonEncode(standalone.toTavernJson())),
+            ),
+            name: 'loose.json',
+          ),
+          XFile.fromData(Uint8List.fromList([0]), name: 'unreadable.json'),
+        ],
+      );
+      FileSelectorPlatform.instance = picker;
+      addTearDown(() => FileSelectorPlatform.instance = original);
+
+      await tester.pumpWidget(
+        app(
+          locale: const Locale('en'),
+          content: RoleplayLibraryContent(theme: theme.themeData),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final import = find.byKey(const ValueKey('roleplay-library-import'));
+      await tester.runAsync(() => tester.tap(import));
+      final confirm = find.byKey(const ValueKey('roleplay-package-confirm'));
+      final timeout = Stopwatch()..start();
+      while (confirm.evaluate().isEmpty && timeout.elapsed.inSeconds < 5) {
+        await tick(tester);
+      }
+      expect(confirm, findsOneWidget);
+      expect(picker.openCalls, 1);
+      final l10n = tester.element(confirm).l10n;
+      expect(find.text(l10n.aiRoleplayPackageSummary(4, 3, 1)), findsOneWidget);
+      expect(find.text(l10n.aiRoleplayImportSkippedFiles(1)), findsOneWidget);
+      Finder packageRow(AiRoleplayCard card) => find.byKey(
+        ValueKey('roleplay-package-card-${card.templateFingerprint}'),
+      );
+      expect(packageRow(existing), findsNothing);
+      expect(packageRow(included), findsOneWidget);
+      expect(packageRow(standalone), findsOneWidget);
+      expect(workspaces.roleplayTemplates, hasLength(1));
+      await tester.tap(packageRow(excluded));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<AppActionButton>(confirm).label,
+        l10n.aiRoleplayPackageImportSelected(2),
+      );
+      await tester.runAsync(() => tester.tap(confirm));
+      await tick(tester);
+      expect(
+        workspaces.roleplayTemplates.map((binding) => binding.sourceCard.name),
+        [existing.name, included.name, standalone.name],
+      );
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    },
+  );
+
+  testWidgets('roleplay library uses row buttons for details and deletion', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(840, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final card = AiRoleplayCard.fromFields({
+      'name': 'Library character',
+      'tags': ['Adventure', 'Mystery'],
+      'creator_notes': 'Use a quiet opening.',
+    });
+    final agent = (await tester.runAsync(
+      () => workspaces.createPrimary(
+        title: 'Bound agent',
+        task: '',
+        roleplay: AiRoleplayBinding(card: card, playerName: 'Guest'),
+      ),
+    ))!;
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: workspaces,
+        child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: appLocalizationDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: RoleplayLibraryContent(theme: theme.themeData)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final fingerprint = card.templateFingerprint;
+    final importButton = find.byKey(const ValueKey('roleplay-library-import'));
+    final exportButton = find.byKey(const ValueKey('roleplay-library-export'));
+    final heading = find.text('已导入的角色卡');
+    expect(find.text('SillyTavern 角色卡 · PNG / JSON'), findsOneWidget);
+    expect(
+      tester.getCenter(importButton).dy,
+      closeTo(tester.getCenter(exportButton).dy, .01),
+    );
+    expect(
+      tester.getBottomLeft(importButton).dy,
+      lessThan(tester.getTopLeft(heading).dy),
+    );
+    final cardRow = find.byKey(ValueKey('roleplay-library-card-$fingerprint'));
+    final details = find.byKey(
+      ValueKey('roleplay-library-details-$fingerprint'),
+    );
+    final delete = find.byKey(ValueKey('roleplay-library-delete-$fingerprint'));
+    final cardName = find.text(card.name);
+    final cancel = find.byKey(const ValueKey('cancel-roleplay-library-delete'));
+    final confirm = find.byKey(
+      const ValueKey('confirm-roleplay-library-delete'),
+    );
+    final closeLabel = tester.element(details).l10n.close;
+    expect(
+      tester.getRect(details).right,
+      lessThan(tester.getRect(delete).left),
+    );
+    expect(tester.getCenter(details).dy, tester.getCenter(delete).dy);
+    expect(tester.widget<AppActionButton>(delete).destructive, isTrue);
+    await tester.tap(cardName);
+    await tester.pumpAndSettle();
+    expect(find.byType(RoleplayCardDetails), findsNothing);
+    await tester.tap(details);
+    await tester.pumpAndSettle();
+    expect(find.text('标签：Adventure, Mystery'), findsOneWidget);
+    expect(find.text('作者说明'), findsOneWidget);
+    expect(find.text('Use a quiet opening.'), findsOneWidget);
+    await tester.tap(find.text(closeLabel));
+    await tester.pumpAndSettle();
+
+    await tester.binding.setSurfaceSize(const Size(450, 640));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getBottomLeft(importButton).dy,
+      lessThan(tester.getTopLeft(heading).dy),
+    );
+    expect(
+      tester.getTopLeft(details).dy,
+      greaterThan(tester.getBottomLeft(cardName).dy),
+    );
+    for (final action in [cancel, confirm]) {
+      await tester.tap(delete);
+      await tester.pumpAndSettle();
+      expect(find.byType(RoleplayCardDetails), findsNothing);
+      expect(find.text('将解绑的智能体（1）'), findsOneWidget);
+      expect(find.text('将删除的角色卡（1）'), findsNothing);
+      expect(find.text('Bound agent'), findsOneWidget);
+      expect(find.text('智能体 ID：${agent.id}'), findsOneWidget);
+      expect(agent.assistant.roleplayBinding, isNotNull);
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+    }
+    expect(agent.assistant.roleplayBinding, isNull);
+    expect(cardRow, findsNothing);
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets('selected roleplay cards are confirmed together and unbound', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(540, 420));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final cards = [
+      for (final name in [
+        'First selected',
+        'Second selected',
+        'Retained character',
+      ])
+        AiRoleplayCard.fromFields({'name': name}),
+    ];
+    final agents = await tester.runAsync(
+      () async => [
+        for (var index = 0; index < 10; index++)
+          (await workspaces.createPrimary(
+            title: 'Bound agent $index',
+            task: '',
+            roleplay: AiRoleplayBinding(card: cards.first, playerName: 'Guest'),
+          ))!,
+      ],
+    );
+    for (final card in cards.skip(1)) {
+      workspaces.addRoleplayTemplate(
+        AiRoleplayBinding(card: card, playerName: 'Guest'),
+      );
+    }
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: workspaces,
+        child: MaterialApp(
+          locale: const Locale('zh'),
+          theme: ThemeData(platform: TargetPlatform.windows),
+          scrollBehavior: const AppScrollBehavior(),
+          localizationsDelegates: appLocalizationDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: RoleplayLibraryContent(theme: theme.themeData)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final firstCard = find.byKey(
+      ValueKey('roleplay-library-card-${cards.first.templateFingerprint}'),
+    );
+    final importButton = find.byKey(const ValueKey('roleplay-library-import'));
+    final batch = find.byKey(
+      const ValueKey('roleplay-library-delete-selected'),
+    );
+    final outline = find.ancestor(
+      of: firstCard,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is DecoratedBox &&
+            widget.position == DecorationPosition.foreground,
+      ),
+    );
+    Color outlineColor() {
+      final decoration = tester.widget<DecoratedBox>(outline).decoration;
+      return ((decoration as BoxDecoration).border! as Border).top.color;
+    }
+
+    final initialCard = tester.getRect(firstCard);
+    expect(outlineColor().a, 0);
+    final firstName = find.text(cards.first.name);
+    await tester.tap(firstName);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(outlineColor().a, inExclusiveRange(0, 1));
+    await tester.pumpAndSettle();
+    expect(outlineColor(), theme.themeData.basePrimary);
+    expect(tester.getRect(firstCard), initialCard);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(outlineColor().a, inExclusiveRange(0, 1));
+    await tester.pumpAndSettle();
+    expect(outlineColor().a, 0);
+    expect(batch, findsNothing);
+
+    await tester.tap(firstName);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.tap(find.text(cards[1].name));
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pumpAndSettle();
+    final batchButton = tester.widget<AppActionButton>(batch);
+    expect(batchButton.label, '删除选中（2）');
+    expect(batchButton.fontSize, 12);
+    expect(
+      batchButton.padding,
+      const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+    );
+    for (final width in [540.0, 450.0, 540.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 420));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(batch).right, tester.getRect(firstCard).right);
+      expect(
+        tester.getTopLeft(batch).dy,
+        greaterThan(tester.getBottomLeft(importButton).dy),
+      );
+    }
+    await tester.tap(batch);
+    await tester.pumpAndSettle();
+    final dialog = find.byType(AlertDialog);
+    final heading = find.descendant(of: dialog, matching: find.text('删除选中（2）'));
+    final description = find.text(
+      '删除后，以下智能体将恢复默认设定，聊天记录和原始 PNG 或 JSON 文件都会保留。',
+    );
+    final confirm = find.byKey(
+      const ValueKey('confirm-roleplay-library-delete'),
+    );
+    final cardsHeading = find.text('将删除的角色卡（2）');
+    final agentsHeading = find.text('将解绑的智能体（10）');
+    expect(description, findsOneWidget);
+    expect(cardsHeading, findsOneWidget);
+    expect(agentsHeading, findsOneWidget);
+    expect(
+      tester.getBottomLeft(description).dy,
+      lessThan(tester.getTopLeft(cardsHeading).dy),
+    );
+    expect(find.text('聊天记录和原始 PNG 或 JSON 文件都会保留。'), findsNothing);
+    for (final card in cards.take(2)) {
+      final cardName = find.descendant(
+        of: dialog,
+        matching: find.text(card.name),
+      );
+      expect(cardName, findsOneWidget);
+      expect(
+        tester.getTopLeft(cardName).dy,
+        greaterThan(tester.getBottomLeft(cardsHeading).dy),
+      );
+      expect(
+        tester.getBottomLeft(cardName).dy,
+        lessThan(tester.getTopLeft(agentsHeading).dy),
+      );
+    }
+    final listedAgents =
+        workspaces.roleplayLibraryUsage[cards.first.templateFingerprint]!;
+    final firstId = find.text('智能体 ID：${listedAgents.first.id}');
+    final lastId = find.text('智能体 ID：${listedAgents.last.id}');
+    expect(
+      tester.getTopLeft(firstId).dy,
+      greaterThan(tester.getBottomLeft(agentsHeading).dy),
+    );
+    final scrollbar = find.descendant(
+      of: dialog,
+      matching: find.byType(Scrollbar),
+    );
+    expect(scrollbar, findsOneWidget);
+    final scrollbarTheme = ScrollbarTheme.of(tester.element(scrollbar));
+    expect(
+      scrollbarTheme.crossAxisMargin,
+      AppScrollBehavior.scrollbarEdgeInset,
+    );
+    expect(scrollbarTheme.mainAxisMargin, AppScrollBehavior.scrollbarEdgeInset);
+    final surface = find
+        .ancestor(of: scrollbar, matching: find.byType(Material))
+        .first;
+    expect(
+      tester.getRect(scrollbar).right,
+      closeTo(tester.getRect(surface).right, .01),
+    );
+    expect(
+      tester.getRect(scrollbar).right - tester.getRect(firstId).right,
+      closeTo(24, .01),
+    );
+    expect(firstId.hitTestable(), findsOneWidget);
+    expect(lastId.hitTestable(), findsNothing);
+    final fixedWidgets = [heading, description, confirm];
+    final initialPositions = fixedWidgets.map(tester.getTopLeft).toList();
+    final scroll = Scrollable.of(tester.element(firstId)).position;
+    expect(scroll.maxScrollExtent, greaterThan(0));
+    scroll.jumpTo(scroll.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(firstId.hitTestable(), findsNothing);
+    expect(lastId.hitTestable(), findsOneWidget);
+    expect(fixedWidgets.map(tester.getTopLeft), initialPositions);
+    expect(
+      agents!.every((agent) => agent.assistant.roleplayBinding != null),
+      isTrue,
+    );
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+    expect(
+      agents.every((agent) => agent.assistant.roleplayBinding == null),
+      isTrue,
+    );
+    expect(workspaces.roleplayTemplates.map((binding) => binding.card.name), [
+      cards.last.name,
+    ]);
+    expect(batch, findsNothing);
+    await finish(tester);
+  });
+
+  testWidgets(
+    'chat tools hide labels individually as available width shrinks',
+    (tester) async {
+      final input = TextEditingController();
+      final focus = FocusNode();
+      final scroll = ScrollController();
+      final width = ValueNotifier(480.0);
+      addTearDown(input.dispose);
+      addTearDown(focus.dispose);
+      addTearDown(scroll.dispose);
+      addTearDown(width.dispose);
+      const character = 'Rowan';
+      final session = (await tester.runAsync(
+        () => workspaces.createPrimary(
+          title: 'Chat toolbar',
+          task: '',
+          roleplay: AiRoleplayBinding(
+            card: AiRoleplayCard.fromFields({'name': character}),
+            playerName: 'Guest',
+          ),
+        ),
+      ))!;
+      final assistant = session.assistant;
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: workspaces,
+          child: MaterialApp(
+            locale: const Locale('zh'),
+            localizationsDelegates: appLocalizationDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: Center(
+                child: ValueListenableBuilder(
+                  valueListenable: width,
+                  builder: (context, width, child) =>
+                      SizedBox(width: width, child: child),
+                  child: ChatComposer(
+                    input: input,
+                    focusNode: focus,
+                    scrollController: scroll,
+                    theme: theme.themeData,
+                    assistant: assistant,
+                    ready: true,
+                    onSend: (_) {},
+                    attachments: const [],
+                    onAttachmentsChanged: (_) {},
+                    roleplayMenuBuilder: (compact) => RoleplayMenuButton(
+                      theme: theme.themeData,
+                      assistant: assistant,
+                      compact: compact,
+                      onChooseOpening: (_) async {},
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final model = find.byKey(const ValueKey('ai-model-selector'));
+      final modelArrow = find.byKey(const ValueKey('ai-model-selector-arrow'));
+      final permissions = find.byKey(
+        const ValueKey('ai-permissions-button-arrow'),
+      );
+      final roleplay = find.descendant(
+        of: find.byKey(const ValueKey('roleplay-chat-menu')),
+        matching: find.text(character),
+      );
+      expect(permissions, findsOneWidget);
+      expect(roleplay, findsOneWidget);
+      expect(modelArrow, findsOneWidget);
+
+      width.value = 294;
+      await tester.pumpAndSettle();
+      expect(permissions, findsOneWidget);
+      expect(modelArrow, findsNothing);
+
+      width.value = 200;
+      await tester.pumpAndSettle();
+      expect(permissions, findsNothing);
+      expect(roleplay, findsNothing);
+      expect(modelArrow, findsNothing);
+      expect(tester.getSize(model).width, 32);
+      await tester.tap(model);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('ai-model-menu-surface')),
+        findsOneWidget,
+      );
+      await tester.tap(model);
+      await tester.pumpAndSettle();
+
+      width.value = 480;
+      await tester.pumpAndSettle();
+      expect(permissions, findsOneWidget);
+      expect(roleplay, findsOneWidget);
+      expect(modelArrow, findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    },
+  );
+
+  testWidgets('primary and child agents use character cards in their chat', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1180, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final primary = (await tester.runAsync(
+      () => workspaces.create(
+        title: 'Primary agent',
+        task: 'Primary task draft',
+        startImmediately: false,
+      ),
+    ))!;
+    final child = (await tester.runAsync(
+      () => workspaces.create(
+        title: 'Child agent',
+        task: 'Child task draft',
+        parentId: primary.id,
+        startImmediately: false,
+      ),
+    ))!;
+    final characters = [(primary, 'Rowan'), (child, 'Lan')];
+    for (final (session, name) in characters) {
+      expect(
+        session.assistant.bindRoleplay(
+          AiRoleplayBinding(
+            card: AiRoleplayCard.fromFields({
+              'name': name,
+              'first_mes': 'Welcome from {{char}}.',
+              if (identical(session, child)) ...{
+                'creator': 'Lan Author',
+                'alternate_greetings': ['Good to see you again, {{user}}.'],
+              },
+            }),
+            playerName: 'Guest',
+          ),
+        ),
+        isTrue,
+      );
+    }
+
+    await tester.pumpWidget(app());
+    await tick(tester);
+
+    final input = find.byKey(const ValueKey('ai-message-input')).hitTestable();
+    final permissions = find
+        .byKey(const ValueKey('ai-permissions-button'))
+        .hitTestable();
+    String currentDraft() => tester
+        .widget<EditableText>(
+          find.descendant(of: input, matching: find.byType(EditableText)),
+        )
+        .controller
+        .text;
+
+    for (final (session, name) in characters) {
+      final roleRow = find.byKey(ValueKey('topology-roleplay-${session.id}'));
+      expect(
+        find.descendant(of: roleRow, matching: find.text(name)),
+        findsOneWidget,
+      );
+      final fallback = find.descendant(
+        of: roleRow,
+        matching: find.byIcon(Symbols.person_rounded),
+      );
+      expect(tester.widget<Icon>(fallback).fill, 1);
+      final activeConversation = workspaces.activeConversationId;
+      await tester.tap(roleRow);
+      await tester.pumpAndSettle();
+      final settings = find.byType(RoleplayCardOptionsDialog);
+      expect(settings, findsOneWidget);
+      expect(
+        find.descendant(
+          of: settings,
+          matching: find.text(
+            tester.element(settings).l10n.aiRoleplayCardSettings,
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(input, findsNothing);
+      expect(workspaces.activeConversationId, activeConversation);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(settings, findsNothing);
+      await tester.tap(find.byKey(ValueKey('topology-open-${session.id}')));
+      await tester.pumpAndSettle();
+
+      final menu = find
+          .byKey(const ValueKey('roleplay-chat-menu'))
+          .hitTestable();
+      final tooltip = find.ancestor(
+        of: menu,
+        matching: find.byType(AppTooltip),
+      );
+      final cardLabel = tester.element(menu).l10n.aiRoleplayCard;
+      final useAlternate = identical(session, child);
+      final greeting = find.text(
+        useAlternate ? 'Good to see you again, Guest.' : 'Welcome from $name.',
+        findRichText: true,
+      );
+      expect(currentDraft(), session.task);
+      expect(permissions, findsOneWidget);
+      expect(
+        tester.getRect(menu).left,
+        greaterThan(tester.getRect(permissions).right),
+      );
+      expect(workspaces.activeConversationId, session.id);
+      expect(tester.widget<AppTooltip>(tooltip).message, '$cardLabel · $name');
+
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      final toggle = find.byKey(const ValueKey('roleplay-menu-toggle'));
+      expect(tester.widget<Switch>(toggle).value, isTrue);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(session.assistant.roleplayEnabled, isFalse);
+      expect(tester.widget<Switch>(toggle).value, isFalse);
+      expect(tester.widget<AppTooltip>(tooltip).message, '$cardLabel · $name');
+      final badge = find.descendant(
+        of: menu,
+        matching: find.byIcon(Symbols.badge_rounded),
+      );
+      expect(tester.widget<Icon>(badge).fill, 1);
+      expect(find.byKey(const ValueKey('roleplay-menu-opening')), findsNothing);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(session.assistant.roleplayEnabled, isTrue);
+
+      final startStory = find.byKey(const ValueKey('roleplay-menu-opening'));
+      final storyIcon = find.descendant(
+        of: startStory,
+        matching: find.byIcon(Symbols.auto_stories_rounded),
+      );
+      expect(tester.widget<Icon>(storyIcon).fill, 1);
+      await tester.tap(startStory);
+      await tester.pumpAndSettle();
+      expect(session.assistant.messages, isEmpty);
+      expect(find.byKey(const ValueKey('roleplay-opening-0')), findsOneWidget);
+      expect(find.text('Welcome from $name.'), findsOneWidget);
+      final alternate = find.byKey(const ValueKey('roleplay-opening-1'));
+      expect(alternate, useAlternate ? findsOneWidget : findsNothing);
+      await tester.tap(
+        find.byKey(ValueKey('roleplay-opening-${useAlternate ? 1 : 0}')),
+      );
+      await tester.pumpAndSettle();
+      expect(session.assistant.messages, isEmpty);
+      final previewConfirm = find.byKey(
+        const ValueKey('roleplay-opening-preview-confirm'),
+      );
+      final l10n = tester.element(previewConfirm).l10n;
+      expect(find.text(l10n.aiRoleplayRestartWarning), findsNothing);
+      await tester.tap(previewConfirm);
+      await tester.pumpAndSettle();
+      expect(session.assistant.messages.single.isRoleplayOpening, isTrue);
+      expect(greeting.hitTestable(), findsOneWidget);
+      expect(currentDraft(), session.task);
+      expect(permissions, findsOneWidget);
+      expect(workspaces.activeConversationId, session.id);
+
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('roleplay-menu-opening')),
+        findsOneWidget,
+      );
+      final back = find.byKey(const ValueKey('roleplay-template-back'));
+      final noCard = find.byKey(const ValueKey('roleplay-template-option-0'));
+      final currentCard = find.byKey(
+        const ValueKey('roleplay-template-option-1'),
+      );
+      await tester.tap(back);
+      await tester.pumpAndSettle();
+      expect(tester.widget<MenuItemSurface>(currentCard).isSelected, isTrue);
+      expect(toggle, findsNothing);
+      final previousBinding = session.assistant.roleplayBinding;
+      final previousMessages = session.assistant.messages.toList();
+      await tester.tap(currentCard);
+      await tester.pumpAndSettle();
+      expect(session.assistant.roleplayBinding, same(previousBinding));
+      if (!useAlternate) {
+        await tester.tap(back);
+        await tester.pumpAndSettle();
+        final alternateCard = find.byKey(
+          const ValueKey('roleplay-template-option-2'),
+        );
+        final childBinding = child.assistant.roleplayBinding;
+        expect(
+          find.descendant(
+            of: alternateCard,
+            matching: find.text(l10n.aiRoleplayAuthor('Lan Author')),
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(alternateCard);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('roleplay-menu-use-template')),
+          findsNothing,
+        );
+        expect(
+          session.assistant.roleplayBinding?.sourceCard,
+          same(childBinding?.sourceCard),
+        );
+        expect(session.assistant.roleplayBinding?.storyActive, isFalse);
+        expect(session.assistant.messages, orderedEquals(previousMessages));
+        expect(child.assistant.roleplayBinding, same(childBinding));
+        expect(child.assistant.messages, isEmpty);
+        expect(workspaces.activeConversationId, session.id);
+      }
+      expect(find.byKey(const ValueKey('roleplay-menu-unbind')), findsNothing);
+      final confirmUnbind = find.byKey(
+        const ValueKey('confirm-roleplay-unbind'),
+      );
+      await tester.tap(back);
+      await tester.pumpAndSettle();
+      await tester.tap(noCard);
+      await tester.pumpAndSettle();
+      expect(confirmUnbind, findsNothing);
+      expect(
+        find.byKey(const ValueKey('roleplay-template-panel')),
+        findsNothing,
+      );
+      expect(session.assistant.roleplayBinding, isNull);
+      expect(session.assistant.roleplayEnabled, isFalse);
+      final noCardIcon = find.descendant(
+        of: menu,
+        matching: find.byIcon(Symbols.block_rounded),
+      );
+      expect(tester.widget<Icon>(noCardIcon).fill, 0);
+      expect(session.assistant.messages, orderedEquals(previousMessages));
+      expect(currentDraft(), session.task);
+      expect(greeting.hitTestable(), findsOneWidget);
+      if (useAlternate) {
+        await tester.tap(menu);
+        await tester.pumpAndSettle();
+        final libraryCard = find.descendant(
+          of: find.byKey(const ValueKey('roleplay-template-panel')),
+          matching: find.text(name),
+        );
+        expect(libraryCard, findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('roleplay-menu-delete-template')),
+          findsNothing,
+        );
+        expect(
+          workspaces.roleplayTemplates.any((item) => item.card.name == name),
+          isTrue,
+        );
+        expect(session.assistant.messages, orderedEquals(previousMessages));
+      }
+      await tester.tap(
+        find.byKey(const ValueKey('topology-back')).hitTestable(),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets(
+    'role card collapses, wraps tags and only lets card details be copied',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1180, 850));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const characterName = 'Rowan, Keeper of the Lanterns and the Clock Tower';
+      const authorNotes = 'This card works with slow-paced stories.';
+      const tags = [
+        'Fantasy',
+        'Historical',
+        'Clock Tower',
+        'Mystery',
+        'Slow-paced stories',
+        'Lanterns',
+        'Original Character',
+      ];
+      final agent = (await tester.runAsync(
+        () => workspaces.create(
+          title: 'Primary agent',
+          task: 'Keep the original draft',
+          startImmediately: false,
+        ),
+      ))!;
+      agent.assistant.bindRoleplay(
+        AiRoleplayBinding(
+          card: AiRoleplayCard.fromFields(
+            {
+              'name': characterName,
+              'creator': 'Card Author',
+              'character_version': '1.2',
+              'spec_version': '3.0',
+              'tags': tags,
+              'creator_notes': authorNotes,
+              'first_mes': 'Welcome to the clock tower.',
+            },
+            avatar: base64Decode(
+              'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=',
+            ),
+          ),
+          playerName: 'Guest',
+          includeProfile: true,
+        ),
+      );
+      await tester.pumpWidget(app());
+      await tick(tester);
+      await tester.tap(find.byKey(ValueKey('topology-open-${agent.id}')));
+      await tester.pumpAndSettle();
+      await tester.binding.setSurfaceSize(const Size(500, 400));
+      await tester.pumpAndSettle();
+
+      final menu = find
+          .byKey(const ValueKey('roleplay-chat-menu'))
+          .hitTestable();
+      final permissions = find
+          .byKey(const ValueKey('ai-permissions-button'))
+          .hitTestable();
+      expect(
+        tester.getRect(menu).left,
+        greaterThan(tester.getRect(permissions).right),
+      );
+      expect(
+        find.descendant(of: menu, matching: find.byType(ClipOval)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: menu, matching: find.byType(Image)),
+        findsOneWidget,
+      );
+      final label = find.descendant(
+        of: menu,
+        matching: find.text(characterName),
+      );
+      expect(label, findsNothing);
+      expect(tester.getSize(menu).width, lessThanOrEqualTo(36));
+      expect(
+        find.byKey(const ValueKey('ai-model-selector')).hitTestable(),
+        findsOneWidget,
+      );
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      final toggle = find
+          .byKey(const ValueKey('roleplay-menu-toggle'))
+          .hitTestable();
+      final metadata = find.textContaining('Card Author').hitTestable();
+      expect(metadata, findsOneWidget);
+      expect(
+        tester
+            .renderObject<RenderParagraph>(
+              find.descendant(of: metadata, matching: find.byType(RichText)),
+            )
+            .didExceedMaxLines,
+        isFalse,
+      );
+      expect(find.textContaining('V3.0'), findsOneWidget);
+      expect(find.textContaining('1.2'), findsOneWidget);
+      final popupTitle = find.text(characterName).hitTestable();
+      expect(popupTitle, findsOneWidget);
+      expect(find.textContaining('Fantasy'), findsNothing);
+      expect(find.text(authorNotes), findsNothing);
+      expect(
+        tester.getRect(metadata).bottom,
+        lessThan(tester.getRect(toggle).top),
+      );
+      expect(tester.widget<Switch>(toggle).value, isTrue);
+      expect(find.byKey(const ValueKey('roleplay-menu-history')), findsNothing);
+      final settingsButton = find.byKey(
+        const ValueKey('roleplay-menu-settings'),
+      );
+      final settingsRect = tester.getRect(settingsButton);
+      expect(
+        find.byKey(const ValueKey('roleplay-template-back')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('roleplay-template-search')),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey('roleplay-menu-unbind')), findsNothing);
+      final popupRect = tester.getRect(
+        find.ancestor(
+          of: settingsButton,
+          matching: find.byType(PopupMenuSurface),
+        ),
+      );
+      expect(popupRect.width, closeTo(336, .01));
+      expect(settingsRect.left - popupRect.left, closeTo(12, .01));
+      final openingRect = tester.getRect(
+        find.byKey(const ValueKey('roleplay-menu-opening')),
+      );
+      expect(openingRect.left - settingsRect.right, closeTo(6, .01));
+      expect(openingRect.center.dy, closeTo(settingsRect.center.dy, .01));
+      String? copied;
+      final messenger = tester.binding.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      });
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(SystemChannels.platform, null);
+      });
+      final copyLabel = MaterialLocalizations.of(tester.element(popupTitle))
+          .copyButtonLabel;
+      final dragStart = tester.getTopLeft(popupTitle) + const Offset(1, 6);
+      final dragEnd = tester.getTopRight(metadata) + const Offset(-2, 6);
+      final popupSelection = tester.state<SelectableRegionState>(
+        find.ancestor(of: popupTitle, matching: find.byType(SelectableRegion)),
+      );
+      await tester.dragFrom(
+        dragStart,
+        dragEnd - dragStart,
+        kind: PointerDeviceKind.mouse,
+      );
+      expect(_canCopySelection(popupSelection), isTrue);
+      await tester.tap(find.text('启用角色卡'), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+      expect(_canCopySelection(popupSelection), isFalse);
+      expect(tester.widget<Switch>(toggle).value, isTrue);
+      await tester.dragFrom(
+        dragStart,
+        dragEnd - dragStart,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.tapAt(
+        dragStart + const Offset(16, 0),
+        buttons: kSecondaryMouseButton,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(copyLabel).hitTestable());
+      await tester.pumpAndSettle();
+      expect(copied, contains(characterName));
+      expect(copied, contains('Card Author'));
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('角色卡设定').hitTestable());
+      await tester.pumpAndSettle();
+      final tagsText = '标签：${tags.join(', ')}';
+      final tagsFinder = find.text(tagsText);
+      final tagsParagraph = tester.renderObject<RenderParagraph>(
+        find.descendant(of: tagsFinder, matching: find.byType(RichText)),
+      );
+      final lineBoxes = tagsParagraph.getBoxesForSelection(
+        TextSelection(baseOffset: 0, extentOffset: tagsText.length),
+      );
+      expect(lineBoxes.last.top, greaterThan(lineBoxes.first.top));
+      expect(tagsParagraph.didExceedMaxLines, isFalse);
+      expect(
+        Scrollable.of(tester.element(tagsFinder)).position.axis,
+        Axis.vertical,
+      );
+      final detailSelection = find.ancestor(
+        of: tagsFinder,
+        matching: find.byType(SelectableRegion),
+      );
+      copied = null;
+      final selection = tester.state<SelectableRegionState>(detailSelection);
+      selection.selectAll(SelectionChangedCause.keyboard);
+      selection.copySelection(SelectionChangedCause.keyboard);
+      await tester.pumpAndSettle();
+      expect(copied, contains(characterName));
+      expect(copied, contains('Card Author'));
+      expect(copied, contains(tagsText));
+      expect(copied, contains(authorNotes));
+      expect(copied, isNot(contains('角色设定')));
+      expect(copied, isNot(contains('身份、人物背景和性格')));
+      expect(copied, isNot(contains('当前没有已保存的内容')));
+      final profileLabel = find.text('角色设定');
+      await tester.ensureVisible(profileLabel);
+      await tester.pumpAndSettle();
+      selection.selectAll(SelectionChangedCause.keyboard);
+      expect(_canCopySelection(selection), isTrue);
+      await tester.tap(
+        profileLabel.hitTestable(),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(_canCopySelection(selection), isFalse);
+      final story = find.byKey(const ValueKey('roleplay-import-story'));
+      final worldBook = find.byKey(
+        const ValueKey('roleplay-import-world-book'),
+      );
+      expect(tester.widget<Switch>(worldBook).onChanged, isNull);
+      final dimmedLabels = tester.widgetList<Opacity>(
+        find.ancestor(of: find.text('世界书'), matching: find.byType(Opacity)),
+      );
+      expect(dimmedLabels.any((label) => label.opacity < 1), isTrue);
+      expect(story, findsNothing);
+      expect(find.text('Welcome to the clock tower.'), findsNothing);
+      await tester.tap(find.text('保存设定').hitTestable());
+      await tester.pumpAndSettle();
+      expect(agent.assistant.roleplayEnabled, isFalse);
+      expect(agent.assistant.roleplayBinding?.storyActive, isFalse);
+      expect(agent.assistant.messages, isEmpty);
+      expect(workspaces.activeConversationId, agent.id);
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'role card settings show selectable metadata and save prompt options',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(500, 400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final card = AiRoleplayCard.fromFields({
+        'name': 'Rowan',
+        'creator': 'Card Author',
+        'character_version': '1.2',
+        'spec_version': '3.0',
+        'tags': ['Fantasy', 'Historical'],
+        'creator_notes': 'Card metadata only.',
+        'description':
+            '[Rowan\'s Personality=gentle and patient]\nSecret scenario',
+        'first_mes': 'Long opening not shown in the import dialog.',
+        'alternate_greetings': ['Alternate reading not shown in the dialog.'],
+        'character_book': {
+          'entries': [
+            {'content': 'World book text not shown in the dialog.'},
+          ],
+        },
+        'system_prompt': 'Advanced prompt not shown in the dialog.',
+      });
+      const home = ValueKey('roleplay-test-home');
+      AiRoleplayBinding? result;
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: appLocalizationDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(1.25)),
+            child: child!,
+          ),
+          home: const SizedBox.shrink(key: home),
+        ),
+      );
+      unawaited(
+        showDialog<AiRoleplayBinding>(
+          context: tester.element(find.byKey(home)),
+          builder: (_) => RoleplayCardOptionsDialog(
+            binding: AiRoleplayBinding(
+              card: card,
+              playerName: 'Guest',
+              includeProfile: true,
+              includeWorldBook: true,
+              includeAdvancedPrompts: true,
+            ),
+            theme: theme.themeData,
+          ),
+        ).then((value) => result = value),
+      );
+      await tester.pumpAndSettle();
+
+      final profile = find.byKey(const ValueKey('roleplay-import-profile'));
+      final story = find.byKey(const ValueKey('roleplay-import-story'));
+      final lore = find.byKey(const ValueKey('roleplay-import-world-book'));
+      final advanced = find.byKey(const ValueKey('roleplay-import-advanced'));
+      final confirm = find.byKey(const ValueKey('roleplay-import-confirm'));
+      expect(tester.widget<Switch>(profile).value, isTrue);
+      expect(story, findsNothing);
+      expect(tester.widget<Switch>(lore).onChanged, isNotNull);
+      expect(tester.widget<Switch>(advanced).onChanged, isNotNull);
+      expect(tester.widget<Switch>(lore).value, isTrue);
+      expect(tester.widget<Switch>(advanced).value, isTrue);
+      expect(tester.widget<AppActionButton>(confirm).onPressed, isNotNull);
+      expect(find.textContaining('角色卡版本：1.2'), findsOneWidget);
+      expect(find.textContaining('格式：V3.0'), findsOneWidget);
+      expect(find.text('标签：Fantasy, Historical'), findsOneWidget);
+      expect(find.text('Card metadata only.'), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: find.text('标签：Fantasy, Historical'),
+          matching: find.byType(SelectableRegion),
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('gentle and patient'), findsNothing);
+      expect(find.byType(EditableText), findsNothing);
+      expect(find.byType(Divider), findsNothing);
+      expect(
+        find.text('Long opening not shown in the import dialog.'),
+        findsNothing,
+      );
+      await tester.tap(profile);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(advanced);
+      await tester.tap(advanced);
+      await tester.pumpAndSettle();
+      expect(tester.widget<Switch>(advanced).value, isFalse);
+      expect(tester.widget<AppActionButton>(confirm).onPressed, isNotNull);
+      await tester.ensureVisible(lore);
+      await tester.tap(lore);
+      await tester.pumpAndSettle();
+      expect(tester.widget<AppActionButton>(confirm).onPressed, isNull);
+      await tester.tap(lore);
+      await tester.pumpAndSettle();
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+
+      expect(result?.storyActive, isFalse);
+      expect(result?.includeProfile, isFalse);
+      expect(result?.includeWorldBook, isTrue);
+      expect(result?.includeAdvancedPrompts, isFalse);
+      expect(result?.card.openings, isEmpty);
+      expect(result?.sourceCard.openings, hasLength(2));
+
+      unawaited(
+        showDialog<AiRoleplayBinding>(
+          context: tester.element(find.byKey(home)),
+          builder: (_) => RoleplayCardOptionsDialog(
+            binding: result!,
+            theme: theme.themeData,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<Switch>(profile).value, isFalse);
+      expect(tester.widget<Switch>(lore).value, isTrue);
+      expect(tester.widget<Switch>(advanced).onChanged, isNotNull);
+      expect(tester.widget<Switch>(advanced).value, isFalse);
+      await tester.tap(find.text('取消').hitTestable());
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    },
+  );
 
   testWidgets('covered conversations reject navigation without replaying it', (
     tester,
@@ -3003,7 +5133,7 @@ void main() {
   });
 
   testWidgets(
-    'mixed select-all deletion runs without confirmation and supports undo',
+    'Backspace keeps selected cards and wires while Delete removes them',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1180, 850));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -3046,6 +5176,14 @@ void main() {
 
       final ids = workspaces.connections.map((c) => c.id).toSet();
       expect(selectedWires(), ids);
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.pumpAndSettle();
+      expect(workspaces.sessions, hasLength(3));
+      expect(workspaces.connections.map((c) => c.id).toSet(), ids);
+      expect(selectedWires(), ids);
+      for (final agent in [root, a, b]) {
+        expect(selected(tester, agent.id), isTrue);
+      }
       await tester.sendKeyEvent(LogicalKeyboardKey.delete);
       await tester.pumpAndSettle();
       expect(
@@ -3642,7 +5780,7 @@ void main() {
   );
 
   testWidgets(
-    'light card open button hovers using its actual surface and compact footer fits',
+    'light card actions share the hover palette and compact footer fits',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1180, 850));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -3650,29 +5788,71 @@ void main() {
       final task = (await tester.runAsync(
         () => workspaces.createPrimary(title: 'Hover target', task: 'one'),
       ))!;
+      task.assistant.bindRoleplay(
+        AiRoleplayBinding(
+          card: AiRoleplayCard.fromFields({'name': 'Yuna'}),
+          playerName: 'Guest',
+          includeProfile: true,
+        ),
+      );
       await tester.pumpWidget(app());
       await tick(tester);
       final buttonFinder = find.byKey(ValueKey('topology-open-${task.id}'));
+      final roleRow = find.byKey(ValueKey('topology-roleplay-${task.id}'));
       final button = tester.widget<TitleBarIconButton>(buttonFinder);
       expect(button.surfaceColor, button.theme.primary);
       expect(button.backgroundColor, Colors.transparent);
+      final avatar = find.descendant(
+        of: roleRow,
+        matching: find.byType(RoleplayAvatar),
+      );
+      final chevron = find.descendant(
+        of: roleRow,
+        matching: find.byIcon(Symbols.chevron_right_rounded),
+      );
+      final roleBounds = tester.getRect(roleRow);
+      final scale = roleBounds.width / tester.getSize(roleRow).width;
+      expect(
+        tester.getRect(avatar).left - roleBounds.left,
+        closeTo(8 * scale, .01),
+      );
+      expect(
+        roleBounds.right - tester.getRect(chevron).right,
+        closeTo(8 * scale, .01),
+      );
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer();
       await mouse.moveTo(tester.getCenter(buttonFinder));
       await tester.pumpAndSettle();
-      final decoration = tester
+      BoxDecoration decorationFor(Finder action) => tester
           .widget<InteractionDecoration>(
             find.descendant(
-              of: buttonFinder,
+              of: action,
               matching: find.byType(InteractionDecoration),
             ),
           )
           .decoration;
+      final decoration = decorationFor(buttonFinder);
       expect(
         decoration.color,
         button.theme.buttonColorsForSurface(button.theme.primary).hover,
       );
       expect(decoration.color!.computeLuminance(), greaterThan(.5));
+      expect(
+        decorationFor(roleRow).color,
+        decoration.color!.withValues(alpha: 0),
+      );
+      await mouse.moveTo(tester.getCenter(roleRow));
+      await tester.pumpAndSettle();
+      expect(decorationFor(roleRow).color, decoration.color);
+      final roleFeedback = tester.widget<InkWell>(
+        find.descendant(of: roleRow, matching: find.byType(InkWell)),
+      );
+      final chatFeedback = tester.widget<InkWell>(
+        find.descendant(of: buttonFinder, matching: find.byType(InkWell)),
+      );
+      expect(roleFeedback.splashColor, chatFeedback.splashColor);
+      expect(roleFeedback.highlightColor, chatFeedback.highlightColor);
       await mouse.removePointer();
       await tester.binding.setSurfaceSize(const Size(320, 500));
       await tester.pumpAndSettle();
@@ -3710,6 +5890,7 @@ void main() {
       final childNode = find.byKey(ValueKey('topology-node-${child.id}'));
       await tester.tap(childNode, buttons: kSecondaryMouseButton);
       await tester.pumpAndSettle();
+      await openNodeSubmenu(tester, 'workflow');
       final mainPosition = tester.getCenter(mainNode);
       final childPosition = tester.getCenter(childNode);
       expect(
@@ -3792,6 +5973,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(rootNode, buttons: kSecondaryMouseButton);
       await tester.pumpAndSettle();
+      await openNodeSubmenu(tester, 'workflow');
       await tester.tap(
         find.byKey(const ValueKey('topology-context-make-child')),
       );
@@ -3827,6 +6009,7 @@ void main() {
       expect(root.assistant, same(assistant));
       await tester.tap(rootNode, buttons: kSecondaryMouseButton);
       await tester.pumpAndSettle();
+      await openNodeSubmenu(tester, 'workflow');
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('topology-context-make-root')),
@@ -3872,6 +6055,7 @@ void main() {
       buttons: kSecondaryMouseButton,
     );
     await tester.pumpAndSettle();
+    await openNodeSubmenu(tester, 'workflow');
     expect(
       find.byKey(const ValueKey('topology-context-make-child')),
       findsNothing,
@@ -3938,6 +6122,104 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Updated\ntitle'), findsWidgets);
       expect(find.byKey(const ValueKey('ai-message-input')), findsOneWidget);
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'chat title uses the canvas rename dialog and updates the same agent',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1180, 850));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      theme.setTheme(ThemeType.light);
+      final session = (await tester.runAsync(
+        () => workspaces.createPrimary(title: 'Original title', task: 'one'),
+      ))!;
+      final assistant = session.assistant;
+      await tester.pumpWidget(app());
+      await tick(tester);
+      final canvasTitle = find.byKey(const ValueKey('topology-canvas-title'));
+      final canvasDecoration =
+          tester.widget<DecoratedBox>(canvasTitle).decoration as BoxDecoration;
+      await tester.tap(find.byKey(ValueKey('topology-open-${session.id}')));
+      await tester.pumpAndSettle();
+      final header = find.byKey(
+        ValueKey('topology-conversation-title-scroll-${session.id}'),
+      );
+      final titleDecoration = find.descendant(
+        of: header,
+        matching: find.byType(InteractionDecoration),
+      );
+      BoxDecoration decoration() =>
+          tester
+                  .widget<DecoratedBox>(
+                    find
+                        .descendant(
+                          of: titleDecoration,
+                          matching: find.byType(DecoratedBox),
+                        )
+                        .first,
+                  )
+                  .decoration
+              as BoxDecoration;
+      final headerBounds = tester.getRect(header);
+      final titleBounds = tester.getRect(
+        find.descendant(of: header, matching: find.text('Original title')),
+      );
+      expect(titleBounds.left - headerBounds.left, closeTo(10, 1));
+      expect(headerBounds.right - titleBounds.right, closeTo(10, 1));
+      expect(titleBounds.top - headerBounds.top, closeTo(6, 1));
+      expect(headerBounds.bottom - titleBounds.bottom, closeTo(6, 1));
+      expect(decoration().borderRadius, canvasDecoration.borderRadius);
+      final hover = theme.themeData.secondaryTextHoverColor;
+      final normal = hover.withValues(alpha: 0);
+      final paddingPoint = Offset(
+        headerBounds.left + 6,
+        headerBounds.center.dy,
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      expect(decoration().color, normal);
+      await mouse.moveTo(paddingPoint);
+      await tester.pump();
+      await tester.pump(MenuItemSurface.animationDuration ~/ 2);
+      final midColor = decoration().color!;
+      expect(midColor.a, inExclusiveRange(0.0, 1.0));
+      expect(midColor.withValues(alpha: 1), hover);
+      await tester.pumpAndSettle();
+      expect(decoration().color, hover);
+      await tester.pump(AppTooltip.waitDuration);
+      await tester.pumpAndSettle();
+      expect(decoration().color, hover);
+      expect(tester.getRect(header), headerBounds);
+      await mouse.moveTo(Offset.zero);
+      await tester.pumpAndSettle();
+      expect(decoration().color, normal);
+      await mouse.removePointer();
+      await tester.tapAt(paddingPoint, kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+
+      final input = find.byKey(const ValueKey('topology-rename-input'));
+      final field = tester.widget<TextField>(
+        find.descendant(of: input, matching: find.byType(TextField)),
+      );
+      expect(field.controller?.text, 'Original title');
+      await tester.enterText(input, 'Renamed from chat');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('topology-rename-confirm')));
+      await tester.pumpAndSettle();
+
+      expect(input, findsNothing);
+      expect(
+        find.descendant(of: header, matching: find.text('Renamed from chat')),
+        findsOneWidget,
+      );
+      expect(workspaces.find(session.id), same(session));
+      expect(session.assistant, same(assistant));
+      await tester.tap(find.byKey(const ValueKey('topology-back')));
+      await tester.pumpAndSettle();
+      final nodeTitle = find.byKey(ValueKey('topology-title-${session.id}'));
+      expect(tester.widget<Text>(nodeTitle).data, 'Renamed from chat');
       await finish(tester);
     },
   );
@@ -4364,7 +6646,9 @@ void main() {
       }))!;
       final messenger = tester.binding.defaultBinaryMessenger;
       const picker = MethodChannel('plugins.flutter.io/file_selector');
-      final archive = File('artifacts/lilygobox-long-chat-10000.7z').absolute.path;
+      final archive = File('artifacts/lilygobox-long-chat-10000.7z')
+          .absolute
+          .path;
       messenger.setMockMethodCallHandler(picker, (_) async => [archive]);
       String? clipboard;
       messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
@@ -4877,15 +7161,30 @@ void main() {
         'copy-id',
         'rename',
         'bring-front',
-        'create',
-        'make-child',
-        'manage-chat',
+        'workflow',
+        'storage',
+        'roleplay',
       ]) {
         expect(find.byKey(ValueKey('topology-context-$key')), findsOneWidget);
       }
-      for (final label in singleActions) {
-        expect(find.text(label), findsOneWidget);
-      }
+      await openNodeSubmenu(tester, 'workflow');
+      expect(
+        find.byKey(const ValueKey('topology-context-create')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('topology-context-make-child')),
+        findsOneWidget,
+      );
+      await openNodeSubmenu(tester, 'storage');
+      expect(
+        find.byKey(const ValueKey('topology-context-make-child')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('topology-context-manage-chat')),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const ValueKey('topology-context-export-chat')),
         findsOneWidget,
@@ -4929,6 +7228,7 @@ void main() {
       buttons: kSecondaryMouseButton,
     );
     await tester.pumpAndSettle();
+    await openNodeSubmenu(tester, 'storage');
     await tester.tap(
       find.byKey(const ValueKey('topology-context-export-chat')),
     );
@@ -5062,10 +7362,7 @@ void main() {
       String title, {
       bool longest = true,
     }) {
-      final label = find.descendant(
-        of: menuItem,
-        matching: find.text(title),
-      );
+      final label = find.descendant(of: menuItem, matching: find.text(title));
       final text = tester.renderObject<RenderParagraph>(label);
       expect(text.didExceedMaxLines, isFalse);
       final length = title.length;
@@ -5089,6 +7386,7 @@ void main() {
       buttons: kSecondaryMouseButton,
     );
     await tester.pumpAndSettle();
+    await openNodeSubmenu(tester, 'storage');
     final canvasWidth = verifyMenuLabel(
       find.byKey(const ValueKey('topology-context-export-chat')),
       l10n.agentStorageExportChat,
@@ -5160,6 +7458,7 @@ void main() {
         buttons: kSecondaryMouseButton,
       );
       await tester.pumpAndSettle();
+      await openNodeSubmenu(tester, 'storage');
       final l = AppLocalizations.of(
         tester.element(find.byType(TaskTopologyPage)),
       );
@@ -5230,9 +7529,11 @@ void main() {
       expect(find.text(l.aiAddModelService), findsNothing);
       expect(find.byKey(const ValueKey('ai-model-inherit')), findsNothing);
       expect(
-        tester.widget<MenuItemSurface>(
-          find.byKey(ValueKey('ai-model-$service-$chatModel')),
-        ).isSelected,
+        tester
+            .widget<MenuItemSurface>(
+              find.byKey(ValueKey('ai-model-$service-$chatModel')),
+            )
+            .isSelected,
         isTrue,
       );
       await tester.tap(
@@ -5335,7 +7636,33 @@ void main() {
         find.descendant(of: hints, matching: find.textContaining('Shift')),
         findsWidgets,
       );
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pumpAndSettle();
+      final l10n = tester.element(canvas).l10n;
+      expect(
+        find.descendant(
+          of: hints,
+          matching: find.text(l10n.agentTopologyShiftHints),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: hints,
+          matching: find.textContaining(l10n.agentTopologyControlHints),
+        ),
+        findsNothing,
+      );
       await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(hints, findsNothing);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      expect(hints, findsOneWidget);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      expect(hints, findsNothing);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
       await tester.pumpAndSettle();
       expect(hints, findsNothing);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.space);
@@ -5358,6 +7685,67 @@ void main() {
       expect(tester.takeException(), isNull);
       await finish(tester);
     },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
+
+  testWidgets(
+    'Windows canvas only reads Shift state and recovers from missed key-up',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1180, 850));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const focusChannel = MethodChannel('lilygobox/window_focus');
+      final messenger = tester.binding.defaultBinaryMessenger;
+      final nativeCalls = <String>[];
+      var physicalShiftDown = true;
+      messenger.setMockMethodCallHandler(focusChannel, (call) async {
+        nativeCalls.add(call.method);
+        return call.method == 'isPhysicalShiftDown' ? physicalShiftDown : null;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(focusChannel, null));
+      final root = (await tester.runAsync(
+        () => workspaces.createPrimary(title: 'Root', task: 'one'),
+      ))!;
+      final child = (await tester.runAsync(
+        () => workspaces.create(title: 'Child', task: 'two', parentId: root.id),
+      ))!;
+      await tester.pumpWidget(app());
+      await tick(tester);
+      final hints = find.byKey(const ValueKey('topology-shortcut-hints'));
+      final rootCard = find.byKey(ValueKey('topology-node-${root.id}'));
+      final childCard = find.byKey(ValueKey('topology-node-${child.id}'));
+      await tester.tap(rootCard);
+      await tester.pumpAndSettle();
+      expect(nativeCalls, isEmpty);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(hints, findsOneWidget);
+      physicalShiftDown = false;
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
+      expect(hints, findsNothing);
+      expect(HardwareKeyboard.instance.isShiftPressed, isTrue);
+      await tester.tap(childCard);
+      await tester.pumpAndSettle();
+      expect(selected(tester, root.id), isFalse);
+      expect(selected(tester, child.id), isTrue);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      physicalShiftDown = true;
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftRight);
+      await tester.pump();
+      expect(hints, findsOneWidget);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftRight);
+
+      await tester.tap(find.byKey(const ValueKey('topology-zoom-percentage')));
+      await tester.pumpAndSettle();
+      await tester.tap(rootCard);
+      await tester.pumpAndSettle();
+      await finish(tester);
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(nativeCalls, isNotEmpty);
+      expect(nativeCalls, everyElement('isPhysicalShiftDown'));
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
   );
 
   testWidgets(
@@ -5870,7 +8258,9 @@ void main() {
     final task = (await tester.runAsync(
       () => workspaces.createPrimary(title: 'Viewport', task: 'Keep position'),
     ))!;
-    workspaces.updateCanvasPositions({task.id: [300, 220]}, origin: oldOrigin);
+    workspaces.updateCanvasPositions({
+      task.id: [300, 220],
+    }, origin: oldOrigin);
     await tester.pumpWidget(app());
     await tick(tester);
     final canvas = find.byKey(const ValueKey('task-topology-canvas'));
@@ -5920,7 +8310,9 @@ void main() {
           },
         ],
         'connections': [],
-        'canvas': {task.id: [650, 560]},
+        'canvas': {
+          task.id: [650, 560],
+        },
         'canvasOrigin': [newOrigin.dx, newOrigin.dy],
       });
       await tester.pumpAndSettle();
@@ -5994,7 +8386,9 @@ void main() {
     expect(workspaces.sessions, isEmpty);
     expect(
       (tester.getCenter(find.byKey(const ValueKey('topology-empty-create'))) -
-              tester.getCenter(find.byKey(const ValueKey('task-topology-canvas'))))
+              tester.getCenter(
+                find.byKey(const ValueKey('task-topology-canvas')),
+              ))
           .distance,
       lessThan(20),
     );
@@ -6186,13 +8580,12 @@ void main() {
           find.ancestor(of: header, matching: find.byType(Column)).first,
         );
         expect(conversation.children.whereType<Divider>(), isEmpty);
+        final scrollView = find.descendant(
+          of: header,
+          matching: find.byType(SingleChildScrollView),
+        );
         final headerScroll = tester
-            .widget<SingleChildScrollView>(
-              find.descendant(
-                of: header,
-                matching: find.byType(SingleChildScrollView),
-              ),
-            )
+            .widget<SingleChildScrollView>(scrollView)
             .controller!;
         expect(headerScroll.position.maxScrollExtent, greaterThan(0));
         expect(
@@ -6200,8 +8593,12 @@ void main() {
           findsOneWidget,
         );
         expect(
-          tester.getSize(header).height,
-          lessThanOrEqualTo(38 * textScale),
+          tester.getSize(scrollView).height,
+          lessThanOrEqualTo(48 * textScale),
+        );
+        expect(
+          tester.getSize(header).height - tester.getSize(scrollView).height,
+          12,
         );
         final backBefore = tester.getRect(
           find.byKey(const ValueKey('topology-back')),
@@ -6931,6 +9328,7 @@ void main() {
         buttons: kSecondaryMouseButton,
       );
       await tester.pumpAndSettle();
+      await openNodeSubmenu(tester, 'workflow');
       await tester.tap(find.byKey(ValueKey(action)));
       await tester.pumpAndSettle();
     }
@@ -7442,7 +9840,10 @@ void main() {
           permissionMenu.left,
           lessThanOrEqualTo(permissionBounds.left + .01),
         );
-        expect(permissionMenu.top, closeTo(permissionBounds.bottom + 8, .01));
+        expect(
+          permissionMenu.top - permissionBounds.bottom,
+          closeTo(modelMenu.top - modelBounds.bottom, .01),
+        );
         expect(
           tester
               .widget<AnimatedRotation>(
@@ -7645,7 +10046,9 @@ void main() {
       }
       expect(find.byKey(const ValueKey('ai-model-inherit')), findsNothing);
       final inheritedRow = find.byKey(
-        ValueKey('ai-model-${child.assistant.selectedService!.id}-$inheritedModel'),
+        ValueKey(
+          'ai-model-${child.assistant.selectedService!.id}-$inheritedModel',
+        ),
       );
       expect(tester.widget<MenuItemSurface>(inheritedRow).isSelected, isTrue);
       await tester.tap(modelSelector);

@@ -13,6 +13,9 @@ namespace {
 
 using namespace lilygobox::messages;
 
+constexpr DWORD kDwmBorderColor = 34;
+constexpr COLORREF kDwmBorderColorNone = 0xFFFFFFFE;
+
 bool IsSystemSnapped(HWND window) {
   using IsArranged = BOOL(WINAPI*)(HWND);
   const auto is_arranged = reinterpret_cast<IsArranged>(
@@ -40,6 +43,8 @@ bool FlutterWindow::OnCreate() {
   const BOOL cloak = TRUE;
   startup_cloaked_ = SUCCEEDED(DwmSetWindowAttribute(
       GetHandle(), DWMWA_CLOAK, &cloak, sizeof(cloak)));
+  DwmSetWindowAttribute(GetHandle(), kDwmBorderColor, &kDwmBorderColorNone,
+                        sizeof(kDwmBorderColorNone));
   layout_notification_pending_ = false;
   interactive_move_ = false;
   interactive_resize_ = false;
@@ -89,7 +94,10 @@ bool FlutterWindow::OnCreate() {
           flutter_controller_->engine()->messenger(), "lilygobox/window_focus",
           &flutter::StandardMethodCodec::GetInstance());
   focus_channel_->SetMethodCallHandler([this](const auto& call, auto result) {
-    if (call.method_name() == "focus") {
+    if (call.method_name() == "isPhysicalShiftDown") {
+      result->Success(flutter::EncodableValue(GetAsyncKeyState(VK_SHIFT) < 0));
+      return;
+    } else if (call.method_name() == "focus") {
       SetForegroundWindow(GetHandle());
       if (GetForegroundWindow() == GetHandle()) {
         SetFocus(flutter_controller_->view()->GetNativeWindow());

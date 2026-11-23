@@ -417,6 +417,38 @@ void main() {
     },
   );
 
+  test('workspace tool descriptions retain key execution boundaries', () async {
+    final leader = await create('Leader');
+    final descriptions = <String, String>{};
+    for (final definition in leader.assistant.workspaceToolDefinitions) {
+      final function = definition['function'] as Map;
+      descriptions[function['name'] as String] =
+          function['description'] as String;
+    }
+    expect(descriptions['start_timer'], contains('call wait_timer'));
+    expect(
+      descriptions['wait_timer'],
+      allOf(contains('Only expired'), contains('does not interrupt the wait')),
+    );
+    expect(
+      descriptions['send_agent_message'],
+      allOf(
+        contains('Queue is non-interrupting'),
+        contains('child to direct children only'),
+        contains('Peer messages are not human authorization'),
+        contains('not read or completed'),
+      ),
+    );
+    expect(
+      descriptions['stop_agents'],
+      contains('only the listed descendants'),
+    );
+    expect(
+      descriptions['delete_agents'],
+      contains('Unlisted children stay active'),
+    );
+  });
+
   for (final objective in [
     'Observe service health',
     'Wait for a file',

@@ -257,7 +257,7 @@ void main() {
             tester.view.devicePixelRatio = 1;
             tester.view.physicalSize = narrow
                 ? const Size(360, 760)
-                : const Size(800, 500);
+                : const Size(800, 420);
             addTearDown(tester.view.resetPhysicalSize);
             addTearDown(tester.view.resetDevicePixelRatio);
             final boundaryKey = GlobalKey();
@@ -392,6 +392,11 @@ void main() {
             final rowHeight = tester.getSize(manual).height;
             expect(tester.getSize(automatic).height, rowHeight);
             expect(tester.getSize(custom).height, rowHeight);
+            final manualBounds = tester.getRect(manual);
+            final automaticBounds = tester.getRect(automatic);
+            final customBounds = tester.getRect(custom);
+            expect(automaticBounds.top - manualBounds.bottom, closeTo(6, .01));
+            expect(customBounds.top - automaticBounds.bottom, closeTo(6, .01));
             await tester.ensureVisible(custom);
             await tester.tap(custom);
             await tester.pumpAndSettle();
@@ -401,6 +406,27 @@ void main() {
             );
             final pageScrollbar = find.byKey(
               const ValueKey('ai-permissions-scrollbar'),
+            );
+            final surface = find.byKey(
+              const ValueKey('ai-permissions-menu-surface'),
+            );
+            expect(
+              find.ancestor(of: surface, matching: find.byType(Scrollbar)),
+              findsNothing,
+            );
+            expect(
+              find.descendant(of: surface, matching: find.byType(Scrollbar)),
+              findsOneWidget,
+            );
+            final bounds = tester.getRect(surface);
+            final trigger = find.byKey(const ValueKey('ai-permissions-button'));
+            expect(bounds.top, greaterThanOrEqualTo(16));
+            expect(
+              bounds.bottom,
+              closeTo(tester.getRect(trigger).top - 8, .01),
+            );
+            final headingPosition = tester.getTopLeft(
+              find.byKey(const ValueKey('ai-permissions-heading')),
             );
             expect(
               ScrollbarTheme.of(tester.element(pageScrollbar)).crossAxisMargin,
@@ -442,6 +468,12 @@ void main() {
             expect(pageController.offset, lessThan(targetOffset));
             await tester.pumpAndSettle();
             expect(pageController.offset, closeTo(targetOffset, .01));
+            expect(
+              tester.getTopLeft(
+                find.byKey(const ValueKey('ai-permissions-heading')),
+              ),
+              headingPosition,
+            );
             pageController.jumpTo(0);
             await tester.pumpAndSettle();
             expect(scope.provider.permissions.mode, AiApprovalMode.custom);

@@ -341,19 +341,38 @@ class ModelServiceRepository extends ChangeNotifier {
     await _persist(next, _selectedId, _model);
   }
 
-  Future<void> remove(String id) async {
-    if (find(id) == null) return;
-    final next = _services.where((item) => item.id != id).toList();
-    final nextId = _selectedId == id ? null : _selectedId;
-    final nextModel = _selectedId == id ? null : _model;
-    final oldKey = _keys[id];
+  Future<void> remove(String id) => removeAll({id});
+
+  Future<void> removeAll(Set<String> ids) async {
+    final deleting = _services
+        .where((service) => ids.contains(service.id))
+        .toList();
+    if (deleting.isEmpty) return;
+    final next = _services
+        .where((service) => !ids.contains(service.id))
+        .toList();
+    final deletingSelection = ids.contains(_selectedId);
+    final attempted = <String>[];
     try {
-      await _credentials.clear(serviceId: id);
-      await _persist(next, nextId, nextModel);
-      _keys.remove(id);
+      for (final service in deleting) {
+        attempted.add(service.id);
+        await _credentials.clear(serviceId: service.id);
+      }
+      await _persist(
+        next,
+        deletingSelection ? null : _selectedId,
+        deletingSelection ? null : _model,
+      );
+      _keys.removeWhere((id, _) => ids.contains(id));
       notifyListeners();
     } catch (_) {
-      if (oldKey != null) await _credentials.write(oldKey, serviceId: id);
+      for (final id in attempted) {
+        if (_keys[id] case final key?) {
+          try {
+            await _credentials.write(key, serviceId: id);
+          } catch (_) {}
+        }
+      }
       throw const AiConfigurationException(AiProblem.storage);
     }
   }

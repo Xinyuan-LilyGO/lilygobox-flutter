@@ -13,6 +13,7 @@ import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
+import '../../../../core/widgets/desktop_card_selection.dart';
 import '../../../settings/presentation/widgets/content_layout.dart';
 import '../../data/model_service_configuration_file_service.dart';
 import '../../domain/models.dart';
@@ -30,8 +31,17 @@ class AiServiceSettingsContent extends StatefulWidget {
 }
 
 class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
+  final _selection = DesktopCardSelection();
+  final _selectionFocus = FocusNode();
   Object? _error;
   bool _transferring = false;
+  bool _deleting = false;
+
+  @override
+  void dispose() {
+    _selectionFocus.dispose();
+    super.dispose();
+  }
 
   Future<void> _edit(
     AiAssistantProvider assistant, [
@@ -55,21 +65,33 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
 
   Future<void> _delete(
     AiAssistantProvider assistant,
-    AiModelService service,
-  ) async {
+    List<AiModelService> services, {
+    bool batch = false,
+  }) async {
+    if (_deleting ||
+        _transferring ||
+        !assistant.canChangeService ||
+        services.isEmpty) {
+      return;
+    }
     final l10n = context.l10n;
     final confirmed = await showAppConfirmation(
       context: context,
       theme: widget.theme,
       actionKey: 'ai-service',
       destructive: true,
-      title: l10n.aiDeleteService,
-      description: l10n.aiDeleteServiceMessage(service.name),
-      confirmLabel: l10n.aiDeleteService,
+      title: batch
+          ? l10n.settingsDeleteSelected(services.length)
+          : l10n.aiDeleteService,
+      description: batch
+          ? l10n.aiDeleteServicesMessage
+          : l10n.aiDeleteServiceMessage(services.single.name),
+      confirmLabel: batch ? l10n.delete : l10n.aiDeleteService,
     );
     if (!confirmed || !mounted) return;
+    setState(() => _deleting = true);
     try {
-      await assistant.removeService(service.id);
+      await assistant.removeServices(services.map((service) => service.id));
       if (mounted) {
         setState(() {
           _error = null;
@@ -77,6 +99,8 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
       }
     } catch (error) {
       if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _deleting = false);
     }
   }
 
@@ -161,175 +185,172 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
     final assistant = context.watch<AiAssistantProvider>();
     final theme = widget.theme;
     final l10n = context.l10n;
-    final busy = _transferring || !assistant.canChangeService;
-    return Align(
-      alignment: Alignment.topCenter,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: SettingsContentLayout.contentWidth + 48,
-        ),
-        child: CustomScrollView(
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(24, 22, 24, 12),
-              sliver: SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SettingsContentHeader(
-                      theme: theme,
-                      title: l10n.aiServiceTitle,
-                      description: l10n.aiServiceDescription,
-                    ),
-                    SettingsSection(
-                      theme: theme,
-                      title: l10n.aiServiceConfiguration,
-                      description: l10n.aiServiceConfigurationHelp,
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          AppActionButton.settings(
-                            key: const ValueKey('ai-export-services'),
-                            theme: theme,
-                            label: l10n.configurationExport,
-                            onPressed: busy || assistant.services.isEmpty
-                                ? null
-                                : () => _transferConfiguration(
-                                    assistant,
-                                    importing: false,
-                                  ),
-                          ),
-                          AppActionButton.settings(
-                            key: const ValueKey('ai-import-services'),
-                            theme: theme,
-                            label: l10n.configurationImport,
-                            onPressed: busy
-                                ? null
-                                : () => _transferConfiguration(
-                                    assistant,
-                                    importing: true,
-                                  ),
-                          ),
-                        ],
+    final busy = _transferring || _deleting || !assistant.canChangeService;
+    final ids = assistant.services.map((service) => service.id).toList();
+    _selection.retain(ids);
+    void deleteSelected() => _delete(
+      assistant,
+      assistant.services
+          .where((service) => _selection.selected.contains(service.id))
+          .toList(),
+      batch: true,
+    );
+    return DesktopCardSelectionRegion(
+      focusNode: _selectionFocus,
+      selection: _selection,
+      ids: ids,
+      enabled: !busy,
+      onChanged: () => setState(() {}),
+      onDelete: busy ? null : deleteSelected,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: SettingsContentLayout.contentWidth + 48,
+          ),
+          child: CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(24, 22, 24, 12),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SettingsContentHeader(
+                        theme: theme,
+                        title: l10n.aiServiceTitle,
+                        description: l10n.aiServiceDescription,
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    if (!assistant.credentialLoaded)
-                      const Center(child: CircularProgressIndicator())
-                    else ...[
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final title = Text(
-                            l10n.aiAddedServices,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: theme.textColorPrimary,
+                      SettingsSection(
+                        theme: theme,
+                        title: l10n.aiServiceConfiguration,
+                        description: l10n.aiServiceConfigurationHelp,
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            AppActionButton.settings(
+                              key: const ValueKey('ai-export-services'),
+                              theme: theme,
+                              label: l10n.configurationExport,
+                              onPressed: busy || assistant.services.isEmpty
+                                  ? null
+                                  : () => _transferConfiguration(
+                                      assistant,
+                                      importing: false,
+                                    ),
                             ),
-                          );
-                          final button = AppActionButton(
-                            key: const ValueKey('ai-add-service'),
-                            theme: theme,
-                            label: l10n.aiAddModelService,
-                            icon: Symbols.add_rounded,
-                            iconSize: 18,
-                            iconSpacing: 6,
-                            fontSize: 12,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 7,
+                            AppActionButton.settings(
+                              key: const ValueKey('ai-import-services'),
+                              theme: theme,
+                              label: l10n.configurationImport,
+                              onPressed: busy
+                                  ? null
+                                  : () => _transferConfiguration(
+                                      assistant,
+                                      importing: true,
+                                    ),
                             ),
-                            onPressed: busy ? null : () => _edit(assistant),
-                          );
-                          if (constraints.maxWidth < 480) {
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                title,
-                                const SizedBox(height: 8),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: button,
-                                ),
-                              ],
-                            );
-                          }
-                          return Row(
-                            children: [
-                              Expanded(child: title),
-                              const SizedBox(width: 12),
-                              button,
-                            ],
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        l10n.aiAddedServicesHelp,
-                        style: TextStyle(
-                          fontSize: 12,
-                          height: 1.4,
-                          color: theme.textColorTertiary,
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      if (assistant.services.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 32),
-                          child: Center(
-                            child: Text(
-                              l10n.aiNoServices,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: theme.textColorTertiary,
+                      const SizedBox(height: 20),
+                      if (!assistant.credentialLoaded)
+                        const Center(child: CircularProgressIndicator())
+                      else ...[
+                        DesktopCardSelectionTarget(
+                          child: SettingsCollectionHeader(
+                            theme: theme,
+                            title: l10n.aiAddedServices,
+                            description: l10n.aiAddedServicesHelp,
+                            actionKey: const ValueKey('ai-add-service'),
+                            actionLabel: l10n.aiAddModelService,
+                            onAction: busy ? null : () => _edit(assistant),
+                            extraAction: _selection.selected.isEmpty
+                                ? null
+                                : AppActionButton.compact(
+                                    key: const ValueKey(
+                                      'ai-delete-selected-services',
+                                    ),
+                                    theme: theme,
+                                    label: l10n.settingsDeleteSelected(
+                                      _selection.selected.length,
+                                    ),
+                                    destructive: true,
+                                    onPressed: busy ? null : deleteSelected,
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (assistant.services.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 32),
+                            child: Center(
+                              child: Text(
+                                l10n.aiNoServices,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: theme.textColorTertiary,
+                                ),
                               ),
                             ),
                           ),
+                      ],
+                      if (_error ?? assistant.configurationError
+                          case final error?) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          aiErrorText(l10n, error),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontSize: 12,
+                          ),
                         ),
+                      ],
                     ],
-                    if (_error ?? assistant.configurationError
-                        case final error?) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        aiErrorText(l10n, error),
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-            if (assistant.credentialLoaded && assistant.services.isNotEmpty)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-                sliver: SliverReorderableList(
-                  key: const ValueKey('ai-service-list'),
-                  dragBoundaryProvider: _ServiceDragBoundary.new,
-                  autoScrollerVelocityScalar: 500,
-                  itemCount: assistant.services.length,
-                  onReorderItem: (oldIndex, newIndex) =>
-                      _reorder(assistant, oldIndex, newIndex),
-                  itemBuilder: (context, index) {
-                    final service = assistant.services[index];
-                    return Padding(
-                      key: ValueKey(service.id),
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _serviceRow(
-                        assistant: assistant,
-                        service: service,
-                        index: index,
-                        busy: busy,
-                      ),
-                    );
-                  },
+              if (assistant.credentialLoaded && assistant.services.isNotEmpty)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                  sliver: SliverReorderableList(
+                    key: const ValueKey('ai-service-list'),
+                    dragBoundaryProvider: _ServiceDragBoundary.new,
+                    autoScrollerVelocityScalar: 500,
+                    itemCount: assistant.services.length,
+                    onReorderStart: (index) {
+                      final id = ids[index];
+                      _selectionFocus.requestFocus();
+                      if (!_selection.selected.contains(id)) {
+                        setState(() => _selection.select(id, ids));
+                      }
+                    },
+                    onReorderItem: (oldIndex, newIndex) =>
+                        _reorder(assistant, oldIndex, newIndex),
+                    itemBuilder: (context, index) {
+                      final service = assistant.services[index];
+                      return Padding(
+                        key: ValueKey(service.id),
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: DesktopSelectableCard(
+                          id: service.id,
+                          theme: theme,
+                          selectedOutsideRegion: true,
+                          child: _serviceRow(
+                            assistant: assistant,
+                            service: service,
+                            index: index,
+                            busy: busy,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -386,7 +407,7 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
           fontSize: 12,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           borderRadius: BorderRadius.circular(8),
-          onPressed: busy ? null : () => _delete(assistant, service),
+          onPressed: busy ? null : () => _delete(assistant, [service]),
         ),
       ],
     );

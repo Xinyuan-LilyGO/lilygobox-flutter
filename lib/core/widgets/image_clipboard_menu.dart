@@ -55,6 +55,7 @@ class _ImageClipboardMenuState extends State<ImageClipboardMenu> {
       child: widget.child,
     ),
     onSecondaryTap: () {},
+    exclusiveSecondaryTap: true,
     menuItems: [
       RightClickMenuItem(
         label: context.l10n.aiViewOriginal,

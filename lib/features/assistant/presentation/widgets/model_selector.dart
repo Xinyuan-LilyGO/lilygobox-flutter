@@ -3,12 +3,10 @@
  */
 
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/theme/material_palette.dart';
@@ -19,7 +17,8 @@ import '../../../../core/widgets/interaction_decoration.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/popup_menu_surface.dart';
 import '../../../../core/widgets/popup_menu_transition.dart';
-import '../../../../core/widgets/search_clear_button.dart';
+import '../../../../core/widgets/settings/search_field.dart';
+import '../../../../generated/l10n/app_localizations.dart';
 import '../../domain/models.dart';
 import '../../domain/reasoning.dart';
 import '../../state/provider.dart';
@@ -39,6 +38,7 @@ class ModelSelector extends StatefulWidget {
     this.onAuxiliarySelected,
     this.fieldSurfaceColor,
     this.wrapLabel = false,
+    this.compact = false,
   }) : assert(onAuxiliarySelected == null || onSelected == null);
   final AppTheme theme;
   final AiAssistantProvider assistant;
@@ -51,6 +51,20 @@ class ModelSelector extends StatefulWidget {
   final ValueChanged<AiModelSelection>? onAuxiliarySelected;
   final Color? fieldSurfaceColor;
   final bool wrapLabel;
+  final bool compact;
+
+  static const compactWidth = 32.0;
+  static const labelChromeWidth = 22.0;
+
+  static String labelFor(
+    AppLocalizations l10n,
+    String? model,
+    AiReasoningEffort? effort,
+  ) => model == null
+      ? l10n.aiSelectModel
+      : effort == null
+      ? model
+      : '$model · ${reasoningEffortLabel(l10n, effort)}';
 
   @override
   State<ModelSelector> createState() => _ModelSelectorState();
@@ -502,71 +516,6 @@ class _ModelSelectorState extends State<ModelSelector> {
     );
   }
 
-  Widget _searchField() {
-    final theme = widget.theme;
-    final l10n = context.l10n;
-    return TextField(
-      key: const ValueKey('ai-model-search'),
-      contextMenuBuilder: AppTextSelectionMenu.build,
-      selectionWidthStyle: ui.BoxWidthStyle.tight,
-      controller: _search,
-      focusNode: _searchFocus,
-      onChanged: (_) => setState(() {}),
-      style: TextStyle(fontSize: 13, color: theme.textColorPrimary),
-      cursorColor: theme.basePrimary,
-      decoration: InputDecoration(
-        isDense: true,
-        hintText: l10n.aiSearchModels,
-        hintStyle: TextStyle(color: theme.textColorTertiary),
-        filled: true,
-        fillColor: theme.primary,
-        hoverColor: Colors.transparent,
-        prefixIcon: Padding(
-          padding: const EdgeInsetsDirectional.only(
-            start: 6,
-            top: 6,
-            bottom: 6,
-          ),
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: Icon(
-              Symbols.search,
-              size: 18,
-              color: theme.textColorSecondary,
-            ),
-          ),
-        ),
-        prefixIconConstraints: const BoxConstraints(
-          minWidth: 30,
-          minHeight: 36,
-        ),
-        suffixIconConstraints: const BoxConstraints(
-          minWidth: 36,
-          minHeight: 36,
-        ),
-        suffixIcon: _search.text.isEmpty
-            ? null
-            : Padding(
-                padding: const EdgeInsets.all(6),
-                child: SearchClearButton(
-                  theme: theme,
-                  onPressed: () => setState(_search.clear),
-                ),
-              ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(999),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(999),
-          borderSide: BorderSide(color: theme.basePrimary),
-        ),
-      ),
-    );
-  }
-
   Widget _menuContent() {
     final l10n = context.l10n;
     final theme = widget.theme;
@@ -613,7 +562,16 @@ class _ModelSelectorState extends State<ModelSelector> {
         ),
         Padding(
           padding: const EdgeInsetsDirectional.only(end: 6),
-          child: _searchField(),
+          child: SettingSearchField(
+            fieldKey: const ValueKey('ai-model-search'),
+            theme: theme,
+            controller: _search,
+            focusNode: _searchFocus,
+            hintText: l10n.aiSearchModels,
+            backgroundColor: theme.primary,
+            onChanged: (_) => setState(() {}),
+            onClear: () => setState(_search.clear),
+          ),
         ),
         const SizedBox(height: 8),
         ConstrainedBox(
@@ -835,13 +793,9 @@ class _ModelSelectorState extends State<ModelSelector> {
               service.id == _selectedServiceId &&
               service.models.contains(selectedModel),
         );
-    final label = selectedModel == null
-        ? l10n.aiSelectModel
-        : unavailable
+    final label = unavailable
         ? l10n.aiAuxiliaryModelUnavailable(selectedModel)
-        : effort == null
-        ? selectedModel
-        : '$selectedModel · ${reasoningEffortLabel(l10n, effort)}';
+        : ModelSelector.labelFor(l10n, selectedModel, effort);
     final available = MediaQuery.sizeOf(context);
     const edgeGap = 16.0;
     final menuWidth = (available.width - edgeGap * 4).clamp(0.0, 280.0);
@@ -851,7 +805,9 @@ class _ModelSelectorState extends State<ModelSelector> {
       // bottomEnd 是弹窗起点，不是右沿对齐；连同安全留白整体向左移。
       alignmentOffset: Offset(
         widget.fieldSurfaceColor == null ? -menuWidth - edgeGap * 2 : -edgeGap,
-        widget.fieldSurfaceColor == null ? 0 : -8,
+        widget.fieldSurfaceColor == null
+            ? 0
+            : PopupMenuSurface.fieldAnchorGap - edgeGap,
       ),
       crossAxisUnconstrained: true,
       style: MenuStyle(
@@ -957,8 +913,8 @@ class _ModelSelectorState extends State<ModelSelector> {
           ),
         ),
       ],
-      builder: (context, controller, _) => _dismissRegion(
-        MenuItemSurface(
+      builder: (context, controller, _) {
+        final trigger = MenuItemSurface(
           key: const ValueKey('ai-model-selector'),
           borderRadius: BorderRadius.circular(
             widget.fieldSurfaceColor == null ? 8 : 4,
@@ -988,50 +944,62 @@ class _ModelSelectorState extends State<ModelSelector> {
                     data: IconThemeData(color: theme.textColorSecondary),
                     child: ModelBrandIcon(model: selectedModel),
                   ),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    fit: FlexFit.loose,
-                    child: Text(
-                      label,
-                      maxLines: widget.wrapLabel ? null : 1,
-                      overflow: widget.wrapLabel
-                          ? TextOverflow.clip
-                          : TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.textColorSecondary,
+                  if (!widget.compact) ...[
+                    const SizedBox(width: 4),
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: Text(
+                        label,
+                        maxLines: widget.wrapLabel ? null : 1,
+                        overflow: widget.wrapLabel
+                            ? TextOverflow.clip
+                            : TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.textColorSecondary,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 3),
-                  AnimatedRotation(
-                    key: const ValueKey('ai-model-selector-arrow'),
-                    turns: widget.fieldSurfaceColor == null
-                        ? (controller.isOpen ? 0.5 : 0)
-                        : (controller.isOpen ? 0 : -.25),
-                    duration: MediaQuery.disableAnimationsOf(context)
-                        ? Duration.zero
-                        : PopupMenuTransition.duration,
-                    curve: widget.fieldSurfaceColor == null
-                        ? Curves.easeInOut
-                        : Curves.linear,
-                    child: Icon(
-                      widget.fieldSurfaceColor == null
-                          ? Symbols.keyboard_arrow_down_rounded
-                          : Symbols.expand_more_rounded,
-                      size: widget.fieldSurfaceColor == null ? 15 : 14,
-                      color: widget.fieldSurfaceColor == null
-                          ? theme.textColorTertiary
-                          : theme.textColorSecondary,
+                    const SizedBox(width: 3),
+                    AnimatedRotation(
+                      key: const ValueKey('ai-model-selector-arrow'),
+                      turns: widget.fieldSurfaceColor == null
+                          ? (controller.isOpen ? 0.5 : 0)
+                          : (controller.isOpen ? 0 : -.25),
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : PopupMenuTransition.duration,
+                      curve: widget.fieldSurfaceColor == null
+                          ? Curves.easeInOut
+                          : Curves.linear,
+                      child: Icon(
+                        widget.fieldSurfaceColor == null
+                            ? Symbols.keyboard_arrow_down_rounded
+                            : Symbols.expand_more_rounded,
+                        size: widget.fieldSurfaceColor == null ? 15 : 14,
+                        color: widget.fieldSurfaceColor == null
+                            ? theme.textColorTertiary
+                            : theme.textColorSecondary,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
           ),
-        ),
-        anchor: true,
-      ),
+        );
+        return _dismissRegion(
+          widget.compact
+              ? AppTooltip(
+                  message: selectedModel == null
+                      ? label
+                      : '${l10n.aiSelectModel} · $label',
+                  child: trigger,
+                )
+              : trigger,
+          anchor: true,
+        );
+      },
     );
   }
 }

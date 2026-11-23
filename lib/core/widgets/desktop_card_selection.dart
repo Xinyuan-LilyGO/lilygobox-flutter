@@ -209,6 +209,72 @@ class DesktopCardSelectionMenu extends StatefulWidget {
       _DesktopCardSelectionMenuState();
 }
 
+class DesktopSelectableCard extends StatelessWidget {
+  const DesktopSelectableCard({
+    super.key,
+    required this.id,
+    required this.theme,
+    required this.child,
+    this.selectedOutsideRegion = false,
+  });
+
+  final String id;
+  final AppTheme theme;
+  final Widget child;
+  final bool selectedOutsideRegion;
+
+  @override
+  Widget build(BuildContext context) {
+    final region = context
+        .dependOnInheritedWidgetOfExactType<_DesktopCardSelectionScope>()
+        ?.region;
+    final selected =
+        region?.selection.selected.contains(id) ?? selectedOutsideRegion;
+    if (region == null && !selected) return child;
+    final outlined = AnimatedContainer(
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 167),
+      curve: Curves.fastOutSlowIn,
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: selected
+              ? theme.basePrimary
+              : theme.basePrimary.withValues(alpha: 0),
+        ),
+      ),
+      child: child,
+    );
+    if (region == null) return Semantics(selected: selected, child: outlined);
+    return DesktopCardSelectionMenu(
+      id: id,
+      theme: theme,
+      child: Semantics(
+        selected: selected,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: !region.enabled
+              ? null
+              : () {
+                  final keyboard = HardwareKeyboard.instance;
+                  region.focusNode.requestFocus();
+                  region.selection.select(
+                    id,
+                    region.ids,
+                    control:
+                        keyboard.isControlPressed || keyboard.isMetaPressed,
+                    shift: keyboard.isShiftPressed,
+                  );
+                  region.onChanged();
+                },
+          child: outlined,
+        ),
+      ),
+    );
+  }
+}
+
 class _DesktopCardSelectionMenuState extends State<DesktopCardSelectionMenu> {
   final _menu = RightClickMenuController();
 

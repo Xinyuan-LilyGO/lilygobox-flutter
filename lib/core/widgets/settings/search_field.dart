@@ -15,6 +15,9 @@ class SettingSearchField extends StatelessWidget {
     required this.theme,
     required this.controller,
     required this.hintText,
+    this.fieldKey,
+    this.focusNode,
+    this.backgroundColor,
     this.enabled = true,
     this.onChanged,
     this.onSubmitted,
@@ -23,6 +26,9 @@ class SettingSearchField extends StatelessWidget {
   final AppTheme theme;
   final TextEditingController controller;
   final String hintText;
+  final Key? fieldKey;
+  final FocusNode? focusNode;
+  final Color? backgroundColor;
   final bool enabled;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
@@ -30,9 +36,11 @@ class SettingSearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TextField(
+    key: fieldKey,
     contextMenuBuilder: AppTextSelectionMenu.build,
     selectionWidthStyle: ui.BoxWidthStyle.tight,
     controller: controller,
+    focusNode: focusNode,
     enabled: enabled,
     onChanged: onChanged,
     onSubmitted: onSubmitted,
@@ -43,7 +51,7 @@ class SettingSearchField extends StatelessWidget {
       hintText: hintText,
       hintStyle: TextStyle(color: theme.textColorTertiary),
       filled: true,
-      fillColor: theme.settingsSearchBackgroundColor,
+      fillColor: backgroundColor ?? theme.settingsSearchBackgroundColor,
       hoverColor: Colors.transparent,
       prefixIcon: Padding(
         padding: const EdgeInsetsDirectional.only(start: 6, top: 6, bottom: 6),
