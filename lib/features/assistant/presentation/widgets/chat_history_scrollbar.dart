@@ -89,6 +89,11 @@ class _ChatHistoryScrollbarState extends State<ChatHistoryScrollbar> {
         position = _HistoryScrollbarPosition(
           source: source,
           context: _HistoryScrollbarContext(source.context),
+          onPage: (delta) {
+            final target = _notificationContext;
+            if (target == null || !target.mounted) return;
+            AppScrollBehavior.scrollByPage(target, source, delta);
+          },
         );
         _position = position;
         _controller.attach(position);
@@ -158,10 +163,7 @@ class _ChatHistoryScrollbarState extends State<ChatHistoryScrollbar> {
     _fraction = fraction;
     final source = widget.controller.position;
     if (!source.hasPixels) return;
-    AppUserScrollNotification(
-      position: source,
-      delta: delta,
-    ).dispatch(context);
+    AppUserScrollNotification(position: source, delta: delta).dispatch(context);
     widget.seek(fraction, _logicalNavigation);
   }
 
@@ -212,14 +214,30 @@ class _ChatHistoryScrollbarState extends State<ChatHistoryScrollbar> {
 }
 
 class _HistoryScrollbarPosition extends ScrollPositionWithSingleContext {
-  _HistoryScrollbarPosition({required this.source, required super.context})
-    : super(
-        physics: const ClampingScrollPhysics(),
-        initialPixels: 0,
-        keepScrollOffset: false,
-      );
+  _HistoryScrollbarPosition({
+    required this.source,
+    required this.onPage,
+    required super.context,
+  }) : super(
+         physics: const ClampingScrollPhysics(),
+         initialPixels: 0,
+         keepScrollOffset: false,
+       );
 
   final ScrollPosition source;
+  final ValueChanged<double> onPage;
+
+  @override
+  Future<void> moveTo(
+    double to, {
+    Duration? duration,
+    Curve? curve,
+    bool? clamp = true,
+  }) {
+    final delta = to - pixels;
+    if (delta != 0) onPage(delta);
+    return Future<void>.value();
+  }
 
   @override
   void pointerScroll(double delta) => source.pointerScroll(delta);

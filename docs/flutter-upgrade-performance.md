@@ -39,6 +39,35 @@ Windows 原生中键阅读器的会话必须和 Flutter 视图一起结束。通
 
 输入框要分别测**滚动、首次粘贴、持续编辑**。标准 `TextField` 持有全文，外层视口滚动时复用排好版的文字。粘贴经 `ReplaceTextIntent` 走编辑器的焦点、选区与撤销流程。文本、字号或宽度改变仍会触发整段布局。复测时包括中文输入法组合输入、全选复制和拖选越界滚动。[编辑器交互](text-input-style.md#特殊输入框) · [滚动与粘贴测试](../integration_test/chat_composer_performance_test.dart) · [持续编辑测试](../integration_test/chat_composer_editing_performance_test.dart)
 
+### 万条聊天的鼠标滚轮卡顿
+
+在 Windows 导入 `artifacts/lilygobox-long-chat-10000.tar.zst`，打开测试会话，把右侧滑块拖到 `MSG-05000` 附近。把鼠标移到聊天正文，分别测试单齿滚轮、同方向连续滚动跨过补载边界、停顿后继续和快速反向。记录起始消息编号、滚动方向、窗口大小、刷新率和无障碍启用状态。点击滑块上方或下方的空轨道时，确认正文按视口实际高度的 80% 翻页。拖动滑块时，确认它能按整段历史的逻辑位置定位。[万条聊天测试包](../artifacts/lilygobox-long-chat-10000.tar.zst) · [滚动条实现](../lib/features/assistant/presentation/widgets/chat_history_scrollbar.dart)
+
+#### 用 DevTools 定位慢帧
+
+1. 连接正在运行的 Windows 应用，在 DevTools 的 **Performance** 页面记录一轮正文滚动。拖完滑块后先等页面稳定，单独记录滚轮动作及停止后的短时间。144 Hz 的单帧预算约为 6.94 ms。
+2. 选中耗时较长的帧，分别检查 UI 和 Raster。UI 时间线查看完整的 `Animator::BeginFrame`，再展开 `LAYOUT (root)`、其中嵌套的 `BUILD`，以及 `SEMANTICS`。布局阶段可能触发组件构建，统计总耗时时要避免重复相加。需要评估无障碍开销时，保留完整 UI 帧，单看 `FrameTiming.buildDuration` 会漏掉场景提交后的语义处理。
+3. 用一小段额外采样开启 **Track Widget Builds**，按组件定位具体工作。2026-11-24 的一次采样中，`ChatHistoryWindow` 一帧新挂载了 7 条消息，`_MessageView` 与它的子树合计约 33 ms，其中消息操作栏及其子树占约 20 ms，包含复制按钮和悬停提示的构建。常规计时前关闭额外跟踪，减少插桩开销。
+4. 同时检查正文的实际位移。如果跨过补载边界后仍少走、反跳或停在当前窗口边缘，应查滚轮目标、阅读锚点和边界校正。如果最终距离正确、停顿时有长 UI 帧，应从每帧新挂载数量、布局和无障碍树更新入手。对照时记录同一消息编号的屏幕位置，因为补载时控制器的局部 `offset` 会随锚点校正而变化。[滚轮位移测试](../test/features/assistant/chat_history_window_test.dart)
+
+#### 补载与无障碍范围
+
+- 会话数据按整段恢复到内存，消息组件按阅读位置挂载，长正文另按区块挂载。滚动中的常速批次为 2 条。快速滚动时按当前速度估算约 120 ms 的前方行程，最多前瞻八屏。先按剩余距离和已测消息平均高度算补载缺口，再用约 50 ms 行程对应的条数限制本批，快速滚动时该上限取 4 至 16 条。距边界不足半屏时，常速可补 4 条，高速可补 16 条。固定每帧最多 4 条的试验曾让高速输入提前碰到局部边界并丢失位移，因此需要按速度留出余量。[消息窗口实现](../lib/features/assistant/presentation/widgets/chat_history_window.dart)
+- 消息窗口的目标驻留量由约 96 条缩到约 64 条。回收远处消息时保护视口外四屏内的内容，文字选区仍在使用时暂停回收。补载和回收以当前可见消息为阅读锚点，在绘制前同步校正正文偏移与正在运行的滚轮目标。两侧同时待补载且滚动速度不为零时，优先补滚动方向的一端。[聊天历史绘制范围](scroll-behavior.md#聊天历史绘制范围)
+- 历史消息部分挂载时，`ChatMessageList` 只把视口及上下各一屏内的消息加入无障碍树。保留相邻屏外消息的 `showOnScreen` 操作，位置变化后更新可访问范围。语义裁剪和文字选区各自维护，远处已挂载内容仍可参与选择，全文复制仍可读取未挂载正文。短聊天完整挂载时保留原有语义范围。[消息列表实现](../lib/features/assistant/presentation/widgets/chat_message_list.dart) · [无障碍测试](../test/features/assistant/chat_message_accessibility_test.dart)
+
+#### 实机记录与回归
+
+2026-11-24 在同一 Windows Debug 会话中通过 DevTools 记录以下样本。普通滚轮样本发生在已挂载范围内，快速连滚样本跨越补载边界。各次起点和实际滚动距离有所不同，表中数据用于定位开销与观察改善，做严格对照时应统一消息区间、输入节奏、构建模式和无障碍状态。
+
+| 采样 | UI 帧 P90 | 最长 UI 帧 | 单帧语义阶段中位数 |
+| --- | ---: | ---: | ---: |
+| 修复前快速连滚 | 50.1 ms | 68.5 ms | 7.82 ms |
+| 修复后快速连滚 | 30.2 ms | 63.6 ms | 4.52 ms |
+| 修复后普通滚轮 | 5.25 ms | 6.08 ms | 2.89 ms |
+
+修复后已在原窗口热重载并确认滚轮手感。Debug 快速连滚仍可出现慢帧，验收帧耗时时使用 Windows Profile 复测。逐帧位移回归在万条消息中间进行双向高速滚动，插入 48 ms 的慢帧，要求正文与连续视口的同帧位移误差不超过 0.01 个逻辑像素。另覆盖空轨道翻页、不等高消息的锚点、远距离滑块定位、长 Markdown、全选复制，以及相邻屏外消息的无障碍定位。[消息窗口回归](../test/features/assistant/chat_history_window_test.dart) · [长正文集成回归](../test/features/assistant/chat_content_integration_test.dart) · [原生性能复测](#复现与验收)
+
 ### 仅在窗口最大化时明显变慢
 
 普通窗口用透明背景合成圆角和自绘阴影。最大化或贴靠时，`AppWindowFrame` 将原生背景切为不透明并使用矩形硬裁剪，减少整窗合成开销，恢复普通窗口时切回透明。测试从原生窗口读取普通、最大化、还原、再次最大化四步的背景 alpha，依次应为 `0 → 255 → 0 → 255`。
@@ -98,6 +127,7 @@ foreach ($cardCount in 3000, 10000) {
 - **无边框窗口**初始化时设 `hasShadow = false`，保留应用的自绘阴影。打开系统文件对话框时处理 `WM_NCACTIVATE` 与 `WM_NCPAINT`，验证真实 HWND 的顶部像素。最小化时保留 Flutter 子窗口尺寸。最大化按钮投递原生消息切换窗口，移动或贴靠后再读取系统最终布局。[阴影测试](../integration_test/window_shadow_test.dart) · [系统对话框测试](../integration_test/modal_window_frame_test.dart)
 - **Windows 冷启动闪白**：原生主窗口在 DWM 中保持不可见且可绘制，等 Flutter 首帧完成再显示和激活。Dart 启动阶段只配置窗口位置和样式，不提前显示。手动验证时完全退出应用（含托盘），从安装位置启动，检查屏幕左上角不会先闪出空窗口。
 - **窗口拖动或改尺寸时闪白**：主窗口有 Flutter 子视图时不再用 Win32 背景刷擦除客户区，避免主题背景在下一帧之前覆盖画面。调整子视图时用 `SetWindowPos`，不强制同步重绘。回归测试用白色背景刷验证旧像素不被擦除，同时检查每次调整后视图尺寸与客户区一致。[原生重绘测试](../test/windows/window_repaint_native_test.cpp)
-- **拖动窗口边缘时的白框**：主窗口禁用受支持版本的 DWM 边线，不在 Flutter 子视图占用的区域绘制，保留自绘圆角和阴影。手动向外拉大窗口且另一轴不收缩时，在 `WM_WINDOWPOSCHANGING` 先扩展 Flutter 子视图，再提交外框尺寸，减少新露出的区域等待绘制时闪白。`WM_SIZE` 仍校正最终客户区尺寸；收缩及非交互式调整继续使用该路径。原生测试验证四边扩大时的通知顺序及最终尺寸，不能验证 DWM 的实际画面；手动复测应在深色背景上快速往返拖动四边和四角。
+- **拖动窗口边缘时的白框**。主窗口禁用受支持版本的 DWM 边线，圆角和阴影由应用绘制。交互缩放期间，主窗口允许 Windows 保留已有客户区像素，Flutter 子视图用 `SWP_NOREDRAW` 更新尺寸，避免 Win32 因子窗口类的 `CS_HREDRAW` / `CS_VREDRAW` 请求额外重绘。子视图仍收到 `WM_SIZE`，由 Flutter 按新视口绘制。窗口向外扩大且另一轴保持或扩大时，在主窗口提交新边界前先扩展子视图，随后根据实际客户区校正尺寸。
+- **复测拖动期间的合成画面**。原生重绘测试覆盖父子窗口的尺寸通知顺序、像素保留标志和拖动结束后的尺寸。DevTools Performance 记录 UI 和光栅线程的耗时。验证 DWM 合成出的边缘像素时，重新编译并启动 Windows 应用，在深色桌面背景前录屏，分别快速往返拖动四边和四角。普通页面和长聊天分别测试，并逐帧检查窗口扩大时到新画面出现之间的边缘。
 - **托盘窗口**由独立的 `trayMain` 进程承载，通过限制大小并校验对端的 `WM_COPYDATA` 与主进程通信。预热在可绘制的窗口完成，按 `requestId` 收到 `prepared` 后隐藏，用户打开时等 `painted` 再显示。隐藏期间缓存主题，Job Object 让辅助进程随主进程退出。回归实际切换主题、检查最终可见性，并在 Explorer 的隐藏图标面板手动右键一次。[托盘可见性测试](../integration_test/tray_visibility_test.dart) · [主题发布模式验证](../integration_test/theme_release_smoke.dart)
 - **升级 Flutter** 时以依赖清单中的 SDK 与窗口库版本为准。Material 组件需要对应的本地化委托，SQLite 与压缩库通过 code assets 加载。升级后进行 `flutter analyze --no-pub lib`、存储回归和真实 Windows 窗口启动，原生 runner 改动需重新启动编译后的进程。[依赖清单](../pubspec.yaml) · [存储回归](../test/features/assistant/agent_storage_test.dart)

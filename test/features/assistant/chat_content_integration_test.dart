@@ -822,12 +822,7 @@ void main() {
         expect(tester.getTopLeft(end).dy - before, closeTo(100, .01));
         harness.controller.jumpTo(harness.controller.position.maxScrollExtent);
         await tester.pumpAndSettle();
-        final bar = find
-            .ancestor(
-              of: find.byKey(_viewportKey),
-              matching: find.byType(Scrollbar),
-            )
-            .first;
+        final bar = find.byType(Scrollbar).first;
         final logical = tester.widget<Scrollbar>(bar).controller!;
         final gesture = await tester.startGesture(
           Offset(viewport.right - 4, viewport.bottom - 18),
@@ -850,6 +845,30 @@ void main() {
           closeTo(fraction, .001),
         );
         expect(tester.getTopLeft(anchor).dy, closeTo(anchorTop, .01));
+
+        tester
+            .widget<ChatHistoryScrollbar>(find.byType(ChatHistoryScrollbar))
+            .seek(.63, true);
+        await tester.pumpAndSettle();
+        final middle = _visibleRichText(tester, containing: 'MSG-');
+        final middleTop = tester.getTopLeft(middle).dy;
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            kind: PointerDeviceKind.mouse,
+            position: viewport.center,
+            scrollDelta: const Offset(0, -100),
+          ),
+        );
+        await tester.pump();
+        var previous = 0.0;
+        for (var frame = 1; frame <= 12; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          final distance = tester.getTopLeft(middle).dy - middleTop;
+          expect(distance, greaterThan(previous), reason: 'frame $frame');
+          previous = distance;
+        }
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(middle).dy - middleTop, closeTo(100, .01));
         expect(tester.takeException(), isNull);
       },
     );

@@ -187,6 +187,64 @@ void main() {
     variant: wheelMotion,
   );
 
+  testWidgets('clicking the history track moves the chat by a viewport page', (
+    tester,
+  ) async {
+    final scroll = ConversationScrollController();
+    final history = GlobalKey<ChatHistoryWindowState>();
+    final focus = FocusNode();
+    addTearDown(scroll.dispose);
+    addTearDown(focus.dispose);
+    double heightBefore(int count) =>
+        count ~/ 2 * 250 + (count.isOdd ? 100 : 0);
+    await tester.pumpWidget(
+      _app(
+        messages: _messages(10000),
+        controller: scroll,
+        history: history,
+        focus: focus,
+        viewportHeight: 800,
+        scrollbar: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+    tester
+        .widget<ChatHistoryScrollbar>(find.byType(ChatHistoryScrollbar))
+        .seek(.5, true);
+    await tester.pumpAndSettle();
+
+    final paint = find.byWidgetPredicate(
+      (widget) =>
+          widget is CustomPaint && widget.foregroundPainter is ScrollbarPainter,
+    );
+    final painter = tester.widget<CustomPaint>(paint).foregroundPainter!;
+    final bounds = tester.getRect(paint);
+    double readOffset() =>
+        heightBefore(
+          tester
+              .widget<ChatMessageList>(find.byType(ChatMessageList))
+              .firstIndex,
+        ) +
+        scroll.offset;
+    final initial = readOffset();
+    final page = scroll.position.viewportDimension * .8;
+    for (final (fraction, expected) in [
+      (0.25, initial - page),
+      (0.75, initial),
+    ]) {
+      final localTrack = [
+        for (var inset = 1; inset <= 24; inset++)
+          Offset(bounds.width - inset, bounds.height * fraction),
+      ].firstWhere((point) => painter.hitTest(point) == true);
+      await tester.tapAt(
+        bounds.topLeft + localTrack,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(readOffset(), closeTo(expected, .01));
+    }
+  });
+
   testWidgets(
     'fast wheel bursts through the middle of a ten-thousand-message history match an uninterrupted viewport',
     (tester) async {

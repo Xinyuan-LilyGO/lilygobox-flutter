@@ -77,6 +77,24 @@ class AppScrollBehavior extends MaterialScrollBehavior {
   /// 滚动条外缘到所属承载区边缘的统一距离；已有外层留白时须扣除。
   static const scrollbarEdgeInset = 6.0;
 
+  static void scrollByPage(
+    BuildContext context,
+    ScrollPosition position,
+    double delta,
+  ) {
+    final region = context.findAncestorStateOfType<_WheelRegionState>();
+    AppUserScrollNotification(
+      position: position,
+      delta: delta,
+    ).dispatch(context);
+    if (region == null || !region.widget.smoothWheel) {
+      position.pointerScroll(delta);
+    } else {
+      region._wheelAcceleration.reset();
+      region._scrollBy(position, delta);
+    }
+  }
+
   static void correctForContentChange(
     ScrollPosition position,
     double correction,
@@ -434,6 +452,12 @@ class _WheelRegionState extends State<_WheelRegion>
     final delta = _wheelAcceleration
         .apply(Offset(rawDelta, 0), event.timeStamp, continuing: continuing)
         .dx;
+    _scrollBy(position, delta);
+  }
+
+  void _scrollBy(ScrollPosition position, double delta) {
+    final continuing =
+        _position == position && (_wheelActivity?.active ?? false);
     final reversing =
         _target != null && (_target! - position.pixels) * delta < 0;
     if (!continuing || reversing) _target = position.pixels;

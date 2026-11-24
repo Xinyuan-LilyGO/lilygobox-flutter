@@ -18,6 +18,7 @@ import 'package:lilygobox/features/assistant/data/agent_package.dart';
 import 'package:lilygobox/features/assistant/data/conversation_codec.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/presentation/pages/page.dart';
+import 'package:lilygobox/features/assistant/presentation/widgets/chat_history_scrollbar.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/chat_history_window.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/message_content.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
@@ -196,7 +197,13 @@ void main() {
           'initial_extent': scroll.position.maxScrollExtent,
         };
         expect(scroll.position.maxScrollExtent, greaterThan(1000));
-        scroll.jumpTo(scroll.position.maxScrollExtent * .55);
+        if (history.hasEarlier) {
+          tester
+              .widget<ChatHistoryScrollbar>(find.byType(ChatHistoryScrollbar))
+              .seek(.63, true);
+        } else {
+          scroll.jumpTo(scroll.position.maxScrollExtent * .55);
+        }
         await frames();
         final point = tester.getCenter(finder);
         debugPrint('CHAT_HISTORY_MEASURE count=$count');

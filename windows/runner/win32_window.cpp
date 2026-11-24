@@ -219,11 +219,13 @@ Win32Window::MessageHandler(HWND hwnd,
       if (!child_content_ || !position || (position->flags & SWP_NOSIZE)) {
         break;
       }
-      position->flags |= SWP_NOCOPYBITS | SWP_DEFERERASE;
+      position->flags |= SWP_DEFERERASE;
       if (!live_resize_ || (position->flags & SWP_FRAMECHANGED) ||
           IsZoomed(hwnd) || IsIconic(hwnd)) {
+        position->flags |= SWP_NOCOPYBITS;
         break;
       }
+      position->flags &= ~SWP_NOCOPYBITS;
 
       const LRESULT result = DefWindowProc(hwnd, message, wparam, lparam);
       RECT window_rect{}, client_rect{};
@@ -272,8 +274,9 @@ void Win32Window::ResizeChildContent(LONG width, LONG height) {
       child_rect.bottom == height) {
     return;
   }
+  const UINT repaint_flags = live_resize_ ? SWP_NOREDRAW : SWP_NOCOPYBITS;
   SetWindowPos(child_content_, nullptr, 0, 0, width, height,
-               SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS | SWP_DEFERERASE);
+               SWP_NOZORDER | SWP_NOACTIVATE | SWP_DEFERERASE | repaint_flags);
 }
 
 void Win32Window::Destroy() {
