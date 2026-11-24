@@ -3,9 +3,8 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:koni_archive_core/koni_archive_core.dart';
-import 'package:koni_sevenz/koni_sevenz.dart';
 import 'package:lilygobox/features/assistant/data/roleplay_card_importer.dart';
 import 'package:lilygobox/features/assistant/data/roleplay_card_package.dart';
 import 'package:lilygobox/features/assistant/domain/roleplay_card.dart';
@@ -17,7 +16,7 @@ void main() {
   late String packagePath;
   setUp(() async {
     directory = await Directory.systemTemp.createTemp('roleplay-card-package-');
-    packagePath = '${directory.path}/cards.7z';
+    packagePath = '${directory.path}/cards.tar.zst';
   });
   tearDown(() => directory.delete(recursive: true));
 
@@ -36,7 +35,7 @@ void main() {
     expect(cards.first.originalFile, originalPng);
     expect(cards.last.originalFile, originalJson);
 
-    final exportedPath = '${directory.path}/exported.7z';
+    final exportedPath = '${directory.path}/exported.tar.zst';
     await RoleplayCardPackage.write(exportedPath, cards);
     final exportedEntries = await _readArchive(exportedPath);
     expect(exportedEntries, hasLength(2));
@@ -184,39 +183,21 @@ Uint8List _jsonCard(
 );
 
 Future<void> _looseArchive(String path, Map<String, Uint8List> files) async {
-  final sink = BytesBuilderSink();
-  final writer = const SevenZWriteFormat().openWriter(
-    sink,
-    const ArchiveWriteOptions(compression: ArchiveCompression.stored),
-  );
+  final archive = Archive();
   for (final entry in files.entries) {
-    await writer.addBytes(ArchiveEntrySpec(path: entry.key), entry.value);
+    archive.addFile(ArchiveFile.bytes(entry.key, entry.value));
   }
-  await writer.close();
-  await sink.close();
-  await File(path).writeAsBytes(sink.takeBytes());
+  await File(
+    path,
+  ).writeAsBytes(ZstdEncoder().encodeBytes(TarEncoder().encodeBytes(archive)));
 }
 
 Future<Map<String, Uint8List>> _readArchive(String path) async {
-  final source = MemoryByteSource(await File(path).readAsBytes());
-  final reader = await const SevenZFormat().openReader(
-    source,
-    const ArchiveReadOptions(),
+  final archive = TarDecoder().decodeBytes(
+    ZstdDecoder().decodeBytes(await File(path).readAsBytes(), verify: true),
+    verify: true,
   );
-  try {
-    final files = <String, Uint8List>{};
-    for (final entry in reader.entries) {
-      final bytes = BytesBuilder(copy: false);
-      await for (final chunk in reader.openRead(entry)) {
-        bytes.add(chunk);
-      }
-      files[entry.path] = bytes.takeBytes();
-    }
-    return files;
-  } finally {
-    await reader.close();
-    await source.close();
-  }
+  return {for (final entry in archive.files) entry.name: entry.content};
 }
 
 Future<Uint8List> _pngCard(String name) async {

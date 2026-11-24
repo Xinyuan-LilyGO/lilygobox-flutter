@@ -3,6 +3,7 @@
  */
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
@@ -23,6 +24,10 @@ import '../features/assistant/state/provider.dart';
 import '../features/devices/data/pairing_store.dart';
 import '../features/devices/state/lan_connection.dart';
 import '../features/devices/state/manager_provider.dart';
+import '../features/speech/data/speech_audio_output.dart';
+import '../features/speech/data/speech_engine.dart';
+import '../features/speech/data/speech_model_store.dart';
+import '../features/speech/state/speech_provider.dart';
 import 'device_connection_coordinator.dart';
 import 'navigation/provider.dart';
 import 'shell/state/provider.dart';
@@ -141,6 +146,18 @@ class _AppProvidersState extends State<AppProviders>
             context.read<AiAssistantProvider>(),
           ),
         ),
+        if (Platform.isWindows)
+          ChangeNotifierProvider(
+            create: (_) {
+              final speech = SpeechProvider(
+                store: SpeechModelStore(),
+                engine: const SpeechEngine(),
+                output: const WindowsSpeechAudioOutput(),
+              );
+              unawaited(speech.load());
+              return speech;
+            },
+          ),
         ChangeNotifierProvider(
           create: (_) => DeviceManagerProvider(preferences: widget.preferences),
         ),

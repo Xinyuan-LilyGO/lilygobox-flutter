@@ -32,7 +32,7 @@ class AgentPackageCancelled implements Exception {
   const AgentPackageCancelled();
 }
 
-/// 取消采用协作方式，由原生编解码回调停止处理并释放缓冲区。
+/// 通知后台任务和文件读写流程取消当前操作。
 class AgentPackageCancellation {
   bool _cancelled = false;
   final Set<void Function()> _listeners = {};

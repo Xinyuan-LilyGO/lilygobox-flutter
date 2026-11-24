@@ -1,0 +1,9 @@
+name: lilygobox_speech_probe
+publish_to: none
+
+environment:
+  sdk: ^3.14.0
+
+dependencies:
+  path: ^1.9.1
+  sherpa_onnx: 2.0.3

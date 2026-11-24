@@ -1023,7 +1023,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get configurationCollapsed => '收起';
 
   @override
-  String get configurationFileType => 'LilygoBox 配置文件 (JSON)';
+  String get configurationFileType => 'LilygoBox 配置文件（.json.zst）';
 
   @override
   String get restoreDefaults => '恢复默认设置';
@@ -2300,7 +2300,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiServiceConfigurationHelp => '单独备份服务与模型配置，导出文件包含明文 API 密钥，请妥善保管。';
 
   @override
-  String get aiServiceConfigurationFileType => 'LilygoBox 模型服务配置 (JSON)';
+  String get aiServiceConfigurationFileType => 'LilygoBox 模型服务配置（.json.zst）';
 
   @override
   String get aiServiceConfigurationImportTitle => '导入模型服务配置？';
@@ -2459,7 +2459,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiTopologyOpen => '打开对话';
 
   @override
-  String get aiRoleplayFileType => '角色卡文件（PNG、JSON、7z）';
+  String get aiRoleplayFileType => '角色卡文件（PNG、JSON、.tar.zst）';
 
   @override
   String get aiRoleplayCard => '角色卡';
@@ -2557,7 +2557,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiRoleplayConfirmImport => '导入';
 
   @override
-  String get aiRoleplayImportFailed => '无法导入角色卡。请选择有效的 PNG、JSON 或 7z 文件。';
+  String get aiRoleplayImportFailed => '无法导入角色卡。请选择有效的 PNG、JSON 或 .tar.zst 文件。';
 
   @override
   String aiRoleplayImportSkippedFiles(int count) {
@@ -2612,10 +2612,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiRoleplayPackageDescription =>
-      '支持导入 PNG、JSON 或 7z 文件，并将所选角色卡导出为 7z 卡片包。';
+      '支持导入 PNG、JSON 或 .tar.zst 文件，并将所选角色卡导出为 .tar.zst 卡片包。';
 
   @override
-  String get aiRoleplayPackageFileType => '角色卡包（7z）';
+  String get aiRoleplayPackageFileType => '角色卡包（.tar.zst）';
 
   @override
   String get aiRoleplayPackageExport => '导出卡片包';
@@ -3303,7 +3303,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get agentStoragePackageType => 'LilygoBox 数据包（7z）';
+  String get agentStoragePackageType => 'LilygoBox 数据包（.tar.zst）';
 
   @override
   String get agentStorageCompact => '压缩上下文';
@@ -3440,7 +3440,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStoragePackageKind => '导出内容';
 
   @override
-  String get agentStoragePackageKindHint => '选择要包含的内容，导出为一个 .7z 文件。';
+  String get agentStoragePackageKindHint => '选择要包含的内容，导出为一个 .tar.zst 文件。';
 
   @override
   String get agentStorageMemoryPackage => '长期记忆包';
@@ -3673,7 +3673,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agentStorageImportAutoHint =>
-      '选择 .7z 数据包后自动识别类型，查看内容后确认导入。数据包不包含 API 密钥，请妥善保管。';
+      '选择 .tar.zst 数据包后自动识别类型，查看内容后确认导入。数据包不包含 API 密钥，请妥善保管。';
 
   @override
   String get agentStorageImportCreatesAgents => '将创建新的智能体并分配新 ID，不会覆盖已有智能体。';
@@ -3836,4 +3836,135 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiTimerCancel => '取消计时';
+
+  @override
+  String get speechTitle => '语音';
+
+  @override
+  String get speechDescription => '离线语音识别与合成';
+
+  @override
+  String get speechLibraryTitle => '语音模型库';
+
+  @override
+  String get speechLibraryDescription => '保存在此电脑上的模型';
+
+  @override
+  String get speechImport => '导入模型';
+
+  @override
+  String get speechImported => '已导入语音模型。';
+
+  @override
+  String get speechArchiveTypes => '语音模型压缩包（.tar.zst、.tar.bz2）';
+
+  @override
+  String get speechZstdType => '语音模型包（.tar.zst）';
+
+  @override
+  String get speechExport => '导出';
+
+  @override
+  String get speechExported => '已将语音模型导出为 .tar.zst 压缩包。';
+
+  @override
+  String get speechExportFailed => '无法导出语音模型。请检查保存位置和可用磁盘空间。';
+
+  @override
+  String get speechInvalidPackage => '无法读取语音模型包。请选择 .tar.zst 或 .tar.bz2 文件。';
+
+  @override
+  String get speechPackageTooLarge => '语音模型包或解包后的内容超过大小限制。';
+
+  @override
+  String get speechRecognition => '语音识别';
+
+  @override
+  String get speechRecognitionFormat =>
+      '中英双语 Zipformer（2023-02-20，int8 编码器和连接器）';
+
+  @override
+  String get speechSynthesis => '语音合成';
+
+  @override
+  String get speechSynthesisFormat => '中文 VITS（vits-zh-ll）';
+
+  @override
+  String get speechDefaultVoice => '默认音色';
+
+  @override
+  String speechVoiceNumber(int number) {
+    return '音色 $number';
+  }
+
+  @override
+  String get speechNoModels => '尚未导入模型';
+
+  @override
+  String get speechCurrentDefault => '默认模型';
+
+  @override
+  String get speechModelReady => '可用';
+
+  @override
+  String get speechSelectDefault => '设为默认';
+
+  @override
+  String get speechLoading => '正在处理…';
+
+  @override
+  String get speechPreview => '试听';
+
+  @override
+  String get speechPreviewText => '你好，这是一段 LilyGoBox 离线语音试听。';
+
+  @override
+  String get speechStopPlayback => '停止播放';
+
+  @override
+  String get speechPlayReply => '朗读回复';
+
+  @override
+  String get speechStartRecording => '开始语音输入';
+
+  @override
+  String get speechStopRecording => '停止录音并识别';
+
+  @override
+  String get speechTranscribing => '正在识别…';
+
+  @override
+  String speechDeleteTitle(String name) {
+    return '删除 $name？';
+  }
+
+  @override
+  String get speechDeleteDescription => '此模型将从语音库移除，原始压缩包不受影响。';
+
+  @override
+  String get speechUnsupportedModel => '压缩包内必须正好包含一个受支持的语音模型。';
+
+  @override
+  String get speechMissingFiles => '模型文件缺失或无法读取。请检查原始压缩包后重新导入。';
+
+  @override
+  String get speechInvalidModel => '无法加载语音模型。请检查模型文件和版本。';
+
+  @override
+  String get speechDuplicateModel => '此语音模型已在语音库中。';
+
+  @override
+  String get speechStorageError => '无法访问语音库。请检查本机存储后重试。';
+
+  @override
+  String get speechEngineError => '离线语音引擎未能完成本次处理。';
+
+  @override
+  String get speechMicrophoneError => '无法从默认麦克风录音。请检查 Windows 麦克风权限和输入设备。';
+
+  @override
+  String get speechNoSpeech => '未识别到语音，请重新录制。';
+
+  @override
+  String get speechPlaybackError => '无法播放语音，请检查 Windows 默认输出设备。';
 }

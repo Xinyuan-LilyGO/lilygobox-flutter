@@ -60,6 +60,7 @@ class ChatComposer extends StatelessWidget {
     required this.onAttachmentsChanged,
     this.onManageContext,
     this.roleplayMenuBuilder,
+    this.voiceButton,
     this.readClipboardImage = ImageClipboard.readPng,
   });
 
@@ -74,6 +75,7 @@ class ChatComposer extends StatelessWidget {
   final ValueChanged<List<AiImageAttachment>> onAttachmentsChanged;
   final VoidCallback? onManageContext;
   final Widget Function(bool compact)? roleplayMenuBuilder;
+  final Widget? voiceButton;
   final Future<Uint8List?> Function() readClipboardImage;
 
   Future<void> _pickImages(BuildContext context) async {
@@ -333,6 +335,7 @@ class ChatComposer extends StatelessWidget {
             ModelSelector.compactWidth +
             _sendGap +
             _sendButtonSize +
+            (voiceButton == null ? 0 : _toolGap + _attachmentButtonSize) +
             (roleplayMenuBuilder == null ? 0 : _toolGap + roleplayIconWidth));
     final labelStyle = DefaultTextStyle.of(context).style.copyWith(
       fontSize: 12,
@@ -606,6 +609,10 @@ class ChatComposer extends StatelessWidget {
                                     ),
                                   ),
                                 ),
+                                if (voiceButton case final button?) ...[
+                                  const SizedBox(width: _toolGap),
+                                  button,
+                                ],
                                 const SizedBox(width: _toolGap),
                                 AssistantPermissionsButton(
                                   theme: theme,

@@ -2151,7 +2151,7 @@ void main() {
     final directory = (await tester.runAsync(
       () => Directory.systemTemp.createTemp('roleplay-package-widget-'),
     ))!;
-    final file = File('${directory.path}/selection.7z');
+    final file = File('${directory.path}/selection.tar.zst');
     addTearDown(() async {
       if (await file.exists()) await file.delete();
       await directory.delete();
@@ -2319,6 +2319,51 @@ void main() {
       await finish(tester);
     },
   );
+
+  testWidgets('roleplay library builds rows on demand and selects all cards', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(840, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final cards = List.generate(
+      40,
+      (index) => AiRoleplayCard.fromFields({'name': 'Library card $index'}),
+    );
+    workspaces.addRoleplayTemplates(
+      cards.map((card) => AiRoleplayBinding(card: card, playerName: 'Guest')),
+    );
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: workspaces,
+        child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: appLocalizationDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: RoleplayLibraryContent(theme: theme.themeData)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final first = find.text(cards.first.name);
+    final last = find.text(cards.last.name);
+    expect(first, findsOneWidget);
+    expect(last, findsNothing);
+
+    await tester.tap(first);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    final batch = find.byKey(
+      const ValueKey('roleplay-library-delete-selected'),
+    );
+    expect(tester.widget<AppActionButton>(batch).label, '删除选中（40）');
+
+    await tester.scrollUntilVisible(last, 400);
+    expect(last, findsOneWidget);
+    expect(first, findsNothing);
+    await finish(tester);
+  });
 
   testWidgets('roleplay library uses row buttons for details and deletion', (
     tester,
@@ -6646,7 +6691,7 @@ void main() {
       }))!;
       final messenger = tester.binding.defaultBinaryMessenger;
       const picker = MethodChannel('plugins.flutter.io/file_selector');
-      final archive = File('artifacts/lilygobox-long-chat-10000.7z')
+      final archive = File('artifacts/lilygobox-long-chat-10000.tar.zst')
           .absolute
           .path;
       messenger.setMockMethodCallHandler(picker, (_) async => [archive]);

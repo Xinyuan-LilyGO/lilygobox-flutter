@@ -1,15 +1,13 @@
-import 'package:lilygobox/core/l10n/delegates.dart';
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
+import 'package:lilygobox/core/l10n/delegates.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
 import 'package:lilygobox/core/theme/material_palette.dart';
@@ -19,7 +17,9 @@ import 'package:lilygobox/core/widgets/desktop_card_selection.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/service_settings_content.dart';
 import 'package:lilygobox/features/assistant/state/provider.dart';
+import 'package:lilygobox/features/settings/presentation/widgets/content_layout.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import 'assistant_test_scope.dart';
@@ -144,6 +144,32 @@ void main() {
     expect(button(tester, 'ai-export-services').onPressed, isNull);
     expect(button(tester, 'ai-import-services').onPressed, isNotNull);
   });
+
+  testWidgets('model service scrollbar follows the settings pane edge', (
+    tester,
+  ) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1200, 360));
+    await mount(tester);
+
+    for (final width in [1200.0, 640.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 360));
+      await tester.pumpAndSettle();
+      final pane = tester.getRect(find.byType(AiServiceSettingsContent));
+      final scrollView = tester.getRect(find.byType(CustomScrollView));
+      final scrollbar = tester.getRect(find.byType(Scrollbar));
+      final header = tester.getRect(find.byType(SettingsContentHeader));
+      final pagePadding = SettingsContentLayout.pagePadding;
+      final expectedContentWidth = (pane.width - pagePadding.horizontal).clamp(
+        0.0,
+        SettingsContentLayout.contentWidth,
+      );
+      expect(scrollView.right, pane.right);
+      expect(scrollbar.right, pane.right);
+      expect(header.center.dx, pane.center.dx);
+      expect(header.width, expectedContentWidth);
+    }
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
   testWidgets('model services can be selected and deleted together', (
     tester,

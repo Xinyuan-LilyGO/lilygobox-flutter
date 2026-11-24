@@ -136,6 +136,46 @@ void main() {
     },
   );
   test(
+    'roleplay library counts and unbinds recycled agents after reopening',
+    () async {
+      final card = AiRoleplayCard.fromFields({
+        'name': 'Recycled character',
+        'first_mes': 'Welcome back.',
+      });
+      final agent = await workspaces.createPrimary(
+        title: 'Recycled agent',
+        task: '',
+        roleplay: AiRoleplayBinding(card: card, playerName: 'Guest'),
+        roleplayOpening: 0,
+      );
+      workspaces.remove(agent.id);
+      await workspaces.flush();
+
+      final restored = AiWorkspaceProvider(scope.provider);
+      try {
+        await restored.initialized;
+        final fingerprint = card.templateFingerprint;
+        final affected = restored.roleplayLibraryUsage[fingerprint]!;
+        expect(affected.single.id, agent.id);
+        expect(affected.single.recycled, isTrue);
+        expect(
+          restored.deleteRoleplayTemplate(
+            fingerprint,
+            confirmedAgents: affected,
+          ),
+          AiRoleplayLibraryDeleteResult.deleted,
+        );
+
+        await restored.restoreRecycledAgent(agent.id);
+        final assistant = restored.find(agent.id)!.assistant;
+        expect(assistant.roleplayBinding, isNull);
+        expect(assistant.messages.single.content, 'Welcome back.');
+      } finally {
+        restored.dispose();
+      }
+    },
+  );
+  test(
     'agent creation and card forks retain independent processing speed',
     () async {
       final service = await scope.provider.saveService(

@@ -1,53 +1,29 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
-import 'package:file_selector/file_selector.dart';
-
-import '../../../core/files/export_file_name.dart';
-
+import '../../../core/files/zstd_text_file.dart';
 import 'application_configuration.dart';
 
 class ApplicationConfigurationFileService {
   const ApplicationConfigurationFileService._();
 
-  static const fileName = 'lilygobox-config.json';
+  static const fileName = 'lilygobox-config${ZstdTextFile.suffix}';
   static const _maximumFileBytes = 128 * 1024;
 
   static Future<bool> exportConfiguration(
     ApplicationConfiguration configuration, {
     required String fileTypeLabel,
-  }) async {
-    final destination = await getSaveLocation(
-      suggestedName: datedExportFileName(fileName),
-      acceptedTypeGroups: [
-        XTypeGroup(label: fileTypeLabel, extensions: const ['json']),
-      ],
-    );
-    if (destination == null) return false;
-
-    final bytes = Uint8List.fromList(utf8.encode(configuration.encode()));
-    await XFile.fromData(
-      bytes,
-      name: fileName,
-      mimeType: 'application/json',
-    ).saveTo(destination.path);
-    return true;
-  }
+  }) => ZstdTextFile.save(
+    configuration.encode(),
+    fileName: fileName,
+    label: fileTypeLabel,
+    maxBytes: _maximumFileBytes,
+  );
 
   static Future<ApplicationConfiguration?> importConfiguration({
     required String fileTypeLabel,
   }) async {
-    final source = await openFile(
-      acceptedTypeGroups: [
-        XTypeGroup(label: fileTypeLabel, extensions: const ['json']),
-      ],
+    final source = await ZstdTextFile.open(
+      label: fileTypeLabel,
+      maxBytes: _maximumFileBytes,
     );
-    if (source == null) return null;
-    if (await source.length() > _maximumFileBytes) {
-      throw const FormatException('Configuration file is too large.');
-    }
-    return ApplicationConfiguration.decode(
-      utf8.decode(await source.readAsBytes()),
-    );
+    return source == null ? null : ApplicationConfiguration.decode(source);
   }
 }

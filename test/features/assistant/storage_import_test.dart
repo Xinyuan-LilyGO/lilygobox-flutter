@@ -80,7 +80,7 @@ void main() {
           );
           final controller = AgentStorageController(workspaces)
             ..owner = source.id;
-          path = '${directory.path}/$type.7z';
+          path = '${directory.path}/$type.tar.zst';
           await controller.export(path, type);
           controller.dispose();
         });

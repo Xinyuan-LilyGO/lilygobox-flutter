@@ -14,6 +14,7 @@ import 'package:intl/intl.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
@@ -23,6 +24,10 @@ import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/empty_line_selection.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
+import '../../../speech/domain/speech_reply_text.dart';
+import '../../../speech/presentation/speech_icon_button.dart';
+import '../../../speech/presentation/speech_labels.dart';
+import '../../../speech/state/speech_provider.dart';
 import '../../data/message_link_opener.dart';
 import '../../domain/agent_link.dart';
 import '../../domain/models.dart';
@@ -989,11 +994,60 @@ class _ChatMessageActionsState extends State<ChatMessageActions> {
             copyButton,
           ] else ...[
             copyButton,
+            if (message.role == 'assistant' && body.trim().isNotEmpty)
+              _SpeechReplyAction(message: message, theme: theme),
             if (timestamp != null) ...[const SizedBox(width: 8), timestamp],
           ],
         ],
       ),
     );
+  }
+}
+
+class _SpeechReplyAction extends StatelessWidget {
+  const _SpeechReplyAction({required this.message, required this.theme});
+
+  final AiMessage message;
+  final AppTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = context.watch<SpeechConversation?>();
+    if (scope == null) return const SizedBox.shrink();
+    final owner = (scope, message.id);
+    final (available, playing, enabled) = context.select(
+      (SpeechProvider? speech) => (
+        speech?.library.selectedModel(.synthesis) != null,
+        speech?.isPlaying(owner) ?? false,
+        speech != null && !speech.busy && !speech.hasCapture,
+      ),
+    );
+    if (!available && !playing) return const SizedBox.shrink();
+    final text = speechReplyText(message.content);
+    if (text.isEmpty) return const SizedBox.shrink();
+    final l10n = context.l10n;
+    return SpeechIconButton(
+      key: ValueKey('ai-voice-play-${message.id}'),
+      theme: theme,
+      surface: theme.secondary,
+      label: playing ? l10n.speechStopPlayback : l10n.speechPlayReply,
+      icon: playing ? Symbols.stop_rounded : Symbols.volume_up_rounded,
+      onPressed: playing
+          ? () => context.read<SpeechProvider>().stopPlayback(owner)
+          : enabled
+          ? () => unawaited(_play(context, owner, text))
+          : null,
+    );
+  }
+
+  Future<void> _play(BuildContext context, Object owner, String text) async {
+    final error = await context.read<SpeechProvider>().play(owner, text);
+    if (error != null && context.mounted) {
+      showAppNotice(
+        ScaffoldMessenger.of(context),
+        speechErrorLabel(context.l10n, error),
+      );
+    }
   }
 }
 

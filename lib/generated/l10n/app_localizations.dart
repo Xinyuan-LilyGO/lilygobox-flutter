@@ -1983,7 +1983,7 @@ abstract class AppLocalizations {
   /// No description provided for @configurationFileType.
   ///
   /// In en, this message translates to:
-  /// **'LilygoBox configuration (JSON)'**
+  /// **'LilygoBox configuration (.json.zst)'**
   String get configurationFileType;
 
   /// No description provided for @restoreDefaults.
@@ -4371,7 +4371,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiServiceConfigurationFileType.
   ///
   /// In en, this message translates to:
-  /// **'LilygoBox model service configuration (JSON)'**
+  /// **'LilygoBox model service configuration (.json.zst)'**
   String get aiServiceConfigurationFileType;
 
   /// No description provided for @aiServiceConfigurationImportTitle.
@@ -4683,7 +4683,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiRoleplayFileType.
   ///
   /// In en, this message translates to:
-  /// **'Character card files (PNG, JSON, 7z)'**
+  /// **'Character card files (PNG, JSON, .tar.zst)'**
   String get aiRoleplayFileType;
 
   /// No description provided for @aiRoleplayCard.
@@ -4851,7 +4851,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiRoleplayImportFailed.
   ///
   /// In en, this message translates to:
-  /// **'Couldn’t import character cards. Choose valid PNG, JSON, or 7z files.'**
+  /// **'Couldn’t import character cards. Choose valid PNG, JSON, or .tar.zst files.'**
   String get aiRoleplayImportFailed;
 
   /// Shown when a batch of selected character card files includes unreadable files.
@@ -4953,13 +4953,13 @@ abstract class AppLocalizations {
   /// No description provided for @aiRoleplayPackageDescription.
   ///
   /// In en, this message translates to:
-  /// **'Import PNG, JSON, or 7z files and export selected cards in a 7z package.'**
+  /// **'Import PNG, JSON, or .tar.zst files and export selected cards in a .tar.zst package.'**
   String get aiRoleplayPackageDescription;
 
   /// No description provided for @aiRoleplayPackageFileType.
   ///
   /// In en, this message translates to:
-  /// **'Character card package (7z)'**
+  /// **'Character card package (.tar.zst)'**
   String get aiRoleplayPackageFileType;
 
   /// No description provided for @aiRoleplayPackageExport.
@@ -6189,7 +6189,7 @@ abstract class AppLocalizations {
   /// No description provided for @agentStoragePackageType.
   ///
   /// In en, this message translates to:
-  /// **'LilygoBox data package (7z)'**
+  /// **'LilygoBox data package (.tar.zst)'**
   String get agentStoragePackageType;
 
   /// No description provided for @agentStorageCompact.
@@ -6447,7 +6447,7 @@ abstract class AppLocalizations {
   /// No description provided for @agentStoragePackageKindHint.
   ///
   /// In en, this message translates to:
-  /// **'Choose the contents to export as one .7z file.'**
+  /// **'Choose the contents to export as one .tar.zst file.'**
   String get agentStoragePackageKindHint;
 
   /// No description provided for @agentStorageMemoryPackage.
@@ -6885,7 +6885,7 @@ abstract class AppLocalizations {
   /// No description provided for @agentStorageImportAutoHint.
   ///
   /// In en, this message translates to:
-  /// **'Choose a .7z package to detect its type, then review its contents before importing. Packages contain no API keys; keep them private.'**
+  /// **'Choose a .tar.zst package to detect its type, then review its contents before importing. Packages contain no API keys; keep them private.'**
   String get agentStorageImportAutoHint;
 
   /// No description provided for @agentStorageImportCreatesAgents.
@@ -7163,6 +7163,258 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cancel timer'**
   String get aiTimerCancel;
+
+  /// No description provided for @speechTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice'**
+  String get speechTitle;
+
+  /// No description provided for @speechDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline speech recognition and synthesis'**
+  String get speechDescription;
+
+  /// No description provided for @speechLibraryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice model library'**
+  String get speechLibraryTitle;
+
+  /// No description provided for @speechLibraryDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Models stored on this computer'**
+  String get speechLibraryDescription;
+
+  /// No description provided for @speechImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Import model'**
+  String get speechImport;
+
+  /// No description provided for @speechImported.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice model imported.'**
+  String get speechImported;
+
+  /// No description provided for @speechArchiveTypes.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice model archives (.tar.zst, .tar.bz2)'**
+  String get speechArchiveTypes;
+
+  /// No description provided for @speechZstdType.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice model archive (.tar.zst)'**
+  String get speechZstdType;
+
+  /// No description provided for @speechExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Export'**
+  String get speechExport;
+
+  /// No description provided for @speechExported.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice model exported as a .tar.zst archive.'**
+  String get speechExported;
+
+  /// No description provided for @speechExportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not export the voice model. Check the destination and free disk space.'**
+  String get speechExportFailed;
+
+  /// No description provided for @speechInvalidPackage.
+  ///
+  /// In en, this message translates to:
+  /// **'This is not a readable voice model archive. Choose a .tar.zst or .tar.bz2 file.'**
+  String get speechInvalidPackage;
+
+  /// No description provided for @speechPackageTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'The voice model archive or its contents exceed the size limit.'**
+  String get speechPackageTooLarge;
+
+  /// No description provided for @speechRecognition.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech recognition'**
+  String get speechRecognition;
+
+  /// No description provided for @speechRecognitionFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Chinese–English Zipformer (2023-02-20, int8 encoder and joiner)'**
+  String get speechRecognitionFormat;
+
+  /// No description provided for @speechSynthesis.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech synthesis'**
+  String get speechSynthesis;
+
+  /// No description provided for @speechSynthesisFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Chinese VITS (vits-zh-ll)'**
+  String get speechSynthesisFormat;
+
+  /// No description provided for @speechDefaultVoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Default voice'**
+  String get speechDefaultVoice;
+
+  /// No description provided for @speechVoiceNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice {number}'**
+  String speechVoiceNumber(int number);
+
+  /// No description provided for @speechNoModels.
+  ///
+  /// In en, this message translates to:
+  /// **'No models imported'**
+  String get speechNoModels;
+
+  /// No description provided for @speechCurrentDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Default model'**
+  String get speechCurrentDefault;
+
+  /// No description provided for @speechModelReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Available'**
+  String get speechModelReady;
+
+  /// No description provided for @speechSelectDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Set as default'**
+  String get speechSelectDefault;
+
+  /// No description provided for @speechLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Working…'**
+  String get speechLoading;
+
+  /// No description provided for @speechPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get speechPreview;
+
+  /// No description provided for @speechPreviewText.
+  ///
+  /// In en, this message translates to:
+  /// **'你好，这是一段 LilyGoBox 离线语音试听。'**
+  String get speechPreviewText;
+
+  /// No description provided for @speechStopPlayback.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop playback'**
+  String get speechStopPlayback;
+
+  /// No description provided for @speechPlayReply.
+  ///
+  /// In en, this message translates to:
+  /// **'Read reply aloud'**
+  String get speechPlayReply;
+
+  /// No description provided for @speechStartRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Start voice input'**
+  String get speechStartRecording;
+
+  /// No description provided for @speechStopRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop recording and transcribe'**
+  String get speechStopRecording;
+
+  /// No description provided for @speechTranscribing.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcribing…'**
+  String get speechTranscribing;
+
+  /// No description provided for @speechDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {name}?'**
+  String speechDeleteTitle(String name);
+
+  /// No description provided for @speechDeleteDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The model will be removed from the library. The original archive will not change.'**
+  String get speechDeleteDescription;
+
+  /// No description provided for @speechUnsupportedModel.
+  ///
+  /// In en, this message translates to:
+  /// **'The archive must contain exactly one supported voice model.'**
+  String get speechUnsupportedModel;
+
+  /// No description provided for @speechMissingFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Model files are missing or unreadable. Check the original archive and import it again.'**
+  String get speechMissingFiles;
+
+  /// No description provided for @speechInvalidModel.
+  ///
+  /// In en, this message translates to:
+  /// **'The voice model could not be loaded. Check the files and model version.'**
+  String get speechInvalidModel;
+
+  /// No description provided for @speechDuplicateModel.
+  ///
+  /// In en, this message translates to:
+  /// **'This voice model is already in the library.'**
+  String get speechDuplicateModel;
+
+  /// No description provided for @speechStorageError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not access the voice model library. Check local storage and try again.'**
+  String get speechStorageError;
+
+  /// No description provided for @speechEngineError.
+  ///
+  /// In en, this message translates to:
+  /// **'The offline speech engine could not complete the request.'**
+  String get speechEngineError;
+
+  /// No description provided for @speechMicrophoneError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not record from the default microphone. Check Windows microphone access and the input device.'**
+  String get speechMicrophoneError;
+
+  /// No description provided for @speechNoSpeech.
+  ///
+  /// In en, this message translates to:
+  /// **'No speech was recognized. Try recording again.'**
+  String get speechNoSpeech;
+
+  /// No description provided for @speechPlaybackError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not play audio. Check the default Windows output device.'**
+  String get speechPlaybackError;
 }
 
 class _AppLocalizationsDelegate

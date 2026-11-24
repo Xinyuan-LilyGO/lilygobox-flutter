@@ -2,6 +2,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/files/zstd_file.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/widgets/app_notice.dart';
@@ -51,12 +52,7 @@ Future<void> runDirectAgentTransfer(
       try {
         if (importing) {
           final file = await openFile(
-            acceptedTypeGroups: [
-              XTypeGroup(
-                label: l.agentStoragePackageType,
-                extensions: const ['7z'],
-              ),
-            ],
+            acceptedTypeGroups: [ZstdFile.typeGroup(l.agentStoragePackageType)],
           );
           if (file == null || !context.mounted) return;
           try {
@@ -107,12 +103,7 @@ Future<void> runDirectAgentTransfer(
         } else {
           final destination = await getSaveLocation(
             suggestedName: controller.suggestedExportName(action),
-            acceptedTypeGroups: [
-              XTypeGroup(
-                label: l.agentStoragePackageType,
-                extensions: const ['7z'],
-              ),
-            ],
+            acceptedTypeGroups: [ZstdFile.typeGroup(l.agentStoragePackageType)],
           );
           if (destination == null || !context.mounted) return;
           await transfer(

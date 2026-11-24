@@ -74,7 +74,7 @@ void main() {
             owner: source.id,
             content: 'Keep this imported preference',
           );
-          path = '${directory.path}/memory.7z';
+          path = '${directory.path}/memory.tar.zst';
           await controller.export(path, 'memory');
           if (empty) {
             workspaces.removeMany([source.id]);
@@ -140,15 +140,22 @@ void main() {
         expect(workspaces.sessions.length, before);
         expect(tester.widget<AppActionButton>(action).onPressed, isNotNull);
         cancelled = false;
-        await tester.tap(action);
-        await tick(tester);
         final destination = find.byKey(
           const ValueKey('storage-memory-import-destination'),
         );
         final target = find.byKey(
           const ValueKey('storage-memory-import-target'),
         );
-        expect(destination, findsOneWidget);
+        Future<void> openDestination() async {
+          await tester.tap(action);
+          for (var attempt = 0; attempt < 12; attempt++) {
+            await tick(tester);
+            if (destination.evaluate().isNotEmpty) break;
+          }
+          expect(destination, findsOneWidget);
+        }
+
+        await openDestination();
         expect(
           find.descendant(
             of: destination,
@@ -165,9 +172,7 @@ void main() {
         expect(workspaces.sessions.length, before);
 
         if (!empty) {
-          await tester.tap(action);
-          await tick(tester);
-          expect(destination, findsOneWidget);
+          await openDestination();
           final existingId = workspaces.sessions.single.id;
           expect(
             tester.widget<SettingSelect<String>>(target).value,
@@ -186,9 +191,7 @@ void main() {
         }
 
         Future<void> chooseNewTarget() async {
-          await tester.tap(action);
-          await tick(tester);
-          expect(destination, findsOneWidget);
+          await openDestination();
           await tester.tap(target);
           await tester.pumpAndSettle();
           await tester.tap(find.text('新建智能体').last);

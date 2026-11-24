@@ -2,6 +2,8 @@
  * @Description: 提供 LilygoBox AI 对话主页与设置操作确认。
  */
 
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -20,6 +22,10 @@ import '../../../../core/widgets/image_clipboard_menu.dart';
 import '../../../../core/widgets/interaction_decoration.dart';
 import '../../../../core/widgets/popup_menu_transition.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
+import '../../../speech/domain/speech_model.dart';
+import '../../../speech/presentation/speech_icon_button.dart';
+import '../../../speech/presentation/speech_labels.dart';
+import '../../../speech/state/speech_provider.dart';
 import '../../domain/models.dart';
 import '../../domain/process_timeline.dart';
 import '../../state/agent_workspace_provider.dart';
@@ -56,6 +62,9 @@ class AssistantPage extends StatefulWidget {
 
 class _AssistantPageState extends State<AssistantPage> {
   final _input = TextEditingController();
+  final _speechConversation = SpeechConversation();
+  SpeechProvider? _speech;
+  bool _canKeepRecording = false;
   late final _scroll = ConversationScrollController(
     pinToLatest: () =>
         _initialScrollPositionApplied &&
@@ -92,10 +101,13 @@ class _AssistantPageState extends State<AssistantPage> {
         child: _MessageRepaintBoundary(
           key: ValueKey('ai-message-paint-${message.id}'),
           enabled: !ChatMessageBody.usesContentSegments(message),
-          child: _MessageView(
-            key: ValueKey(message.id),
-            message: message,
-            theme: theme,
+          child: Provider<SpeechConversation>.value(
+            value: _speechConversation,
+            child: _MessageView(
+              key: ValueKey(message.id),
+              message: message,
+              theme: theme,
+            ),
           ),
         ),
       ),
@@ -182,12 +194,35 @@ class _AssistantPageState extends State<AssistantPage> {
 
   @override
   void dispose() {
+    final speech = _speech;
+    scheduleMicrotask(() => speech?.stopConversation(_speechConversation));
     _input.dispose();
     _scroll.dispose();
     _inputFocus.dispose();
     _conversationSelectionFocus.dispose();
     _inputScroll.dispose();
     super.dispose();
+  }
+
+  Future<void> _transcribe(SpeechProvider speech) async {
+    final (:text, :error) = await speech.startRecording(_speechConversation);
+    if (!mounted || !_canKeepRecording) return;
+    if (text != null) {
+      final draft = _input.text;
+      final separator =
+          draft.isEmpty || draft.trimRight().length != draft.length ? '' : '\n';
+      final value = '$draft$separator$text';
+      _input.value = TextEditingValue(
+        text: value,
+        selection: TextSelection.collapsed(offset: value.length),
+      );
+      _inputFocus.requestFocus();
+    } else if (error != null) {
+      showAppNotice(
+        ScaffoldMessenger.of(context),
+        speechErrorLabel(context.l10n, error),
+      );
+    }
   }
 
   Future<void> _send(
@@ -313,6 +348,28 @@ class _AssistantPageState extends State<AssistantPage> {
     final messages = assistant.messages;
     final l10n = context.l10n;
     final ready = assistant.credentialLoaded && assistant.hasApiKey;
+    final (speech, hasModel, phase, canRecord) = context.select(
+      (SpeechProvider? voice) => (
+        voice,
+        voice?.library.selectedModel(.recognition) != null,
+        voice?.capturePhase(_speechConversation),
+        voice != null && !voice.busy && !voice.hasCapture,
+      ),
+    );
+    _speech = speech;
+    final canKeepRecording =
+        active &&
+        !widget.readOnly &&
+        assistant.pendingApproval == null &&
+        assistant.pendingUserInput == null;
+    if ((_canKeepRecording && !canKeepRecording && phase != null) || !active) {
+      scheduleMicrotask(() => speech?.stopConversation(_speechConversation));
+    }
+    _canKeepRecording = canKeepRecording;
+    final voiceButton =
+        speech == null || !canKeepRecording || (!hasModel && phase == null)
+        ? null
+        : _voiceButton(speech, phase, canRecord, theme);
 
     return ClipRRect(
       borderRadius: const BorderRadius.only(topLeft: Radius.circular(10)),
@@ -429,6 +486,7 @@ class _AssistantPageState extends State<AssistantPage> {
                                   onManageContext: widget.onManageContext,
                                   roleplayMenuBuilder:
                                       widget.roleplayMenuBuilder,
+                                  voiceButton: voiceButton,
                                   onSend: (fromKeyboard) => _send(
                                     assistant,
                                     fromKeyboard: fromKeyboard,
@@ -507,6 +565,37 @@ class _AssistantPageState extends State<AssistantPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _voiceButton(
+    SpeechProvider speech,
+    SpeechCapturePhase? phase,
+    bool canRecord,
+    AppTheme theme,
+  ) {
+    final l10n = context.l10n;
+    return SpeechIconButton(
+      key: const ValueKey('ai-voice-input'),
+      theme: theme,
+      surface: theme.primary,
+      size: 28,
+      label: switch (phase) {
+        .recording => l10n.speechStopRecording,
+        .starting => l10n.speechLoading,
+        .transcribing => l10n.speechTranscribing,
+        null => l10n.speechStartRecording,
+      },
+      icon: switch (phase) {
+        .recording => Symbols.stop_rounded,
+        .starting || .transcribing => Symbols.hourglass_top_rounded,
+        null => Symbols.mic_rounded,
+      },
+      onPressed: switch (phase) {
+        .recording => () => speech.finishRecording(_speechConversation),
+        null when canRecord => () => unawaited(_transcribe(speech)),
+        _ => null,
+      },
     );
   }
 }

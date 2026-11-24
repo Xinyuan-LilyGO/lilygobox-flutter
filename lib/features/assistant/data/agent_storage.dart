@@ -6,11 +6,11 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:lilygobox_codecs/lilygobox_codecs.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 import '../domain/memory_conflict.dart';
+import 'agent_compression.dart';
 
 /// 数据库工作在独立 isolate 中串行执行，界面线程不执行数据压缩。
 class AgentStorage {
@@ -127,6 +127,7 @@ class AgentStorage {
     final value = await result.future;
     if (const {
       'commitImport',
+      'commitMemoryImport',
       'commitRecycle',
       'copyMemories',
       'putMemory',
@@ -154,6 +155,10 @@ class AgentStorage {
     List<Map<String, Object?>> memories,
   ) async {
     await request('commitImport', {'value': value, 'memories': memories});
+  }
+
+  Future<void> commitMemoryImport(List<Map<String, Object?>> memories) async {
+    await request('commitMemoryImport', {'memories': memories});
   }
 
   Future<List<Map<String, Object?>>> memories(
@@ -282,7 +287,7 @@ void _databaseWorker(List<dynamic> initialization) {
             db.select('SELECT 1 FROM objects WHERE hash=?', [hash]).isEmpty) {
           db.execute('INSERT INTO objects VALUES(?,?)', [
             hash,
-            LilygoBoxCodecs.zstd(Uint8List.fromList(bytes)),
+            AgentCompression.compressObject(Uint8List.fromList(bytes)),
           ]);
         }
         return {'@object': hash};
@@ -360,7 +365,7 @@ void _databaseWorker(List<dynamic> initialization) {
       final row = db.select('SELECT body FROM objects WHERE hash=?', [
         value['@object'],
       ]).first;
-      final bytes = LilygoBoxCodecs.unzstd(row['body'] as Uint8List);
+      final bytes = AgentCompression.decompressObject(row['body'] as Uint8List);
       if (sha256.convert(bytes).toString() != value['@object']) {
         throw const FormatException('Stored object checksum mismatch');
       }
@@ -611,6 +616,12 @@ void _databaseWorker(List<dynamic> initialization) {
             }
             return nextRecycleRecords;
           });
+        case 'commitMemoryImport':
+          transaction(() {
+            for (final memory in a['memories'] as List) {
+              putMemory(memory as Map);
+            }
+          });
         case 'copyMemories':
           transaction(() {
             for (final entry in (a['mapping'] as Map).entries) {
@@ -765,8 +776,11 @@ void _databaseWorker(List<dynamic> initialization) {
                         .firstOrNull?['value']
                     as String?;
             final workflow = saved == null ? null : jsonDecode(saved);
-            if (workflow is Map && a['includeRoleplayLibrary'] == false) {
-              workflow.remove('roleplayLibrary');
+            if (workflow is Map) {
+              workflow.remove('recycleBin');
+              if (a['includeRoleplayLibrary'] == false) {
+                workflow.remove('roleplayLibrary');
+              }
             }
             return {
               'workflow': workflow == null ? null : expand(workflow),
@@ -908,6 +922,7 @@ void _databaseWorker(List<dynamic> initialization) {
         'saveWorkflow',
         'saveCanvas',
         'commitImport',
+        'commitMemoryImport',
         'commitRecycle',
         'copyMemories',
         'putMemory',

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../core/files/zstd_tar.dart';
 import '../data/agent_package.dart';
 import '../data/roleplay_card_exporter.dart';
 import '../data/roleplay_card_importer.dart';
@@ -202,11 +203,11 @@ class AgentStorageController extends ChangeNotifier {
     final date =
         '${instant.year}${two(instant.month)}${two(instant.day)}${two(instant.hour)}${two(instant.minute)}';
     if (type == 'workflow') {
-      return 'lilygobox-agent-workflow-package-$date.7z';
+      return 'lilygobox-agent-workflow-package-$date${ZstdTar.suffix}';
     }
     if (owner.isEmpty) throw StateError('Agent is unavailable');
     if (type == 'agent' && children) {
-      return 'lilygobox-agent-workflow-package-$date.7z';
+      return 'lilygobox-agent-workflow-package-$date${ZstdTar.suffix}';
     }
     final content = switch (type) {
       'agent' => 'full',
@@ -214,7 +215,7 @@ class AgentStorageController extends ChangeNotifier {
       'memory' => 'memory',
       _ => throw ArgumentError.value(type, 'type', 'Unsupported export type'),
     };
-    return 'lilygobox-agent-$owner-$content-package-$date.7z';
+    return 'lilygobox-agent-$owner-$content-package-$date${ZstdTar.suffix}';
   }
 
   Future<void> export(
@@ -251,18 +252,21 @@ class AgentStorageController extends ChangeNotifier {
       throw StateError('Agent is unavailable');
     }
     _checkCancelled();
+    final storage = workspaces.main.storage!;
+    if (type == 'memory') {
+      final memories = await storage.memories(owner);
+      _checkCancelled();
+      await _writePackage(path, type, null, memories);
+      return;
+    }
     await workspaces.flush();
     _checkCancelled();
-    final storage = workspaces.main.storage!;
     final snapshot = Map<String, dynamic>.from(
       await storage.request('exportSnapshot', {'includeRoleplayLibrary': false})
           as Map,
     );
     _checkCancelled();
     final workflow = Map<String, Object?>.from(snapshot['workflow'] as Map);
-    workflow
-      ..remove('recycleBin')
-      ..remove('roleplayLibrary');
     final records = (workflow['sessions'] as List).cast<Map>();
     final ids = <String>{};
     if (selectedIds != null) {
@@ -301,7 +305,7 @@ class AgentStorageController extends ChangeNotifier {
               : AiWorkspaceKind.primary.name,
         },
     ];
-    if (type != 'memory') _packRoleplayCards(workflow);
+    _packRoleplayCards(workflow);
     workflow['connections'] = [
       for (final e in workflow['connections'] as List)
         if (ids.contains(e['fromId']) && ids.contains(e['toId'])) e,
@@ -313,26 +317,31 @@ class AgentStorageController extends ChangeNotifier {
     };
     if (!ids.contains(workflow['selectedId'])) workflow['selectedId'] = null;
     final all = (snapshot['memories'] as List).cast<Map>();
-    final selected = type == 'memory'
-        ? all.where((m) => m['owner'] == owner)
-        : type == 'chat'
+    final selected = type == 'chat'
         ? <Map>[]
         : all.where((m) => ids.contains(m['owner']));
-    final selectedMemories = [
-      for (final memory in selected) {...memory, 'source': '{"imported":true}'},
-    ];
-    await AgentPackage.write(
-      path,
-      {
-        'type': type,
-        'createdAt': DateTime.now().toUtc().toIso8601String(),
-        'workflow': type == 'memory' ? null : workflow,
-        'memories': selectedMemories,
-      },
-      onProgress: _reportProgress,
-      cancellation: _transferCancellation,
-    );
+    await _writePackage(path, type, workflow, selected);
   }
+
+  Future<void> _writePackage(
+    String path,
+    String type,
+    Map<String, Object?>? workflow,
+    Iterable<Map> memories,
+  ) => AgentPackage.write(
+    path,
+    {
+      'type': type,
+      'createdAt': DateTime.now().toUtc().toIso8601String(),
+      'workflow': workflow,
+      'memories': [
+        for (final memory in memories)
+          {...memory, 'source': '{"imported":true}'},
+      ],
+    },
+    onProgress: _reportProgress,
+    cancellation: _transferCancellation,
+  );
 
   Future<Map<String, dynamic>> inspect(String path) => runTransfer(
     () => AgentPackage.read(
@@ -489,7 +498,9 @@ class AgentStorageController extends ChangeNotifier {
   Future<List<MemoryImportItem>> _plan(Map<String, dynamic> package) async {
     _reportProgress(const AgentPackageProgress(AgentPackageStage.analyzing));
     _checkCancelled();
-    if (package['type'] == 'memory' && workspaces.find(owner) == null) {
+    final memoryOnly = package['type'] == 'memory';
+    final targetOwner = owner;
+    if (memoryOnly && workspaces.find(targetOwner) == null) {
       throw StateError('Agent is unavailable');
     }
     final raw = package['memories'];
@@ -497,17 +508,22 @@ class AgentStorageController extends ChangeNotifier {
     final incoming = raw
         .map((m) => Map<String, Object?>.from(m as Map))
         .toList();
-    final existing = (await workspaces.main.storage!.request(
-      'allMemories',
-    ) as List).map((m) => Map<String, Object?>.from(m as Map)).toList();
+    if (incoming.isEmpty) return [];
+    final existing = memoryOnly
+        ? await workspaces.main.storage!.memories(targetOwner)
+        : const <Map<String, Object?>>[];
     _checkCancelled();
-    return _planMemoryItems(incoming, existing, package['type'] == 'memory');
+    return _planMemoryItems(
+      incoming,
+      existing,
+      memoryOnly ? targetOwner : null,
+    );
   }
 
   Future<List<MemoryImportItem>> _planMemoryItems(
     List<Map<String, Object?>> incoming,
     List<Map<String, Object?>> existing,
-    bool memoryOnly,
+    String? targetOwner,
   ) async {
     final hashes = <String, Map<String, Map<String, Object?>>>{};
     final lineages = <String, Map<Object?, Map<String, Object?>>>{};
@@ -535,7 +551,7 @@ class AgentStorageController extends ChangeNotifier {
     for (final memory in existing) {
       await checkpoint();
       final target = memory['owner'] as String;
-      final hash = memoryContentHash(memory['content'] as String);
+      final hash = memory['hash'] as String;
       (hashes[target] ??= {}).putIfAbsent(hash, () => memory);
       (lineages[target] ??= {}).putIfAbsent(
         memory['lineage'] ?? memory['id'],
@@ -553,7 +569,7 @@ class AgentStorageController extends ChangeNotifier {
       if (memory['hash'] != null && memory['hash'] != hash) {
         throw const FormatException('Memory hash mismatch');
       }
-      final target = memoryOnly ? owner : 'import:${memory['owner']}';
+      final target = targetOwner ?? 'import:${memory['owner']}';
       final lineage = memory['lineage'] ?? memory['id'];
       final duplicate = hashes[target]?[hash];
       final previous = lineages[target]?[lineage];
@@ -625,6 +641,8 @@ class AgentStorageController extends ChangeNotifier {
     }
 
     if (memoryOnly) {
+      final operations = prepare(const {});
+      if (operations.isEmpty) return;
       await workspaces.flush();
       _checkCancelled();
       // 越过此边界后不能取消，commitImport 会原子提交。
@@ -634,9 +652,7 @@ class AgentStorageController extends ChangeNotifier {
           canCancel: false,
         ),
       );
-      final workflow = workspaces.exportData()
-        ..['selectedId'] = workspaces.selectedId;
-      await storage.commitImport(workflow, prepare(const {}));
+      await storage.commitMemoryImport(operations);
     } else {
       _checkCancelled();
       var checkpoints = 0;

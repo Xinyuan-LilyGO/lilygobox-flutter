@@ -1280,10 +1280,18 @@ class AiWorkspaceProvider extends ChangeNotifier {
   }
 
   final Set<String> _dirtyConversations = {};
-  Map<String, Object?> _conversationForSave(AiAgentWorkspace session) =>
-      main.storage == null || _dirtyConversations.remove(session.id)
-      ? session.assistant.snapshotWorkspaceConversation()
-      : {'@conversation': session.id};
+  Map<String, Object?> _conversationForSave(
+    AiAgentWorkspace session, {
+    required bool retainDirty,
+  }) {
+    if (main.storage == null ||
+        (retainDirty
+            ? _dirtyConversations.contains(session.id)
+            : _dirtyConversations.remove(session.id))) {
+      return session.assistant.snapshotWorkspaceConversation();
+    }
+    return {'@conversation': session.id};
+  }
 
   Map<String, Object?> _sessionForStorage(
     AiAgentWorkspace session,
@@ -1303,9 +1311,11 @@ class AiWorkspaceProvider extends ChangeNotifier {
 
   Map<String, Object?> _workflowForStorage({
     Set<String> omitRecycled = const {},
+    bool retainDirtyConversations = false,
+    Iterable<AiRoleplayBinding>? roleplayLibrary,
   }) => {
     'version': 1,
-    'roleplayLibrary': _snapshotRoleplayLibrary(),
+    'roleplayLibrary': _snapshotRoleplayLibrary(roleplayLibrary),
     'selectedId': _selectedId,
     'recycleRetentionDays': _recycleRetentionDays,
     'recycleBin': [
@@ -1320,7 +1330,10 @@ class AiWorkspaceProvider extends ChangeNotifier {
     ],
     'sessions': [
       for (final session in _sessions)
-        _sessionForStorage(session, _conversationForSave(session)),
+        _sessionForStorage(
+          session,
+          _conversationForSave(session, retainDirty: retainDirtyConversations),
+        ),
     ],
   };
 
@@ -1651,21 +1664,26 @@ class AiWorkspaceProvider extends ChangeNotifier {
             ? AiWorkspaceKind.primary
             : AiWorkspaceKind.permanent;
       }
-      final combined = exportData();
+      await checkpoint?.call();
+      if (_disposed || sessions.any((s) => s.busy)) {
+        throw StateError('Workspace changed while importing');
+      }
       final importedLibrary = Map.of(_roleplayLibrary);
       for (final session in staged) {
         if (session.assistant.roleplayBinding case final binding?) {
           _rememberRoleplayTemplate(binding, library: importedLibrary);
         }
       }
-      combined['roleplayLibrary'] = _snapshotRoleplayLibrary(
-        importedLibrary.values,
+      final combined = _workflowForStorage(
+        retainDirtyConversations: true,
+        roleplayLibrary: importedLibrary.values,
       );
-      combined['recycleBin'] = [
-        for (final entry in [..._recycledAgents, ...importedRecycle])
-          entry.toJson(),
-      ];
-      combined['selectedId'] = _selectedId;
+      if (importedRecycle.isNotEmpty) {
+        combined['recycleBin'] = [
+          ...combined['recycleBin'] as List,
+          for (final entry in importedRecycle) entry.toStorage(),
+        ];
+      }
       combined['canvas'] = {...canvasPositions, ...importedPositions};
       combined['sessions'] = [
         ...combined['sessions'] as List,
@@ -1680,7 +1698,6 @@ class AiWorkspaceProvider extends ChangeNotifier {
         for (final edge in edges) {'fromId': edge.fromId, 'toId': edge.toId},
       ];
       final memories = memoriesFor?.call(mapping) ?? <Map<String, Object?>>[];
-      await checkpoint?.call();
       onBeforeCommit?.call();
       if (main.storage != null) {
         await main.storage!.commitImport(combined, memories);

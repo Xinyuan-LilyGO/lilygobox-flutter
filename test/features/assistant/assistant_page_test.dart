@@ -250,9 +250,7 @@ void main() {
     'one wheel notch over MSG-04106 preserves message interaction and travel',
     (tester) async {
       final package = (await tester.runAsync(
-        () => AgentPackage.read(
-          'artifacts/lilygobox-long-chat-10000.7z',
-        ),
+        () => AgentPackage.read('artifacts/lilygobox-long-chat-10000.tar.zst'),
       ))!;
       final record = (package['workflow']['sessions'] as List).single;
       scope.provider.restoreWorkspaceConversation(

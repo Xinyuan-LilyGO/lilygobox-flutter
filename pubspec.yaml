@@ -31,12 +31,13 @@ dependencies:
   flutter_markdown_plus: ^1.0.12
   markdown: ^7.3.1
   characters: ^1.4.1
-  lilygobox_codecs:
-    path: packages/lilygobox_codecs
+  archive: ^4.7.1
   sqlite3: ^3.9.1
+  path: ^1.9.1
   path_provider: ^2.1.6
-  koni_sevenz: ^0.9.0
-  koni_archive_core: ^0.9.0
+  sherpa_onnx: 2.0.3
+  record: ^7.2.0
+  audioplayers: ^6.8.1
   material_ui: 1.11.0
 
 # debug 版本所需的包

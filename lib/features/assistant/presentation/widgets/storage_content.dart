@@ -9,6 +9,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../../../../core/context_menu/right_click_menu.dart';
 import '../../../../core/context_menu/text_selection_menu.dart';
+import '../../../../core/files/zstd_file.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/theme/material_palette.dart';
@@ -285,39 +286,34 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
     }
   }
 
-  Future<void> _export(
-    String type, {
-    bool children = false,
-  }) => _withFilePicker(() async {
-    final l = context.l10n;
-    final destination = await getSaveLocation(
-      suggestedName: controller.suggestedExportName(type, children: children),
-      acceptedTypeGroups: [
-        XTypeGroup(label: l.agentStoragePackageType, extensions: const ['7z']),
-      ],
-    );
-    if (destination == null || !mounted) return;
-    await _run(() async {
-      await _transfer(
-        () => controller.export(destination.path, type, children: children),
+  Future<void> _export(String type, {bool children = false}) => _withFilePicker(
+    () async {
+      final l = context.l10n;
+      final destination = await getSaveLocation(
+        suggestedName: controller.suggestedExportName(type, children: children),
+        acceptedTypeGroups: [ZstdFile.typeGroup(l.agentStoragePackageType)],
       );
-      if (mounted) {
-        showAppNotice(
-          ScaffoldMessenger.of(context),
-          l.agentStorageExportSuccess,
+      if (destination == null || !mounted) return;
+      await _run(() async {
+        await _transfer(
+          () => controller.export(destination.path, type, children: children),
         );
-      }
-    });
-  });
+        if (mounted) {
+          showAppNotice(
+            ScaffoldMessenger.of(context),
+            l.agentStorageExportSuccess,
+          );
+        }
+      });
+    },
+  );
 
   Future<void> _chooseImportPackage() => _withFilePicker(_readImportPackage);
 
   Future<void> _readImportPackage() async {
     final l = context.l10n;
     final file = await openFile(
-      acceptedTypeGroups: [
-        XTypeGroup(label: l.agentStoragePackageType, extensions: const ['7z']),
-      ],
+      acceptedTypeGroups: [ZstdFile.typeGroup(l.agentStoragePackageType)],
     );
     if (file == null || !mounted) return;
     await _run(() async {

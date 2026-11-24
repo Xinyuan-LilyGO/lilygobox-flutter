@@ -1,4 +1,5 @@
 #include <flutter/dart_project.h>
+#include <flutter/flutter_engine.h>
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
 #include <ole2.h>
@@ -8,10 +9,27 @@
 #include "utils.h"
 #include "tray_icon.h"
 
+namespace {
+int RunSpeechWorker() {
+  flutter::DartProject project(L"data");
+  project.set_dart_entrypoint("speechWorkerMain");
+  flutter::FlutterEngine engine(project);
+  if (!engine.Run()) return EXIT_FAILURE;
+
+  MSG message;
+  while (GetMessage(&message, nullptr, 0, 0) > 0) {
+    TranslateMessage(&message);
+    DispatchMessage(&message);
+  }
+  return EXIT_FAILURE;
+}
+}  // namespace
+
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
   const auto launch_arguments = GetCommandLineArguments();
   for (const auto& argument : launch_arguments) {
+    if (argument == "--lilygobox-speech-worker") return RunSpeechWorker();
     const std::string prefix = "--lilygobox-tray-host=";
     if (argument.rfind(prefix, 0) == 0) {
       const HWND owner = reinterpret_cast<HWND>(static_cast<uintptr_t>(

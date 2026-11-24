@@ -20,6 +20,7 @@ import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
 import 'package:lilygobox/features/assistant/state/provider.dart';
 import 'package:lilygobox/features/assistant/state/storage_controller.dart';
+import 'package:sqlite3/sqlite3.dart';
 
 import 'assistant_test_scope.dart';
 
@@ -483,7 +484,7 @@ void main() {
       final controller = AgentStorageController(workspaces)..owner = active.id;
       addTearDown(controller.dispose);
       for (final type in ['workflow', 'agent', 'chat', 'memory']) {
-        final path = '${directory.path}/$type.7z';
+        final path = '${directory.path}/$type.tar.zst';
         await controller.export(path, type);
         final package = await controller.inspect(path);
         final serialized = jsonEncode(package);
@@ -507,12 +508,12 @@ void main() {
       controller.owner = deleted.id;
       for (final type in ['agent', 'chat', 'memory']) {
         await expectLater(
-          controller.export('${directory.path}/deleted-$type.7z', type),
+          controller.export('${directory.path}/deleted-$type.tar.zst', type),
           throwsStateError,
         );
       }
       await expectLater(
-        controller.export('${directory.path}/backup.7z', 'backup'),
+        controller.export('${directory.path}/backup.tar.zst', 'backup'),
         throwsArgumentError,
       );
       expect(workspaces.recycledAgents.single.id, deleted.id);
@@ -715,7 +716,7 @@ void main() {
     addTearDown(controller.dispose);
     for (final type in ['chat', 'agent', 'workflow', 'memory']) {
       controller.owner = source.id;
-      final path = '${directory.path}/automatic-$type.7z';
+      final path = '${directory.path}/automatic-$type.tar.zst';
       await controller.export(path, type);
       final package = await controller.inspect(path);
       expect(package['type'], type);
@@ -751,7 +752,7 @@ void main() {
       final controller = AgentStorageController(workspaces);
       addTearDown(controller.dispose);
       final package = await controller.inspect(
-        'artifacts/lilygobox-auto-compaction-conversation-test.7z',
+        'artifacts/lilygobox-auto-compaction-conversation-test.tar.zst',
       );
       await controller.import(package);
       final assistant = workspaces.sessions.single.assistant;
@@ -769,7 +770,7 @@ void main() {
       final source = await create('Source');
       final controller = AgentStorageController(workspaces)..owner = source.id;
       addTearDown(controller.dispose);
-      final path = '${directory.path}/cancel-stage.7z';
+      final path = '${directory.path}/cancel-stage.tar.zst';
       await controller.export(path, 'agent');
       final package = await controller.inspect(path);
       var cancelled = false;
@@ -864,7 +865,7 @@ void main() {
       final content = type == 'agent' ? 'full' : type;
       expect(
         name,
-        'lilygobox-agent-${agent.id}-$content-package-202611150905.7z',
+        'lilygobox-agent-${agent.id}-$content-package-202611150905.tar.zst',
       );
     }
     expect(
@@ -873,11 +874,11 @@ void main() {
         children: true,
         now: DateTime(2026, 11, 15, 9, 5),
       ),
-      'lilygobox-agent-workflow-package-202611150905.7z',
+      'lilygobox-agent-workflow-package-202611150905.tar.zst',
     );
     expect(
       controller.suggestedExportName('workflow', now: DateTime(2026, 11, 15)),
-      'lilygobox-agent-workflow-package-202611150000.7z',
+      'lilygobox-agent-workflow-package-202611150000.tar.zst',
     );
   });
   test(
@@ -928,7 +929,7 @@ void main() {
     });
     final controller = AgentStorageController(workspaces)..owner = child.id;
     addTearDown(controller.dispose);
-    final path = '${directory.path}/workflow.7z';
+    final path = '${directory.path}/workflow.tar.zst';
     await controller.export(path, 'workflow');
     await controller.export(path, 'workflow');
     final package = await controller.inspect(path);
@@ -1019,7 +1020,7 @@ void main() {
 
       final controller = AgentStorageController(workspaces)..owner = root.id;
       addTearDown(controller.dispose);
-      final path = '${directory.path}/percentage.7z';
+      final path = '${directory.path}/percentage.tar.zst';
       await controller.export(path, 'agent');
       final package = await controller.inspect(path);
       final before = workspaces.sessions.map((s) => s.id).toSet();
@@ -1180,6 +1181,85 @@ void main() {
     expect(workspaces.sessions.map((agent) => agent.id), [original.id]);
     expect(await storage.readWorkflow(), before);
     expect(await storage.request('allMemories'), isEmpty);
+  });
+
+  test('small memory package uses scoped reads and preserves saved conversations', () async {
+    final source = await create('Source');
+    final other = await create('Unrelated');
+    final recycled = await create('Recycled');
+    await recycled.assistant.sendMessage(
+      List.filled(1000, 'Archived text').join(' '),
+    );
+    workspaces.removeMany([recycled.id]);
+    await storage.putMemory(
+      id: 'unrelated-fact',
+      owner: other.id,
+      content: 'Unrelated',
+    );
+    for (var index = 0; index < 7; index++) {
+      await storage.putMemory(
+        id: 'fact-$index',
+        owner: source.id,
+        content: 'Fact $index',
+      );
+    }
+    await workspaces.flush();
+    final db = sqlite3.open('${directory.path}/main.db');
+    addTearDown(db.close);
+    db.execute('''
+      CREATE TRIGGER reject_conversation_rewrite BEFORE UPDATE ON state
+      WHEN OLD.key IN ('conversation:${source.id}', 'conversation:${other.id}')
+      BEGIN SELECT RAISE(ABORT, 'Existing conversation was rewritten'); END;
+    ''');
+
+    final controller = AgentStorageController(workspaces)..owner = source.id;
+    addTearDown(controller.dispose);
+    final path = '${directory.path}/small-memory.tar.zst';
+    await controller.export(path, 'memory');
+    final exported = await controller.inspect(path);
+    expect(exported['workflow'], isNull);
+    expect(
+      (exported['memories'] as List).map((fact) => fact['owner']),
+      everyElement(source.id),
+    );
+    expect(exported['memories'], hasLength(7));
+
+    final agentPackage = controller.memoryPackageForNewAgent(
+      exported,
+      title: 'Imported',
+    );
+    final analysisTotals = <int>{};
+    controller.addListener(() {
+      if (controller.transferProgress case AgentPackageProgress(
+        stage: .analyzing,
+        :final total?,
+      )) {
+        analysisTotals.add(total);
+      }
+    });
+    final plan = await controller.plan(agentPackage);
+    expect(plan, hasLength(7));
+    expect(analysisTotals, {7});
+    await controller.import(agentPackage, plan: plan);
+    final imported = workspaces.sessions.singleWhere(
+      (agent) => agent.title == 'Imported',
+    );
+    expect(imported.assistant.messages, isEmpty);
+    expect(await storage.memories(imported.id), hasLength(7));
+    expect(await storage.memories(other.id), hasLength(1));
+    expect(workspaces.recycledAgents.single.id, recycled.id);
+
+    controller.owner = imported.id;
+    await controller.export(path, 'memory');
+    final roundtrip = await controller.inspect(path);
+    expect(
+      (roundtrip['memories'] as List).map((fact) => fact['content']),
+      unorderedEquals((exported['memories'] as List).map((fact) => fact['content'])),
+    );
+
+    controller.owner = other.id;
+    await controller.import(exported);
+    expect(await storage.memories(other.id), hasLength(8));
   });
   Map<String, Object?> compactionSnapshot({int count = 16}) => {
     'serviceId': service,
@@ -1369,7 +1449,7 @@ void main() {
           ..owner = source.id;
         addTearDown(controller.dispose);
         await controller.saveMemory('Long-term memory fixture');
-        final path = '${directory.path}/scoped-$type.7z';
+        final path = '${directory.path}/scoped-$type.tar.zst';
         await controller.export(path, type);
         final package = await controller.inspect(path);
         final workflow = package['workflow'] as Map;

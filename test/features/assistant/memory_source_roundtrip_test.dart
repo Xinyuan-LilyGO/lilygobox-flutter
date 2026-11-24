@@ -100,7 +100,7 @@ void main() {
       final seenIds = <Object?>{originalId};
       for (var generation = 0; generation < 3; generation++) {
         controller.owner = currentOwner;
-        final path = '${directory.path}/$type-$generation.7z';
+        final path = '${directory.path}/$type-$generation.tar.zst';
         await controller.export(
           path,
           type,

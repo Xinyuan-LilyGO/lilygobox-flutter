@@ -1086,7 +1086,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get configurationCollapsed => 'Collapsed';
 
   @override
-  String get configurationFileType => 'LilygoBox configuration (JSON)';
+  String get configurationFileType => 'LilygoBox configuration (.json.zst)';
 
   @override
   String get restoreDefaults => 'Restore defaults';
@@ -2463,7 +2463,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiServiceConfigurationFileType =>
-      'LilygoBox model service configuration (JSON)';
+      'LilygoBox model service configuration (.json.zst)';
 
   @override
   String get aiServiceConfigurationImportTitle =>
@@ -2630,7 +2630,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiTopologyOpen => 'Open conversation';
 
   @override
-  String get aiRoleplayFileType => 'Character card files (PNG, JSON, 7z)';
+  String get aiRoleplayFileType => 'Character card files (PNG, JSON, .tar.zst)';
 
   @override
   String get aiRoleplayCard => 'Character card';
@@ -2738,7 +2738,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiRoleplayImportFailed =>
-      'Couldn’t import character cards. Choose valid PNG, JSON, or 7z files.';
+      'Couldn’t import character cards. Choose valid PNG, JSON, or .tar.zst files.';
 
   @override
   String aiRoleplayImportSkippedFiles(int count) {
@@ -2802,10 +2802,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiRoleplayPackageDescription =>
-      'Import PNG, JSON, or 7z files and export selected cards in a 7z package.';
+      'Import PNG, JSON, or .tar.zst files and export selected cards in a .tar.zst package.';
 
   @override
-  String get aiRoleplayPackageFileType => 'Character card package (7z)';
+  String get aiRoleplayPackageFileType => 'Character card package (.tar.zst)';
 
   @override
   String get aiRoleplayPackageExport => 'Export card package';
@@ -3571,7 +3571,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get agentStoragePackageType => 'LilygoBox data package (7z)';
+  String get agentStoragePackageType => 'LilygoBox data package (.tar.zst)';
 
   @override
   String get agentStorageCompact => 'Compact context';
@@ -3715,7 +3715,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentStoragePackageKindHint =>
-      'Choose the contents to export as one .7z file.';
+      'Choose the contents to export as one .tar.zst file.';
 
   @override
   String get agentStorageMemoryPackage => 'Long-term memory package';
@@ -3970,7 +3970,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentStorageImportAutoHint =>
-      'Choose a .7z package to detect its type, then review its contents before importing. Packages contain no API keys; keep them private.';
+      'Choose a .tar.zst package to detect its type, then review its contents before importing. Packages contain no API keys; keep them private.';
 
   @override
   String get agentStorageImportCreatesAgents =>
@@ -4136,4 +4136,147 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiTimerCancel => 'Cancel timer';
+
+  @override
+  String get speechTitle => 'Voice';
+
+  @override
+  String get speechDescription => 'Offline speech recognition and synthesis';
+
+  @override
+  String get speechLibraryTitle => 'Voice model library';
+
+  @override
+  String get speechLibraryDescription => 'Models stored on this computer';
+
+  @override
+  String get speechImport => 'Import model';
+
+  @override
+  String get speechImported => 'Voice model imported.';
+
+  @override
+  String get speechArchiveTypes => 'Voice model archives (.tar.zst, .tar.bz2)';
+
+  @override
+  String get speechZstdType => 'Voice model archive (.tar.zst)';
+
+  @override
+  String get speechExport => 'Export';
+
+  @override
+  String get speechExported => 'Voice model exported as a .tar.zst archive.';
+
+  @override
+  String get speechExportFailed =>
+      'Could not export the voice model. Check the destination and free disk space.';
+
+  @override
+  String get speechInvalidPackage =>
+      'This is not a readable voice model archive. Choose a .tar.zst or .tar.bz2 file.';
+
+  @override
+  String get speechPackageTooLarge =>
+      'The voice model archive or its contents exceed the size limit.';
+
+  @override
+  String get speechRecognition => 'Speech recognition';
+
+  @override
+  String get speechRecognitionFormat =>
+      'Chinese–English Zipformer (2023-02-20, int8 encoder and joiner)';
+
+  @override
+  String get speechSynthesis => 'Speech synthesis';
+
+  @override
+  String get speechSynthesisFormat => 'Chinese VITS (vits-zh-ll)';
+
+  @override
+  String get speechDefaultVoice => 'Default voice';
+
+  @override
+  String speechVoiceNumber(int number) {
+    return 'Voice $number';
+  }
+
+  @override
+  String get speechNoModels => 'No models imported';
+
+  @override
+  String get speechCurrentDefault => 'Default model';
+
+  @override
+  String get speechModelReady => 'Available';
+
+  @override
+  String get speechSelectDefault => 'Set as default';
+
+  @override
+  String get speechLoading => 'Working…';
+
+  @override
+  String get speechPreview => 'Preview';
+
+  @override
+  String get speechPreviewText => '你好，这是一段 LilyGoBox 离线语音试听。';
+
+  @override
+  String get speechStopPlayback => 'Stop playback';
+
+  @override
+  String get speechPlayReply => 'Read reply aloud';
+
+  @override
+  String get speechStartRecording => 'Start voice input';
+
+  @override
+  String get speechStopRecording => 'Stop recording and transcribe';
+
+  @override
+  String get speechTranscribing => 'Transcribing…';
+
+  @override
+  String speechDeleteTitle(String name) {
+    return 'Delete $name?';
+  }
+
+  @override
+  String get speechDeleteDescription =>
+      'The model will be removed from the library. The original archive will not change.';
+
+  @override
+  String get speechUnsupportedModel =>
+      'The archive must contain exactly one supported voice model.';
+
+  @override
+  String get speechMissingFiles =>
+      'Model files are missing or unreadable. Check the original archive and import it again.';
+
+  @override
+  String get speechInvalidModel =>
+      'The voice model could not be loaded. Check the files and model version.';
+
+  @override
+  String get speechDuplicateModel =>
+      'This voice model is already in the library.';
+
+  @override
+  String get speechStorageError =>
+      'Could not access the voice model library. Check local storage and try again.';
+
+  @override
+  String get speechEngineError =>
+      'The offline speech engine could not complete the request.';
+
+  @override
+  String get speechMicrophoneError =>
+      'Could not record from the default microphone. Check Windows microphone access and the input device.';
+
+  @override
+  String get speechNoSpeech => 'No speech was recognized. Try recording again.';
+
+  @override
+  String get speechPlaybackError =>
+      'Could not play audio. Check the default Windows output device.';
 }

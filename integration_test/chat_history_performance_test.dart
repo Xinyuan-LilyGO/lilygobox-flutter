@@ -29,7 +29,7 @@ import '../test/features/assistant/assistant_test_scope.dart';
 Future<Map<String, dynamic>> _sourceConversation() async {
   const path = String.fromEnvironment('CHAT_PERF_PAYLOAD');
   if (path.isEmpty) throw ArgumentError('Provide a copied CHAT_PERF_PAYLOAD');
-  final payload = path.endsWith('.7z')
+  final payload = path.endsWith('.tar.zst')
       ? await AgentPackage.read(path)
       : jsonDecode(await File(path).readAsString()) as Map;
   final sessions = ((payload['workflow'] as Map)['sessions'] as List)

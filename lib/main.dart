@@ -10,6 +10,7 @@ import 'app/bootstrap/window_bootstrap.dart';
 import 'app/tray/menu_app.dart';
 import 'core/storage/preferences.dart';
 import 'core/window/windows_clipboard_history_paste.dart';
+import 'features/speech/data/speech_worker.dart';
 
 // 托盘只启动共用菜单，不重复初始化设备、账号、配置或主窗口。
 @pragma('vm:entry-point')
@@ -17,6 +18,9 @@ void trayMain() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const TrayMenuApp());
 }
+
+@pragma('vm:entry-point')
+Future<void> speechWorkerMain() => runSpeechWorker();
 
 Future<void> main() async {
   debugPaintSizeEnabled = false; // 部件边界调试

@@ -19,6 +19,8 @@ import '../../../account/state/provider.dart';
 import '../../../assistant/presentation/widgets/roleplay_library_content.dart';
 import '../../../assistant/presentation/widgets/service_settings_content.dart';
 import '../../../assistant/presentation/widgets/storage_content.dart';
+import '../../../speech/presentation/speech_settings_content.dart';
+import '../../../speech/state/speech_provider.dart';
 import 'about_content.dart';
 import 'content_layout.dart';
 import 'general_content.dart';
@@ -33,6 +35,7 @@ enum _SettingsCategory {
   aiService,
   storage,
   roleplayLibrary,
+  speech,
 }
 
 class SettingsSplitView extends StatefulWidget {
@@ -89,6 +92,9 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
   @override
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeProvider>().themeData;
+    final hasSpeech = context.select(
+      (SpeechProvider? speech) => speech != null,
+    );
     final colors = SettingsColors(theme);
     final preferences = context.watch<AppPreferences?>();
     final savedWidth =
@@ -129,7 +135,12 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
               child: mobile
                   ? (_mobileDetail
                         ? _content(theme, colors, mobile: true, onBack: back)
-                        : _sidebar(theme, colors, mobile: true))
+                        : _sidebar(
+                            theme,
+                            colors,
+                            hasSpeech: hasSpeech,
+                            mobile: true,
+                          ))
                   : Stack(
                       children: [
                         Row(
@@ -137,7 +148,11 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
                             SizedBox(
                               key: const ValueKey('settings-sidebar'),
                               width: width,
-                              child: _sidebar(theme, colors),
+                              child: _sidebar(
+                                theme,
+                                colors,
+                                hasSpeech: hasSpeech,
+                              ),
                             ),
                             Expanded(
                               child: ClipRRect(
@@ -210,6 +225,7 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
   Widget _sidebar(
     AppTheme theme,
     SettingsColors colors, {
+    required bool hasSpeech,
     bool mobile = false,
   }) {
     final l10n = context.l10n;
@@ -355,6 +371,11 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
                     l10n.aiRoleplayLibraryTitle,
                     Symbols.badge_rounded,
                   ),
+                  if (hasSpeech)
+                    _SettingsCategory.speech: (
+                      l10n.speechTitle,
+                      Symbols.voice_chat_rounded,
+                    ),
                 }.entries)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4),
@@ -462,6 +483,7 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
       _SettingsCategory.aiService: l10n.aiServiceTitle,
       _SettingsCategory.storage: l10n.agentStorageTitle,
       _SettingsCategory.roleplayLibrary: l10n.aiRoleplayLibraryTitle,
+      _SettingsCategory.speech: l10n.speechTitle,
     };
     final page = _profile
         ? ProfileContent(theme: theme)
@@ -479,6 +501,7 @@ class _SettingsSplitViewState extends State<SettingsSplitView> {
             _SettingsCategory.roleplayLibrary => RoleplayLibraryContent(
               theme: theme,
             ),
+            _SettingsCategory.speech => SpeechSettingsContent(theme: theme),
             _SettingsCategory.aiService => AiServiceSettingsContent(
               theme: theme,
             ),

@@ -2,20 +2,22 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 
+import 'package:archive/archive_io.dart';
 import 'package:file_selector/file_selector.dart';
-import 'package:koni_archive_core/io.dart';
-import 'package:koni_sevenz/koni_sevenz.dart';
 
+import '../../../core/files/zstd_file.dart';
+import '../../../core/files/zstd_tar.dart';
 import '../domain/roleplay_card.dart';
 import 'roleplay_card_exporter.dart';
 import 'roleplay_card_importer.dart';
 
 abstract final class RoleplayCardPackage {
-  static const fileName = 'lilygobox-character-cards.7z';
+  static const fileName = 'lilygobox-character-cards${ZstdTar.suffix}';
   static const _maxCards = 1024;
   static const _maxBytes = 256 * 1024 * 1024;
-  static const _maxArchiveBytes = _maxBytes + 1024 * 1024;
-  static const _archiveHeaderSize = 32;
+  static const _maxTarBytes = _maxBytes + _maxCards * 1024 + 1024;
+  static const _maxArchiveBytes = _maxTarBytes + 1024 * 1024;
+  static const _archiveHeaderSize = 4;
 
   static Future<
     ({List<AiRoleplayCard> cards, int unreadableFiles, bool singleCardFile})
@@ -57,7 +59,7 @@ abstract final class RoleplayCardPackage {
     await for (final chunk in file.openRead(0, _archiveHeaderSize)) {
       header.add(chunk);
     }
-    return const SevenZFormat().matches(MemoryByteSource(header.takeBytes()));
+    return ZstdFile.matches(header.takeBytes());
   }
 
   static Future<List<AiRoleplayCard>> read(String path) async {
@@ -68,53 +70,60 @@ abstract final class RoleplayCardPackage {
     ];
   }
 
-  static Future<void> write(String path, List<AiRoleplayCard> cards) =>
-      Isolate.run(() => _writeFiles(path, cards));
+  static Future<void> write(
+    String requestedPath,
+    List<AiRoleplayCard> cards,
+  ) async {
+    final path = await ZstdTar.exportPath(requestedPath);
+    await Isolate.run(() => _writeFiles(path, cards));
+  }
 
-  static Future<List<Uint8List>> _readFiles(String path) async {
-    final source = await FileByteSource.open(path);
-    try {
-      const format = SevenZFormat();
-      if (source.length > _maxArchiveBytes || !await format.matches(source)) {
-        throw const FormatException('Invalid character card archive');
-      }
-      final reader = await format.openReader(
-        source,
-        const ArchiveReadOptions(
-          maxEntryCount: _maxCards,
-          maxEntrySize: AiRoleplayCardImporter.maxFileBytes,
-          maxContainerDecodeSize: _maxBytes,
-        ),
-      );
-      try {
-        final entries = reader.entries.where((entry) {
-          final name = entry.path.toLowerCase();
-          return entry.isFile &&
-              !entry.pathEscapedRoot &&
-              (name.endsWith('.png') || name.endsWith('.json'));
-        }).toList();
-        final size = entries.fold(
-          0,
-          (sum, entry) => sum + entry.uncompressedSize,
-        );
-        if (entries.isEmpty || size > _maxBytes) {
-          throw const FormatException('Invalid character card archive size');
-        }
-        final files = <Uint8List>[];
-        for (final entry in entries) {
-          final bytes = BytesBuilder(copy: false);
-          await for (final chunk in reader.openRead(entry)) {
-            bytes.add(chunk);
-          }
-          files.add(bytes.takeBytes());
-        }
-        return files;
-      } finally {
-        await reader.close();
-      }
-    } finally {
-      await source.close();
+  static List<Uint8List> _readFiles(String path) {
+    if (File(path).lengthSync() > _maxArchiveBytes) {
+      throw const FormatException('Invalid character card archive size');
     }
+    final input = InputFileStream(path);
+    final output = OutputMemoryStream();
+    final files = <Uint8List>[];
+    var count = 0;
+    var total = 0;
+    try {
+      ZstdFile.decompress(input, output, maxBytes: _maxTarBytes);
+      TarDecoder().decodeBytes(
+        output.getBytes(),
+        verify: true,
+        keepEntries: false,
+        callback: (entry) {
+          if (++count > _maxCards ||
+              entry.size > AiRoleplayCardImporter.maxFileBytes) {
+            throw const FormatException('Invalid character card archive size');
+          }
+          final name = entry.name.replaceAll('\\', '/').toLowerCase();
+          if (name.startsWith('/') ||
+              name.contains(':') ||
+              name.split('/').contains('..') ||
+              entry.isSymbolicLink ||
+              entry.isHardLink) {
+            throw const FormatException('Invalid character card archive entry');
+          }
+          if (!entry.isFile ||
+              !(name.endsWith('.png') || name.endsWith('.json'))) {
+            return;
+          }
+          total += entry.size;
+          if (total > _maxBytes) {
+            throw const FormatException('Invalid character card archive size');
+          }
+          files.add(entry.content);
+        },
+      );
+    } finally {
+      input.closeSync();
+    }
+    if (files.isEmpty) {
+      throw const FormatException('Character card archive is empty');
+    }
+    return files;
   }
 
   static Future<void> _writeFiles(
@@ -128,12 +137,9 @@ abstract final class RoleplayCardPackage {
       '$path.${DateTime.now().microsecondsSinceEpoch}.partial',
     );
     try {
-      final sink = await FileByteSink.create(temporary.path);
+      final output = OutputFileStream(temporary.path);
       try {
-        final writer = const SevenZWriteFormat().openWriter(
-          sink,
-          const ArchiveWriteOptions(compression: ArchiveCompression.stored),
-        );
+        final writer = ZstdTar.writer(output);
         var size = 0;
         for (final (index, card) in cards.indexed) {
           final bytes = AiRoleplayCardExporter.encode(card);
@@ -142,21 +148,22 @@ abstract final class RoleplayCardPackage {
               bytes.length > AiRoleplayCardImporter.maxFileBytes) {
             throw const FormatException('Character card archive is too large');
           }
-          final safeName = card.name.replaceAll(
-            RegExp(r'[<>:"/\\|?*\x00-\x1f]'),
-            '_',
+          final safeName = String.fromCharCodes(
+            card.name
+                .replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1f]'), '_')
+                .runes
+                .take(20),
           );
           final extension = AiRoleplayCardImporter.hasPngSignature(bytes)
               ? 'png'
               : 'json';
-          await writer.addBytes(
-            ArchiveEntrySpec(path: '${index + 1}-$safeName.$extension'),
-            bytes,
+          writer.add(
+            ArchiveFile.bytes('${index + 1}-$safeName.$extension', bytes),
           );
         }
-        await writer.close();
+        writer.close();
       } finally {
-        await sink.close();
+        output.closeSync();
       }
       await temporary.rename(path);
     } finally {

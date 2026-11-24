@@ -6,6 +6,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/files/export_file_name.dart';
+import '../../../../core/files/zstd_file.dart';
+import '../../../../core/files/zstd_tar.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/widgets/action_button.dart';
@@ -68,18 +70,15 @@ class _RoleplayLibraryContentState extends State<RoleplayLibraryContent> {
         batch: true,
       ),
     );
-    return DesktopCardSelectionRegion(
-      focusNode: _selectionFocus,
-      selection: _selection,
-      ids: ids,
-      enabled: available,
-      onChanged: () => setState(() {}),
-      onDelete: available ? deleteSelected : null,
-      child: SettingsContentLayout(
-        theme: theme,
-        title: l10n.aiRoleplayLibraryTitle,
-        description: l10n.aiRoleplayLibraryDescription,
+    final header = SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          SettingsContentHeader(
+            theme: theme,
+            title: l10n.aiRoleplayLibraryTitle,
+            description: l10n.aiRoleplayLibraryDescription,
+          ),
           if (available) ...[
             DesktopCardSelectionTarget(
               child: SettingsSection(
@@ -147,16 +146,55 @@ class _RoleplayLibraryContentState extends State<RoleplayLibraryContent> {
                   ? l10n.aiRoleplayLibraryEmpty
                   : l10n.aiRoleplayLibraryUnavailable,
               style: AppDialogStyle.descriptionStyle(theme),
-            )
-          else
-            for (final card in cards)
-              _buildCard(
-                context,
-                workspaces,
-                card,
-                usage?[card.templateFingerprint]?.length ?? 0,
-              ),
+            ),
         ],
+      ),
+    );
+    return DesktopCardSelectionRegion(
+      focusNode: _selectionFocus,
+      selection: _selection,
+      ids: ids,
+      enabled: available,
+      onChanged: () => setState(() {}),
+      onDelete: available ? deleteSelected : null,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const pagePadding = SettingsContentLayout.pagePadding;
+          final sidePadding =
+              ((constraints.maxWidth - SettingsContentLayout.contentWidth) / 2)
+                  .clamp(pagePadding.left, double.infinity);
+          final padding = pagePadding.copyWith(
+            left: sidePadding,
+            right: sidePadding,
+          );
+          return CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: cards.isEmpty ? padding : padding.copyWith(bottom: 0),
+                sliver: header,
+              ),
+              if (cards.isNotEmpty)
+                SliverPadding(
+                  padding: padding.copyWith(top: 0),
+                  sliver: SliverList.builder(
+                    itemCount: cards.length,
+                    findChildIndexCallback: (key) {
+                      final index = ids.indexOf(
+                        (key as ValueKey<String>).value,
+                      );
+                      return index < 0 ? null : index;
+                    },
+                    itemBuilder: (_, index) => _buildCard(
+                      context,
+                      workspaces,
+                      cards[index],
+                      usage?[ids[index]]?.length ?? 0,
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -173,16 +211,16 @@ class _RoleplayLibraryContentState extends State<RoleplayLibraryContent> {
         acceptedTypeGroups: [
           XTypeGroup(
             label: l10n.aiRoleplayFileType,
-            extensions: const ['png', 'json', '7z'],
+            extensions: const ['png', 'json', ZstdFile.extension],
             mimeTypes: const [
               'image/png',
               'application/json',
-              'application/x-7z-compressed',
+              ZstdFile.mimeType,
             ],
             uniformTypeIdentifiers: const [
               'public.png',
               'public.json',
-              'org.7-zip.7-zip-archive',
+              ZstdFile.uniformTypeIdentifier,
             ],
           ),
         ],
@@ -237,8 +275,13 @@ class _RoleplayLibraryContentState extends State<RoleplayLibraryContent> {
       final selected = await _selectCards(context, cards);
       if (selected == null || !context.mounted) return;
       final destination = await getSaveLocation(
-        suggestedName: datedExportFileName(RoleplayCardPackage.fileName),
-        acceptedTypeGroups: [_packageType(context)],
+        suggestedName: datedExportFileName(
+          RoleplayCardPackage.fileName,
+          suffix: ZstdTar.suffix,
+        ),
+        acceptedTypeGroups: [
+          ZstdFile.typeGroup(l10n.aiRoleplayPackageFileType),
+        ],
       );
       if (destination == null) return;
       await RoleplayCardPackage.write(destination.path, selected);
@@ -251,11 +294,6 @@ class _RoleplayLibraryContentState extends State<RoleplayLibraryContent> {
       if (mounted) setState(() => _transferring = false);
     }
   }
-
-  XTypeGroup _packageType(BuildContext context) => XTypeGroup(
-    label: context.l10n.aiRoleplayPackageFileType,
-    extensions: const ['7z'],
-  );
 
   Future<List<AiRoleplayCard>?> _selectCards(
     BuildContext context,

@@ -774,10 +774,10 @@ void main() {
       expect(restored.processEvents.single.action!.output, 'result');
     },
   );
-  test('7z packages roundtrip and corruption is rejected', () async {
+  test('Zstd packages roundtrip and corruption is rejected', () async {
     final dir = await Directory.systemTemp.createTemp('agent-package-test-');
     addTearDown(() => dir.delete(recursive: true));
-    final path = '${dir.path}/data.7z';
+    final path = '${dir.path}/data.tar.zst';
     final data = {
       'type': 'memory',
       'memories': [

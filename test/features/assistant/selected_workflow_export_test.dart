@@ -123,7 +123,7 @@ void main() {
         excluded.id: [400, 400],
       });
       final selected = {first.id, child.id, peer.id};
-      final path = '${directory.path}/selection.7z';
+      final path = '${directory.path}/selection.tar.zst';
       await controller.export(path, 'workflow', selectedIds: selected);
       final package = await controller.inspect(path);
       expect(package['type'], 'workflow');
@@ -245,7 +245,7 @@ void main() {
       };
       for (final entry in expected.entries) {
         final type = entry.key;
-        final path = '${directory.path}/$type.7z';
+        final path = '${directory.path}/$type.tar.zst';
         await controller.export(
           path,
           type,
@@ -276,14 +276,14 @@ void main() {
         expect((roleplay['binding'] as Map).containsKey('card'), isFalse);
       }
 
-      final memoryPath = '${directory.path}/memory.7z';
+      final memoryPath = '${directory.path}/memory.tar.zst';
       await controller.export(memoryPath, 'memory');
       final memoryPackage = await controller.inspect(memoryPath);
       expect(memoryPackage['workflow'], isNull);
       expect(jsonEncode(memoryPackage), isNot(contains(reference)));
 
       final incoming = await controller.inspect(
-        '${directory.path}/workflow.7z',
+        '${directory.path}/workflow.tar.zst',
       );
       final destination = AgentStorage(path: '${directory.path}/target.db');
       final targetScope = await createAssistantTestScope(
@@ -341,7 +341,7 @@ void main() {
       final active = await create('Active');
       final recycled = await create('Recycled');
       workspaces.removeMany([recycled.id]);
-      final path = '${directory.path}/invalid.7z';
+      final path = '${directory.path}/invalid.tar.zst';
       await expectLater(
         controller.export(path, 'workflow', selectedIds: {}),
         throwsStateError,

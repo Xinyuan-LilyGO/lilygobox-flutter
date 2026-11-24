@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lilygobox/core/files/zstd_tar.dart';
+import 'package:lilygobox/features/assistant/data/agent_compression.dart';
 import 'package:lilygobox/features/assistant/data/agent_package.dart';
-import 'package:lilygobox_codecs/lilygobox_codecs.dart';
 
 void main() {
   late Directory directory;
@@ -20,39 +23,40 @@ void main() {
     'type': 'chat',
     'text': List.generate(
       80000,
-      (i) => 'Message $i: context and attachments.',
+      (index) => 'Message $index: 聊天记录与附件。',
     ).join('\n'),
     'memories': <Object?>[],
   };
 
-  test('codec progress streams preserve empty and multi-chunk data', () {
-    for (final input in [
-      Uint8List(0),
-      Uint8List.fromList(List.generate(2500000, (i) => i % 251)),
-    ]) {
-      final encodeProgress = <int>[];
-      final decodeProgress = <int>[];
-      final packed = LilygoBoxCodecs.lzma2(
-        input,
-        onProgress: (a, b) => encodeProgress.add(a),
-      );
-      final output = LilygoBoxCodecs.unlzma2(
-        packed,
-        onProgress: (a, b) => decodeProgress.add(b),
-      );
-      expect(output, input);
-      expect(decodeProgress.last, input.length);
-      if (input.isNotEmpty) {
-        expect(decodeProgress.length, greaterThan(1));
-        expect(encodeProgress, isNotEmpty);
-      }
-    }
+  test('exports JSON entries in a standard Zstd-compressed TAR', () async {
+    final path = '${directory.path}/chat.tar.zst';
+    final data = payload();
+    await AgentPackage.write(path, data);
+    final archive = TarDecoder().decodeBytes(
+      ZstdDecoder().decodeBytes(await File(path).readAsBytes(), verify: true),
+      verify: true,
+    );
+    expect(archive.files.map((entry) => entry.name), [
+      'manifest.json',
+      'data.json',
+    ]);
+    final [manifest, body] = archive.files;
+    final decoded = utf8.decode(body.content);
+    final metadata = jsonDecode(utf8.decode(manifest.content));
+    expect(jsonDecode(decoded), data);
+    expect(metadata, {
+      'format': 'LilygoBox.agent-data',
+      'version': 1,
+      'type': 'chat',
+      'sha256': sha256.convert(utf8.encode(decoded)).toString(),
+      'size': body.size,
+    });
   });
 
   test(
-    'packages report measured compression, decompression and writes',
+    'packages report measured checksum and IO with indeterminate codec stages',
     () async {
-      final path = '${directory.path}/chat.7z';
+      final path = '${directory.path}/chat.tar.zst';
       final written = <AgentPackageProgress>[];
       final read = <AgentPackageProgress>[];
       final data = payload();
@@ -61,19 +65,16 @@ void main() {
       final compression = written
           .where((e) => e.stage == AgentPackageStage.compressing)
           .toList();
-      expect(compression.first.fraction, 0);
-      expect(compression.last.fraction, 1);
-      expect(
-        compression.any((e) => e.fraction! > 0 && e.fraction! < 1),
-        isTrue,
-      );
+      expect(compression.single.fraction, isNull);
       final decompression = read
           .where((e) => e.stage == AgentPackageStage.decompressing)
           .toList();
+      expect(decompression.single.fraction, isNull);
       expect(
-        decompression.any((e) => e.fraction! > 0 && e.fraction! < 1),
-        isTrue,
+        written.where((event) => event.stage == .writing).last.fraction,
+        1,
       );
+      expect(read.where((event) => event.stage == .reading).last.fraction, 1);
       expect(written.last.stage, AgentPackageStage.committing);
       expect(written.last.canCancel, isFalse);
       for (final events in [written, read]) {
@@ -103,7 +104,7 @@ void main() {
     test(
       'cancelled ${exporting ? 'export' : 'import'} checksum preserves the original file',
       () async {
-        final path = '${directory.path}/checksum.7z';
+        final path = '${directory.path}/checksum.tar.zst';
         if (exporting) {
           await File(path).writeAsString('Existing destination');
         } else {
@@ -142,7 +143,7 @@ void main() {
   }
 
   test('cancelled compression keeps existing destination and removes temporary output', () async {
-    final path = '${directory.path}/existing.7z';
+    final path = '${directory.path}/existing.tar.zst';
     await File(path).writeAsString('keep this existing file');
     final cancellation = AgentPackageCancellation();
     await expectLater(
@@ -151,10 +152,7 @@ void main() {
         payload(),
         cancellation: cancellation,
         onProgress: (progress) {
-          if (progress.stage == AgentPackageStage.compressing &&
-              progress.fraction != null &&
-              progress.fraction! > 0 &&
-              progress.fraction! < 1) {
+          if (progress.stage == AgentPackageStage.compressing) {
             cancellation.cancel();
           }
         },
@@ -168,7 +166,7 @@ void main() {
   });
 
   test('cancelled decompression leaves source package unchanged', () async {
-    final path = '${directory.path}/source.7z';
+    final path = '${directory.path}/source.tar.zst';
     await AgentPackage.write(path, payload());
     final before = await File(path).readAsBytes();
     final cancellation = AgentPackageCancellation();
@@ -177,10 +175,7 @@ void main() {
         path,
         cancellation: cancellation,
         onProgress: (progress) {
-          if (progress.stage == AgentPackageStage.decompressing &&
-              progress.fraction != null &&
-              progress.fraction! > 0 &&
-              progress.fraction! < 1) {
+          if (progress.stage == AgentPackageStage.decompressing) {
             cancellation.cancel();
           }
         },
@@ -190,57 +185,114 @@ void main() {
     expect(await File(path).readAsBytes(), before);
   });
 
+  test('only a completed write replaces an existing package', () async {
+    final path = '${directory.path}/existing.tar.zst';
+    final original = {'type': 'memory', 'memories': <Object?>[]};
+    await AgentPackage.write(path, original);
+    final cancellation = AgentPackageCancellation();
+    final data = payload();
+    await expectLater(
+      AgentPackage.write(
+        path,
+        data,
+        cancellation: cancellation,
+        onProgress: (progress) {
+          if (progress.stage == .writing && progress.completed! > 0) {
+            cancellation.cancel();
+          }
+        },
+      ),
+      throwsA(isA<AgentPackageCancelled>()),
+    );
+    expect(directory.listSync().whereType<File>(), hasLength(1));
+    expect(await AgentPackage.read(path), original);
+    await AgentPackage.write(path, data);
+    expect(await AgentPackage.read(path), data);
+  });
+
   test(
-    'native codecs stop inside measurable compression and decompression',
-    () {
-      final input = Uint8List.fromList(
-        List.generate(4 * 1024 * 1024, (i) => i % 251),
+    'adds the compound suffix without replacing an unselected file',
+    () async {
+      final requested = '${directory.path}/memory.zst';
+      final destination = '${directory.path}/memory.tar.zst';
+      final original = {'type': 'memory', 'memories': <Object?>[]};
+      await AgentPackage.write(requested, original);
+      expect(await AgentPackage.read(destination), original);
+      await expectLater(
+        AgentPackage.write(requested, payload()),
+        throwsA(isA<FileSystemException>()),
       );
-      final encodeCancel = CodecCancellation();
-      final decodeCancel = CodecCancellation();
-      try {
-        var lastEncoded = 0;
-        expect(
-          () => LilygoBoxCodecs.lzma2(
-            input,
-            cancellation: encodeCancel,
-            onProgress: (consumed, output) {
-              lastEncoded = consumed;
-              if (consumed > 0 && consumed < input.length) {
-                encodeCancel.cancel();
-              }
-            },
+      expect(await AgentPackage.read(destination), original);
+    },
+  );
+
+  for (final (entryName, expectedError) in [
+    ('unexpected.json', 'Invalid package structure'),
+    ('data.json', 'Package checksum mismatch'),
+  ]) {
+    test('rejects $entryName with $expectedError', () async {
+      final path = '${directory.path}/invalid.tar.zst';
+      final bytes = utf8.encode('{"type":"chat"}');
+      final output = OutputMemoryStream();
+      ZstdTar.writer(output)
+        ..add(
+          ArchiveFile.bytes(
+            'manifest.json',
+            utf8.encode(
+              jsonEncode({
+                'format': 'LilygoBox.agent-data',
+                'version': 1,
+                'type': 'chat',
+                'sha256': 'wrong checksum',
+                'size': bytes.length,
+              }),
+            ),
           ),
-          throwsA(isA<CodecCancelled>()),
-        );
-        expect(lastEncoded, greaterThan(0));
-        expect(lastEncoded, lessThan(input.length));
-        final compressed = LilygoBoxCodecs.lzma2(input);
-        var lastDecoded = 0;
-        expect(
-          () => LilygoBoxCodecs.unlzma2(
-            compressed,
-            cancellation: decodeCancel,
-            onProgress: (consumed, output) {
-              lastDecoded = output;
-              if (output > 0 && output < input.length) decodeCancel.cancel();
-            },
+        )
+        ..add(ArchiveFile.bytes(entryName, bytes))
+        ..close();
+      await File(path).writeAsBytes(output.getBytes());
+      await expectLater(
+        AgentPackage.read(path),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            expectedError,
           ),
-          throwsA(isA<CodecCancelled>()),
-        );
-        expect(lastDecoded, greaterThan(0));
-        expect(lastDecoded, lessThan(input.length));
-        // A subsequent operation succeeds after cancelled operations freed their buffers.
-        expect(LilygoBoxCodecs.unlzma2(compressed), input);
-      } finally {
-        encodeCancel.dispose();
-        decodeCancel.dispose();
-      }
+        ),
+      );
+    });
+  }
+
+  test('reads the long-chat fixture', () async {
+    final archive = await AgentPackage.read(
+      'artifacts/lilygobox-long-chat-10000.tar.zst',
+    );
+    expect(archive['type'], 'agent');
+  });
+
+  test(
+    'reads a database object compressed with the previous Zstd implementation',
+    () {
+      final compressed = base64Decode(
+        'sAkAAAAAAAAotS/9YLAIPQEA+ExlZ2FjeSBTUUxpdGUgb2JqZWN0IOaXp+aVsOaNrgoBADtG+MoJ',
+      );
+      final expected = List.filled(80, 'Legacy SQLite object 旧数据\n').join();
+      expect(
+        utf8.decode(AgentCompression.decompressObject(compressed)),
+        expected,
+      );
+      final rewritten = AgentCompression.compressObject(utf8.encode(expected));
+      expect(
+        utf8.decode(AgentCompression.decompressObject(rewritten)),
+        expected,
+      );
     },
   );
 
   test('pre-cancelled package operation does not touch destination', () async {
-    final path = '${directory.path}/data.7z';
+    final path = '${directory.path}/data.tar.zst';
     final cancellation = AgentPackageCancellation()..cancel();
     await expectLater(
       AgentPackage.write(path, payload(), cancellation: cancellation),

@@ -202,16 +202,20 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
       enabled: !busy,
       onChanged: () => setState(() {}),
       onDelete: busy ? null : deleteSelected,
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: SettingsContentLayout.contentWidth + 48,
-          ),
-          child: CustomScrollView(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const pagePadding = SettingsContentLayout.pagePadding;
+          final sidePadding =
+              ((constraints.maxWidth - SettingsContentLayout.contentWidth) / 2)
+                  .clamp(pagePadding.left, double.infinity);
+          return CustomScrollView(
             slivers: [
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(24, 22, 24, 12),
+                padding: pagePadding.copyWith(
+                  left: sidePadding,
+                  right: sidePadding,
+                  bottom: 12,
+                ),
                 sliver: SliverToBoxAdapter(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -314,7 +318,11 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
               ),
               if (assistant.credentialLoaded && assistant.services.isNotEmpty)
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                  padding: pagePadding.copyWith(
+                    left: sidePadding,
+                    right: sidePadding,
+                    top: 0,
+                  ),
                   sliver: SliverReorderableList(
                     key: const ValueKey('ai-service-list'),
                     dragBoundaryProvider: _ServiceDragBoundary.new,
@@ -350,8 +358,8 @@ class _AiServiceSettingsContentState extends State<AiServiceSettingsContent> {
                   ),
                 ),
             ],
-          ),
-        ),
+          );
+        },
       ),
     );
   }

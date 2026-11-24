@@ -29,6 +29,7 @@
 - [提问卡片与回答回传](assistant-user-input.md)：模型工具触发、输入区替换、选项与自填答案、停止和取消，以及思考与正文分离。
 - [AI 思考强度](ai-reasoning-effort.md)
 - [模型图片输入能力声明](ai-image-input.md)
+- [Windows 离线语音](offline-voice.md)：官方模型导入、音色试听、聊天录音与回复朗读。
 - [Windows 剪贴板历史粘贴](windows-clipboard-history.md)
 - [应用图标](app-icon.md)
 - [配置文件](configuration-file.md)

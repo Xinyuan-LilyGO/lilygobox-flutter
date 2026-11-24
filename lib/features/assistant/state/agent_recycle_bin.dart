@@ -11,6 +11,7 @@ class AiRecycledAgent {
        title = record['title'] as String,
        task = record['task'] as String,
        parentId = record['parentId'] as String?,
+       _roleplayFingerprint = _readRoleplayFingerprint(record),
        _record = jsonEncode(record);
   final String _record;
   Map<String, dynamic> get record =>
@@ -22,9 +23,9 @@ class AiRecycledAgent {
   final String title;
   final String task;
   final String? parentId;
-  late final String? _roleplayFingerprint = _readRoleplayFingerprint();
+  final String? _roleplayFingerprint;
 
-  String? _readRoleplayFingerprint() {
+  static String? _readRoleplayFingerprint(Map<String, dynamic> record) {
     final conversation = record['conversation'];
     if (conversation case {'roleplay': {'binding': {'card': final Map card}}}) {
       try {
