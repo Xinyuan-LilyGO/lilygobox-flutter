@@ -48,13 +48,11 @@ class AssistantPage extends StatefulWidget {
     this.readOnly = false,
     this.initialDraft = '',
     this.onManageContext,
-    this.roleplayMenuBuilder,
   });
 
   final bool readOnly;
   final String initialDraft;
   final VoidCallback? onManageContext;
-  final Widget Function(bool compact)? roleplayMenuBuilder;
 
   @override
   State<AssistantPage> createState() => _AssistantPageState();
@@ -484,8 +482,6 @@ class _AssistantPageState extends State<AssistantPage> {
                                   assistant: assistant,
                                   ready: ready,
                                   onManageContext: widget.onManageContext,
-                                  roleplayMenuBuilder:
-                                      widget.roleplayMenuBuilder,
                                   voiceButton: voiceButton,
                                   onSend: (fromKeyboard) => _send(
                                     assistant,

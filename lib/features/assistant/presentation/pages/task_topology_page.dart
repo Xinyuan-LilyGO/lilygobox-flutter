@@ -4786,6 +4786,42 @@ class _TopologyConversation extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeProvider>().themeData;
     final l10n = context.l10n;
+    final agentInfo = Column(
+      key: ValueKey('topology-conversation-info-${session.id}'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _kindIcon(session.kind),
+              fill: 1,
+              size: _taskKindIconSize,
+              color: theme.textColorTertiary,
+            ),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                _kind(l10n, session.kind),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _taskKindTitleStyle.copyWith(
+                  color: theme.textColorTertiary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 3),
+        Text(
+          l10n.aiAgentIdValue(session.id),
+          key: ValueKey('topology-conversation-task-id-${session.id}'),
+          textAlign: TextAlign.end,
+          style: TextStyle(fontSize: 10, color: theme.textColorTertiary),
+        ),
+      ],
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -4802,7 +4838,9 @@ class _TopologyConversation extends StatelessWidget {
                   child: TitleBarIconButton(
                     key: const ValueKey('topology-back'),
                     theme: theme,
-                    backgroundColor: theme.primary,
+                    backgroundColor: Colors.transparent,
+                    surfaceColor: theme.primary,
+                    hoverColor: theme.primary,
                     isFocused: true,
                     icon: Symbols.arrow_back_rounded,
                     size: 28,
@@ -4829,46 +4867,25 @@ class _TopologyConversation extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 flex: 2,
-                child: Column(
-                  key: ValueKey('topology-conversation-info-${session.id}'),
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _kindIcon(session.kind),
-                          fill: 1,
-                          size: _taskKindIconSize,
-                          color: theme.textColorTertiary,
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: math.min(220, constraints.maxWidth / 2),
                         ),
-                        const SizedBox(width: 5),
-                        Flexible(
-                          child: Text(
-                            _kind(l10n, session.kind),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: _taskKindTitleStyle.copyWith(
-                              color: theme.textColorTertiary,
-                            ),
-                          ),
+                        child: RoleplayMenuButton(
+                          theme: theme,
+                          assistant: session.assistant,
+                          compact: constraints.maxWidth < 232,
+                          onChooseOpening: onChooseOpening,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      l10n.aiAgentIdValue(session.id),
-                      key: ValueKey(
-                        'topology-conversation-task-id-${session.id}',
                       ),
-                      textAlign: TextAlign.end,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: theme.textColorTertiary,
-                      ),
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      Flexible(child: agentInfo),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -4884,12 +4901,6 @@ class _TopologyConversation extends StatelessWidget {
                 : '',
             onManageContext: () =>
                 showAgentContextStorage(context, theme, session.id),
-            roleplayMenuBuilder: (compact) => RoleplayMenuButton(
-              theme: theme,
-              assistant: session.assistant,
-              compact: compact,
-              onChooseOpening: onChooseOpening,
-            ),
           ),
         ),
       ],

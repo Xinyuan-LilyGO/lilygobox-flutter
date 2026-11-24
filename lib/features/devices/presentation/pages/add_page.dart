@@ -158,7 +158,9 @@ class _AddDevicePageState extends State<AddDevicePage> {
                                 button: true,
                                 child: TitleBarIconButton(
                                   theme: theme,
-                                  backgroundColor: theme.primary,
+                                  backgroundColor: Colors.transparent,
+                                  surfaceColor: theme.primary,
+                                  hoverColor: theme.primary,
                                   isFocused: true,
                                   icon: Symbols.arrow_back_rounded,
                                   size: 28,

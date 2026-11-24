@@ -20,7 +20,6 @@ import '../../../../core/widgets/popup_menu_transition.dart';
 import '../../../../core/widgets/settings/compact_switch.dart';
 import '../../../../core/widgets/settings/search_field.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
-import '../../../../generated/l10n/app_localizations.dart';
 import '../../domain/roleplay_card.dart';
 import '../../state/agent_workspace_provider.dart';
 import '../../state/provider.dart';
@@ -40,14 +39,6 @@ class RoleplayMenuButton extends StatefulWidget {
   final AiAssistantProvider assistant;
   final bool compact;
   final Future<void> Function(AiRoleplayBinding) onChooseOpening;
-
-  static const labelChromeWidth = 18.0;
-
-  static double compactWidth(AiRoleplayBinding? binding) =>
-      binding?.card.avatar == null ? 28 : 30;
-
-  static String labelFor(AppLocalizations l10n, AiRoleplayBinding? binding) =>
-      binding?.card.name ?? l10n.aiRoleplayCard;
 
   @override
   State<RoleplayMenuButton> createState() => _RoleplayMenuButtonState();
@@ -82,7 +73,8 @@ class _RoleplayMenuButtonState extends State<RoleplayMenuButton> {
     final assistant = widget.assistant;
     final binding = assistant.roleplayBinding;
     final enabled = assistant.roleplayEnabled;
-    final label = RoleplayMenuButton.labelFor(l10n, binding);
+    final label = binding?.card.name ?? l10n.aiRoleplayCard;
+    final hoverColor = theme.secondaryTextHoverColor;
     final status = enabled
         ? l10n.aiRoleplayCardActive
         : l10n.aiRoleplayCardPaused;
@@ -135,23 +127,27 @@ class _RoleplayMenuButtonState extends State<RoleplayMenuButton> {
           child: MenuItemSurface(
             key: const ValueKey('roleplay-chat-menu'),
             theme: theme,
+            backgroundColor: hoverColor.withValues(alpha: 0),
+            surfaceColor: theme.primary,
+            hoverColor: hoverColor,
+            borderRadius: BorderRadius.circular(10),
             onPressed: () =>
                 controller.isOpen ? controller.close() : controller.open(),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 20),
+                constraints: const BoxConstraints(minHeight: 22),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (binding != null && binding.card.avatar != null)
-                      RoleplayAvatar(card: binding.card, theme: theme, size: 18)
+                      RoleplayAvatar(card: binding.card, theme: theme, size: 22)
                     else
                       Icon(
                         binding == null
                             ? _noRoleplayCardIcon
                             : Symbols.badge_rounded,
-                        size: 16,
+                        size: 22,
                         fill: binding == null ? 0 : 1,
                         color: theme.textColorSecondary,
                       ),
@@ -168,8 +164,10 @@ class _RoleplayMenuButtonState extends State<RoleplayMenuButton> {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 4),
                       AnimatedRotation(
-                        turns: controller.isOpen ? .5 : 0,
+                        key: const ValueKey('roleplay-chat-menu-arrow'),
+                        turns: controller.isOpen ? 0 : -.25,
                         duration: MediaQuery.disableAnimationsOf(context)
                             ? Duration.zero
                             : PopupMenuTransition.duration,
@@ -293,9 +291,7 @@ class _RoleplayTemplateMenuState extends State<RoleplayTemplateMenu> {
       _inChat ? 196.0 : 134.0,
       _RoleplayMenuPanel.height,
     );
-    final opensAbove = _inChat
-        ? above >= preferredHeight || above >= below
-        : below < preferredHeight && above > below;
+    final opensAbove = below < preferredHeight && above > below;
     final width = _RoleplayMenuPanel.preferredWidth.clamp(0.0, bounds.width);
     final maxHeight = (opensAbove ? above : below).clamp(
       0.0,

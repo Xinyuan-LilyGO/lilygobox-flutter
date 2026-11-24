@@ -2703,12 +2703,6 @@ void main() {
                     onSend: (_) {},
                     attachments: const [],
                     onAttachmentsChanged: (_) {},
-                    roleplayMenuBuilder: (compact) => RoleplayMenuButton(
-                      theme: theme.themeData,
-                      assistant: assistant,
-                      compact: compact,
-                      onChooseOpening: (_) async {},
-                    ),
                   ),
                 ),
               ),
@@ -2722,12 +2716,8 @@ void main() {
       final permissions = find.byKey(
         const ValueKey('ai-permissions-button-arrow'),
       );
-      final roleplay = find.descendant(
-        of: find.byKey(const ValueKey('roleplay-chat-menu')),
-        matching: find.text(character),
-      );
       expect(permissions, findsOneWidget);
-      expect(roleplay, findsOneWidget);
+      expect(find.byType(RoleplayMenuButton), findsNothing);
       expect(modelArrow, findsOneWidget);
 
       width.value = 294;
@@ -2738,7 +2728,6 @@ void main() {
       width.value = 200;
       await tester.pumpAndSettle();
       expect(permissions, findsNothing);
-      expect(roleplay, findsNothing);
       expect(modelArrow, findsNothing);
       expect(tester.getSize(model).width, 32);
       await tester.tap(model);
@@ -2753,7 +2742,6 @@ void main() {
       width.value = 480;
       await tester.pumpAndSettle();
       expect(permissions, findsOneWidget);
-      expect(roleplay, findsOneWidget);
       expect(modelArrow, findsOneWidget);
       expect(tester.takeException(), isNull);
       await finish(tester);
@@ -2862,15 +2850,47 @@ void main() {
       );
       expect(currentDraft(), session.task);
       expect(permissions, findsOneWidget);
-      expect(
-        tester.getRect(menu).left,
-        greaterThan(tester.getRect(permissions).right),
+      final agentInfo = find.byKey(
+        ValueKey('topology-conversation-info-${session.id}'),
       );
+      final titleSurface = find.descendant(
+        of: find.byKey(
+          ValueKey('topology-conversation-title-scroll-${session.id}'),
+        ),
+        matching: find.byType(MenuItemSurface),
+      );
+      final arrow = find.byKey(const ValueKey('roleplay-chat-menu-arrow'));
+      expect(
+        tester.getRect(menu).right,
+        lessThan(tester.getRect(agentInfo).left),
+      );
+      expect(
+        tester.getCenter(menu).dy,
+        lessThan(tester.getCenter(permissions).dy),
+      );
+      expect(
+        tester.widget<MenuItemSurface>(menu).hoverColor,
+        tester.widget<MenuItemSurface>(titleSurface).hoverColor,
+      );
+      expect(
+        find.descendant(of: menu, matching: find.text(name)),
+        findsOneWidget,
+      );
+      expect(tester.widget<AnimatedRotation>(arrow).turns, -.25);
+      final arrowIcon = tester.widget<AnimatedRotation>(arrow).child! as Icon;
+      expect(arrowIcon.icon, Symbols.expand_more_rounded);
+      expect(arrowIcon.size, 14);
       expect(workspaces.activeConversationId, session.id);
       expect(tester.widget<AppTooltip>(tooltip).message, '$cardLabel · $name');
 
       await tester.tap(menu);
       await tester.pumpAndSettle();
+      expect(tester.widget<AnimatedRotation>(arrow).turns, 0);
+      final menuPanel = find.byKey(const ValueKey('roleplay-template-panel'));
+      expect(
+        tester.getRect(menuPanel).top,
+        greaterThan(tester.getRect(menu).bottom),
+      );
       final toggle = find.byKey(const ValueKey('roleplay-menu-toggle'));
       expect(tester.widget<Switch>(toggle).value, isTrue);
       await tester.tap(toggle);
@@ -3073,12 +3093,12 @@ void main() {
       final menu = find
           .byKey(const ValueKey('roleplay-chat-menu'))
           .hitTestable();
-      final permissions = find
-          .byKey(const ValueKey('ai-permissions-button'))
-          .hitTestable();
+      final agentInfo = find.byKey(
+        ValueKey('topology-conversation-info-${agent.id}'),
+      );
       expect(
-        tester.getRect(menu).left,
-        greaterThan(tester.getRect(permissions).right),
+        tester.getRect(menu).right,
+        lessThan(tester.getRect(agentInfo).left),
       );
       expect(
         find.descendant(of: menu, matching: find.byType(ClipOval)),
@@ -3093,7 +3113,12 @@ void main() {
         matching: find.text(characterName),
       );
       expect(label, findsNothing);
-      expect(tester.getSize(menu).width, lessThanOrEqualTo(36));
+      expect(tester.getSize(menu).width, 38);
+      expect(tester.getSize(menu).height, greaterThanOrEqualTo(32));
+      expect(
+        find.byKey(const ValueKey('roleplay-chat-menu-arrow')),
+        findsNothing,
+      );
       expect(
         find.byKey(const ValueKey('ai-model-selector')).hitTestable(),
         findsOneWidget,

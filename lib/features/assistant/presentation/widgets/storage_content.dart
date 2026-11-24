@@ -442,6 +442,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
           SettingSelect<String>(
             key: const ValueKey('storage-owner-select'),
             theme: theme,
+            surfaceColor: AppDialogStyle.backgroundColor(theme),
             value: selected != null ? controller.owner : '',
             items: [
               if (selected == null)
@@ -507,6 +508,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
           child: SettingSelect<String>(
             key: const ValueKey('storage-export-target'),
             theme: theme,
+            surfaceColor: AppDialogStyle.backgroundColor(theme),
             value: _exportTarget ?? '',
             items: [
               DropdownMenuItem(
@@ -547,6 +549,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
             child: SettingSelect<String>(
               key: const ValueKey('storage-package-type'),
               theme: theme,
+              surfaceColor: AppDialogStyle.backgroundColor(theme),
               value: _packageType,
               items: [
                 for (final type in ['agent', 'chat', 'memory'])
@@ -908,7 +911,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                     theme: theme,
                     assistant: assistant,
                     auxiliarySelection: assistant.auxiliaryModels.compaction,
-                    fieldSurfaceColor: theme.secondary,
+                    fieldSurfaceColor: AppDialogStyle.backgroundColor(theme),
                     onAuxiliarySelected: assistant.selectCompactionModel,
                   );
                 },
@@ -1922,6 +1925,7 @@ class _MemoryImportDestinationState extends State<_MemoryImportDestination> {
           child: SettingSelect<String>(
             key: const ValueKey('storage-memory-import-target'),
             theme: widget.theme,
+            surfaceColor: AppDialogStyle.backgroundColor(widget.theme),
             value: target,
             items: [
               DropdownMenuItem(

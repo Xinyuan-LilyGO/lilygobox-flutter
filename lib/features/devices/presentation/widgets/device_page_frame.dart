@@ -96,7 +96,9 @@ class DevicePageFrame extends StatelessWidget {
                         child: TitleBarIconButton(
                           key: const ValueKey('device-back-home'),
                           theme: theme,
-                          backgroundColor: theme.primary,
+                          backgroundColor: Colors.transparent,
+                          surfaceColor: theme.primary,
+                          hoverColor: theme.primary,
                           isFocused: true,
                           icon: Symbols.arrow_back_rounded,
                           size: 28,

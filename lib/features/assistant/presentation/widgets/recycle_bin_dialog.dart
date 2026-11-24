@@ -7,11 +7,13 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import '../../../../core/context_menu/right_click_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
+import '../../../../core/theme/material_palette.dart';
 import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_scroll_behavior.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
 import '../../../../core/widgets/desktop_card_selection.dart';
+import '../../../../core/widgets/dialog_style.dart';
 import '../../../../core/widgets/settings/search_field.dart';
 import '../../../../core/widgets/settings/select.dart';
 import '../../state/agent_workspace_provider.dart';
@@ -195,6 +197,10 @@ class _RecycleBinState extends State<_RecycleBin> {
           ),
         );
     final theme = widget.theme;
+    final cardSurface = theme.secondary;
+    final restoreBackground = theme
+        .buttonColorsForSurface(cardSurface)
+        .background;
     final l = context.l10n;
     final disabled = busy || snapshot.busy;
     final query = search.text.trim().toLowerCase();
@@ -401,6 +407,7 @@ class _RecycleBinState extends State<_RecycleBin> {
                 const SizedBox(height: 8),
                 SettingSelect<int>(
                   theme: theme,
+                  surfaceColor: AppDialogStyle.backgroundColor(theme),
                   value: workspace.recycleRetentionDays,
                   items: [
                     for (final pair in [
@@ -549,7 +556,7 @@ class _RecycleBinState extends State<_RecycleBin> {
                               curve: Curves.fastOutSlowIn,
                               key: ValueKey('recycle-agent-card-${entry.id}'),
                               decoration: BoxDecoration(
-                                color: theme.secondary,
+                                color: cardSurface,
                                 border: Border.all(
                                   color: selection.selected.contains(entry.id)
                                       ? theme.basePrimary
@@ -611,7 +618,8 @@ class _RecycleBinState extends State<_RecycleBin> {
                                         AppActionButton(
                                           theme: theme,
                                           label: l.agentRecycleRestore,
-                                          surfaceColor: theme.primary,
+                                          surfaceColor: cardSurface,
+                                          backgroundColor: restoreBackground,
                                           fontSize: 12,
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 12,

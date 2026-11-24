@@ -33,11 +33,10 @@ import 'agent_message_source.dart';
 import 'approval_panel.dart';
 import 'model_selector.dart';
 import 'permissions_button.dart';
-import 'roleplay_card_controls.dart';
 import 'usage_chart_colors.dart';
 import 'user_input_panel.dart';
 
-enum _ComposerTool { permissions, model, roleplay }
+enum _ComposerTool { permissions, model }
 
 /// 后层承载队列与附件，前层保留独立文字输入区。
 class ChatComposer extends StatelessWidget {
@@ -59,7 +58,6 @@ class ChatComposer extends StatelessWidget {
     required this.attachments,
     required this.onAttachmentsChanged,
     this.onManageContext,
-    this.roleplayMenuBuilder,
     this.voiceButton,
     this.readClipboardImage = ImageClipboard.readPng,
   });
@@ -74,7 +72,6 @@ class ChatComposer extends StatelessWidget {
   final List<AiImageAttachment> attachments;
   final ValueChanged<List<AiImageAttachment>> onAttachmentsChanged;
   final VoidCallback? onManageContext;
-  final Widget Function(bool compact)? roleplayMenuBuilder;
   final Widget? voiceButton;
   final Future<Uint8List?> Function() readClipboardImage;
 
@@ -320,13 +317,11 @@ class ChatComposer extends StatelessWidget {
     ),
   );
 
-  ({bool permissionCompact, bool modelCompact, double? roleplayWidth})
-  _toolbarLayout(BuildContext context, double width) {
+  ({bool permissionCompact, bool modelCompact}) _toolbarLayout(
+    BuildContext context,
+    double width,
+  ) {
     final l10n = context.l10n;
-    final binding = assistant.roleplayBinding;
-    final roleplayIconWidth = roleplayMenuBuilder == null
-        ? 0.0
-        : RoleplayMenuButton.compactWidth(binding);
     var space =
         width -
         (_attachmentButtonSize +
@@ -335,8 +330,7 @@ class ChatComposer extends StatelessWidget {
             ModelSelector.compactWidth +
             _sendGap +
             _sendButtonSize +
-            (voiceButton == null ? 0 : _toolGap + _attachmentButtonSize) +
-            (roleplayMenuBuilder == null ? 0 : _toolGap + roleplayIconWidth));
+            (voiceButton == null ? 0 : _toolGap + _attachmentButtonSize));
     final labelStyle = DefaultTextStyle.of(context).style.copyWith(
       fontSize: 12,
       fontWeight: MediaQuery.boldTextOf(context) ? FontWeight.bold : null,
@@ -366,23 +360,15 @@ class ChatComposer extends StatelessWidget {
         assistant.reasoningEffort,
       ),
     );
-    final roleplayLabelWidth = roleplayMenuBuilder == null
-        ? 0.0
-        : measure(RoleplayMenuButton.labelFor(l10n, binding));
     painter.dispose();
 
     final modelPreview = math.min(modelLabelWidth, _labelPreviewWidth);
-    final roleplayMinimum =
-        math.min(roleplayLabelWidth, _labelPreviewWidth) +
-        RoleplayMenuButton.labelChromeWidth;
     final candidates = [
       (tool: _ComposerTool.permissions, width: permissionWidth),
       (
         tool: _ComposerTool.model,
         width: modelPreview + ModelSelector.labelChromeWidth,
       ),
-      if (roleplayMenuBuilder != null)
-        (tool: _ComposerTool.roleplay, width: roleplayMinimum),
     ]..sort((first, second) => first.width.compareTo(second.width));
     final expanded = <_ComposerTool>{};
     for (final (:tool, :width) in candidates) {
@@ -391,23 +377,9 @@ class ChatComposer extends StatelessWidget {
       space -= width;
     }
 
-    final modelCompact = !expanded.contains(_ComposerTool.model);
-    double? roleplayWidth;
-    if (expanded.contains(_ComposerTool.roleplay)) {
-      final modelExtra = modelCompact ? 0.0 : modelLabelWidth - modelPreview;
-      final roleplayExtra =
-          roleplayLabelWidth +
-          RoleplayMenuButton.labelChromeWidth -
-          roleplayMinimum;
-      roleplayWidth =
-          roleplayIconWidth +
-          roleplayMinimum +
-          (space - modelExtra).clamp(0.0, roleplayExtra);
-    }
     return (
       permissionCompact: !expanded.contains(_ComposerTool.permissions),
-      modelCompact: modelCompact,
-      roleplayWidth: roleplayWidth,
+      modelCompact: !expanded.contains(_ComposerTool.model),
     );
   }
 
@@ -570,14 +542,8 @@ class ChatComposer extends StatelessWidget {
                         const SizedBox(height: 16),
                         LayoutBuilder(
                           builder: (context, constraints) {
-                            final (
-                              :permissionCompact,
-                              :modelCompact,
-                              :roleplayWidth,
-                            ) = _toolbarLayout(
-                              context,
-                              constraints.maxWidth,
-                            );
+                            final (:permissionCompact, :modelCompact) =
+                                _toolbarLayout(context, constraints.maxWidth);
                             return Row(
                               children: [
                                 AppTooltip(
@@ -619,17 +585,6 @@ class ChatComposer extends StatelessWidget {
                                   assistant: assistant,
                                   compact: permissionCompact,
                                 ),
-                                if (roleplayMenuBuilder
-                                    case final builder?) ...[
-                                  const SizedBox(width: _toolGap),
-                                  ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      maxWidth:
-                                          roleplayWidth ?? double.infinity,
-                                    ),
-                                    child: builder(roleplayWidth == null),
-                                  ),
-                                ],
                                 Expanded(
                                   child: Align(
                                     alignment: Alignment.centerRight,

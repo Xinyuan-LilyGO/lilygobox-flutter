@@ -23,7 +23,8 @@ Future<T> showAgentTransferProgress<T>({
   final route = DialogRoute<void>(
     context: context,
     barrierColor: onCommit == null ? Colors.black54 : Colors.transparent,
-    barrierDismissible: false,
+    barrierDismissible: true,
+    barrierLabel: context.l10n.settingsCancel,
     builder: (context) {
       final dialog = AgentTransferProgressDialog(
         theme: theme,
@@ -34,7 +35,13 @@ Future<T> showAgentTransferProgress<T>({
       if (onCommit == null) return dialog;
       return ValueListenableBuilder<bool>(
         valueListenable: showPageProgress,
-        child: ColoredBox(color: Colors.black54, child: dialog),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const IgnorePointer(child: ColoredBox(color: Colors.black54)),
+            dialog,
+          ],
+        ),
         builder: (context, committed, child) => committed
             ? PopScope(
                 canPop: false,
@@ -120,6 +127,12 @@ class _AgentTransferProgressDialogState
     super.dispose();
   }
 
+  void _requestCancel() {
+    if (_cancelling || widget.readProgress()?.canCancel == false) return;
+    setState(() => _cancelling = true);
+    widget.onCancel();
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.progress,
@@ -147,8 +160,11 @@ class _AgentTransferProgressDialogState
       final seconds = _elapsed.elapsed.inSeconds;
       final duration =
           '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
-      return PopScope(
+      return PopScope<void>(
         canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _requestCancel();
+        },
         child: AppDialog(
           key: const ValueKey('storage-transfer-progress-dialog'),
           constraints: const BoxConstraints(maxWidth: 400),
@@ -213,10 +229,7 @@ class _AgentTransferProgressDialogState
               label: l.settingsCancel,
               onPressed: _cancelling || !(progress?.canCancel ?? true)
                   ? null
-                  : () {
-                      setState(() => _cancelling = true);
-                      widget.onCancel();
-                    },
+                  : _requestCancel,
             ),
           ],
         ),

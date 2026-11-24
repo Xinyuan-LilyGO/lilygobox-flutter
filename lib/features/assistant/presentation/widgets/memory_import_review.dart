@@ -4,6 +4,7 @@ import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
+import '../../../../core/widgets/dialog_style.dart';
 import '../../../../core/widgets/settings/select.dart';
 import '../../domain/memory_conflict.dart';
 
@@ -134,7 +135,7 @@ class _ReviewState extends State<_Review> {
                           SettingSelect<MemoryResolution>(
                             key: ValueKey('memory-review-resolution-$i'),
                             theme: theme,
-                            surfaceColor: theme.primary,
+                            surfaceColor: AppDialogStyle.backgroundColor(theme),
                             value: item.resolution,
                             items: [
                               DropdownMenuItem(

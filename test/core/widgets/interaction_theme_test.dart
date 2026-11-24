@@ -14,7 +14,14 @@ import 'package:lilygobox/core/widgets/menu_item_surface.dart';
 import 'package:lilygobox/core/widgets/title_bar_icon_button.dart';
 
 void main() {
-  for (final kind in ['menu', 'toolbar', 'circle', 'window', 'close']) {
+  for (final kind in [
+    'menu',
+    'toolbar',
+    'toolbar-hover-only',
+    'circle',
+    'window',
+    'close',
+  ]) {
     testWidgets('$kind synchronizes theme during idle and hover transitions', (
       tester,
     ) async {
@@ -24,13 +31,17 @@ void main() {
       var taps = 0;
       var disableAnimations = false;
       void onTap() => taps++;
-      Color resting(AppTheme theme) =>
-          kind == 'circle' ? theme.iconBackgroundColor : theme.primary;
-      Color hovered(AppTheme theme) => kind == 'close'
-          ? Colors.red.shade600
-          : kind == 'circle'
-          ? theme.iconHoverColor
-          : theme.primaryTextHoverColor;
+      Color resting(AppTheme theme) => switch (kind) {
+        'circle' => theme.iconBackgroundColor,
+        'toolbar-hover-only' => theme.primary.withValues(alpha: 0),
+        _ => theme.primary,
+      };
+      Color hovered(AppTheme theme) => switch (kind) {
+        'close' => Colors.red.shade600,
+        'circle' => theme.iconHoverColor,
+        'toolbar-hover-only' => theme.primary,
+        _ => theme.primaryTextHoverColor,
+      };
 
       await tester.pumpWidget(
         MaterialApp(
@@ -48,6 +59,15 @@ void main() {
                   theme: theme,
                   onPressed: onTap,
                   icon: Icons.settings,
+                  isFocused: true,
+                ),
+                'toolbar-hover-only' => TitleBarIconButton(
+                  theme: theme,
+                  onPressed: onTap,
+                  icon: Icons.arrow_back,
+                  backgroundColor: Colors.transparent,
+                  surfaceColor: theme.primary,
+                  hoverColor: hovered(theme),
                   isFocused: true,
                 ),
                 'circle' => AnimatedCircleIconButton(
@@ -69,7 +89,9 @@ void main() {
                   context,
                 ).copyWith(disableAnimations: disableAnimations),
                 child: ColoredBox(
-                  color: theme.primary,
+                  color: kind == 'toolbar-hover-only'
+                      ? theme.secondary
+                      : theme.primary,
                   child: Center(child: button),
                 ),
               );

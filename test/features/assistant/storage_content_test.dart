@@ -539,6 +539,13 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(find.byType(Dialog), findsOneWidget);
         expect(find.byType(SettingSelect<String>), findsOneWidget);
+        final managerOwnerSelect = tester.widget<SettingSelect<String>>(
+          find.byType(SettingSelect<String>),
+        );
+        expect(
+          managerOwnerSelect.surfaceColor,
+          theme.themeData.materialColors.surfaceContainerHigh,
+        );
         // Dialog controls leave a gutter; only one scrollbar owns this viewport.
         final managerScroll = find.byKey(
           const ValueKey('storage-manager-scroll'),

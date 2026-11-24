@@ -7,12 +7,16 @@ import 'package:lilygobox/app/shell/state/provider.dart';
 import 'package:lilygobox/core/l10n/delegates.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
 import 'package:lilygobox/core/layout/split_view_provider.dart';
+import 'package:lilygobox/core/theme/material_palette.dart';
 import 'package:lilygobox/core/theme/provider.dart';
 import 'package:lilygobox/core/widgets/action_button.dart';
 import 'package:lilygobox/core/widgets/app_scroll_behavior.dart';
 import 'package:lilygobox/core/widgets/confirmation_dialog.dart';
 import 'package:lilygobox/core/widgets/desktop_card_selection.dart';
+import 'package:lilygobox/core/widgets/dialog_style.dart';
+import 'package:lilygobox/core/widgets/menu_item_surface.dart';
 import 'package:lilygobox/core/widgets/settings/search_field.dart';
+import 'package:lilygobox/core/widgets/settings/select.dart';
 import 'package:lilygobox/features/assistant/data/agent_storage.dart';
 import 'package:lilygobox/features/assistant/domain/models.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/recycle_bin_dialog.dart';
@@ -58,7 +62,8 @@ void main() {
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
-        final theme = ThemeProvider();
+        final theme = ThemeProvider()
+          ..setTheme(compact ? ThemeType.dark : ThemeType.light);
         final language = LanguageProvider();
         final shell = AppShellProvider();
         final split = SplitViewProvider();
@@ -136,6 +141,12 @@ void main() {
         );
         await tester.tap(find.text('Open bin'));
         await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<SettingSelect<int>>(find.byType(SettingSelect<int>))
+              .surfaceColor,
+          theme.themeData.materialColors.surfaceContainerHigh,
+        );
         final list = find.byKey(
           ValueKey(
             compact
@@ -180,6 +191,25 @@ void main() {
         await tester.scrollUntilVisible(lastCard, 220, scrollable: scrollable);
         await tester.pumpAndSettle();
         expect(lastCard.hitTestable(), findsOneWidget);
+        final restoreSurface = tester.widget<MenuItemSurface>(
+          find.descendant(
+            of: lastCard,
+            matching: find.ancestor(
+              of: find.text('Restore'),
+              matching: find.byType(MenuItemSurface),
+            ),
+          ).first,
+        );
+        final cardLuminance = theme.themeData.secondary.computeLuminance();
+        final dialogButtonLuminance = AppDialogStyle.neutralButtonColor(
+          theme.themeData,
+          AppDialogStyle.backgroundColor(theme.themeData),
+        ).computeLuminance();
+        expect(
+          (restoreSurface.backgroundColor!.computeLuminance() - cardLuminance)
+              .abs(),
+          greaterThan((dialogButtonLuminance - cardLuminance).abs()),
+        );
         expect(tester.getSize(list), listSize);
         expect(tester.getSize(dialogSurface), dialogSize);
         if (!compact) expect(tester.getRect(search), searchRect);

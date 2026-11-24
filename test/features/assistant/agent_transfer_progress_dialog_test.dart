@@ -147,60 +147,69 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
-  testWidgets('progress helper closes its own route after operation cleanup', (
-    tester,
-  ) async {
-    final controller = _Controller();
-    addTearDown(controller.dispose);
-    final operation = Completer<String>();
-    Future<String>? result;
-    await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('zh'),
-        localizationsDelegates: appLocalizationDelegates,
-        supportedLocales: const [Locale('zh'), Locale('en')],
-        home: Builder(
-          builder: (context) => TextButton(
-            onPressed: () {
-              result = showAgentTransferProgress<String>(
-                context: context,
-                theme: MaterialPalette.create(ThemeType.light),
-                controller: controller,
-                work: () => operation.future,
-              );
-            },
-            child: const Text('start'),
+  for (final usePageProgress in [false, true]) {
+    testWidgets(
+      'background cancels transfer and waits for cleanup (page progress: $usePageProgress)',
+      (tester) async {
+        final controller = _Controller();
+        addTearDown(controller.dispose);
+        final operation = Completer<String>();
+        Future<String>? result;
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: const Locale('zh'),
+            localizationsDelegates: appLocalizationDelegates,
+            supportedLocales: const [Locale('zh'), Locale('en')],
+            home: Builder(
+              builder: (context) => TextButton(
+                onPressed: () {
+                  result = showAgentTransferProgress<String>(
+                    context: context,
+                    theme: MaterialPalette.create(ThemeType.light),
+                    controller: controller,
+                    work: () => operation.future,
+                    onCommit: usePageProgress ? () {} : null,
+                  );
+                },
+                child: const Text('start'),
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+        await tester.tap(find.text('start'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.tap(find.text('处理数据包'));
+        await tester.pump();
+        expect(
+          find.byKey(const ValueKey('storage-transfer-progress-dialog')),
+          findsOneWidget,
+        );
+        expect(controller.cancellations, 0);
+        await tester.tapAt(const Offset(24, 24));
+        await tester.pump();
+        expect(controller.cancellations, 1);
+        expect(find.text('正在取消'), findsOneWidget);
+        await tester.tapAt(const Offset(24, 24));
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pump();
+        expect(controller.cancellations, 1);
+        expect(
+          find.byKey(const ValueKey('storage-transfer-progress-dialog')),
+          findsOneWidget,
+        );
+        operation.complete('cleaned up');
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(await result!, 'cleaned up');
+        expect(
+          find.byKey(const ValueKey('storage-transfer-progress-dialog')),
+          findsNothing,
+        );
+        expect(find.text('start'), findsOneWidget);
+      },
     );
-    await tester.tap(find.text('start'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pump();
-    expect(
-      find.byKey(const ValueKey('storage-transfer-progress-dialog')),
-      findsOneWidget,
-    );
-    expect(controller.cancellations, 0);
-    await tester.tap(find.byKey(const ValueKey('storage-transfer-cancel')));
-    await tester.pump();
-    expect(controller.cancellations, 1);
-    expect(
-      find.byKey(const ValueKey('storage-transfer-progress-dialog')),
-      findsOneWidget,
-    );
-    operation.complete('cleaned up');
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(await result!, 'cleaned up');
-    expect(
-      find.byKey(const ValueKey('storage-transfer-progress-dialog')),
-      findsNothing,
-    );
-    expect(find.text('start'), findsOneWidget);
-  });
+  }
 
   testWidgets('commit hides the dialog while retaining the modal barrier', (
     tester,
@@ -245,6 +254,11 @@ void main() {
     expect(commits, 1);
     expect(cancel, findsNothing);
     expect(find.text('start').hitTestable(), findsNothing);
+    await tester.tapAt(const Offset(24, 24));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(controller.cancellations, 0);
+    expect(find.text('start').hitTestable(), findsNothing);
     operation.complete();
     await tester.pumpAndSettle();
     await transfer;
@@ -288,7 +302,7 @@ void main() {
   });
   for (final cancelled in [false, true]) {
     testWidgets(
-      'helper removes progress route on ${cancelled ? 'cancellation' : 'failure'}',
+      'helper removes progress route on ${cancelled ? 'Escape cancellation' : 'failure'}',
       (tester) async {
         final controller = _Controller();
         addTearDown(controller.dispose);
@@ -323,6 +337,12 @@ void main() {
         await tester.tap(find.text('start'));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
+        if (cancelled) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pump();
+          expect(controller.cancellations, 1);
+          expect(find.text('正在取消'), findsOneWidget);
+        }
         operation.completeError(
           cancelled ? const AgentPackageCancelled() : StateError('failed'),
         );
