@@ -6,16 +6,18 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/files/export_file_name.dart';
+import '../../../../core/files/package_transfer.dart';
 import '../../../../core/files/zstd_file.dart';
 import '../../../../core/files/zstd_tar.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/widgets/action_button.dart';
 import '../../../../core/widgets/app_notice.dart';
-import '../../../../core/widgets/app_scroll_behavior.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
 import '../../../../core/widgets/desktop_card_selection.dart';
 import '../../../../core/widgets/dialog_style.dart';
+import '../../../../core/widgets/library_delete_dialog.dart';
+import '../../../../core/widgets/package_transfer_progress_dialog.dart';
 import '../../../settings/presentation/widgets/content_layout.dart';
 import '../../data/roleplay_card_package.dart';
 import '../../domain/roleplay_card.dart';
@@ -226,7 +228,12 @@ class _RoleplayLibraryContentState extends State<RoleplayLibraryContent> {
         ],
       );
       if (files.isEmpty || !context.mounted) return;
-      final incoming = await RoleplayCardPackage.readSources(files);
+      final incoming = await showLibraryTransferProgress(
+        context: context,
+        theme: theme,
+        work: (transfer) =>
+            RoleplayCardPackage.readSources(files, transfer: transfer),
+      );
       if (!context.mounted) return;
       if (incoming.cards.isEmpty) {
         _notice(context, l10n.aiRoleplayImportFailed);
@@ -257,6 +264,8 @@ class _RoleplayLibraryContentState extends State<RoleplayLibraryContent> {
       if (context.mounted && !incoming.singleCardFile) {
         _notice(context, l10n.aiRoleplayPackageImported(added));
       }
+    } on PackageCancelled {
+      if (context.mounted) _notice(context, l10n.agentStorageTransferCancelled);
     } catch (_) {
       if (context.mounted) _notice(context, l10n.aiRoleplayImportFailed);
     } finally {
@@ -283,11 +292,21 @@ class _RoleplayLibraryContentState extends State<RoleplayLibraryContent> {
           ZstdFile.typeGroup(l10n.aiRoleplayPackageFileType),
         ],
       );
-      if (destination == null) return;
-      await RoleplayCardPackage.write(destination.path, selected);
+      if (destination == null || !context.mounted) return;
+      await showLibraryTransferProgress(
+        context: context,
+        theme: theme,
+        work: (transfer) => RoleplayCardPackage.write(
+          destination.path,
+          selected,
+          transfer: transfer,
+        ),
+      );
       if (context.mounted) {
         _notice(context, l10n.aiRoleplayPackageExported(selected.length));
       }
+    } on PackageCancelled {
+      if (context.mounted) _notice(context, l10n.agentStorageTransferCancelled);
     } catch (_) {
       if (context.mounted) _notice(context, l10n.aiRoleplayPackageExportFailed);
     } finally {
@@ -326,68 +345,37 @@ class _RoleplayLibraryContentState extends State<RoleplayLibraryContent> {
       theme: theme,
       subtitle: l10n.aiRoleplayLibraryBoundCount(boundCount),
     );
-    final actions = Wrap(
-      alignment: WrapAlignment.end,
-      spacing: 4,
-      runSpacing: 4,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        AppActionButton(
-          key: ValueKey('roleplay-library-details-$fingerprint'),
-          theme: theme,
-          label: l10n.aiRoleplayLibraryViewDetails,
-          onPressed: () => unawaited(_view(context, card)),
-        ),
-        AppActionButton(
-          key: ValueKey('roleplay-library-delete-$fingerprint'),
-          theme: theme,
-          label: l10n.delete,
-          destructive: true,
-          icon: Symbols.delete_outline_rounded,
-          iconSize: 16,
-          iconSpacing: 6,
-          fontSize: 12,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          onPressed: () =>
-              unawaited(_confirmDelete(context, workspaces, [card])),
-        ),
-      ],
-    );
+    final actions = [
+      AppActionButton(
+        key: ValueKey('roleplay-library-details-$fingerprint'),
+        theme: theme,
+        label: l10n.aiRoleplayLibraryViewDetails,
+        onPressed: () => unawaited(_view(context, card)),
+      ),
+      AppActionButton(
+        key: ValueKey('roleplay-library-delete-$fingerprint'),
+        theme: theme,
+        label: l10n.delete,
+        destructive: true,
+        icon: Symbols.delete_outline_rounded,
+        iconSize: 16,
+        iconSpacing: 6,
+        fontSize: 12,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        onPressed: () => unawaited(_confirmDelete(context, workspaces, [card])),
+      ),
+    ];
     return Padding(
       key: ValueKey(fingerprint),
       padding: const EdgeInsets.only(bottom: 8),
       child: DesktopSelectableCard(
         id: fingerprint,
         theme: theme,
-        child: SettingsPanel(
+        child: SettingsLibraryCard(
           key: ValueKey('roleplay-library-card-$fingerprint'),
           theme: theme,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth <
-                  620 * MediaQuery.textScalerOf(context).scale(1)) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  spacing: 8,
-                  children: [
-                    details,
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: actions,
-                    ),
-                  ],
-                );
-              }
-              return Row(
-                spacing: 12,
-                children: [
-                  Expanded(child: details),
-                  actions,
-                ],
-              );
-            },
-          ),
+          details: details,
+          actions: actions,
         ),
       ),
     );
@@ -498,138 +486,22 @@ class _RoleplayLibraryContentState extends State<RoleplayLibraryContent> {
     List<AiRoleplayCard> cards = const [],
     Iterable<AiRoleplayLibraryAgent> agents = const [],
     String? confirmLabel,
-  }) {
-    final l10n = context.l10n;
-    final theme = this.theme;
-    final style = AppDialogStyle.descriptionStyle(theme);
-    final entryStyle = AppDialogStyle.fieldTitleStyle(theme)
-        .copyWith(fontWeight: FontWeight.normal);
-    final agentList = agents.toList();
-    final sections = [
-      if (cards.isNotEmpty)
-        _RoleplayDeleteSection(
-          theme: theme,
-          title: l10n.aiRoleplayLibraryCardsToDelete(cards.length),
-          entries: [
-            for (final card in cards) Text(card.name, style: entryStyle),
-          ],
-        ),
-      if (agentList.isNotEmpty)
-        _RoleplayDeleteSection(
-          theme: theme,
-          title: confirmLabel == null
-              ? null
-              : l10n.aiRoleplayLibraryAgentsToUnbind(agentList.length),
-          entries: [
-            for (final agent in agentList)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                spacing: 2,
-                children: [
-                  Text(
-                    agent.recycled
-                        ? l10n.aiRoleplayLibraryRecycledAgent(agent.title)
-                        : agent.title,
-                    style: entryStyle,
-                  ),
-                  Text(l10n.aiAgentIdValue(agent.id), style: style),
-                ],
-              ),
-          ],
-        ),
-    ];
-    const bodyPadding = EdgeInsets.symmetric(horizontal: 24);
-    return showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AppDialog(
-        theme: theme,
-        title: title,
-        constraints: const BoxConstraints(maxWidth: 440),
-        contentPadding: const EdgeInsets.only(top: 16, bottom: 24),
-        content: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          spacing: 12,
-          children: [
-            Padding(
-              padding: bodyPadding,
-              child: Text(description, style: style),
-            ),
-            if (sections.isNotEmpty)
-              Flexible(
-                child: ScrollbarTheme(
-                  data: ScrollbarTheme.of(dialogContext).copyWith(
-                    crossAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
-                    mainAxisMargin: AppScrollBehavior.scrollbarEdgeInset,
-                  ),
-                  child: SingleChildScrollView(
-                    padding: bodyPadding,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      spacing: 10,
-                      children: sections,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-        actions: [
-          AppActionButton.dialog(
-            key: const ValueKey('cancel-roleplay-library-delete'),
-            theme: theme,
-            label: confirmLabel == null ? l10n.close : l10n.settingsCancel,
-            onPressed: () => Navigator.pop(dialogContext),
+  }) => showLibraryDeleteDialog(
+    context: context,
+    theme: theme,
+    actionKey: 'roleplay-library-delete',
+    title: title,
+    description: description,
+    confirmLabel: confirmLabel,
+    items: cards.isEmpty
+        ? null
+        : (
+            title: context.l10n.aiRoleplayLibraryCardsToDelete(cards.length),
+            names: [for (final card in cards) card.name],
           ),
-          if (confirmLabel != null)
-            AppActionButton.dialog(
-              key: const ValueKey('confirm-roleplay-library-delete'),
-              theme: theme,
-              label: confirmLabel,
-              destructive: true,
-              onPressed: () => Navigator.pop(dialogContext, true),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RoleplayDeleteSection extends StatelessWidget {
-  const _RoleplayDeleteSection({
-    required this.theme,
-    required this.title,
-    required this.entries,
-  });
-
-  final AppTheme theme;
-  final String? title;
-  final List<Widget> entries;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    spacing: 6,
-    children: [
-      if (title case final heading?)
-        Semantics(
-          header: true,
-          child: Text(
-            heading,
-            style: AppDialogStyle.fieldTitleStyle(theme).copyWith(
-              color: theme.textColorPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      Padding(
-        padding: EdgeInsetsDirectional.only(start: title == null ? 0 : 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: 6,
-          children: entries,
-        ),
-      ),
+    agents: [
+      for (final agent in agents)
+        (id: agent.id, title: agent.title, recycled: agent.recycled),
     ],
   );
 }

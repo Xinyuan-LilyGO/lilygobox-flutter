@@ -2,9 +2,9 @@
  * @Description: 自动生成的本地化文件
  */
 
+
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -25,8 +25,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiAverageOutputSpeedHint => '根据上次完成回复时收到的流式输出估算。采样不足时不显示速度。';
 
   @override
-  String get githubSignInDialogDescription =>
-      '请在浏览器中完成授权，然后返回此处等待登录完成。关闭此提示框将取消本次登录。';
+  String get githubSignInDialogDescription => '请在浏览器中完成授权，然后返回此处等待登录完成。关闭此提示框将取消本次登录。';
 
   @override
   String get theme => '主题';
@@ -119,8 +118,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homePageContentStartTitle => '欢迎使用 LilygoBox';
 
   @override
-  String get homePageContentStartDescription =>
-      'LilygoBox 专为 Lilygo 硬件打造的集成开发与控制中心。';
+  String get homePageContentStartDescription => 'LilygoBox 专为 Lilygo 硬件打造的集成开发与控制中心。';
 
   @override
   String get language => '语言';
@@ -282,8 +280,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiCopyImage => '复制图片';
 
   @override
-  String get aiImageUnsupported =>
-      '当前模型已声明仅支持文本，请切换模型后发送图片或继续含图片的对话。输入内容和附件已保留。';
+  String get aiImageUnsupported => '当前模型已声明仅支持文本，请切换模型后发送图片或继续含图片的对话。输入内容和附件已保留。';
 
   @override
   String get aiCopyImageFailed => '复制图片失败，请重试。';
@@ -633,8 +630,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiProviderLabel => '服务提供商';
 
   @override
-  String get aiProviderDescription =>
-      '官方服务自动配置 API 地址与协议；自定义服务可自行填写。切换提供商会清空已输入的密钥和模型列表。';
+  String get aiProviderDescription => '官方服务自动配置 API 地址与协议；自定义服务可自行填写。切换提供商会清空已输入的密钥和模型列表。';
 
   @override
   String get aiProviderDeepseek => 'DeepSeek 官方';
@@ -777,8 +773,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get discoveryEmpty => '暂未发现设备';
 
   @override
-  String get discoveryEmptyDescription =>
-      '请确认设备已开机并允许应用连接。\n局域网连接时，请确认双方处于同一网络。';
+  String get discoveryEmptyDescription => '请确认设备已开机并允许应用连接。\n局域网连接时，请确认双方处于同一网络。';
 
   @override
   String get discoveryUnavailable => '自动发现暂不可用';
@@ -814,8 +809,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceConnectionFailed => '未能连接设备';
 
   @override
-  String get deviceConnectionFailedDescription =>
-      '未能建立连接。请确保设备在线并允许 LilygoBox 连接，然后重试。';
+  String get deviceConnectionFailedDescription => '未能建立连接。请确保设备在线并允许 LilygoBox 连接，然后重试。';
 
   @override
   String get retryConnection => '重新连接';
@@ -839,22 +833,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceHelpPreparation => '准备设备';
 
   @override
-  String get deviceHelpPreparationDescription =>
-      '确认设备已开机，并允许 LilygoBox 连接。具体操作请参考对应设备的说明。';
+  String get deviceHelpPreparationDescription => '确认设备已开机，并允许 LilygoBox 连接。具体操作请参考对应设备的说明。';
 
   @override
   String get deviceHelpNetwork => '检查网络';
 
   @override
-  String get deviceHelpNetworkDescription =>
-      '局域网连接时，请让电脑或手机与设备连接到同一网络。如果仍无法发现设备，请检查应用的防火墙权限，以及路由器是否禁止设备之间互相访问。';
+  String get deviceHelpNetworkDescription => '局域网连接时，请让电脑或手机与设备连接到同一网络。如果仍无法发现设备，请检查应用的防火墙权限，以及路由器是否禁止设备之间互相访问。';
 
   @override
   String get deviceHelpApproval => '确认连接';
 
   @override
-  String get deviceHelpApprovalDescription =>
-      '首次连接时，请按设备提示确认授权。已授权的设备通常无需重复确认；删除后重新添加需要再次授权。';
+  String get deviceHelpApprovalDescription => '首次连接时，请按设备提示确认授权。已授权的设备通常无需重复确认；删除后重新添加需要再次授权。';
 
   @override
   String get tapToConnect => '点击连接';
@@ -919,8 +910,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appUpdateIntegrityFailure => '安装包大小或 SHA-256 校验不匹配，已取消安装。';
 
   @override
-  String get appUpdateInstallerLaunchFailure =>
-      '无法启动更新安装程序，请重试。也可以手动打开已下载的安装包。';
+  String get appUpdateInstallerLaunchFailure => '无法启动更新安装程序，请重试。也可以手动打开已下载的安装包。';
 
   @override
   String get checkingForUpdates => '正在检查更新…';
@@ -1035,8 +1025,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get restoreDefaultsConfirmTitle => '恢复默认设置？';
 
   @override
-  String get restoreDefaultsConfirmDescription =>
-      '主题将恢复为深色，语言恢复为英语，侧栏布局恢复默认。账号与已添加设备会保留。';
+  String get restoreDefaultsConfirmDescription => '主题将恢复为深色，语言恢复为英语，侧栏布局恢复默认。账号与已添加设备会保留。';
 
   @override
   String get settingsCancel => '取消';
@@ -1090,8 +1079,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get githubSignOutConfirmTitle => '退出登录？';
 
   @override
-  String get githubSignOutDescription =>
-      '退出会清除此设备保存的登录凭证，不会删除 GitHub 账号或本地设备。若要撤销应用权限，可前往 GitHub 的授权应用设置。';
+  String get githubSignOutDescription => '退出会清除此设备保存的登录凭证，不会删除 GitHub 账号或本地设备。若要撤销应用权限，可前往 GitHub 的授权应用设置。';
 
   @override
   String get githubNotConfigured => 'GitHub 登录尚未配置，请暂时使用本地设备功能。';
@@ -1121,8 +1109,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get githubStorageError => '无法读写系统安全存储，请检查系统权限后重试。';
 
   @override
-  String get githubBrowserError =>
-      '无法打开浏览器，请手动访问 https://github.com/login/device 并输入上方验证码。';
+  String get githubBrowserError => '无法打开浏览器，请手动访问 https://github.com/login/device 并输入上方验证码。';
 
   @override
   String get githubRetryRestore => '重新验证登录';
@@ -1196,8 +1183,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get lanDisconnectConfirmTitle => '断开设备连接？';
 
   @override
-  String get lanDisconnectDescription =>
-      '断开后将保留配对信息，并暂停本次运行期间的自动连接。你可以手动重新连接，重启应用也会恢复自动连接。';
+  String get lanDisconnectDescription => '断开后将保留配对信息，并暂停本次运行期间的自动连接。你可以手动重新连接，重启应用也会恢复自动连接。';
 
   @override
   String get lanConnectedDescription => '已连接到设备，设备信息会自动刷新。';
@@ -1206,8 +1192,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get lanConfirmOnDevice => '请在设备上允许本次连接。';
 
   @override
-  String get lanReconnectDescription =>
-      '请确保设备在线并允许 LilygoBox 连接，然后重试。如果仍无法连接，请重新搜索设备。';
+  String get lanReconnectDescription => '请确保设备在线并允许 LilygoBox 连接，然后重试。如果仍无法连接，请重新搜索设备。';
 
   @override
   String get deviceDashboardSubtitle => '屏幕、声音与设备连接';
@@ -1322,8 +1307,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get connectionCredentialTitle => '连接凭证';
 
   @override
-  String get connectionCredentialDescription =>
-      '首次授权后会保存连接凭证，再次连接无需重复确认。手动断开不会删除凭证；删除设备会同时清除本机保存的凭证。';
+  String get connectionCredentialDescription => '首次授权后会保存连接凭证，再次连接无需重复确认。手动断开不会删除凭证；删除设备会同时清除本机保存的凭证。';
 
   @override
   String get deviceConnectionStatusTitle => '设备状态';
@@ -1368,8 +1352,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceRotationConfirmTitle => '更改显示方向？';
 
   @override
-  String get deviceRotationConfirmDescription =>
-      '旋转后，设备将关闭当前页面并返回主界面，未保存的内容不会保留。设备处于锁屏时将保持锁屏，不会自动解锁。';
+  String get deviceRotationConfirmDescription => '旋转后，设备将关闭当前页面并返回主界面，未保存的内容不会保留。设备处于锁屏时将保持锁屏，不会自动解锁。';
 
   @override
   String get deviceRotationConfirmAction => '确认旋转';
@@ -1395,8 +1378,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceBatteryCapacityEdit => '编辑';
 
   @override
-  String get deviceBatteryCapacityDescription =>
-      '请输入电池标称容量（mAh）。此设置会保存到设备，并用于电量与剩余时间估算，不代表当前剩余容量。';
+  String get deviceBatteryCapacityDescription => '请输入电池标称容量（mAh）。此设置会保存到设备，并用于电量与剩余时间估算，不代表当前剩余容量。';
 
   @override
   String deviceBatteryCapacityRange(int minimum, int maximum) {
@@ -1802,8 +1784,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiCreateRequiresServiceTitle => '请先配置模型服务';
 
   @override
-  String get aiCreateRequiresServiceDescription =>
-      '创建智能体需要可用的模型服务，请先添加服务、填写密钥并配置至少一个模型。';
+  String get aiCreateRequiresServiceDescription => '创建智能体需要可用的模型服务，请先添加服务、填写密钥并配置至少一个模型。';
 
   @override
   String get aiGoToModelSettings => '前往设置';
@@ -1961,8 +1942,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get aiPermissionApprovalModelHelp =>
-      '默认使用当前聊天模型。根据用户请求和操作内容审核工具调用，包括本机命令。应用规则禁止或模型未批准的操作不会执行，也不会转为人工审批。';
+  String get aiPermissionApprovalModelHelp => '默认使用当前聊天模型。根据用户请求和操作内容审核工具调用，包括本机命令。应用规则禁止或模型未批准的操作不会执行，也不会转为人工审批。';
 
   @override
   String aiAuxiliaryModelUnavailable(String model) {
@@ -1979,8 +1959,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiPermissionCustomSummary => '按你设置的规则放行或询问。';
 
   @override
-  String get aiPermissionRequestHelp =>
-      '软件设置与公开 HTTPS 网页可直接访问。本地文件操作需要逐次确认，或在自定义审批中授权。每次确认仅适用于展示的操作。';
+  String get aiPermissionRequestHelp => '软件设置与公开 HTTPS 网页可直接访问。本地文件操作需要逐次确认，或在自定义审批中授权。每次确认仅适用于展示的操作。';
 
   @override
   String get aiPermissionNetwork => '允许联网';
@@ -2019,8 +1998,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiPermissionRemoveFolder => '移除授权';
 
   @override
-  String get aiPermissionSessionHelp =>
-      '审批模式和自定义规则随智能体保存，清空会话时重置。文件内容和命令输出可能发送至配置的模型服务。本机命令未使用系统沙箱，可访问文件、网络和设备。';
+  String get aiPermissionSessionHelp => '审批模式和自定义规则随智能体保存，清空会话时重置。文件内容和命令输出可能发送至配置的模型服务。本机命令未使用系统沙箱，可访问文件、网络和设备。';
 
   @override
   String get aiAwaitingApproval => '等待批准';
@@ -2101,15 +2079,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiPermissionFullFilesWarningTitle => '要允许访问所有文件吗？';
 
   @override
-  String get aiPermissionFullFilesWarningDescription =>
-      '开启后，可在系统权限范围内读取、创建、修改或删除任意本地文件，不再受授权文件夹限制。\n\n这可能导致重要文件丢失或敏感信息泄露。';
+  String get aiPermissionFullFilesWarningDescription => '开启后，可在系统权限范围内读取、创建、修改或删除任意本地文件，不再受授权文件夹限制。\n\n这可能导致重要文件丢失或敏感信息泄露。';
 
   @override
   String get aiPermissionCommandNoApprovalWarningTitle => '要开启命令免审批吗？';
 
   @override
-  String get aiPermissionCommandNoApprovalWarningDescription =>
-      '开启后，复杂脚本和检测到风险的命令也会直接运行，不再请求批准；明确禁止的命令仍会被拦截。\n\n命令及其子进程可能修改或删除文件、联网以及更改系统设置，造成数据丢失或泄露。';
+  String get aiPermissionCommandNoApprovalWarningDescription => '开启后，复杂脚本和检测到风险的命令也会直接运行，不再请求批准；明确禁止的命令仍会被拦截。\n\n命令及其子进程可能修改或删除文件、联网以及更改系统设置，造成数据丢失或泄露。';
 
   @override
   String get aiPermissionWarningFooter => '请仅在信任当前智能体时开启。你可以随时关闭此权限。';
@@ -2226,8 +2202,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiCommandPolicyAutomaticDiskWrite => '命令涉及磁盘或分区操作，自动审批模式下不会执行。';
 
   @override
-  String get aiCommandPolicyInvalidRules =>
-      '无法读取或校验命令规则，命令未执行。请检查 command-rules.json。';
+  String get aiCommandPolicyInvalidRules => '无法读取或校验命令规则，命令未执行。请检查 command-rules.json。';
 
   @override
   String get aiCommandPolicyApprovalRequired => '此命令需要批准，尚未执行。';
@@ -2306,8 +2281,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiServiceConfigurationImportTitle => '导入模型服务配置？';
 
   @override
-  String get aiServiceConfigurationImportHelp =>
-      '相同服务 ID 的配置和密钥将被更新，新服务将被添加，其他已有服务保留。';
+  String get aiServiceConfigurationImportHelp => '相同服务 ID 的配置和密钥将被更新，新服务将被添加，其他已有服务保留。';
 
   @override
   String get aiServiceConfigurationInvalid => '文件无效或不是受支持的模型服务配置。';
@@ -2604,15 +2578,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiRoleplayLibraryAddedTitle => '已导入的角色卡';
 
   @override
-  String get aiRoleplayLibraryAddedDescription =>
-      'SillyTavern 角色卡 · PNG / JSON';
+  String get aiRoleplayLibraryAddedDescription => 'SillyTavern 角色卡 · PNG / JSON';
 
   @override
   String get aiRoleplayPackageTitle => '角色卡包';
 
   @override
-  String get aiRoleplayPackageDescription =>
-      '支持导入 PNG、JSON 或 .tar.zst 文件，并将所选角色卡导出为 .tar.zst 卡片包。';
+  String get aiRoleplayPackageDescription => '支持导入 PNG、JSON 或 .tar.zst 文件，并将所选角色卡导出为 .tar.zst 卡片包。';
 
   @override
   String get aiRoleplayPackageFileType => '角色卡包（.tar.zst）';
@@ -2676,8 +2648,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiRoleplayLibraryDeleteWarning => '聊天记录和原始 PNG 或 JSON 文件都会保留。';
 
   @override
-  String get aiRoleplayLibraryDeleteBoundWarning =>
-      '删除后，以下智能体将恢复默认设定，聊天记录和原始 PNG 或 JSON 文件都会保留。';
+  String get aiRoleplayLibraryDeleteBoundWarning => '删除后，以下智能体将恢复默认设定，聊天记录和原始 PNG 或 JSON 文件都会保留。';
 
   @override
   String aiRoleplayLibraryCardsToDelete(int count) {
@@ -2821,8 +2792,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiTopologyChooseParent => '选择上级智能体';
 
   @override
-  String get aiTopologyChooseParentHelp =>
-      '选择用于任务委派与布局的上级。此智能体及其下级将成为子智能体，聊天和通信连接会保留。';
+  String get aiTopologyChooseParentHelp => '选择用于任务委派与布局的上级。此智能体及其下级将成为子智能体，聊天和通信连接会保留。';
 
   @override
   String get aiTopologyAutoLayout => '自动布局';
@@ -2930,19 +2900,16 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get aiTopologySelectionHelp =>
-      '左键框选 · Ctrl／Shift＋单击多选 · 右键拖动平移 · 滚轮上下移动 · Shift＋滚轮左右移动 · Ctrl＋滚轮缩放';
+  String get aiTopologySelectionHelp => '左键框选 · Ctrl／Shift＋单击多选 · 右键拖动平移 · 滚轮上下移动 · Shift＋滚轮左右移动 · Ctrl＋滚轮缩放';
 
   @override
-  String get aiTopologyShortcutsHelp =>
-      '左键单击：选中卡片或连线\n左键拖动空白：框选卡片与连线\nCtrl／Shift＋单击或框选：追加选择\n双击卡片：打开对话\n拖动卡片：调整位置\n拖动连接点：连接智能体\n右键拖动／中键拖动／空格＋左键拖动：平移画布\n滚轮：上下移动画布\nShift＋滚轮：左右移动画布\nCtrl＋滚轮：缩放画布\nCtrl＋A：全选\nCtrl＋C／Ctrl＋V：复制／粘贴卡片\nCtrl＋Z：撤销\nCtrl＋Y 或 Ctrl＋Shift＋Z：重做\nDelete／Backspace：删除选中卡片或断开选中连线\nEsc：取消选择或连接';
+  String get aiTopologyShortcutsHelp => '左键单击：选中卡片或连线\n左键拖动空白：框选卡片与连线\nCtrl／Shift＋单击或框选：追加选择\n双击卡片：打开对话\n拖动卡片：调整位置\n拖动连接点：连接智能体\n右键拖动／中键拖动／空格＋左键拖动：平移画布\n滚轮：上下移动画布\nShift＋滚轮：左右移动画布\nCtrl＋滚轮：缩放画布\nCtrl＋A：全选\nCtrl＋C／Ctrl＋V：复制／粘贴卡片\nCtrl＋Z：撤销\nCtrl＋Y 或 Ctrl＋Shift＋Z：重做\nDelete／Backspace：删除选中卡片或断开选中连线\nEsc：取消选择或连接';
 
   @override
   String get aiTopologyDisconnectTitle => '断开连接？';
 
   @override
-  String get aiTopologyDisconnectHelp =>
-      '断开所选连接。通信连线不改变身份；断开委派关系后，该分支的起点成为主智能体。工作内容与聊天记录会保留。';
+  String get aiTopologyDisconnectHelp => '断开所选连接。通信连线不改变身份；断开委派关系后，该分支的起点成为主智能体。工作内容与聊天记录会保留。';
 
   @override
   String get aiProcessingSpeed => '处理速度';
@@ -2996,8 +2963,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStorageDescription => '管理聊天记录、长期记忆和可迁移的数据备份。';
 
   @override
-  String get agentStorageMemoryScopeHint =>
-      '选择要管理长期记忆的智能体，下方记忆与自动记忆设置仅对该智能体生效。';
+  String get agentStorageMemoryScopeHint => '选择要管理长期记忆的智能体，下方记忆与自动记忆设置仅对该智能体生效。';
 
   @override
   String get agentStorageScope => '长期记忆归属';
@@ -3075,8 +3041,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStorageImportPreview => '导入预览';
 
   @override
-  String get agentStorageImportHint =>
-      '智能体会使用新 ID。长期记忆将合并到选定范围，完全重复的条目跳过。导入权限重置，不恢复任何运行操作。';
+  String get agentStorageImportHint => '智能体会使用新 ID。长期记忆将合并到选定范围，完全重复的条目跳过。导入权限重置，不恢复任何运行操作。';
 
   @override
   String get agentStorageSuccess => '操作完成';
@@ -3229,12 +3194,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiCompactionFailed => '上下文压缩失败';
 
   @override
-  String get aiCompactionOutputLimitReached =>
-      '模型达到输出 token 上限，未能完整生成摘要。若启用了思考，可尝试降低思考强度或更换压缩模型。';
+  String get aiCompactionOutputLimitReached => '模型达到输出 token 上限，未能完整生成摘要。若启用了思考，可尝试降低思考强度或更换压缩模型。';
 
   @override
-  String get aiCompactionReasoningOnly =>
-      '模型只返回了思考内容，没有给出摘要。服务未报告达到输出上限。可尝试降低压缩模型的思考强度或更换模型。';
+  String get aiCompactionReasoningOnly => '模型只返回了思考内容，没有给出摘要。服务未报告达到输出上限。可尝试降低压缩模型的思考强度或更换模型。';
 
   @override
   String get aiCompactionEmptySummary => '模型返回的摘要为空。';
@@ -3327,6 +3290,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStorageUsage => '本地存储占用';
 
   @override
+  String get agentStorageSpeechCategory => '语音模型';
+
+  @override
   String get agentStorageUsageLoading => '正在加载本地存储占用…';
 
   @override
@@ -3409,8 +3375,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStorageContextBudget => '上下文预算';
 
   @override
-  String get agentStorageContextHint =>
-      '预算 × 百分比 = 自动压缩阈值。回车或离开输入框后保存；预算需参考服务商模型容量，并为完整请求预留空间。';
+  String get agentStorageContextHint => '预算 × 百分比 = 自动压缩阈值。回车或离开输入框后保存；预算需参考服务商模型容量，并为完整请求预留空间。';
 
   @override
   String get agentStorageArchived => '已归档范围';
@@ -3419,8 +3384,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStorageFailure => '操作失败，请检查文件或存储权限。';
 
   @override
-  String get agentStorageSensitiveHint =>
-      '数据包包含所选聊天记录、上下文或长期记忆原文，不包含 API 密钥。请妥善保管。';
+  String get agentStorageSensitiveHint => '数据包包含所选聊天记录、上下文或长期记忆原文，不包含 API 密钥。请妥善保管。';
 
   @override
   String agentStorageTokens(int count) {
@@ -3461,16 +3425,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStorageMemoryPackageHint => '只导出所选智能体的长期记忆，可导入另一个智能体。';
 
   @override
-  String get agentStorageChatPackageHint =>
-      '导出所选智能体的聊天记录、用时和附件，以及模型、上下文压缩与审批设置。不包含长期记忆。';
+  String get agentStorageChatPackageHint => '导出所选智能体的聊天记录、用时和附件，以及模型、上下文压缩与审批设置。不包含长期记忆。';
 
   @override
-  String get agentStorageAgentPackageHint =>
-      '导出一个智能体的名称、模型选择、审批设置、聊天记录、上下文、长期记忆和附件。可选择包含下级智能体。';
+  String get agentStorageAgentPackageHint => '导出一个智能体的名称、模型选择、审批设置、聊天记录、上下文、长期记忆和附件。可选择包含下级智能体。';
 
   @override
-  String get agentStorageWorkflowPackageHint =>
-      '导出整个工作流的智能体及其模型选择、审批设置、聊天记录、上下文、长期记忆和附件，以及连接和画布布局。';
+  String get agentStorageWorkflowPackageHint => '导出整个工作流的智能体及其模型选择、审批设置、聊天记录、上下文、长期记忆和附件，以及连接和画布布局。';
 
   @override
   String get agentStorageBackupPackageHint => '包含智能体工作流和回收站中的聊天记录、附件及记忆。';
@@ -3565,8 +3526,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentRecycleDeleteHint => '聊天记录、附件和记忆将被永久删除，此操作无法撤销。';
 
   @override
-  String get agentRecycleRestoreHint =>
-      '保留原来的 ID、聊天记录和记忆。若原上级已不存在，将还原为主智能体；权限需重新确认。软件关闭期间到期的数据会在下次启动时清理。';
+  String get agentRecycleRestoreHint => '保留原来的 ID、聊天记录和记忆。若原上级已不存在，将还原为主智能体；权限需重新确认。软件关闭期间到期的数据会在下次启动时清理。';
 
   @override
   String get agentRecycleDeletedAt => '删除时间';
@@ -3614,8 +3574,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStorageContextUsage => '当前上下文';
 
   @override
-  String get agentStorageContextUsageHint =>
-      '当前聊天历史的本地估算，不含完整请求中的系统指令、工具定义和检索记忆。';
+  String get agentStorageContextUsageHint => '当前聊天历史的本地估算，不含完整请求中的系统指令、工具定义和检索记忆。';
 
   @override
   String get agentStorageContextInvalid => '请输入大于 0 的整数。';
@@ -3627,8 +3586,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStorageCompactionModel => '压缩上下文模型';
 
   @override
-  String get agentStorageCompactionModelHint =>
-      '用于自动和手动压缩上下文。默认使用当前聊天模型及其思考强度。';
+  String get agentStorageCompactionModelHint => '用于自动和手动压缩上下文。默认使用当前聊天模型及其思考强度。';
 
   @override
   String get agentStorageCompactNow => '立即压缩';
@@ -3648,19 +3606,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStorageContextPercentInvalid => '百分比请输入 1–100 的整数。';
 
   @override
-  String get agentStorageContextPercentWarning =>
-      '百分比过高可能没有足够余量处理新消息、工具和回复；不建议等到窗口填满才压缩。';
+  String get agentStorageContextPercentWarning => '百分比过高可能没有足够余量处理新消息、工具和回复；不建议等到窗口填满才压缩。';
 
   @override
   String get agentTopologyZoomPercentage => '缩放百分比';
 
   @override
-  String get agentTopologyControlHints =>
-      'Ctrl + A 全选 · Ctrl + C 复制 · Ctrl + V 粘贴 · Ctrl + Z 撤销 · Ctrl + Y 重做 · Ctrl + 滚轮 缩放';
+  String get agentTopologyControlHints => 'Ctrl + A 全选 · Ctrl + C 复制 · Ctrl + V 粘贴 · Ctrl + Z 撤销 · Ctrl + Y 重做 · Ctrl + 滚轮 缩放';
 
   @override
-  String get agentTopologyShiftHints =>
-      'Shift + 滚轮 横向移动 · Shift + 单击 / 框选 增选 · Ctrl + Shift + Z 重做';
+  String get agentTopologyShiftHints => 'Shift + 滚轮 横向移动 · Shift + 单击 / 框选 增选 · Ctrl + Shift + Z 重做';
 
   @override
   String get agentTopologySpaceHints => '空格 + 左键拖动 移动画布';
@@ -3672,22 +3627,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStorageChoosePackage => '选择数据包';
 
   @override
-  String get agentStorageImportAutoHint =>
-      '选择 .tar.zst 数据包后自动识别类型，查看内容后确认导入。数据包不包含 API 密钥，请妥善保管。';
+  String get agentStorageImportAutoHint => '选择 .tar.zst 数据包后自动识别类型，查看内容后确认导入。数据包不包含 API 密钥，请妥善保管。';
 
   @override
   String get agentStorageImportCreatesAgents => '将创建新的智能体并分配新 ID，不会覆盖已有智能体。';
 
   @override
-  String get agentStorageImportMemoryCreatesAgent =>
-      '将新建一个智能体并导入这些长期记忆，不会修改已有智能体。新智能体不会自动运行，请选择模型后使用。';
+  String get agentStorageImportMemoryCreatesAgent => '将新建一个智能体并导入这些长期记忆，不会修改已有智能体。新智能体不会自动运行，请选择模型后使用。';
 
   @override
   String get agentStorageImportedMemoryAgent => '导入的智能体';
 
   @override
-  String get agentStorageImportMemoryMergeHint =>
-      '长期记忆将合并到所选智能体，完全重复的条目会跳过；冲突内容可在导入前确认。';
+  String get agentStorageImportMemoryMergeHint => '长期记忆将合并到所选智能体，完全重复的条目会跳过；冲突内容可在导入前确认。';
 
   @override
   String get agentStorageImportSuccess => '数据导入完成。';
@@ -3743,8 +3695,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStorageAutoMemoryTitle => '自动整理长期记忆';
 
   @override
-  String get agentStorageAutoMemoryHint =>
-      '每轮对话完成后，自动筛选值得长期保留的信息，对照已有记忆去重后保存。会额外调用当前模型。';
+  String get agentStorageAutoMemoryHint => '每轮对话完成后，自动筛选值得长期保留的信息，对照已有记忆去重后保存。会额外调用当前模型。';
 
   @override
   String get agentStorageAutoMemoryAction => '整理长期记忆';
@@ -3755,8 +3706,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get agentStorageImportInvalidKind =>
-      '所选数据包不适用于此入口，请选择相应的长期记忆包、智能体包或工作流包。';
+  String get agentStorageImportInvalidKind => '所选数据包不适用于此入口，请选择相应的长期记忆包、智能体包或工作流包。';
 
   @override
   String get agentStorageTransferFailedTitle => '导入导出失败';
@@ -3847,7 +3797,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get speechLibraryTitle => '语音模型库';
 
   @override
-  String get speechLibraryDescription => '保存在此电脑上的模型';
+  String get speechLibraryDescription => '本地模型包 · .tar.zst / .tar.bz2';
 
   @override
   String get speechImport => '导入模型';
@@ -3862,10 +3812,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get speechZstdType => '语音模型包（.tar.zst）';
 
   @override
-  String get speechExport => '导出';
+  String get speechExport => '导出模型包';
 
   @override
-  String get speechExported => '已将语音模型导出为 .tar.zst 压缩包。';
+  String get speechExportSelection => '选择要放入模型包的语音模型。';
+
+  @override
+  String speechExportSelected(int count) {
+    return '导出所选（$count）';
+  }
+
+  @override
+  String get speechExported => '已将语音模型导出为 .tar.zst 模型包。';
 
   @override
   String get speechExportFailed => '无法导出语音模型。请检查保存位置和可用磁盘空间。';
@@ -3880,8 +3838,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get speechRecognition => '语音识别';
 
   @override
-  String get speechRecognitionFormat =>
-      '中英双语 Zipformer（2023-02-20，int8 编码器和连接器）';
+  String get speechRecognitionFormat => '中英双语 Zipformer（2023-02-20，int8 编码器和连接器）';
 
   @override
   String get speechSynthesis => '语音合成';
@@ -3890,7 +3847,67 @@ class AppLocalizationsZh extends AppLocalizations {
   String get speechSynthesisFormat => '中文 VITS（vits-zh-ll）';
 
   @override
-  String get speechDefaultVoice => '默认音色';
+  String get speechKokoroFormat => 'Kokoro 多语言 v1.0（中英双语）';
+
+  @override
+  String speechChineseVitsCardSubtitle(int count) {
+    return '语音合成 · 中文 VITS · $count 种音色';
+  }
+
+  @override
+  String speechKokoroCardSubtitle(int count) {
+    return '语音合成 · 中英双语 Kokoro · $count 种音色';
+  }
+
+  @override
+  String get speechBilingualZipformerCardSubtitle => '语音识别 · 中英双语 Zipformer';
+
+  @override
+  String speechModelFormat(String format) {
+    return '模型格式：$format';
+  }
+
+  @override
+  String get speechImportedModels => '已导入的语音模型';
+
+  @override
+  String get speechImportedModelsDescription => '用于离线识别和合成的本地模型。';
+
+  @override
+  String get speechViewDetails => '查看详情';
+
+  @override
+  String get speechUnavailableModel => '模型不可用';
+
+  @override
+  String get speechPreviewVoice => '试听音色';
+
+  @override
+  String get speechPreviewVoiceDescription => '选择音色后可播放示例，智能体的音色设置会保留。';
+
+  @override
+  String get speechNoSynthesis => '不使用语音合成';
+
+  @override
+  String get speechNoSynthesisSummary => '不朗读回复';
+
+  @override
+  String get speechNoRecognition => '不使用语音识别';
+
+  @override
+  String get speechNoRecognitionSummary => '仅使用文字输入';
+
+  @override
+  String get speechSynthesisSettings => '语音合成设置';
+
+  @override
+  String get speechAgentVoiceLabel => '音色';
+
+  @override
+  String get speechAgentVoiceDescription => '当前智能体朗读回复时使用的声音。';
+
+  @override
+  String get speechSave => '保存';
 
   @override
   String speechVoiceNumber(int number) {
@@ -3901,13 +3918,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get speechNoModels => '尚未导入模型';
 
   @override
-  String get speechCurrentDefault => '默认模型';
+  String get speechSearchModels => '搜索语音模型';
 
   @override
-  String get speechModelReady => '可用';
-
-  @override
-  String get speechSelectDefault => '设为默认';
+  String get speechNoMatchingModels => '没有匹配的语音模型';
 
   @override
   String get speechLoading => '正在处理…';
@@ -3916,7 +3930,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get speechPreview => '试听';
 
   @override
+  String get speechTestRecognition => '测试语音识别';
+
+  @override
+  String get speechTestRecognitionDescription => '录音和识别均在本机处理。';
+
+  @override
+  String get speechTestTranscript => '识别结果';
+
+  @override
+  String get speechStartingRecording => '正在启动麦克风…';
+
+  @override
+  String speechVoiceNamed(int number, String name) {
+    return '音色 $number · $name';
+  }
+
+  @override
   String get speechPreviewText => '你好，这是一段 LilyGoBox 离线语音试听。';
+
+  @override
+  String get speechKokoroPreviewText => '你好，欢迎使用 LilyGoBox。今天我们来试试 offline speech synthesis 的中英文混读。';
 
   @override
   String get speechStopPlayback => '停止播放';
@@ -3928,18 +3962,38 @@ class AppLocalizationsZh extends AppLocalizations {
   String get speechStartRecording => '开始语音输入';
 
   @override
-  String get speechStopRecording => '停止录音并识别';
+  String get speechStopRecording => '停止录音';
 
   @override
-  String get speechTranscribing => '正在识别…';
+  String get speechTranscribing => '正在完成识别…';
 
   @override
   String speechDeleteTitle(String name) {
-    return '删除 $name？';
+    return '从语音库删除「$name」？';
   }
 
   @override
-  String get speechDeleteDescription => '此模型将从语音库移除，原始压缩包不受影响。';
+  String get speechDeleteDescription => '删除仅影响语音库中的模型，原始压缩包会保留。';
+
+  @override
+  String get speechDeleteBoundDescription => '删除后，以下智能体将解除对应的语音绑定。聊天记录、原始压缩包和其余语音绑定都会保留。';
+
+  @override
+  String speechDeleteModelsHeading(int count) {
+    return '将删除的语音模型（$count）';
+  }
+
+  @override
+  String get speechDeleteBindingsChanged => '语音绑定已发生变化，请核对受影响的智能体后重新确认。';
+
+  @override
+  String get speechDeleteUnavailable => '暂时无法删除语音模型，请稍后重试。';
+
+  @override
+  String get speechEnableSynthesis => '启用语音合成';
+
+  @override
+  String get speechEnableRecognition => '启用语音识别';
 
   @override
   String get speechUnsupportedModel => '压缩包内必须正好包含一个受支持的语音模型。';

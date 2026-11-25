@@ -3597,6 +3597,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentStorageUsage => 'Local storage usage';
 
   @override
+  String get agentStorageSpeechCategory => 'Voice models';
+
+  @override
   String get agentStorageUsageLoading => 'Loading local storage usage…';
 
   @override
@@ -4147,13 +4150,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get speechLibraryTitle => 'Voice model library';
 
   @override
-  String get speechLibraryDescription => 'Models stored on this computer';
+  String get speechLibraryDescription =>
+      'Local model packages · .tar.zst / .tar.bz2';
 
   @override
   String get speechImport => 'Import model';
 
   @override
-  String get speechImported => 'Voice model imported.';
+  String get speechImported => 'Voice models imported.';
 
   @override
   String get speechArchiveTypes => 'Voice model archives (.tar.zst, .tar.bz2)';
@@ -4162,14 +4166,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get speechZstdType => 'Voice model archive (.tar.zst)';
 
   @override
-  String get speechExport => 'Export';
+  String get speechExport => 'Export model package';
 
   @override
-  String get speechExported => 'Voice model exported as a .tar.zst archive.';
+  String get speechExportSelection =>
+      'Select the voice models to include in the package.';
+
+  @override
+  String speechExportSelected(int count) {
+    return 'Export selected ($count)';
+  }
+
+  @override
+  String get speechExported => 'Voice models exported as a .tar.zst package.';
 
   @override
   String get speechExportFailed =>
-      'Could not export the voice model. Check the destination and free disk space.';
+      'Could not export the voice models. Check the destination and free disk space.';
 
   @override
   String get speechInvalidPackage =>
@@ -4193,7 +4206,84 @@ class AppLocalizationsEn extends AppLocalizations {
   String get speechSynthesisFormat => 'Chinese VITS (vits-zh-ll)';
 
   @override
-  String get speechDefaultVoice => 'Default voice';
+  String get speechKokoroFormat =>
+      'Kokoro Multilingual v1.0 (Chinese and English)';
+
+  @override
+  String speechChineseVitsCardSubtitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count voices',
+      one: '1 voice',
+    );
+    return 'Speech synthesis · Chinese VITS · $_temp0';
+  }
+
+  @override
+  String speechKokoroCardSubtitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count voices',
+      one: '1 voice',
+    );
+    return 'Speech synthesis · Chinese–English Kokoro · $_temp0';
+  }
+
+  @override
+  String get speechBilingualZipformerCardSubtitle =>
+      'Speech recognition · Chinese–English Zipformer';
+
+  @override
+  String speechModelFormat(String format) {
+    return 'Model format: $format';
+  }
+
+  @override
+  String get speechImportedModels => 'Imported voice models';
+
+  @override
+  String get speechImportedModelsDescription =>
+      'Models available for offline recognition and synthesis.';
+
+  @override
+  String get speechViewDetails => 'View details';
+
+  @override
+  String get speechUnavailableModel => 'Model unavailable';
+
+  @override
+  String get speechPreviewVoice => 'Voice to preview';
+
+  @override
+  String get speechPreviewVoiceDescription =>
+      'Choose a voice to hear a sample. This does not change any agent’s settings.';
+
+  @override
+  String get speechNoSynthesis => 'No synthesis';
+
+  @override
+  String get speechNoSynthesisSummary => 'No reply playback';
+
+  @override
+  String get speechNoRecognition => 'No recognition';
+
+  @override
+  String get speechNoRecognitionSummary => 'Text input only';
+
+  @override
+  String get speechSynthesisSettings => 'Speech synthesis settings';
+
+  @override
+  String get speechAgentVoiceLabel => 'Voice';
+
+  @override
+  String get speechAgentVoiceDescription =>
+      'The voice this agent uses to read replies aloud.';
+
+  @override
+  String get speechSave => 'Save';
 
   @override
   String speechVoiceNumber(int number) {
@@ -4204,13 +4294,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get speechNoModels => 'No models imported';
 
   @override
-  String get speechCurrentDefault => 'Default model';
+  String get speechSearchModels => 'Search voice models';
 
   @override
-  String get speechModelReady => 'Available';
-
-  @override
-  String get speechSelectDefault => 'Set as default';
+  String get speechNoMatchingModels => 'No matching voice models';
 
   @override
   String get speechLoading => 'Working…';
@@ -4219,7 +4306,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get speechPreview => 'Preview';
 
   @override
+  String get speechTestRecognition => 'Test recognition';
+
+  @override
+  String get speechTestRecognitionDescription =>
+      'Audio is recorded and transcribed on this device.';
+
+  @override
+  String get speechTestTranscript => 'Transcript';
+
+  @override
+  String get speechStartingRecording => 'Starting microphone…';
+
+  @override
+  String speechVoiceNamed(int number, String name) {
+    return 'Voice $number · $name';
+  }
+
+  @override
   String get speechPreviewText => '你好，这是一段 LilyGoBox 离线语音试听。';
+
+  @override
+  String get speechKokoroPreviewText =>
+      'Hello from LilyGoBox. 今天我们来试试 offline speech synthesis 的中英文混读。';
 
   @override
   String get speechStopPlayback => 'Stop playback';
@@ -4231,19 +4340,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get speechStartRecording => 'Start voice input';
 
   @override
-  String get speechStopRecording => 'Stop recording and transcribe';
+  String get speechStopRecording => 'Stop recording';
 
   @override
-  String get speechTranscribing => 'Transcribing…';
+  String get speechTranscribing => 'Finalizing transcript…';
 
   @override
   String speechDeleteTitle(String name) {
-    return 'Delete $name?';
+    return 'Delete “$name” from the library?';
   }
 
   @override
   String get speechDeleteDescription =>
-      'The model will be removed from the library. The original archive will not change.';
+      'Deletion removes the selected models from the library. The original archives are kept.';
+
+  @override
+  String get speechDeleteBoundDescription =>
+      'The agents below will stop using the models being deleted. Chat history, original archives, and any remaining voice bindings are kept.';
+
+  @override
+  String speechDeleteModelsHeading(int count) {
+    return 'Voice models to delete ($count)';
+  }
+
+  @override
+  String get speechDeleteBindingsChanged =>
+      'Voice bindings changed. Review the affected agents and confirm again.';
+
+  @override
+  String get speechDeleteUnavailable =>
+      'The voice model cannot be deleted right now. Try again shortly.';
+
+  @override
+  String get speechEnableSynthesis => 'Enable speech synthesis';
+
+  @override
+  String get speechEnableRecognition => 'Enable speech recognition';
 
   @override
   String get speechUnsupportedModel =>

@@ -8,6 +8,7 @@ import 'dart:ui' show Offset;
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../speech/domain/speech_model.dart';
 import '../domain/models.dart';
 import '../domain/permissions.dart';
 import '../domain/reasoning.dart';
@@ -40,6 +41,8 @@ typedef AiRoleplayLibraryAgent = ({
 });
 
 enum AiRoleplayLibraryDeleteResult { deleted, unavailable, changed, busy }
+
+typedef AiSpeechLibraryAgent = ({String id, String title, bool recycled});
 
 /// In-memory editor state. Conversations stay on their original task objects.
 class AiTopologyEditSnapshot {
@@ -301,6 +304,103 @@ class AiWorkspaceProvider extends ChangeNotifier {
 
   String? _roleplayFingerprint(AiAgentWorkspace session) =>
       session.assistant.roleplayBinding?.sourceCard.templateFingerprint;
+
+  Map<String, int> get speechLibraryUsage {
+    final counts = <String, int>{};
+    void add(String id) =>
+        counts.update(id, (count) => count + 1, ifAbsent: () => 1);
+
+    for (final session in _sessions) {
+      final bindings = session.assistant.speechBindings;
+      for (final id in {?bindings.voice?.modelId, ?bindings.recognitionId}) {
+        add(id);
+      }
+    }
+    for (final entry in _recycledAgents) {
+      for (final id in entry._speechModelIds) {
+        add(id);
+      }
+    }
+    return counts;
+  }
+
+  List<AiSpeechLibraryAgent> speechModelAgents(SpeechModel model) => [
+    for (final session in _sessions)
+      if (session.assistant.speechBindings.modelIdFor(model.kind) == model.id)
+        (id: session.id, title: session.title, recycled: false),
+    for (final entry in _recycledAgents)
+      if (entry._speechModelIds.contains(model.id))
+        (id: entry.id, title: entry.title, recycled: true),
+  ];
+
+  bool get canDeleteSpeechModel =>
+      !_disposed && !_restoring && !restoreFailed && !_recycleOperation;
+
+  Future<bool> deleteSpeechModels(
+    Map<SpeechModel, List<AiSpeechLibraryAgent>> confirmedUsage, {
+    required Future<bool> Function() removeModels,
+  }) async {
+    if (!canDeleteSpeechModel ||
+        confirmedUsage.isEmpty ||
+        confirmedUsage.entries.any(
+          (entry) => !setEquals(
+            speechModelAgents(entry.key).toSet(),
+            entry.value.toSet(),
+          ),
+        )) {
+      return false;
+    }
+    _recycleOperation = true;
+    try {
+      if (!await removeModels() || _disposed) return true;
+
+      final models = {for (final model in confirmedUsage.keys) model.id: model};
+      final updatedEntries = <AiRecycledAgent, AiRecycledAgent>{};
+      List<AiRecycledAgent> withoutBinding(List<AiRecycledAgent> entries) {
+        bool affected(AiRecycledAgent entry) =>
+            entry._speechModelIds.any(models.containsKey);
+        if (!entries.any(affected)) {
+          return entries;
+        }
+        return [
+          for (final entry in entries)
+            if (affected(entry))
+              updatedEntries.putIfAbsent(
+                entry,
+                () => entry._withoutSpeechModels(models),
+              )
+            else
+              entry,
+        ];
+      }
+
+      final recycled = withoutBinding(_recycledAgents);
+      if (!identical(recycled, _recycledAgents)) {
+        _replaceRecycledAgents(recycled);
+      }
+      for (final snapshot in _editSnapshots) {
+        snapshot._recycled = withoutBinding(snapshot._recycled);
+      }
+      for (final session in [..._sessions, ..._detachedEditTasks.values]) {
+        final assistant = session.assistant;
+        var bindings = assistant.speechBindings;
+        if (models[bindings.voice?.modelId]?.kind == .synthesis) {
+          bindings = bindings.withVoice(null);
+        }
+        if (models[bindings.recognitionId]?.kind == .recognition) {
+          bindings = bindings.withRecognition(null);
+        }
+        assistant.setSpeechBindings(bindings);
+      }
+      return true;
+    } finally {
+      _recycleOperation = false;
+      if (!_disposed) {
+        _scheduleSave();
+        notifyListeners();
+      }
+    }
+  }
 
   AiRoleplayLibraryDeleteResult deleteRoleplayTemplate(
     String fingerprint, {
@@ -1793,6 +1893,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
       session.status,
       session.model,
       assistant.roleplayBinding,
+      assistant.speechBindings,
       session.serviceId,
       assistant.selectedService?.name,
       assistant.pendingApproval,

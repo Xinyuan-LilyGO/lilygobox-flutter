@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lilygobox/core/files/package_transfer.dart';
 import 'package:lilygobox/features/assistant/data/roleplay_card_importer.dart';
 import 'package:lilygobox/features/assistant/data/roleplay_card_package.dart';
 import 'package:lilygobox/features/assistant/domain/roleplay_card.dart';
@@ -19,6 +20,26 @@ void main() {
     packagePath = '${directory.path}/cards.tar.zst';
   });
   tearDown(() => directory.delete(recursive: true));
+
+  test('cancels compression without replacing the previous archive', () async {
+    final destination = File(packagePath);
+    const originalBytes = [1, 2, 3];
+    await destination.writeAsBytes(originalBytes);
+    final card = AiRoleplayCard.fromFields({'name': 'Archivist'});
+    late final PackageTransfer transfer;
+    transfer = PackageTransfer(
+      onProgress: (progress) {
+        if (progress.stage == .compressing) transfer.cancel();
+      },
+    );
+
+    await expectLater(
+      RoleplayCardPackage.write(packagePath, [card], transfer: transfer),
+      throwsA(isA<PackageCancelled>()),
+    );
+    expect(await destination.readAsBytes(), originalBytes);
+    expect(await directory.list().length, 1);
+  });
 
   test('imports loose PNG and JSON and exports their original bytes', () async {
     final originalPng = await _pngCard('Archivist');
@@ -142,6 +163,36 @@ void main() {
     expect(restored.originalFile, file.value);
     expect(restored.avatar, card.avatar);
     expect(restored.templateFingerprint, card.templateFingerprint);
+  });
+
+  test('exports clean card names and suffixes filename collisions', () async {
+    final cards = [
+      AiRoleplayCard.fromFields({
+        'name': 'A/B',
+        'creator': 'Card Author',
+        'character_version': '1.2',
+        'spec_version': '3.0',
+      }),
+      AiRoleplayCard.fromFields({'name': 'A:B'}),
+      AiRoleplayCard.fromFields({'name': 'a_b'}),
+      AiRoleplayCard.fromFields({'name': 'CON'}),
+    ];
+
+    await RoleplayCardPackage.write(packagePath, cards);
+    final files = (await _readArchive(packagePath)).entries.toList();
+
+    expect(files.map((file) => file.key), [
+      'A_B.json',
+      'A_B (2).json',
+      'a_b (3).json',
+      '_CON.json',
+    ]);
+    final exportedCard = jsonDecode(utf8.decode(files.first.value)) as Map;
+    final exportedData = exportedCard['data'] as Map;
+    expect(exportedData['name'], 'A/B');
+    expect(exportedData['creator'], 'Card Author');
+    expect(exportedData['character_version'], '1.2');
+    expect(exportedCard['spec_version'], '3.0');
   });
 
   test('keeps distinct cards that share a name', () async {

@@ -89,10 +89,21 @@ class AgentStorageController extends ChangeNotifier {
   int _readGeneration = 0;
   bool replacingMemories = false;
   bool appendingMemories = false;
-  Future<void> refreshStats({bool force = false}) async {
+  int? _speechBytes;
+  int? get speechBytes => _speechBytes;
+
+  Future<void> refreshStats({
+    bool force = false,
+    Future<int?> Function()? readSpeechBytes,
+  }) async {
     final storage = workspaces.main.storage;
     if (storage == null) return;
-    stats = await storage.readStats(force: force);
+    final (databaseStats, modelBytes) = await (
+      storage.readStats(force: force),
+      readSpeechBytes?.call() ?? Future<int?>.value(),
+    ).wait;
+    stats = databaseStats;
+    if (readSpeechBytes != null) _speechBytes = modelBytes;
     notifyListeners();
   }
 

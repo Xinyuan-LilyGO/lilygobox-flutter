@@ -19,6 +19,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:lilygobox/app/keyboard_shortcuts.dart';
 import 'package:lilygobox/app/navigation/provider.dart';
 import 'package:lilygobox/app/shell/state/provider.dart';
 import 'package:lilygobox/core/l10n/language_provider.dart';
@@ -196,6 +197,7 @@ void main() {
     double scale = 1,
     String locale = 'en',
     Widget? content,
+    Map<ShortcutActivator, Intent>? shortcuts,
   }) => MultiProvider(
     providers: [
       ChangeNotifierProvider.value(value: theme),
@@ -204,6 +206,7 @@ void main() {
       ChangeNotifierProvider.value(value: navigation),
     ],
     child: MaterialApp(
+      shortcuts: shortcuts,
       scrollBehavior: const AppScrollBehavior(),
       locale: Locale(locale),
       localizationsDelegates: appLocalizationDelegates,
@@ -2921,6 +2924,33 @@ void main() {
     expect(navigation.currentPage, AppPage.home);
     expect(requests, 0);
   });
+
+  testWidgets('control Y redoes text after control Z in the composer', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app(shortcuts: appKeyboardShortcuts));
+    await tester.pumpAndSettle();
+    final field = find.byKey(const ValueKey('ai-message-input'));
+    final controller = tester.widget<TextField>(field).controller!;
+    await tester.tap(field);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.enterText(field, 'Draft to restore');
+    await tester.pump(const Duration(milliseconds: 600));
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(controller.text, isEmpty);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyY);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(controller.text, 'Draft to restore');
+    expect(requests, 0);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
   testWidgets('clicking editor padding and toolbar whitespace focuses text', (
     tester,

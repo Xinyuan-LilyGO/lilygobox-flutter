@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lilygobox/core/files/package_transfer.dart';
 import 'package:lilygobox/features/speech/data/speech_model_store.dart';
 import 'package:lilygobox/features/speech/domain/speech_model.dart';
 import 'package:path/path.dart' as path;
@@ -30,7 +32,46 @@ void main() {
   Matcher failure(SpeechFailureReason reason) =>
       isA<SpeechFailure>().having((error) => error.reason, 'reason', reason);
 
-  test('copies upstream files and restores both defaults and voice', () async {
+  test(
+    'cancels model extraction without installing or leaving files',
+    () async {
+      final source = await fixture('recognition', .bilingualZipformer);
+      await modelRoot.create();
+      final initial = await store.read();
+      late final PackageTransfer transfer;
+      transfer = PackageTransfer(
+        onProgress: (progress) {
+          if (progress.stage == .decompressing) transfer.cancel();
+        },
+      );
+
+      await expectLater(
+        store.import(initial, source, check: check, transfer: transfer),
+        throwsA(isA<PackageCancelled>()),
+      );
+      expect((await store.read()).models, isEmpty);
+      expect(await modelRoot.list().isEmpty, isTrue);
+    },
+  );
+
+  test(
+    'counts stored model files without counting temporary imports',
+    () async {
+      expect(await store.readStorageBytes(), 0);
+      const format = SpeechModelFormat.chineseVits;
+      final source = await fixture('synthesis', format);
+      final library = await store.import(SpeechLibrary(), source, check: check);
+      final scratch = await modelRoot.createTemp('import-');
+      await File(path.join(scratch.path, 'source.tar'))
+          .writeAsString('temporary');
+      final bytes = format.files.fold(0, (total, file) => total + file.length);
+      expect(await store.readStorageBytes(), bytes);
+      await store.delete(library, library.models.single);
+      expect(await store.readStorageBytes(), 0);
+    },
+  );
+
+  test('persists upstream files and models without global defaults', () async {
     final asr = await fixture('recognition', .bilingualZipformer);
     final tts = await speechArchiveFixture(
       workspace,
@@ -42,8 +83,9 @@ void main() {
     final initial = await store.read();
     final recognized = await store.import(initial, asr, check: check);
     final synthesized = await store.import(recognized, tts, check: check);
-    final selected = await store.selectVoice(synthesized, 3);
-    final voiceModel = selected.selectedModel(.synthesis)!;
+    final voiceModel = synthesized.models.singleWhere(
+      (model) => model.kind == .synthesis,
+    );
     final installed = await store.directoryFor(voiceModel);
     expect(File(path.join(installed.path, 'README.md')).existsSync(), isFalse);
     expect(
@@ -53,9 +95,17 @@ void main() {
     await File(tts).delete();
 
     final reopened = await SpeechModelStore(directory: modelRoot).read();
-    expect(reopened.recognitionId, selected.recognitionId);
-    expect(reopened.selectedModel(.synthesis)?.name, '中文语音');
-    expect(reopened.voice, 3);
+    expect(
+      reopened.models.map((model) => model.id),
+      synthesized.models.map((model) => model.id),
+    );
+    expect(reopened.models.last.name, '中文语音');
+    expect(reopened.synthesisModel(null), isNull);
+    expect(reopened.recognitionModel(null), isNull);
+    final index = jsonDecode(
+      await File(path.join(modelRoot.path, 'library.json')).readAsString(),
+    ) as Map<String, Object?>;
+    expect(index.keys, ['models']);
   });
 
   test('detects a copied model regardless of its folder name', () async {
@@ -98,15 +148,15 @@ void main() {
       await File(path.join(installed.path, 'tokens.txt')).delete();
 
       final broken = await store.read();
-      expect(broken.recognitionId, model.id);
+      expect(broken.models.single.id, model.id);
       expect(broken.models.single.available, isFalse);
-      expect(broken.selectedModel(.recognition), isNull);
+      expect(broken.recognitionModel(model.id), isNull);
       await expectLater(
         store.directoryFor(model),
         throwsA(failure(.missingFiles)),
       );
       final repaired = await store.import(broken, asr, check: check);
-      expect(repaired.selectedModel(.recognition)?.id, model.id);
+      expect(repaired.recognitionModel(model.id)?.id, model.id);
       expect((await store.read()).models.single.available, isTrue);
     },
   );
@@ -125,33 +175,54 @@ void main() {
     },
   );
 
+  test('deleting one synthesis model never falls back to another', () async {
+    final asr = await fixture('recognition', .bilingualZipformer);
+    final tts = await fixture('synthesis', .chineseVits);
+    final second = await speechArchiveFixture(
+      workspace,
+      'second',
+      .chineseVits,
+      extra: {'model.onnx': 'changed'},
+    );
+    final withAsr = await store.import(await store.read(), asr, check: check);
+    final withTts = await store.import(withAsr, tts, check: check);
+    final withSecond = await store.import(withTts, second, check: check);
+    final model = withSecond.models.last;
+    final installed = await store.directoryFor(model);
+    await store.delete(withSecond, model);
+    final reopened = await store.read();
+    expect(reopened.recognitionModel(withAsr.models.single.id), isNotNull);
+    expect(reopened.synthesisModel((modelId: model.id, voice: 0)), isNull);
+    expect(reopened.models, hasLength(2));
+    expect(installed.existsSync(), isFalse);
+  });
+
   test(
-    'switching synthesis resets voice and deletion clears only its default',
+    'batch deletion restores model files when the index write fails',
     () async {
       final asr = await fixture('recognition', .bilingualZipformer);
       final tts = await fixture('synthesis', .chineseVits);
-      final second = await speechArchiveFixture(
-        workspace,
-        'second',
-        .chineseVits,
-        extra: {'model.onnx': 'changed'},
-      );
-      final withAsr = await store.import(await store.read(), asr, check: check);
-      final withTts = await store.import(withAsr, tts, check: check);
-      final withSecond = await store.import(withTts, second, check: check);
-      final choice = await store.selectVoice(withSecond, 4);
-      final model = choice.models.last;
-      final switched = await store.select(choice, model);
-      expect(switched.voice, 0);
-      expect(switched.synthesisId, model.id);
+      final withAsr = await store.import(SpeechLibrary(), asr, check: check);
+      final library = await store.import(withAsr, tts, check: check);
+      final index = File(path.join(modelRoot.path, 'library.json'));
+      final original = await index.rename('${index.path}.backup');
+      final obstruction = await Directory(index.path).create();
+      final ids = {for (final model in library.models) model.id};
 
-      final installed = await store.directoryFor(model);
-      await store.delete(switched, model);
-      final reopened = await store.read();
-      expect(reopened.recognitionId, withAsr.recognitionId);
-      expect(reopened.synthesisId, isNull);
-      expect(reopened.models, hasLength(2));
-      expect(installed.existsSync(), isFalse);
+      await expectLater(
+        store.deleteModels(library, ids),
+        throwsA(failure(.storage)),
+      );
+
+      await obstruction.delete();
+      await original.rename(index.path);
+      expect(
+        (await store.read()).models.map((model) => model.id),
+        unorderedEquals(ids),
+      );
+      for (final model in library.models) {
+        expect(await (await store.directoryFor(model)).exists(), isTrue);
+      }
     },
   );
 
@@ -167,7 +238,7 @@ void main() {
       );
       final model = library.models.single;
       final destination = path.join(workspace.path, 'exported');
-      await store.export(model, destination);
+      await store.export([model], destination);
 
       final archivePath = '$destination.tar.zst';
       final archive = TarDecoder().decodeBytes(
@@ -179,7 +250,10 @@ void main() {
       );
       expect(
         archive.files.map((entry) => entry.name),
-        unorderedEquals(format.files),
+        unorderedEquals([
+          'voice-models.json',
+          for (final relative in format.files) 'models/0/$relative',
+        ]),
       );
 
       final receivingStore = SpeechModelStore(
@@ -191,7 +265,7 @@ void main() {
         check: check,
       );
       expect(imported.models.single.id, model.id);
-      expect(imported.models.single.name, 'exported');
+      expect(imported.models.single.name, model.name);
       final installed = await receivingStore.directoryFor(
         imported.models.single,
       );
@@ -207,6 +281,95 @@ void main() {
       );
     },
   );
+
+  test(
+    'round trips mixed models with identical names and skips installed copies',
+    () async {
+      final tts = await fixture('shared', .chineseVits);
+      final first = await store.import(SpeechLibrary(), tts, check: check);
+      final asr = await fixture('shared', .bilingualZipformer);
+      final library = await store.import(first, asr, check: check);
+      final destination = path.join(workspace.path, 'mixed.tar.zst');
+      await store.export(library.models, destination);
+
+      final receiver = SpeechModelStore(
+        directory: Directory(path.join(workspace.path, 'receiver')),
+      );
+      final existing = await receiver.import(
+        SpeechLibrary(),
+        asr,
+        check: check,
+      );
+      final checkedFormats = <SpeechModelFormat>[];
+      final restored = await receiver.import(
+        existing,
+        destination,
+        check: (format, directory) {
+          checkedFormats.add(format);
+          return check(format, directory);
+        },
+      );
+      expect(checkedFormats, [SpeechModelFormat.chineseVits]);
+      expect(
+        restored.models.map((model) => model.id),
+        unorderedEquals(library.models.map((model) => model.id)),
+      );
+      expect(restored.models.map((model) => model.name), ['shared', 'shared']);
+      expect((await receiver.read()).models, hasLength(2));
+    },
+  );
+
+  test('preserves and hashes the Kokoro phonemizer resources', () async {
+    const format = SpeechModelFormat.kokoroMultiLanguage;
+    const resource = 'espeak-ng-data/voices/!v/example';
+    final source = await speechArchiveFixture(
+      workspace,
+      'upstream',
+      format,
+      modelFolder: 'kokoro-multi-lang-v1_0',
+      extra: {resource: 'voice configuration', 'README.md': 'documentation'},
+    );
+    final original = await store.import(SpeechLibrary(), source, check: check);
+    final model = original.models.single;
+    expect(model.format, format);
+    expect(model.name, 'kokoro-multi-lang-v1_0');
+
+    final destination = path.join(workspace.path, 'kokoro.tar.zst');
+    await store.export(original.models, destination);
+    final receiver = SpeechModelStore(
+      directory: Directory(path.join(workspace.path, 'receiver')),
+    );
+    final restored = await receiver.import(
+      SpeechLibrary(),
+      destination,
+      check: check,
+    );
+    expect(restored.models.single.id, model.id);
+    final directory = await receiver.directoryFor(restored.models.single);
+    final voice = File(path.joinAll([directory.path, ...resource.split('/')]));
+    expect(await voice.readAsString(), 'voice configuration');
+    expect(
+      await File(path.join(directory.path, 'README.md')).exists(),
+      isFalse,
+    );
+
+    await File(path.join(directory.path, 'espeak-ng-data', 'phondata'))
+        .delete();
+    expect((await receiver.read()).models.single.available, isFalse);
+  });
+
+  test('rejects colliding paths in Kokoro phonemizer resources', () async {
+    final source = await speechArchiveFixture(
+      workspace,
+      'colliding',
+      .kokoroMultiLanguage,
+      extra: {'espeak-ng-data/Lang/other': 'another file'},
+    );
+    await expectLater(
+      store.import(SpeechLibrary(), source, check: check),
+      throwsA(failure(.invalidPackage)),
+    );
+  });
 
   test(
     'rejects a damaged package and rejects traversal before installing',

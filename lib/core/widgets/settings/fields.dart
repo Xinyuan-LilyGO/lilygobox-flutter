@@ -77,6 +77,7 @@ class SettingControlledTextField extends StatelessWidget {
     this.onSubmitted,
     this.hintText,
     this.enabled = true,
+    this.readOnly = false,
     this.obscureText = false,
     this.autofocus = false,
     this.keyboardType,
@@ -96,6 +97,7 @@ class SettingControlledTextField extends StatelessWidget {
   final ValueChanged<String>? onSubmitted;
   final String? hintText;
   final bool enabled;
+  final bool readOnly;
   final bool obscureText;
   final bool autofocus;
   final TextInputType? keyboardType;
@@ -116,6 +118,7 @@ class SettingControlledTextField extends StatelessWidget {
       selectionWidthStyle: ui.BoxWidthStyle.tight,
       controller: controller,
       enabled: enabled,
+      readOnly: readOnly,
       minLines: minLines,
       maxLines: maxLines,
       maxLength: maxLength,

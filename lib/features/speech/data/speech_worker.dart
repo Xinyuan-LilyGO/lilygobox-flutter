@@ -2,6 +2,7 @@
  * @Description: 在 Windows 子进程中调用 sherpa-onnx 并通过管道传输音频。
  */
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
@@ -14,6 +15,7 @@ import '../domain/speech_model.dart';
 import 'speech_engine.dart';
 
 Future<void> runSpeechWorker({String? dllDirectory}) async {
+  stdout.encoding = utf8;
   try {
     final directory = dllDirectory ?? path.dirname(Platform.resolvedExecutable);
     DynamicLibrary.open(path.join(directory, 'onnxruntime.dll'));
@@ -23,8 +25,21 @@ Future<void> runSpeechWorker({String? dllDirectory}) async {
   }
 
   try {
-    final request = jsonDecode(await stdin.transform(utf8.decoder).join());
-    final response = _process(request);
+    final input = StreamIterator(
+      stdin.transform(utf8.decoder).transform(const LineSplitter()),
+    );
+    if (!await input.moveNext()) throw const FormatException();
+    final request = jsonDecode(input.current);
+    final response = switch (request) {
+      {
+        'operation': 'recognize',
+        'format': 'bilingualZipformer',
+        'directory': final String directory,
+        'partialResults': final bool partialResults,
+      } =>
+        {'text': await _recognize(directory, input, partialResults)},
+      _ => _process(request),
+    };
     stdout.writeln('$speechWorkerResultPrefix${jsonEncode(response)}');
     await stdout.flush();
     exit(0);
@@ -42,30 +57,16 @@ Map<String, Object> _process(Object? request) {
     final format = SpeechModelFormat.values.byName(formatName);
     return switch ((operation, format, request)) {
       ('check', .bilingualZipformer, _) => _checkRecognizer(directory),
-      ('check', .chineseVits, _) => _checkSynthesis(directory),
-      (
-        'recognize',
-        .bilingualZipformer,
-        {
-          'pcm': final String pcm,
-          'sampleRate': final int sampleRate,
-          'channels': final int channels,
-        },
-      ) =>
-        {
-          'text': _recognize(
-            directory,
-            base64Decode(pcm),
-            sampleRate,
-            channels,
-          ),
-        },
+      ('check', .chineseVits || .kokoroMultiLanguage, _) => _checkSynthesis(
+        directory,
+        format,
+      ),
       (
         'synthesize',
-        .chineseVits,
+        .chineseVits || .kokoroMultiLanguage,
         {'text': final String text, 'voice': final int voice},
       ) =>
-        {'wav': base64Encode(_synthesize(directory, text, voice))},
+        {'wav': base64Encode(_synthesize(directory, format, text, voice))},
       _ => throw const FormatException(),
     };
   }
@@ -97,38 +98,64 @@ Map<String, int> _checkRecognizer(String directory) {
   return {'voices': 0};
 }
 
-String _recognize(
+Future<String> _recognize(
   String directory,
-  Uint8List pcm,
-  int sampleRate,
-  int channels,
-) {
-  final frameSize = channels * 2;
-  if (sampleRate < 8000 ||
-      sampleRate > 96000 ||
-      channels < 1 ||
-      channels > 2 ||
-      pcm.length < frameSize ||
-      pcm.length % frameSize != 0 ||
-      pcm.length > sampleRate * speechMaxRecordingSeconds * frameSize) {
-    throw const FormatException();
-  }
-  final input = ByteData.sublistView(pcm);
-  final frames = pcm.length ~/ frameSize;
-  final samples = Float32List(frames + sampleRate ~/ 2);
-  for (var index = 0; index < frames; index++) {
-    final offset = index * frameSize;
-    final first = input.getInt16(offset, Endian.little);
-    samples[index] = channels == 1
-        ? first / 32768
-        : (first + input.getInt16(offset + 2, Endian.little)) / 65536;
-  }
-
+  StreamIterator<String> input,
+  bool partialResults,
+) async {
   final recognizer = _recognizer(directory);
   try {
     final stream = recognizer.createStream();
     try {
-      stream.acceptWaveform(samples: samples, sampleRate: sampleRate);
+      var rate = 0;
+      var frameSize = 0;
+      var totalFrames = 0;
+      var previous = '';
+      while (await input.moveNext()) {
+        if (jsonDecode(input.current)
+            case {
+              'pcm': final String encoded,
+              'sampleRate': final int sampleRate,
+              'channels': final int channels,
+            }
+            when sampleRate >= 8000 &&
+                sampleRate <= 96000 &&
+                channels >= 1 &&
+                channels <= 2 &&
+                (rate == 0 ||
+                    rate == sampleRate && frameSize == channels * 2)) {
+          rate = sampleRate;
+          frameSize = channels * 2;
+          final pcm = base64Decode(encoded);
+          totalFrames += pcm.length ~/ frameSize;
+          if (pcm.isEmpty ||
+              pcm.length % frameSize != 0 ||
+              totalFrames > rate * speechMaxRecordingSeconds) {
+            throw const FormatException();
+          }
+          stream.acceptWaveform(
+            samples: _pcmSamples(pcm, frameSize),
+            sampleRate: rate,
+          );
+          if (!recognizer.isReady(stream)) continue;
+          while (recognizer.isReady(stream)) {
+            recognizer.decode(stream);
+          }
+          if (partialResults) {
+            final text = recognizer.getResult(stream).text.trim();
+            if (text == previous) continue;
+            previous = text;
+            stdout.writeln(
+              '$speechWorkerResultPrefix${jsonEncode({'partial': text})}',
+            );
+            await stdout.flush();
+          }
+        } else {
+          throw const FormatException();
+        }
+      }
+      if (totalFrames == 0) return '';
+      stream.acceptWaveform(samples: Float32List(rate ~/ 2), sampleRate: rate);
       stream.inputFinished();
       while (recognizer.isReady(stream)) {
         recognizer.decode(stream);
@@ -142,29 +169,66 @@ String _recognize(
   }
 }
 
-sherpa.OfflineTts _synthesizer(String directory) => sherpa.OfflineTts(
-  sherpa.OfflineTtsConfig(
-    model: sherpa.OfflineTtsModelConfig(
+Float32List _pcmSamples(Uint8List pcm, int frameSize) {
+  final input = ByteData.sublistView(pcm);
+  final samples = Float32List(pcm.length ~/ frameSize);
+  for (var index = 0; index < samples.length; index++) {
+    final offset = index * frameSize;
+    final first = input.getInt16(offset, Endian.little);
+    samples[index] = frameSize == 2
+        ? first / 32768
+        : (first + input.getInt16(offset + 2, Endian.little)) / 65536;
+  }
+  return samples;
+}
+
+sherpa.OfflineTts _synthesizer(String directory, SpeechModelFormat format) {
+  String modelFile(String name) => path.join(directory, name);
+  final model = switch (format) {
+    .chineseVits => sherpa.OfflineTtsModelConfig(
       vits: sherpa.OfflineTtsVitsModelConfig(
-        model: path.join(directory, 'model.onnx'),
-        lexicon: path.join(directory, 'lexicon.txt'),
-        tokens: path.join(directory, 'tokens.txt'),
-        dictDir: path.join(directory, 'dict'),
+        model: modelFile('model.onnx'),
+        lexicon: modelFile('lexicon.txt'),
+        tokens: modelFile('tokens.txt'),
+        dictDir: modelFile('dict'),
       ),
       numThreads: 2,
       debug: false,
     ),
-    ruleFsts: [
-      for (final name in ['phone.fst', 'date.fst', 'number.fst'])
-        path.join(directory, name),
-    ].join(','),
-  ),
-);
+    .kokoroMultiLanguage => sherpa.OfflineTtsModelConfig(
+      kokoro: sherpa.OfflineTtsKokoroModelConfig(
+        model: modelFile('model.onnx'),
+        voices: modelFile('voices.bin'),
+        tokens: modelFile('tokens.txt'),
+        dataDir: modelFile('espeak-ng-data'),
+        lexicon: [
+          modelFile('lexicon-us-en.txt'),
+          modelFile('lexicon-zh.txt'),
+        ].join(','),
+      ),
+      numThreads: 2,
+      debug: false,
+    ),
+    .bilingualZipformer => throw const FormatException(),
+  };
+  final rules = switch (format) {
+    .chineseVits => ['phone.fst', 'date.fst', 'number.fst'],
+    .kokoroMultiLanguage => ['phone-zh.fst', 'date-zh.fst', 'number-zh.fst'],
+    .bilingualZipformer => throw const FormatException(),
+  };
+  return sherpa.OfflineTts(
+    sherpa.OfflineTtsConfig(
+      model: model,
+      ruleFsts: rules.map(modelFile).join(','),
+    ),
+  );
+}
 
-Map<String, int> _checkSynthesis(String directory) {
-  final tts = _synthesizer(directory);
+Map<String, int> _checkSynthesis(String directory, SpeechModelFormat format) {
+  final tts = _synthesizer(directory, format);
   try {
-    final preview = tts.generate(text: '你好。', sid: 0);
+    final text = format == .kokoroMultiLanguage ? 'Hello，世界。' : '你好。';
+    final preview = tts.generate(text: text, sid: 0);
     if (preview.samples.isEmpty || preview.sampleRate <= 0) {
       throw const FormatException();
     }
@@ -174,9 +238,14 @@ Map<String, int> _checkSynthesis(String directory) {
   }
 }
 
-Uint8List _synthesize(String directory, String text, int voice) {
+Uint8List _synthesize(
+  String directory,
+  SpeechModelFormat format,
+  String text,
+  int voice,
+) {
   if (text.trim().isEmpty) throw const FormatException();
-  final tts = _synthesizer(directory);
+  final tts = _synthesizer(directory, format);
   try {
     if (voice < 0 || voice >= tts.numSpeakers) throw const FormatException();
     final pcm = BytesBuilder(copy: false);

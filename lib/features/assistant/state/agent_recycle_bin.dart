@@ -12,6 +12,7 @@ class AiRecycledAgent {
        task = record['task'] as String,
        parentId = record['parentId'] as String?,
        _roleplayFingerprint = _readRoleplayFingerprint(record),
+       _speechModelIds = _readSpeechModelIds(record['conversation']),
        _record = jsonEncode(record);
   final String _record;
   Map<String, dynamic> get record =>
@@ -24,6 +25,12 @@ class AiRecycledAgent {
   final String task;
   final String? parentId;
   final String? _roleplayFingerprint;
+  final Set<String> _speechModelIds;
+
+  static Set<String> _readSpeechModelIds(Object? conversation) => {
+    if (conversation case {'speechVoice': {'modelId': final String id}}) id,
+    if (conversation case {'speechRecognitionId': final String id}) id,
+  };
 
   static String? _readRoleplayFingerprint(Map<String, dynamic> record) {
     final conversation = record['conversation'];
@@ -42,6 +49,27 @@ class AiRecycledAgent {
   AiRecycledAgent _withoutRoleplay() {
     final updated = record;
     (updated['conversation'] as Map).remove('roleplay');
+    return AiRecycledAgent(
+      record: updated,
+      deletedAt: deletedAt,
+      position: position,
+      connections: connections,
+    );
+  }
+
+  AiRecycledAgent _withoutSpeechModels(Map<String, SpeechModel> models) {
+    final updated = record;
+    final conversation = updated['conversation'] as Map;
+    if (conversation['speechVoice'] case {'modelId': final String id}
+        when models[id]?.kind == .synthesis) {
+      conversation.remove('speechVoice');
+      conversation.remove('speechSynthesisPaused');
+    }
+    if (conversation['speechRecognitionId'] case final String id
+        when models[id]?.kind == .recognition) {
+      conversation.remove('speechRecognitionId');
+      conversation.remove('speechRecognitionPaused');
+    }
     return AiRecycledAgent(
       record: updated,
       deletedAt: deletedAt,

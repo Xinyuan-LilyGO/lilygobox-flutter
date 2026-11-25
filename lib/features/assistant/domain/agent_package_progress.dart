@@ -1,36 +1,8 @@
-/// 数据包操作当前可测量的处理阶段。
-enum AgentPackageStage {
-  preparing,
-  reading,
-  compressing,
-  decompressing,
-  verifying,
-  checksumming,
-  analyzing,
-  writing,
-  committing,
-}
+import '../../../core/files/package_transfer.dart';
 
-class AgentPackageProgress {
-  const AgentPackageProgress(
-    this.stage, {
-    this.completed,
-    this.total,
-    this.canCancel = true,
-  });
-
-  final AgentPackageStage stage;
-  final int? completed;
-  final int? total;
-  final bool canCancel;
-  double? get fraction => completed != null && total != null && total! > 0
-      ? (completed! / total!).clamp(0, 1)
-      : null;
-}
-
-class AgentPackageCancelled implements Exception {
-  const AgentPackageCancelled();
-}
+typedef AgentPackageStage = PackageStage;
+typedef AgentPackageProgress = PackageProgress;
+typedef AgentPackageCancelled = PackageCancelled;
 
 /// 通知后台任务和文件读写流程取消当前操作。
 class AgentPackageCancellation {

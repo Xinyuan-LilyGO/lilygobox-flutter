@@ -407,6 +407,7 @@ class _PermissionsPanelState extends State<_PermissionsPanel> {
     ),
     title: title,
     description: description,
+    uniformHeight: true,
     selected: selected,
     onPressed: onPressed,
     next: next,

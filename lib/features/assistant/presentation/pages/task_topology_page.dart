@@ -33,6 +33,8 @@ import '../../../../core/widgets/tilt_card.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../../../generated/l10n/app_localizations.dart';
 import '../../../settings/presentation/widgets/content_layout.dart';
+import '../../../speech/presentation/speech_chat_controls.dart';
+import '../../../speech/state/speech_provider.dart';
 import '../../domain/roleplay_card.dart';
 import '../../domain/task_canvas_style.dart';
 import '../../state/agent_workspace_provider.dart';
@@ -4786,6 +4788,10 @@ class _TopologyConversation extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeProvider>().themeData;
     final l10n = context.l10n;
+    final speech = context.read<SpeechProvider?>();
+    final bindings = context.select(
+      (AiAssistantProvider assistant) => assistant.speechBindings,
+    );
     final agentInfo = Column(
       key: ValueKey('topology-conversation-info-${session.id}'),
       mainAxisSize: MainAxisSize.min,
@@ -4827,68 +4833,105 @@ class _TopologyConversation extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              AppTooltip(
-                message: l10n.back,
-                child: Semantics(
-                  label: l10n.back,
-                  button: true,
-                  child: TitleBarIconButton(
-                    key: const ValueKey('topology-back'),
-                    theme: theme,
-                    backgroundColor: Colors.transparent,
-                    surfaceColor: theme.primary,
-                    hoverColor: theme.primary,
-                    isFocused: true,
-                    icon: Symbols.arrow_back_rounded,
-                    size: 28,
-                    iconSize: 18,
-                    onPressed: onBack,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 3,
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: _TaskTitleScroll(
-                    key: ValueKey(
-                      'topology-conversation-title-scroll-${session.id}',
-                    ),
-                    title: session.title,
-                    theme: theme,
-                    onRename: onRename,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 2,
-                child: LayoutBuilder(
-                  builder: (context, constraints) => Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: math.min(220, constraints.maxWidth / 2),
-                        ),
-                        child: RoleplayMenuButton(
-                          theme: theme,
-                          assistant: session.assistant,
-                          compact: constraints.maxWidth < 232,
-                          onChooseOpening: onChooseOpening,
-                        ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              const backSize = 28.0;
+              const titleGap = 10.0;
+              const menuGap = 4.0;
+              final available = math.max(
+                0.0,
+                constraints.maxWidth - backSize - titleGap * 2,
+              );
+              final width = math.min(
+                available,
+                math.max(speech == null ? 100.0 : 176.0, available * .4),
+              );
+              final compact = width < (speech == null ? 232 : 320);
+              final speechWidth = speech == null
+                  ? 0.0
+                  : compact
+                  ? 80.0
+                  : math.min(200.0, width / 2);
+              final remainingWidth =
+                  width - (speech == null ? 0 : speechWidth + menuGap);
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  AppTooltip(
+                    message: l10n.back,
+                    child: Semantics(
+                      label: l10n.back,
+                      button: true,
+                      child: TitleBarIconButton(
+                        key: const ValueKey('topology-back'),
+                        theme: theme,
+                        backgroundColor: Colors.transparent,
+                        surfaceColor: theme.primary,
+                        hoverColor: theme.primary,
+                        isFocused: true,
+                        icon: Symbols.arrow_back_rounded,
+                        size: backSize,
+                        iconSize: 18,
+                        onPressed: onBack,
                       ),
-                      const SizedBox(width: 10),
-                      Flexible(child: agentInfo),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-            ],
+                  const SizedBox(width: titleGap),
+                  Expanded(
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: _TaskTitleScroll(
+                        key: ValueKey(
+                          'topology-conversation-title-scroll-${session.id}',
+                        ),
+                        title: session.title,
+                        theme: theme,
+                        onRename: onRename,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: titleGap),
+                  SizedBox(
+                    width: width,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (speech != null) ...[
+                          ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: speechWidth),
+                            child: SpeechChatControls(
+                              key: ValueKey(session.id),
+                              theme: theme,
+                              speech: speech,
+                              bindings: bindings,
+                              onChanged: session.assistant.setSpeechBindings,
+                              compact: compact,
+                            ),
+                          ),
+                          const SizedBox(width: menuGap),
+                        ],
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: math.min(
+                              220,
+                              math.max(38.0, remainingWidth / 2),
+                            ),
+                          ),
+                          child: RoleplayMenuButton(
+                            theme: theme,
+                            assistant: session.assistant,
+                            compact: compact,
+                            onChooseOpening: onChooseOpening,
+                          ),
+                        ),
+                        const SizedBox(width: titleGap),
+                        Flexible(child: agentInfo),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
         Expanded(

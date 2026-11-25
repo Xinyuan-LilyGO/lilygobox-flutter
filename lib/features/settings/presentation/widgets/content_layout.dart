@@ -220,6 +220,59 @@ class SettingsPanel extends StatelessWidget {
   );
 }
 
+class SettingsLibraryCard extends StatelessWidget {
+  const SettingsLibraryCard({
+    super.key,
+    required this.theme,
+    required this.details,
+    required this.actions,
+  });
+
+  final AppTheme theme;
+  final Widget details;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final buttons = Wrap(
+      alignment: WrapAlignment.end,
+      spacing: 4,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: actions,
+    );
+    return SettingsPanel(
+      theme: theme,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth <
+              MediaQuery.textScalerOf(context).scale(620)) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 8,
+              children: [
+                details,
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: buttons,
+                ),
+              ],
+            );
+          }
+          return Row(
+            spacing: 12,
+            children: [
+              Expanded(child: details),
+              buttons,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
 class SettingsSection extends StatelessWidget {
   static const contentPadding = EdgeInsets.symmetric(
     horizontal: 16,

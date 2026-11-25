@@ -16,38 +16,54 @@ const speechWorkerResultPrefix = 'LILYGOBOX_SPEECH:';
 const speechSampleRate = 16000;
 const speechMaxRecordingSeconds = 90;
 
+typedef SpeechAudioChunk = ({Uint8List pcm, int sampleRate, int channels});
+
 class SpeechEngine {
   const SpeechEngine();
 
-  Future<int> check(SpeechModelFormat format, Directory directory) async {
-    final result = await _invoke(format, directory, 'check', const {});
+  Future<int> check(
+    SpeechModelFormat format,
+    Directory directory, {
+    Future<void>? cancellation,
+  }) async {
+    final result = await _invoke(
+      format,
+      directory,
+      'check',
+      const {},
+      cancellation: cancellation,
+    );
     if (result case {'voices': final int voices}) return voices;
     throw const SpeechFailure(.invalidModel);
   }
 
   Future<String> recognize(
     Directory directory,
-    Uint8List pcm, {
-    int sampleRate = speechSampleRate,
-    int channels = 1,
-    Future<void>? cancellation,
+    Stream<SpeechAudioChunk> audio, {
+    void Function(String)? onPartial,
+    required Future<void> cancellation,
   }) async {
-    final result = await _invoke(.bilingualZipformer, directory, 'recognize', {
-      'pcm': base64Encode(pcm),
-      'sampleRate': sampleRate,
-      'channels': channels,
-    }, cancellation: cancellation);
+    final result = await _invoke(
+      .bilingualZipformer,
+      directory,
+      'recognize',
+      const {},
+      audio: audio,
+      onPartial: onPartial,
+      cancellation: cancellation,
+    );
     if (result case {'text': final String text}) return text;
     throw const SpeechFailure(.engine);
   }
 
   Future<Uint8List> synthesize(
+    SpeechModelFormat format,
     Directory directory,
     String text,
     int voice, {
     Future<void>? cancellation,
   }) async {
-    final result = await _invoke(.chineseVits, directory, 'synthesize', {
+    final result = await _invoke(format, directory, 'synthesize', {
       'text': text,
       'voice': voice,
     }, cancellation: cancellation);
@@ -61,6 +77,8 @@ class SpeechEngine {
     String operation,
     Map<String, Object?> arguments, {
     Future<void>? cancellation,
+    Stream<SpeechAudioChunk>? audio,
+    void Function(String)? onPartial,
   }) async {
     final executable = Platform.resolvedExecutable;
     final executableDirectory = path.dirname(executable);
@@ -75,36 +93,58 @@ class SpeechEngine {
       speechWorkerArgument,
     ], workingDirectory: executableDirectory);
     unawaited(cancellation?.then<void>((_) => process.kill()));
+    process.stdin.encoding = utf8;
     final response = process.stdout
         .transform(const Utf8Decoder(allowMalformed: true))
         .transform(const LineSplitter())
         .where((line) => line.startsWith(speechWorkerResultPrefix))
-        .map((line) => line.substring(speechWorkerResultPrefix.length))
-        .fold<String?>(null, (previous, line) => previous ?? line);
+        .map(
+          (line) => jsonDecode(line.substring(speechWorkerResultPrefix.length)),
+        )
+        .fold<Object?>(null, (previous, result) {
+          if (result case {'partial': final String text}) {
+            onPartial?.call(text);
+            return previous;
+          }
+          return previous ?? result;
+        });
     final errors = process.stderr.drain<void>();
     final status = process.exitCode;
-    try {
-      process.stdin.add(
-        utf8.encode(
-          jsonEncode({
-            'operation': operation,
-            'format': format.name,
-            'directory': directory.absolute.path,
-            ...arguments,
-          }),
-        ),
+    Future<void> send() async {
+      process.stdin.writeln(
+        jsonEncode({
+          'operation': operation,
+          'format': format.name,
+          'directory': directory.absolute.path,
+          'partialResults': onPartial != null,
+          ...arguments,
+        }),
       );
+      if (audio != null) {
+        await process.stdin.addStream(
+          audio.map(
+            (chunk) => utf8.encode(
+              '${jsonEncode({'pcm': base64Encode(chunk.pcm), 'sampleRate': chunk.sampleRate, 'channels': chunk.channels})}\n',
+            ),
+          ),
+        );
+      }
+      await process.stdin.close();
+    }
+
+    try {
       final results = await Future.wait<Object?>([
-        status,
+        status.then((code) {
+          if (code == 0) return;
+          throw SpeechFailure(
+            operation == 'check' && code != 78 ? .invalidModel : .engine,
+          );
+        }),
         response,
         errors,
-        process.stdin.close(),
+        send(),
       ], eagerError: true).timeout(const Duration(minutes: 2));
-      if (results case [0, final String text, ...]) {
-        return jsonDecode(text);
-      }
-      if (results[0] == 78) throw const SpeechFailure(.engine);
-      throw SpeechFailure(operation == 'check' ? .invalidModel : .engine);
+      return results[1];
     } on TimeoutException {
       throw const SpeechFailure(.engine);
     } finally {

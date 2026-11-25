@@ -63,6 +63,8 @@ class _AssistantPageState extends State<AssistantPage> {
   final _speechConversation = SpeechConversation();
   SpeechProvider? _speech;
   bool _canKeepRecording = false;
+  String? _recognitionModelId;
+  String? _synthesisModelId;
   late final _scroll = ConversationScrollController(
     pinToLatest: () =>
         _initialScrollPositionApplied &&
@@ -203,8 +205,17 @@ class _AssistantPageState extends State<AssistantPage> {
   }
 
   Future<void> _transcribe(SpeechProvider speech) async {
-    final (:text, :error) = await speech.startRecording(_speechConversation);
-    if (!mounted || !_canKeepRecording) return;
+    final modelId = context.read<AiAssistantProvider>().speechRecognitionId;
+    if (modelId == null) return;
+    final (:text, :error) = await speech.startRecording(
+      _speechConversation,
+      modelId: modelId,
+    );
+    if (!mounted ||
+        !_canKeepRecording ||
+        context.read<AiAssistantProvider>().speechRecognitionId != modelId) {
+      return;
+    }
     if (text != null) {
       final draft = _input.text;
       final separator =
@@ -346,10 +357,12 @@ class _AssistantPageState extends State<AssistantPage> {
     final messages = assistant.messages;
     final l10n = context.l10n;
     final ready = assistant.credentialLoaded && assistant.hasApiKey;
+    final recognitionId = assistant.speechRecognitionId;
+    final synthesisId = assistant.speechVoice?.modelId;
     final (speech, hasModel, phase, canRecord) = context.select(
       (SpeechProvider? voice) => (
         voice,
-        voice?.library.selectedModel(.recognition) != null,
+        voice?.library.recognitionModel(recognitionId) != null,
         voice?.capturePhase(_speechConversation),
         voice != null && !voice.busy && !voice.hasCapture,
       ),
@@ -360,9 +373,26 @@ class _AssistantPageState extends State<AssistantPage> {
         !widget.readOnly &&
         assistant.pendingApproval == null &&
         assistant.pendingUserInput == null;
-    if ((_canKeepRecording && !canKeepRecording && phase != null) || !active) {
+    if (!active) {
       scheduleMicrotask(() => speech?.stopConversation(_speechConversation));
+    } else {
+      if (phase != null &&
+          (!hasModel ||
+              recognitionId != _recognitionModelId ||
+              (_canKeepRecording && !canKeepRecording))) {
+        scheduleMicrotask(
+          () =>
+              speech?.stopConversation(_speechConversation, kind: .recognition),
+        );
+      }
+      if (_synthesisModelId != null && synthesisId != _synthesisModelId) {
+        scheduleMicrotask(
+          () => speech?.stopConversation(_speechConversation, kind: .synthesis),
+        );
+      }
     }
+    _recognitionModelId = recognitionId;
+    _synthesisModelId = synthesisId;
     _canKeepRecording = canKeepRecording;
     final voiceButton =
         speech == null || !canKeepRecording || (!hasModel && phase == null)

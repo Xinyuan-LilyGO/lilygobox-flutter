@@ -24,8 +24,13 @@ import 'package:lilygobox/features/assistant/domain/roleplay_card.dart';
 import 'package:lilygobox/features/assistant/presentation/widgets/storage_content.dart';
 import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
 import 'package:lilygobox/features/settings/presentation/widgets/content_layout.dart';
+import 'package:lilygobox/features/speech/data/speech_audio_output.dart';
+import 'package:lilygobox/features/speech/data/speech_engine.dart';
+import 'package:lilygobox/features/speech/data/speech_model_store.dart';
+import 'package:lilygobox/features/speech/state/speech_provider.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
 
 import 'assistant_test_scope.dart';
@@ -57,69 +62,97 @@ Future<void> tick(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('storage overview shows roleplay card usage after refresh', (
-    tester,
-  ) async {
-    final theme = ThemeProvider();
-    final language = LanguageProvider();
-    final shell = AppShellProvider();
-    final split = SplitViewProvider();
-    late AgentStorage storage;
-    late AssistantTestScope scope;
-    late AiWorkspaceProvider workspaces;
-    await tester.runAsync(() async {
-      storage = AgentStorage(path: ':memory:');
-      scope = await createAssistantTestScope(
-        theme: theme,
-        language: language,
-        shell: shell,
-        splitView: split,
-        storage: storage,
-      );
-      await scope.provider.initialized;
-      workspaces = AiWorkspaceProvider(scope.provider);
-      await workspaces.initialized;
-    });
-    addTearDown(() async {
-      workspaces.dispose();
-      scope.dispose();
-      split.dispose();
-      shell.dispose();
-      language.dispose();
-      theme.dispose();
-      await storage.close();
-    });
-    await tester.pumpWidget(
-      ChangeNotifierProvider.value(
-        value: workspaces,
-        child: MaterialApp(
-          locale: const Locale('zh'),
-          supportedLocales: const [Locale('zh'), Locale('en')],
-          localizationsDelegates: appLocalizationDelegates,
-          home: Scaffold(body: AgentStorageContent(theme: theme.themeData)),
+  testWidgets(
+    'storage overview shows roleplay and voice model usage after refresh',
+    (tester) async {
+      final theme = ThemeProvider();
+      final language = LanguageProvider();
+      final shell = AppShellProvider();
+      final split = SplitViewProvider();
+      late AgentStorage storage;
+      late AssistantTestScope scope;
+      late AiWorkspaceProvider workspaces;
+      late Directory modelRoot;
+      late SpeechProvider speech;
+      await tester.runAsync(() async {
+        modelRoot = await Directory.systemTemp.createTemp('storage-voice-');
+        speech = SpeechProvider(
+          store: SpeechModelStore(directory: modelRoot),
+          engine: const SpeechEngine(),
+          output: const WindowsSpeechAudioOutput(),
+        );
+        storage = AgentStorage(path: ':memory:');
+        scope = await createAssistantTestScope(
+          theme: theme,
+          language: language,
+          shell: shell,
+          splitView: split,
+          storage: storage,
+        );
+        await scope.provider.initialized;
+        workspaces = AiWorkspaceProvider(scope.provider);
+        await workspaces.initialized;
+      });
+      addTearDown(() async {
+        speech.dispose();
+        await modelRoot.delete(recursive: true);
+        workspaces.dispose();
+        scope.dispose();
+        split.dispose();
+        shell.dispose();
+        language.dispose();
+        theme.dispose();
+        await storage.close();
+      });
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: workspaces),
+            ChangeNotifierProvider.value(value: speech),
+          ],
+          child: MaterialApp(
+            locale: const Locale('zh'),
+            supportedLocales: const [Locale('zh'), Locale('en')],
+            localizationsDelegates: appLocalizationDelegates,
+            home: Scaffold(body: AgentStorageContent(theme: theme.themeData)),
+          ),
         ),
-      ),
-    );
-    await tick(tester);
-    expect(find.text('角色卡'), findsOneWidget);
-    Finder usage(RegExp pattern) => find.byWidgetPredicate(
-      (widget) =>
-          widget is Semantics &&
-          pattern.hasMatch(widget.properties.label ?? ''),
-    );
-    expect(usage(RegExp(r'角色卡: 0 B')), findsOneWidget);
-    workspaces.addRoleplayTemplate(
-      AiRoleplayBinding(
-        card: AiRoleplayCard.fromFields({'name': 'Library character'}),
-        playerName: 'Guest',
-      ),
-    );
-    await tester.tap(find.text('刷新'));
-    await tick(tester);
-    expect(usage(RegExp(r'角色卡: [1-9]\d* B')), findsOneWidget);
-    expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
+      );
+      await tick(tester);
+      expect(find.text('角色卡'), findsOneWidget);
+      Finder usage(RegExp pattern) => find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            pattern.hasMatch(widget.properties.label ?? ''),
+      );
+      expect(usage(RegExp(r'角色卡: 0 B')), findsOneWidget);
+      expect(usage(RegExp(r'语音模型: 0 B')), findsOneWidget);
+      await tester.runAsync(() async {
+        final model = await Directory(path.join(modelRoot.path, 'a' * 64))
+            .create();
+        await File(path.join(model.path, 'model.onnx'))
+            .writeAsBytes(Uint8List(8192));
+      });
+      workspaces.addRoleplayTemplate(
+        AiRoleplayBinding(
+          card: AiRoleplayCard.fromFields({'name': 'Library character'}),
+          playerName: 'Guest',
+        ),
+      );
+      await tester.tap(find.text('刷新'));
+      await tick(tester);
+      expect(usage(RegExp(r'角色卡: [1-9]\d* B')), findsOneWidget);
+      expect(usage(RegExp(r'语音模型: 8\.0 KB')), findsOneWidget);
+      final stats = (await tester.runAsync(storage.readStats))!;
+      final total = ((stats['bytes'] as int) + 8192) / 1024;
+      expect(
+        find.text('本地存储占用 ${total.toStringAsFixed(1)} KB'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   for (final type in ThemeType.values) {
     for (final scale in [1.0, 1.5]) {
@@ -453,10 +486,7 @@ void main() {
               .color,
           isNot(palette.materialColors.onError),
         );
-        expect(
-          tester.getSize(recycleList).width,
-          lessThanOrEqualTo(440),
-        );
+        expect(tester.getSize(recycleList).width, lessThanOrEqualTo(440));
         await tester.tap(find.text('关闭'));
         await tick(tester);
         if (type == ThemeType.dark && scale == 1.0) {

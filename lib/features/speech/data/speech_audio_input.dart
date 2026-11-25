@@ -10,12 +10,11 @@ import 'package:record/record.dart';
 import '../domain/speech_model.dart';
 import 'speech_engine.dart';
 
-typedef SpeechRecording = ({Uint8List pcm, int sampleRate, int channels});
-
 abstract interface class SpeechAudioInput {
-  Future<SpeechRecording?> record({
+  Future<void> record({
     required Future<bool> stop,
     required void Function() started,
+    required void Function(SpeechAudioChunk) onAudio,
   });
 }
 
@@ -23,12 +22,13 @@ class WindowsSpeechAudioInput implements SpeechAudioInput {
   const WindowsSpeechAudioInput();
 
   @override
-  Future<SpeechRecording?> record({
+  Future<void> record({
     required Future<bool> stop,
     required void Function() started,
+    required void Function(SpeechAudioChunk) onAudio,
   }) async {
     final recorder = AudioRecorder();
-    final bytes = BytesBuilder(copy: false);
+    var capturedBytes = 0;
     final closed = Completer<bool>();
     StreamSubscription<Uint8List>? subscription;
     var sampleRate = speechSampleRate;
@@ -40,7 +40,7 @@ class WindowsSpeechAudioInput implements SpeechAudioInput {
         throw const SpeechFailure(.microphone);
       }
       await recorder.setOnConfigChanged((config) {
-        if (bytes.isNotEmpty &&
+        if (capturedBytes != 0 &&
             (config.sampleRate != sampleRate ||
                 config.numChannels != channels)) {
           if (!closed.isCompleted) closed.complete(false);
@@ -58,13 +58,13 @@ class WindowsSpeechAudioInput implements SpeechAudioInput {
       subscription = stream.listen(
         (data) {
           final maximum = sampleRate * channels * 2 * speechMaxRecordingSeconds;
-          final remaining = maximum - bytes.length;
-          if (remaining > 0) {
-            bytes.add(
-              data.length <= remaining
-                  ? data
-                  : Uint8List.sublistView(data, 0, remaining),
-            );
+          final remaining = maximum - capturedBytes;
+          if (!closed.isCompleted && remaining > 0 && data.isNotEmpty) {
+            final pcm = data.length <= remaining
+                ? data
+                : Uint8List.sublistView(data, 0, remaining);
+            capturedBytes += pcm.length;
+            onAudio((pcm: pcm, sampleRate: sampleRate, channels: channels));
           }
         },
         onError: (Object _) {
@@ -88,15 +88,10 @@ class WindowsSpeechAudioInput implements SpeechAudioInput {
       if (closed.isCompleted && !await closed.future) {
         throw const SpeechFailure(.microphone);
       }
-      if (!transcribe) return null;
+      if (!transcribe) return;
       stopping = true;
       await recorder.stop();
       if (!await closed.future) throw const SpeechFailure(.microphone);
-      return (
-        pcm: bytes.takeBytes(),
-        sampleRate: sampleRate,
-        channels: channels,
-      );
     } finally {
       limit?.cancel();
       await subscription?.cancel();

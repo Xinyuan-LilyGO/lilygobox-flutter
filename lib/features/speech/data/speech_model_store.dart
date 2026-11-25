@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as path;
 
+import '../../../core/files/package_transfer.dart';
 import '../../../core/files/zstd_tar.dart';
 import '../domain/speech_model.dart';
 import 'speech_model_package.dart';
@@ -35,6 +36,36 @@ class SpeechModelStore {
 
   File get _index => File(path.join(_root.path, 'library.json'));
 
+  Future<int?> readStorageBytes() async {
+    try {
+      final root = _root;
+      final type = await _type(root.path);
+      if (type == .notFound) return 0;
+      if (type != .directory) return null;
+      var bytes = 0;
+      await for (final entry in root.list(followLinks: false)) {
+        if (entry is! Directory ||
+            !_idPattern.hasMatch(path.basename(entry.path))) {
+          continue;
+        }
+        await for (final file in entry.list(
+          recursive: true,
+          followLinks: false,
+        )) {
+          if (file is File) {
+            final info = await file.stat();
+            if (info.type == .file) bytes += info.size;
+          }
+        }
+      }
+      return bytes;
+    } on FileSystemException {
+      return null;
+    } on SpeechFailure {
+      return null;
+    }
+  }
+
   Directory _modelDirectory(String id) {
     if (!_idPattern.hasMatch(id)) throw const SpeechFailure(.storage);
     return Directory(path.join(_root.path, id));
@@ -50,12 +81,7 @@ class SpeechModelStore {
     if (type != .file) throw const SpeechFailure(.storage);
 
     final decoded = jsonDecode(await index.readAsString());
-    if (decoded case {
-      'models': final List<Object?> entries,
-      'recognition': final String? recognition,
-      'synthesis': final String? synthesis,
-      'voice': final int voice,
-    }) {
+    if (decoded case {'models': final List<Object?> entries}) {
       final models = <SpeechModel>[];
       final ids = <String>{};
       for (final entry in entries) {
@@ -84,22 +110,7 @@ class SpeechModelStore {
           throw const SpeechFailure(.storage);
         }
       }
-      final recognitionModel = models
-          .where(
-            (model) => model.kind == .recognition && model.id == recognition,
-          )
-          .firstOrNull;
-      final synthesisModel = models
-          .where((model) => model.kind == .synthesis && model.id == synthesis)
-          .firstOrNull;
-      return SpeechLibrary(
-        models: models,
-        recognitionId: recognitionModel?.id,
-        synthesisId: synthesisModel?.id,
-        voice: voice >= 0 && voice < (synthesisModel?.voiceCount ?? 0)
-            ? voice
-            : 0,
-      );
+      return SpeechLibrary(models: models);
     }
     throw const SpeechFailure(.storage);
   }
@@ -108,60 +119,72 @@ class SpeechModelStore {
     SpeechLibrary library,
     String sourcePath, {
     required SpeechModelCheck check,
+    PackageTransfer? transfer,
   }) async {
     final root = await _ensureRoot();
     final scratch = await root.createTemp('import-');
-    final staging = Directory(path.join(scratch.path, 'model'));
+    final staging = path.join(scratch.path, 'staging');
     try {
-      final (:format, :name) = await SpeechModelPackage.extract(
+      final models = await SpeechModelPackage.extract(
         sourcePath,
         scratch.path,
-        staging.path,
+        staging,
+        transfer: transfer,
       );
-      final hashes = <String, String>{};
-      for (final relative in format.files) {
-        final file = await _checkedFile(staging, relative);
-        hashes[relative] = (await sha256.bind(file.openRead()).single)
-            .toString();
+      final updatedModels = {
+        for (final model in library.models) model.id: model,
+      };
+      final pending = <String, Directory>{};
+      for (final (index, (:format, :name)) in models.indexed) {
+        final source = Directory(
+          path.join(staging, SpeechModelPackage.modelFolder(index)),
+        );
+        transfer?.report(const PackageProgress(.checksumming));
+        final id = await _modelId(source, format, transfer);
+        if (pending.containsKey(id)) continue;
+        final existing = updatedModels[id];
+        if (existing != null && await _hasFiles(_modelDirectory(id), format)) {
+          continue;
+        }
+        transfer?.report(
+          PackageProgress(.verifying, completed: index, total: models.length),
+        );
+        final int voiceCount;
+        try {
+          voiceCount = await check(format, source);
+        } catch (_) {
+          transfer?.check();
+          rethrow;
+        }
+        transfer?.check();
+        if (!_validVoiceCount(format, voiceCount)) {
+          throw const SpeechFailure(.invalidModel);
+        }
+        updatedModels[id] = SpeechModel(
+          id: id,
+          format: format,
+          name: existing?.name ?? name,
+          voiceCount: voiceCount,
+        );
+        pending[id] = source;
       }
-      final id = sha256
-          .convert(utf8.encode(jsonEncode([format.name, hashes])))
-          .toString();
-      final existing = library.models
-          .where((model) => model.id == id)
-          .firstOrNull;
-      final target = _modelDirectory(id);
-      if (existing != null && await _hasFiles(target, format)) {
-        throw const SpeechFailure(.duplicateModel);
-      }
-      final voiceCount = await check(format, staging);
-      if (!_validVoiceCount(format, voiceCount)) {
-        throw const SpeechFailure(.invalidModel);
-      }
-      final model = SpeechModel(
-        id: id,
-        format: format,
-        name: existing?.name ?? name,
-        voiceCount: voiceCount,
-      );
-      final updated = SpeechLibrary(
-        models: [
-          for (final entry in library.models)
-            if (entry.id == id) model else entry,
-          if (existing == null) model,
-        ],
-        recognitionId:
-            library.recognitionId ?? (format.kind == .recognition ? id : null),
-        synthesisId:
-            library.synthesisId ?? (format.kind == .synthesis ? id : null),
-        voice: library.voice,
-      );
-      await _deleteDirectory(target);
-      await staging.rename(target.path);
+      transfer?.check();
+      if (pending.isEmpty) throw const SpeechFailure(.duplicateModel);
+      final updated = SpeechLibrary(models: updatedModels.values);
+      final installed = <Directory>[];
+      transfer?.commit();
       try {
+        for (final MapEntry(key: id, value: source) in pending.entries) {
+          final target = _modelDirectory(id);
+          await _deleteDirectory(target);
+          await source.rename(target.path);
+          installed.add(target);
+        }
         await _write(updated);
       } catch (_) {
-        await _deleteDirectory(target);
+        for (final directory in installed) {
+          await _deleteDirectory(directory);
+        }
         rethrow;
       }
       return updated;
@@ -170,91 +193,105 @@ class SpeechModelStore {
     }
   }
 
-  Future<void> export(SpeechModel model, String outputPath) async {
-    final source = await directoryFor(model);
-    final files = {
-      for (final relative in model.format.files)
-        relative: (await _checkedFile(source, relative)).path,
-    };
+  static Future<String> _modelId(
+    Directory source,
+    SpeechModelFormat format,
+    PackageTransfer? transfer,
+  ) async {
+    final hashes = <String, String>{};
+    final files = await _modelFiles(source, format);
+    for (final MapEntry(key: relative, value: file) in files.entries) {
+      final chunks = file.openRead().map((bytes) {
+        transfer?.check();
+        return bytes;
+      });
+      hashes[relative] = (await sha256.bind(chunks).single).toString();
+    }
+    return sha256
+        .convert(utf8.encode(jsonEncode([format.name, hashes])))
+        .toString();
+  }
+
+  Future<void> export(
+    List<SpeechModel> models,
+    String outputPath, {
+    PackageTransfer? transfer,
+  }) async {
+    if (models.isNotEmpty && await _type(_root.path) != .directory) {
+      throw const SpeechFailure(.missingFiles);
+    }
+    final files = <String, String>{};
+    for (final (index, model) in models.indexed) {
+      transfer?.report(
+        PackageProgress(.reading, completed: index, total: models.length),
+      );
+      final modelFiles = await _modelFiles(
+        _modelDirectory(model.id),
+        model.format,
+      );
+      for (final MapEntry(key: relative, value: file) in modelFiles.entries) {
+        files['${SpeechModelPackage.modelFolder(index)}/$relative'] = file.path;
+      }
+    }
     final destination = File(
       await ZstdTar.exportPath(File(outputPath).absolute.path),
     );
     final scratch = await destination.parent.createTemp('.speech-export-');
     final temporary = File(path.join(scratch.path, 'model${ZstdTar.suffix}'));
     try {
-      await SpeechModelPackage.write(temporary.path, files);
+      await SpeechModelPackage.write(
+        temporary.path,
+        [for (final model in models) (format: model.format, name: model.name)],
+        files,
+        transfer: transfer,
+      );
+      transfer?.commit();
       await temporary.rename(destination.path);
     } finally {
       await _cleanTemporary(scratch);
     }
   }
 
-  Future<SpeechLibrary> select(SpeechLibrary library, SpeechModel model) async {
-    await directoryFor(model);
-    final updated = SpeechLibrary(
-      models: library.models,
-      recognitionId: model.kind == .recognition
-          ? model.id
-          : library.recognitionId,
-      synthesisId: model.kind == .synthesis ? model.id : library.synthesisId,
-      voice: model.kind == .synthesis && model.id != library.synthesisId
-          ? 0
-          : library.voice,
-    );
-    await _write(updated);
-    return updated;
-  }
+  Future<SpeechLibrary> delete(SpeechLibrary library, SpeechModel model) =>
+      deleteModels(library, {model.id});
 
-  Future<SpeechLibrary> selectVoice(SpeechLibrary library, int voice) async {
-    final model = library.selectedModel(.synthesis);
-    if (model == null || voice < 0 || voice >= model.voiceCount) {
-      throw const SpeechFailure(.invalidModel);
-    }
-    final updated = SpeechLibrary(
-      models: library.models,
-      recognitionId: library.recognitionId,
-      synthesisId: library.synthesisId,
-      voice: voice,
-    );
-    await _write(updated);
-    return updated;
-  }
-
-  Future<SpeechLibrary> delete(SpeechLibrary library, SpeechModel model) async {
-    final directory = _modelDirectory(model.id);
+  Future<SpeechLibrary> deleteModels(
+    SpeechLibrary library,
+    Set<String> ids,
+  ) async {
+    final models = library.models.where((model) => ids.contains(model.id));
+    if (models.isEmpty) return library;
     final root = await _ensureRoot();
     final staging = await root.createTemp('delete-');
-    final movedPath = path.join(staging.path, model.id);
+    final moved = <(Directory, Directory)>[];
     var keepStaging = false;
-    var moved = false;
     try {
-      final type = await _type(directory.path);
-      if (type == .directory) {
-        await directory.rename(movedPath);
-        moved = true;
-      } else if (type != .notFound) {
-        throw const SpeechFailure(.storage);
-      }
-      final deletedSynthesis = library.synthesisId == model.id;
-      final updated = SpeechLibrary(
-        models: library.models.where((entry) => entry.id != model.id),
-        recognitionId: library.recognitionId == model.id
-            ? null
-            : library.recognitionId,
-        synthesisId: deletedSynthesis ? null : library.synthesisId,
-        voice: deletedSynthesis ? 0 : library.voice,
-      );
-      try {
-        await _write(updated);
-      } catch (_) {
-        if (moved) {
-          keepStaging = true;
-          await Directory(movedPath).rename(directory.path);
-          keepStaging = false;
+      for (final model in models) {
+        final directory = _modelDirectory(model.id);
+        final type = await _type(directory.path);
+        if (type == .directory) {
+          final staged = await directory.rename(
+            path.join(staging.path, model.id),
+          );
+          moved.add((directory, staged));
+        } else if (type != .notFound) {
+          throw const SpeechFailure(.storage);
         }
-        rethrow;
       }
+      final updated = SpeechLibrary(
+        models: library.models.where((model) => !ids.contains(model.id)),
+      );
+      await _write(updated);
       return updated;
+    } catch (_) {
+      for (final (original, staged) in moved.reversed) {
+        try {
+          await staged.rename(original.path);
+        } on FileSystemException {
+          keepStaging = true;
+        }
+      }
+      rethrow;
     } finally {
       if (!keepStaging) await _cleanTemporary(staging);
     }
@@ -298,9 +335,6 @@ class SpeechModelStore {
                 'voiceCount': model.voiceCount,
               },
           ],
-          'recognition': library.recognitionId,
-          'synthesis': library.synthesisId,
-          'voice': library.voice,
         }),
         flush: true,
       );
@@ -314,22 +348,66 @@ class SpeechModelStore {
     Directory directory,
     SpeechModelFormat format,
   ) async {
-    if (await _type(directory.path) != .directory) return false;
-    var size = 0;
     try {
-      for (final relative in format.files) {
-        final file = await _checkedFile(directory, relative);
-        final length = await file.length();
-        if (length == 0) return false;
-        size += length;
-        if (size > SpeechModel.maxBytes) return false;
-      }
+      await _modelFiles(directory, format);
       return true;
     } on SpeechFailure {
       return false;
     } on FileSystemException {
       return false;
     }
+  }
+
+  static Future<Map<String, File>> _modelFiles(
+    Directory directory,
+    SpeechModelFormat format,
+  ) async {
+    if (await _type(directory.path) != .directory) {
+      throw const SpeechFailure(.missingFiles);
+    }
+    final files = <String, File>{};
+    var size = 0;
+    Future<void> addFile(
+      String relative,
+      File file, {
+      bool required = false,
+    }) async {
+      final length = await file.length();
+      if (required && length == 0) throw const SpeechFailure(.missingFiles);
+      size += length;
+      if (size > SpeechModel.maxBytes) {
+        throw const SpeechFailure(.packageTooLarge);
+      }
+      files[relative] = file;
+    }
+
+    for (final relative in format.files) {
+      await addFile(
+        relative,
+        await _checkedFile(directory, relative),
+        required: true,
+      );
+    }
+    if (format.resourceDirectory case final resourceDirectory?) {
+      final extraFiles = <String, File>{};
+      final resources = Directory(path.join(directory.path, resourceDirectory));
+      await for (final entity in resources.list(
+        recursive: true,
+        followLinks: false,
+      )) {
+        if (entity is Directory) continue;
+        if (entity is! File || await _type(entity.path) != .file) {
+          throw const SpeechFailure(.missingFiles);
+        }
+        final relative = path.relative(entity.path, from: directory.path);
+        final canonical = path.split(relative).join('/');
+        if (!files.containsKey(canonical)) extraFiles[canonical] = entity;
+      }
+      for (final relative in extraFiles.keys.toList()..sort()) {
+        await addFile(relative, extraFiles[relative]!);
+      }
+    }
+    return files;
   }
 
   static Future<File> _checkedFile(Directory directory, String relative) async {

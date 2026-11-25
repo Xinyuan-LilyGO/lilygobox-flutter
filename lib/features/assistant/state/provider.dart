@@ -11,6 +11,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 
 import '../../../core/storage/preferences.dart';
+import '../../speech/domain/speech_model.dart';
 import '../data/agent_storage.dart';
 import '../data/assistant_tools.dart';
 import '../data/chat_completion_client.dart';
@@ -220,6 +221,19 @@ class AiAssistantProvider extends ChangeNotifier {
   /// 独立上下文与进程管理器；服务选择固定为创建时快照。
   AiAssistantProvider forkForWorkspace() =>
       AiAssistantProvider._workspace(this);
+
+  SpeechBindings _speechBindings = emptySpeechBindings;
+  SpeechBindings get speechBindings => _speechBindings;
+  SpeechVoiceSelection? get speechVoice =>
+      _speechBindings.synthesisPaused ? null : _speechBindings.voice;
+  String? get speechRecognitionId =>
+      _speechBindings.recognitionPaused ? null : _speechBindings.recognitionId;
+
+  void setSpeechBindings(SpeechBindings bindings) {
+    if (_disposed || !_isWorkspace || bindings == _speechBindings) return;
+    _speechBindings = bindings;
+    _notify();
+  }
 
   AiRoleplayBinding? _roleplayBinding;
   AiRoleplayBinding? get roleplayBinding => _roleplayBinding;
@@ -713,6 +727,11 @@ class AiAssistantProvider extends ChangeNotifier {
     if (auxiliaryModels.compaction case final model?)
       'compactionModel': _writeModelSelection(model),
     'roleplay': ?_snapshotRoleplay(),
+    if (_speechBindings.voice case (:final modelId, :final voice))
+      'speechVoice': {'modelId': modelId, 'voice': voice},
+    'speechRecognitionId': ?_speechBindings.recognitionId,
+    if (_speechBindings.synthesisPaused) 'speechSynthesisPaused': true,
+    if (_speechBindings.recognitionPaused) 'speechRecognitionPaused': true,
   };
 
   void restoreWorkspaceConversation(Map<String, dynamic> snapshot) {
@@ -779,6 +798,20 @@ class AiAssistantProvider extends ChangeNotifier {
       compaction: _readModelSelection(snapshot['compactionModel']),
     );
     _restoreRoleplay(snapshot['roleplay']);
+    final bindings = emptySpeechBindings
+        .withVoice(switch (snapshot['speechVoice']) {
+          {'modelId': final String modelId, 'voice': final int voice}
+              when modelId.isNotEmpty && voice >= 0 =>
+            (modelId: modelId, voice: voice),
+          _ => null,
+        })
+        .withRecognition(switch (snapshot['speechRecognitionId']) {
+          final String id when id.isNotEmpty => id,
+          _ => null,
+        });
+    _speechBindings = bindings
+        .withEnabled(.synthesis, snapshot['speechSynthesisPaused'] != true)
+        .withEnabled(.recognition, snapshot['speechRecognitionPaused'] != true);
     _notify();
   }
 

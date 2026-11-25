@@ -20,6 +20,7 @@ import '../features/settings/presentation/widgets/about_content.dart';
 import '../generated/l10n/app_localizations.dart';
 import 'bootstrap/startup.dart';
 import 'bootstrap/startup_presentation.dart';
+import 'keyboard_shortcuts.dart';
 import 'navigation/dialog_observer.dart';
 import 'widgets/preferences_notice.dart';
 import 'widgets/title_bar.dart';
@@ -92,6 +93,7 @@ class _LilygoBoxAppState extends State<LilygoBoxApp> {
       builder: (context, windowProvider, languageProvider, child) {
         return MaterialApp(
           navigatorKey: _navigatorKey,
+          shortcuts: appKeyboardShortcuts,
           scrollBehavior: const AppScrollBehavior(),
           theme: fontFamily == null
               ? _materialThemes[themeType]

@@ -31,6 +31,7 @@ import '../../../speech/state/speech_provider.dart';
 import '../../data/message_link_opener.dart';
 import '../../domain/agent_link.dart';
 import '../../domain/models.dart';
+import '../../state/provider.dart';
 import 'chat_content_window.dart';
 import 'chat_message_list.dart';
 import 'chat_text_segments.dart';
@@ -1015,9 +1016,12 @@ class _SpeechReplyAction extends StatelessWidget {
     final scope = context.watch<SpeechConversation?>();
     if (scope == null) return const SizedBox.shrink();
     final owner = (scope, message.id);
+    final selection = context.select(
+      (AiAssistantProvider? ai) => ai?.speechVoice,
+    );
     final (available, playing, enabled) = context.select(
       (SpeechProvider? speech) => (
-        speech?.library.selectedModel(.synthesis) != null,
+        speech?.library.synthesisModel(selection) != null,
         speech?.isPlaying(owner) ?? false,
         speech != null && !speech.busy && !speech.hasCapture,
       ),
@@ -1041,7 +1045,11 @@ class _SpeechReplyAction extends StatelessWidget {
   }
 
   Future<void> _play(BuildContext context, Object owner, String text) async {
-    final error = await context.read<SpeechProvider>().play(owner, text);
+    final error = await context.read<SpeechProvider>().play(
+      owner,
+      text,
+      selection: context.read<AiAssistantProvider?>()?.speechVoice,
+    );
     if (error != null && context.mounted) {
       showAppNotice(
         ScaffoldMessenger.of(context),

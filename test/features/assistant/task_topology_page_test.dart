@@ -56,6 +56,10 @@ import 'package:lilygobox/features/assistant/presentation/widgets/task_topology_
 import 'package:lilygobox/features/assistant/presentation/widgets/task_topology_overview_card.dart';
 import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
 import 'package:lilygobox/features/assistant/state/provider.dart';
+import 'package:lilygobox/features/speech/data/speech_audio_output.dart';
+import 'package:lilygobox/features/speech/data/speech_engine.dart';
+import 'package:lilygobox/features/speech/data/speech_model_store.dart';
+import 'package:lilygobox/features/speech/state/speech_provider.dart';
 import 'package:lilygobox/generated/l10n/app_localizations.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
@@ -319,6 +323,7 @@ void main() {
     Locale locale = const Locale('zh'),
     String? fontFamily,
     Widget? content,
+    SpeechProvider? speech,
   }) => MultiProvider(
     providers: [
       ChangeNotifierProvider<ThemeProvider>.value(value: theme),
@@ -330,6 +335,7 @@ void main() {
       ChangeNotifierProvider<AiWorkspaceProvider>.value(
         value: restored ?? workspaces,
       ),
+      if (speech != null) ChangeNotifierProvider.value(value: speech),
     ],
     child: RepaintBoundary(
       key: overlayBoundary,
@@ -3006,9 +3012,9 @@ void main() {
       expect(session.assistant.roleplayEnabled, isFalse);
       final noCardIcon = find.descendant(
         of: menu,
-        matching: find.byIcon(Symbols.block_rounded),
+        matching: find.byIcon(Symbols.badge_rounded),
       );
-      expect(tester.widget<Icon>(noCardIcon).fill, 0);
+      expect(tester.widget<Icon>(noCardIcon).fill, 1);
       expect(session.assistant.messages, orderedEquals(previousMessages));
       expect(currentDraft(), session.task);
       expect(greeting.hitTestable(), findsOneWidget);
@@ -3083,10 +3089,27 @@ void main() {
           includeProfile: true,
         ),
       );
-      await tester.pumpWidget(app());
+      final speech = SpeechProvider(
+        store: SpeechModelStore(),
+        engine: const SpeechEngine(),
+        output: const WindowsSpeechAudioOutput(),
+      );
+      addTearDown(speech.dispose);
+      await tester.pumpWidget(app(speech: speech));
       await tick(tester);
       await tester.tap(find.byKey(ValueKey('topology-open-${agent.id}')));
       await tester.pumpAndSettle();
+      final voice = find
+          .byKey(const ValueKey('speech-chat-menu-synthesis'))
+          .hitTestable();
+      final voiceLabel = find.descendant(
+        of: voice,
+        matching: find.text('语音合成'),
+      );
+      expect(voiceLabel, findsOneWidget);
+      final recognition = find.byKey(
+        const ValueKey('speech-chat-menu-recognition'),
+      );
       await tester.binding.setSurfaceSize(const Size(500, 400));
       await tester.pumpAndSettle();
 
@@ -3095,6 +3118,19 @@ void main() {
           .hitTestable();
       final agentInfo = find.byKey(
         ValueKey('topology-conversation-info-${agent.id}'),
+      );
+      expect(voice, findsOneWidget);
+      expect(recognition, findsOneWidget);
+      expect(voiceLabel, findsNothing);
+      expect(tester.getSize(voice).width, 38);
+      expect(tester.getRect(voice).right, lessThan(tester.getRect(menu).left));
+      expect(
+        tester.getRect(recognition).left,
+        greaterThan(tester.getRect(voice).right),
+      );
+      expect(
+        tester.getRect(recognition).right,
+        lessThan(tester.getRect(menu).left),
       );
       expect(
         tester.getRect(menu).right,
@@ -3283,6 +3319,15 @@ void main() {
       expect(agent.assistant.roleplayBinding?.storyActive, isFalse);
       expect(agent.assistant.messages, isEmpty);
       expect(workspaces.activeConversationId, agent.id);
+      await tester.binding.setSurfaceSize(const Size(300, 400));
+      await tester.pumpAndSettle();
+      expect(voice, findsOneWidget);
+      expect(recognition.hitTestable(), findsOneWidget);
+      expect(menu, findsOneWidget);
+      expect(
+        tester.getRect(menu).right,
+        lessThan(tester.getRect(agentInfo).left),
+      );
       expect(tester.takeException(), isNull);
       await finish(tester);
     },

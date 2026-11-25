@@ -6234,6 +6234,12 @@ abstract class AppLocalizations {
   /// **'Local storage usage'**
   String get agentStorageUsage;
 
+  /// No description provided for @agentStorageSpeechCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice models'**
+  String get agentStorageSpeechCategory;
+
   /// No description provided for @agentStorageUsageLoading.
   ///
   /// In en, this message translates to:
@@ -7185,7 +7191,7 @@ abstract class AppLocalizations {
   /// No description provided for @speechLibraryDescription.
   ///
   /// In en, this message translates to:
-  /// **'Models stored on this computer'**
+  /// **'Local model packages · .tar.zst / .tar.bz2'**
   String get speechLibraryDescription;
 
   /// No description provided for @speechImport.
@@ -7197,7 +7203,7 @@ abstract class AppLocalizations {
   /// No description provided for @speechImported.
   ///
   /// In en, this message translates to:
-  /// **'Voice model imported.'**
+  /// **'Voice models imported.'**
   String get speechImported;
 
   /// No description provided for @speechArchiveTypes.
@@ -7215,19 +7221,31 @@ abstract class AppLocalizations {
   /// No description provided for @speechExport.
   ///
   /// In en, this message translates to:
-  /// **'Export'**
+  /// **'Export model package'**
   String get speechExport;
+
+  /// No description provided for @speechExportSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Select the voice models to include in the package.'**
+  String get speechExportSelection;
+
+  /// No description provided for @speechExportSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Export selected ({count})'**
+  String speechExportSelected(int count);
 
   /// No description provided for @speechExported.
   ///
   /// In en, this message translates to:
-  /// **'Voice model exported as a .tar.zst archive.'**
+  /// **'Voice models exported as a .tar.zst package.'**
   String get speechExported;
 
   /// No description provided for @speechExportFailed.
   ///
   /// In en, this message translates to:
-  /// **'Could not export the voice model. Check the destination and free disk space.'**
+  /// **'Could not export the voice models. Check the destination and free disk space.'**
   String get speechExportFailed;
 
   /// No description provided for @speechInvalidPackage.
@@ -7266,11 +7284,119 @@ abstract class AppLocalizations {
   /// **'Chinese VITS (vits-zh-ll)'**
   String get speechSynthesisFormat;
 
-  /// No description provided for @speechDefaultVoice.
+  /// Technical format label for the supported multilingual Kokoro model.
   ///
   /// In en, this message translates to:
-  /// **'Default voice'**
-  String get speechDefaultVoice;
+  /// **'Kokoro Multilingual v1.0 (Chinese and English)'**
+  String get speechKokoroFormat;
+
+  /// Subtitle for a Chinese VITS model card showing its purpose, format and available voice count.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech synthesis · Chinese VITS · {count, plural, one{1 voice} other{{count} voices}}'**
+  String speechChineseVitsCardSubtitle(int count);
+
+  /// Subtitle for a Kokoro model card showing its language support and voice count.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech synthesis · Chinese–English Kokoro · {count, plural, one{1 voice} other{{count} voices}}'**
+  String speechKokoroCardSubtitle(int count);
+
+  /// Subtitle for a bilingual Zipformer model showing its purpose and format.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech recognition · Chinese–English Zipformer'**
+  String get speechBilingualZipformerCardSubtitle;
+
+  /// Technical model format in the voice model details
+  ///
+  /// In en, this message translates to:
+  /// **'Model format: {format}'**
+  String speechModelFormat(String format);
+
+  /// No description provided for @speechImportedModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported voice models'**
+  String get speechImportedModels;
+
+  /// No description provided for @speechImportedModelsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Models available for offline recognition and synthesis.'**
+  String get speechImportedModelsDescription;
+
+  /// No description provided for @speechViewDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'View details'**
+  String get speechViewDetails;
+
+  /// No description provided for @speechUnavailableModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Model unavailable'**
+  String get speechUnavailableModel;
+
+  /// No description provided for @speechPreviewVoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice to preview'**
+  String get speechPreviewVoice;
+
+  /// No description provided for @speechPreviewVoiceDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a voice to hear a sample. This does not change any agent’s settings.'**
+  String get speechPreviewVoiceDescription;
+
+  /// No description provided for @speechNoSynthesis.
+  ///
+  /// In en, this message translates to:
+  /// **'No synthesis'**
+  String get speechNoSynthesis;
+
+  /// No description provided for @speechNoSynthesisSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'No reply playback'**
+  String get speechNoSynthesisSummary;
+
+  /// No description provided for @speechNoRecognition.
+  ///
+  /// In en, this message translates to:
+  /// **'No recognition'**
+  String get speechNoRecognition;
+
+  /// No description provided for @speechNoRecognitionSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Text input only'**
+  String get speechNoRecognitionSummary;
+
+  /// Button and dialog title for an agent's speech synthesis settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech synthesis settings'**
+  String get speechSynthesisSettings;
+
+  /// Field label for selecting the voice an agent uses to read replies.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice'**
+  String get speechAgentVoiceLabel;
+
+  /// Help text for the voice selection in an agent's speech synthesis settings.
+  ///
+  /// In en, this message translates to:
+  /// **'The voice this agent uses to read replies aloud.'**
+  String get speechAgentVoiceDescription;
+
+  /// No description provided for @speechSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get speechSave;
 
   /// No description provided for @speechVoiceNumber.
   ///
@@ -7284,23 +7410,17 @@ abstract class AppLocalizations {
   /// **'No models imported'**
   String get speechNoModels;
 
-  /// No description provided for @speechCurrentDefault.
+  /// No description provided for @speechSearchModels.
   ///
   /// In en, this message translates to:
-  /// **'Default model'**
-  String get speechCurrentDefault;
+  /// **'Search voice models'**
+  String get speechSearchModels;
 
-  /// No description provided for @speechModelReady.
+  /// No description provided for @speechNoMatchingModels.
   ///
   /// In en, this message translates to:
-  /// **'Available'**
-  String get speechModelReady;
-
-  /// No description provided for @speechSelectDefault.
-  ///
-  /// In en, this message translates to:
-  /// **'Set as default'**
-  String get speechSelectDefault;
+  /// **'No matching voice models'**
+  String get speechNoMatchingModels;
 
   /// No description provided for @speechLoading.
   ///
@@ -7314,11 +7434,47 @@ abstract class AppLocalizations {
   /// **'Preview'**
   String get speechPreview;
 
+  /// No description provided for @speechTestRecognition.
+  ///
+  /// In en, this message translates to:
+  /// **'Test recognition'**
+  String get speechTestRecognition;
+
+  /// No description provided for @speechTestRecognitionDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio is recorded and transcribed on this device.'**
+  String get speechTestRecognitionDescription;
+
+  /// Label and placeholder for the editable recognition test transcript.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcript'**
+  String get speechTestTranscript;
+
+  /// No description provided for @speechStartingRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting microphone…'**
+  String get speechStartingRecording;
+
+  /// No description provided for @speechVoiceNamed.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice {number} · {name}'**
+  String speechVoiceNamed(int number, String name);
+
   /// No description provided for @speechPreviewText.
   ///
   /// In en, this message translates to:
   /// **'你好，这是一段 LilyGoBox 离线语音试听。'**
   String get speechPreviewText;
+
+  /// Spoken Kokoro preview. Keep both English and Chinese in the sample to demonstrate mixed-language speech.
+  ///
+  /// In en, this message translates to:
+  /// **'Hello from LilyGoBox. 今天我们来试试 offline speech synthesis 的中英文混读。'**
+  String get speechKokoroPreviewText;
 
   /// No description provided for @speechStopPlayback.
   ///
@@ -7341,26 +7497,62 @@ abstract class AppLocalizations {
   /// No description provided for @speechStopRecording.
   ///
   /// In en, this message translates to:
-  /// **'Stop recording and transcribe'**
+  /// **'Stop recording'**
   String get speechStopRecording;
 
   /// No description provided for @speechTranscribing.
   ///
   /// In en, this message translates to:
-  /// **'Transcribing…'**
+  /// **'Finalizing transcript…'**
   String get speechTranscribing;
 
   /// No description provided for @speechDeleteTitle.
   ///
   /// In en, this message translates to:
-  /// **'Delete {name}?'**
+  /// **'Delete “{name}” from the library?'**
   String speechDeleteTitle(String name);
 
   /// No description provided for @speechDeleteDescription.
   ///
   /// In en, this message translates to:
-  /// **'The model will be removed from the library. The original archive will not change.'**
+  /// **'Deletion removes the selected models from the library. The original archives are kept.'**
   String get speechDeleteDescription;
+
+  /// No description provided for @speechDeleteBoundDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The agents below will stop using the models being deleted. Chat history, original archives, and any remaining voice bindings are kept.'**
+  String get speechDeleteBoundDescription;
+
+  /// No description provided for @speechDeleteModelsHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice models to delete ({count})'**
+  String speechDeleteModelsHeading(int count);
+
+  /// No description provided for @speechDeleteBindingsChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice bindings changed. Review the affected agents and confirm again.'**
+  String get speechDeleteBindingsChanged;
+
+  /// No description provided for @speechDeleteUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The voice model cannot be deleted right now. Try again shortly.'**
+  String get speechDeleteUnavailable;
+
+  /// No description provided for @speechEnableSynthesis.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable speech synthesis'**
+  String get speechEnableSynthesis;
+
+  /// No description provided for @speechEnableRecognition.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable speech recognition'**
+  String get speechEnableRecognition;
 
   /// No description provided for @speechUnsupportedModel.
   ///

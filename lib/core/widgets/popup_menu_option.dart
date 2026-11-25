@@ -21,6 +21,7 @@ Widget buildPopupMenuOption({
   required VoidCallback onPressed,
   Color? backgroundColor,
   bool next = false,
+  bool uniformHeight = false,
 }) => MenuItemSurface(
   key: key,
   theme: theme,
@@ -50,6 +51,18 @@ Widget buildPopupMenuOption({
       final progress = total == 0
           ? 0.0
           : math.sqrt(distance(normal, foreground) / total).clamp(0.0, 1.0);
+      final titleStyle = AppDialogStyle.fieldTitleStyle(theme)
+          .copyWith(color: foreground);
+      final descriptionStyle = AppDialogStyle.descriptionStyle(theme).copyWith(
+        color: Color.lerp(theme.textColorTertiary, highlighted, progress),
+      );
+      StrutStyle? strut(TextStyle style) => uniformHeight
+          ? StrutStyle.fromTextStyle(
+              DefaultTextStyle.of(context).style.merge(style),
+              height: 1.4,
+              forceStrutHeight: true,
+            )
+          : null;
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Row(
@@ -65,21 +78,16 @@ Widget buildPopupMenuOption({
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppDialogStyle.fieldTitleStyle(theme)
-                        .copyWith(color: foreground),
+                    style: titleStyle,
+                    strutStyle: strut(titleStyle),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     description,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppDialogStyle.descriptionStyle(theme).copyWith(
-                      color: Color.lerp(
-                        theme.textColorTertiary,
-                        highlighted,
-                        progress,
-                      ),
-                    ),
+                    style: descriptionStyle,
+                    strutStyle: strut(descriptionStyle),
                   ),
                 ],
               ),

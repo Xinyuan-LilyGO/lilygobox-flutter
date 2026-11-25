@@ -27,6 +27,7 @@ import '../../../../core/widgets/settings/select.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../../../generated/l10n/app_localizations.dart';
 import '../../../settings/presentation/widgets/content_layout.dart';
+import '../../../speech/state/speech_provider.dart';
 import '../../domain/agent_package_progress.dart';
 import '../../state/agent_workspace_provider.dart';
 import '../../state/provider.dart' show AiContextCompactionOutcome;
@@ -132,7 +133,12 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
         if (!mounted) return;
         controller.resolveOwner();
         if (flush) await controller.workspaces.flush();
-        if (mounted) await controller.refreshStats(force: flush);
+        if (mounted) {
+          await controller.refreshStats(
+            force: flush,
+            readSpeechBytes: context.read<SpeechProvider?>()?.readStorageBytes,
+          );
+        }
       } catch (error) {
         if (mounted) setState(() => controller.error = error);
       }
@@ -1570,6 +1576,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
               _StorageOverview(
                 theme: theme,
                 stats: controller.stats,
+                speechBytes: controller.speechBytes,
                 loading: _overviewRead != null,
                 path: workspaces.main.storage?.databasePath,
                 onRefresh: controller.busy || _overviewRead != null
@@ -1647,12 +1654,14 @@ class _StorageOverview extends StatelessWidget {
   const _StorageOverview({
     required this.theme,
     required this.stats,
+    required this.speechBytes,
     required this.loading,
     required this.path,
     required this.onRefresh,
   });
   final AppTheme theme;
   final Map<String, Object?> stats;
+  final int? speechBytes;
   final bool loading;
   final String? path;
   final VoidCallback? onRefresh;
@@ -1667,7 +1676,8 @@ class _StorageOverview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final total = (stats['bytes'] as num? ?? 0).toInt();
+    final databaseBytes = (stats['bytes'] as num? ?? 0).toInt();
+    final total = databaseBytes + (speechBytes ?? 0);
     final parts = stats['breakdown'] as Map? ?? const {};
     int value(String key) => (parts[key] as num? ?? 0).toInt();
     final stateParts = stats['stateBreakdown'] as Map? ?? const {};
@@ -1675,8 +1685,9 @@ class _StorageOverview extends StatelessWidget {
     final content = value('objects');
     final roleplayObjects = value('roleplayObjects');
     final memory = value('memories');
-    final other = (total - content - roleplayObjects - value('state') - memory)
-        .clamp(0, total);
+    final other =
+        (databaseBytes - content - roleplayObjects - value('state') - memory)
+            .clamp(0, databaseBytes);
     final categories = [
       (
         l.agentStorageChatDataTitle,
@@ -1693,6 +1704,8 @@ class _StorageOverview extends StatelessWidget {
         stateValue('roleplayLibrary') + roleplayObjects,
         theme.basePrimary,
       ),
+      if (speechBytes case final bytes?)
+        (l.agentStorageSpeechCategory, bytes, UsageChartColors.teal),
       (l.agentRecycleBin, stateValue('recycleBin'), const Color(0xffef748e)),
       (l.agentStorageMemoryCategory, memory, const Color(0xffffcd36)),
       (
@@ -1748,7 +1761,7 @@ class _StorageOverview extends StatelessWidget {
               child: Text(
                 loading
                     ? l.agentStorageUsageLoading
-                    : stats.containsKey('bytes')
+                    : stats.containsKey('bytes') || speechBytes != null
                     ? '${l.agentStorageUsage} ${_size(total)}'
                     : l.agentStorageUsage,
                 style: TextStyle(

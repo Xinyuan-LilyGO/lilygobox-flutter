@@ -144,11 +144,9 @@ class _RoleplayMenuButtonState extends State<RoleplayMenuButton> {
                       RoleplayAvatar(card: binding.card, theme: theme, size: 22)
                     else
                       Icon(
-                        binding == null
-                            ? _noRoleplayCardIcon
-                            : Symbols.badge_rounded,
+                        Symbols.badge_rounded,
                         size: 22,
-                        fill: binding == null ? 0 : 1,
+                        fill: 1,
                         color: theme.textColorSecondary,
                       ),
                     if (!widget.compact) ...[
@@ -289,13 +287,16 @@ class _RoleplayTemplateMenuState extends State<RoleplayTemplateMenu> {
     ];
     final preferredHeight = (118.0 + templates.length * 60).clamp(
       _inChat ? 196.0 : 134.0,
-      _RoleplayMenuPanel.height,
+      PopupMenuSurface.searchablePickerMaxHeight,
     );
     final opensAbove = below < preferredHeight && above > below;
-    final width = _RoleplayMenuPanel.preferredWidth.clamp(0.0, bounds.width);
+    final width = PopupMenuSurface.searchablePickerWidth.clamp(
+      0.0,
+      bounds.width,
+    );
     final maxHeight = (opensAbove ? above : below).clamp(
       0.0,
-      _RoleplayMenuPanel.height,
+      PopupMenuSurface.searchablePickerMaxHeight,
     );
     final minimumHeight = detail == null ? 110.0 : 48.0;
     if (maxHeight < MediaQuery.textScalerOf(context).scale(minimumHeight)) {
@@ -624,9 +625,6 @@ class _RoleplayMenuPanel extends StatelessWidget {
     required this.maxHeight,
     required this.child,
   });
-
-  static const preferredWidth = 336.0;
-  static const height = 360.0;
 
   final AppTheme theme;
   final double width;
