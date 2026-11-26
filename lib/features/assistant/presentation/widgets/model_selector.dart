@@ -590,7 +590,7 @@ class _ModelSelectorState extends State<ModelSelector> {
               key: const ValueKey('ai-model-list-scrollbar'),
               controller: _scroll,
               child: Padding(
-                padding: const EdgeInsetsDirectional.only(end: 16),
+                padding: const EdgeInsetsDirectional.only(end: 14),
                 child: ScrollConfiguration(
                   behavior: const AppScrollBehavior(scrollbars: false),
                   child: Stack(

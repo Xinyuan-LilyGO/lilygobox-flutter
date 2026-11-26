@@ -9,7 +9,7 @@ import 'dialog_style.dart';
 import 'menu_item_surface.dart';
 
 const popupMenuOptionSpacing = 6.0;
-const popupMenuOptionsTrailingInset = 20.0;
+const popupMenuOptionsTrailingInset = 18.0;
 
 Widget buildPopupMenuOption({
   required Key key,

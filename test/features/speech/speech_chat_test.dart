@@ -44,10 +44,11 @@ class _Microphone implements SpeechAudioInput {
     required Future<bool> stop,
     required void Function() started,
     required void Function(SpeechAudioChunk) onAudio,
+    bool continuous = false,
   }) async {
     if (!available) throw const SpeechFailure(.microphone);
     started();
-    opened.complete();
+    if (!opened.isCompleted) opened.complete();
     onAudio((pcm: Uint8List(32000), sampleRate: 16000, channels: 1));
     await stop;
   }
@@ -56,6 +57,8 @@ class _Microphone implements SpeechAudioInput {
 class _Engine implements SpeechEngine {
   Completer<void> partial = Completer<void>();
   Completer<void> recognized = Completer<void>();
+  Completer<void> continuousStarted = Completer<void>();
+  void Function(String)? emitUtterance;
   String? spoken;
   int? spokenVoice;
   SpeechModelFormat? spokenFormat;
@@ -83,6 +86,22 @@ class _Engine implements SpeechEngine {
     }
     if (!recognized.isCompleted) recognized.complete();
     return '你好，世界。';
+  }
+
+  @override
+  Future<void> recognizeContinuous(
+    Directory directory,
+    Stream<SpeechAudioChunk> audio, {
+    void Function(String)? onPartial,
+    required void Function(String) onUtterance,
+    required Future<void> cancellation,
+  }) async {
+    emitUtterance = onUtterance;
+    if (!continuousStarted.isCompleted) continuousStarted.complete();
+    await for (final _ in audio) {
+      if (cancellation == Future<void>.value()) break;
+    }
+    emitUtterance = null;
   }
 
   @override
@@ -177,6 +196,27 @@ void main() {
       expect(streaming.body, 'Main text');
       expect(streaming.speech, '正在生成口语');
       expect(streaming.pendingSpeech, isTrue);
+
+      expect(normalizeWakeWords([' 小爱 ', '小爱', '', 'Lily']), [
+        '小爱',
+        'Lily',
+      ]);
+      expect(matchSpeechWakeWord('今天天气', const []), (
+        matched: true,
+        command: '今天天气',
+      ));
+      expect(matchSpeechWakeWord('随便说点什么', const ['小爱', 'Lily']), (
+        matched: false,
+        command: '',
+      ));
+      expect(matchSpeechWakeWord('小爱，帮我查一下', const ['小爱']), (
+        matched: true,
+        command: '帮我查一下',
+      ));
+      expect(matchSpeechWakeWord('lily', const ['Lily']), (
+        matched: true,
+        command: '',
+      ));
     },
   );
 
@@ -440,6 +480,16 @@ void main() {
       findsOneWidget,
     );
     expect(tester.widget<Switch>(toggle(.recognition)).value, isTrue);
+    Future<void> waitFor(bool Function() ready) async {
+      for (var attempt = 0; attempt < 100 && !ready(); attempt++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+      }
+      expect(ready(), isTrue);
+    }
+
     await tester.tap(toggle(.recognition));
     await tester.pumpAndSettle();
     expect(assistant.speechBindings.recognitionId, asr.id);
@@ -462,7 +512,23 @@ void main() {
     await tester.tap(toggle(.recognition));
     await tester.pumpAndSettle();
     expect(assistant.speechRecognitionId, asr.id);
+    expect(assistant.speechContinuousRecognition, isTrue);
+    await tester.tap(
+      find.byKey(const ValueKey('speech-chat-recognition-settings')),
+    );
+    await tester.pumpAndSettle();
+    final continuousToggle = find.byKey(const ValueKey('speech-chat-continuous'));
+    expect(tester.widget<Switch>(continuousToggle).value, isTrue);
+    await tester.tap(continuousToggle);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('speech-recognition-save')));
+    await tester.pumpAndSettle();
+    await waitFor(() => !speech.hasCapture);
+    microphone.opened = Completer<void>();
+    expect(assistant.speechContinuousRecognition, isFalse);
     expect(mic, findsOneWidget);
+    await tester.tap(recognitionMenu);
+    await tester.pumpAndSettle();
     await tester.tap(back);
     await tester.pumpAndSettle();
     await tester.enterText(search, '');
@@ -486,6 +552,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(panel, findsNothing);
     final dialog = find.byType(AlertDialog);
+    final autoRead = find.byKey(const ValueKey('speech-chat-auto-read'));
+    expect(tester.widget<Switch>(autoRead).value, isTrue);
+    await tester.tap(autoRead);
+    await tester.pumpAndSettle();
     final voiceLabel = find.descendant(
       of: dialog,
       matching: find.text('Voice'),
@@ -569,11 +639,6 @@ void main() {
     expectSelectedIcon(tts);
     await tester.tap(option(tts));
     await tester.pumpAndSettle();
-    final autoRead = find.byKey(const ValueKey('speech-chat-auto-read'));
-    expect(tester.widget<Switch>(autoRead).value, isTrue);
-    expect(assistant.speechAutoPlay, isTrue);
-    await tester.tap(autoRead);
-    await tester.pumpAndSettle();
     expect(assistant.speechAutoPlay, isFalse);
     await tester.tap(toggle(.synthesis));
     await tester.pumpAndSettle();
@@ -598,22 +663,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(assistant.speechVoice, (modelId: tts.id, voice: 3));
     expect(assistant.speechAutoPlay, isFalse);
-    await tester.tap(autoRead);
+    await tester.tap(synthesisSettings);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('speech-chat-auto-read')));
+    await tester.pumpAndSettle();
+    await tester.tap(saveVoice);
     await tester.pumpAndSettle();
     expect(assistant.speechAutoPlay, isTrue);
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
 
     final input = find.byKey(const ValueKey('ai-message-input'));
-    Future<void> waitFor(bool Function() ready) async {
-      for (var attempt = 0; attempt < 100 && !ready(); attempt++) {
-        await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 10)),
-        );
-        await tester.pump();
-      }
-      expect(ready(), isTrue);
-    }
 
     Future<void> tapAndWait(Finder target, Completer<void> signal) async {
       await tester.runAsync(() => tester.tap(target));
@@ -735,6 +793,64 @@ void main() {
     await tester.tap(recognitionMenu);
     await tester.pumpAndSettle();
     expect(back, findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('speech-chat-recognition-settings')),
+    );
+    await tester.pumpAndSettle();
+    expect(panel, findsNothing);
+    await tester.enterText(
+      find.byKey(const ValueKey('speech-wake-word-input')),
+      '小爱',
+    );
+    await tester.tap(find.byKey(const ValueKey('speech-wake-word-add')));
+    await tester.pumpAndSettle();
+    engine.continuousStarted = Completer<void>();
+    await tester.tap(find.byKey(const ValueKey('speech-chat-continuous')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('speech-recognition-save')));
+    await tester.pumpAndSettle();
+    expect(assistant.speechWakeWords, ['小爱']);
+    expect(assistant.speechContinuousRecognition, isTrue);
+    await waitFor(() => engine.continuousStarted.isCompleted);
+    expect(speech.hasCapture, isTrue);
+    engine.emitUtterance?.call('无关的背景对话');
+    await tester.pump();
+    expect(requestCount, 1);
+    engine.emitUtterance?.call('小爱，你好呀');
+    for (var attempt = 0; attempt < 80 && requestCount < 2; attempt++) {
+      await tester.pump(const Duration(milliseconds: 30));
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    }
+    for (var attempt = 0; attempt < 80 && assistant.busy; attempt++) {
+      await tester.pump(const Duration(milliseconds: 30));
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    }
+    expect(requestCount, 2);
+    expect(
+      assistant.messages.lastWhere((message) => message.role == 'user').content,
+      '你好呀',
+    );
+
+    await tester.tap(recognitionMenu);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('speech-chat-recognition-settings')),
+    );
+    await tester.pumpAndSettle();
+    final removeWakeWord = find.byKey(
+      const ValueKey('speech-wake-word-remove-小爱'),
+    );
+    await tester.ensureVisible(removeWakeWord);
+    await tester.tap(removeWakeWord);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('speech-chat-continuous')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('speech-recognition-save')));
+    await tester.pumpAndSettle();
+    expect(assistant.speechWakeWords, isEmpty);
+    expect(assistant.speechContinuousRecognition, isFalse);
+    await tester.tap(recognitionMenu);
+    await tester.pumpAndSettle();
     await tester.tap(back);
     await tester.pumpAndSettle();
     await tester.tap(none(.recognition));
@@ -744,5 +860,62 @@ void main() {
     await tester.pumpAndSettle();
     expect(panel, findsNothing);
     expect(tester.takeException(), isNull);
+
+    var fieldBindings = emptySpeechBindings;
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: theme),
+          ChangeNotifierProvider.value(value: speech),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (_, update) => Column(
+                children: [
+                  SpeechChatControls(
+                    theme: theme.themeData,
+                    speech: speech,
+                    bindings: fieldBindings,
+                    onChanged: (value) => update(() => fieldBindings = value),
+                    compact: false,
+                    kinds: const [.synthesis],
+                    fieldStyle: true,
+                  ),
+                  SpeechChatControls(
+                    theme: theme.themeData,
+                    speech: speech,
+                    bindings: fieldBindings,
+                    onChanged: (value) => update(() => fieldBindings = value),
+                    compact: false,
+                    kinds: const [.recognition],
+                    fieldStyle: true,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('No synthesis'), findsOneWidget);
+    expect(find.text('No recognition'), findsOneWidget);
+    await tester.tap(synthesisMenu);
+    await tester.pumpAndSettle();
+    await tester.tap(option(tts));
+    await tester.pumpAndSettle();
+    expect(fieldBindings.voice, (modelId: tts.id, voice: 0));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await tester.tap(recognitionMenu);
+    await tester.pumpAndSettle();
+    await tester.tap(option(asr));
+    await tester.pumpAndSettle();
+    expect(fieldBindings.recognitionId, asr.id);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
   }, variant: themes);
 }

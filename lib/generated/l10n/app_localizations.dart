@@ -7380,6 +7380,12 @@ abstract class AppLocalizations {
   /// **'Speech synthesis settings'**
   String get speechSynthesisSettings;
 
+  /// Button and dialog title for an agent's speech recognition settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech recognition settings'**
+  String get speechRecognitionSettings;
+
   /// Field label for selecting the voice an agent uses to read replies.
   ///
   /// In en, this message translates to:
@@ -7560,11 +7566,149 @@ abstract class AppLocalizations {
   /// **'Auto-read replies'**
   String get speechAutoRead;
 
+  /// No description provided for @speechAutoReadDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically play synthesized speech when assistant replies arrive.'**
+  String get speechAutoReadDescription;
+
   /// No description provided for @speechEnableRecognition.
   ///
   /// In en, this message translates to:
   /// **'Enable speech recognition'**
   String get speechEnableRecognition;
+
+  /// No description provided for @speechContinuousRecognition.
+  ///
+  /// In en, this message translates to:
+  /// **'Continuous conversation'**
+  String get speechContinuousRecognition;
+
+  /// No description provided for @speechContinuousRecognitionDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically start the next listening turn after recognition finishes.'**
+  String get speechContinuousRecognitionDescription;
+
+  /// No description provided for @speechIdleTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Idle timeout (seconds)'**
+  String get speechIdleTimeout;
+
+  /// No description provided for @speechIdleTimeoutDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically pauses listening when no wake words are set, or returns to standby when wake words are set. Set to 0 to disable.'**
+  String get speechIdleTimeoutDescription;
+
+  /// No description provided for @speechIdleTimeoutUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'sec'**
+  String get speechIdleTimeoutUnit;
+
+  /// No description provided for @speechWakeWords.
+  ///
+  /// In en, this message translates to:
+  /// **'Wake words'**
+  String get speechWakeWords;
+
+  /// No description provided for @speechWakeWordsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Say any wake word to activate; leave empty to listen directly.'**
+  String get speechWakeWordsDescription;
+
+  /// No description provided for @speechWakeWordHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a wake word'**
+  String get speechWakeWordHint;
+
+  /// No description provided for @speechAddWakeWord.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get speechAddWakeWord;
+
+  /// No description provided for @speechStandbyListening.
+  ///
+  /// In en, this message translates to:
+  /// **'Wake-word standby — tap to speak directly'**
+  String get speechStandbyListening;
+
+  /// No description provided for @speechContinuousListening.
+  ///
+  /// In en, this message translates to:
+  /// **'Listening directly — tap to pause'**
+  String get speechContinuousListening;
+
+  /// No description provided for @speechListeningChip.
+  ///
+  /// In en, this message translates to:
+  /// **'Listening'**
+  String get speechListeningChip;
+
+  /// No description provided for @speechStandbyChip.
+  ///
+  /// In en, this message translates to:
+  /// **'Standby'**
+  String get speechStandbyChip;
+
+  /// No description provided for @speechPausedChip.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused'**
+  String get speechPausedChip;
+
+  /// No description provided for @speechPlaying.
+  ///
+  /// In en, this message translates to:
+  /// **'Playing'**
+  String get speechPlaying;
+
+  /// No description provided for @speechInterruptAndListen.
+  ///
+  /// In en, this message translates to:
+  /// **'Interrupt speech and listen'**
+  String get speechInterruptAndListen;
+
+  /// No description provided for @speechPauseListening.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause continuous listening'**
+  String get speechPauseListening;
+
+  /// No description provided for @speechResumeListening.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused — tap to resume listening'**
+  String get speechResumeListening;
+
+  /// No description provided for @speechSynthesisOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech synthesis (optional)'**
+  String get speechSynthesisOptional;
+
+  /// No description provided for @speechSynthesisHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice, auto-read, and spoken reply settings.'**
+  String get speechSynthesisHelp;
+
+  /// No description provided for @speechRecognitionOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech recognition (optional)'**
+  String get speechRecognitionOptional;
+
+  /// No description provided for @speechRecognitionHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice input, continuous conversation, and wake words.'**
+  String get speechRecognitionHelp;
 
   /// No description provided for @speechUnsupportedModel.
   ///

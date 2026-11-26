@@ -15,6 +15,7 @@ abstract interface class SpeechAudioInput {
     required Future<bool> stop,
     required void Function() started,
     required void Function(SpeechAudioChunk) onAudio,
+    bool continuous = false,
   });
 }
 
@@ -26,6 +27,7 @@ class WindowsSpeechAudioInput implements SpeechAudioInput {
     required Future<bool> stop,
     required void Function() started,
     required void Function(SpeechAudioChunk) onAudio,
+    bool continuous = false,
   }) async {
     final recorder = AudioRecorder();
     var capturedBytes = 0;
@@ -57,9 +59,14 @@ class WindowsSpeechAudioInput implements SpeechAudioInput {
       );
       subscription = stream.listen(
         (data) {
+          if (closed.isCompleted || data.isEmpty) return;
+          if (continuous) {
+            onAudio((pcm: data, sampleRate: sampleRate, channels: channels));
+            return;
+          }
           final maximum = sampleRate * channels * 2 * speechMaxRecordingSeconds;
           final remaining = maximum - capturedBytes;
-          if (!closed.isCompleted && remaining > 0 && data.isNotEmpty) {
+          if (remaining > 0) {
             final pcm = data.length <= remaining
                 ? data
                 : Uint8List.sublistView(data, 0, remaining);
@@ -75,10 +82,12 @@ class WindowsSpeechAudioInput implements SpeechAudioInput {
         },
       );
       final limitReached = Completer<bool>();
-      limit = Timer(
-        const Duration(seconds: speechMaxRecordingSeconds),
-        () => limitReached.complete(true),
-      );
+      if (!continuous) {
+        limit = Timer(
+          const Duration(seconds: speechMaxRecordingSeconds),
+          () => limitReached.complete(true),
+        );
+      }
       started();
       final transcribe = await Future.any([
         stop,

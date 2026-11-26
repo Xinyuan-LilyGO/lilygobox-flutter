@@ -33,7 +33,10 @@ import '../../../../core/widgets/tilt_card.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../../../generated/l10n/app_localizations.dart';
 import '../../../settings/presentation/widgets/content_layout.dart';
+import '../../../speech/domain/speech_model.dart';
 import '../../../speech/presentation/speech_chat_controls.dart';
+import '../../../speech/presentation/speech_labels.dart';
+import '../../../speech/presentation/speech_model_dialog.dart';
 import '../../../speech/state/speech_provider.dart';
 import '../../domain/roleplay_card.dart';
 import '../../domain/task_canvas_style.dart';
@@ -387,7 +390,27 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
 
   Size _size(String? id) => _nodeSizes[id] ?? _nodeSize;
 
-  final _measuredNodes = <String, ((String, bool), Size)>{};
+  (String, bool, bool, bool) _nodeMeasureSignature(
+    AiAgentWorkspace session,
+    SpeechProvider? speech,
+  ) {
+    final bindings = session.assistant.speechBindings;
+    final loading = speech != null && !speech.loaded;
+    return (
+      session.title,
+      session.assistant.roleplayBinding != null,
+      loading
+          ? bindings.voice?.modelId != null
+          : speech?.library.modelFor(.synthesis, bindings.voice?.modelId) !=
+                null,
+      loading
+          ? bindings.recognitionId != null
+          : speech?.library.modelFor(.recognition, bindings.recognitionId) !=
+                null,
+    );
+  }
+
+  final _measuredNodes = <String, ((String, bool, bool, bool), Size)>{};
   final _nodeCards = <String, (Object, Widget)>{};
   final _textHeights = <(String, TextStyle), double>{};
   Object? _measurementEnvironment;
@@ -398,6 +421,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     final direction = Directionality.of(context);
     final locale = Localizations.maybeLocaleOf(context);
     final l10n = context.l10n;
+    final speech = context.watch<SpeechProvider?>();
     final environment = (scaler, defaultStyle, direction, locale, l10n);
     if (environment != _measurementEnvironment) {
       _measurementEnvironment = environment;
@@ -434,8 +458,12 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     final minimum = _nodeSize.height * math.max(1, scaler.scale(13) / 13);
     final sizes = <String, Size>{};
     for (final session in sessions) {
-      final hasRole = session.assistant.roleplayBinding != null;
-      final signature = (session.title, hasRole);
+      final signature = _nodeMeasureSignature(session, speech);
+      final (:hasRole, :hasSynthesis, :hasRecognition) = (
+        hasRole: signature.$2,
+        hasSynthesis: signature.$3,
+        hasRecognition: signature.$4,
+      );
       final cached = _measuredNodes[session.id];
       if (cached != null && cached.$1 == signature) {
         sizes[session.id] = cached.$2;
@@ -457,12 +485,16 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
           7 +
           math.max(22, status) +
           6;
+      final extraRowsHeight =
+          (hasRole ? roleRow + 6 : 0) +
+          (hasSynthesis ? roleRow + 4 : 0) +
+          (hasRecognition ? roleRow + 4 : 0);
       final size = Size(
         _nodeSize.width,
         math
                 .max(minimum + math.max(0, title - twoLines), content)
                 .ceilToDouble() +
-            (hasRole ? roleRow + 6 : 0),
+            extraRowsHeight,
       );
       sizes[session.id] = size;
       _measuredNodes[session.id] = (signature, size);
@@ -596,6 +628,77 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
           mounted &&
           identical(workspaces.find(session.id), session)) {
         assistant.updateRoleplayOptions(previous, updated);
+      }
+    } finally {
+      _editingRoleplay.remove(session.id);
+    }
+  }
+
+  Future<void> _editSynthesisSettings(
+    AiWorkspaceProvider workspaces,
+    AiAgentWorkspace session,
+    SpeechProvider speech,
+    SpeechModel model,
+    AppTheme theme,
+  ) async {
+    if (!_editingRoleplay.add(session.id)) return;
+    try {
+      final bindings = session.assistant.speechBindings;
+      final current = bindings.voice?.voice ?? 0;
+      final result = await showSpeechSynthesisSettingsDialog(
+        context,
+        theme: theme,
+        model: model,
+        currentVoice: current,
+        initialAutoPlay: bindings.autoPlay,
+      );
+      if (result != null &&
+          mounted &&
+          identical(workspaces.find(session.id), session) &&
+          !speech.busy &&
+          speech.library.modelFor(.synthesis, model.id) != null &&
+          session.assistant.speechBindings.voice?.modelId == model.id) {
+        session.assistant.setSpeechBindings(
+          session.assistant.speechBindings
+              .withVoice((modelId: model.id, voice: result.voice))
+              .withAutoPlay(result.autoPlay),
+        );
+      }
+    } finally {
+      _editingRoleplay.remove(session.id);
+    }
+  }
+
+  Future<void> _editRecognitionSettings(
+    AiWorkspaceProvider workspaces,
+    AiAgentWorkspace session,
+    SpeechProvider speech,
+    SpeechModel model,
+    AppTheme theme,
+  ) async {
+    if (!_editingRoleplay.add(session.id)) return;
+    try {
+      final bindings = session.assistant.speechBindings;
+      final result = await showSpeechRecognitionSettingsDialog(
+        context,
+        theme: theme,
+        model: model,
+        initialContinuous: bindings.continuousRecognition,
+        initialWakeWords: bindings.wakeWords,
+        initialIdleTimeoutSeconds: bindings.idleTimeoutSeconds,
+      );
+      if (result != null &&
+          mounted &&
+          identical(workspaces.find(session.id), session) &&
+          !speech.busy &&
+          speech.library.modelFor(.recognition, model.id) != null &&
+          session.assistant.speechBindings.recognitionId == model.id) {
+        session.assistant.setSpeechBindings(
+          session.assistant.speechBindings
+              .withContinuousRecognition(result.continuous)
+              .withWakeWords(result.wakeWords)
+              .withIdleTimeoutSeconds(result.idleTimeoutSeconds),
+        );
       }
     } finally {
       _editingRoleplay.remove(session.id);
@@ -2615,10 +2718,11 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   Widget? _prepareColdCanvas(List<AiAgentWorkspace> sessions, AppTheme theme) {
     if (sessions.length - math.max(0, _lastCount) < 512) return null;
     _measureNodes(const []);
+    final speech = context.read<SpeechProvider?>();
     final pending = [
       for (final session in sessions)
         if (_measuredNodes[session.id]?.$1 !=
-            (session.title, session.assistant.roleplayBinding != null))
+            _nodeMeasureSignature(session, speech))
           session,
     ];
     if (pending.isEmpty) return null;
@@ -3378,11 +3482,38 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     AiAgentWorkspace session,
   ) {
     final selected = _selectedIds.contains(session.id);
+    final speech = context.watch<SpeechProvider?>();
+    final bindings = session.assistant.speechBindings;
+    final speechLoading = speech != null && !speech.loaded;
+    final synthesisModel = speech?.library.modelFor(
+      .synthesis,
+      bindings.voice?.modelId,
+    );
+    final recognitionModel = speech?.library.modelFor(
+      .recognition,
+      bindings.recognitionId,
+    );
+    final showSynthesis =
+        synthesisModel != null ||
+        (speechLoading && bindings.voice?.modelId != null);
+    final showRecognition =
+        recognitionModel != null ||
+        (speechLoading && bindings.recognitionId != null);
+    final isPlaying = speech?.isAgentPlaying(session.assistant) ?? false;
+    final captureState = speech?.agentCaptureState(session.assistant);
     final signature = (
       session,
       session.title,
       session.kind,
       session.assistant.roleplayBinding,
+      bindings,
+      session.assistant.speechContinuousPaused,
+      session.assistant.speechWakeActive,
+      speechLoading,
+      synthesisModel,
+      recognitionModel,
+      isPlaying,
+      captureState,
       session.model,
       session.serviceId,
       session.assistant.selectedService?.name,
@@ -3399,10 +3530,38 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       child: _TaskNode(
         session: session,
         selected: selected,
+        showSynthesis: showSynthesis,
+        showRecognition: showRecognition,
+        synthesisModel: synthesisModel,
+        recognitionModel: recognitionModel,
+        isPlaying: isPlaying,
+        captureState: captureState,
         onOpen: () => _open(workspaces, session),
         onRoleplayPointerUp: (_) => _nodePrimaryDown = false,
         onRoleplaySettings: () =>
             unawaited(_editRoleplaySettings(workspaces, session, theme)),
+        onSynthesisSettings: speech == null || synthesisModel == null
+            ? null
+            : () => unawaited(
+                _editSynthesisSettings(
+                  workspaces,
+                  session,
+                  speech,
+                  synthesisModel,
+                  theme,
+                ),
+              ),
+        onRecognitionSettings: speech == null || recognitionModel == null
+            ? null
+            : () => unawaited(
+                _editRecognitionSettings(
+                  workspaces,
+                  session,
+                  speech,
+                  recognitionModel,
+                  theme,
+                ),
+              ),
         theme: theme,
       ),
     );
@@ -4345,6 +4504,14 @@ class _TaskNode extends StatelessWidget {
     required this.onRoleplayPointerUp,
     required this.onRoleplaySettings,
     required this.theme,
+    this.showSynthesis = false,
+    this.showRecognition = false,
+    this.synthesisModel,
+    this.recognitionModel,
+    this.isPlaying = false,
+    this.captureState,
+    this.onSynthesisSettings,
+    this.onRecognitionSettings,
   });
   final AiAgentWorkspace session;
   final bool selected;
@@ -4352,6 +4519,65 @@ class _TaskNode extends StatelessWidget {
   final PointerUpEventListener onRoleplayPointerUp;
   final VoidCallback onRoleplaySettings;
   final AppTheme theme;
+  final bool showSynthesis;
+  final bool showRecognition;
+  final SpeechModel? synthesisModel;
+  final SpeechModel? recognitionModel;
+  final bool isPlaying;
+  final ({bool continuous, bool standby, SpeechCapturePhase phase})?
+  captureState;
+  final VoidCallback? onSynthesisSettings;
+  final VoidCallback? onRecognitionSettings;
+
+  Widget _bindingRow({
+    required Key key,
+    required String tooltip,
+    required Widget leading,
+    required String label,
+    Color? labelColor,
+    required VoidCallback? onPressed,
+  }) => AppTooltip(
+    message: tooltip,
+    child: Listener(
+      onPointerUp: onRoleplayPointerUp,
+      child: MenuItemSurface(
+        key: key,
+        theme: theme,
+        onPressed: onPressed,
+        borderRadius: BorderRadius.circular(6),
+        backgroundColor: theme
+            .buttonColorsForSurface(theme.primary)
+            .hover
+            .withValues(alpha: 0),
+        surfaceColor: theme.primary,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            children: [
+              leading,
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: labelColor ?? theme.textColorSecondary,
+                  ),
+                ),
+              ),
+              Icon(
+                Symbols.chevron_right_rounded,
+                size: 14,
+                color: theme.iconColor,
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -4505,54 +4731,129 @@ class _TaskNode extends StatelessWidget {
                   if (session.assistant.roleplayBinding?.card
                       case final card?) ...[
                     const SizedBox(height: 6),
-                    AppTooltip(
-                      message: '${l10n.aiRoleplayCardSettings} · ${card.name}',
-                      child: Listener(
-                        onPointerUp: onRoleplayPointerUp,
-                        child: MenuItemSurface(
-                          key: ValueKey('topology-roleplay-${session.id}'),
-                          theme: theme,
-                          onPressed: onRoleplaySettings,
-                          borderRadius: BorderRadius.circular(6),
-                          backgroundColor: theme
-                              .buttonColorsForSurface(theme.primary)
-                              .hover
-                              .withValues(alpha: 0),
-                          surfaceColor: theme.primary,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            child: Row(
-                              children: [
-                                RoleplayAvatar(
-                                  card: card,
-                                  theme: theme,
-                                  size: 19,
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    card.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: theme.textColorSecondary,
-                                    ),
-                                  ),
-                                ),
-                                Icon(
-                                  Symbols.chevron_right_rounded,
-                                  size: 14,
-                                  color: theme.iconColor,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                    _bindingRow(
+                      key: ValueKey('topology-roleplay-${session.id}'),
+                      tooltip: '${l10n.aiRoleplayCardSettings} · ${card.name}',
+                      leading: RoleplayAvatar(
+                        card: card,
+                        theme: theme,
+                        size: 19,
                       ),
+                      label: card.name,
+                      onPressed: onRoleplaySettings,
+                    ),
+                  ],
+                  if (showSynthesis) ...[
+                    const SizedBox(height: 4),
+                    Builder(
+                      builder: (_) {
+                        final bindings = session.assistant.speechBindings;
+                        final enabled = bindings.enabledFor(.synthesis);
+                        final playing = enabled && isPlaying;
+                        final status = !enabled
+                            ? l10n.speechPausedChip
+                            : playing
+                            ? l10n.speechPlaying
+                            : null;
+                        return _bindingRow(
+                          key: ValueKey('topology-speech-synthesis-${session.id}'),
+                          tooltip: synthesisModel == null
+                              ? speechKindLabel(l10n, .synthesis)
+                              : status == null
+                              ? '${l10n.speechSynthesisSettings} · ${synthesisModel!.name}'
+                              : '${l10n.speechSynthesisSettings} · ${synthesisModel!.name} · $status',
+                          leading: SpeechModelIcon(
+                            theme: theme,
+                            kind: .synthesis,
+                            size: 19,
+                            backgroundColor: playing
+                                ? theme.basePrimary
+                                : theme.secondary,
+                            icon: playing
+                                ? Symbols.brand_awareness_rounded
+                                : Symbols.volume_up_rounded,
+                            iconColor: !enabled
+                                ? theme.textColorTertiary
+                                : playing
+                                ? theme.materialColors.onPrimary
+                                : theme.textColorPrimary,
+                          ),
+                          label:
+                              synthesisModel?.name ??
+                              speechKindLabel(l10n, .synthesis),
+                          labelColor: enabled
+                              ? theme.textColorSecondary
+                              : theme.textColorTertiary,
+                          onPressed: onSynthesisSettings,
+                        );
+                      },
+                    ),
+                  ],
+                  if (showRecognition) ...[
+                    const SizedBox(height: 4),
+                    Builder(
+                      builder: (_) {
+                        final bindings = session.assistant.speechBindings;
+                        final enabled = bindings.enabledFor(.recognition);
+                        final continuous =
+                            enabled && bindings.continuousRecognition;
+                        final paused = session.assistant.speechContinuousPaused;
+                        final wakeActive = session.assistant.speechWakeActive;
+                        final hasWakeWords = bindings.wakeWords.isNotEmpty;
+                        final manualCapturing =
+                            enabled && !continuous && captureState != null;
+                        final activeContinuous = continuous && !paused;
+                        final standby =
+                            activeContinuous && hasWakeWords && !wakeActive;
+                        final direct =
+                            (activeContinuous && !standby) || manualCapturing;
+                        final status = !enabled || (continuous && paused)
+                            ? l10n.speechPausedChip
+                            : standby
+                            ? l10n.speechStandbyChip
+                            : direct
+                            ? l10n.speechListeningChip
+                            : null;
+                        final bg = standby
+                            ? theme.basePrimary
+                            : direct
+                            ? theme.materialColors.error
+                            : theme.secondary;
+                        final fg = !enabled
+                            ? theme.textColorTertiary
+                            : standby
+                            ? theme.materialColors.onPrimary
+                            : direct
+                            ? theme.materialColors.onError
+                            : theme.textColorPrimary;
+                        return _bindingRow(
+                          key: ValueKey(
+                            'topology-speech-recognition-${session.id}',
+                          ),
+                          tooltip: recognitionModel == null
+                              ? speechKindLabel(l10n, .recognition)
+                              : status == null
+                              ? '${l10n.speechRecognitionSettings} · ${recognitionModel!.name}'
+                              : '${l10n.speechRecognitionSettings} · ${recognitionModel!.name} · $status',
+                          leading: SpeechModelIcon(
+                            theme: theme,
+                            kind: .recognition,
+                            size: 19,
+                            backgroundColor: bg,
+                            icon: standby || direct
+                                ? Symbols.graphic_eq_rounded
+                                : Symbols.mic_rounded,
+                            iconColor: fg,
+                          ),
+                          label:
+                              recognitionModel?.name ??
+                              speechKindLabel(l10n, .recognition),
+                          labelColor: enabled
+                              ? theme.textColorSecondary
+                              : theme.textColorTertiary,
+                          onPressed: onRecognitionSettings,
+                        );
+                      },
                     ),
                   ],
                 ],
@@ -4973,6 +5274,7 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
   String _model = '';
   AiRoleplayBinding? _roleplay;
   int? _roleplayOpening;
+  SpeechBindings _speechBindings = emptySpeechBindings;
   late final AiAssistantProvider _draft;
   @override
   void initState() {
@@ -5061,6 +5363,7 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
               auxiliaryModels: _draft.auxiliaryModels,
               roleplay: _roleplay,
               roleplayOpening: _roleplayOpening,
+              speechBindings: _speechBindings,
             )
           : await widget.workspaces.create(
               title: _title.text.trim(),
@@ -5075,6 +5378,7 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
               auxiliaryModels: _draft.auxiliaryModels,
               roleplay: _roleplay,
               roleplayOpening: _roleplayOpening,
+              speechBindings: _speechBindings,
               parentId: widget.parent!.id,
             );
       if (mounted) {
@@ -5171,6 +5475,65 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
           ),
         ),
       ],
+    ];
+  }
+
+  List<Widget> _speechFields(AppTheme theme) {
+    final speech = context.read<SpeechProvider?>();
+    if (speech == null) return const [];
+    final l10n = context.l10n;
+    final enabled = !_working;
+    return [
+      const SizedBox(height: 16),
+      SettingsField(
+        theme: theme,
+        title: l10n.speechSynthesisOptional,
+        description: l10n.speechSynthesisHelp,
+        trailing: Flexible(
+          child: IgnorePointer(
+            ignoring: !enabled,
+            child: ExcludeFocus(
+              excluding: !enabled,
+              child: SpeechChatControls(
+                key: const ValueKey('topology-speech-synthesis'),
+                theme: theme,
+                speech: speech,
+                bindings: _speechBindings,
+                onChanged: (bindings) =>
+                    setState(() => _speechBindings = bindings),
+                compact: false,
+                kinds: const [.synthesis],
+                fieldStyle: true,
+              ),
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(height: 16),
+      SettingsField(
+        theme: theme,
+        title: l10n.speechRecognitionOptional,
+        description: l10n.speechRecognitionHelp,
+        trailing: Flexible(
+          child: IgnorePointer(
+            ignoring: !enabled,
+            child: ExcludeFocus(
+              excluding: !enabled,
+              child: SpeechChatControls(
+                key: const ValueKey('topology-speech-recognition'),
+                theme: theme,
+                speech: speech,
+                bindings: _speechBindings,
+                onChanged: (bindings) =>
+                    setState(() => _speechBindings = bindings),
+                compact: false,
+                kinds: const [.recognition],
+                fieldStyle: true,
+              ),
+            ),
+          ),
+        ),
+      ),
     ];
   }
 
@@ -5293,6 +5656,7 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
                 ),
                 const SizedBox(height: 16),
                 ..._roleplayFields(theme),
+                ..._speechFields(theme),
                 const SizedBox(height: 16),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,

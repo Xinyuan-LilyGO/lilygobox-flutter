@@ -23,9 +23,9 @@ import '../../../../core/theme/material_palette.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/empty_line_selection.dart';
+import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../../speech/domain/speech_reply_text.dart';
-import '../../../speech/presentation/speech_icon_button.dart';
 import '../../../speech/presentation/speech_labels.dart';
 import '../../../speech/state/speech_provider.dart';
 import '../../data/message_link_opener.dart';
@@ -1146,25 +1146,52 @@ class _SpeechReplyCardState extends State<SpeechReplyCard> {
                       ),
                     ),
                   ),
-                  SpeechIconButton(
-                    key: ValueKey('ai-voice-play-${message.id}'),
-                    theme: theme,
-                    surface: theme.primary,
-                    size: 28,
-                    iconSize: 18,
-                    label: playing
+                  AppTooltip(
+                    message: playing
                         ? l10n.speechStopPlayback
                         : l10n.speechPlayReply,
-                    icon: playing
-                        ? Symbols.stop_rounded
-                        : Symbols.volume_up_rounded,
-                    onPressed: playing
-                        ? () =>
-                              context.read<SpeechProvider>().stopPlayback(owner)
-                        : enabled
-                        ? () =>
-                              unawaited(_playSpeechText(context, owner, spoken))
-                        : null,
+                    child: Semantics(
+                      label: playing
+                          ? l10n.speechStopPlayback
+                          : l10n.speechPlayReply,
+                      button: true,
+                      enabled: playing || enabled,
+                      child: MenuItemSurface(
+                        key: ValueKey('ai-voice-play-${message.id}'),
+                        theme: theme,
+                        surfaceColor: theme.primary,
+                        backgroundColor: playing
+                            ? theme.basePrimary
+                            : theme.primary,
+                        hoverColor: playing
+                            ? theme.hoverColorForBackground(theme.basePrimary)
+                            : null,
+                        borderRadius: BorderRadius.circular(14),
+                        onPressed: playing
+                            ? () => context
+                                  .read<SpeechProvider>()
+                                  .stopPlayback(owner)
+                            : enabled
+                            ? () => unawaited(
+                                _playSpeechText(context, owner, spoken),
+                              )
+                            : null,
+                        child: SizedBox(
+                          width: 28,
+                          height: 28,
+                          child: Icon(
+                            playing
+                                ? Symbols.brand_awareness_rounded
+                                : Symbols.volume_up_rounded,
+                            fill: playing ? 1 : 0,
+                            size: 18,
+                            color: playing
+                                ? theme.materialColors.onPrimary
+                                : theme.textColorSecondary,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),

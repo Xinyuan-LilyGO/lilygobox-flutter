@@ -70,6 +70,9 @@ class AiRecycledAgent {
         when models[id]?.kind == .recognition) {
       conversation.remove('speechRecognitionId');
       conversation.remove('speechRecognitionPaused');
+      conversation.remove('speechContinuousRecognition');
+      conversation.remove('speechWakeWords');
+      conversation.remove('speechIdleTimeoutSeconds');
     }
     return AiRecycledAgent(
       record: updated,

@@ -95,6 +95,8 @@ class SpeechModel {
   SpeechModelKind get kind => format.kind;
 }
 
+const defaultSpeechIdleTimeoutSeconds = 60;
+
 typedef SpeechVoiceSelection = ({String modelId, int voice});
 typedef SpeechBindings = ({
   SpeechVoiceSelection? voice,
@@ -102,6 +104,9 @@ typedef SpeechBindings = ({
   bool synthesisPaused,
   bool recognitionPaused,
   bool autoPlay,
+  bool continuousRecognition,
+  List<String> wakeWords,
+  int idleTimeoutSeconds,
 });
 
 const SpeechBindings emptySpeechBindings = (
@@ -110,7 +115,52 @@ const SpeechBindings emptySpeechBindings = (
   synthesisPaused: false,
   recognitionPaused: false,
   autoPlay: true,
+  continuousRecognition: true,
+  wakeWords: <String>[],
+  idleTimeoutSeconds: defaultSpeechIdleTimeoutSeconds,
 );
+
+List<String> normalizeWakeWords(Iterable<String> words) {
+  final seen = <String>{};
+  final result = <String>[];
+  for (final raw in words) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) continue;
+    if (seen.add(trimmed.toLowerCase())) {
+      result.add(trimmed);
+    }
+  }
+  return result.isEmpty ? const <String>[] : List.unmodifiable(result);
+}
+
+({bool matched, String command}) matchSpeechWakeWord(
+  String transcript,
+  List<String> wakeWords,
+) {
+  final text = transcript.trim();
+  if (wakeWords.isEmpty) return (matched: text.isNotEmpty, command: text);
+  final lower = text.toLowerCase();
+  var bestIndex = -1;
+  var bestLength = 0;
+  for (final word in wakeWords) {
+    final needle = word.trim().toLowerCase();
+    if (needle.isEmpty) continue;
+    final index = lower.indexOf(needle);
+    if (index >= 0 &&
+        (bestIndex < 0 ||
+            index < bestIndex ||
+            (index == bestIndex && needle.length > bestLength))) {
+      bestIndex = index;
+      bestLength = needle.length;
+    }
+  }
+  if (bestIndex < 0) return (matched: false, command: '');
+  final rest = text.substring(bestIndex + bestLength);
+  final command = rest
+      .replaceFirst(RegExp(r'^[\s,，.。!！?？:：;；、\-~—]+'), '')
+      .trim();
+  return (matched: true, command: command);
+}
 
 extension SpeechBindingSelection on SpeechBindings {
   String? modelIdFor(SpeechModelKind kind) => switch (kind) {
@@ -132,6 +182,9 @@ extension SpeechBindingSelection on SpeechBindings {
         synthesisPaused,
     recognitionPaused: recognitionPaused,
     autoPlay: autoPlay,
+    continuousRecognition: continuousRecognition,
+    wakeWords: wakeWords,
+    idleTimeoutSeconds: idleTimeoutSeconds,
   );
 
   SpeechBindings withRecognition(String? id) => (
@@ -140,6 +193,9 @@ extension SpeechBindingSelection on SpeechBindings {
     synthesisPaused: synthesisPaused,
     recognitionPaused: id != null && id == recognitionId && recognitionPaused,
     autoPlay: autoPlay,
+    continuousRecognition: continuousRecognition,
+    wakeWords: wakeWords,
+    idleTimeoutSeconds: idleTimeoutSeconds,
   );
 
   SpeechBindings withEnabled(SpeechModelKind kind, bool enabled) => (
@@ -152,6 +208,9 @@ extension SpeechBindingSelection on SpeechBindings {
         ? recognitionId != null && !enabled
         : recognitionPaused,
     autoPlay: autoPlay,
+    continuousRecognition: continuousRecognition,
+    wakeWords: wakeWords,
+    idleTimeoutSeconds: idleTimeoutSeconds,
   );
 
   SpeechBindings withAutoPlay(bool enabled) => (
@@ -160,6 +219,42 @@ extension SpeechBindingSelection on SpeechBindings {
     synthesisPaused: synthesisPaused,
     recognitionPaused: recognitionPaused,
     autoPlay: enabled,
+    continuousRecognition: continuousRecognition,
+    wakeWords: wakeWords,
+    idleTimeoutSeconds: idleTimeoutSeconds,
+  );
+
+  SpeechBindings withContinuousRecognition(bool enabled) => (
+    voice: voice,
+    recognitionId: recognitionId,
+    synthesisPaused: synthesisPaused,
+    recognitionPaused: recognitionPaused,
+    autoPlay: autoPlay,
+    continuousRecognition: enabled,
+    wakeWords: wakeWords,
+    idleTimeoutSeconds: idleTimeoutSeconds,
+  );
+
+  SpeechBindings withWakeWords(Iterable<String> words) => (
+    voice: voice,
+    recognitionId: recognitionId,
+    synthesisPaused: synthesisPaused,
+    recognitionPaused: recognitionPaused,
+    autoPlay: autoPlay,
+    continuousRecognition: continuousRecognition,
+    wakeWords: normalizeWakeWords(words),
+    idleTimeoutSeconds: idleTimeoutSeconds,
+  );
+
+  SpeechBindings withIdleTimeoutSeconds(int seconds) => (
+    voice: voice,
+    recognitionId: recognitionId,
+    synthesisPaused: synthesisPaused,
+    recognitionPaused: recognitionPaused,
+    autoPlay: autoPlay,
+    continuousRecognition: continuousRecognition,
+    wakeWords: wakeWords,
+    idleTimeoutSeconds: seconds < 0 ? 0 : seconds,
   );
 }
 

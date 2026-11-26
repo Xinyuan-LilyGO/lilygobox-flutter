@@ -86,12 +86,16 @@ class SpeechModelIcon extends StatelessWidget {
     required this.kind,
     this.size = 36,
     this.backgroundColor,
+    this.icon,
+    this.iconColor,
   });
 
   final AppTheme theme;
   final SpeechModelKind kind;
   final double size;
   final Color? backgroundColor;
+  final IconData? icon;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) => ExcludeSemantics(
@@ -103,12 +107,13 @@ class SpeechModelIcon extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         child: Icon(
-          kind == .recognition
-              ? Symbols.mic_rounded
-              : Symbols.volume_up_rounded,
+          icon ??
+              (kind == .recognition
+                  ? Symbols.mic_rounded
+                  : Symbols.volume_up_rounded),
           size: size * .65,
           fill: 1,
-          color: theme.textColorSecondary,
+          color: iconColor ?? theme.textColorSecondary,
         ),
       ),
     ),

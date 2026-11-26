@@ -20,11 +20,11 @@ import '../../../../core/widgets/app_scroll_behavior.dart';
 import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/image_clipboard_menu.dart';
 import '../../../../core/widgets/interaction_decoration.dart';
+import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/popup_menu_transition.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../../speech/domain/speech_model.dart';
 import '../../../speech/domain/speech_reply_text.dart';
-import '../../../speech/presentation/speech_icon_button.dart';
 import '../../../speech/presentation/speech_labels.dart';
 import '../../../speech/state/speech_provider.dart';
 import '../../domain/models.dart';
@@ -88,6 +88,11 @@ class _AssistantPageState extends State<AssistantPage> {
   List<AiImageAttachment> _attachments = const [];
   String? _lastAutoReadMessageId;
   bool _autoReadInitialized = false;
+  bool _continuousStartPending = false;
+  bool _continuousErrorBlocked = false;
+  bool _wasContinuousMode = false;
+  Timer? _wakeIdleTimer;
+  int? _lastIdleTimeoutSeconds;
   final _messageViews = <String, (AiMessage, AppTheme, Widget)>{};
 
   Widget _messageView(AiMessage message, AppTheme theme) {
@@ -197,6 +202,7 @@ class _AssistantPageState extends State<AssistantPage> {
 
   @override
   void dispose() {
+    _wakeIdleTimer?.cancel();
     final speech = _speech;
     scheduleMicrotask(() => speech?.stopConversation(_speechConversation));
     _input.dispose();
@@ -243,6 +249,124 @@ class _AssistantPageState extends State<AssistantPage> {
     if (text != null) {
       updateInput(text, focus: true);
     } else if (error != null) {
+      showAppNotice(
+        ScaffoldMessenger.of(context),
+        speechErrorLabel(context.l10n, error),
+      );
+    }
+  }
+
+  void _resetWakeIdleTimer() {
+    _wakeIdleTimer?.cancel();
+    if (!mounted) return;
+    final assistant = context.read<AiAssistantProvider>();
+    final timeoutSeconds = assistant.speechIdleTimeoutSeconds;
+    _lastIdleTimeoutSeconds = timeoutSeconds;
+    if (!assistant.speechContinuousRecognition ||
+        timeoutSeconds <= 0 ||
+        assistant.speechContinuousPaused ||
+        _continuousErrorBlocked) {
+      return;
+    }
+    if (assistant.speechWakeWords.isNotEmpty && !assistant.speechWakeActive) {
+      return;
+    }
+    _wakeIdleTimer = Timer(Duration(seconds: timeoutSeconds), () {
+      if (!mounted) return;
+      final current = context.read<AiAssistantProvider>();
+      if (!current.speechContinuousRecognition) return;
+      if (current.speechWakeWords.isNotEmpty) {
+        if (current.speechWakeActive) {
+          current.setSpeechContinuousState(wakeActive: false);
+        }
+      } else {
+        current.setSpeechContinuousState(paused: true, wakeActive: false);
+        _speech?.stopConversation(_speechConversation, kind: .recognition);
+      }
+    });
+  }
+
+  Future<void> _sendRecognized(String text) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty || widget.readOnly || !mounted) return;
+    final assistant = context.read<AiAssistantProvider>();
+    if (!assistant.canSendMessage) return;
+    _input.value = TextEditingValue(
+      text: trimmed,
+      selection: TextSelection.collapsed(offset: trimmed.length),
+    );
+    await _send(assistant, fromKeyboard: false);
+  }
+
+  Future<void> _runContinuousListening(SpeechProvider speech) async {
+    if (_continuousStartPending || !mounted) return;
+    final assistant = context.read<AiAssistantProvider>();
+    final modelId = assistant.speechRecognitionId;
+    if (modelId == null ||
+        !_canKeepRecording ||
+        !assistant.speechContinuousRecognition ||
+        assistant.speechContinuousPaused ||
+        _continuousErrorBlocked ||
+        assistant.busy ||
+        speech.busy ||
+        speech.hasCapture ||
+        speech.hasPlayback) {
+      return;
+    }
+    _continuousStartPending = true;
+    var activeStart = false;
+    final error = await () async {
+      try {
+        activeStart = true;
+        return await speech.startContinuousListening(
+          _speechConversation,
+          modelId: modelId,
+          onPartial: (partial) {
+            if (!mounted) return;
+            final current = context.read<AiAssistantProvider>();
+            if (current.speechWakeWords.isNotEmpty &&
+                !current.speechWakeActive) {
+              return;
+            }
+            if (partial.trim().isNotEmpty) _resetWakeIdleTimer();
+            if (partial.isNotEmpty && _input.text != partial) {
+              _input.value = TextEditingValue(
+                text: partial,
+                selection: TextSelection.collapsed(offset: partial.length),
+              );
+            }
+          },
+          onUtterance: (utterance) {
+            if (!mounted) return;
+            final current = context.read<AiAssistantProvider>();
+            final wakeWords = current.speechWakeWords;
+            if (wakeWords.isEmpty || current.speechWakeActive) {
+              _wakeIdleTimer?.cancel();
+              if (!current.speechWakeActive) {
+                current.setSpeechContinuousState(wakeActive: true);
+              }
+              speech.stopConversation(_speechConversation, kind: .recognition);
+              unawaited(_sendRecognized(utterance));
+              return;
+            }
+            final match = matchSpeechWakeWord(utterance, wakeWords);
+            if (!match.matched) return;
+            current.setSpeechContinuousState(wakeActive: true);
+            if (match.command.isNotEmpty) {
+              speech.stopConversation(_speechConversation, kind: .recognition);
+              unawaited(_sendRecognized(match.command));
+            } else {
+              _resetWakeIdleTimer();
+            }
+          },
+        );
+      } finally {
+        if (activeStart) _continuousStartPending = false;
+      }
+    }();
+    if (!mounted) return;
+    if (error != null) {
+      setState(() => _continuousErrorBlocked = true);
       showAppNotice(
         ScaffoldMessenger.of(context),
         speechErrorLabel(context.l10n, error),
@@ -390,22 +514,37 @@ class _AssistantPageState extends State<AssistantPage> {
     final ready = assistant.credentialLoaded && assistant.hasApiKey;
     final recognitionId = assistant.speechRecognitionId;
     final synthesisId = assistant.speechVoice?.modelId;
-    final (speech, hasModel, phase, canRecord) = context.select(
-      (SpeechProvider? voice) => (
-        voice,
-        voice?.library.recognitionModel(recognitionId) != null,
-        voice?.capturePhase(_speechConversation),
-        voice != null && !voice.busy && !voice.hasCapture,
-      ),
-    );
+    final (speech, hasModel, phase, canRecord, hasPlayback, isContinuous) =
+        context.select(
+          (SpeechProvider? voice) => (
+            voice,
+            voice?.library.recognitionModel(recognitionId) != null,
+            voice?.capturePhase(_speechConversation),
+            voice != null && !voice.busy && !voice.hasCapture,
+            voice?.hasPlayback ?? false,
+            voice?.isContinuousListening(_speechConversation) ?? false,
+          ),
+        );
     _speech = speech;
+    _speechConversation.agent = assistant;
+    final liveStandby =
+        assistant.speechContinuousRecognition &&
+        assistant.speechWakeWords.isNotEmpty &&
+        !assistant.speechWakeActive;
+    if (speech != null && _speechConversation.standby != liveStandby) {
+      scheduleMicrotask(
+        () => speech.updateConversationStandby(_speechConversation, liveStandby),
+      );
+    }
     final canKeepRecording =
         active &&
         !widget.readOnly &&
         assistant.pendingApproval == null &&
         assistant.pendingUserInput == null;
     if (!active) {
-      scheduleMicrotask(() => speech?.stopConversation(_speechConversation));
+      scheduleMicrotask(
+        () => speech?.stopConversation(_speechConversation, kind: .recognition),
+      );
     } else {
       if (phase != null &&
           (!hasModel ||
@@ -470,10 +609,69 @@ class _AssistantPageState extends State<AssistantPage> {
     } else if (!assistant.speechAutoPlay) {
       _lastAutoReadMessageId = latestFinished?.id;
     }
+    final continuousMode = assistant.speechContinuousRecognition;
+    if (continuousMode != _wasContinuousMode) {
+      _wasContinuousMode = continuousMode;
+      _continuousErrorBlocked = false;
+      if (!continuousMode) {
+        _wakeIdleTimer?.cancel();
+        if (isContinuous) {
+          scheduleMicrotask(
+            () => speech?.stopConversation(
+              _speechConversation,
+              kind: .recognition,
+            ),
+          );
+        }
+      }
+    }
+    if (active &&
+        continuousMode &&
+        canKeepRecording &&
+        hasModel &&
+        !assistant.speechContinuousPaused &&
+        !_continuousErrorBlocked &&
+        speech != null) {
+      final shouldListen = !assistant.busy && !hasPlayback && !speech.busy;
+      if (shouldListen) {
+        if (!speech.hasCapture && !_continuousStartPending) {
+          scheduleMicrotask(() => _runContinuousListening(speech));
+        }
+        final idleTimeout = assistant.speechIdleTimeoutSeconds;
+        if (idleTimeout <= 0 ||
+            (assistant.speechWakeWords.isNotEmpty &&
+                !assistant.speechWakeActive)) {
+          _wakeIdleTimer?.cancel();
+        } else if (!(_wakeIdleTimer?.isActive ?? false) ||
+            _lastIdleTimeoutSeconds != idleTimeout) {
+          _resetWakeIdleTimer();
+        }
+      } else {
+        _wakeIdleTimer?.cancel();
+        if (isContinuous) {
+          scheduleMicrotask(
+            () => speech.stopConversation(
+              _speechConversation,
+              kind: .recognition,
+            ),
+          );
+        }
+      }
+    } else {
+      _wakeIdleTimer?.cancel();
+    }
     final voiceButton =
         speech == null || !canKeepRecording || (!hasModel && phase == null)
         ? null
-        : _voiceButton(speech, phase, canRecord, theme);
+        : _voiceButton(
+            speech,
+            assistant,
+            phase,
+            canRecord,
+            hasPlayback,
+            isContinuous,
+            theme,
+          );
 
     return ClipRRect(
       borderRadius: const BorderRadius.only(topLeft: Radius.circular(10)),
@@ -673,33 +871,162 @@ class _AssistantPageState extends State<AssistantPage> {
 
   Widget _voiceButton(
     SpeechProvider speech,
+    AiAssistantProvider assistant,
     SpeechCapturePhase? phase,
     bool canRecord,
+    bool hasPlayback,
+    bool isContinuous,
     AppTheme theme,
   ) {
     final l10n = context.l10n;
-    return SpeechIconButton(
-      key: const ValueKey('ai-voice-input'),
-      theme: theme,
-      surface: theme.primary,
-      size: 30,
-      iconSize: 20,
-      label: switch (phase) {
-        .recording => l10n.speechStopRecording,
-        .starting => l10n.speechLoading,
-        .transcribing => l10n.speechTranscribing,
-        null => l10n.speechStartRecording,
-      },
-      icon: switch (phase) {
-        .recording => Symbols.stop_rounded,
-        .starting || .transcribing => Symbols.hourglass_top_rounded,
-        null => Symbols.mic_rounded,
-      },
-      onPressed: switch (phase) {
-        .recording => () => speech.finishRecording(_speechConversation),
-        null when canRecord => () => unawaited(_transcribe(speech)),
-        _ => null,
-      },
+    if (assistant.speechContinuousRecognition) {
+      final hasWakeWords = assistant.speechWakeWords.isNotEmpty;
+      final standby = hasWakeWords && !assistant.speechWakeActive;
+      final paused =
+          assistant.speechContinuousPaused || _continuousErrorBlocked;
+      final surface = theme.primary;
+      final directListening = !paused && !standby;
+      final background = directListening
+          ? theme.materialColors.error
+          : !paused && standby
+          ? theme.basePrimary
+          : surface;
+      final hover = directListening || (!paused && standby)
+          ? theme.hoverColorForBackground(background)
+          : null;
+      final tooltip = paused
+          ? l10n.speechResumeListening
+          : standby
+          ? l10n.speechStandbyListening
+          : hasPlayback
+          ? l10n.speechInterruptAndListen
+          : l10n.speechContinuousListening;
+
+      void handlePrimaryPress() {
+        if (hasPlayback) {
+          speech.stopConversation(_speechConversation, kind: .synthesis);
+          setState(() => _continuousErrorBlocked = false);
+          assistant.setSpeechContinuousState(paused: false, wakeActive: true);
+          _resetWakeIdleTimer();
+          return;
+        }
+        if (paused) {
+          setState(() => _continuousErrorBlocked = false);
+          assistant.setSpeechContinuousState(
+            paused: false,
+            wakeActive: !hasWakeWords,
+          );
+          if (!hasWakeWords) _resetWakeIdleTimer();
+          return;
+        }
+        if (standby) {
+          assistant.setSpeechContinuousState(wakeActive: true);
+          _resetWakeIdleTimer();
+          return;
+        }
+        _wakeIdleTimer?.cancel();
+        assistant.setSpeechContinuousState(paused: true, wakeActive: false);
+        speech.stopConversation(_speechConversation, kind: .recognition);
+      }
+
+      return GestureDetector(
+        onSecondaryTapUp: paused
+            ? null
+            : (_) {
+                _wakeIdleTimer?.cancel();
+                assistant.setSpeechContinuousState(
+                  paused: true,
+                  wakeActive: false,
+                );
+                speech.stopConversation(
+                  _speechConversation,
+                  kind: .recognition,
+                );
+              },
+        child: AppTooltip(
+          message: tooltip,
+          child: Semantics(
+            label: tooltip,
+            button: true,
+            child: MenuItemSurface(
+              key: const ValueKey('ai-voice-input'),
+              theme: theme,
+              surfaceColor: surface,
+              backgroundColor: background,
+              hoverColor: hover,
+              borderRadius: BorderRadius.circular(15),
+              onPressed: handlePrimaryPress,
+              child: SizedBox(
+                width: 30,
+                height: 30,
+                child: Icon(
+                  paused ? Symbols.mic_rounded : Symbols.graphic_eq_rounded,
+                  fill: paused ? 1 : 0,
+                  size: 19,
+                  color: directListening
+                      ? theme.materialColors.onError
+                      : !paused && standby
+                      ? theme.materialColors.onPrimary
+                      : theme.textColorPrimary,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    final manualPhase = isContinuous ? null : phase;
+    final manualLabel = switch (manualPhase) {
+      .recording => l10n.speechStopRecording,
+      .starting => l10n.speechLoading,
+      .transcribing => l10n.speechTranscribing,
+      null => l10n.speechStartRecording,
+    };
+    final manualOnPressed = switch (manualPhase) {
+      .recording => () => speech.finishRecording(_speechConversation),
+      null when canRecord => () => unawaited(_transcribe(speech)),
+      _ => null,
+    };
+    final manualRecording = manualPhase == .recording;
+    final manualActiveColor = theme.materialColors.error;
+    return AppTooltip(
+      message: manualLabel,
+      child: Semantics(
+        label: manualLabel,
+        button: true,
+        enabled: manualOnPressed != null,
+        child: MenuItemSurface(
+          key: const ValueKey('ai-voice-input'),
+          theme: theme,
+          surfaceColor: theme.primary,
+          backgroundColor: manualRecording
+              ? manualActiveColor
+              : theme.primary,
+          hoverColor: manualRecording
+              ? theme.hoverColorForBackground(manualActiveColor)
+              : null,
+          borderRadius: BorderRadius.circular(15),
+          onPressed: manualOnPressed,
+          child: SizedBox(
+            width: 30,
+            height: 30,
+            child: Icon(
+              switch (manualPhase) {
+                .recording => Symbols.stop_rounded,
+                .starting || .transcribing => Symbols.hourglass_top_rounded,
+                null => Symbols.mic_rounded,
+              },
+              fill: manualPhase == null ? 1 : 0,
+              size: 19,
+              color: manualRecording
+                  ? theme.materialColors.onError
+                  : manualPhase == null
+                  ? theme.textColorPrimary
+                  : theme.textColorSecondary,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

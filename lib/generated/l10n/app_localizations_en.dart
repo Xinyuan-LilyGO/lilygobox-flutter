@@ -4276,6 +4276,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get speechSynthesisSettings => 'Speech synthesis settings';
 
   @override
+  String get speechRecognitionSettings => 'Speech recognition settings';
+
+  @override
   String get speechAgentVoiceLabel => 'Voice';
 
   @override
@@ -4381,7 +4384,83 @@ class AppLocalizationsEn extends AppLocalizations {
   String get speechAutoRead => 'Auto-read replies';
 
   @override
+  String get speechAutoReadDescription =>
+      'Automatically play synthesized speech when assistant replies arrive.';
+
+  @override
   String get speechEnableRecognition => 'Enable speech recognition';
+
+  @override
+  String get speechContinuousRecognition => 'Continuous conversation';
+
+  @override
+  String get speechContinuousRecognitionDescription =>
+      'Automatically start the next listening turn after recognition finishes.';
+
+  @override
+  String get speechIdleTimeout => 'Idle timeout (seconds)';
+
+  @override
+  String get speechIdleTimeoutDescription =>
+      'Automatically pauses listening when no wake words are set, or returns to standby when wake words are set. Set to 0 to disable.';
+
+  @override
+  String get speechIdleTimeoutUnit => 'sec';
+
+  @override
+  String get speechWakeWords => 'Wake words';
+
+  @override
+  String get speechWakeWordsDescription =>
+      'Say any wake word to activate; leave empty to listen directly.';
+
+  @override
+  String get speechWakeWordHint => 'Add a wake word';
+
+  @override
+  String get speechAddWakeWord => 'Add';
+
+  @override
+  String get speechStandbyListening =>
+      'Wake-word standby — tap to speak directly';
+
+  @override
+  String get speechContinuousListening => 'Listening directly — tap to pause';
+
+  @override
+  String get speechListeningChip => 'Listening';
+
+  @override
+  String get speechStandbyChip => 'Standby';
+
+  @override
+  String get speechPausedChip => 'Paused';
+
+  @override
+  String get speechPlaying => 'Playing';
+
+  @override
+  String get speechInterruptAndListen => 'Interrupt speech and listen';
+
+  @override
+  String get speechPauseListening => 'Pause continuous listening';
+
+  @override
+  String get speechResumeListening => 'Paused — tap to resume listening';
+
+  @override
+  String get speechSynthesisOptional => 'Speech synthesis (optional)';
+
+  @override
+  String get speechSynthesisHelp =>
+      'Voice, auto-read, and spoken reply settings.';
+
+  @override
+  String get speechRecognitionOptional => 'Speech recognition (optional)';
+
+  @override
+  String get speechRecognitionHelp =>
+      'Voice input, continuous conversation, and wake words.';
 
   @override
   String get speechUnsupportedModel =>

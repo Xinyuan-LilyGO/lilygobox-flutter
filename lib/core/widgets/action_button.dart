@@ -77,12 +77,14 @@ class AppActionButton extends StatelessWidget {
     required String label,
     required VoidCallback? onPressed,
     bool destructive = false,
+    Color? surfaceColor,
   }) => AppActionButton(
     key: key,
     theme: theme,
     label: label,
     onPressed: onPressed,
     destructive: destructive,
+    surfaceColor: surfaceColor,
     fontSize: 12,
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
   );

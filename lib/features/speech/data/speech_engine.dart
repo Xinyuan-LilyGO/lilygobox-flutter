@@ -56,6 +56,24 @@ class SpeechEngine {
     throw const SpeechFailure(.engine);
   }
 
+  Future<void> recognizeContinuous(
+    Directory directory,
+    Stream<SpeechAudioChunk> audio, {
+    void Function(String)? onPartial,
+    required void Function(String) onUtterance,
+    required Future<void> cancellation,
+  }) => _invoke(
+    .bilingualZipformer,
+    directory,
+    'recognize-continuous',
+    const {},
+    audio: audio,
+    onPartial: onPartial,
+    onUtterance: onUtterance,
+    cancellation: cancellation,
+    timeout: null,
+  );
+
   Future<Uint8List> synthesize(
     SpeechModelFormat format,
     Directory directory,
@@ -118,6 +136,8 @@ class SpeechEngine {
     Future<void>? cancellation,
     Stream<SpeechAudioChunk>? audio,
     void Function(String)? onPartial,
+    void Function(String)? onUtterance,
+    Duration? timeout = const Duration(minutes: 2),
   }) async {
     final executable = Platform.resolvedExecutable;
     final executableDirectory = path.dirname(executable);
@@ -143,6 +163,10 @@ class SpeechEngine {
         .fold<Object?>(null, (previous, result) {
           if (result case {'partial': final String text}) {
             onPartial?.call(text);
+            return previous;
+          }
+          if (result case {'utterance': final String text}) {
+            onUtterance?.call(text);
             return previous;
           }
           return previous ?? result;
@@ -172,7 +196,7 @@ class SpeechEngine {
     }
 
     try {
-      final results = await Future.wait<Object?>([
+      final pending = Future.wait<Object?>([
         status.then((code) {
           if (code == 0) return;
           throw SpeechFailure(
@@ -182,7 +206,10 @@ class SpeechEngine {
         response,
         errors,
         send(),
-      ], eagerError: true).timeout(const Duration(minutes: 2));
+      ], eagerError: true);
+      final results = timeout == null
+          ? await pending
+          : await pending.timeout(timeout);
       return results[1];
     } on TimeoutException {
       throw const SpeechFailure(.engine);

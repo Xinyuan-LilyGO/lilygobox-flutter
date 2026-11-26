@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../core/l10n/language_provider.dart';
 import '../../../core/theme/definition.dart';
+import '../../../core/theme/material_palette.dart';
 import '../../../core/widgets/action_button.dart';
 import '../../../core/widgets/app_scroll_behavior.dart';
 import '../../../core/widgets/app_tooltip.dart';
@@ -16,6 +17,7 @@ import '../../../core/widgets/popup_menu_option.dart';
 import '../../../core/widgets/popup_menu_surface.dart';
 import '../../../core/widgets/popup_menu_transition.dart';
 import '../../../core/widgets/settings/compact_switch.dart';
+import '../../../core/widgets/settings/fields.dart';
 import '../../../core/widgets/settings/search_field.dart';
 import '../../../core/widgets/title_bar_icon_button.dart';
 import '../../settings/presentation/widgets/content_layout.dart';
@@ -32,6 +34,8 @@ class SpeechChatControls extends StatefulWidget {
     required this.bindings,
     required this.onChanged,
     required this.compact,
+    this.kinds = SpeechModelKind.values,
+    this.fieldStyle = false,
   });
 
   final AppTheme theme;
@@ -39,6 +43,8 @@ class SpeechChatControls extends StatefulWidget {
   final SpeechBindings bindings;
   final ValueChanged<SpeechBindings> onChanged;
   final bool compact;
+  final List<SpeechModelKind> kinds;
+  final bool fieldStyle;
 
   @override
   State<SpeechChatControls> createState() => _SpeechChatControlsState();
@@ -90,7 +96,7 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
         mainAxisSize: MainAxisSize.min,
         spacing: 4,
         children: [
-          for (final kind in _kinds)
+          for (final kind in widget.kinds)
             Flexible(
               child: RawMenuAnchor(
                 controller: _controllers[kind]!,
@@ -126,6 +132,68 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
     final label = model?.name ?? kindLabel;
     final tooltip = model == null ? kindLabel : '$kindLabel · ${model.name}';
     void toggle() => menu.isOpen ? menu.close() : menu.open();
+    if (widget.fieldStyle) {
+      final background = _theme.selectControlColorForSurface(
+        AppDialogStyle.backgroundColor(_theme),
+      );
+      final fieldLabel = model?.name ??
+          (kind == .synthesis ? l10n.speechNoSynthesis : l10n.speechNoRecognition);
+      return AppTooltip(
+        message: tooltip,
+        child: Semantics(
+          button: true,
+          expanded: menu.isOpen,
+          label: tooltip,
+          excludeSemantics: true,
+          onTap: toggle,
+          child: MenuItemSurface(
+            key: ValueKey('speech-chat-menu-${kind.name}'),
+            theme: _theme,
+            backgroundColor: background,
+            surfaceColor: background,
+            foregroundColor: _theme.textColorSecondary,
+            borderRadius: BorderRadius.circular(4),
+            onPressed: toggle,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 20),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      model == null
+                          ? Symbols.block_rounded
+                          : kind == .synthesis
+                          ? Symbols.volume_up_rounded
+                          : Symbols.mic_rounded,
+                      size: 16,
+                      fill: model == null ? 0 : 1,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        fieldLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: menu.isOpen ? 0 : -.25,
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : PopupMenuTransition.duration,
+                      child: const Icon(Symbols.expand_more_rounded, size: 14),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return AppTooltip(
       message: tooltip,
       child: Semantics(
@@ -468,33 +536,21 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
             ],
           ),
         ),
-        if (model.kind == .synthesis)
-          MergeSemantics(
-            child: Row(
-              spacing: 8,
-              children: [
-                Expanded(
-                  child: Text(
-                    l10n.speechAutoRead,
-                    style: AppDialogStyle.fieldTitleStyle(_theme),
-                  ),
-                ),
-                CompactSettingSwitch(
-                  controlKey: const ValueKey('speech-chat-auto-read'),
-                  theme: _theme,
-                  surface: PopupMenuSurface.backgroundColorFor(_theme),
-                  value: widget.bindings.autoPlay,
-                  onChanged:
-                      model.available &&
-                          !widget.speech.busy &&
-                          widget.bindings.enabledFor(.synthesis)
-                      ? (enabled) => widget.onChanged(
-                          widget.bindings.withAutoPlay(enabled),
-                        )
-                      : null,
-                ),
-              ],
-            ),
+        if (model.available && model.kind == .recognition)
+          AppActionButton(
+            key: const ValueKey('speech-chat-recognition-settings'),
+            theme: _theme,
+            surfaceColor: PopupMenuSurface.backgroundColorFor(_theme),
+            label: l10n.speechRecognitionSettings,
+            icon: Symbols.tune_rounded,
+            iconFill: 1,
+            iconSize: 15,
+            iconSpacing: 5,
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+            onPressed: () {
+              _menu.close();
+              unawaited(_editRecognitionSettings(this.context, model));
+            },
           ),
         if (model.available && model.kind == .synthesis)
           AppActionButton(
@@ -516,17 +572,74 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
     );
   }
 
+  Future<void> _editRecognitionSettings(
+    BuildContext context,
+    SpeechModel model,
+  ) async {
+    final result = await showSpeechRecognitionSettingsDialog(
+      context,
+      theme: _theme,
+      model: model,
+      initialContinuous: widget.bindings.continuousRecognition,
+      initialWakeWords: widget.bindings.wakeWords,
+      initialIdleTimeoutSeconds: widget.bindings.idleTimeoutSeconds,
+    );
+    if (!mounted ||
+        result == null ||
+        widget.speech.busy ||
+        widget.speech.library.modelFor(model.kind, model.id) == null ||
+        widget.bindings.recognitionId != model.id) {
+      return;
+    }
+    widget.onChanged(
+      widget.bindings
+          .withContinuousRecognition(result.continuous)
+          .withWakeWords(result.wakeWords)
+          .withIdleTimeoutSeconds(result.idleTimeoutSeconds),
+    );
+  }
+
   Future<void> _editVoice(
     BuildContext context,
     SpeechModel model,
     int current,
   ) async {
-    final l10n = context.l10n;
-    final theme = _theme;
-    var voice = current < model.voiceCount ? current : 0;
-    final result = await showDialog<int>(
-      context: context,
-      builder: (context) => AppDialog(
+    final result = await showSpeechSynthesisSettingsDialog(
+      context,
+      theme: _theme,
+      model: model,
+      currentVoice: current,
+      initialAutoPlay: widget.bindings.autoPlay,
+    );
+    if (!mounted ||
+        result == null ||
+        widget.speech.busy ||
+        widget.speech.library.modelFor(model.kind, model.id) == null ||
+        widget.bindings.voice?.modelId != model.id) {
+      return;
+    }
+    widget.onChanged(
+      widget.bindings
+          .withVoice((modelId: model.id, voice: result.voice))
+          .withAutoPlay(result.autoPlay),
+    );
+  }
+}
+
+Future<({int voice, bool autoPlay})?> showSpeechSynthesisSettingsDialog(
+  BuildContext context, {
+  required AppTheme theme,
+  required SpeechModel model,
+  required int currentVoice,
+  required bool initialAutoPlay,
+}) {
+  final l10n = context.l10n;
+  var voice = currentVoice < model.voiceCount ? currentVoice : 0;
+  var autoPlay = initialAutoPlay;
+  return showDialog<({int voice, bool autoPlay})>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, update) => AppDialog(
         theme: theme,
         title: l10n.speechSynthesisSettings,
         titleFontWeight: FontWeight.w500,
@@ -544,6 +657,36 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
                   theme: theme,
                   model: model,
                 ),
+                MergeSemantics(
+                  child: Row(
+                    spacing: 8,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          spacing: 4,
+                          children: [
+                            Text(
+                              l10n.speechAutoRead,
+                              style: AppDialogStyle.fieldTitleStyle(theme),
+                            ),
+                            Text(
+                              l10n.speechAutoReadDescription,
+                              style: AppDialogStyle.descriptionStyle(theme),
+                            ),
+                          ],
+                        ),
+                      ),
+                      CompactSettingSwitch(
+                        controlKey: const ValueKey('speech-chat-auto-read'),
+                        theme: theme,
+                        surface: AppDialogStyle.backgroundColor(theme),
+                        value: autoPlay,
+                        onChanged: (value) => update(() => autoPlay = value),
+                      ),
+                    ],
+                  ),
+                ),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final scale =
@@ -555,16 +698,14 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
                         selectWidth + spacing + 200 * scale;
                     final select = Semantics(
                       label: l10n.speechAgentVoiceLabel,
-                      child: StatefulBuilder(
-                        builder: (_, update) => SpeechVoiceSelect(
-                          key: const ValueKey('speech-agent-voice'),
-                          theme: theme,
-                          model: model,
-                          voice: voice,
-                          onChanged: (value) {
-                            if (value != null) update(() => voice = value);
-                          },
-                        ),
+                      child: SpeechVoiceSelect(
+                        key: const ValueKey('speech-agent-voice'),
+                        theme: theme,
+                        model: model,
+                        voice: voice,
+                        onChanged: (value) {
+                          if (value != null) update(() => voice = value);
+                        },
                       ),
                     );
                     final field = SettingsField(
@@ -600,20 +741,289 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
             theme: theme,
             label: l10n.speechSave,
             primary: true,
-            onPressed: () => Navigator.pop(context, voice),
+            onPressed: () =>
+                Navigator.pop(context, (voice: voice, autoPlay: autoPlay)),
           ),
         ],
       ),
-    );
-    if (!mounted ||
-        result == null ||
-        widget.speech.busy ||
-        widget.speech.library.modelFor(model.kind, model.id) == null ||
-        widget.bindings.voice?.modelId != model.id) {
-      return;
-    }
-    widget.onChanged(
-      widget.bindings.withVoice((modelId: model.id, voice: result)),
+    ),
+  );
+}
+
+Future<({bool continuous, List<String> wakeWords, int idleTimeoutSeconds})?>
+showSpeechRecognitionSettingsDialog(
+  BuildContext context, {
+  required AppTheme theme,
+  required SpeechModel model,
+  required bool initialContinuous,
+  required List<String> initialWakeWords,
+  int initialIdleTimeoutSeconds = defaultSpeechIdleTimeoutSeconds,
+}) => showDialog<
+    ({bool continuous, List<String> wakeWords, int idleTimeoutSeconds})>(
+  context: context,
+  builder: (_) => _RecognitionSettingsDialog(
+    theme: theme,
+    model: model,
+    initialContinuous: initialContinuous,
+    initialWakeWords: initialWakeWords,
+    initialIdleTimeoutSeconds: initialIdleTimeoutSeconds,
+  ),
+);
+
+class _RecognitionSettingsDialog extends StatefulWidget {
+  const _RecognitionSettingsDialog({
+    required this.theme,
+    required this.model,
+    required this.initialContinuous,
+    required this.initialWakeWords,
+    required this.initialIdleTimeoutSeconds,
+  });
+
+  final AppTheme theme;
+  final SpeechModel model;
+  final bool initialContinuous;
+  final List<String> initialWakeWords;
+  final int initialIdleTimeoutSeconds;
+
+  @override
+  State<_RecognitionSettingsDialog> createState() =>
+      _RecognitionSettingsDialogState();
+}
+
+class _RecognitionSettingsDialogState
+    extends State<_RecognitionSettingsDialog> {
+  final _controller = TextEditingController();
+  late final _timeoutController = TextEditingController(
+    text: '${widget.initialIdleTimeoutSeconds}',
+  );
+  late bool _continuous = widget.initialContinuous;
+  late List<String> _wakeWords = List<String>.from(widget.initialWakeWords);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _timeoutController.dispose();
+    super.dispose();
+  }
+
+  int _parsedTimeoutSeconds() {
+    final parsed = int.tryParse(_timeoutController.text.trim());
+    if (parsed == null) return widget.initialIdleTimeoutSeconds;
+    return parsed < 0 ? 0 : parsed;
+  }
+
+  void _addWord() {
+    final next = normalizeWakeWords([..._wakeWords, _controller.text]);
+    _controller.clear();
+    setState(() => _wakeWords = next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = widget.theme;
+    return AppDialog(
+      theme: theme,
+      title: l10n.speechRecognitionSettings,
+      titleFontWeight: FontWeight.w500,
+      constraints: const BoxConstraints(maxWidth: 540),
+      contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+      content: SizedBox(
+        width: 492,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 16,
+            children: [
+              SpeechModelInfo(
+                key: const ValueKey('speech-agent-recognition-model-info'),
+                theme: theme,
+                model: widget.model,
+              ),
+              MergeSemantics(
+                child: Row(
+                  spacing: 8,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        spacing: 4,
+                        children: [
+                          Text(
+                            l10n.speechContinuousRecognition,
+                            style: AppDialogStyle.fieldTitleStyle(theme),
+                          ),
+                          Text(
+                            l10n.speechContinuousRecognitionDescription,
+                            style: AppDialogStyle.descriptionStyle(theme),
+                          ),
+                        ],
+                      ),
+                    ),
+                    CompactSettingSwitch(
+                      controlKey: const ValueKey('speech-chat-continuous'),
+                      theme: theme,
+                      surface: AppDialogStyle.backgroundColor(theme),
+                      value: _continuous,
+                      onChanged: (value) => setState(() => _continuous = value),
+                    ),
+                  ],
+                ),
+              ),
+              SettingsField(
+                theme: theme,
+                title: l10n.speechIdleTimeout,
+                description: l10n.speechIdleTimeoutDescription,
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: SizedBox(
+                    width: 140,
+                    child: SettingControlledTextField(
+                      key: const ValueKey('speech-idle-timeout-input'),
+                      theme: theme,
+                      controller: _timeoutController,
+                      enabled: _continuous,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      maxLength: 5,
+                      suffixIcon: Padding(
+                        padding: const EdgeInsetsDirectional.only(end: 10),
+                        child: Center(
+                          widthFactor: 1,
+                          child: Text(
+                            l10n.speechIdleTimeoutUnit,
+                            style: AppDialogStyle.descriptionStyle(theme),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              SettingsField(
+                theme: theme,
+                title: l10n.speechWakeWords,
+                description: l10n.speechWakeWordsDescription,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: 10,
+                  children: [
+                    Row(
+                      spacing: 8,
+                      children: [
+                        Expanded(
+                          child: SettingControlledTextField(
+                            key: const ValueKey('speech-wake-word-input'),
+                            theme: theme,
+                            controller: _controller,
+                            hintText: l10n.speechWakeWordHint,
+                            onSubmitted: (_) => _addWord(),
+                          ),
+                        ),
+                        AppActionButton.settings(
+                          key: const ValueKey('speech-wake-word-add'),
+                          theme: theme,
+                          label: l10n.speechAddWakeWord,
+                          onPressed: _addWord,
+                        ),
+                      ],
+                    ),
+                    if (_wakeWords.isNotEmpty)
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final word in _wakeWords)
+                            _wakeWordChip(
+                              theme,
+                              word,
+                              onRemove: () => setState(
+                                () => _wakeWords = _wakeWords
+                                    .where((item) => item != word)
+                                    .toList(),
+                              ),
+                            ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        AppActionButton.dialog(
+          theme: theme,
+          label: l10n.settingsCancel,
+          onPressed: () => Navigator.pop(context),
+        ),
+        AppActionButton.dialog(
+          key: const ValueKey('speech-recognition-save'),
+          theme: theme,
+          label: l10n.speechSave,
+          primary: true,
+          onPressed: () => Navigator.pop(context, (
+            continuous: _continuous,
+            wakeWords: _wakeWords,
+            idleTimeoutSeconds: _parsedTimeoutSeconds(),
+          )),
+        ),
+      ],
     );
   }
+}
+
+Widget _wakeWordChip(
+  AppTheme theme,
+  String word, {
+  required VoidCallback onRemove,
+}) {
+  final chipColor = AppDialogStyle.neutralButtonColor(
+    theme,
+    AppDialogStyle.backgroundColor(theme),
+  );
+  return DecoratedBox(
+    decoration: BoxDecoration(
+      color: chipColor,
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(10, 4, 4, 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 4,
+        children: [
+          Flexible(
+            child: Text(
+              word,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: theme.textColorPrimary),
+            ),
+          ),
+          MenuItemSurface(
+            key: ValueKey('speech-wake-word-remove-$word'),
+            theme: theme,
+            onPressed: onRemove,
+            backgroundColor: chipColor.withValues(alpha: 0),
+            surfaceColor: chipColor,
+            hoverColor: theme.hoverColorForBackground(chipColor),
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: Icon(
+                Symbols.close,
+                size: 13,
+                color: theme.textColorSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }

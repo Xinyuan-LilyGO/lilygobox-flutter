@@ -3955,6 +3955,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get speechSynthesisSettings => '语音合成设置';
 
   @override
+  String get speechRecognitionSettings => '语音识别设置';
+
+  @override
   String get speechAgentVoiceLabel => '音色';
 
   @override
@@ -4055,7 +4058,77 @@ class AppLocalizationsZh extends AppLocalizations {
   String get speechAutoRead => '自动朗读';
 
   @override
+  String get speechAutoReadDescription => '收到智能体回复后自动播放合成语音。';
+
+  @override
   String get speechEnableRecognition => '启用语音识别';
+
+  @override
+  String get speechContinuousRecognition => '连续对话';
+
+  @override
+  String get speechContinuousRecognitionDescription => '识别结束并发送后自动进入下一轮语音监听。';
+
+  @override
+  String get speechIdleTimeout => '空闲超时时长（秒）';
+
+  @override
+  String get speechIdleTimeoutDescription =>
+      '未设置唤醒词时超时将自动暂停监听；已设置唤醒词时将退回待命。设为 0 表示不自动超时。';
+
+  @override
+  String get speechIdleTimeoutUnit => '秒';
+
+  @override
+  String get speechWakeWords => '唤醒词';
+
+  @override
+  String get speechWakeWordsDescription => '说出任一唤醒词即可激活对话；留空则免唤醒直接对话。';
+
+  @override
+  String get speechWakeWordHint => '输入唤醒词';
+
+  @override
+  String get speechAddWakeWord => '添加';
+
+  @override
+  String get speechStandbyListening => '唤醒词待命中 — 点击切换为直接说话';
+
+  @override
+  String get speechContinuousListening => '直接聆听中 — 点击暂停监听';
+
+  @override
+  String get speechListeningChip => '聆听中';
+
+  @override
+  String get speechStandbyChip => '待命中';
+
+  @override
+  String get speechPausedChip => '已暂停';
+
+  @override
+  String get speechPlaying => '朗读中';
+
+  @override
+  String get speechInterruptAndListen => '打断朗读并开始说话';
+
+  @override
+  String get speechPauseListening => '暂停连续对话';
+
+  @override
+  String get speechResumeListening => '已暂停 — 点击恢复监听';
+
+  @override
+  String get speechSynthesisOptional => '语音合成（可选）';
+
+  @override
+  String get speechSynthesisHelp => '朗读回复使用的语音模型、音色与自动朗读。';
+
+  @override
+  String get speechRecognitionOptional => '语音识别（可选）';
+
+  @override
+  String get speechRecognitionHelp => '语音输入、连续对话与唤醒词设置。';
 
   @override
   String get speechUnsupportedModel => '压缩包内必须正好包含一个受支持的语音模型。';

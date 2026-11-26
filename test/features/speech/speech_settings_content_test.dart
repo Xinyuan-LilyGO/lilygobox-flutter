@@ -90,6 +90,15 @@ class _Engine implements SpeechEngine {
 
   @override
   void disposeSynthesisSession() {}
+
+  @override
+  Future<void> recognizeContinuous(
+    Directory directory,
+    Stream<SpeechAudioChunk> audio, {
+    void Function(String)? onPartial,
+    required void Function(String) onUtterance,
+    required Future<void> cancellation,
+  }) async {}
 }
 
 class _Input implements SpeechAudioInput {
@@ -100,6 +109,7 @@ class _Input implements SpeechAudioInput {
     required Future<bool> stop,
     required void Function() started,
     required void Function(SpeechAudioChunk) onAudio,
+    bool continuous = false,
   }) async {
     lastStop = null;
     started();

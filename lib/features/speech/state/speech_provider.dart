@@ -42,6 +42,15 @@ class SpeechProvider extends ChangeNotifier {
   _synthesisCache = {};
   static const _maxCachedClips = 12;
   bool get hasCapture => _capture != null;
+  bool get hasPlayback => _playback != null;
+
+  bool isContinuousListening(SpeechConversation owner) {
+    final capture = _capture;
+    return capture != null &&
+        capture.continuous &&
+        capture.owner == owner &&
+        !capture.cancellation.isCompleted;
+  }
 
   SpeechCapturePhase? capturePhase(SpeechConversation owner) {
     final capture = _capture;
@@ -54,6 +63,37 @@ class SpeechProvider extends ChangeNotifier {
 
   bool isPlaying(Object owner) =>
       _playback?.owner == owner && !_playback!.cancellation.isCompleted;
+
+  void updateConversationStandby(SpeechConversation owner, bool standby) {
+    if (owner._standby == standby) return;
+    owner._standby = standby;
+    if (_capture?.owner == owner && !_capture!.cancellation.isCompleted) {
+      _notify();
+    }
+  }
+
+  bool isAgentPlaying(Object agent) {
+    final playback = _playback;
+    if (playback == null || playback.cancellation.isCompleted) return false;
+    return switch (playback.owner) {
+      final SpeechConversation c => identical(c.agent, agent),
+      (final SpeechConversation c, _) => identical(c.agent, agent),
+      _ => false,
+    };
+  }
+
+  ({bool continuous, bool standby, SpeechCapturePhase phase})? agentCaptureState(
+    Object agent,
+  ) {
+    final capture = _capture;
+    if (capture == null || capture.cancellation.isCompleted) return null;
+    if (!identical(capture.owner.agent, agent)) return null;
+    return (
+      continuous: capture.continuous,
+      standby: capture.owner._standby,
+      phase: capture.phase,
+    );
+  }
 
   Future<void> load() async {
     _loaded = await _change(_store.read) == null;
@@ -386,6 +426,95 @@ class SpeechProvider extends ChangeNotifier {
     _notify();
   }
 
+  Future<SpeechFailureReason?> startContinuousListening(
+    SpeechConversation owner, {
+    required String? modelId,
+    void Function(String)? onPartial,
+    required void Function(String) onUtterance,
+  }) async {
+    if (_disposed || _busy || hasCapture) return null;
+    final selected = library.recognitionModel(modelId);
+    if (selected == null) return .missingFiles;
+    final task = _SpeechCapture(owner, selected.id, continuous: true);
+    _capture = task;
+    final playback = _playback;
+    playback?.cancel();
+    _notify();
+    try {
+      await playback?.finished.future;
+      final directory = await _store.directoryFor(selected);
+      if (task.cancellation.isCompleted) return null;
+      final audio = StreamController<SpeechAudioChunk>();
+      final abortRecognition = Completer<void>();
+      Future<void> record() async {
+        try {
+          await _input.record(
+            stop: task.stop.future,
+            continuous: true,
+            started: () {
+              if (task.cancellation.isCompleted) return;
+              task.phase = .recording;
+              _notify();
+            },
+            onAudio: (chunk) {
+              if (!task.cancellation.isCompleted) audio.add(chunk);
+            },
+          );
+        } on SpeechFailure {
+          rethrow;
+        } catch (_) {
+          throw const SpeechFailure(.microphone);
+        } finally {
+          unawaited(audio.close());
+        }
+      }
+
+      final recording = record();
+      final recognition = _engine.recognizeContinuous(
+        directory,
+        audio.stream,
+        cancellation: Future.any<void>([
+          task.cancellation.future,
+          abortRecognition.future,
+        ]),
+        onPartial: onPartial == null
+            ? null
+            : (text) {
+                if (!task.cancellation.isCompleted &&
+                    task.phase == .recording) {
+                  onPartial(text);
+                }
+              },
+        onUtterance: (text) {
+          if (!task.cancellation.isCompleted && task.phase == .recording) {
+            onUtterance(text);
+          }
+        },
+      );
+      try {
+        await Future.wait<void>([recording, recognition], eagerError: true);
+      } catch (_) {
+        if (!task.stop.isCompleted) task.stop.complete(false);
+        abortRecognition.complete();
+        await Future.wait<void>([
+          recording.then<void>((_) {}, onError: (Object _) {}),
+          recognition.then<void>((_) {}, onError: (Object _) {}),
+        ]);
+        rethrow;
+      }
+      return null;
+    } on SpeechFailure catch (error) {
+      return task.cancellation.isCompleted ? null : error.reason;
+    } catch (_) {
+      return task.cancellation.isCompleted ? null : .engine;
+    } finally {
+      task.cancel();
+      task.finished.complete();
+      _capture = null;
+      _notify();
+    }
+  }
+
   Future<SpeechFailureReason?> _change(
     Future<SpeechLibrary> Function() action, {
     SpeechFailureReason unexpectedError = .storage,
@@ -422,13 +551,20 @@ class SpeechProvider extends ChangeNotifier {
   }
 }
 
-class SpeechConversation {}
+class SpeechConversation {
+  SpeechConversation({this.agent});
+
+  Object? agent;
+  bool _standby = false;
+  bool get standby => _standby;
+}
 
 class _SpeechCapture {
-  _SpeechCapture(this.owner, this.modelId);
+  _SpeechCapture(this.owner, this.modelId, {this.continuous = false});
 
   final SpeechConversation owner;
   final String modelId;
+  final bool continuous;
   final stop = Completer<bool>();
   final cancellation = Completer<void>();
   final finished = Completer<void>();

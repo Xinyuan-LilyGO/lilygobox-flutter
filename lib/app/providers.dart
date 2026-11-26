@@ -148,6 +148,7 @@ class _AppProvidersState extends State<AppProviders>
         ),
         if (Platform.isWindows)
           ChangeNotifierProvider(
+            lazy: false,
             create: (_) {
               final speech = SpeechProvider(
                 store: SpeechModelStore(),

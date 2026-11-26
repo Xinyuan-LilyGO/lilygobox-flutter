@@ -229,9 +229,39 @@ class AiAssistantProvider extends ChangeNotifier {
   bool get speechAutoPlay => speechVoice != null && _speechBindings.autoPlay;
   String? get speechRecognitionId =>
       _speechBindings.recognitionPaused ? null : _speechBindings.recognitionId;
+  bool get speechContinuousRecognition =>
+      speechRecognitionId != null && _speechBindings.continuousRecognition;
+  List<String> get speechWakeWords => _speechBindings.wakeWords;
+  int get speechIdleTimeoutSeconds => _speechBindings.idleTimeoutSeconds;
+  bool _speechContinuousPaused = false;
+  bool _speechWakeActive = false;
+  bool get speechContinuousPaused => _speechContinuousPaused;
+  bool get speechWakeActive => _speechWakeActive;
+
+  void setSpeechContinuousState({bool? paused, bool? wakeActive}) {
+    if (_disposed) return;
+    final nextPaused = paused ?? _speechContinuousPaused;
+    final nextWake = wakeActive ?? _speechWakeActive;
+    if (nextPaused == _speechContinuousPaused &&
+        nextWake == _speechWakeActive) {
+      return;
+    }
+    _speechContinuousPaused = nextPaused;
+    _speechWakeActive = nextWake;
+    _notify();
+  }
 
   void setSpeechBindings(SpeechBindings bindings) {
     if (_disposed || !_isWorkspace || bindings == _speechBindings) return;
+    if (bindings.recognitionId != _speechBindings.recognitionId ||
+        bindings.recognitionPaused != _speechBindings.recognitionPaused ||
+        bindings.continuousRecognition !=
+            _speechBindings.continuousRecognition) {
+      _speechContinuousPaused = false;
+      _speechWakeActive = false;
+    } else if (bindings.wakeWords.isEmpty) {
+      _speechWakeActive = false;
+    }
     _speechBindings = bindings;
     _notify();
   }
@@ -734,6 +764,12 @@ class AiAssistantProvider extends ChangeNotifier {
     if (_speechBindings.synthesisPaused) 'speechSynthesisPaused': true,
     if (_speechBindings.recognitionPaused) 'speechRecognitionPaused': true,
     if (!_speechBindings.autoPlay) 'speechAutoPlay': false,
+    if (!_speechBindings.continuousRecognition)
+      'speechContinuousRecognition': false,
+    if (_speechBindings.wakeWords.isNotEmpty)
+      'speechWakeWords': _speechBindings.wakeWords,
+    if (_speechBindings.idleTimeoutSeconds != defaultSpeechIdleTimeoutSeconds)
+      'speechIdleTimeoutSeconds': _speechBindings.idleTimeoutSeconds,
   };
 
   void restoreWorkspaceConversation(Map<String, dynamic> snapshot) {
@@ -814,7 +850,18 @@ class AiAssistantProvider extends ChangeNotifier {
     _speechBindings = bindings
         .withEnabled(.synthesis, snapshot['speechSynthesisPaused'] != true)
         .withEnabled(.recognition, snapshot['speechRecognitionPaused'] != true)
-        .withAutoPlay(snapshot['speechAutoPlay'] != false);
+        .withAutoPlay(snapshot['speechAutoPlay'] != false)
+        .withContinuousRecognition(
+          snapshot['speechContinuousRecognition'] != false,
+        )
+        .withWakeWords(switch (snapshot['speechWakeWords']) {
+          final List items => items.whereType<String>(),
+          _ => const <String>[],
+        })
+        .withIdleTimeoutSeconds(switch (snapshot['speechIdleTimeoutSeconds']) {
+          final int seconds when seconds >= 0 => seconds,
+          _ => defaultSpeechIdleTimeoutSeconds,
+        });
     _notify();
   }
 

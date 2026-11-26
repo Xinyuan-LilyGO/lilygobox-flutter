@@ -325,7 +325,7 @@ class _SettingSelectDropdownState<T> extends State<_SettingSelectDropdown<T>> {
       behavior: const AppScrollBehavior(scrollbars: false),
       child: ListView.builder(
         controller: _scroll,
-        padding: EdgeInsets.fromLTRB(5, 5, overflows ? 25 : 5, 1),
+        padding: EdgeInsets.fromLTRB(5, 5, overflows ? 18 : 5, 1),
         itemExtent: _optionExtent,
         itemCount: widget.items.length,
         itemBuilder: (context, index) {

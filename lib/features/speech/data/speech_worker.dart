@@ -36,6 +36,15 @@ Future<void> runSpeechWorker({String? dllDirectory}) async {
       await _runSynthesisSession(input);
       exit(0);
     }
+    if (request case {
+      'operation': 'recognize-continuous',
+      'format': 'bilingualZipformer',
+      'directory': final String directory,
+      'partialResults': final bool partialResults,
+    }) {
+      await _recognizeContinuous(directory, input, partialResults);
+      exit(0);
+    }
     final response = switch (request) {
       {
         'operation': 'recognize',
@@ -79,7 +88,10 @@ Map<String, Object> _process(Object? request) {
   throw const FormatException();
 }
 
-sherpa.OnlineRecognizer _recognizer(String directory) {
+sherpa.OnlineRecognizer _recognizer(
+  String directory, {
+  bool enableEndpoint = false,
+}) {
   final [encoder, decoder, joiner, tokens] =
       SpeechModelFormat.bilingualZipformer.files;
   return sherpa.OnlineRecognizer(
@@ -94,6 +106,10 @@ sherpa.OnlineRecognizer _recognizer(String directory) {
         numThreads: 2,
         debug: false,
       ),
+      enableEndpoint: enableEndpoint,
+      rule1MinTrailingSilence: 2.0,
+      rule2MinTrailingSilence: 1.0,
+      rule3MinUtteranceLength: 25.0,
     ),
   );
 }
@@ -167,6 +183,90 @@ Future<String> _recognize(
         recognizer.decode(stream);
       }
       return recognizer.getResult(stream).text.trim();
+    } finally {
+      stream.free();
+    }
+  } finally {
+    recognizer.free();
+  }
+}
+
+Future<void> _recognizeContinuous(
+  String directory,
+  StreamIterator<String> input,
+  bool partialResults,
+) async {
+  final recognizer = _recognizer(directory, enableEndpoint: true);
+  try {
+    final stream = recognizer.createStream();
+    try {
+      var rate = 0;
+      var frameSize = 0;
+      var hasAudio = false;
+      var previous = '';
+      while (await input.moveNext()) {
+        if (jsonDecode(input.current)
+            case {
+              'pcm': final String encoded,
+              'sampleRate': final int sampleRate,
+              'channels': final int channels,
+            }
+            when sampleRate >= 8000 &&
+                sampleRate <= 96000 &&
+                channels >= 1 &&
+                channels <= 2 &&
+                (rate == 0 ||
+                    rate == sampleRate && frameSize == channels * 2)) {
+          rate = sampleRate;
+          frameSize = channels * 2;
+          final pcm = base64Decode(encoded);
+          if (pcm.isEmpty || pcm.length % frameSize != 0) {
+            throw const FormatException();
+          }
+          hasAudio = true;
+          stream.acceptWaveform(
+            samples: _pcmSamples(pcm, frameSize),
+            sampleRate: rate,
+          );
+          while (recognizer.isReady(stream)) {
+            recognizer.decode(stream);
+          }
+          if (recognizer.isEndpoint(stream)) {
+            final text = recognizer.getResult(stream).text.trim();
+            recognizer.reset(stream);
+            previous = '';
+            if (text.isNotEmpty) {
+              stdout.writeln(
+                '$speechWorkerResultPrefix${jsonEncode({'utterance': text})}',
+              );
+              await stdout.flush();
+            }
+          } else if (partialResults) {
+            final text = recognizer.getResult(stream).text.trim();
+            if (text == previous) continue;
+            previous = text;
+            stdout.writeln(
+              '$speechWorkerResultPrefix${jsonEncode({'partial': text})}',
+            );
+            await stdout.flush();
+          }
+        } else {
+          throw const FormatException();
+        }
+      }
+      if (!hasAudio) return;
+      stream.acceptWaveform(samples: Float32List(rate ~/ 2), sampleRate: rate);
+      stream.inputFinished();
+      while (recognizer.isReady(stream)) {
+        recognizer.decode(stream);
+      }
+      final text = recognizer.getResult(stream).text.trim();
+      if (text.isNotEmpty) {
+        stdout.writeln(
+          '$speechWorkerResultPrefix${jsonEncode({'utterance': text})}',
+        );
+        await stdout.flush();
+      }
     } finally {
       stream.free();
     }

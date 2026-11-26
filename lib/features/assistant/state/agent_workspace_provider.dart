@@ -1894,6 +1894,8 @@ class AiWorkspaceProvider extends ChangeNotifier {
       session.model,
       assistant.roleplayBinding,
       assistant.speechBindings,
+      assistant.speechContinuousPaused,
+      assistant.speechWakeActive,
       session.serviceId,
       assistant.selectedService?.name,
       assistant.pendingApproval,
@@ -1922,6 +1924,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     AiAuxiliaryModels? auxiliaryModels,
     AiRoleplayBinding? roleplay,
     int? roleplayOpening,
+    SpeechBindings? speechBindings,
   }) => create(
     title: title,
     task: task,
@@ -1936,6 +1939,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     auxiliaryModels: auxiliaryModels,
     roleplay: roleplay,
     roleplayOpening: roleplayOpening,
+    speechBindings: speechBindings,
   );
 
   Future<AiAgentWorkspace> create({
@@ -1953,6 +1957,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     AiAuxiliaryModels? auxiliaryModels,
     AiRoleplayBinding? roleplay,
     int? roleplayOpening,
+    SpeechBindings? speechBindings,
     bool modelInitiated = false,
     bool startImmediately = true,
     bool Function()? isCancelled,
@@ -2089,6 +2094,9 @@ class AiWorkspaceProvider extends ChangeNotifier {
       if (roleplayOpening != null) {
         worker.startRoleplayOpening(roleplayOpening, clearExisting: false);
       }
+    }
+    if (speechBindings != null) {
+      worker.setSpeechBindings(speechBindings);
     }
     final session = AiAgentWorkspace(
       id: '${DateTime.now().microsecondsSinceEpoch}-${_sequence++}',
