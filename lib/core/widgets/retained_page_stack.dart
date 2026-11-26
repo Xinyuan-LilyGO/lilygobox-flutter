@@ -11,10 +11,12 @@ class RetainedPageStack extends StatefulWidget {
     super.key,
     required this.pages,
     required this.activeKey,
+    this.eagerKeys = const {},
     this.animateTransitions = true,
   });
   final Map<Object, Widget> pages;
   final Object activeKey;
+  final Set<Object> eagerKeys;
   final bool animateTransitions;
 
   @override
@@ -44,6 +46,7 @@ class _RetainedPageStackState extends State<RetainedPageStack>
   @override
   Widget build(BuildContext context) {
     _visited.add(widget.activeKey);
+    _visited.addAll(widget.eagerKeys);
     final keys = widget.pages.keys.toList();
     return FadeTransition(
       opacity: widget.animateTransitions ? _fade : kAlwaysCompleteAnimation,

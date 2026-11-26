@@ -47,11 +47,13 @@ class AssistantPage extends StatefulWidget {
   const AssistantPage({
     super.key,
     this.readOnly = false,
+    this.speechActive,
     this.initialDraft = '',
     this.onManageContext,
   });
 
   final bool readOnly;
+  final bool? speechActive;
   final String initialDraft;
   final VoidCallback? onManageContext;
 
@@ -91,6 +93,10 @@ class _AssistantPageState extends State<AssistantPage> {
   bool _continuousStartPending = false;
   bool _continuousErrorBlocked = false;
   bool _wasContinuousMode = false;
+  bool _wasPlaying = false;
+  bool _inPlaybackCooldown = false;
+  Timer? _playbackCooldownTimer;
+  bool _bargedInDuringPlayback = false;
   Timer? _wakeIdleTimer;
   int? _lastIdleTimeoutSeconds;
   final _messageViews = <String, (AiMessage, AppTheme, Widget)>{};
@@ -202,6 +208,7 @@ class _AssistantPageState extends State<AssistantPage> {
 
   @override
   void dispose() {
+    _playbackCooldownTimer?.cancel();
     _wakeIdleTimer?.cancel();
     final speech = _speech;
     scheduleMicrotask(() => speech?.stopConversation(_speechConversation));
@@ -307,10 +314,11 @@ class _AssistantPageState extends State<AssistantPage> {
         !assistant.speechContinuousRecognition ||
         assistant.speechContinuousPaused ||
         _continuousErrorBlocked ||
+        (!assistant.speechVoiceInterrupt &&
+            (_inPlaybackCooldown || speech.hasPlayback)) ||
         assistant.busy ||
         speech.busy ||
-        speech.hasCapture ||
-        speech.hasPlayback) {
+        speech.hasCapture) {
       return;
     }
     _continuousStartPending = true;
@@ -321,11 +329,49 @@ class _AssistantPageState extends State<AssistantPage> {
         return await speech.startContinuousListening(
           _speechConversation,
           modelId: modelId,
+          allowDuringPlayback: assistant.speechVoiceInterrupt,
           onPartial: (partial) {
             if (!mounted) return;
             final current = context.read<AiAssistantProvider>();
-            if (current.speechWakeWords.isNotEmpty &&
-                !current.speechWakeActive) {
+            final wakeWords = current.speechWakeWords;
+            final playingText = speech.playingText;
+            if (playingText != null) {
+              if (wakeWords.isNotEmpty) {
+                final match = matchSpeechWakeWord(partial, wakeWords);
+                if (!match.matched ||
+                    isLikelyPlaybackEcho(partial, playingText)) {
+                  return;
+                }
+                _bargedInDuringPlayback = true;
+                speech.stopConversation(_speechConversation, kind: .synthesis);
+                current.setSpeechContinuousState(wakeActive: true);
+                _resetWakeIdleTimer();
+                if (match.command.isNotEmpty && _input.text != match.command) {
+                  _input.value = TextEditingValue(
+                    text: match.command,
+                    selection: TextSelection.collapsed(
+                      offset: match.command.length,
+                    ),
+                  );
+                }
+                return;
+              }
+              if (isLikelyPlaybackEcho(partial, playingText) ||
+                  partial.trim().runes.length < 3) {
+                return;
+              }
+              _bargedInDuringPlayback = true;
+              speech.stopConversation(_speechConversation, kind: .synthesis);
+            }
+            if (wakeWords.isNotEmpty && !current.speechWakeActive) {
+              return;
+            }
+            if (speech.activeOrRecentPlayingText case final recent?
+                when isLikelyPlaybackEcho(
+                  partial,
+                  recent,
+                  rejectShort: false,
+                )) {
               return;
             }
             if (partial.trim().isNotEmpty) _resetWakeIdleTimer();
@@ -340,7 +386,71 @@ class _AssistantPageState extends State<AssistantPage> {
             if (!mounted) return;
             final current = context.read<AiAssistantProvider>();
             final wakeWords = current.speechWakeWords;
+            final echoSource = speech.activeOrRecentPlayingText;
+            final wasBargeIn = _bargedInDuringPlayback;
+            _bargedInDuringPlayback = false;
+            if (echoSource != null && !wasBargeIn) {
+              final stillPlaying = speech.playingText != null;
+              if (wakeWords.isNotEmpty) {
+                final match = matchSpeechWakeWord(utterance, wakeWords);
+                if (!match.matched ||
+                    isLikelyPlaybackEcho(
+                      utterance,
+                      echoSource,
+                      rejectShort: stillPlaying,
+                    )) {
+                  return;
+                }
+                if (stillPlaying) {
+                  speech.stopConversation(
+                    _speechConversation,
+                    kind: .synthesis,
+                  );
+                }
+                current.setSpeechContinuousState(wakeActive: true);
+                if (match.command.isNotEmpty) {
+                  speech.stopConversation(
+                    _speechConversation,
+                    kind: .recognition,
+                  );
+                  unawaited(_sendRecognized(match.command));
+                } else {
+                  _resetWakeIdleTimer();
+                }
+                return;
+              }
+              if (isLikelyPlaybackEcho(
+                utterance,
+                echoSource,
+                rejectShort: stillPlaying,
+              )) {
+                _input.clear();
+                return;
+              }
+              if (stillPlaying) {
+                speech.stopConversation(_speechConversation, kind: .synthesis);
+              }
+              speech.clearRecentPlayingText();
+            } else if (echoSource == null) {
+              speech.clearRecentPlayingText();
+            }
             if (wakeWords.isEmpty || current.speechWakeActive) {
+              if (wakeWords.isNotEmpty && wasBargeIn) {
+                final match = matchSpeechWakeWord(utterance, wakeWords);
+                final command = match.matched ? match.command : utterance;
+                if (command.isEmpty) {
+                  _input.clear();
+                  _resetWakeIdleTimer();
+                  return;
+                }
+                _wakeIdleTimer?.cancel();
+                speech.stopConversation(
+                  _speechConversation,
+                  kind: .recognition,
+                );
+                unawaited(_sendRecognized(command));
+                return;
+              }
               _wakeIdleTimer?.cancel();
               if (!current.speechWakeActive) {
                 current.setSpeechContinuousState(wakeActive: true);
@@ -378,9 +488,15 @@ class _AssistantPageState extends State<AssistantPage> {
     SpeechProvider speech,
     Object owner,
     String text,
-    SpeechVoiceSelection selection,
-  ) async {
-    final error = await speech.play(owner, text, selection: selection);
+    SpeechVoiceSelection selection, {
+    required bool allowContinuousCapture,
+  }) async {
+    final error = await speech.play(
+      owner,
+      text,
+      selection: selection,
+      allowContinuousCapture: allowContinuousCapture,
+    );
     if (error != null && mounted) {
       showAppNotice(
         ScaffoldMessenger.of(context),
@@ -500,14 +616,30 @@ class _AssistantPageState extends State<AssistantPage> {
   @override
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeProvider>().themeData;
-    final active = TickerMode.valuesOf(context).enabled;
+    final visible = TickerMode.valuesOf(context).enabled;
+    final speechActive = widget.speechActive ?? visible;
     final assistant = context.read<AiAssistantProvider>();
-    context.select<AiAssistantProvider, int>(
-      (value) => active ? value.revision : -1,
+    context.select<AiAssistantProvider, Object>(
+      (value) => visible
+          ? value.revision
+          : speechActive
+          ? (
+              value.busy,
+              value.speechBindings,
+              value.speechContinuousPaused,
+              value.speechWakeActive,
+              value.pendingApproval != null,
+              value.pendingUserInput != null,
+              value.messages.lastOrNull?.id,
+              value.messages.lastOrNull?.finishedAt != null,
+              value.messages.lastOrNull?.requestError == null,
+            )
+          : -1,
     );
     // 其他子智能体占用或释放运行槽后，同步刷新当前会话的发送可用状态。
     context.select<AiWorkspaceProvider?, int>(
-      (workspaces) => active ? workspaces?.runningCount ?? 0 : -1,
+      (workspaces) =>
+          visible || speechActive ? workspaces?.runningCount ?? 0 : -1,
     );
     final messages = assistant.messages;
     final l10n = context.l10n;
@@ -537,11 +669,11 @@ class _AssistantPageState extends State<AssistantPage> {
       );
     }
     final canKeepRecording =
-        active &&
+        speechActive &&
         !widget.readOnly &&
         assistant.pendingApproval == null &&
         assistant.pendingUserInput == null;
-    if (!active) {
+    if (!speechActive) {
       scheduleMicrotask(
         () => speech?.stopConversation(_speechConversation, kind: .recognition),
       );
@@ -561,7 +693,7 @@ class _AssistantPageState extends State<AssistantPage> {
         );
       }
     }
-    if (active && synthesisId != null && synthesisId != _synthesisModelId) {
+    if (speechActive && synthesisId != null && synthesisId != _synthesisModelId) {
       final selection = assistant.speechVoice;
       if (selection != null) {
         scheduleMicrotask(() => speech?.warmUpSynthesis(selection));
@@ -579,13 +711,15 @@ class _AssistantPageState extends State<AssistantPage> {
               message.requestError == null,
         )
         .lastOrNull;
+    final voiceInterrupt = assistant.speechVoiceInterrupt;
+    var willAutoPlay = false;
     if (!_autoReadInitialized) {
       _autoReadInitialized = true;
       _lastAutoReadMessageId = latestFinished?.id;
-    } else if (active &&
+    } else if (speechActive &&
         speech != null &&
         !speech.busy &&
-        !speech.hasCapture &&
+        !speech.hasManualCapture &&
         latestFinished != null &&
         latestFinished.id != _lastAutoReadMessageId) {
       final selection = assistant.speechVoice;
@@ -596,9 +730,16 @@ class _AssistantPageState extends State<AssistantPage> {
           spoken.isNotEmpty &&
           speech.library.synthesisModel(selection) != null) {
         if (assistant.speechAutoPlay) {
+          willAutoPlay = true;
           final owner = (_speechConversation, latestFinished.id);
           scheduleMicrotask(
-            () => _autoPlayReply(speech, owner, spoken, selection),
+            () => _autoPlayReply(
+              speech,
+              owner,
+              spoken,
+              selection,
+              allowContinuousCapture: voiceInterrupt,
+            ),
           );
         } else {
           scheduleMicrotask(
@@ -610,10 +751,30 @@ class _AssistantPageState extends State<AssistantPage> {
       _lastAutoReadMessageId = latestFinished?.id;
     }
     final continuousMode = assistant.speechContinuousRecognition;
+    if (hasPlayback) {
+      _wasPlaying = true;
+      _playbackCooldownTimer?.cancel();
+      _inPlaybackCooldown = false;
+    } else if (_wasPlaying) {
+      _wasPlaying = false;
+      if (!voiceInterrupt &&
+          continuousMode &&
+          speechActive &&
+          !assistant.speechContinuousPaused) {
+        _inPlaybackCooldown = true;
+        _playbackCooldownTimer?.cancel();
+        _playbackCooldownTimer = Timer(const Duration(milliseconds: 1500), () {
+          if (!mounted) return;
+          setState(() => _inPlaybackCooldown = false);
+        });
+      }
+    }
     if (continuousMode != _wasContinuousMode) {
       _wasContinuousMode = continuousMode;
       _continuousErrorBlocked = false;
       if (!continuousMode) {
+        _playbackCooldownTimer?.cancel();
+        _inPlaybackCooldown = false;
         _wakeIdleTimer?.cancel();
         if (isContinuous) {
           scheduleMicrotask(
@@ -625,20 +786,25 @@ class _AssistantPageState extends State<AssistantPage> {
         }
       }
     }
-    if (active &&
+    if (speechActive &&
         continuousMode &&
         canKeepRecording &&
         hasModel &&
         !assistant.speechContinuousPaused &&
         !_continuousErrorBlocked &&
         speech != null) {
-      final shouldListen = !assistant.busy && !hasPlayback && !speech.busy;
+      final shouldListen =
+          !assistant.busy &&
+          !speech.busy &&
+          (voiceInterrupt ||
+              (!hasPlayback && !willAutoPlay && !_inPlaybackCooldown));
       if (shouldListen) {
         if (!speech.hasCapture && !_continuousStartPending) {
           scheduleMicrotask(() => _runContinuousListening(speech));
         }
         final idleTimeout = assistant.speechIdleTimeoutSeconds;
         if (idleTimeout <= 0 ||
+            hasPlayback ||
             (assistant.speechWakeWords.isNotEmpty &&
                 !assistant.speechWakeActive)) {
           _wakeIdleTimer?.cancel();
@@ -904,6 +1070,9 @@ class _AssistantPageState extends State<AssistantPage> {
 
       void handlePrimaryPress() {
         if (hasPlayback) {
+          _playbackCooldownTimer?.cancel();
+          _inPlaybackCooldown = false;
+          _wasPlaying = false;
           speech.stopConversation(_speechConversation, kind: .synthesis);
           setState(() => _continuousErrorBlocked = false);
           assistant.setSpeechContinuousState(paused: false, wakeActive: true);

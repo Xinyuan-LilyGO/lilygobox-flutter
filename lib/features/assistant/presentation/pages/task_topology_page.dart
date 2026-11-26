@@ -182,6 +182,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
   bool _nodePrimaryDown = false;
   bool _nodeDragged = false;
   String? _openId;
+  String? _lastVoiceSessionId;
   final List<String?> _conversationHistory = [];
   final _editingRoleplay = <String>{};
   final _visitedChats = <String>{};
@@ -552,6 +553,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         ..clear()
         ..add(session.id);
       _openId = session.id;
+      _lastVoiceSessionId = session.id;
       _visitedChats.add(session.id);
     });
   }
@@ -663,6 +665,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
               .withVoice((modelId: model.id, voice: result.voice))
               .withAutoPlay(result.autoPlay),
         );
+        setState(() => _lastVoiceSessionId = session.id);
       }
     } finally {
       _editingRoleplay.remove(session.id);
@@ -684,6 +687,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         theme: theme,
         model: model,
         initialContinuous: bindings.continuousRecognition,
+        initialVoiceInterrupt: bindings.voiceInterrupt,
         initialWakeWords: bindings.wakeWords,
         initialIdleTimeoutSeconds: bindings.idleTimeoutSeconds,
       );
@@ -696,9 +700,11 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         session.assistant.setSpeechBindings(
           session.assistant.speechBindings
               .withContinuousRecognition(result.continuous)
+              .withVoiceInterrupt(result.voiceInterrupt)
               .withWakeWords(result.wakeWords)
               .withIdleTimeoutSeconds(result.idleTimeoutSeconds),
         );
+        setState(() => _lastVoiceSessionId = session.id);
       }
     } finally {
       _editingRoleplay.remove(session.id);
@@ -2937,15 +2943,50 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     return _workspacePages(theme, workspaces, _graph(theme, workspaces));
   }
 
+  bool _hasSpeechEnabled(AiAgentWorkspace session) {
+    final assistant = session.assistant;
+    return assistant.speechRecognitionId != null ||
+        assistant.speechVoice != null;
+  }
+
+  String? _resolveVoiceSessionId(AiWorkspaceProvider workspaces) {
+    if (_openId case final openId? when workspaces.find(openId) != null) {
+      return _lastVoiceSessionId = openId;
+    }
+    if (_selectedIds.length == 1) {
+      final selected = workspaces.find(_selectedIds.first);
+      if (selected != null && _hasSpeechEnabled(selected)) {
+        return _lastVoiceSessionId = selected.id;
+      }
+    }
+    if (_lastVoiceSessionId case final lastId?) {
+      final last = workspaces.find(lastId);
+      if (last != null && _hasSpeechEnabled(last)) return lastId;
+    }
+    if (workspaces.selected case final selected?
+        when _hasSpeechEnabled(selected)) {
+      return _lastVoiceSessionId = selected.id;
+    }
+    for (final session in workspaces.sessions) {
+      if (_hasSpeechEnabled(session)) {
+        return _lastVoiceSessionId = session.id;
+      }
+    }
+    return null;
+  }
+
   Widget _workspacePages(
     AppTheme theme,
     AiWorkspaceProvider workspaces,
     Widget graph,
   ) {
+    final voiceSessionId = _resolveVoiceSessionId(workspaces);
+    if (voiceSessionId != null) _visitedChats.add(voiceSessionId);
     final content = ColoredBox(
       color: theme.secondary,
       child: RetainedPageStack(
         activeKey: _openId ?? _graphKey,
+        eagerKeys: {?voiceSessionId},
         pages: {
           _graphKey: graph,
           for (final id in _visitedChats)
@@ -2959,6 +3000,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
                   child: _TopologyConversation(
                     key: ValueKey('topology-chat-${session.id}'),
                     session: session,
+                    speechActive: session.id == voiceSessionId,
                     onRename: () => _rename(workspaces, session),
                     onChooseOpening: (binding) => _chooseRoleplayOpening(
                       workspaces,
@@ -3501,6 +3543,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         (speechLoading && bindings.recognitionId != null);
     final isPlaying = speech?.isAgentPlaying(session.assistant) ?? false;
     final captureState = speech?.agentCaptureState(session.assistant);
+    final voiceActive = session.id == _lastVoiceSessionId;
     final signature = (
       session,
       session.title,
@@ -3509,6 +3552,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
       bindings,
       session.assistant.speechContinuousPaused,
       session.assistant.speechWakeActive,
+      voiceActive,
       speechLoading,
       synthesisModel,
       recognitionModel,
@@ -3535,6 +3579,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         synthesisModel: synthesisModel,
         recognitionModel: recognitionModel,
         isPlaying: isPlaying,
+        voiceActive: voiceActive,
         captureState: captureState,
         onOpen: () => _open(workspaces, session),
         onRoleplayPointerUp: (_) => _nodePrimaryDown = false,
@@ -4509,6 +4554,7 @@ class _TaskNode extends StatelessWidget {
     this.synthesisModel,
     this.recognitionModel,
     this.isPlaying = false,
+    this.voiceActive = false,
     this.captureState,
     this.onSynthesisSettings,
     this.onRecognitionSettings,
@@ -4524,6 +4570,7 @@ class _TaskNode extends StatelessWidget {
   final SpeechModel? synthesisModel;
   final SpeechModel? recognitionModel;
   final bool isPlaying;
+  final bool voiceActive;
   final ({bool continuous, bool standby, SpeechCapturePhase phase})?
   captureState;
   final VoidCallback? onSynthesisSettings;
@@ -4802,7 +4849,8 @@ class _TaskNode extends StatelessWidget {
                         final hasWakeWords = bindings.wakeWords.isNotEmpty;
                         final manualCapturing =
                             enabled && !continuous && captureState != null;
-                        final activeContinuous = continuous && !paused;
+                        final activeContinuous =
+                            voiceActive && continuous && !paused;
                         final standby =
                             activeContinuous && hasWakeWords && !wakeActive;
                         final direct =
@@ -5076,11 +5124,13 @@ class _TopologyConversation extends StatelessWidget {
   const _TopologyConversation({
     super.key,
     required this.session,
+    required this.speechActive,
     required this.onBack,
     required this.onRename,
     required this.onChooseOpening,
   });
   final AiAgentWorkspace session;
+  final bool speechActive;
   final VoidCallback onBack;
   final VoidCallback onRename;
   final Future<void> Function(AiRoleplayBinding) onChooseOpening;
@@ -5237,6 +5287,7 @@ class _TopologyConversation extends StatelessWidget {
         ),
         Expanded(
           child: AssistantPage(
+            speechActive: speechActive,
             initialDraft:
                 session.assistant.messages.every(
                   (message) => message.isRoleplayOpening,

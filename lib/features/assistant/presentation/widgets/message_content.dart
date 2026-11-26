@@ -1063,7 +1063,7 @@ class _SpeechReplyCardState extends State<SpeechReplyCard> {
       (SpeechProvider? speech) => (
         speech?.library.synthesisModel(selection) != null,
         speech?.isPlaying(owner) ?? false,
-        speech != null && !speech.busy && !speech.hasCapture,
+        speech != null && !speech.busy && !speech.hasManualCapture,
       ),
     );
     if (!available && !playing) return const SizedBox.shrink();
@@ -1208,10 +1208,12 @@ Future<void> _playSpeechText(
   Object owner,
   String text,
 ) async {
+  final assistant = context.read<AiAssistantProvider?>();
   final error = await context.read<SpeechProvider>().play(
     owner,
     text,
-    selection: context.read<AiAssistantProvider?>()?.speechVoice,
+    selection: assistant?.speechVoice,
+    allowContinuousCapture: assistant?.speechVoiceInterrupt ?? false,
   );
   if (error != null && context.mounted) {
     showAppNotice(

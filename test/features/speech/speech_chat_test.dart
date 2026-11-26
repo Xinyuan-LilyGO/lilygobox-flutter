@@ -802,10 +802,14 @@ void main() {
       find.byKey(const ValueKey('speech-wake-word-input')),
       '小爱',
     );
-    await tester.tap(find.byKey(const ValueKey('speech-wake-word-add')));
+    final addWakeWord = find.byKey(const ValueKey('speech-wake-word-add'));
+    await tester.ensureVisible(addWakeWord);
+    await tester.tap(addWakeWord);
     await tester.pumpAndSettle();
     engine.continuousStarted = Completer<void>();
-    await tester.tap(find.byKey(const ValueKey('speech-chat-continuous')));
+    final enableContinuous = find.byKey(const ValueKey('speech-chat-continuous'));
+    await tester.ensureVisible(enableContinuous);
+    await tester.tap(enableContinuous);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('speech-recognition-save')));
     await tester.pumpAndSettle();

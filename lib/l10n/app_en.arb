@@ -2137,6 +2137,8 @@
   "speechEnableRecognition": "Enable speech recognition",
   "speechContinuousRecognition": "Continuous conversation",
   "speechContinuousRecognitionDescription": "Automatically start the next listening turn after recognition finishes.",
+  "speechVoiceInterrupt": "Interrupt playback by voice",
+  "speechVoiceInterruptDescription": "Keep listening during playback so you can interrupt by speaking. Recommended with headphones; turn off with speakers to avoid echo.",
   "speechIdleTimeout": "Idle timeout (seconds)",
   "speechIdleTimeoutDescription": "Automatically pauses listening when no wake words are set, or returns to standby when wake words are set. Set to 0 to disable.",
   "speechIdleTimeoutUnit": "sec",

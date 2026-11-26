@@ -4398,6 +4398,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Automatically start the next listening turn after recognition finishes.';
 
   @override
+  String get speechVoiceInterrupt => 'Interrupt playback by voice';
+
+  @override
+  String get speechVoiceInterruptDescription =>
+      'Keep listening during playback so you can interrupt by speaking. Recommended with headphones; turn off with speakers to avoid echo.';
+
+  @override
   String get speechIdleTimeout => 'Idle timeout (seconds)';
 
   @override

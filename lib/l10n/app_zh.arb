@@ -1720,6 +1720,8 @@
   "speechEnableRecognition": "启用语音识别",
   "speechContinuousRecognition": "连续对话",
   "speechContinuousRecognitionDescription": "识别结束并发送后自动进入下一轮语音监听。",
+  "speechVoiceInterrupt": "允许放音时语音打断",
+  "speechVoiceInterruptDescription": "朗读期间保持监听以便随时开口打断。建议佩戴耳机时开启；外放时关闭可彻底避免回声串音。",
   "speechIdleTimeout": "空闲超时时长（秒）",
   "speechIdleTimeoutDescription": "未设置唤醒词时超时将自动暂停监听；已设置唤醒词时将退回待命。设为 0 表示不自动超时。",
   "speechIdleTimeoutUnit": "秒",

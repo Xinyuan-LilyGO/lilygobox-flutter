@@ -37,12 +37,36 @@ class SpeechProvider extends ChangeNotifier {
   bool get loaded => _loaded;
 
   _SpeechPlayback? _playback;
+  String? _lastPlayedText;
+  DateTime? _lastPlaybackEndedAt;
   _SpeechCapture? _capture;
   final Map<({String modelId, int voice, String text}), List<Uint8List>>
   _synthesisCache = {};
   static const _maxCachedClips = 12;
   bool get hasCapture => _capture != null;
+  bool get hasManualCapture => _capture != null && !_capture!.continuous;
   bool get hasPlayback => _playback != null;
+
+  String? get playingText {
+    final playback = _playback;
+    if (playback == null || playback.cancellation.isCompleted) return null;
+    return playback.text;
+  }
+
+  String? get activeOrRecentPlayingText {
+    if (playingText case final active?) return active;
+    final endedAt = _lastPlaybackEndedAt;
+    if (endedAt != null &&
+        DateTime.now().difference(endedAt) < const Duration(seconds: 12)) {
+      return _lastPlayedText;
+    }
+    return null;
+  }
+
+  void clearRecentPlayingText() {
+    _lastPlayedText = null;
+    _lastPlaybackEndedAt = null;
+  }
 
   bool isContinuousListening(SpeechConversation owner) {
     final capture = _capture;
@@ -149,13 +173,13 @@ class SpeechProvider extends ChangeNotifier {
       });
 
   Future<void> warmUpSynthesis(SpeechVoiceSelection? selection) async {
-    if (_disposed || _busy || hasCapture || _warming) return;
+    if (_disposed || _busy || hasManualCapture || _warming) return;
     final selected = library.synthesisModel(selection);
     if (selected == null) return;
     _warming = true;
     try {
       final directory = await _store.directoryFor(selected);
-      if (_disposed || _busy || hasCapture) return;
+      if (_disposed || _busy || hasManualCapture) return;
       await _engine.warmUpSynthesis(selected.format, directory);
     } catch (_) {
       // 预热失败不向用户弹窗报错。
@@ -171,7 +195,7 @@ class SpeechProvider extends ChangeNotifier {
   }) async {
     if (_disposed ||
         _busy ||
-        hasCapture ||
+        hasManualCapture ||
         _playback != null ||
         _warming ||
         text.trim().isEmpty) {
@@ -186,7 +210,7 @@ class SpeechProvider extends ChangeNotifier {
     final cancellation = Completer<void>();
     try {
       final directory = await _store.directoryFor(selected);
-      if (_disposed || _busy || hasCapture || _playback != null) return;
+      if (_disposed || _busy || hasManualCapture || _playback != null) return;
       final generated = <Uint8List>[];
       await for (final chunk in _engine.synthesizeStream(
         selected.format,
@@ -195,7 +219,7 @@ class SpeechProvider extends ChangeNotifier {
         voice,
         cancellation: cancellation.future,
       )) {
-        if (_disposed || _busy || hasCapture || _playback != null) {
+        if (_disposed || _busy || hasManualCapture || _playback != null) {
           if (!cancellation.isCompleted) cancellation.complete();
           return;
         }
@@ -219,17 +243,30 @@ class SpeechProvider extends ChangeNotifier {
     Object owner,
     String text, {
     SpeechVoiceSelection? selection,
+    bool allowContinuousCapture = false,
   }) async {
-    if (_disposed || _busy || hasCapture) return null;
+    if (_disposed || _busy || hasManualCapture) return null;
     final selected = library.synthesisModel(selection);
     if (selected == null) return .missingFiles;
     final voice = selection?.voice ?? 0;
+    final activeCapture = _capture;
+    if (!allowContinuousCapture &&
+        activeCapture != null &&
+        activeCapture.continuous) {
+      activeCapture.cancel();
+    }
     final previous = _playback;
     previous?.cancel();
-    final task = _SpeechPlayback(owner, selected.id);
+    final task = _SpeechPlayback(owner, selected.id, text);
     _playback = task;
+    _lastPlayedText = text;
     _notify();
     try {
+      if (!allowContinuousCapture &&
+          activeCapture != null &&
+          activeCapture.continuous) {
+        await activeCapture.finished.future;
+      }
       await previous?.finished.future;
       if (task.cancellation.isCompleted) return null;
       final directory = await _store.directoryFor(selected);
@@ -281,6 +318,7 @@ class SpeechProvider extends ChangeNotifier {
     } finally {
       task.cancel();
       task.finished.complete();
+      _lastPlaybackEndedAt = DateTime.now();
       if (identical(task, _playback)) {
         _playback = null;
         _notify();
@@ -429,6 +467,7 @@ class SpeechProvider extends ChangeNotifier {
   Future<SpeechFailureReason?> startContinuousListening(
     SpeechConversation owner, {
     required String? modelId,
+    bool allowDuringPlayback = false,
     void Function(String)? onPartial,
     required void Function(String) onUtterance,
   }) async {
@@ -437,7 +476,7 @@ class SpeechProvider extends ChangeNotifier {
     if (selected == null) return .missingFiles;
     final task = _SpeechCapture(owner, selected.id, continuous: true);
     _capture = task;
-    final playback = _playback;
+    final playback = allowDuringPlayback ? null : _playback;
     playback?.cancel();
     _notify();
     try {
@@ -577,10 +616,11 @@ class _SpeechCapture {
 }
 
 class _SpeechPlayback {
-  _SpeechPlayback(this.owner, this.modelId);
+  _SpeechPlayback(this.owner, this.modelId, this.text);
 
   final Object owner;
   final String modelId;
+  final String text;
   final cancellation = Completer<void>();
   final finished = Completer<void>();
 

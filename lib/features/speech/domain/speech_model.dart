@@ -105,6 +105,7 @@ typedef SpeechBindings = ({
   bool recognitionPaused,
   bool autoPlay,
   bool continuousRecognition,
+  bool voiceInterrupt,
   List<String> wakeWords,
   int idleTimeoutSeconds,
 });
@@ -116,6 +117,7 @@ const SpeechBindings emptySpeechBindings = (
   recognitionPaused: false,
   autoPlay: true,
   continuousRecognition: true,
+  voiceInterrupt: false,
   wakeWords: <String>[],
   idleTimeoutSeconds: defaultSpeechIdleTimeoutSeconds,
 );
@@ -162,6 +164,42 @@ List<String> normalizeWakeWords(Iterable<String> words) {
   return (matched: true, command: command);
 }
 
+final _nonWordPattern = RegExp(r'[\s\p{P}\p{S}]+', unicode: true);
+
+String _normalizeSpeechText(String input) =>
+    input.toLowerCase().replaceAll(_nonWordPattern, '');
+
+/// 判断识别到的文本是否属于扬声器播放或刚结束放音的回声。
+bool isLikelyPlaybackEcho(
+  String transcript,
+  String? playingText, {
+  bool rejectShort = true,
+}) {
+  if (playingText == null || playingText.isEmpty) return false;
+  final candidate = _normalizeSpeechText(transcript);
+  if (candidate.isEmpty) return true;
+  final source = _normalizeSpeechText(playingText);
+  if (source.isEmpty) return false;
+  if (source.contains(candidate)) return true;
+  // 极短的 1~2 字残音在放音期间极易由外放尾音误触发，视为回声忽略。
+  if (rejectShort && candidate.runes.length <= 2) return true;
+  if (candidate.runes.length <= 2) return false;
+  final sourceRunes = source.runes.toSet();
+  final candidateRunes = candidate.runes.toList();
+  var matchedRunes = 0;
+  for (final rune in candidateRunes) {
+    if (sourceRunes.contains(rune)) matchedRunes++;
+  }
+  final overlap = matchedRunes / candidateRunes.length;
+  if (overlap >= 0.58) return true;
+  for (var i = 0; i <= candidate.length - 3; i++) {
+    if (source.contains(candidate.substring(i, i + 3)) && overlap >= 0.45) {
+      return true;
+    }
+  }
+  return false;
+}
+
 extension SpeechBindingSelection on SpeechBindings {
   String? modelIdFor(SpeechModelKind kind) => switch (kind) {
     .synthesis => voice?.modelId,
@@ -183,6 +221,7 @@ extension SpeechBindingSelection on SpeechBindings {
     recognitionPaused: recognitionPaused,
     autoPlay: autoPlay,
     continuousRecognition: continuousRecognition,
+    voiceInterrupt: voiceInterrupt,
     wakeWords: wakeWords,
     idleTimeoutSeconds: idleTimeoutSeconds,
   );
@@ -194,6 +233,7 @@ extension SpeechBindingSelection on SpeechBindings {
     recognitionPaused: id != null && id == recognitionId && recognitionPaused,
     autoPlay: autoPlay,
     continuousRecognition: continuousRecognition,
+    voiceInterrupt: voiceInterrupt,
     wakeWords: wakeWords,
     idleTimeoutSeconds: idleTimeoutSeconds,
   );
@@ -209,6 +249,7 @@ extension SpeechBindingSelection on SpeechBindings {
         : recognitionPaused,
     autoPlay: autoPlay,
     continuousRecognition: continuousRecognition,
+    voiceInterrupt: voiceInterrupt,
     wakeWords: wakeWords,
     idleTimeoutSeconds: idleTimeoutSeconds,
   );
@@ -220,6 +261,7 @@ extension SpeechBindingSelection on SpeechBindings {
     recognitionPaused: recognitionPaused,
     autoPlay: enabled,
     continuousRecognition: continuousRecognition,
+    voiceInterrupt: voiceInterrupt,
     wakeWords: wakeWords,
     idleTimeoutSeconds: idleTimeoutSeconds,
   );
@@ -231,6 +273,19 @@ extension SpeechBindingSelection on SpeechBindings {
     recognitionPaused: recognitionPaused,
     autoPlay: autoPlay,
     continuousRecognition: enabled,
+    voiceInterrupt: voiceInterrupt,
+    wakeWords: wakeWords,
+    idleTimeoutSeconds: idleTimeoutSeconds,
+  );
+
+  SpeechBindings withVoiceInterrupt(bool enabled) => (
+    voice: voice,
+    recognitionId: recognitionId,
+    synthesisPaused: synthesisPaused,
+    recognitionPaused: recognitionPaused,
+    autoPlay: autoPlay,
+    continuousRecognition: continuousRecognition,
+    voiceInterrupt: enabled,
     wakeWords: wakeWords,
     idleTimeoutSeconds: idleTimeoutSeconds,
   );
@@ -242,6 +297,7 @@ extension SpeechBindingSelection on SpeechBindings {
     recognitionPaused: recognitionPaused,
     autoPlay: autoPlay,
     continuousRecognition: continuousRecognition,
+    voiceInterrupt: voiceInterrupt,
     wakeWords: normalizeWakeWords(words),
     idleTimeoutSeconds: idleTimeoutSeconds,
   );
@@ -253,6 +309,7 @@ extension SpeechBindingSelection on SpeechBindings {
     recognitionPaused: recognitionPaused,
     autoPlay: autoPlay,
     continuousRecognition: continuousRecognition,
+    voiceInterrupt: voiceInterrupt,
     wakeWords: wakeWords,
     idleTimeoutSeconds: seconds < 0 ? 0 : seconds,
   );

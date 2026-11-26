@@ -231,6 +231,8 @@ class AiAssistantProvider extends ChangeNotifier {
       _speechBindings.recognitionPaused ? null : _speechBindings.recognitionId;
   bool get speechContinuousRecognition =>
       speechRecognitionId != null && _speechBindings.continuousRecognition;
+  bool get speechVoiceInterrupt =>
+      speechContinuousRecognition && _speechBindings.voiceInterrupt;
   List<String> get speechWakeWords => _speechBindings.wakeWords;
   int get speechIdleTimeoutSeconds => _speechBindings.idleTimeoutSeconds;
   bool _speechContinuousPaused = false;
@@ -766,6 +768,7 @@ class AiAssistantProvider extends ChangeNotifier {
     if (!_speechBindings.autoPlay) 'speechAutoPlay': false,
     if (!_speechBindings.continuousRecognition)
       'speechContinuousRecognition': false,
+    if (_speechBindings.voiceInterrupt) 'speechVoiceInterrupt': true,
     if (_speechBindings.wakeWords.isNotEmpty)
       'speechWakeWords': _speechBindings.wakeWords,
     if (_speechBindings.idleTimeoutSeconds != defaultSpeechIdleTimeoutSeconds)
@@ -854,6 +857,7 @@ class AiAssistantProvider extends ChangeNotifier {
         .withContinuousRecognition(
           snapshot['speechContinuousRecognition'] != false,
         )
+        .withVoiceInterrupt(snapshot['speechVoiceInterrupt'] == true)
         .withWakeWords(switch (snapshot['speechWakeWords']) {
           final List items => items.whereType<String>(),
           _ => const <String>[],

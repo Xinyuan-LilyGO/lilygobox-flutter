@@ -7590,6 +7590,18 @@ abstract class AppLocalizations {
   /// **'Automatically start the next listening turn after recognition finishes.'**
   String get speechContinuousRecognitionDescription;
 
+  /// No description provided for @speechVoiceInterrupt.
+  ///
+  /// In en, this message translates to:
+  /// **'Interrupt playback by voice'**
+  String get speechVoiceInterrupt;
+
+  /// No description provided for @speechVoiceInterruptDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep listening during playback so you can interrupt by speaking. Recommended with headphones; turn off with speakers to avoid echo.'**
+  String get speechVoiceInterruptDescription;
+
   /// No description provided for @speechIdleTimeout.
   ///
   /// In en, this message translates to:

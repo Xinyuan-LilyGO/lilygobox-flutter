@@ -55,6 +55,8 @@ class WindowsSpeechAudioInput implements SpeechAudioInput {
           encoder: AudioEncoder.pcm16bits,
           sampleRate: speechSampleRate,
           numChannels: 1,
+          echoCancel: true,
+          noiseSuppress: true,
         ),
       );
       subscription = stream.listen(

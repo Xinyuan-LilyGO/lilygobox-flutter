@@ -4070,6 +4070,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get speechContinuousRecognitionDescription => '识别结束并发送后自动进入下一轮语音监听。';
 
   @override
+  String get speechVoiceInterrupt => '允许放音时语音打断';
+
+  @override
+  String get speechVoiceInterruptDescription =>
+      '朗读期间保持监听以便随时开口打断。建议佩戴耳机时开启；外放时关闭可彻底避免回声串音。';
+
+  @override
   String get speechIdleTimeout => '空闲超时时长（秒）';
 
   @override

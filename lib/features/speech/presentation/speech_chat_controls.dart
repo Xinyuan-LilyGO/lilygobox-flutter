@@ -581,6 +581,7 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
       theme: _theme,
       model: model,
       initialContinuous: widget.bindings.continuousRecognition,
+      initialVoiceInterrupt: widget.bindings.voiceInterrupt,
       initialWakeWords: widget.bindings.wakeWords,
       initialIdleTimeoutSeconds: widget.bindings.idleTimeoutSeconds,
     );
@@ -594,6 +595,7 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
     widget.onChanged(
       widget.bindings
           .withContinuousRecognition(result.continuous)
+          .withVoiceInterrupt(result.voiceInterrupt)
           .withWakeWords(result.wakeWords)
           .withIdleTimeoutSeconds(result.idleTimeoutSeconds),
     );
@@ -750,21 +752,35 @@ Future<({int voice, bool autoPlay})?> showSpeechSynthesisSettingsDialog(
   );
 }
 
-Future<({bool continuous, List<String> wakeWords, int idleTimeoutSeconds})?>
+Future<
+  ({
+    bool continuous,
+    bool voiceInterrupt,
+    List<String> wakeWords,
+    int idleTimeoutSeconds,
+  })?
+>
 showSpeechRecognitionSettingsDialog(
   BuildContext context, {
   required AppTheme theme,
   required SpeechModel model,
   required bool initialContinuous,
+  bool initialVoiceInterrupt = false,
   required List<String> initialWakeWords,
   int initialIdleTimeoutSeconds = defaultSpeechIdleTimeoutSeconds,
 }) => showDialog<
-    ({bool continuous, List<String> wakeWords, int idleTimeoutSeconds})>(
+    ({
+      bool continuous,
+      bool voiceInterrupt,
+      List<String> wakeWords,
+      int idleTimeoutSeconds,
+    })>(
   context: context,
   builder: (_) => _RecognitionSettingsDialog(
     theme: theme,
     model: model,
     initialContinuous: initialContinuous,
+    initialVoiceInterrupt: initialVoiceInterrupt,
     initialWakeWords: initialWakeWords,
     initialIdleTimeoutSeconds: initialIdleTimeoutSeconds,
   ),
@@ -775,6 +791,7 @@ class _RecognitionSettingsDialog extends StatefulWidget {
     required this.theme,
     required this.model,
     required this.initialContinuous,
+    required this.initialVoiceInterrupt,
     required this.initialWakeWords,
     required this.initialIdleTimeoutSeconds,
   });
@@ -782,6 +799,7 @@ class _RecognitionSettingsDialog extends StatefulWidget {
   final AppTheme theme;
   final SpeechModel model;
   final bool initialContinuous;
+  final bool initialVoiceInterrupt;
   final List<String> initialWakeWords;
   final int initialIdleTimeoutSeconds;
 
@@ -797,6 +815,7 @@ class _RecognitionSettingsDialogState
     text: '${widget.initialIdleTimeoutSeconds}',
   );
   late bool _continuous = widget.initialContinuous;
+  late bool _voiceInterrupt = widget.initialVoiceInterrupt;
   late List<String> _wakeWords = List<String>.from(widget.initialWakeWords);
 
   @override
@@ -833,7 +852,7 @@ class _RecognitionSettingsDialogState
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: 16,
+            spacing: 14,
             children: [
               SpeechModelInfo(
                 key: const ValueKey('speech-agent-recognition-model-info'),
@@ -870,14 +889,60 @@ class _RecognitionSettingsDialogState
                   ],
                 ),
               ),
-              SettingsField(
-                theme: theme,
-                title: l10n.speechIdleTimeout,
-                description: l10n.speechIdleTimeoutDescription,
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: SizedBox(
-                    width: 140,
+              MergeSemantics(
+                child: Row(
+                  spacing: 8,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        spacing: 4,
+                        children: [
+                          Text(
+                            l10n.speechVoiceInterrupt,
+                            style: AppDialogStyle.fieldTitleStyle(theme),
+                          ),
+                          Text(
+                            l10n.speechVoiceInterruptDescription,
+                            style: AppDialogStyle.descriptionStyle(theme),
+                          ),
+                        ],
+                      ),
+                    ),
+                    CompactSettingSwitch(
+                      controlKey: const ValueKey('speech-voice-interrupt'),
+                      theme: theme,
+                      surface: AppDialogStyle.backgroundColor(theme),
+                      value: _continuous && _voiceInterrupt,
+                      onChanged: _continuous
+                          ? (value) => setState(() => _voiceInterrupt = value)
+                          : null,
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 12,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: 4,
+                      children: [
+                        Text(
+                          l10n.speechIdleTimeout,
+                          style: AppDialogStyle.fieldTitleStyle(theme),
+                        ),
+                        Text(
+                          l10n.speechIdleTimeoutDescription,
+                          style: AppDialogStyle.descriptionStyle(theme),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    width: 112,
                     child: SettingControlledTextField(
                       key: const ValueKey('speech-idle-timeout-input'),
                       theme: theme,
@@ -900,7 +965,7 @@ class _RecognitionSettingsDialogState
                       ),
                     ),
                   ),
-                ),
+                ],
               ),
               SettingsField(
                 theme: theme,
@@ -967,6 +1032,7 @@ class _RecognitionSettingsDialogState
           primary: true,
           onPressed: () => Navigator.pop(context, (
             continuous: _continuous,
+            voiceInterrupt: _voiceInterrupt,
             wakeWords: _wakeWords,
             idleTimeoutSeconds: _parsedTimeoutSeconds(),
           )),
