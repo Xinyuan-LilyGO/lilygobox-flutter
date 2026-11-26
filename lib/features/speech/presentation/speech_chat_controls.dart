@@ -52,7 +52,7 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
     SpeechModelKind.recognition,
   ];
   final _controllers = {for (final kind in _kinds) kind: MenuController()};
-  bool _showDetails = false;
+  bool _showingList = false;
 
   AppTheme get _theme => widget.theme;
 
@@ -71,7 +71,7 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
       return;
     }
     final bindings = widget.bindings;
-    if (model != null) setState(() => _showDetails = true);
+    if (model != null) setState(() => _showingList = false);
     if (_boundId(kind) == model?.id) return;
     widget.onChanged(switch (kind) {
       .synthesis => bindings.withVoice(
@@ -97,7 +97,7 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
                 onClose: () {
                   if (mounted) {
                     setState(() {
-                      _showDetails = false;
+                      _showingList = false;
                       _search.clear();
                     });
                   }
@@ -213,9 +213,9 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
       0.0,
       bounds.width,
     );
-    final model = _showDetails
-        ? widget.speech.library.modelFor(kind, _boundId(kind))
-        : null;
+    final model = _showingList
+        ? null
+        : widget.speech.library.modelFor(kind, _boundId(kind));
     if (height <
         MediaQuery.textScalerOf(context).scale(model == null ? 110 : 64)) {
       return const SizedBox.shrink();
@@ -291,7 +291,7 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
                     backgroundColor: PopupMenuSurface.backgroundColorFor(
                       _theme,
                     ),
-                    onPressed: () => setState(() => _showDetails = false),
+                    onPressed: () => setState(() => _showingList = true),
                   ),
                 ),
               Expanded(
@@ -468,6 +468,34 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
             ],
           ),
         ),
+        if (model.kind == .synthesis)
+          MergeSemantics(
+            child: Row(
+              spacing: 8,
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.speechAutoRead,
+                    style: AppDialogStyle.fieldTitleStyle(_theme),
+                  ),
+                ),
+                CompactSettingSwitch(
+                  controlKey: const ValueKey('speech-chat-auto-read'),
+                  theme: _theme,
+                  surface: PopupMenuSurface.backgroundColorFor(_theme),
+                  value: widget.bindings.autoPlay,
+                  onChanged:
+                      model.available &&
+                          !widget.speech.busy &&
+                          widget.bindings.enabledFor(.synthesis)
+                      ? (enabled) => widget.onChanged(
+                          widget.bindings.withAutoPlay(enabled),
+                        )
+                      : null,
+                ),
+              ],
+            ),
+          ),
         if (model.available && model.kind == .synthesis)
           AppActionButton(
             key: const ValueKey('speech-chat-voice-settings'),

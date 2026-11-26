@@ -71,6 +71,45 @@ class SpeechEngine {
     throw const SpeechFailure(.engine);
   }
 
+  Stream<Uint8List> synthesizeStream(
+    SpeechModelFormat format,
+    Directory directory,
+    String text,
+    int voice, {
+    Future<void>? cancellation,
+  }) async* {
+    var emitted = false;
+    try {
+      await for (final chunk in _ResidentSynthesisSession.shared
+          .synthesizeStream(
+            format,
+            directory,
+            text,
+            voice,
+            cancellation: cancellation,
+          )) {
+        emitted = true;
+        yield chunk;
+      }
+    } on SpeechFailure {
+      if (emitted) rethrow;
+      yield await synthesize(
+        format,
+        directory,
+        text,
+        voice,
+        cancellation: cancellation,
+      );
+    }
+  }
+
+  Future<void> warmUpSynthesis(
+    SpeechModelFormat format,
+    Directory directory,
+  ) => _ResidentSynthesisSession.shared.warmUp(format, directory);
+
+  void disposeSynthesisSession() => _ResidentSynthesisSession.shared.dispose();
+
   Future<Object?> _invoke(
     SpeechModelFormat format,
     Directory directory,
@@ -151,5 +190,216 @@ class SpeechEngine {
       process.kill();
       await status;
     }
+  }
+}
+
+class _ResidentSynthesisSession {
+  static final shared = _ResidentSynthesisSession();
+  static const _idleTimeout = Duration(minutes: 2);
+
+  Process? _process;
+  int _nextId = 1;
+  int? _activeId;
+  StreamController<Uint8List>? _activeController;
+  String? _warmedModelKey;
+  Future<void>? _warming;
+  Timer? _idleTimer;
+
+  Future<void> warmUp(SpeechModelFormat format, Directory directory) {
+    final key = '${format.name}|${directory.absolute.path}';
+    if (_process != null && _warmedModelKey == key) return Future.value();
+    if (_warming case final pending?) return pending;
+    if (_activeController != null) return Future.value();
+    final task = _doWarmUp(format, directory, key);
+    _warming = task;
+    return task.whenComplete(() {
+      if (identical(_warming, task)) _warming = null;
+    });
+  }
+
+  Future<void> _doWarmUp(
+    SpeechModelFormat format,
+    Directory directory,
+    String key,
+  ) async {
+    _idleTimer?.cancel();
+    try {
+      final process = await _ensureProcess();
+      if (_activeController != null) return;
+      final id = _nextId++;
+      final controller = StreamController<Uint8List>();
+      _activeId = id;
+      _activeController = controller;
+      process.stdin.writeln(
+        jsonEncode({
+          'id': id,
+          'operation': 'warm',
+          'format': format.name,
+          'directory': directory.absolute.path,
+        }),
+      );
+      await process.stdin.flush();
+      await controller.stream.drain<void>();
+      _warmedModelKey = key;
+    } catch (_) {
+      // 预热失败不阻塞后续正常按需合成。
+    }
+  }
+
+  Stream<Uint8List> synthesizeStream(
+    SpeechModelFormat format,
+    Directory directory,
+    String text,
+    int voice, {
+    Future<void>? cancellation,
+  }) {
+    final controller = StreamController<Uint8List>();
+    unawaited(
+      _run(
+        controller,
+        format,
+        directory,
+        text,
+        voice,
+        cancellation: cancellation,
+      ),
+    );
+    return controller.stream;
+  }
+
+  Future<void> _run(
+    StreamController<Uint8List> controller,
+    SpeechModelFormat format,
+    Directory directory,
+    String text,
+    int voice, {
+    Future<void>? cancellation,
+  }) async {
+    _idleTimer?.cancel();
+    var cancelled = false;
+    unawaited(
+      cancellation?.then<void>((_) {
+        cancelled = true;
+        if (_activeController == controller) {
+          // 合成尚未完成时终止常驻子进程，立即释放 CPU 计算。
+          dispose();
+        }
+        if (!controller.isClosed) unawaited(controller.close());
+      }),
+    );
+    try {
+      await _warming;
+      if (cancelled) return;
+      final process = await _ensureProcess();
+      if (cancelled) return;
+      final id = _nextId++;
+      _activeId = id;
+      _activeController = controller;
+      process.stdin.writeln(
+        jsonEncode({
+          'id': id,
+          'format': format.name,
+          'directory': directory.absolute.path,
+          'text': text,
+          'voice': voice,
+        }),
+      );
+      await process.stdin.flush();
+    } catch (error, stack) {
+      if (!cancelled && !controller.isClosed) {
+        controller.addError(
+          error is SpeechFailure ? error : const SpeechFailure(.engine),
+          stack,
+        );
+        await controller.close();
+      }
+      dispose();
+    }
+  }
+
+  Future<Process> _ensureProcess() async {
+    if (_process case final existing?) return existing;
+    final executable = Platform.resolvedExecutable;
+    final executableDirectory = path.dirname(executable);
+    if (!Platform.isWindows ||
+        !await File(path.join(executableDirectory, 'sherpa-onnx-c-api.dll'))
+            .exists() ||
+        !await File(path.join(executableDirectory, 'onnxruntime.dll'))
+            .exists()) {
+      throw const SpeechFailure(.engine);
+    }
+    final process = await Process.start(executable, [
+      speechWorkerArgument,
+    ], workingDirectory: executableDirectory);
+    _process = process;
+    process.stdin.encoding = utf8;
+    unawaited(process.stderr.drain<void>());
+    process.stdout
+        .transform(const Utf8Decoder(allowMalformed: true))
+        .transform(const LineSplitter())
+        .where((line) => line.startsWith(speechWorkerResultPrefix))
+        .listen(
+          (line) {
+            final payload = jsonDecode(
+              line.substring(speechWorkerResultPrefix.length),
+            );
+            if (payload case {'id': final int id} when id == _activeId) {
+              final controller = _activeController;
+              if (controller == null || controller.isClosed) return;
+              if (payload case {'chunk': final String encoded}) {
+                controller.add(base64Decode(encoded));
+              } else if (payload case {'done': true}) {
+                _finishActive(controller);
+              } else if (payload case {'error': _}) {
+                controller.addError(const SpeechFailure(.engine));
+                _finishActive(controller);
+              }
+            }
+          },
+          onDone: () {
+            if (identical(_process, process)) {
+              _process = null;
+            }
+            final controller = _activeController;
+            if (controller != null && !controller.isClosed) {
+              controller.addError(const SpeechFailure(.engine));
+              _finishActive(controller);
+            }
+          },
+        );
+    process.stdin.writeln(jsonEncode({'operation': 'synthesize-session'}));
+    await process.stdin.flush();
+    return process;
+  }
+
+  void _finishActive(StreamController<Uint8List> controller) {
+    if (_activeController == controller) {
+      _activeController = null;
+      _activeId = null;
+    }
+    if (!controller.isClosed) unawaited(controller.close());
+    _scheduleIdleDispose();
+  }
+
+  void _scheduleIdleDispose() {
+    _idleTimer?.cancel();
+    if (_process != null) {
+      _idleTimer = Timer(_idleTimeout, dispose);
+    }
+  }
+
+  void dispose() {
+    _idleTimer?.cancel();
+    _idleTimer = null;
+    final controller = _activeController;
+    _activeController = null;
+    _activeId = null;
+    if (controller != null && !controller.isClosed) {
+      unawaited(controller.close());
+    }
+    final process = _process;
+    _process = null;
+    _warmedModelKey = null;
+    process?.kill();
   }
 }

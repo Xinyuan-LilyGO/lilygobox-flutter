@@ -18,6 +18,7 @@ class SpeechIconButton extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.size = 25,
+    this.iconSize = 16,
   });
 
   final AppTheme theme;
@@ -26,6 +27,7 @@ class SpeechIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onPressed;
   final double size;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) => AppTooltip(
@@ -40,7 +42,7 @@ class SpeechIconButton extends StatelessWidget {
         theme: theme,
         icon: icon,
         size: size,
-        iconSize: 16,
+        iconSize: iconSize,
         backgroundColor: Colors.transparent,
         surfaceColor: surface,
         hoverColor: theme.interactionHoverColor(surface),

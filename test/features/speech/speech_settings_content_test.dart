@@ -64,6 +64,32 @@ class _Engine implements SpeechEngine {
     previewVoice = voice;
     return Uint8List(1);
   }
+
+  @override
+  Stream<Uint8List> synthesizeStream(
+    SpeechModelFormat format,
+    Directory directory,
+    String text,
+    int voice, {
+    Future<void>? cancellation,
+  }) async* {
+    yield await synthesize(
+      format,
+      directory,
+      text,
+      voice,
+      cancellation: cancellation,
+    );
+  }
+
+  @override
+  Future<void> warmUpSynthesis(
+    SpeechModelFormat format,
+    Directory directory,
+  ) async {}
+
+  @override
+  void disposeSynthesisSession() {}
 }
 
 class _Input implements SpeechAudioInput {
@@ -94,6 +120,17 @@ class _Output implements SpeechAudioOutput {
     playing = true;
     await cancellation;
     playing = false;
+  }
+
+  @override
+  Future<void> playStream(
+    Stream<Uint8List> wavChunks,
+    Future<void> cancellation,
+  ) async {
+    await for (final chunk in wavChunks) {
+      await play(chunk, cancellation);
+      break;
+    }
   }
 }
 

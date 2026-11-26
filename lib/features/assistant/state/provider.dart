@@ -226,6 +226,7 @@ class AiAssistantProvider extends ChangeNotifier {
   SpeechBindings get speechBindings => _speechBindings;
   SpeechVoiceSelection? get speechVoice =>
       _speechBindings.synthesisPaused ? null : _speechBindings.voice;
+  bool get speechAutoPlay => speechVoice != null && _speechBindings.autoPlay;
   String? get speechRecognitionId =>
       _speechBindings.recognitionPaused ? null : _speechBindings.recognitionId;
 
@@ -732,6 +733,7 @@ class AiAssistantProvider extends ChangeNotifier {
     'speechRecognitionId': ?_speechBindings.recognitionId,
     if (_speechBindings.synthesisPaused) 'speechSynthesisPaused': true,
     if (_speechBindings.recognitionPaused) 'speechRecognitionPaused': true,
+    if (!_speechBindings.autoPlay) 'speechAutoPlay': false,
   };
 
   void restoreWorkspaceConversation(Map<String, dynamic> snapshot) {
@@ -811,7 +813,8 @@ class AiAssistantProvider extends ChangeNotifier {
         });
     _speechBindings = bindings
         .withEnabled(.synthesis, snapshot['speechSynthesisPaused'] != true)
-        .withEnabled(.recognition, snapshot['speechRecognitionPaused'] != true);
+        .withEnabled(.recognition, snapshot['speechRecognitionPaused'] != true)
+        .withAutoPlay(snapshot['speechAutoPlay'] != false);
     _notify();
   }
 
@@ -3357,6 +3360,15 @@ class AiAssistantProvider extends ChangeNotifier {
           ...context,
           if (historyDirection case final direction?)
             {'role': 'system', 'content': direction},
+          if (speechVoice != null)
+            {
+              'role': 'system',
+              'content':
+                  '[Required Output Format for Voice Playback]\n'
+                  'Write your full response normally first, then ALWAYS end your reply with a <speech>...</speech> block on a new line at the very end.\n'
+                  'Inside <speech>...</speech>, write 1 to 3 brief, natural spoken sentences (plain text only: no markdown, asterisks, action/stage descriptions, code, or URLs) '
+                  'that ${binding != null ? '"${binding.card.name}" actually says aloud in character (matching their persona, tone, and language)' : 'you would say aloud to summarize or respond conversationally'}.',
+            },
         ],
         tools: [
           ..._settingTools,

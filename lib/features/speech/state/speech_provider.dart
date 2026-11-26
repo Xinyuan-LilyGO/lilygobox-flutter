@@ -32,11 +32,15 @@ class SpeechProvider extends ChangeNotifier {
   bool _busy = false;
   bool _loaded = false;
   bool _disposed = false;
+  bool _warming = false;
   bool get busy => _busy;
   bool get loaded => _loaded;
 
   _SpeechPlayback? _playback;
   _SpeechCapture? _capture;
+  final Map<({String modelId, int voice, String text}), List<Uint8List>>
+  _synthesisCache = {};
+  static const _maxCachedClips = 12;
   bool get hasCapture => _capture != null;
 
   SpeechCapturePhase? capturePhase(SpeechConversation owner) {
@@ -95,8 +99,81 @@ class SpeechProvider extends ChangeNotifier {
           playback.cancel();
           await playback.finished.future;
         }
+        _synthesisCache.removeWhere((key, _) => ids.contains(key.modelId));
+        if (library.models.any(
+          (model) => ids.contains(model.id) && model.kind == .synthesis,
+        )) {
+          _engine.disposeSynthesisSession();
+        }
         return _store.deleteModels(library, ids);
       });
+
+  Future<void> warmUpSynthesis(SpeechVoiceSelection? selection) async {
+    if (_disposed || _busy || hasCapture || _warming) return;
+    final selected = library.synthesisModel(selection);
+    if (selected == null) return;
+    _warming = true;
+    try {
+      final directory = await _store.directoryFor(selected);
+      if (_disposed || _busy || hasCapture) return;
+      await _engine.warmUpSynthesis(selected.format, directory);
+    } catch (_) {
+      // 预热失败不向用户弹窗报错。
+    } finally {
+      _warming = false;
+    }
+  }
+
+  /// 在空闲时后台预合成台词并写入缓存，点击播放即可秒开。
+  Future<void> preSynthesize(
+    String text, {
+    SpeechVoiceSelection? selection,
+  }) async {
+    if (_disposed ||
+        _busy ||
+        hasCapture ||
+        _playback != null ||
+        _warming ||
+        text.trim().isEmpty) {
+      return;
+    }
+    final selected = library.synthesisModel(selection);
+    if (selected == null) return;
+    final voice = selection?.voice ?? 0;
+    final cacheKey = (modelId: selected.id, voice: voice, text: text);
+    if (_synthesisCache.containsKey(cacheKey)) return;
+    _warming = true;
+    final cancellation = Completer<void>();
+    try {
+      final directory = await _store.directoryFor(selected);
+      if (_disposed || _busy || hasCapture || _playback != null) return;
+      final generated = <Uint8List>[];
+      await for (final chunk in _engine.synthesizeStream(
+        selected.format,
+        directory,
+        text,
+        voice,
+        cancellation: cancellation.future,
+      )) {
+        if (_disposed || _busy || hasCapture || _playback != null) {
+          if (!cancellation.isCompleted) cancellation.complete();
+          return;
+        }
+        generated.add(chunk);
+      }
+      if (generated.isNotEmpty) {
+        _synthesisCache[cacheKey] = List.unmodifiable(generated);
+        if (_synthesisCache.length > _maxCachedClips) {
+          _synthesisCache.remove(_synthesisCache.keys.first);
+        }
+      }
+    } catch (_) {
+      // 预合成失败不向用户弹窗报错。
+    } finally {
+      if (!cancellation.isCompleted) cancellation.complete();
+      _warming = false;
+    }
+  }
 
   Future<SpeechFailureReason?> play(
     Object owner,
@@ -117,15 +194,45 @@ class SpeechProvider extends ChangeNotifier {
       if (task.cancellation.isCompleted) return null;
       final directory = await _store.directoryFor(selected);
       if (task.cancellation.isCompleted) return null;
-      final wav = await _engine.synthesize(
-        selected.format,
-        directory,
-        text,
-        voice,
-        cancellation: task.cancellation.future,
-      );
-      if (task.cancellation.isCompleted) return null;
-      await _output.play(wav, task.cancellation.future);
+      final cacheKey = (modelId: selected.id, voice: voice, text: text);
+      final cached = _synthesisCache.remove(cacheKey);
+      if (cached != null) {
+        _synthesisCache[cacheKey] = cached;
+        await _output.playStream(
+          Stream.fromIterable(cached),
+          task.cancellation.future,
+        );
+        return null;
+      }
+      final generated = <Uint8List>[];
+      var streamCompleted = false;
+      final chunks = _engine
+          .synthesizeStream(
+            selected.format,
+            directory,
+            text,
+            voice,
+            cancellation: task.cancellation.future,
+          )
+          .transform(
+            StreamTransformer<Uint8List, Uint8List>.fromHandlers(
+              handleData: (chunk, sink) {
+                generated.add(chunk);
+                sink.add(chunk);
+              },
+              handleDone: (sink) {
+                streamCompleted = true;
+                sink.close();
+              },
+            ),
+          );
+      await _output.playStream(chunks, task.cancellation.future);
+      if (streamCompleted && generated.isNotEmpty) {
+        _synthesisCache[cacheKey] = List.unmodifiable(generated);
+        if (_synthesisCache.length > _maxCachedClips) {
+          _synthesisCache.remove(_synthesisCache.keys.first);
+        }
+      }
       return null;
     } on SpeechFailure catch (error) {
       return task.cancellation.isCompleted ? null : error.reason;
@@ -310,6 +417,7 @@ class SpeechProvider extends ChangeNotifier {
     _disposed = true;
     _playback?.cancel();
     _capture?.cancel();
+    _engine.disposeSynthesisSession();
     super.dispose();
   }
 }

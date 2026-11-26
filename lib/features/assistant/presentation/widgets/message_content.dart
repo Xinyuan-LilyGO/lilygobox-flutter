@@ -159,14 +159,17 @@ class _ChatMessageBodyState extends State<ChatMessageBody> {
         ),
       );
     }
-    final body = _htmlDocumentStart.hasMatch(message.content)
+    final contentText = message.role == 'assistant'
+        ? parseSpeechReply(message.content).body
+        : message.content;
+    final body = _htmlDocumentStart.hasMatch(contentText)
         ? ChatCodeBlock(
             key: PageStorageKey('ai-message-html-${message.id}'),
-            text: message.content,
+            text: contentText,
             language: 'html',
             theme: theme,
           )
-        : _markdown ??= _buildMarkdown(context, text);
+        : _markdown ??= _buildMarkdown(context, text, contentText);
     if (widget.useParentSelectionArea) return body;
     return SelectionArea(
       focusNode: _selectionFocus,
@@ -175,10 +178,14 @@ class _ChatMessageBodyState extends State<ChatMessageBody> {
     );
   }
 
-  MarkdownBody _buildMarkdown(BuildContext context, TextStyle text) {
+  MarkdownBody _buildMarkdown(
+    BuildContext context,
+    TextStyle text,
+    String data,
+  ) {
     final codeBuilder = _CodeElementBuilder(theme);
     final markdown = MarkdownBody(
-      data: message.content,
+      data: data,
       builders: {
         'code': codeBuilder,
         'pre': _CodeBlockBuilder(theme, codeBuilder, message.id),
@@ -940,7 +947,9 @@ class _ChatMessageActionsState extends State<ChatMessageActions> {
     final message = widget.message;
     final theme = widget.theme;
     final l10n = context.l10n;
-    final body = message.content;
+    final body = message.role == 'assistant'
+        ? parseSpeechReply(message.content).body
+        : message.content;
     final text = switch (widget.visibleError) {
       final error? when body.trim().isEmpty => error,
       final error? => '${body.trimRight()}\n\n$error',
@@ -995,8 +1004,6 @@ class _ChatMessageActionsState extends State<ChatMessageActions> {
             copyButton,
           ] else ...[
             copyButton,
-            if (message.role == 'assistant' && body.trim().isNotEmpty)
-              _SpeechReplyAction(message: message, theme: theme),
             if (timestamp != null) ...[const SizedBox(width: 8), timestamp],
           ],
         ],
@@ -1005,14 +1012,47 @@ class _ChatMessageActionsState extends State<ChatMessageActions> {
   }
 }
 
-class _SpeechReplyAction extends StatelessWidget {
-  const _SpeechReplyAction({required this.message, required this.theme});
+class SpeechReplyCard extends StatefulWidget {
+  const SpeechReplyCard({
+    super.key,
+    required this.message,
+    required this.theme,
+  });
 
   final AiMessage message;
   final AppTheme theme;
 
   @override
+  State<SpeechReplyCard> createState() => _SpeechReplyCardState();
+}
+
+class _SpeechReplyCardState extends State<SpeechReplyCard> {
+  bool _copied = false;
+  Timer? _reset;
+
+  @override
+  void dispose() {
+    _reset?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _copy(String text) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    _reset?.cancel();
+    setState(() => _copied = true);
+    _reset = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final message = widget.message;
+    final theme = widget.theme;
+    if (message.role != 'assistant') return const SizedBox.shrink();
+    final spoken = parseSpeechReply(message.content).speech;
+    if (spoken == null || spoken.isEmpty) return const SizedBox.shrink();
     final scope = context.watch<SpeechConversation?>();
     if (scope == null) return const SizedBox.shrink();
     final owner = (scope, message.id);
@@ -1027,35 +1067,130 @@ class _SpeechReplyAction extends StatelessWidget {
       ),
     );
     if (!available && !playing) return const SizedBox.shrink();
-    final text = speechReplyText(message.content);
-    if (text.isEmpty) return const SizedBox.shrink();
     final l10n = context.l10n;
-    return SpeechIconButton(
-      key: ValueKey('ai-voice-play-${message.id}'),
-      theme: theme,
-      surface: theme.secondary,
-      label: playing ? l10n.speechStopPlayback : l10n.speechPlayReply,
-      icon: playing ? Symbols.stop_rounded : Symbols.volume_up_rounded,
-      onPressed: playing
-          ? () => context.read<SpeechProvider>().stopPlayback(owner)
-          : enabled
-          ? () => unawaited(_play(context, owner, text))
-          : null,
+    final accent = playing ? theme.basePrimary : theme.textColorTertiary;
+    final copyLabel = _copied ? l10n.aiMessageCopied : l10n.aiCopyMessage;
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: DecoratedBox(
+        key: ValueKey('ai-voice-card-${message.id}'),
+        decoration: BoxDecoration(
+          color: theme.primary,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: (playing ? theme.basePrimary : theme.dividerColor)
+                .withValues(alpha: playing ? 0.65 : 0.45),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            spacing: 10,
+            children: [
+              Icon(
+                Symbols.record_voice_over_rounded,
+                size: 16,
+                fill: 1,
+                color: accent,
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: 2,
+                  children: [
+                    Text(
+                      l10n.speechSpokenReply,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: accent,
+                      ),
+                    ),
+                    Text(
+                      spoken,
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.45,
+                        color: theme.textColorPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 4,
+                children: [
+                  AppTooltip(
+                    message: copyLabel,
+                    child: Semantics(
+                      label: copyLabel,
+                      button: true,
+                      enabled: true,
+                      child: TitleBarIconButton(
+                        key: ValueKey('ai-voice-copy-${message.id}'),
+                        onPressed: () => unawaited(_copy(spoken)),
+                        isFocused: true,
+                        theme: theme,
+                        icon: _copied
+                            ? Symbols.check_rounded
+                            : Symbols.content_copy_rounded,
+                        size: 28,
+                        iconSize: 16,
+                        backgroundColor: Colors.transparent,
+                        surfaceColor: theme.primary,
+                        hoverColor: theme.interactionHoverColor(theme.primary),
+                        iconColor: theme.textColorSecondary,
+                      ),
+                    ),
+                  ),
+                  SpeechIconButton(
+                    key: ValueKey('ai-voice-play-${message.id}'),
+                    theme: theme,
+                    surface: theme.primary,
+                    size: 28,
+                    iconSize: 18,
+                    label: playing
+                        ? l10n.speechStopPlayback
+                        : l10n.speechPlayReply,
+                    icon: playing
+                        ? Symbols.stop_rounded
+                        : Symbols.volume_up_rounded,
+                    onPressed: playing
+                        ? () =>
+                              context.read<SpeechProvider>().stopPlayback(owner)
+                        : enabled
+                        ? () =>
+                              unawaited(_playSpeechText(context, owner, spoken))
+                        : null,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
+}
 
-  Future<void> _play(BuildContext context, Object owner, String text) async {
-    final error = await context.read<SpeechProvider>().play(
-      owner,
-      text,
-      selection: context.read<AiAssistantProvider?>()?.speechVoice,
+Future<void> _playSpeechText(
+  BuildContext context,
+  Object owner,
+  String text,
+) async {
+  final error = await context.read<SpeechProvider>().play(
+    owner,
+    text,
+    selection: context.read<AiAssistantProvider?>()?.speechVoice,
+  );
+  if (error != null && context.mounted) {
+    showAppNotice(
+      ScaffoldMessenger.of(context),
+      speechErrorLabel(context.l10n, error),
     );
-    if (error != null && context.mounted) {
-      showAppNotice(
-        ScaffoldMessenger.of(context),
-        speechErrorLabel(context.l10n, error),
-      );
-    }
   }
 }
 

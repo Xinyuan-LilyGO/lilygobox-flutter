@@ -7488,6 +7488,12 @@ abstract class AppLocalizations {
   /// **'Read reply aloud'**
   String get speechPlayReply;
 
+  /// No description provided for @speechSpokenReply.
+  ///
+  /// In en, this message translates to:
+  /// **'Spoken line'**
+  String get speechSpokenReply;
+
   /// No description provided for @speechStartRecording.
   ///
   /// In en, this message translates to:
@@ -7547,6 +7553,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enable speech synthesis'**
   String get speechEnableSynthesis;
+
+  /// No description provided for @speechAutoRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-read replies'**
+  String get speechAutoRead;
 
   /// No description provided for @speechEnableRecognition.
   ///

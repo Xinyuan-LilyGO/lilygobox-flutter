@@ -59,6 +59,7 @@ class ChatComposer extends StatelessWidget {
     required this.onAttachmentsChanged,
     this.onManageContext,
     this.voiceButton,
+    this.voiceRecording = false,
     this.readClipboardImage = ImageClipboard.readPng,
   });
 
@@ -73,6 +74,7 @@ class ChatComposer extends StatelessWidget {
   final ValueChanged<List<AiImageAttachment>> onAttachmentsChanged;
   final VoidCallback? onManageContext;
   final Widget? voiceButton;
+  final bool voiceRecording;
   final Future<Uint8List?> Function() readClipboardImage;
 
   Future<void> _pickImages(BuildContext context) async {
@@ -330,7 +332,7 @@ class ChatComposer extends StatelessWidget {
             ModelSelector.compactWidth +
             _sendGap +
             _sendButtonSize +
-            (voiceButton == null ? 0 : _toolGap + _attachmentButtonSize));
+            (voiceButton == null ? 0 : _sendGap + _sendButtonSize));
     final labelStyle = DefaultTextStyle.of(context).style.copyWith(
       fontSize: 12,
       fontWeight: MediaQuery.boldTextOf(context) ? FontWeight.bold : null,
@@ -452,7 +454,8 @@ class ChatComposer extends StatelessWidget {
                                 event.logicalKey == LogicalKeyboardKey.enter &&
                                 !HardwareKeyboard.instance.isShiftPressed &&
                                 input.value.composing.isCollapsed) {
-                              if (assistant.canSendMessage &&
+                              if (!voiceRecording &&
+                                  assistant.canSendMessage &&
                                   (input.text.trim().isNotEmpty ||
                                       attachments.isNotEmpty)) {
                                 onSend(true);
@@ -465,7 +468,9 @@ class ChatComposer extends StatelessWidget {
                             actions: <Type, Action<Intent>>{
                               PasteTextIntent: CallbackAction<PasteTextIntent>(
                                 onInvoke: (_) {
-                                  unawaited(_pasteImage(context));
+                                  if (!voiceRecording) {
+                                    unawaited(_pasteImage(context));
+                                  }
                                   return null;
                                 },
                               ),
@@ -502,6 +507,7 @@ class ChatComposer extends StatelessWidget {
                                               ),
                                             ),
                                         controller: input,
+                                        readOnly: voiceRecording,
                                         selectionWidthStyle:
                                             ui.BoxWidthStyle.tight,
                                         focusNode: focusNode,
@@ -575,10 +581,6 @@ class ChatComposer extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-                                if (voiceButton case final button?) ...[
-                                  const SizedBox(width: _toolGap),
-                                  button,
-                                ],
                                 const SizedBox(width: _toolGap),
                                 AssistantPermissionsButton(
                                   theme: theme,
@@ -595,6 +597,10 @@ class ChatComposer extends StatelessWidget {
                                     ),
                                   ),
                                 ),
+                                if (voiceButton case final button?) ...[
+                                  const SizedBox(width: _sendGap),
+                                  button,
+                                ],
                                 const SizedBox(width: _sendGap),
                                 ValueListenableBuilder<TextEditingValue>(
                                   valueListenable: input,
@@ -621,7 +627,9 @@ class ChatComposer extends StatelessWidget {
                                           label: l10n.aiContinue,
                                           icon: Symbols.play_arrow_rounded,
                                           size: _sendButtonSize,
-                                          onPressed: () => onSend(false),
+                                          onPressed: voiceRecording
+                                              ? null
+                                              : () => onSend(false),
                                         )
                                       : _actionButton(
                                           theme: theme,
@@ -634,7 +642,8 @@ class ChatComposer extends StatelessWidget {
                                           icon: Symbols.arrow_upward_rounded,
                                           size: _sendButtonSize,
                                           onPressed:
-                                              !assistant.canSendMessage ||
+                                              voiceRecording ||
+                                                  !assistant.canSendMessage ||
                                                   value.text.trim().isEmpty &&
                                                       attachments.isEmpty
                                               ? null

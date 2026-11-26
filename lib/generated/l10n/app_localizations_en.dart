@@ -4337,6 +4337,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get speechPlayReply => 'Read reply aloud';
 
   @override
+  String get speechSpokenReply => 'Spoken line';
+
+  @override
   String get speechStartRecording => 'Start voice input';
 
   @override
@@ -4373,6 +4376,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get speechEnableSynthesis => 'Enable speech synthesis';
+
+  @override
+  String get speechAutoRead => 'Auto-read replies';
 
   @override
   String get speechEnableRecognition => 'Enable speech recognition';

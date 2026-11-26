@@ -101,6 +101,7 @@ typedef SpeechBindings = ({
   String? recognitionId,
   bool synthesisPaused,
   bool recognitionPaused,
+  bool autoPlay,
 });
 
 const SpeechBindings emptySpeechBindings = (
@@ -108,6 +109,7 @@ const SpeechBindings emptySpeechBindings = (
   recognitionId: null,
   synthesisPaused: false,
   recognitionPaused: false,
+  autoPlay: true,
 );
 
 extension SpeechBindingSelection on SpeechBindings {
@@ -129,6 +131,7 @@ extension SpeechBindingSelection on SpeechBindings {
         selection.modelId == voice?.modelId &&
         synthesisPaused,
     recognitionPaused: recognitionPaused,
+    autoPlay: autoPlay,
   );
 
   SpeechBindings withRecognition(String? id) => (
@@ -136,6 +139,7 @@ extension SpeechBindingSelection on SpeechBindings {
     recognitionId: id,
     synthesisPaused: synthesisPaused,
     recognitionPaused: id != null && id == recognitionId && recognitionPaused,
+    autoPlay: autoPlay,
   );
 
   SpeechBindings withEnabled(SpeechModelKind kind, bool enabled) => (
@@ -147,6 +151,15 @@ extension SpeechBindingSelection on SpeechBindings {
     recognitionPaused: kind == .recognition
         ? recognitionId != null && !enabled
         : recognitionPaused,
+    autoPlay: autoPlay,
+  );
+
+  SpeechBindings withAutoPlay(bool enabled) => (
+    voice: voice,
+    recognitionId: recognitionId,
+    synthesisPaused: synthesisPaused,
+    recognitionPaused: recognitionPaused,
+    autoPlay: enabled,
   );
 }
 

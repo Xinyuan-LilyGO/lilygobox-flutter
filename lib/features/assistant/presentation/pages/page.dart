@@ -23,6 +23,7 @@ import '../../../../core/widgets/interaction_decoration.dart';
 import '../../../../core/widgets/popup_menu_transition.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../../speech/domain/speech_model.dart';
+import '../../../speech/domain/speech_reply_text.dart';
 import '../../../speech/presentation/speech_icon_button.dart';
 import '../../../speech/presentation/speech_labels.dart';
 import '../../../speech/state/speech_provider.dart';
@@ -85,6 +86,8 @@ class _AssistantPageState extends State<AssistantPage> {
   bool _latestButtonUpdatePending = false;
   int _scrollToEndVersion = 0;
   List<AiImageAttachment> _attachments = const [];
+  String? _lastAutoReadMessageId;
+  bool _autoReadInitialized = false;
   final _messageViews = <String, (AiMessage, AppTheme, Widget)>{};
 
   Widget _messageView(AiMessage message, AppTheme theme) {
@@ -207,9 +210,30 @@ class _AssistantPageState extends State<AssistantPage> {
   Future<void> _transcribe(SpeechProvider speech) async {
     final modelId = context.read<AiAssistantProvider>().speechRecognitionId;
     if (modelId == null) return;
+    final draft = _input.text;
+    final separator = draft.trimRight().length == draft.length ? '\n' : '';
+    void updateInput(String text, {bool focus = false}) {
+      if (!mounted ||
+          !_canKeepRecording ||
+          context.read<AiAssistantProvider>().speechRecognitionId != modelId) {
+        return;
+      }
+      final value = draft.isEmpty || text.isEmpty
+          ? '$draft$text'
+          : '$draft$separator$text';
+      if (_input.text != value) {
+        _input.value = TextEditingValue(
+          text: value,
+          selection: TextSelection.collapsed(offset: value.length),
+        );
+      }
+      if (focus) _inputFocus.requestFocus();
+    }
+
     final (:text, :error) = await speech.startRecording(
       _speechConversation,
       modelId: modelId,
+      onPartial: updateInput,
     );
     if (!mounted ||
         !_canKeepRecording ||
@@ -217,16 +241,23 @@ class _AssistantPageState extends State<AssistantPage> {
       return;
     }
     if (text != null) {
-      final draft = _input.text;
-      final separator =
-          draft.isEmpty || draft.trimRight().length != draft.length ? '' : '\n';
-      final value = '$draft$separator$text';
-      _input.value = TextEditingValue(
-        text: value,
-        selection: TextSelection.collapsed(offset: value.length),
-      );
-      _inputFocus.requestFocus();
+      updateInput(text, focus: true);
     } else if (error != null) {
+      showAppNotice(
+        ScaffoldMessenger.of(context),
+        speechErrorLabel(context.l10n, error),
+      );
+    }
+  }
+
+  Future<void> _autoPlayReply(
+    SpeechProvider speech,
+    Object owner,
+    String text,
+    SpeechVoiceSelection selection,
+  ) async {
+    final error = await speech.play(owner, text, selection: selection);
+    if (error != null && mounted) {
       showAppNotice(
         ScaffoldMessenger.of(context),
         speechErrorLabel(context.l10n, error),
@@ -391,9 +422,54 @@ class _AssistantPageState extends State<AssistantPage> {
         );
       }
     }
+    if (active && synthesisId != null && synthesisId != _synthesisModelId) {
+      final selection = assistant.speechVoice;
+      if (selection != null) {
+        scheduleMicrotask(() => speech?.warmUpSynthesis(selection));
+      }
+    }
     _recognitionModelId = recognitionId;
     _synthesisModelId = synthesisId;
     _canKeepRecording = canKeepRecording;
+    final latestFinished = messages
+        .where(
+          (message) =>
+              message.role == 'assistant' &&
+              message.finishedAt != null &&
+              !message.isRoleplayOpening &&
+              message.requestError == null,
+        )
+        .lastOrNull;
+    if (!_autoReadInitialized) {
+      _autoReadInitialized = true;
+      _lastAutoReadMessageId = latestFinished?.id;
+    } else if (active &&
+        speech != null &&
+        !speech.busy &&
+        !speech.hasCapture &&
+        latestFinished != null &&
+        latestFinished.id != _lastAutoReadMessageId) {
+      final selection = assistant.speechVoice;
+      final spoken = parseSpeechReply(latestFinished.content).speech;
+      _lastAutoReadMessageId = latestFinished.id;
+      if (selection != null &&
+          spoken != null &&
+          spoken.isNotEmpty &&
+          speech.library.synthesisModel(selection) != null) {
+        if (assistant.speechAutoPlay) {
+          final owner = (_speechConversation, latestFinished.id);
+          scheduleMicrotask(
+            () => _autoPlayReply(speech, owner, spoken, selection),
+          );
+        } else {
+          scheduleMicrotask(
+            () => speech.preSynthesize(spoken, selection: selection),
+          );
+        }
+      }
+    } else if (!assistant.speechAutoPlay) {
+      _lastAutoReadMessageId = latestFinished?.id;
+    }
     final voiceButton =
         speech == null || !canKeepRecording || (!hasModel && phase == null)
         ? null
@@ -513,6 +589,7 @@ class _AssistantPageState extends State<AssistantPage> {
                                   ready: ready,
                                   onManageContext: widget.onManageContext,
                                   voiceButton: voiceButton,
+                                  voiceRecording: phase != null,
                                   onSend: (fromKeyboard) => _send(
                                     assistant,
                                     fromKeyboard: fromKeyboard,
@@ -605,7 +682,8 @@ class _AssistantPageState extends State<AssistantPage> {
       key: const ValueKey('ai-voice-input'),
       theme: theme,
       surface: theme.primary,
-      size: 28,
+      size: 30,
+      iconSize: 20,
       label: switch (phase) {
         .recording => l10n.speechStopRecording,
         .starting => l10n.speechLoading,
@@ -928,6 +1006,8 @@ class _MessageViewState extends State<_MessageView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           content,
+          if (message.role == 'assistant')
+            SpeechReplyCard(message: message, theme: widget.theme),
           if (isUser || turnFinished)
             ChatMessageActions(message: message, theme: widget.theme),
         ],
@@ -1084,6 +1164,8 @@ class _MessageViewState extends State<_MessageView> {
                 ),
         ),
         if (message.content.isNotEmpty) content,
+        if (message.role == 'assistant')
+          SpeechReplyCard(message: message, theme: widget.theme),
         if (errorText != null)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 14),

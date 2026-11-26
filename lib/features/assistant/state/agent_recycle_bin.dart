@@ -64,6 +64,7 @@ class AiRecycledAgent {
         when models[id]?.kind == .synthesis) {
       conversation.remove('speechVoice');
       conversation.remove('speechSynthesisPaused');
+      conversation.remove('speechAutoPlay');
     }
     if (conversation['speechRecognitionId'] case final String id
         when models[id]?.kind == .recognition) {

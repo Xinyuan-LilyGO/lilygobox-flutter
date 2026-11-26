@@ -54,10 +54,12 @@ class _Microphone implements SpeechAudioInput {
 }
 
 class _Engine implements SpeechEngine {
-  final recognized = Completer<void>();
+  Completer<void> partial = Completer<void>();
+  Completer<void> recognized = Completer<void>();
   String? spoken;
   int? spokenVoice;
   SpeechModelFormat? spokenFormat;
+  int synthesisCalls = 0;
 
   @override
   Future<int> check(
@@ -73,10 +75,13 @@ class _Engine implements SpeechEngine {
     void Function(String)? onPartial,
     required Future<void> cancellation,
   }) async {
-    final chunk = await audio.single;
-    expect(chunk.sampleRate, 16000);
-    expect(chunk.pcm.length, 32000);
-    recognized.complete();
+    await for (final chunk in audio) {
+      expect(chunk.sampleRate, 16000);
+      expect(chunk.pcm.length, 32000);
+      onPartial?.call('你好');
+      if (!partial.isCompleted) partial.complete();
+    }
+    if (!recognized.isCompleted) recognized.complete();
     return '你好，世界。';
   }
 
@@ -88,22 +93,59 @@ class _Engine implements SpeechEngine {
     int voice, {
     Future<void>? cancellation,
   }) async {
+    synthesisCalls++;
     spoken = text;
     spokenVoice = voice;
     spokenFormat = format;
     return Uint8List(1);
   }
+
+  @override
+  Stream<Uint8List> synthesizeStream(
+    SpeechModelFormat format,
+    Directory directory,
+    String text,
+    int voice, {
+    Future<void>? cancellation,
+  }) async* {
+    yield await synthesize(
+      format,
+      directory,
+      text,
+      voice,
+      cancellation: cancellation,
+    );
+  }
+
+  @override
+  Future<void> warmUpSynthesis(
+    SpeechModelFormat format,
+    Directory directory,
+  ) async {}
+
+  @override
+  void disposeSynthesisSession() {}
 }
 
 class _Speaker implements SpeechAudioOutput {
-  final started = Completer<void>();
-  final stopped = Completer<void>();
+  Completer<void> started = Completer<void>();
+  Completer<void> stopped = Completer<void>();
 
   @override
   Future<void> play(Uint8List wav, Future<void> cancellation) async {
-    started.complete();
+    if (!started.isCompleted) started.complete();
     await cancellation;
-    stopped.complete();
+    if (!stopped.isCompleted) stopped.complete();
+  }
+
+  @override
+  Future<void> playStream(
+    Stream<Uint8List> wavChunks,
+    Future<void> cancellation,
+  ) async {
+    await for (final chunk in wavChunks) {
+      await play(chunk, cancellation);
+    }
   }
 }
 
@@ -121,6 +163,20 @@ void main() {
       expect(result, isNot(contains('secretCode')));
       expect(result, isNot(contains('https://')));
       expect(speechReplyText('```text\nOnly code\n```'), isEmpty);
+
+      final parsed = parseSpeechReply(
+        'Detailed explanation\n\n```dart\ncode();\n```\n\n<speech>简短口语回复。</speech>',
+      );
+      expect(parsed.body, 'Detailed explanation\n\n```dart\ncode();\n```');
+      expect(parsed.speech, '简短口语回复。');
+      expect(parsed.pendingSpeech, isFalse);
+
+      final streaming = parseSpeechReply(
+        'Main text\n\n<speech>正在生成口语',
+      );
+      expect(streaming.body, 'Main text');
+      expect(streaming.speech, '正在生成口语');
+      expect(streaming.pendingSpeech, isTrue);
     },
   );
 
@@ -138,6 +194,7 @@ void main() {
       addTearDown(notifier.dispose);
     }
     var requestCount = 0;
+    String? systemPrompt;
     final scope = (await tester.runAsync(() async {
       final scope = await createAssistantTestScope(
         theme: theme,
@@ -146,12 +203,20 @@ void main() {
         splitView: split,
         client: MockClient((request) async {
           requestCount++;
+          final body = jsonDecode(request.body) as Map<String, Object?>;
+          final messages = (body['messages'] as List).cast<Map<String, Object?>>();
+          systemPrompt = messages
+              .where((item) => item['role'] == 'system')
+              .map((item) => item['content'])
+              .whereType<String>()
+              .join('\n');
           return http.Response(
             jsonEncode({
               'choices': [
                 {
                   'message': {
-                    'content': '**你好**，欢迎。\n\n```dart\nexample();\n```',
+                    'content':
+                        '**你好**，欢迎。\n\n```dart\nexample();\n```\n\n<speech>你好，欢迎。</speech>',
                     'reasoning_content': 'hidden reasoning',
                   },
                 },
@@ -498,12 +563,23 @@ void main() {
     addTearDown(restoredAssistant.dispose);
     await tester.tap(synthesisMenu);
     await tester.pumpAndSettle();
+    expect(back, findsOneWidget);
+    await tester.tap(back);
+    await tester.pumpAndSettle();
     expectSelectedIcon(tts);
     await tester.tap(option(tts));
     await tester.pumpAndSettle();
+    final autoRead = find.byKey(const ValueKey('speech-chat-auto-read'));
+    expect(tester.widget<Switch>(autoRead).value, isTrue);
+    expect(assistant.speechAutoPlay, isTrue);
+    await tester.tap(autoRead);
+    await tester.pumpAndSettle();
+    expect(assistant.speechAutoPlay, isFalse);
     await tester.tap(toggle(.synthesis));
     await tester.pumpAndSettle();
     expect(assistant.speechVoice, isNull);
+    expect(assistant.speechAutoPlay, isFalse);
+    expect(assistant.speechBindings.autoPlay, isFalse);
     expect(assistant.speechBindings.voice, (modelId: tts.id, voice: 3));
     expect(assistant.speechRecognitionId, asr.id);
     expect(
@@ -521,6 +597,10 @@ void main() {
     await tester.tap(toggle(.synthesis));
     await tester.pumpAndSettle();
     expect(assistant.speechVoice, (modelId: tts.id, voice: 3));
+    expect(assistant.speechAutoPlay, isFalse);
+    await tester.tap(autoRead);
+    await tester.pumpAndSettle();
+    expect(assistant.speechAutoPlay, isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
 
@@ -550,12 +630,22 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
     microphone.available = true;
+    engine.recognized = Completer<void>();
 
     await tapAndWait(mic, microphone.opened);
+    await waitFor(() => engine.partial.isCompleted);
     await tester.pumpAndSettle();
     expect(speech.hasCapture, isTrue);
+    expect(tester.widget<TextField>(input).readOnly, isTrue);
+    expect(tester.widget<TextField>(input).controller!.text, 'Draft\n你好');
     await tapAndWait(mic, engine.recognized);
+    await waitFor(
+      () =>
+          !speech.hasCapture &&
+          tester.widget<TextField>(input).controller!.text == 'Draft\n你好，世界。',
+    );
     await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(input).readOnly, isFalse);
     expect(tester.widget<TextField>(input).controller!.text, 'Draft\n你好，世界。');
     expect(requestCount, 0);
     expect(tester.takeException(), isNull);
@@ -570,6 +660,7 @@ void main() {
     }
     await tester.pumpAndSettle();
     expect(requestCount, 1);
+    expect(systemPrompt, contains('<speech>'));
     expect(
       assistant.messages.lastWhere((message) => message.role == 'user').content,
       editedDraft,
@@ -577,25 +668,64 @@ void main() {
     final reply = assistant.messages.lastWhere(
       (message) => message.role == 'assistant',
     );
+    final voiceCard = find.byKey(ValueKey('ai-voice-card-${reply.id}'));
+    expect(voiceCard, findsOneWidget);
+    expect(find.textContaining('<speech>'), findsNothing);
+    String? copiedText;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copiedText = (call.arguments as Map)['text'] as String?;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    final copyVoice = find.byKey(ValueKey('ai-voice-copy-${reply.id}'));
+    await tester.ensureVisible(copyVoice);
+    await tester.tap(copyVoice);
+    await tester.pump();
+    expect(copiedText, '你好，欢迎。');
+    await tester.pump(const Duration(seconds: 2));
     final play = find.byKey(ValueKey('ai-voice-play-${reply.id}'));
     await tester.ensureVisible(play);
-    await tapAndWait(play, speaker.started);
+    await waitFor(() => speaker.started.isCompleted);
     await tester.pumpAndSettle();
     expect(engine.spoken, '你好，欢迎。');
     expect(engine.spokenVoice, 3);
     expect(engine.spokenFormat, SpeechModelFormat.kokoroMultiLanguage);
+    expect(engine.synthesisCalls, 1);
+    await tapAndWait(play, speaker.stopped);
+    await tester.pumpAndSettle();
+
+    speaker.started = Completer<void>();
+    speaker.stopped = Completer<void>();
+    await tapAndWait(play, speaker.started);
+    await tester.pumpAndSettle();
+    expect(engine.synthesisCalls, 1);
     await tapAndWait(play, speaker.stopped);
 
     microphone.opened = Completer<void>();
+    engine.partial = Completer<void>();
     await tapAndWait(mic, microphone.opened);
+    await waitFor(() => engine.partial.isCompleted);
     await showChat(active: false);
     await waitFor(() => !speech.hasCapture);
     await tester.pumpAndSettle();
     expect(speech.hasCapture, isFalse);
-    expect(tester.widget<TextField>(input).controller!.text, isEmpty);
+    expect(tester.widget<TextField>(input).controller!.text, '你好');
     await showChat();
     await tester.pumpAndSettle();
     await tester.tap(synthesisMenu);
+    await tester.pumpAndSettle();
+    expect(back, findsOneWidget);
+    await tester.tap(back);
     await tester.pumpAndSettle();
     await tester.tap(none(.synthesis));
     await tester.pumpAndSettle();
@@ -603,6 +733,9 @@ void main() {
     expect(assistant.speechBindings.recognitionId, asr.id);
     expect(play, findsNothing);
     await tester.tap(recognitionMenu);
+    await tester.pumpAndSettle();
+    expect(back, findsOneWidget);
+    await tester.tap(back);
     await tester.pumpAndSettle();
     await tester.tap(none(.recognition));
     await tester.pumpAndSettle();

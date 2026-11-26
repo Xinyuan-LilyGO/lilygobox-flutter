@@ -30,6 +30,12 @@ Future<void> runSpeechWorker({String? dllDirectory}) async {
     );
     if (!await input.moveNext()) throw const FormatException();
     final request = jsonDecode(input.current);
+    if (request case {
+      'operation': 'synthesize-session',
+    }) {
+      await _runSynthesisSession(input);
+      exit(0);
+    }
     final response = switch (request) {
       {
         'operation': 'recognize',
@@ -184,6 +190,7 @@ Float32List _pcmSamples(Uint8List pcm, int frameSize) {
 
 sherpa.OfflineTts _synthesizer(String directory, SpeechModelFormat format) {
   String modelFile(String name) => path.join(directory, name);
+  final threads = Platform.numberOfProcessors.clamp(2, 6);
   final model = switch (format) {
     .chineseVits => sherpa.OfflineTtsModelConfig(
       vits: sherpa.OfflineTtsVitsModelConfig(
@@ -192,7 +199,7 @@ sherpa.OfflineTts _synthesizer(String directory, SpeechModelFormat format) {
         tokens: modelFile('tokens.txt'),
         dictDir: modelFile('dict'),
       ),
-      numThreads: 2,
+      numThreads: threads,
       debug: false,
     ),
     .kokoroMultiLanguage => sherpa.OfflineTtsModelConfig(
@@ -206,7 +213,7 @@ sherpa.OfflineTts _synthesizer(String directory, SpeechModelFormat format) {
           modelFile('lexicon-zh.txt'),
         ].join(','),
       ),
-      numThreads: 2,
+      numThreads: threads,
       debug: false,
     ),
     .bilingualZipformer => throw const FormatException(),
@@ -258,46 +265,157 @@ Uint8List _synthesize(
         throw const FormatException();
       }
       sampleRate = audio.sampleRate;
-      final bytes = ByteData(audio.samples.length * 2);
-      for (final (index, sample) in audio.samples.indexed) {
-        final value = sample.isFinite ? sample.clamp(-1.0, 1.0) : 0.0;
-        bytes.setInt16(index * 2, (value * 32767).round(), Endian.little);
-      }
-      pcm.add(bytes.buffer.asUint8List());
+      pcm.add(_pcmBytes(audio.samples));
     }
     if (pcm.isEmpty) throw const FormatException();
-    final header = ByteData(44)
-      ..setUint32(0, 0x52494646)
-      ..setUint32(4, pcm.length + 36, Endian.little)
-      ..setUint32(8, 0x57415645)
-      ..setUint32(12, 0x666d7420)
-      ..setUint32(16, 16, Endian.little)
-      ..setUint16(20, 1, Endian.little)
-      ..setUint16(22, 1, Endian.little)
-      ..setUint32(24, sampleRate, Endian.little)
-      ..setUint32(28, sampleRate * 2, Endian.little)
-      ..setUint16(32, 2, Endian.little)
-      ..setUint16(34, 16, Endian.little)
-      ..setUint32(36, 0x64617461)
-      ..setUint32(40, pcm.length, Endian.little);
-    return (BytesBuilder(copy: false)
-          ..add(header.buffer.asUint8List())
-          ..add(pcm.takeBytes()))
-        .takeBytes();
+    return _encodeWav(pcm.takeBytes(), sampleRate);
   } finally {
     tts.free();
   }
 }
 
+Future<void> _runSynthesisSession(StreamIterator<String> input) async {
+  sherpa.OfflineTts? cachedTts;
+  String? cachedDirectory;
+  SpeechModelFormat? cachedFormat;
+  try {
+    while (await input.moveNext()) {
+      final line = input.current.trim();
+      if (line.isEmpty) continue;
+      final message = jsonDecode(line);
+      if (message case {'operation': 'close'}) break;
+      if (message case {
+        'id': final int id,
+        'operation': 'warm',
+        'format': final String formatName,
+        'directory': final String directory,
+      }) {
+        try {
+          final format = SpeechModelFormat.values.byName(formatName);
+          if (format == .bilingualZipformer) throw const FormatException();
+          if (cachedTts == null ||
+              cachedDirectory != directory ||
+              cachedFormat != format) {
+            cachedTts?.free();
+            cachedTts = _synthesizer(directory, format);
+            cachedDirectory = directory;
+            cachedFormat = format;
+          }
+          stdout.writeln(
+            '$speechWorkerResultPrefix${jsonEncode({'id': id, 'done': true})}',
+          );
+          await stdout.flush();
+        } catch (_) {
+          stdout.writeln(
+            '$speechWorkerResultPrefix${jsonEncode({'id': id, 'error': 'engine'})}',
+          );
+          await stdout.flush();
+        }
+        continue;
+      }
+      if (message case {
+        'id': final int id,
+        'format': final String formatName,
+        'directory': final String directory,
+        'text': final String text,
+        'voice': final int voice,
+      }) {
+        try {
+          if (text.trim().isEmpty) throw const FormatException();
+          final format = SpeechModelFormat.values.byName(formatName);
+          if (format == .bilingualZipformer) throw const FormatException();
+          if (cachedTts == null ||
+              cachedDirectory != directory ||
+              cachedFormat != format) {
+            cachedTts?.free();
+            cachedTts = _synthesizer(directory, format);
+            cachedDirectory = directory;
+            cachedFormat = format;
+          }
+          if (voice < 0 || voice >= cachedTts.numSpeakers) {
+            throw const FormatException();
+          }
+          var emitted = false;
+          for (final chunk in _utterances(text)) {
+            final audio = cachedTts.generate(text: chunk, sid: voice);
+            if (audio.samples.isEmpty) continue;
+            if (audio.sampleRate <= 0) throw const FormatException();
+            final wav = _encodeWav(_pcmBytes(audio.samples), audio.sampleRate);
+            emitted = true;
+            stdout.writeln(
+              '$speechWorkerResultPrefix${jsonEncode({'id': id, 'chunk': base64Encode(wav)})}',
+            );
+            await stdout.flush();
+          }
+          if (!emitted) throw const FormatException();
+          stdout.writeln(
+            '$speechWorkerResultPrefix${jsonEncode({'id': id, 'done': true})}',
+          );
+          await stdout.flush();
+        } catch (_) {
+          stdout.writeln(
+            '$speechWorkerResultPrefix${jsonEncode({'id': id, 'error': 'engine'})}',
+          );
+          await stdout.flush();
+        }
+      } else {
+        throw const FormatException();
+      }
+    }
+  } finally {
+    cachedTts?.free();
+  }
+}
+
+Uint8List _pcmBytes(Float32List samples) {
+  final bytes = ByteData(samples.length * 2);
+  for (final (index, sample) in samples.indexed) {
+    final value = sample.isFinite ? sample.clamp(-1.0, 1.0) : 0.0;
+    bytes.setInt16(index * 2, (value * 32767).round(), Endian.little);
+  }
+  return bytes.buffer.asUint8List();
+}
+
+Uint8List _encodeWav(Uint8List pcm, int sampleRate) {
+  final header = ByteData(44)
+    ..setUint32(0, 0x52494646)
+    ..setUint32(4, pcm.length + 36, Endian.little)
+    ..setUint32(8, 0x57415645)
+    ..setUint32(12, 0x666d7420)
+    ..setUint32(16, 16, Endian.little)
+    ..setUint16(20, 1, Endian.little)
+    ..setUint16(22, 1, Endian.little)
+    ..setUint32(24, sampleRate, Endian.little)
+    ..setUint32(28, sampleRate * 2, Endian.little)
+    ..setUint16(32, 2, Endian.little)
+    ..setUint16(34, 16, Endian.little)
+    ..setUint32(36, 0x64617461)
+    ..setUint32(40, pcm.length, Endian.little);
+  return (BytesBuilder(copy: false)
+        ..add(header.buffer.asUint8List())
+        ..add(pcm))
+      .takeBytes();
+}
+
 Iterable<String> _utterances(String text) sync* {
   final buffer = StringBuffer();
-  const punctuation = {0x3002, 0xff01, 0xff1f, 0x0a, 0x21, 0x3f, 0x2e};
+  const sentenceEnd = {0x3002, 0xff01, 0xff1f, 0x0a, 0x21, 0x3f, 0x2e};
+  const clauseBreak = {0x2c, 0xff0c, 0x3b, 0xff1b};
+  var first = true;
   for (final rune in text.runes) {
     buffer.writeCharCode(rune);
-    if (buffer.length >= 240 ||
-        (buffer.length >= 24 && punctuation.contains(rune))) {
+    final minSentence = first ? 10 : 24;
+    final maxChunk = first ? 100 : 240;
+    final split =
+        buffer.length >= maxChunk ||
+        (buffer.length >= minSentence && sentenceEnd.contains(rune)) ||
+        (first && buffer.length >= 20 && clauseBreak.contains(rune));
+    if (split) {
       final sentence = buffer.toString().trim();
-      if (sentence.isNotEmpty) yield sentence;
+      if (sentence.isNotEmpty) {
+        yield sentence;
+        first = false;
+      }
       buffer.clear();
     }
   }
