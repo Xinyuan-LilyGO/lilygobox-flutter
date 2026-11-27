@@ -2639,7 +2639,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiRoleplayCardSettings => 'Character card settings';
 
   @override
-  String get aiRoleplaySaveSettings => 'Save settings';
+  String get aiRoleplaySaveSettings => 'Save';
 
   @override
   String get aiRoleplayImport => 'Import character card';
@@ -4402,17 +4402,69 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get speechVoiceInterruptDescription =>
-      'Keep listening during playback so you can interrupt by speaking. Recommended with headphones; turn off with speakers to avoid echo.';
+      'Keep listening with acoustic echo cancellation during playback so you can interrupt by speaking; turn off if speaker echo persists.';
 
   @override
-  String get speechIdleTimeout => 'Idle timeout (seconds)';
+  String get speechIdleTimeout => 'Idle timeout';
 
   @override
   String get speechIdleTimeoutDescription =>
-      'Automatically pauses listening when no wake words are set, or returns to standby when wake words are set. Set to 0 to disable.';
+      'Automatically pause listening (or return to standby with wake words) after silence.';
 
   @override
   String get speechIdleTimeoutUnit => 'sec';
+
+  @override
+  String get speechSendSilence => 'Auto-send pause (seconds)';
+
+  @override
+  String get speechSendSilenceDescription =>
+      'Wait this long after you stop speaking before sending (0.5 – 10.0 sec).';
+
+  @override
+  String get speechMinTriggerLength => 'Minimum trigger characters';
+
+  @override
+  String get speechMinTriggerLengthDescription =>
+      'Ignore shorter noise or fragments below this character count (1 – 10).';
+
+  @override
+  String get speechMinTriggerLengthUnit => 'chars';
+
+  @override
+  String get speechMicGain => 'Microphone gain';
+
+  @override
+  String get speechMicGainDescription =>
+      'Adjust microphone input volume before recognition (0.1x – 3.0x).';
+
+  @override
+  String get speechSynthesisGain => 'Playback volume gain';
+
+  @override
+  String get speechSynthesisGainDescription =>
+      'Adjust synthesized speech playback volume (0.1x – 3.0x).';
+
+  @override
+  String get speechSynthesisSpeed => 'Playback speed';
+
+  @override
+  String get speechSynthesisSpeedDescription =>
+      'Adjust how fast replies are spoken (0.5x – 2.0x).';
+
+  @override
+  String get speechFallbackReadBody => 'Read body if spoken line is missing';
+
+  @override
+  String get speechFallbackReadBodyDescription =>
+      'Extract and read plain text from the reply when the model omits a spoken line.';
+
+  @override
+  String get speechInterruptStopsGeneration => 'Stop AI immediately on speech';
+
+  @override
+  String get speechInterruptStopsGenerationDescription =>
+      'Stop ongoing AI generation as soon as you start speaking; otherwise steer after you finish.';
 
   @override
   String get speechWakeWords => 'Wake words';

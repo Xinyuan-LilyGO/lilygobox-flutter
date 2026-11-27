@@ -4701,7 +4701,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiRoleplaySaveSettings.
   ///
   /// In en, this message translates to:
-  /// **'Save settings'**
+  /// **'Save'**
   String get aiRoleplaySaveSettings;
 
   /// No description provided for @aiRoleplayImport.
@@ -7599,19 +7599,19 @@ abstract class AppLocalizations {
   /// No description provided for @speechVoiceInterruptDescription.
   ///
   /// In en, this message translates to:
-  /// **'Keep listening during playback so you can interrupt by speaking. Recommended with headphones; turn off with speakers to avoid echo.'**
+  /// **'Keep listening with acoustic echo cancellation during playback so you can interrupt by speaking; turn off if speaker echo persists.'**
   String get speechVoiceInterruptDescription;
 
   /// No description provided for @speechIdleTimeout.
   ///
   /// In en, this message translates to:
-  /// **'Idle timeout (seconds)'**
+  /// **'Idle timeout'**
   String get speechIdleTimeout;
 
   /// No description provided for @speechIdleTimeoutDescription.
   ///
   /// In en, this message translates to:
-  /// **'Automatically pauses listening when no wake words are set, or returns to standby when wake words are set. Set to 0 to disable.'**
+  /// **'Automatically pause listening (or return to standby with wake words) after silence.'**
   String get speechIdleTimeoutDescription;
 
   /// No description provided for @speechIdleTimeoutUnit.
@@ -7619,6 +7619,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'sec'**
   String get speechIdleTimeoutUnit;
+
+  /// No description provided for @speechSendSilence.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-send pause (seconds)'**
+  String get speechSendSilence;
+
+  /// No description provided for @speechSendSilenceDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Wait this long after you stop speaking before sending (0.5 – 10.0 sec).'**
+  String get speechSendSilenceDescription;
+
+  /// No description provided for @speechMinTriggerLength.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimum trigger characters'**
+  String get speechMinTriggerLength;
+
+  /// No description provided for @speechMinTriggerLengthDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Ignore shorter noise or fragments below this character count (1 – 10).'**
+  String get speechMinTriggerLengthDescription;
+
+  /// No description provided for @speechMinTriggerLengthUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'chars'**
+  String get speechMinTriggerLengthUnit;
+
+  /// No description provided for @speechMicGain.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone gain'**
+  String get speechMicGain;
+
+  /// No description provided for @speechMicGainDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjust microphone input volume before recognition (0.1x – 3.0x).'**
+  String get speechMicGainDescription;
+
+  /// No description provided for @speechSynthesisGain.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback volume gain'**
+  String get speechSynthesisGain;
+
+  /// No description provided for @speechSynthesisGainDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjust synthesized speech playback volume (0.1x – 3.0x).'**
+  String get speechSynthesisGainDescription;
+
+  /// No description provided for @speechSynthesisSpeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback speed'**
+  String get speechSynthesisSpeed;
+
+  /// No description provided for @speechSynthesisSpeedDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjust how fast replies are spoken (0.5x – 2.0x).'**
+  String get speechSynthesisSpeedDescription;
+
+  /// No description provided for @speechFallbackReadBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Read body if spoken line is missing'**
+  String get speechFallbackReadBody;
+
+  /// No description provided for @speechFallbackReadBodyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Extract and read plain text from the reply when the model omits a spoken line.'**
+  String get speechFallbackReadBodyDescription;
+
+  /// No description provided for @speechInterruptStopsGeneration.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop AI immediately on speech'**
+  String get speechInterruptStopsGeneration;
+
+  /// No description provided for @speechInterruptStopsGenerationDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop ongoing AI generation as soon as you start speaking; otherwise steer after you finish.'**
+  String get speechInterruptStopsGenerationDescription;
 
   /// No description provided for @speechWakeWords.
   ///

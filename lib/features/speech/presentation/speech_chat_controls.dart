@@ -8,6 +8,8 @@ import '../../../core/l10n/language_provider.dart';
 import '../../../core/theme/definition.dart';
 import '../../../core/theme/material_palette.dart';
 import '../../../core/widgets/action_button.dart';
+import '../../../core/widgets/app_capsule_slider.dart';
+import '../../../core/widgets/app_notice.dart';
 import '../../../core/widgets/app_scroll_behavior.dart';
 import '../../../core/widgets/app_tooltip.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
@@ -584,6 +586,11 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
       initialVoiceInterrupt: widget.bindings.voiceInterrupt,
       initialWakeWords: widget.bindings.wakeWords,
       initialIdleTimeoutSeconds: widget.bindings.idleTimeoutSeconds,
+      initialSendSilenceSeconds: widget.bindings.sendSilenceSeconds,
+      initialMinTriggerLength: widget.bindings.minTriggerLength,
+      initialInterruptStopsGeneration:
+          widget.bindings.interruptStopsGeneration,
+      initialMicGain: widget.bindings.micGain,
     );
     if (!mounted ||
         result == null ||
@@ -597,7 +604,11 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
           .withContinuousRecognition(result.continuous)
           .withVoiceInterrupt(result.voiceInterrupt)
           .withWakeWords(result.wakeWords)
-          .withIdleTimeoutSeconds(result.idleTimeoutSeconds),
+          .withIdleTimeoutSeconds(result.idleTimeoutSeconds)
+          .withSendSilenceSeconds(result.sendSilenceSeconds)
+          .withMinTriggerLength(result.minTriggerLength)
+          .withInterruptStopsGeneration(result.interruptStopsGeneration)
+          .withMicGain(result.micGain),
     );
   }
 
@@ -612,6 +623,10 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
       model: model,
       currentVoice: current,
       initialAutoPlay: widget.bindings.autoPlay,
+      initialGain: widget.bindings.synthesisGain,
+      initialSpeed: widget.bindings.synthesisSpeed,
+      initialFallbackReadBody: widget.bindings.fallbackReadBody,
+      speech: widget.speech,
     );
     if (!mounted ||
         result == null ||
@@ -623,22 +638,50 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
     widget.onChanged(
       widget.bindings
           .withVoice((modelId: model.id, voice: result.voice))
-          .withAutoPlay(result.autoPlay),
+          .withAutoPlay(result.autoPlay)
+          .withSynthesisGain(result.gain)
+          .withSynthesisSpeed(result.speed)
+          .withFallbackReadBody(result.fallbackReadBody),
     );
   }
 }
 
-Future<({int voice, bool autoPlay})?> showSpeechSynthesisSettingsDialog(
+Future<
+  ({
+    int voice,
+    bool autoPlay,
+    double gain,
+    double speed,
+    bool fallbackReadBody,
+  })?
+>
+showSpeechSynthesisSettingsDialog(
   BuildContext context, {
   required AppTheme theme,
   required SpeechModel model,
   required int currentVoice,
   required bool initialAutoPlay,
+  double initialGain = defaultSpeechSynthesisGain,
+  double initialSpeed = defaultSpeechSynthesisSpeed,
+  bool initialFallbackReadBody = false,
+  SpeechProvider? speech,
 }) {
   final l10n = context.l10n;
   var voice = currentVoice < model.voiceCount ? currentVoice : 0;
   var autoPlay = initialAutoPlay;
-  return showDialog<({int voice, bool autoPlay})>(
+  var gain = clampSpeechSynthesisGain(initialGain);
+  var speed = clampSpeechSynthesisSpeed(initialSpeed);
+  var fallbackReadBody = initialFallbackReadBody;
+  final previewOwner = Object();
+  return showDialog<
+    ({
+      int voice,
+      bool autoPlay,
+      double gain,
+      double speed,
+      bool fallbackReadBody,
+    })
+  >(
     context: context,
     builder: (context) => StatefulBuilder(
       builder: (context, update) => AppDialog(
@@ -646,10 +689,11 @@ Future<({int voice, bool autoPlay})?> showSpeechSynthesisSettingsDialog(
         title: l10n.speechSynthesisSettings,
         titleFontWeight: FontWeight.w500,
         constraints: const BoxConstraints(maxWidth: 540),
-        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+        contentPadding: const EdgeInsets.fromLTRB(0, 20, 0, 24),
         content: SizedBox(
-          width: 492,
+          width: 540,
           child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               spacing: 16,
@@ -689,15 +733,148 @@ Future<({int voice, bool autoPlay})?> showSpeechSynthesisSettingsDialog(
                     ],
                   ),
                 ),
+                MergeSemantics(
+                  child: Row(
+                    spacing: 8,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          spacing: 4,
+                          children: [
+                            Text(
+                              l10n.speechFallbackReadBody,
+                              style: AppDialogStyle.fieldTitleStyle(theme),
+                            ),
+                            Text(
+                              l10n.speechFallbackReadBodyDescription,
+                              style: AppDialogStyle.descriptionStyle(theme),
+                            ),
+                          ],
+                        ),
+                      ),
+                      CompactSettingSwitch(
+                        controlKey: const ValueKey('speech-fallback-read-body'),
+                        theme: theme,
+                        surface: AppDialogStyle.backgroundColor(theme),
+                        value: fallbackReadBody,
+                        onChanged: (value) =>
+                            update(() => fallbackReadBody = value),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: 6,
+                  children: [
+                    Row(
+                      spacing: 8,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            spacing: 4,
+                            children: [
+                              Text(
+                                l10n.speechSynthesisGain,
+                                style: AppDialogStyle.fieldTitleStyle(theme),
+                              ),
+                              Text(
+                                l10n.speechSynthesisGainDescription,
+                                style: AppDialogStyle.descriptionStyle(theme),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          '${gain.toStringAsFixed(1)}x',
+                          style: AppDialogStyle.fieldTitleStyle(theme),
+                        ),
+                      ],
+                    ),
+                    AppCapsuleSlider(
+                      key: const ValueKey('speech-synthesis-gain-slider'),
+                      theme: theme,
+                      value: ((gain - 0.1) / 2.9).clamp(0.0, 1.0),
+                      icon: Symbols.volume_up_rounded,
+                      label: l10n.speechSynthesisGain,
+                      semanticFormatter: (normalized) {
+                        final value = clampSpeechSynthesisGain(
+                          ((0.1 + normalized * 2.9) * 10).round() / 10,
+                        );
+                        return '${value.toStringAsFixed(1)}x';
+                      },
+                      onChanged: (normalized) => update(
+                        () => gain = clampSpeechSynthesisGain(
+                          ((0.1 + normalized * 2.9) * 10).round() / 10,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: 6,
+                  children: [
+                    Row(
+                      spacing: 8,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            spacing: 4,
+                            children: [
+                              Text(
+                                l10n.speechSynthesisSpeed,
+                                style: AppDialogStyle.fieldTitleStyle(theme),
+                              ),
+                              Text(
+                                l10n.speechSynthesisSpeedDescription,
+                                style: AppDialogStyle.descriptionStyle(theme),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          '${speed.toStringAsFixed(2)}x',
+                          style: AppDialogStyle.fieldTitleStyle(theme),
+                        ),
+                      ],
+                    ),
+                    AppCapsuleSlider(
+                      key: const ValueKey('speech-synthesis-speed-slider'),
+                      theme: theme,
+                      value: ((speed - 0.5) / 1.5).clamp(0.0, 1.0),
+                      icon: Symbols.speed_rounded,
+                      label: l10n.speechSynthesisSpeed,
+                      semanticFormatter: (normalized) {
+                        final value = clampSpeechSynthesisSpeed(
+                          ((0.5 + normalized * 1.5) * 20).round() / 20,
+                        );
+                        return '${value.toStringAsFixed(2)}x';
+                      },
+                      onChanged: (normalized) => update(
+                        () => speed = clampSpeechSynthesisSpeed(
+                          ((0.5 + normalized * 1.5) * 20).round() / 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final scale =
                         MediaQuery.textScalerOf(context).scale(13) / 13;
                     final selectWidth = 220 * scale;
                     const spacing = 8.0;
+                    final previewWidth = speech != null ? 72 * scale : 0.0;
                     final inline =
                         constraints.maxWidth >=
-                        selectWidth + spacing + 200 * scale;
+                        selectWidth +
+                            (speech != null ? spacing + previewWidth : 0) +
+                            spacing +
+                            180 * scale;
                     final select = Semantics(
                       label: l10n.speechAgentVoiceLabel,
                       child: SpeechVoiceSelect(
@@ -706,15 +883,72 @@ Future<({int voice, bool autoPlay})?> showSpeechSynthesisSettingsDialog(
                         model: model,
                         voice: voice,
                         onChanged: (value) {
-                          if (value != null) update(() => voice = value);
+                          if (value != null && value != voice) {
+                            speech?.stopPlayback(previewOwner);
+                            update(() => voice = value);
+                          }
                         },
                       ),
                     );
+                    final preview = speech == null
+                        ? null
+                        : ListenableBuilder(
+                            listenable: speech,
+                            builder: (context, _) {
+                              final playing = speech.isPlaying(previewOwner);
+                              return AppActionButton.dialog(
+                                key: const ValueKey(
+                                  'speech-agent-voice-preview',
+                                ),
+                                theme: theme,
+                                label: playing
+                                    ? l10n.speechStopPlayback
+                                    : l10n.speechPreview,
+                                onPressed: playing
+                                    ? () => speech.stopPlayback(previewOwner)
+                                    : speech.busy || speech.hasCapture
+                                    ? null
+                                    : () => unawaited(() async {
+                                        final error = await speech.play(
+                                          previewOwner,
+                                          model.format == .kokoroMultiLanguage
+                                              ? l10n.speechKokoroPreviewText
+                                              : l10n.speechPreviewText,
+                                          selection: (
+                                            modelId: model.id,
+                                            voice: voice,
+                                          ),
+                                          gain: gain,
+                                          speed: speed,
+                                        );
+                                        if (error != null && context.mounted) {
+                                          showAppNotice(
+                                            ScaffoldMessenger.of(context),
+                                            speechErrorLabel(l10n, error),
+                                          );
+                                        }
+                                      }()),
+                              );
+                            },
+                          );
+                    final voiceControls = preview == null
+                        ? select
+                        : Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            spacing: spacing,
+                            children: [
+                              if (inline)
+                                SizedBox(width: selectWidth, child: select)
+                              else
+                                Expanded(child: select),
+                              preview,
+                            ],
+                          );
                     final field = SettingsField(
                       theme: theme,
                       title: l10n.speechAgentVoiceLabel,
                       description: l10n.speechAgentVoiceDescription,
-                      child: inline ? null : select,
+                      child: inline ? null : voiceControls,
                     );
                     return inline
                         ? Row(
@@ -722,7 +956,7 @@ Future<({int voice, bool autoPlay})?> showSpeechSynthesisSettingsDialog(
                             spacing: spacing,
                             children: [
                               Expanded(child: field),
-                              SizedBox(width: selectWidth, child: select),
+                              voiceControls,
                             ],
                           )
                         : field;
@@ -743,13 +977,18 @@ Future<({int voice, bool autoPlay})?> showSpeechSynthesisSettingsDialog(
             theme: theme,
             label: l10n.speechSave,
             primary: true,
-            onPressed: () =>
-                Navigator.pop(context, (voice: voice, autoPlay: autoPlay)),
+            onPressed: () => Navigator.pop(context, (
+              voice: voice,
+              autoPlay: autoPlay,
+              gain: gain,
+              speed: speed,
+              fallbackReadBody: fallbackReadBody,
+            )),
           ),
         ],
       ),
     ),
-  );
+  ).whenComplete(() => speech?.stopPlayback(previewOwner));
 }
 
 Future<
@@ -758,6 +997,10 @@ Future<
     bool voiceInterrupt,
     List<String> wakeWords,
     int idleTimeoutSeconds,
+    double sendSilenceSeconds,
+    int minTriggerLength,
+    bool interruptStopsGeneration,
+    double micGain,
   })?
 >
 showSpeechRecognitionSettingsDialog(
@@ -765,15 +1008,23 @@ showSpeechRecognitionSettingsDialog(
   required AppTheme theme,
   required SpeechModel model,
   required bool initialContinuous,
-  bool initialVoiceInterrupt = false,
+  bool initialVoiceInterrupt = true,
   required List<String> initialWakeWords,
   int initialIdleTimeoutSeconds = defaultSpeechIdleTimeoutSeconds,
+  double initialSendSilenceSeconds = defaultSpeechSendSilenceSeconds,
+  int initialMinTriggerLength = defaultSpeechMinTriggerLength,
+  bool initialInterruptStopsGeneration = false,
+  double initialMicGain = defaultSpeechMicGain,
 }) => showDialog<
     ({
       bool continuous,
       bool voiceInterrupt,
       List<String> wakeWords,
       int idleTimeoutSeconds,
+      double sendSilenceSeconds,
+      int minTriggerLength,
+      bool interruptStopsGeneration,
+      double micGain,
     })>(
   context: context,
   builder: (_) => _RecognitionSettingsDialog(
@@ -783,6 +1034,10 @@ showSpeechRecognitionSettingsDialog(
     initialVoiceInterrupt: initialVoiceInterrupt,
     initialWakeWords: initialWakeWords,
     initialIdleTimeoutSeconds: initialIdleTimeoutSeconds,
+    initialSendSilenceSeconds: initialSendSilenceSeconds,
+    initialMinTriggerLength: initialMinTriggerLength,
+    initialInterruptStopsGeneration: initialInterruptStopsGeneration,
+    initialMicGain: initialMicGain,
   ),
 );
 
@@ -794,6 +1049,10 @@ class _RecognitionSettingsDialog extends StatefulWidget {
     required this.initialVoiceInterrupt,
     required this.initialWakeWords,
     required this.initialIdleTimeoutSeconds,
+    required this.initialSendSilenceSeconds,
+    required this.initialMinTriggerLength,
+    required this.initialInterruptStopsGeneration,
+    required this.initialMicGain,
   });
 
   final AppTheme theme;
@@ -802,6 +1061,10 @@ class _RecognitionSettingsDialog extends StatefulWidget {
   final bool initialVoiceInterrupt;
   final List<String> initialWakeWords;
   final int initialIdleTimeoutSeconds;
+  final double initialSendSilenceSeconds;
+  final int initialMinTriggerLength;
+  final bool initialInterruptStopsGeneration;
+  final double initialMicGain;
 
   @override
   State<_RecognitionSettingsDialog> createState() =>
@@ -812,23 +1075,54 @@ class _RecognitionSettingsDialogState
     extends State<_RecognitionSettingsDialog> {
   final _controller = TextEditingController();
   late final _timeoutController = TextEditingController(
-    text: '${widget.initialIdleTimeoutSeconds}',
+    text:
+        '${widget.initialIdleTimeoutSeconds > 0 ? widget.initialIdleTimeoutSeconds : defaultSpeechIdleTimeoutSeconds}',
+  );
+  late final _silenceController = TextEditingController(
+    text: widget.initialSendSilenceSeconds.toStringAsFixed(1),
+  );
+  late final _minTriggerController = TextEditingController(
+    text: '${widget.initialMinTriggerLength}',
   );
   late bool _continuous = widget.initialContinuous;
   late bool _voiceInterrupt = widget.initialVoiceInterrupt;
+  late bool _idleTimeoutEnabled = widget.initialIdleTimeoutSeconds > 0;
+  late bool _interruptStopsGeneration = widget.initialInterruptStopsGeneration;
+  late double _micGain = clampSpeechMicGain(widget.initialMicGain);
   late List<String> _wakeWords = List<String>.from(widget.initialWakeWords);
 
   @override
   void dispose() {
     _controller.dispose();
     _timeoutController.dispose();
+    _silenceController.dispose();
+    _minTriggerController.dispose();
     super.dispose();
   }
 
   int _parsedTimeoutSeconds() {
+    if (!_idleTimeoutEnabled) return 0;
     final parsed = int.tryParse(_timeoutController.text.trim());
-    if (parsed == null) return widget.initialIdleTimeoutSeconds;
-    return parsed < 0 ? 0 : parsed;
+    if (parsed == null || parsed <= 0) {
+      return widget.initialIdleTimeoutSeconds > 0
+          ? widget.initialIdleTimeoutSeconds
+          : defaultSpeechIdleTimeoutSeconds;
+    }
+    return parsed;
+  }
+
+  double _parsedSendSilenceSeconds() {
+    final parsed = double.tryParse(_silenceController.text.trim());
+    return parsed == null
+        ? widget.initialSendSilenceSeconds
+        : clampSpeechSendSilenceSeconds(parsed);
+  }
+
+  int _parsedMinTriggerLength() {
+    final parsed = int.tryParse(_minTriggerController.text.trim());
+    return parsed == null
+        ? widget.initialMinTriggerLength
+        : clampSpeechMinTriggerLength(parsed);
   }
 
   void _addWord() {
@@ -846,10 +1140,11 @@ class _RecognitionSettingsDialogState
       title: l10n.speechRecognitionSettings,
       titleFontWeight: FontWeight.w500,
       constraints: const BoxConstraints(maxWidth: 540),
-      contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+      contentPadding: const EdgeInsets.fromLTRB(0, 20, 0, 24),
       content: SizedBox(
-        width: 492,
+        width: 540,
         child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             spacing: 14,
@@ -889,130 +1184,407 @@ class _RecognitionSettingsDialogState
                   ],
                 ),
               ),
-              MergeSemantics(
-                child: Row(
-                  spacing: 8,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        spacing: 4,
-                        children: [
-                          Text(
-                            l10n.speechVoiceInterrupt,
-                            style: AppDialogStyle.fieldTitleStyle(theme),
-                          ),
-                          Text(
-                            l10n.speechVoiceInterruptDescription,
-                            style: AppDialogStyle.descriptionStyle(theme),
-                          ),
-                        ],
-                      ),
-                    ),
-                    CompactSettingSwitch(
-                      controlKey: const ValueKey('speech-voice-interrupt'),
-                      theme: theme,
-                      surface: AppDialogStyle.backgroundColor(theme),
-                      value: _continuous && _voiceInterrupt,
-                      onChanged: _continuous
-                          ? (value) => setState(() => _voiceInterrupt = value)
-                          : null,
-                    ),
-                  ],
-                ),
-              ),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 12,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      spacing: 4,
-                      children: [
-                        Text(
-                          l10n.speechIdleTimeout,
-                          style: AppDialogStyle.fieldTitleStyle(theme),
-                        ),
-                        Text(
-                          l10n.speechIdleTimeoutDescription,
-                          style: AppDialogStyle.descriptionStyle(theme),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(
-                    width: 112,
-                    child: SettingControlledTextField(
-                      key: const ValueKey('speech-idle-timeout-input'),
-                      theme: theme,
-                      controller: _timeoutController,
-                      enabled: _continuous,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      maxLength: 5,
-                      suffixIcon: Padding(
-                        padding: const EdgeInsetsDirectional.only(end: 10),
-                        child: Center(
-                          widthFactor: 1,
-                          child: Text(
-                            l10n.speechIdleTimeoutUnit,
-                            style: AppDialogStyle.descriptionStyle(theme),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SettingsField(
-                theme: theme,
-                title: l10n.speechWakeWords,
-                description: l10n.speechWakeWordsDescription,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  spacing: 10,
-                  children: [
-                    Row(
-                      spacing: 8,
-                      children: [
-                        Expanded(
-                          child: SettingControlledTextField(
-                            key: const ValueKey('speech-wake-word-input'),
-                            theme: theme,
-                            controller: _controller,
-                            hintText: l10n.speechWakeWordHint,
-                            onSubmitted: (_) => _addWord(),
-                          ),
-                        ),
-                        AppActionButton.settings(
-                          key: const ValueKey('speech-wake-word-add'),
-                          theme: theme,
-                          label: l10n.speechAddWakeWord,
-                          onPressed: _addWord,
-                        ),
-                      ],
-                    ),
-                    if (_wakeWords.isNotEmpty)
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          for (final word in _wakeWords)
-                            _wakeWordChip(
-                              theme,
-                              word,
-                              onRemove: () => setState(
-                                () => _wakeWords = _wakeWords
-                                    .where((item) => item != word)
-                                    .toList(),
+              IgnorePointer(
+                ignoring: !_continuous,
+                child: AnimatedOpacity(
+                  opacity: _continuous ? 1 : 0.65,
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 160),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    spacing: 14,
+                    children: [
+                      MergeSemantics(
+                        child: Row(
+                          spacing: 8,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                spacing: 4,
+                                children: [
+                                  Text(
+                                    l10n.speechVoiceInterrupt,
+                                    style: AppDialogStyle.fieldTitleStyle(
+                                      theme,
+                                    ),
+                                  ),
+                                  Text(
+                                    l10n.speechVoiceInterruptDescription,
+                                    style: AppDialogStyle.descriptionStyle(
+                                      theme,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
+                            CompactSettingSwitch(
+                              controlKey: const ValueKey(
+                                'speech-voice-interrupt',
+                              ),
+                              theme: theme,
+                              surface: AppDialogStyle.backgroundColor(theme),
+                              value: _continuous && _voiceInterrupt,
+                              onChanged: _continuous
+                                  ? (value) =>
+                                        setState(() => _voiceInterrupt = value)
+                                  : null,
+                            ),
+                          ],
+                        ),
+                      ),
+                      MergeSemantics(
+                        child: Row(
+                          spacing: 8,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                spacing: 4,
+                                children: [
+                                  Text(
+                                    l10n.speechInterruptStopsGeneration,
+                                    style: AppDialogStyle.fieldTitleStyle(
+                                      theme,
+                                    ),
+                                  ),
+                                  Text(
+                                    l10n.speechInterruptStopsGenerationDescription,
+                                    style: AppDialogStyle.descriptionStyle(
+                                      theme,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            CompactSettingSwitch(
+                              controlKey: const ValueKey(
+                                'speech-interrupt-stop-generation',
+                              ),
+                              theme: theme,
+                              surface: AppDialogStyle.backgroundColor(theme),
+                              value: _continuous && _interruptStopsGeneration,
+                              onChanged: _continuous
+                                  ? (value) => setState(
+                                      () => _interruptStopsGeneration = value,
+                                    )
+                                  : null,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        spacing: 10,
+                        children: [
+                          MergeSemantics(
+                            child: Row(
+                              spacing: 8,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    spacing: 4,
+                                    children: [
+                                      Text(
+                                        l10n.speechIdleTimeout,
+                                        style: AppDialogStyle.fieldTitleStyle(
+                                          theme,
+                                        ),
+                                      ),
+                                      Text(
+                                        l10n.speechIdleTimeoutDescription,
+                                        style: AppDialogStyle.descriptionStyle(
+                                          theme,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                CompactSettingSwitch(
+                                  controlKey: const ValueKey(
+                                    'speech-idle-timeout-switch',
+                                  ),
+                                  theme: theme,
+                                  surface: AppDialogStyle.backgroundColor(
+                                    theme,
+                                  ),
+                                  value: _continuous && _idleTimeoutEnabled,
+                                  onChanged: _continuous
+                                      ? (value) => setState(
+                                          () => _idleTimeoutEnabled = value,
+                                        )
+                                      : null,
+                                ),
+                              ],
+                            ),
+                          ),
+                          IgnorePointer(
+                            ignoring: !_continuous || !_idleTimeoutEnabled,
+                            child: AnimatedOpacity(
+                              opacity: _continuous && _idleTimeoutEnabled
+                                  ? 1
+                                  : 0.65,
+                              duration: MediaQuery.disableAnimationsOf(context)
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 160),
+                              child: Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: SizedBox(
+                                  width: 120,
+                                  child: SettingControlledTextField(
+                                    key: const ValueKey(
+                                      'speech-idle-timeout-input',
+                                    ),
+                                    theme: theme,
+                                    controller: _timeoutController,
+                                    enabled:
+                                        _continuous && _idleTimeoutEnabled,
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                    ],
+                                    maxLength: 5,
+                                    suffixIcon: Padding(
+                                      padding: const EdgeInsetsDirectional.only(
+                                        end: 10,
+                                      ),
+                                      child: Center(
+                                        widthFactor: 1,
+                                        child: Text(
+                                          l10n.speechIdleTimeoutUnit,
+                                          style:
+                                              AppDialogStyle.descriptionStyle(
+                                                theme,
+                                              ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
-                  ],
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        spacing: 12,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              spacing: 4,
+                              children: [
+                                Text(
+                                  l10n.speechSendSilence,
+                                  style: AppDialogStyle.fieldTitleStyle(theme),
+                                ),
+                                Text(
+                                  l10n.speechSendSilenceDescription,
+                                  style: AppDialogStyle.descriptionStyle(theme),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(
+                            width: 112,
+                            child: SettingControlledTextField(
+                              key: const ValueKey('speech-send-silence-input'),
+                              theme: theme,
+                              controller: _silenceController,
+                              enabled: _continuous,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[0-9.]'),
+                                ),
+                              ],
+                              maxLength: 4,
+                              suffixIcon: Padding(
+                                padding: const EdgeInsetsDirectional.only(
+                                  end: 10,
+                                ),
+                                child: Center(
+                                  widthFactor: 1,
+                                  child: Text(
+                                    l10n.speechIdleTimeoutUnit,
+                                    style: AppDialogStyle.descriptionStyle(
+                                      theme,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        spacing: 12,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              spacing: 4,
+                              children: [
+                                Text(
+                                  l10n.speechMinTriggerLength,
+                                  style: AppDialogStyle.fieldTitleStyle(theme),
+                                ),
+                                Text(
+                                  l10n.speechMinTriggerLengthDescription,
+                                  style: AppDialogStyle.descriptionStyle(theme),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(
+                            width: 112,
+                            child: SettingControlledTextField(
+                              key: const ValueKey('speech-min-trigger-input'),
+                              theme: theme,
+                              controller: _minTriggerController,
+                              enabled: _continuous,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              maxLength: 2,
+                              suffixIcon: Padding(
+                                padding: const EdgeInsetsDirectional.only(
+                                  end: 10,
+                                ),
+                                child: Center(
+                                  widthFactor: 1,
+                                  child: Text(
+                                    l10n.speechMinTriggerLengthUnit,
+                                    style: AppDialogStyle.descriptionStyle(
+                                      theme,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        spacing: 6,
+                        children: [
+                          Row(
+                            spacing: 8,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  spacing: 4,
+                                  children: [
+                                    Text(
+                                      l10n.speechMicGain,
+                                      style: AppDialogStyle.fieldTitleStyle(
+                                        theme,
+                                      ),
+                                    ),
+                                    Text(
+                                      l10n.speechMicGainDescription,
+                                      style: AppDialogStyle.descriptionStyle(
+                                        theme,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                '${_micGain.toStringAsFixed(1)}x',
+                                style: AppDialogStyle.fieldTitleStyle(theme),
+                              ),
+                            ],
+                          ),
+                          AppCapsuleSlider(
+                            key: const ValueKey('speech-mic-gain-slider'),
+                            theme: theme,
+                            value: ((_micGain - 0.1) / 2.9).clamp(0.0, 1.0),
+                            icon: Symbols.mic_rounded,
+                            label: l10n.speechMicGain,
+                            semanticFormatter: (normalized) {
+                              final gain = clampSpeechMicGain(
+                                ((0.1 + normalized * 2.9) * 10).round() / 10,
+                              );
+                              return '${gain.toStringAsFixed(1)}x';
+                            },
+                            onChanged: _continuous
+                                ? (normalized) => setState(
+                                    () => _micGain = clampSpeechMicGain(
+                                      ((0.1 + normalized * 2.9) * 10).round() /
+                                          10,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ],
+                      ),
+                      SettingsField(
+                        theme: theme,
+                        title: l10n.speechWakeWords,
+                        description: l10n.speechWakeWordsDescription,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          spacing: 10,
+                          children: [
+                            Row(
+                              spacing: 8,
+                              children: [
+                                Expanded(
+                                  child: SettingControlledTextField(
+                                    key: const ValueKey(
+                                      'speech-wake-word-input',
+                                    ),
+                                    theme: theme,
+                                    controller: _controller,
+                                    enabled: _continuous,
+                                    hintText: l10n.speechWakeWordHint,
+                                    onSubmitted: _continuous
+                                        ? (_) => _addWord()
+                                        : null,
+                                  ),
+                                ),
+                                AppActionButton.settings(
+                                  key: const ValueKey('speech-wake-word-add'),
+                                  theme: theme,
+                                  label: l10n.speechAddWakeWord,
+                                  onPressed: _continuous ? _addWord : null,
+                                ),
+                              ],
+                            ),
+                            if (_wakeWords.isNotEmpty)
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  for (final word in _wakeWords)
+                                    _wakeWordChip(
+                                      theme,
+                                      word,
+                                      onRemove: () => setState(
+                                        () => _wakeWords = _wakeWords
+                                            .where((item) => item != word)
+                                            .toList(),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -1035,6 +1607,10 @@ class _RecognitionSettingsDialogState
             voiceInterrupt: _voiceInterrupt,
             wakeWords: _wakeWords,
             idleTimeoutSeconds: _parsedTimeoutSeconds(),
+            sendSilenceSeconds: _parsedSendSilenceSeconds(),
+            minTriggerLength: _parsedMinTriggerLength(),
+            interruptStopsGeneration: _interruptStopsGeneration,
+            micGain: _micGain,
           )),
         ),
       ],
@@ -1047,14 +1623,12 @@ Widget _wakeWordChip(
   String word, {
   required VoidCallback onRemove,
 }) {
-  final chipColor = AppDialogStyle.neutralButtonColor(
-    theme,
-    AppDialogStyle.backgroundColor(theme),
-  );
+  final chipColor = theme.primary;
   return DecoratedBox(
     decoration: BoxDecoration(
       color: chipColor,
       borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: theme.dividerColor.withValues(alpha: 0.45)),
     ),
     child: Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(10, 4, 4, 4),

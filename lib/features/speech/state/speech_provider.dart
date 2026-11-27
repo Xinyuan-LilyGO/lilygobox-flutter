@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/files/package_transfer.dart';
+import '../data/speech_aec3.dart';
 import '../data/speech_audio_input.dart';
 import '../data/speech_audio_output.dart';
 import '../data/speech_engine.dart';
@@ -40,8 +41,16 @@ class SpeechProvider extends ChangeNotifier {
   String? _lastPlayedText;
   DateTime? _lastPlaybackEndedAt;
   _SpeechCapture? _capture;
-  final Map<({String modelId, int voice, String text}), List<Uint8List>>
+  final Set<String> _autoReadMessageIds = {};
+  final Map<
+    ({String modelId, int voice, String text, double gain, double speed}),
+    List<Uint8List>
+  >
   _synthesisCache = {};
+
+  bool hasAutoRead(String messageId) => _autoReadMessageIds.contains(messageId);
+
+  void markAutoRead(String messageId) => _autoReadMessageIds.add(messageId);
   static const _maxCachedClips = 12;
   bool get hasCapture => _capture != null;
   bool get hasManualCapture => _capture != null && !_capture!.continuous;
@@ -56,8 +65,10 @@ class SpeechProvider extends ChangeNotifier {
   String? get activeOrRecentPlayingText {
     if (playingText case final active?) return active;
     final endedAt = _lastPlaybackEndedAt;
-    if (endedAt != null &&
-        DateTime.now().difference(endedAt) < const Duration(seconds: 12)) {
+    final window = WebRtcAec3Library.tryLoad() != null
+        ? const Duration(seconds: 2)
+        : const Duration(seconds: 12);
+    if (endedAt != null && DateTime.now().difference(endedAt) < window) {
       return _lastPlayedText;
     }
     return null;
@@ -192,6 +203,8 @@ class SpeechProvider extends ChangeNotifier {
   Future<void> preSynthesize(
     String text, {
     SpeechVoiceSelection? selection,
+    double gain = defaultSpeechSynthesisGain,
+    double speed = defaultSpeechSynthesisSpeed,
   }) async {
     if (_disposed ||
         _busy ||
@@ -204,7 +217,15 @@ class SpeechProvider extends ChangeNotifier {
     final selected = library.synthesisModel(selection);
     if (selected == null) return;
     final voice = selection?.voice ?? 0;
-    final cacheKey = (modelId: selected.id, voice: voice, text: text);
+    final clampedGain = clampSpeechSynthesisGain(gain);
+    final clampedSpeed = clampSpeechSynthesisSpeed(speed);
+    final cacheKey = (
+      modelId: selected.id,
+      voice: voice,
+      text: text,
+      gain: clampedGain,
+      speed: clampedSpeed,
+    );
     if (_synthesisCache.containsKey(cacheKey)) return;
     _warming = true;
     final cancellation = Completer<void>();
@@ -217,6 +238,8 @@ class SpeechProvider extends ChangeNotifier {
         directory,
         text,
         voice,
+        gain: clampedGain,
+        speed: clampedSpeed,
         cancellation: cancellation.future,
       )) {
         if (_disposed || _busy || hasManualCapture || _playback != null) {
@@ -244,11 +267,20 @@ class SpeechProvider extends ChangeNotifier {
     String text, {
     SpeechVoiceSelection? selection,
     bool allowContinuousCapture = false,
+    double gain = defaultSpeechSynthesisGain,
+    double speed = defaultSpeechSynthesisSpeed,
   }) async {
     if (_disposed || _busy || hasManualCapture) return null;
     final selected = library.synthesisModel(selection);
     if (selected == null) return .missingFiles;
+    if (isPlaying(owner) &&
+        _playback!.modelId == selected.id &&
+        _playback!.text == text) {
+      return null;
+    }
     final voice = selection?.voice ?? 0;
+    final clampedGain = clampSpeechSynthesisGain(gain);
+    final clampedSpeed = clampSpeechSynthesisSpeed(speed);
     final activeCapture = _capture;
     if (!allowContinuousCapture &&
         activeCapture != null &&
@@ -271,7 +303,13 @@ class SpeechProvider extends ChangeNotifier {
       if (task.cancellation.isCompleted) return null;
       final directory = await _store.directoryFor(selected);
       if (task.cancellation.isCompleted) return null;
-      final cacheKey = (modelId: selected.id, voice: voice, text: text);
+      final cacheKey = (
+        modelId: selected.id,
+        voice: voice,
+        text: text,
+        gain: clampedGain,
+        speed: clampedSpeed,
+      );
       final cached = _synthesisCache.remove(cacheKey);
       if (cached != null) {
         _synthesisCache[cacheKey] = cached;
@@ -289,6 +327,8 @@ class SpeechProvider extends ChangeNotifier {
             directory,
             text,
             voice,
+            gain: clampedGain,
+            speed: clampedSpeed,
             cancellation: task.cancellation.future,
           )
           .transform(
@@ -358,12 +398,15 @@ class SpeechProvider extends ChangeNotifier {
     if (selected == null) {
       return (text: null, error: SpeechFailureReason.missingFiles);
     }
+    final previousCapture = _capture;
+    previousCapture?.cancel();
     final task = _SpeechCapture(owner, selected.id);
     _capture = task;
     final playback = _playback;
     playback?.cancel();
     _notify();
     try {
+      await previousCapture?.finished.future;
       await playback?.finished.future;
       final directory = await _store.directoryFor(selected);
       if (task.cancellation.isCompleted) return (text: null, error: null);
@@ -468,18 +511,23 @@ class SpeechProvider extends ChangeNotifier {
     SpeechConversation owner, {
     required String? modelId,
     bool allowDuringPlayback = false,
+    double silenceSeconds = defaultSpeechSendSilenceSeconds,
+    double micGain = defaultSpeechMicGain,
     void Function(String)? onPartial,
     required void Function(String) onUtterance,
   }) async {
     if (_disposed || _busy || hasCapture) return null;
     final selected = library.recognitionModel(modelId);
     if (selected == null) return .missingFiles;
+    final previousCapture = _capture;
+    previousCapture?.cancel();
     final task = _SpeechCapture(owner, selected.id, continuous: true);
     _capture = task;
     final playback = allowDuringPlayback ? null : _playback;
     playback?.cancel();
     _notify();
     try {
+      await previousCapture?.finished.future;
       await playback?.finished.future;
       final directory = await _store.directoryFor(selected);
       if (task.cancellation.isCompleted) return null;
@@ -496,7 +544,17 @@ class SpeechProvider extends ChangeNotifier {
               _notify();
             },
             onAudio: (chunk) {
-              if (!task.cancellation.isCompleted) audio.add(chunk);
+              if (task.cancellation.isCompleted) return;
+              final scaled = applySpeechPcmGain(chunk.pcm, micGain);
+              audio.add(
+                identical(scaled, chunk.pcm)
+                    ? chunk
+                    : (
+                        pcm: scaled,
+                        sampleRate: chunk.sampleRate,
+                        channels: chunk.channels,
+                      ),
+              );
             },
           );
         } on SpeechFailure {
@@ -512,6 +570,7 @@ class SpeechProvider extends ChangeNotifier {
       final recognition = _engine.recognizeContinuous(
         directory,
         audio.stream,
+        silenceSeconds: silenceSeconds,
         cancellation: Future.any<void>([
           task.cancellation.future,
           abortRecognition.future,

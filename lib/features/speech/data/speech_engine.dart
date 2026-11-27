@@ -59,6 +59,7 @@ class SpeechEngine {
   Future<void> recognizeContinuous(
     Directory directory,
     Stream<SpeechAudioChunk> audio, {
+    double silenceSeconds = defaultSpeechSendSilenceSeconds,
     void Function(String)? onPartial,
     required void Function(String) onUtterance,
     required Future<void> cancellation,
@@ -66,7 +67,7 @@ class SpeechEngine {
     .bilingualZipformer,
     directory,
     'recognize-continuous',
-    const {},
+    {'silenceSeconds': silenceSeconds},
     audio: audio,
     onPartial: onPartial,
     onUtterance: onUtterance,
@@ -79,11 +80,15 @@ class SpeechEngine {
     Directory directory,
     String text,
     int voice, {
+    double gain = defaultSpeechSynthesisGain,
+    double speed = defaultSpeechSynthesisSpeed,
     Future<void>? cancellation,
   }) async {
     final result = await _invoke(format, directory, 'synthesize', {
       'text': text,
       'voice': voice,
+      'gain': gain,
+      'speed': speed,
     }, cancellation: cancellation);
     if (result case {'wav': final String wav}) return base64Decode(wav);
     throw const SpeechFailure(.engine);
@@ -94,6 +99,8 @@ class SpeechEngine {
     Directory directory,
     String text,
     int voice, {
+    double gain = defaultSpeechSynthesisGain,
+    double speed = defaultSpeechSynthesisSpeed,
     Future<void>? cancellation,
   }) async* {
     var emitted = false;
@@ -104,6 +111,8 @@ class SpeechEngine {
             directory,
             text,
             voice,
+            gain: gain,
+            speed: speed,
             cancellation: cancellation,
           )) {
         emitted = true;
@@ -116,6 +125,8 @@ class SpeechEngine {
         directory,
         text,
         voice,
+        gain: gain,
+        speed: speed,
         cancellation: cancellation,
       );
     }
@@ -222,7 +233,7 @@ class SpeechEngine {
 
 class _ResidentSynthesisSession {
   static final shared = _ResidentSynthesisSession();
-  static const _idleTimeout = Duration(minutes: 2);
+  static const _idleTimeout = Duration(minutes: 10);
 
   Process? _process;
   int _nextId = 1;
@@ -278,6 +289,8 @@ class _ResidentSynthesisSession {
     Directory directory,
     String text,
     int voice, {
+    double gain = defaultSpeechSynthesisGain,
+    double speed = defaultSpeechSynthesisSpeed,
     Future<void>? cancellation,
   }) {
     final controller = StreamController<Uint8List>();
@@ -288,6 +301,8 @@ class _ResidentSynthesisSession {
         directory,
         text,
         voice,
+        gain: gain,
+        speed: speed,
         cancellation: cancellation,
       ),
     );
@@ -300,6 +315,8 @@ class _ResidentSynthesisSession {
     Directory directory,
     String text,
     int voice, {
+    double gain = defaultSpeechSynthesisGain,
+    double speed = defaultSpeechSynthesisSpeed,
     Future<void>? cancellation,
   }) async {
     _idleTimer?.cancel();
@@ -329,6 +346,8 @@ class _ResidentSynthesisSession {
           'directory': directory.absolute.path,
           'text': text,
           'voice': voice,
+          'gain': gain,
+          'speed': speed,
         }),
       );
       await process.stdin.flush();

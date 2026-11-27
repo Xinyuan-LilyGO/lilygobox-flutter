@@ -33,56 +33,7 @@ class AppCapsuleSlider extends StatelessWidget {
   final bool snapToDivisions;
 
   @override
-  Widget build(BuildContext context) => snapToDivisions && divisions != null
-      ? _SnappingCapsuleSlider(configuration: this)
-      : Semantics(
-          label: label,
-          child: SizedBox(
-            height: 36,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: CustomPaint(
-                      painter: _CapsuleTrackPainter(
-                        theme,
-                        value,
-                        icon,
-                        onChanged != null,
-                        divisions,
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned.fill(
-                  child: SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 36,
-                      trackShape: const RectangularSliderTrackShape(),
-                      activeTrackColor: Colors.transparent,
-                      inactiveTrackColor: Colors.transparent,
-                      thumbShape: SliderComponentShape.noThumb,
-                      overlayShape: SliderComponentShape.noOverlay,
-                      showValueIndicator: ShowValueIndicator.never,
-                      activeTickMarkColor: Colors.transparent,
-                      inactiveTickMarkColor: Colors.transparent,
-                    ),
-                    child: Slider(
-                      value: value,
-                      padding: EdgeInsets.zero,
-                      onChanged: onChanged,
-                      onChangeEnd: onChangeEnd,
-                      divisions: divisions,
-                      semanticFormatterCallback:
-                          semanticFormatter ??
-                          (value) => '${(value * 100).round()}%',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
+  Widget build(BuildContext context) => _SnappingCapsuleSlider(configuration: this);
 }
 
 /// 拖动位置连续跟随鼠标，仅在松手后向最近节点吸附。
@@ -112,6 +63,9 @@ class _SnappingCapsuleSliderState extends State<_SnappingCapsuleSlider>
   }
 
   AppCapsuleSlider get config => widget.configuration;
+  bool get _snapping => config.snapToDivisions && config.divisions != null;
+  double get _stepSize =>
+      config.divisions != null ? 1 / config.divisions! : 0.05;
   bool get _reduced => MediaQuery.disableAnimationsOf(context);
 
   void _moveTo(double value) {
@@ -135,10 +89,15 @@ class _SnappingCapsuleSliderState extends State<_SnappingCapsuleSlider>
   }
 
   void _commit(double raw) {
-    final steps = config.divisions!;
-    final value = (raw * steps).round() / steps;
+    final value = config.divisions != null
+        ? (raw * config.divisions!).round() / config.divisions!
+        : raw.clamp(0.0, 1.0);
     setState(() => _pressed = false);
-    _moveTo(value);
+    if (_dragging && !_snapping) {
+      _position.value = value;
+    } else {
+      _moveTo(value);
+    }
     config.onChanged?.call(value);
     config.onChangeEnd?.call(value);
   }
@@ -167,7 +126,7 @@ class _SnappingCapsuleSliderState extends State<_SnappingCapsuleSlider>
   }
 
   void _step(int direction) {
-    _commit((config.value + direction / config.divisions!).clamp(0.0, 1.0));
+    _commit((config.value + direction * _stepSize).clamp(0.0, 1.0));
   }
 
   @override
@@ -183,10 +142,10 @@ class _SnappingCapsuleSliderState extends State<_SnappingCapsuleSlider>
     slider: true,
     value: config.semanticFormatter?.call(config.value),
     increasedValue: config.semanticFormatter?.call(
-      (config.value + 1 / config.divisions!).clamp(0, 1),
+      (config.value + _stepSize).clamp(0, 1),
     ),
     decreasedValue: config.semanticFormatter?.call(
-      (config.value - 1 / config.divisions!).clamp(0, 1),
+      (config.value - _stepSize).clamp(0, 1),
     ),
     onIncrease: config.onChanged == null ? null : () => _step(1),
     onDecrease: config.onChanged == null ? null : () => _step(-1),
@@ -205,14 +164,14 @@ class _SnappingCapsuleSliderState extends State<_SnappingCapsuleSlider>
                   builder: (context, pressed, _) => AnimatedBuilder(
                     animation: _position,
                     builder: (context, _) => CustomPaint(
-                      key: const ValueKey('capsule-snap-track'),
+                      key: _snapping ? const ValueKey('capsule-snap-track') : null,
                       painter: _CapsuleTrackPainter(
                         config.theme,
                         _position.value,
                         config.icon,
                         config.onChanged != null,
                         config.divisions,
-                        circleThumb: true,
+                        circleThumb: _snapping,
                         pressed: pressed,
                       ),
                     ),
@@ -223,7 +182,10 @@ class _SnappingCapsuleSliderState extends State<_SnappingCapsuleSlider>
             Positioned.fill(
               child: SliderTheme(
                 data: SliderTheme.of(context).copyWith(
-                  trackShape: const _SnappingTrackShape(),
+                  trackHeight: _snapping ? null : 36,
+                  trackShape: _snapping
+                      ? const _SnappingTrackShape()
+                      : const RectangularSliderTrackShape(),
                   activeTrackColor: Colors.transparent,
                   inactiveTrackColor: Colors.transparent,
                   thumbShape: SliderComponentShape.noThumb,
@@ -246,6 +208,7 @@ class _SnappingCapsuleSliderState extends State<_SnappingCapsuleSlider>
                     animation: _position,
                     builder: (context, _) => Slider(
                       value: _position.value,
+                      divisions: _snapping ? null : config.divisions,
                       padding: EdgeInsets.zero,
                       focusNode: _focus,
                       onChangeStart: config.onChanged == null

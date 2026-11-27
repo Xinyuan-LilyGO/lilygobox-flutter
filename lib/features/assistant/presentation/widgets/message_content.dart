@@ -25,6 +25,7 @@ import '../../../../core/widgets/app_tooltip.dart';
 import '../../../../core/widgets/empty_line_selection.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
+import '../../../speech/domain/speech_model.dart';
 import '../../../speech/domain/speech_reply_text.dart';
 import '../../../speech/presentation/speech_labels.dart';
 import '../../../speech/state/speech_provider.dart';
@@ -1070,9 +1071,10 @@ class _SpeechReplyCardState extends State<SpeechReplyCard> {
     final l10n = context.l10n;
     final accent = playing ? theme.basePrimary : theme.textColorTertiary;
     final copyLabel = _copied ? l10n.aiMessageCopied : l10n.aiCopyMessage;
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: DecoratedBox(
+    return RepaintBoundary(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: DecoratedBox(
         key: ValueKey('ai-voice-card-${message.id}'),
         decoration: BoxDecoration(
           color: theme.primary,
@@ -1199,6 +1201,7 @@ class _SpeechReplyCardState extends State<SpeechReplyCard> {
           ),
         ),
       ),
+    ),
     );
   }
 }
@@ -1214,6 +1217,8 @@ Future<void> _playSpeechText(
     text,
     selection: assistant?.speechVoice,
     allowContinuousCapture: assistant?.speechVoiceInterrupt ?? false,
+    gain: assistant?.speechSynthesisGain ?? defaultSpeechSynthesisGain,
+    speed: assistant?.speechSynthesisSpeed ?? defaultSpeechSynthesisSpeed,
   );
   if (error != null && context.mounted) {
     showAppNotice(

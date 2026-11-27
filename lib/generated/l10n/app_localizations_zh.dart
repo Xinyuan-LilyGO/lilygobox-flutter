@@ -2468,7 +2468,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiRoleplayCardSettings => '角色卡设定';
 
   @override
-  String get aiRoleplaySaveSettings => '保存设定';
+  String get aiRoleplaySaveSettings => '保存';
 
   @override
   String get aiRoleplayImport => '导入角色卡';
@@ -4074,17 +4074,64 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get speechVoiceInterruptDescription =>
-      '朗读期间保持监听以便随时开口打断。建议佩戴耳机时开启；外放时关闭可彻底避免回声串音。';
+      '朗读期间保持监听并启用回声消除，支持外放或耳机下随时开口打断；若极端环境下仍有回声可关闭。';
 
   @override
-  String get speechIdleTimeout => '空闲超时时长（秒）';
+  String get speechIdleTimeout => '空闲超时自动暂停';
 
   @override
-  String get speechIdleTimeoutDescription =>
-      '未设置唤醒词时超时将自动暂停监听；已设置唤醒词时将退回待命。设为 0 表示不自动超时。';
+  String get speechIdleTimeoutDescription => '无唤醒词时超时将自动暂停监听；有唤醒词时将退回待命。';
 
   @override
   String get speechIdleTimeoutUnit => '秒';
+
+  @override
+  String get speechSendSilence => '停顿自动发送时长（秒）';
+
+  @override
+  String get speechSendSilenceDescription =>
+      '说完后停顿多久判定整句结束并自动发送（0.5 ~ 10.0 秒）。';
+
+  @override
+  String get speechMinTriggerLength => '最小触发 / 打断字数';
+
+  @override
+  String get speechMinTriggerLengthDescription =>
+      '少于该字数的短促杂音或片段不触发打断与自动发送（1 ~ 10 字）。';
+
+  @override
+  String get speechMinTriggerLengthUnit => '字';
+
+  @override
+  String get speechMicGain => '麦克风音量增益';
+
+  @override
+  String get speechMicGainDescription => '在送入识别前放大或减小麦克风音量（0.1x ~ 3.0x）。';
+
+  @override
+  String get speechSynthesisGain => '朗读音量增益';
+
+  @override
+  String get speechSynthesisGainDescription => '调节语音合成输出的音量大小（0.1x ~ 3.0x）。';
+
+  @override
+  String get speechSynthesisSpeed => '朗读语速';
+
+  @override
+  String get speechSynthesisSpeedDescription => '调节 AI 朗读语速快慢（0.5x ~ 2.0x）。';
+
+  @override
+  String get speechFallbackReadBody => '无台词时回退朗读正文';
+
+  @override
+  String get speechFallbackReadBodyDescription => '当模型回复未输出语音台词时，自动提取正文纯文本朗读。';
+
+  @override
+  String get speechInterruptStopsGeneration => '开口立即停止 AI 生成';
+
+  @override
+  String get speechInterruptStopsGenerationDescription =>
+      '开启后检测到开口即刻停止当前生成；关闭则等你整句说完再以「引导」介入。';
 
   @override
   String get speechWakeWords => '唤醒词';

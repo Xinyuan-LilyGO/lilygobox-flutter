@@ -219,18 +219,52 @@ class _SpeechModelDialogState extends State<SpeechModelDialog> {
                     theme: theme,
                     title: l10n.speechPreviewVoice,
                     description: l10n.speechPreviewVoiceDescription,
-                    child: SpeechVoiceSelect(
-                      key: const ValueKey('speech-preview-voice'),
-                      theme: theme,
-                      model: model,
-                      voice: _voice,
-                      onChanged: speech.busy
-                          ? null
-                          : (value) {
-                              if (value == null || value == _voice) return;
-                              speech.stopPlayback(_previewOwner);
-                              setState(() => _voice = value);
-                            },
+                    child: Row(
+                      spacing: 8,
+                      children: [
+                        Expanded(
+                          child: SpeechVoiceSelect(
+                            key: const ValueKey('speech-preview-voice'),
+                            theme: theme,
+                            model: model,
+                            voice: _voice,
+                            onChanged: speech.busy
+                                ? null
+                                : (value) {
+                                    if (value == null || value == _voice) {
+                                      return;
+                                    }
+                                    speech.stopPlayback(_previewOwner);
+                                    setState(() => _voice = value);
+                                  },
+                          ),
+                        ),
+                        AppActionButton.dialog(
+                          key: ValueKey('speech-preview-${model.id}'),
+                          theme: theme,
+                          label: playing
+                              ? l10n.speechStopPlayback
+                              : l10n.speechPreview,
+                          onPressed: playing
+                              ? () => speech.stopPlayback(_previewOwner)
+                              : speech.busy || speech.hasCapture
+                              ? null
+                              : () => unawaited(
+                                  _report(
+                                    speech.play(
+                                      _previewOwner,
+                                      model.format == .kokoroMultiLanguage
+                                          ? l10n.speechKokoroPreviewText
+                                          : l10n.speechPreviewText,
+                                      selection: (
+                                        modelId: model.id,
+                                        voice: _voice,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                        ),
+                      ],
                     ),
                   ),
                 if (canTestRecognition) ...[
@@ -290,28 +324,6 @@ class _SpeechModelDialogState extends State<SpeechModelDialog> {
                 null when speech.busy || speech.hasCapture => null,
                 null => () => unawaited(_testRecognition(model)),
               },
-            ),
-          if (canPreview)
-            AppActionButton.dialog(
-              key: ValueKey('speech-preview-${model.id}'),
-              theme: theme,
-              label: playing ? l10n.speechStopPlayback : l10n.speechPreview,
-              primary: true,
-              onPressed: playing
-                  ? () => speech.stopPlayback(_previewOwner)
-                  : speech.busy || speech.hasCapture
-                  ? null
-                  : () => unawaited(
-                      _report(
-                        speech.play(
-                          _previewOwner,
-                          model.format == .kokoroMultiLanguage
-                              ? l10n.speechKokoroPreviewText
-                              : l10n.speechPreviewText,
-                          selection: (modelId: model.id, voice: _voice),
-                        ),
-                      ),
-                    ),
             ),
         ],
       );

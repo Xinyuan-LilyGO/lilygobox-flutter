@@ -235,6 +235,14 @@ class AiAssistantProvider extends ChangeNotifier {
       speechContinuousRecognition && _speechBindings.voiceInterrupt;
   List<String> get speechWakeWords => _speechBindings.wakeWords;
   int get speechIdleTimeoutSeconds => _speechBindings.idleTimeoutSeconds;
+  double get speechSendSilenceSeconds => _speechBindings.sendSilenceSeconds;
+  int get speechMinTriggerLength => _speechBindings.minTriggerLength;
+  bool get speechInterruptStopsGeneration =>
+      _speechBindings.interruptStopsGeneration;
+  double get speechMicGain => _speechBindings.micGain;
+  double get speechSynthesisGain => _speechBindings.synthesisGain;
+  double get speechSynthesisSpeed => _speechBindings.synthesisSpeed;
+  bool get speechFallbackReadBody => _speechBindings.fallbackReadBody;
   bool _speechContinuousPaused = false;
   bool _speechWakeActive = false;
   bool get speechContinuousPaused => _speechContinuousPaused;
@@ -768,11 +776,25 @@ class AiAssistantProvider extends ChangeNotifier {
     if (!_speechBindings.autoPlay) 'speechAutoPlay': false,
     if (!_speechBindings.continuousRecognition)
       'speechContinuousRecognition': false,
-    if (_speechBindings.voiceInterrupt) 'speechVoiceInterrupt': true,
+    if (!_speechBindings.voiceInterrupt) 'speechVoiceInterrupt': false,
     if (_speechBindings.wakeWords.isNotEmpty)
       'speechWakeWords': _speechBindings.wakeWords,
     if (_speechBindings.idleTimeoutSeconds != defaultSpeechIdleTimeoutSeconds)
       'speechIdleTimeoutSeconds': _speechBindings.idleTimeoutSeconds,
+    if (_speechBindings.sendSilenceSeconds != defaultSpeechSendSilenceSeconds)
+      'speechSendSilenceSeconds': _speechBindings.sendSilenceSeconds,
+    if (_speechBindings.minTriggerLength != defaultSpeechMinTriggerLength)
+      'speechMinTriggerLength': _speechBindings.minTriggerLength,
+    if (_speechBindings.interruptStopsGeneration)
+      'speechInterruptStopsGeneration': true,
+    if (_speechBindings.micGain != defaultSpeechMicGain)
+      'speechMicGain': _speechBindings.micGain,
+    if (_speechBindings.synthesisGain != defaultSpeechSynthesisGain)
+      'speechSynthesisGain': _speechBindings.synthesisGain,
+    if (_speechBindings.synthesisSpeed != defaultSpeechSynthesisSpeed)
+      'speechSynthesisSpeed': _speechBindings.synthesisSpeed,
+    if (_speechBindings.fallbackReadBody) 'speechFallbackReadBody': true,
+    if (_speechContinuousPaused) 'speechContinuousPaused': true,
   };
 
   void restoreWorkspaceConversation(Map<String, dynamic> snapshot) {
@@ -857,7 +879,7 @@ class AiAssistantProvider extends ChangeNotifier {
         .withContinuousRecognition(
           snapshot['speechContinuousRecognition'] != false,
         )
-        .withVoiceInterrupt(snapshot['speechVoiceInterrupt'] == true)
+        .withVoiceInterrupt(snapshot['speechVoiceInterrupt'] != false)
         .withWakeWords(switch (snapshot['speechWakeWords']) {
           final List items => items.whereType<String>(),
           _ => const <String>[],
@@ -865,7 +887,33 @@ class AiAssistantProvider extends ChangeNotifier {
         .withIdleTimeoutSeconds(switch (snapshot['speechIdleTimeoutSeconds']) {
           final int seconds when seconds >= 0 => seconds,
           _ => defaultSpeechIdleTimeoutSeconds,
-        });
+        })
+        .withSendSilenceSeconds(switch (snapshot['speechSendSilenceSeconds']) {
+          final num seconds => seconds.toDouble(),
+          _ => defaultSpeechSendSilenceSeconds,
+        })
+        .withMinTriggerLength(switch (snapshot['speechMinTriggerLength']) {
+          final int length => length,
+          _ => defaultSpeechMinTriggerLength,
+        })
+        .withInterruptStopsGeneration(
+          snapshot['speechInterruptStopsGeneration'] == true,
+        )
+        .withMicGain(switch (snapshot['speechMicGain']) {
+          final num gain => gain.toDouble(),
+          _ => defaultSpeechMicGain,
+        })
+        .withSynthesisGain(switch (snapshot['speechSynthesisGain']) {
+          final num gain => gain.toDouble(),
+          _ => defaultSpeechSynthesisGain,
+        })
+        .withSynthesisSpeed(switch (snapshot['speechSynthesisSpeed']) {
+          final num speed => speed.toDouble(),
+          _ => defaultSpeechSynthesisSpeed,
+        })
+        .withFallbackReadBody(snapshot['speechFallbackReadBody'] == true);
+    _speechContinuousPaused = snapshot['speechContinuousPaused'] == true;
+    _speechWakeActive = false;
     _notify();
   }
 
@@ -3416,7 +3464,7 @@ class AiAssistantProvider extends ChangeNotifier {
               'role': 'system',
               'content':
                   '[Required Output Format for Voice Playback]\n'
-                  'Write your full response normally first, then ALWAYS end your reply with a <speech>...</speech> block on a new line at the very end.\n'
+                  'ALWAYS start your reply with a <speech>...</speech> block on the very first line, before any narrative, action, or body text (even if earlier turns in the conversation placed it elsewhere), followed by a newline and your full response.\n'
                   'Inside <speech>...</speech>, write 1 to 3 brief, natural spoken sentences (plain text only: no markdown, asterisks, action/stage descriptions, code, or URLs) '
                   'that ${binding != null ? '"${binding.card.name}" actually says aloud in character (matching their persona, tone, and language)' : 'you would say aloud to summarize or respond conversationally'}.',
             },

@@ -8,6 +8,7 @@ import 'dart:typed_data';
 import 'package:record/record.dart';
 
 import '../domain/speech_model.dart';
+import 'speech_aec3.dart';
 import 'speech_engine.dart';
 
 abstract interface class SpeechAudioInput {
@@ -40,6 +41,64 @@ class WindowsSpeechAudioInput implements SpeechAudioInput {
     try {
       if (!await recorder.hasPermission(request: false)) {
         throw const SpeechFailure(.microphone);
+      }
+      final aec3 = WebRtcAec3LiveCapture.start(speechSampleRate);
+      if (aec3 != null) {
+        try {
+          var running = true;
+          final done = Completer<bool>();
+          if (!continuous) {
+            limit = Timer(
+              const Duration(seconds: speechMaxRecordingSeconds),
+              () {
+                if (!done.isCompleted) done.complete(true);
+              },
+            );
+          }
+          unawaited(
+            stop.then((value) {
+              if (!done.isCompleted) done.complete(value);
+            }),
+          );
+          started();
+          while (running && !done.isCompleted) {
+            final pcm = aec3.readAvailablePcm();
+            if (pcm == null) {
+              throw const SpeechFailure(.microphone);
+            }
+            if (pcm.isNotEmpty) {
+              if (continuous) {
+                onAudio((
+                  pcm: pcm,
+                  sampleRate: speechSampleRate,
+                  channels: 1,
+                ));
+              } else {
+                const maximum =
+                    speechSampleRate * 2 * speechMaxRecordingSeconds;
+                final remaining = maximum - capturedBytes;
+                if (remaining > 0) {
+                  final slice = pcm.length <= remaining
+                      ? pcm
+                      : Uint8List.sublistView(pcm, 0, remaining);
+                  capturedBytes += slice.length;
+                  onAudio((
+                    pcm: slice,
+                    sampleRate: speechSampleRate,
+                    channels: 1,
+                  ));
+                }
+              }
+            }
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+            running = !done.isCompleted;
+          }
+          return;
+        } finally {
+          limit?.cancel();
+          aec3.close();
+          await recorder.dispose();
+        }
       }
       await recorder.setOnConfigChanged((config) {
         if (capturedBytes != 0 &&

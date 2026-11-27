@@ -42,7 +42,16 @@ Future<void> runSpeechWorker({String? dllDirectory}) async {
       'directory': final String directory,
       'partialResults': final bool partialResults,
     }) {
-      await _recognizeContinuous(directory, input, partialResults);
+      final silence = switch (request['silenceSeconds']) {
+        final num value => clampSpeechSendSilenceSeconds(value.toDouble()),
+        _ => defaultSpeechSendSilenceSeconds,
+      };
+      await _recognizeContinuous(
+        directory,
+        input,
+        partialResults,
+        silenceSeconds: silence,
+      );
       exit(0);
     }
     final response = switch (request) {
@@ -81,7 +90,24 @@ Map<String, Object> _process(Object? request) {
         .chineseVits || .kokoroMultiLanguage,
         {'text': final String text, 'voice': final int voice},
       ) =>
-        {'wav': base64Encode(_synthesize(directory, format, text, voice))},
+        {
+          'wav': base64Encode(
+            _synthesize(
+              directory,
+              format,
+              text,
+              voice,
+              gain: switch (request['gain']) {
+                final num v => clampSpeechSynthesisGain(v.toDouble()),
+                _ => defaultSpeechSynthesisGain,
+              },
+              speed: switch (request['speed']) {
+                final num v => clampSpeechSynthesisSpeed(v.toDouble()),
+                _ => defaultSpeechSynthesisSpeed,
+              },
+            ),
+          ),
+        },
       _ => throw const FormatException(),
     };
   }
@@ -91,7 +117,10 @@ Map<String, Object> _process(Object? request) {
 sherpa.OnlineRecognizer _recognizer(
   String directory, {
   bool enableEndpoint = false,
+  double sendSilenceSeconds = defaultSpeechSendSilenceSeconds,
 }) {
+  final trailingSilence = clampSpeechSendSilenceSeconds(sendSilenceSeconds);
+  final idleSilence = (trailingSilence * 2).clamp(1.5, 15.0);
   final [encoder, decoder, joiner, tokens] =
       SpeechModelFormat.bilingualZipformer.files;
   return sherpa.OnlineRecognizer(
@@ -107,8 +136,8 @@ sherpa.OnlineRecognizer _recognizer(
         debug: false,
       ),
       enableEndpoint: enableEndpoint,
-      rule1MinTrailingSilence: 2.0,
-      rule2MinTrailingSilence: 1.0,
+      rule1MinTrailingSilence: idleSilence,
+      rule2MinTrailingSilence: trailingSilence,
       rule3MinUtteranceLength: 25.0,
     ),
   );
@@ -194,9 +223,14 @@ Future<String> _recognize(
 Future<void> _recognizeContinuous(
   String directory,
   StreamIterator<String> input,
-  bool partialResults,
-) async {
-  final recognizer = _recognizer(directory, enableEndpoint: true);
+  bool partialResults, {
+  double silenceSeconds = defaultSpeechSendSilenceSeconds,
+}) async {
+  final recognizer = _recognizer(
+    directory,
+    enableEndpoint: true,
+    sendSilenceSeconds: silenceSeconds,
+  );
   try {
     final stream = recognizer.createStream();
     try {
@@ -349,23 +383,26 @@ Uint8List _synthesize(
   String directory,
   SpeechModelFormat format,
   String text,
-  int voice,
-) {
+  int voice, {
+  double gain = defaultSpeechSynthesisGain,
+  double speed = defaultSpeechSynthesisSpeed,
+}) {
   if (text.trim().isEmpty) throw const FormatException();
   final tts = _synthesizer(directory, format);
   try {
     if (voice < 0 || voice >= tts.numSpeakers) throw const FormatException();
+    final clampedSpeed = clampSpeechSynthesisSpeed(speed);
     final pcm = BytesBuilder(copy: false);
     var sampleRate = 0;
     for (final chunk in _utterances(text)) {
-      final audio = tts.generate(text: chunk, sid: voice);
+      final audio = tts.generate(text: chunk, sid: voice, speed: clampedSpeed);
       if (audio.samples.isEmpty) continue;
       if (audio.sampleRate <= 0 ||
           (sampleRate != 0 && sampleRate != audio.sampleRate)) {
         throw const FormatException();
       }
       sampleRate = audio.sampleRate;
-      pcm.add(_pcmBytes(audio.samples));
+      pcm.add(_pcmBytes(audio.samples, gain: gain));
     }
     if (pcm.isEmpty) throw const FormatException();
     return _encodeWav(pcm.takeBytes(), sampleRate);
@@ -435,12 +472,27 @@ Future<void> _runSynthesisSession(StreamIterator<String> input) async {
           if (voice < 0 || voice >= cachedTts.numSpeakers) {
             throw const FormatException();
           }
+          final gain = switch (message['gain']) {
+            final num v => clampSpeechSynthesisGain(v.toDouble()),
+            _ => defaultSpeechSynthesisGain,
+          };
+          final speed = switch (message['speed']) {
+            final num v => clampSpeechSynthesisSpeed(v.toDouble()),
+            _ => defaultSpeechSynthesisSpeed,
+          };
           var emitted = false;
           for (final chunk in _utterances(text)) {
-            final audio = cachedTts.generate(text: chunk, sid: voice);
+            final audio = cachedTts.generate(
+              text: chunk,
+              sid: voice,
+              speed: speed,
+            );
             if (audio.samples.isEmpty) continue;
             if (audio.sampleRate <= 0) throw const FormatException();
-            final wav = _encodeWav(_pcmBytes(audio.samples), audio.sampleRate);
+            final wav = _encodeWav(
+              _pcmBytes(audio.samples, gain: gain),
+              audio.sampleRate,
+            );
             emitted = true;
             stdout.writeln(
               '$speechWorkerResultPrefix${jsonEncode({'id': id, 'chunk': base64Encode(wav)})}',
@@ -467,10 +519,16 @@ Future<void> _runSynthesisSession(StreamIterator<String> input) async {
   }
 }
 
-Uint8List _pcmBytes(Float32List samples) {
+Uint8List _pcmBytes(
+  Float32List samples, {
+  double gain = defaultSpeechSynthesisGain,
+}) {
+  final clampedGain = clampSpeechSynthesisGain(gain);
   final bytes = ByteData(samples.length * 2);
   for (final (index, sample) in samples.indexed) {
-    final value = sample.isFinite ? sample.clamp(-1.0, 1.0) : 0.0;
+    final value = sample.isFinite
+        ? (sample * clampedGain).clamp(-1.0, 1.0)
+        : 0.0;
     bytes.setInt16(index * 2, (value * 32767).round(), Endian.little);
   }
   return bytes.buffer.asUint8List();
@@ -504,12 +562,12 @@ Iterable<String> _utterances(String text) sync* {
   var first = true;
   for (final rune in text.runes) {
     buffer.writeCharCode(rune);
-    final minSentence = first ? 10 : 24;
-    final maxChunk = first ? 100 : 240;
+    final minSentence = first ? 2 : 24;
+    final maxChunk = first ? 80 : 240;
     final split =
         buffer.length >= maxChunk ||
         (buffer.length >= minSentence && sentenceEnd.contains(rune)) ||
-        (first && buffer.length >= 20 && clauseBreak.contains(rune));
+        (first && buffer.length >= 12 && clauseBreak.contains(rune));
     if (split) {
       final sentence = buffer.toString().trim();
       if (sentence.isNotEmpty) {

@@ -23,6 +23,7 @@ import '../../../../core/widgets/interaction_decoration.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/popup_menu_transition.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
+import '../../../speech/data/speech_aec3.dart';
 import '../../../speech/domain/speech_model.dart';
 import '../../../speech/domain/speech_reply_text.dart';
 import '../../../speech/presentation/speech_labels.dart';
@@ -99,6 +100,8 @@ class _AssistantPageState extends State<AssistantPage> {
   bool _bargedInDuringPlayback = false;
   Timer? _wakeIdleTimer;
   int? _lastIdleTimeoutSeconds;
+  double? _continuousSilenceSeconds;
+  double? _continuousMicGain;
   final _messageViews = <String, (AiMessage, AppTheme, Widget)>{};
 
   Widget _messageView(AiMessage message, AppTheme theme) {
@@ -297,12 +300,23 @@ class _AssistantPageState extends State<AssistantPage> {
     final trimmed = text.trim();
     if (trimmed.isEmpty || widget.readOnly || !mounted) return;
     final assistant = context.read<AiAssistantProvider>();
+    if (assistant.busy && assistant.speechInterruptStopsGeneration) {
+      assistant.stopGeneration();
+      for (var i = 0; i < 60 && mounted && assistant.busy; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 25));
+      }
+      if (!mounted) return;
+    }
     if (!assistant.canSendMessage) return;
     _input.value = TextEditingValue(
       text: trimmed,
       selection: TextSelection.collapsed(offset: trimmed.length),
     );
-    await _send(assistant, fromKeyboard: false);
+    await _send(
+      assistant,
+      fromKeyboard: false,
+      steerIfBusy: assistant.busy && assistant.canGuideNow,
+    );
   }
 
   Future<void> _runContinuousListening(SpeechProvider speech) async {
@@ -315,14 +329,17 @@ class _AssistantPageState extends State<AssistantPage> {
         assistant.speechContinuousPaused ||
         _continuousErrorBlocked ||
         (!assistant.speechVoiceInterrupt &&
-            (_inPlaybackCooldown || speech.hasPlayback)) ||
-        assistant.busy ||
+            (_inPlaybackCooldown || speech.hasPlayback || assistant.busy)) ||
         speech.busy ||
         speech.hasCapture) {
       return;
     }
     _continuousStartPending = true;
     var activeStart = false;
+    final silenceSeconds = assistant.speechSendSilenceSeconds;
+    final micGain = assistant.speechMicGain;
+    _continuousSilenceSeconds = silenceSeconds;
+    _continuousMicGain = micGain;
     final error = await () async {
       try {
         activeStart = true;
@@ -330,20 +347,31 @@ class _AssistantPageState extends State<AssistantPage> {
           _speechConversation,
           modelId: modelId,
           allowDuringPlayback: assistant.speechVoiceInterrupt,
+          silenceSeconds: silenceSeconds,
+          micGain: micGain,
           onPartial: (partial) {
             if (!mounted) return;
             final current = context.read<AiAssistantProvider>();
             final wakeWords = current.speechWakeWords;
             final playingText = speech.playingText;
-            if (playingText != null) {
+            if (playingText != null || current.busy) {
               if (wakeWords.isNotEmpty) {
                 final match = matchSpeechWakeWord(partial, wakeWords);
                 if (!match.matched ||
-                    isLikelyPlaybackEcho(partial, playingText)) {
+                    isLikelyPlaybackEcho(
+                      partial,
+                      playingText,
+                      rejectShort: false,
+                    )) {
                   return;
                 }
                 _bargedInDuringPlayback = true;
-                speech.stopConversation(_speechConversation, kind: .synthesis);
+                if (playingText != null) {
+                  speech.stopConversation(
+                    _speechConversation,
+                    kind: .synthesis,
+                  );
+                }
                 current.setSpeechContinuousState(wakeActive: true);
                 _resetWakeIdleTimer();
                 if (match.command.isNotEmpty && _input.text != match.command) {
@@ -356,12 +384,28 @@ class _AssistantPageState extends State<AssistantPage> {
                 }
                 return;
               }
-              if (isLikelyPlaybackEcho(partial, playingText) ||
-                  partial.trim().runes.length < 3) {
+              final minLength = current.speechMinTriggerLength;
+              if (playingText == null) {
+                if (current.busy &&
+                    current.speechInterruptStopsGeneration &&
+                    partial.trim().runes.length >= minLength) {
+                  _bargedInDuringPlayback = true;
+                  current.stopGeneration();
+                }
+              } else if (isLikelyPlaybackEcho(
+                    partial,
+                    playingText,
+                    rejectShort: true,
+                  ) ||
+                  partial.trim().runes.length < minLength) {
                 return;
+              } else {
+                _bargedInDuringPlayback = true;
+                if (current.busy && current.speechInterruptStopsGeneration) {
+                  current.stopGeneration();
+                }
+                speech.stopConversation(_speechConversation, kind: .synthesis);
               }
-              _bargedInDuringPlayback = true;
-              speech.stopConversation(_speechConversation, kind: .synthesis);
             }
             if (wakeWords.isNotEmpty && !current.speechWakeActive) {
               return;
@@ -391,13 +435,14 @@ class _AssistantPageState extends State<AssistantPage> {
             _bargedInDuringPlayback = false;
             if (echoSource != null && !wasBargeIn) {
               final stillPlaying = speech.playingText != null;
+              final hasAec3 = WebRtcAec3Library.tryLoad() != null;
               if (wakeWords.isNotEmpty) {
                 final match = matchSpeechWakeWord(utterance, wakeWords);
                 if (!match.matched ||
                     isLikelyPlaybackEcho(
                       utterance,
                       echoSource,
-                      rejectShort: stillPlaying,
+                      rejectShort: false,
                     )) {
                   return;
                 }
@@ -422,7 +467,7 @@ class _AssistantPageState extends State<AssistantPage> {
               if (isLikelyPlaybackEcho(
                 utterance,
                 echoSource,
-                rejectShort: stillPlaying,
+                rejectShort: stillPlaying && !hasAec3,
               )) {
                 _input.clear();
                 return;
@@ -449,6 +494,11 @@ class _AssistantPageState extends State<AssistantPage> {
                   kind: .recognition,
                 );
                 unawaited(_sendRecognized(command));
+                return;
+              }
+              if (utterance.trim().runes.length <
+                  current.speechMinTriggerLength) {
+                _input.clear();
                 return;
               }
               _wakeIdleTimer?.cancel();
@@ -490,12 +540,16 @@ class _AssistantPageState extends State<AssistantPage> {
     String text,
     SpeechVoiceSelection selection, {
     required bool allowContinuousCapture,
+    required double gain,
+    required double speed,
   }) async {
     final error = await speech.play(
       owner,
       text,
       selection: selection,
       allowContinuousCapture: allowContinuousCapture,
+      gain: gain,
+      speed: speed,
     );
     if (error != null && mounted) {
       showAppNotice(
@@ -508,6 +562,7 @@ class _AssistantPageState extends State<AssistantPage> {
   Future<void> _send(
     AiAssistantProvider assistant, {
     required bool fromKeyboard,
+    bool steerIfBusy = false,
   }) async {
     if (widget.readOnly) return;
     final text = _input.text;
@@ -534,7 +589,11 @@ class _AssistantPageState extends State<AssistantPage> {
     setState(() => _attachments = const []);
     final request = continuing
         ? assistant.continueGeneration()
-        : assistant.sendMessage(text, attachments: attachments);
+        : assistant.sendMessage(
+            text,
+            attachments: attachments,
+            steer: steerIfBusy,
+          );
     if (fromKeyboard) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _inputFocus.requestFocus();
@@ -633,6 +692,7 @@ class _AssistantPageState extends State<AssistantPage> {
               value.messages.lastOrNull?.id,
               value.messages.lastOrNull?.finishedAt != null,
               value.messages.lastOrNull?.requestError == null,
+              value.messages.lastOrNull?.content.contains('</speech>') ?? false,
             )
           : -1,
     );
@@ -702,6 +762,15 @@ class _AssistantPageState extends State<AssistantPage> {
     _recognitionModelId = recognitionId;
     _synthesisModelId = synthesisId;
     _canKeepRecording = canKeepRecording;
+    final latestStreaming = messages
+        .where(
+          (message) =>
+              message.role == 'assistant' &&
+              message.finishedAt == null &&
+              !message.isRoleplayOpening &&
+              message.requestError == null,
+        )
+        .lastOrNull;
     final latestFinished = messages
         .where(
           (message) =>
@@ -719,32 +788,82 @@ class _AssistantPageState extends State<AssistantPage> {
     } else if (speechActive &&
         speech != null &&
         !speech.busy &&
-        !speech.hasManualCapture &&
-        latestFinished != null &&
-        latestFinished.id != _lastAutoReadMessageId) {
+        !speech.hasManualCapture) {
       final selection = assistant.speechVoice;
-      final spoken = parseSpeechReply(latestFinished.content).speech;
-      _lastAutoReadMessageId = latestFinished.id;
       if (selection != null &&
-          spoken != null &&
-          spoken.isNotEmpty &&
           speech.library.synthesisModel(selection) != null) {
-        if (assistant.speechAutoPlay) {
-          willAutoPlay = true;
-          final owner = (_speechConversation, latestFinished.id);
-          scheduleMicrotask(
-            () => _autoPlayReply(
-              speech,
-              owner,
-              spoken,
-              selection,
-              allowContinuousCapture: voiceInterrupt,
-            ),
-          );
-        } else {
-          scheduleMicrotask(
-            () => speech.preSynthesize(spoken, selection: selection),
-          );
+        if (latestStreaming != null &&
+            latestStreaming.id != _lastAutoReadMessageId &&
+            !speech.hasAutoRead(latestStreaming.id) &&
+            assistant.speechAutoPlay) {
+          final parsed = parseSpeechReply(latestStreaming.content);
+          final spoken = parsed.speech;
+          if (!parsed.pendingSpeech &&
+              spoken != null &&
+              spoken.isNotEmpty) {
+            _lastAutoReadMessageId = latestStreaming.id;
+            speech.markAutoRead(latestStreaming.id);
+            willAutoPlay = true;
+            final owner = (_speechConversation, latestStreaming.id);
+            scheduleMicrotask(
+              () => _autoPlayReply(
+                speech,
+                owner,
+                spoken,
+                selection,
+                allowContinuousCapture: voiceInterrupt,
+                gain: assistant.speechSynthesisGain,
+                speed: assistant.speechSynthesisSpeed,
+              ),
+            );
+          } else {
+            // 若上一次打断杀掉了常驻合成进程，趁模型思考/流式吐字期间提前热身。
+            scheduleMicrotask(() => speech.warmUpSynthesis(selection));
+          }
+        } else if (latestFinished != null &&
+            latestFinished.id != _lastAutoReadMessageId &&
+            !speech.hasAutoRead(latestFinished.id)) {
+          _lastAutoReadMessageId = latestFinished.id;
+          speech.markAutoRead(latestFinished.id);
+          final finishedAt = latestFinished.finishedAt;
+          final justFinished =
+              finishedAt != null &&
+              DateTime.now().difference(finishedAt).abs() <
+                  const Duration(seconds: 5);
+          if (justFinished) {
+            final parsed = parseSpeechReply(latestFinished.content);
+            final spoken =
+                parsed.speech ??
+                (assistant.speechFallbackReadBody
+                    ? speechReplyText(latestFinished.content)
+                    : null);
+            if (spoken != null && spoken.isNotEmpty) {
+              if (assistant.speechAutoPlay) {
+                willAutoPlay = true;
+                final owner = (_speechConversation, latestFinished.id);
+                scheduleMicrotask(
+                  () => _autoPlayReply(
+                    speech,
+                    owner,
+                    spoken,
+                    selection,
+                    allowContinuousCapture: voiceInterrupt,
+                    gain: assistant.speechSynthesisGain,
+                    speed: assistant.speechSynthesisSpeed,
+                  ),
+                );
+              } else {
+                scheduleMicrotask(
+                  () => speech.preSynthesize(
+                    spoken,
+                    selection: selection,
+                    gain: assistant.speechSynthesisGain,
+                    speed: assistant.speechSynthesisSpeed,
+                  ),
+                );
+              }
+            }
+          }
         }
       }
     } else if (!assistant.speechAutoPlay) {
@@ -763,7 +882,10 @@ class _AssistantPageState extends State<AssistantPage> {
           !assistant.speechContinuousPaused) {
         _inPlaybackCooldown = true;
         _playbackCooldownTimer?.cancel();
-        _playbackCooldownTimer = Timer(const Duration(milliseconds: 1500), () {
+        final cooldown = WebRtcAec3Library.tryLoad() != null
+            ? const Duration(milliseconds: 200)
+            : const Duration(milliseconds: 1500);
+        _playbackCooldownTimer = Timer(cooldown, () {
           if (!mounted) return;
           setState(() => _inPlaybackCooldown = false);
         });
@@ -794,12 +916,23 @@ class _AssistantPageState extends State<AssistantPage> {
         !_continuousErrorBlocked &&
         speech != null) {
       final shouldListen =
-          !assistant.busy &&
           !speech.busy &&
           (voiceInterrupt ||
-              (!hasPlayback && !willAutoPlay && !_inPlaybackCooldown));
+              (!assistant.busy &&
+                  !hasPlayback &&
+                  !willAutoPlay &&
+                  !_inPlaybackCooldown));
       if (shouldListen) {
-        if (!speech.hasCapture && !_continuousStartPending) {
+        if (isContinuous &&
+            (_continuousSilenceSeconds != assistant.speechSendSilenceSeconds ||
+                _continuousMicGain != assistant.speechMicGain)) {
+          scheduleMicrotask(
+            () => speech.stopConversation(
+              _speechConversation,
+              kind: .recognition,
+            ),
+          );
+        } else if (!speech.hasCapture && !_continuousStartPending) {
           scheduleMicrotask(() => _runContinuousListening(speech));
         }
         final idleTimeout = assistant.speechIdleTimeoutSeconds;
@@ -1069,7 +1202,7 @@ class _AssistantPageState extends State<AssistantPage> {
           : l10n.speechContinuousListening;
 
       void handlePrimaryPress() {
-        if (hasPlayback) {
+        if (hasPlayback && !isContinuous) {
           _playbackCooldownTimer?.cancel();
           _inPlaybackCooldown = false;
           _wasPlaying = false;
@@ -1185,7 +1318,7 @@ class _AssistantPageState extends State<AssistantPage> {
                 .starting || .transcribing => Symbols.hourglass_top_rounded,
                 null => Symbols.mic_rounded,
               },
-              fill: manualPhase == null ? 1 : 0,
+              fill: manualPhase == null || manualPhase == .recording ? 1 : 0,
               size: 19,
               color: manualRecording
                   ? theme.materialColors.onError
@@ -1501,9 +1634,13 @@ class _MessageViewState extends State<_MessageView> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          content,
           if (message.role == 'assistant')
-            SpeechReplyCard(message: message, theme: widget.theme),
+            SpeechReplyCard(
+              key: ValueKey('ai-voice-reply-${message.id}'),
+              message: message,
+              theme: widget.theme,
+            ),
+          content,
           if (isUser || turnFinished)
             ChatMessageActions(message: message, theme: widget.theme),
         ],
@@ -1659,9 +1796,13 @@ class _MessageViewState extends State<_MessageView> {
                   width: double.infinity,
                 ),
         ),
-        if (message.content.isNotEmpty) content,
         if (message.role == 'assistant')
-          SpeechReplyCard(message: message, theme: widget.theme),
+          SpeechReplyCard(
+            key: ValueKey('ai-voice-reply-${message.id}'),
+            message: message,
+            theme: widget.theme,
+          ),
+        if (message.content.isNotEmpty) content,
         if (errorText != null)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 14),

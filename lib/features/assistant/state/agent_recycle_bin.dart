@@ -71,6 +71,7 @@ class AiRecycledAgent {
       conversation.remove('speechRecognitionId');
       conversation.remove('speechRecognitionPaused');
       conversation.remove('speechContinuousRecognition');
+      conversation.remove('speechContinuousPaused');
       conversation.remove('speechVoiceInterrupt');
       conversation.remove('speechWakeWords');
       conversation.remove('speechIdleTimeoutSeconds');

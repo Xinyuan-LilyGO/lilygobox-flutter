@@ -3313,7 +3313,7 @@ void main() {
       expect(dimmedLabels.any((label) => label.opacity < 1), isTrue);
       expect(story, findsNothing);
       expect(find.text('Welcome to the clock tower.'), findsNothing);
-      await tester.tap(find.text('保存设定').hitTestable());
+      await tester.tap(find.text('保存').hitTestable());
       await tester.pumpAndSettle();
       expect(agent.assistant.roleplayEnabled, isFalse);
       expect(agent.assistant.roleplayBinding?.storyActive, isFalse);

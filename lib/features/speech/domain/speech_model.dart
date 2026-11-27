@@ -2,6 +2,8 @@
  * @Description: 定义离线语音模型、会话绑定和故障类型。
  */
 
+import 'dart:typed_data';
+
 enum SpeechModelKind { recognition, synthesis }
 
 enum SpeechCapturePhase { starting, recording, transcribing }
@@ -96,6 +98,40 @@ class SpeechModel {
 }
 
 const defaultSpeechIdleTimeoutSeconds = 60;
+const defaultSpeechSendSilenceSeconds = 1.0;
+const defaultSpeechMinTriggerLength = 3;
+const defaultSpeechMicGain = 1.0;
+const defaultSpeechSynthesisGain = 1.0;
+const defaultSpeechSynthesisSpeed = 1.0;
+
+double clampSpeechSendSilenceSeconds(double value) =>
+    value.isNaN ? defaultSpeechSendSilenceSeconds : value.clamp(0.5, 10.0);
+
+int clampSpeechMinTriggerLength(int value) => value.clamp(1, 10);
+
+double clampSpeechMicGain(double value) =>
+    value.isNaN ? defaultSpeechMicGain : value.clamp(0.1, 3.0);
+
+double clampSpeechSynthesisGain(double value) =>
+    value.isNaN ? defaultSpeechSynthesisGain : value.clamp(0.1, 3.0);
+
+double clampSpeechSynthesisSpeed(double value) =>
+    value.isNaN ? defaultSpeechSynthesisSpeed : value.clamp(0.5, 2.0);
+
+/// 对 16-bit 小端 PCM 音频做软件增益并限幅，避免削波失真。
+Uint8List applySpeechPcmGain(Uint8List pcm, double gain) {
+  final clamped = clampSpeechMicGain(gain);
+  if ((clamped - 1.0).abs() < 0.01 || pcm.length < 2) return pcm;
+  final input = ByteData.sublistView(pcm);
+  final out = Uint8List(pcm.length);
+  final output = ByteData.sublistView(out);
+  for (var offset = 0; offset + 1 < pcm.length; offset += 2) {
+    final sample = input.getInt16(offset, Endian.little);
+    final scaled = (sample * clamped).round().clamp(-32768, 32767);
+    output.setInt16(offset, scaled, Endian.little);
+  }
+  return out;
+}
 
 typedef SpeechVoiceSelection = ({String modelId, int voice});
 typedef SpeechBindings = ({
@@ -108,6 +144,13 @@ typedef SpeechBindings = ({
   bool voiceInterrupt,
   List<String> wakeWords,
   int idleTimeoutSeconds,
+  double sendSilenceSeconds,
+  int minTriggerLength,
+  bool interruptStopsGeneration,
+  double micGain,
+  double synthesisGain,
+  double synthesisSpeed,
+  bool fallbackReadBody,
 });
 
 const SpeechBindings emptySpeechBindings = (
@@ -117,9 +160,16 @@ const SpeechBindings emptySpeechBindings = (
   recognitionPaused: false,
   autoPlay: true,
   continuousRecognition: true,
-  voiceInterrupt: false,
+  voiceInterrupt: true,
   wakeWords: <String>[],
   idleTimeoutSeconds: defaultSpeechIdleTimeoutSeconds,
+  sendSilenceSeconds: defaultSpeechSendSilenceSeconds,
+  minTriggerLength: defaultSpeechMinTriggerLength,
+  interruptStopsGeneration: false,
+  micGain: defaultSpeechMicGain,
+  synthesisGain: defaultSpeechSynthesisGain,
+  synthesisSpeed: defaultSpeechSynthesisSpeed,
+  fallbackReadBody: false,
 );
 
 List<String> normalizeWakeWords(Iterable<String> words) {
@@ -224,6 +274,13 @@ extension SpeechBindingSelection on SpeechBindings {
     voiceInterrupt: voiceInterrupt,
     wakeWords: wakeWords,
     idleTimeoutSeconds: idleTimeoutSeconds,
+    sendSilenceSeconds: sendSilenceSeconds,
+    minTriggerLength: minTriggerLength,
+    interruptStopsGeneration: interruptStopsGeneration,
+    micGain: micGain,
+    synthesisGain: synthesisGain,
+    synthesisSpeed: synthesisSpeed,
+    fallbackReadBody: fallbackReadBody,
   );
 
   SpeechBindings withRecognition(String? id) => (
@@ -236,6 +293,13 @@ extension SpeechBindingSelection on SpeechBindings {
     voiceInterrupt: voiceInterrupt,
     wakeWords: wakeWords,
     idleTimeoutSeconds: idleTimeoutSeconds,
+    sendSilenceSeconds: sendSilenceSeconds,
+    minTriggerLength: minTriggerLength,
+    interruptStopsGeneration: interruptStopsGeneration,
+    micGain: micGain,
+    synthesisGain: synthesisGain,
+    synthesisSpeed: synthesisSpeed,
+    fallbackReadBody: fallbackReadBody,
   );
 
   SpeechBindings withEnabled(SpeechModelKind kind, bool enabled) => (
@@ -252,6 +316,13 @@ extension SpeechBindingSelection on SpeechBindings {
     voiceInterrupt: voiceInterrupt,
     wakeWords: wakeWords,
     idleTimeoutSeconds: idleTimeoutSeconds,
+    sendSilenceSeconds: sendSilenceSeconds,
+    minTriggerLength: minTriggerLength,
+    interruptStopsGeneration: interruptStopsGeneration,
+    micGain: micGain,
+    synthesisGain: synthesisGain,
+    synthesisSpeed: synthesisSpeed,
+    fallbackReadBody: fallbackReadBody,
   );
 
   SpeechBindings withAutoPlay(bool enabled) => (
@@ -264,6 +335,13 @@ extension SpeechBindingSelection on SpeechBindings {
     voiceInterrupt: voiceInterrupt,
     wakeWords: wakeWords,
     idleTimeoutSeconds: idleTimeoutSeconds,
+    sendSilenceSeconds: sendSilenceSeconds,
+    minTriggerLength: minTriggerLength,
+    interruptStopsGeneration: interruptStopsGeneration,
+    micGain: micGain,
+    synthesisGain: synthesisGain,
+    synthesisSpeed: synthesisSpeed,
+    fallbackReadBody: fallbackReadBody,
   );
 
   SpeechBindings withContinuousRecognition(bool enabled) => (
@@ -276,6 +354,13 @@ extension SpeechBindingSelection on SpeechBindings {
     voiceInterrupt: voiceInterrupt,
     wakeWords: wakeWords,
     idleTimeoutSeconds: idleTimeoutSeconds,
+    sendSilenceSeconds: sendSilenceSeconds,
+    minTriggerLength: minTriggerLength,
+    interruptStopsGeneration: interruptStopsGeneration,
+    micGain: micGain,
+    synthesisGain: synthesisGain,
+    synthesisSpeed: synthesisSpeed,
+    fallbackReadBody: fallbackReadBody,
   );
 
   SpeechBindings withVoiceInterrupt(bool enabled) => (
@@ -288,6 +373,13 @@ extension SpeechBindingSelection on SpeechBindings {
     voiceInterrupt: enabled,
     wakeWords: wakeWords,
     idleTimeoutSeconds: idleTimeoutSeconds,
+    sendSilenceSeconds: sendSilenceSeconds,
+    minTriggerLength: minTriggerLength,
+    interruptStopsGeneration: interruptStopsGeneration,
+    micGain: micGain,
+    synthesisGain: synthesisGain,
+    synthesisSpeed: synthesisSpeed,
+    fallbackReadBody: fallbackReadBody,
   );
 
   SpeechBindings withWakeWords(Iterable<String> words) => (
@@ -300,6 +392,13 @@ extension SpeechBindingSelection on SpeechBindings {
     voiceInterrupt: voiceInterrupt,
     wakeWords: normalizeWakeWords(words),
     idleTimeoutSeconds: idleTimeoutSeconds,
+    sendSilenceSeconds: sendSilenceSeconds,
+    minTriggerLength: minTriggerLength,
+    interruptStopsGeneration: interruptStopsGeneration,
+    micGain: micGain,
+    synthesisGain: synthesisGain,
+    synthesisSpeed: synthesisSpeed,
+    fallbackReadBody: fallbackReadBody,
   );
 
   SpeechBindings withIdleTimeoutSeconds(int seconds) => (
@@ -312,6 +411,146 @@ extension SpeechBindingSelection on SpeechBindings {
     voiceInterrupt: voiceInterrupt,
     wakeWords: wakeWords,
     idleTimeoutSeconds: seconds < 0 ? 0 : seconds,
+    sendSilenceSeconds: sendSilenceSeconds,
+    minTriggerLength: minTriggerLength,
+    interruptStopsGeneration: interruptStopsGeneration,
+    micGain: micGain,
+    synthesisGain: synthesisGain,
+    synthesisSpeed: synthesisSpeed,
+    fallbackReadBody: fallbackReadBody,
+  );
+
+  SpeechBindings withSendSilenceSeconds(double seconds) => (
+    voice: voice,
+    recognitionId: recognitionId,
+    synthesisPaused: synthesisPaused,
+    recognitionPaused: recognitionPaused,
+    autoPlay: autoPlay,
+    continuousRecognition: continuousRecognition,
+    voiceInterrupt: voiceInterrupt,
+    wakeWords: wakeWords,
+    idleTimeoutSeconds: idleTimeoutSeconds,
+    sendSilenceSeconds: clampSpeechSendSilenceSeconds(seconds),
+    minTriggerLength: minTriggerLength,
+    interruptStopsGeneration: interruptStopsGeneration,
+    micGain: micGain,
+    synthesisGain: synthesisGain,
+    synthesisSpeed: synthesisSpeed,
+    fallbackReadBody: fallbackReadBody,
+  );
+
+  SpeechBindings withMinTriggerLength(int length) => (
+    voice: voice,
+    recognitionId: recognitionId,
+    synthesisPaused: synthesisPaused,
+    recognitionPaused: recognitionPaused,
+    autoPlay: autoPlay,
+    continuousRecognition: continuousRecognition,
+    voiceInterrupt: voiceInterrupt,
+    wakeWords: wakeWords,
+    idleTimeoutSeconds: idleTimeoutSeconds,
+    sendSilenceSeconds: sendSilenceSeconds,
+    minTriggerLength: clampSpeechMinTriggerLength(length),
+    interruptStopsGeneration: interruptStopsGeneration,
+    micGain: micGain,
+    synthesisGain: synthesisGain,
+    synthesisSpeed: synthesisSpeed,
+    fallbackReadBody: fallbackReadBody,
+  );
+
+  SpeechBindings withInterruptStopsGeneration(bool enabled) => (
+    voice: voice,
+    recognitionId: recognitionId,
+    synthesisPaused: synthesisPaused,
+    recognitionPaused: recognitionPaused,
+    autoPlay: autoPlay,
+    continuousRecognition: continuousRecognition,
+    voiceInterrupt: voiceInterrupt,
+    wakeWords: wakeWords,
+    idleTimeoutSeconds: idleTimeoutSeconds,
+    sendSilenceSeconds: sendSilenceSeconds,
+    minTriggerLength: minTriggerLength,
+    interruptStopsGeneration: enabled,
+    micGain: micGain,
+    synthesisGain: synthesisGain,
+    synthesisSpeed: synthesisSpeed,
+    fallbackReadBody: fallbackReadBody,
+  );
+
+  SpeechBindings withMicGain(double gain) => (
+    voice: voice,
+    recognitionId: recognitionId,
+    synthesisPaused: synthesisPaused,
+    recognitionPaused: recognitionPaused,
+    autoPlay: autoPlay,
+    continuousRecognition: continuousRecognition,
+    voiceInterrupt: voiceInterrupt,
+    wakeWords: wakeWords,
+    idleTimeoutSeconds: idleTimeoutSeconds,
+    sendSilenceSeconds: sendSilenceSeconds,
+    minTriggerLength: minTriggerLength,
+    interruptStopsGeneration: interruptStopsGeneration,
+    micGain: clampSpeechMicGain(gain),
+    synthesisGain: synthesisGain,
+    synthesisSpeed: synthesisSpeed,
+    fallbackReadBody: fallbackReadBody,
+  );
+
+  SpeechBindings withSynthesisGain(double gain) => (
+    voice: voice,
+    recognitionId: recognitionId,
+    synthesisPaused: synthesisPaused,
+    recognitionPaused: recognitionPaused,
+    autoPlay: autoPlay,
+    continuousRecognition: continuousRecognition,
+    voiceInterrupt: voiceInterrupt,
+    wakeWords: wakeWords,
+    idleTimeoutSeconds: idleTimeoutSeconds,
+    sendSilenceSeconds: sendSilenceSeconds,
+    minTriggerLength: minTriggerLength,
+    interruptStopsGeneration: interruptStopsGeneration,
+    micGain: micGain,
+    synthesisGain: clampSpeechSynthesisGain(gain),
+    synthesisSpeed: synthesisSpeed,
+    fallbackReadBody: fallbackReadBody,
+  );
+
+  SpeechBindings withSynthesisSpeed(double speed) => (
+    voice: voice,
+    recognitionId: recognitionId,
+    synthesisPaused: synthesisPaused,
+    recognitionPaused: recognitionPaused,
+    autoPlay: autoPlay,
+    continuousRecognition: continuousRecognition,
+    voiceInterrupt: voiceInterrupt,
+    wakeWords: wakeWords,
+    idleTimeoutSeconds: idleTimeoutSeconds,
+    sendSilenceSeconds: sendSilenceSeconds,
+    minTriggerLength: minTriggerLength,
+    interruptStopsGeneration: interruptStopsGeneration,
+    micGain: micGain,
+    synthesisGain: synthesisGain,
+    synthesisSpeed: clampSpeechSynthesisSpeed(speed),
+    fallbackReadBody: fallbackReadBody,
+  );
+
+  SpeechBindings withFallbackReadBody(bool enabled) => (
+    voice: voice,
+    recognitionId: recognitionId,
+    synthesisPaused: synthesisPaused,
+    recognitionPaused: recognitionPaused,
+    autoPlay: autoPlay,
+    continuousRecognition: continuousRecognition,
+    voiceInterrupt: voiceInterrupt,
+    wakeWords: wakeWords,
+    idleTimeoutSeconds: idleTimeoutSeconds,
+    sendSilenceSeconds: sendSilenceSeconds,
+    minTriggerLength: minTriggerLength,
+    interruptStopsGeneration: interruptStopsGeneration,
+    micGain: micGain,
+    synthesisGain: synthesisGain,
+    synthesisSpeed: synthesisSpeed,
+    fallbackReadBody: enabled,
   );
 }
 

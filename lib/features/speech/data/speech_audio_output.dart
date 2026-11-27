@@ -32,6 +32,7 @@ class WindowsSpeechAudioOutput implements SpeechAudioOutput {
     var active = AudioPlayer();
     AudioPlayer? standby = AudioPlayer();
     var cancelled = false;
+    var disposed = false;
     var activeCompleted = Completer<void>();
     late StreamSubscription<void> subscription;
 
@@ -51,6 +52,13 @@ class WindowsSpeechAudioOutput implements SpeechAudioOutput {
     attach(active);
     final stopping = cancellation.then((_) {
       cancelled = true;
+      if (disposed) return;
+      unawaited(active.setVolume(0));
+      unawaited(active.pause());
+      unawaited(active.stop());
+      if (standby case final preloaded?) {
+        unawaited(preloaded.setVolume(0));
+      }
       if (!activeCompleted.isCompleted) activeCompleted.complete();
     });
     try {
@@ -75,6 +83,7 @@ class WindowsSpeechAudioOutput implements SpeechAudioOutput {
           Future.wait([playing, activeCompleted.future]),
         ]);
         if (cancelled) {
+          await active.setVolume(0);
           await active.stop();
           await playing;
           break;
@@ -88,6 +97,7 @@ class WindowsSpeechAudioOutput implements SpeechAudioOutput {
         attach(active);
       }
     } finally {
+      disposed = true;
       await queue.cancel();
       await subscription.cancel();
       await active.dispose();

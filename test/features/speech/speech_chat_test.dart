@@ -92,6 +92,7 @@ class _Engine implements SpeechEngine {
   Future<void> recognizeContinuous(
     Directory directory,
     Stream<SpeechAudioChunk> audio, {
+    double silenceSeconds = defaultSpeechSendSilenceSeconds,
     void Function(String)? onPartial,
     required void Function(String) onUtterance,
     required Future<void> cancellation,
@@ -110,6 +111,8 @@ class _Engine implements SpeechEngine {
     Directory directory,
     String text,
     int voice, {
+    double gain = defaultSpeechSynthesisGain,
+    double speed = defaultSpeechSynthesisSpeed,
     Future<void>? cancellation,
   }) async {
     synthesisCalls++;
@@ -125,6 +128,8 @@ class _Engine implements SpeechEngine {
     Directory directory,
     String text,
     int voice, {
+    double gain = defaultSpeechSynthesisGain,
+    double speed = defaultSpeechSynthesisSpeed,
     Future<void>? cancellation,
   }) async* {
     yield await synthesize(
@@ -132,6 +137,8 @@ class _Engine implements SpeechEngine {
       directory,
       text,
       voice,
+      gain: gain,
+      speed: speed,
       cancellation: cancellation,
     );
   }
@@ -217,6 +224,14 @@ void main() {
         matched: true,
         command: '',
       ));
+
+      final samples = Int16List.fromList([1000, -1000, 20000]);
+      final raw = samples.buffer.asUint8List();
+      final boosted = Int16List.view(applySpeechPcmGain(raw, 2.0).buffer);
+      expect(boosted, [2000, -2000, 32767]);
+      final reduced = Int16List.view(applySpeechPcmGain(raw, 0.5).buffer);
+      expect(reduced, [500, -500, 10000]);
+      expect(identical(applySpeechPcmGain(raw, 1.0), raw), isTrue);
     },
   );
 
@@ -604,8 +619,13 @@ void main() {
       tester.getTopLeft(voiceSelect).dy,
       greaterThan(tester.getBottomLeft(voiceDescription).dy),
     );
-    expect(tester.getSize(voiceSelect).width, greaterThanOrEqualTo(220));
+    expect(tester.getSize(voiceSelect).width, greaterThan(100));
+    expect(
+      find.byKey(const ValueKey('speech-agent-voice-preview')),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
+    await tester.ensureVisible(voiceSelect);
     await tester.tap(voiceSelect);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Voice 4').hitTestable());
@@ -798,6 +818,11 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(panel, findsNothing);
+    engine.continuousStarted = Completer<void>();
+    final enableContinuous = find.byKey(const ValueKey('speech-chat-continuous'));
+    await tester.ensureVisible(enableContinuous);
+    await tester.tap(enableContinuous);
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('speech-wake-word-input')),
       '小爱',
@@ -805,11 +830,6 @@ void main() {
     final addWakeWord = find.byKey(const ValueKey('speech-wake-word-add'));
     await tester.ensureVisible(addWakeWord);
     await tester.tap(addWakeWord);
-    await tester.pumpAndSettle();
-    engine.continuousStarted = Completer<void>();
-    final enableContinuous = find.byKey(const ValueKey('speech-chat-continuous'));
-    await tester.ensureVisible(enableContinuous);
-    await tester.tap(enableContinuous);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('speech-recognition-save')));
     await tester.pumpAndSettle();
@@ -847,7 +867,11 @@ void main() {
     await tester.ensureVisible(removeWakeWord);
     await tester.tap(removeWakeWord);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('speech-chat-continuous')));
+    final continuousSwitch = find.byKey(
+      const ValueKey('speech-chat-continuous'),
+    );
+    await tester.ensureVisible(continuousSwitch);
+    await tester.tap(continuousSwitch);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('speech-recognition-save')));
     await tester.pumpAndSettle();
@@ -922,4 +946,178 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
   }, variant: themes);
+
+  testWidgets('streaming speech plays before body completes and card sits above body', (
+    tester,
+  ) async {
+    final microphone = _Microphone();
+    final engine = _Engine();
+    final speaker = _Speaker();
+    final theme = ThemeProvider();
+    final language = LanguageProvider();
+    final split = SplitViewProvider();
+    final shell = AppShellProvider();
+    for (final notifier in [theme, language, split, shell]) {
+      addTearDown(notifier.dispose);
+    }
+
+    final firstChunk = Completer<void>();
+    final finishStream = Completer<void>();
+    final scope = (await tester.runAsync(() async {
+      final scope = await createAssistantTestScope(
+        theme: theme,
+        language: language,
+        shell: shell,
+        splitView: split,
+        client: MockClient.streaming((request, _) async {
+          if (request.url.path.endsWith('/chat/completions')) {
+            final controller = StreamController<List<int>>();
+            controller.add(
+              utf8.encode(
+                'data: {"choices":[{"delta":{"content":"<speech>先说这句。</speech>\\n"}}]}\n\n',
+              ),
+            );
+            unawaited(
+              firstChunk.future.then((_) async {
+                controller.add(
+                  utf8.encode(
+                    'data: {"choices":[{"delta":{"content":"这里是后续很长的正文内容。"}}]}\n\n',
+                  ),
+                );
+                await finishStream.future;
+                controller.add(utf8.encode('data: [DONE]\n\n'));
+                await controller.close();
+              }),
+            );
+            return http.StreamedResponse(
+              controller.stream,
+              200,
+              headers: {'content-type': 'text/event-stream; charset=utf-8'},
+            );
+          }
+          return http.StreamedResponse(const Stream.empty(), 404);
+        }),
+      );
+      addTearDown(scope.dispose);
+      await scope.provider.initialized;
+      await scope.provider.saveService(
+        name: 'Test',
+        protocol: .openAiChatCompletions,
+        baseUrl: 'https://example.test/v1',
+        models: ['test'],
+        apiKey: 'key',
+      );
+      return scope;
+    }))!;
+
+    final speech = (await tester.runAsync(() async {
+      final root = await Directory.systemTemp.createTemp('speech-stream-');
+      addTearDown(() => root.delete(recursive: true));
+      final provider = SpeechProvider(
+        store: SpeechModelStore(
+          directory: Directory(path.join(root.path, 'store')),
+        ),
+        engine: engine,
+        input: microphone,
+        output: speaker,
+      );
+      addTearDown(provider.dispose);
+      await provider.load();
+      final source = await speechArchiveFixture(
+        root,
+        SpeechModelFormat.kokoroMultiLanguage.name,
+        SpeechModelFormat.kokoroMultiLanguage,
+      );
+      expect(await provider.import(source), isNull);
+      return provider;
+    }))!;
+
+    final assistant = scope.provider.forkForWorkspace();
+    addTearDown(assistant.dispose);
+    final tts = speech.library.models.single;
+    assistant.setSpeechBindings(
+      emptySpeechBindings
+          .withVoice((modelId: tts.id, voice: 0))
+          .withAutoPlay(true),
+    );
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: theme),
+          ChangeNotifierProvider.value(value: language),
+          ChangeNotifierProvider.value(value: split),
+          ChangeNotifierProvider.value(value: shell),
+          ChangeNotifierProvider.value(value: assistant),
+          ChangeNotifierProvider.value(value: speech),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const Scaffold(body: AssistantPage()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final sending = assistant.sendMessage('你好');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    for (var i = 0; i < 100 && engine.synthesisCalls == 0; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+    }
+
+    expect(assistant.busy, isTrue);
+    expect(assistant.speechVoice, isNotNull);
+    expect(assistant.speechAutoPlay, isTrue);
+    expect(speech.library.synthesisModel(assistant.speechVoice), isNotNull);
+    expect(assistant.messages.last.content, contains('<speech>先说这句。</speech>'));
+    expect(find.text('先说这句。'), findsOneWidget);
+    expect(
+      find.byKey(ValueKey('ai-voice-card-${assistant.messages.last.id}')),
+      findsOneWidget,
+    );
+    expect(speech.hasPlayback || engine.synthesisCalls == 1, isTrue);
+    expect(engine.synthesisCalls, 1);
+    expect(engine.spoken, '先说这句。');
+
+    firstChunk.complete();
+    for (var i = 0;
+        i < 50 &&
+            !assistant.messages.last.content.contains('这里是后续很长的正文内容');
+        i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    await tester.pump();
+    final cardTop = tester
+        .getTopLeft(
+          find.byKey(ValueKey('ai-voice-card-${assistant.messages.last.id}')),
+        )
+        .dy;
+    final bodyTop = tester
+        .getTopLeft(
+          find
+              .byWidgetPredicate(
+                (widget) => widget.runtimeType.toString() == 'ChatMessageBody',
+              )
+              .last,
+        )
+        .dy;
+    expect(cardTop, lessThan(bodyTop));
+
+    finishStream.complete();
+    for (var i = 0; i < 50 && assistant.busy; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    expect(assistant.busy, isFalse);
+  });
 }

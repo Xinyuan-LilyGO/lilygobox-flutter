@@ -25,7 +25,7 @@ SpeechReplyContent parseSpeechReply(String source) {
       for (final match in completeMatches)
         _plainText(match.group(1) ?? '').trim(),
     ].where((part) => part.isNotEmpty).join('\n');
-    final body = source.replaceAll(_completeSpeechTag, '').trimRight();
+    final body = source.replaceAll(_completeSpeechTag, '').trim();
     return (
       body: body,
       speech: spoken.isEmpty ? null : spoken,
