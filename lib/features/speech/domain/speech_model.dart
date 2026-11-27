@@ -114,8 +114,7 @@ bool isSpeechModelAsset(String relative) {
     return true;
   }
   if (lower.contains('/')) return false;
-  return lower.endsWith('.onnx') ||
-      lower.endsWith('.txt') ||
+  return lower.endsWith('.txt') ||
       lower.endsWith('.bin') ||
       lower.endsWith('.fst');
 }
@@ -332,7 +331,7 @@ class SpeechFailure implements Exception {
 }
 
 class SpeechModel {
-  static const maxBytes = 512 * 1024 * 1024;
+  static const maxBytes = 2 * 1024 * 1024 * 1024;
 
   const SpeechModel({
     required this.id,

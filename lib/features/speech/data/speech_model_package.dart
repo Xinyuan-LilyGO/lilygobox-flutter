@@ -23,7 +23,7 @@ typedef _ModelLocation = ({
 });
 
 abstract final class SpeechModelPackage {
-  static const _archiveBytes = 1024 * 1024 * 1024;
+  static const _archiveBytes = 2 * 1024 * 1024 * 1024;
   static const _entryCount = 4096;
   static const _manifestPath = 'voice-models.json';
   static const _manifestBytes = 64 * 1024;
