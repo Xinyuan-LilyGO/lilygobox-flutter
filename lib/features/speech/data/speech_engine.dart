@@ -38,13 +38,14 @@ class SpeechEngine {
   }
 
   Future<String> recognize(
+    SpeechModelFormat format,
     Directory directory,
     Stream<SpeechAudioChunk> audio, {
     void Function(String)? onPartial,
     required Future<void> cancellation,
   }) async {
     final result = await _invoke(
-      .bilingualZipformer,
+      format,
       directory,
       'recognize',
       const {},
@@ -57,6 +58,7 @@ class SpeechEngine {
   }
 
   Future<void> recognizeContinuous(
+    SpeechModelFormat format,
     Directory directory,
     Stream<SpeechAudioChunk> audio, {
     double silenceSeconds = defaultSpeechSendSilenceSeconds,
@@ -64,7 +66,7 @@ class SpeechEngine {
     required void Function(String) onUtterance,
     required Future<void> cancellation,
   }) => _invoke(
-    .bilingualZipformer,
+    format,
     directory,
     'recognize-continuous',
     {'silenceSeconds': silenceSeconds},

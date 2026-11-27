@@ -3872,6 +3872,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get speechImported => '已导入语音模型。';
 
   @override
+  String speechImportedCount(Object count) {
+    return '已导入 $count 个语音模型。';
+  }
+
+  @override
+  String speechImportBatchPartial(
+    Object detail,
+    Object failed,
+    Object imported,
+  ) {
+    return '已导入 $imported 个语音模型，$failed 个失败：$detail';
+  }
+
+  @override
+  String speechImportBatchFailed(Object detail, Object failed) {
+    return '$failed 个语音模型导入失败：$detail';
+  }
+
+  @override
   String get speechArchiveTypes => '语音模型压缩包（.tar.zst、.tar.bz2）';
 
   @override
@@ -4344,4 +4363,25 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiMemoryFollowChatModel => '跟随当前模型';
+
+  @override
+  String get speechStreamingParaformerCardSubtitle => '语音识别 · 流式 Paraformer';
+
+  @override
+  String get speechSenseVoiceCardSubtitle => '语音识别 · SenseVoice 高精离线';
+
+  @override
+  String speechMatchaCardSubtitle(int voiceCount) {
+    return '语音合成 · Matcha（$voiceCount 种音色）';
+  }
+
+  @override
+  String get speechStreamingParaformerFormat =>
+      '流式 Paraformer（encoder + decoder）';
+
+  @override
+  String get speechSenseVoiceFormat => 'SenseVoice 多语高精识别';
+
+  @override
+  String get speechMatchaFormat => 'Matcha + Vocoder 语音合成';
 }

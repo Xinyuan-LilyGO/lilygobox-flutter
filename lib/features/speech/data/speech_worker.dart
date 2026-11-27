@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:path/path.dart' as path;
@@ -38,30 +39,54 @@ Future<void> runSpeechWorker({String? dllDirectory}) async {
     }
     if (request case {
       'operation': 'recognize-continuous',
-      'format': 'bilingualZipformer',
+      'format': final String formatName,
       'directory': final String directory,
       'partialResults': final bool partialResults,
     }) {
+      final format = SpeechModelFormat.values.byName(formatName);
       final silence = switch (request['silenceSeconds']) {
         final num value => clampSpeechSendSilenceSeconds(value.toDouble()),
         _ => defaultSpeechSendSilenceSeconds,
       };
-      await _recognizeContinuous(
-        directory,
-        input,
-        partialResults,
-        silenceSeconds: silence,
-      );
+      if (format == .senseVoice) {
+        await _recognizeContinuousOffline(
+          directory,
+          format,
+          input,
+          silenceSeconds: silence,
+        );
+      } else {
+        await _recognizeContinuous(
+          directory,
+          format,
+          input,
+          partialResults,
+          silenceSeconds: silence,
+        );
+      }
       exit(0);
     }
     final response = switch (request) {
       {
         'operation': 'recognize',
-        'format': 'bilingualZipformer',
+        'format': final String formatName,
         'directory': final String directory,
         'partialResults': final bool partialResults,
       } =>
-        {'text': await _recognize(directory, input, partialResults)},
+        {
+          'text': SpeechModelFormat.values.byName(formatName) == .senseVoice
+              ? await _recognizeOffline(
+                  directory,
+                  SpeechModelFormat.values.byName(formatName),
+                  input,
+                )
+              : await _recognize(
+                  directory,
+                  SpeechModelFormat.values.byName(formatName),
+                  input,
+                  partialResults,
+                ),
+        },
       _ => _process(request),
     };
     stdout.writeln('$speechWorkerResultPrefix${jsonEncode(response)}');
@@ -80,14 +105,13 @@ Map<String, Object> _process(Object? request) {
   }) {
     final format = SpeechModelFormat.values.byName(formatName);
     return switch ((operation, format, request)) {
-      ('check', .bilingualZipformer, _) => _checkRecognizer(directory),
-      ('check', .chineseVits || .kokoroMultiLanguage, _) => _checkSynthesis(
-        directory,
-        format,
-      ),
+      ('check', .bilingualZipformer || .streamingParaformer || .senseVoice, _) =>
+        _checkRecognizer(directory, format),
+      ('check', .chineseVits || .kokoroMultiLanguage || .matchaZh, _) =>
+        _checkSynthesis(directory, format),
       (
         'synthesize',
-        .chineseVits || .kokoroMultiLanguage,
+        .chineseVits || .kokoroMultiLanguage || .matchaZh,
         {'text': final String text, 'voice': final int voice},
       ) =>
         {
@@ -114,27 +138,56 @@ Map<String, Object> _process(Object? request) {
   throw const FormatException();
 }
 
+ResolvedSpeechModel _resolveInDirectory(
+  String directory,
+  SpeechModelFormat format,
+) {
+  final root = Directory(directory);
+  final relativePaths = <String>[];
+  for (final entity in root.listSync(recursive: true, followLinks: false)) {
+    if (entity is! File) continue;
+    final relative = path.relative(entity.path, from: directory);
+    relativePaths.add(path.split(relative).join('/'));
+  }
+  final resolved = resolveSpeechModelFiles(format, relativePaths);
+  if (resolved == null) throw const FormatException();
+  return resolved;
+}
+
 sherpa.OnlineRecognizer _recognizer(
-  String directory, {
+  String directory,
+  SpeechModelFormat format, {
   bool enableEndpoint = false,
   double sendSilenceSeconds = defaultSpeechSendSilenceSeconds,
 }) {
   final trailingSilence = clampSpeechSendSilenceSeconds(sendSilenceSeconds);
   final idleSilence = (trailingSilence * 2).clamp(1.5, 15.0);
-  final [encoder, decoder, joiner, tokens] =
-      SpeechModelFormat.bilingualZipformer.files;
+  final resolved = _resolveInDirectory(directory, format);
+  final model = switch (format) {
+    .bilingualZipformer => sherpa.OnlineModelConfig(
+      transducer: sherpa.OnlineTransducerModelConfig(
+        encoder: path.join(directory, resolved.encoder!),
+        decoder: path.join(directory, resolved.decoder!),
+        joiner: path.join(directory, resolved.joiner!),
+      ),
+      tokens: path.join(directory, resolved.tokens),
+      numThreads: 2,
+      debug: false,
+    ),
+    .streamingParaformer => sherpa.OnlineModelConfig(
+      paraformer: sherpa.OnlineParaformerModelConfig(
+        encoder: path.join(directory, resolved.encoder!),
+        decoder: path.join(directory, resolved.decoder!),
+      ),
+      tokens: path.join(directory, resolved.tokens),
+      numThreads: 2,
+      debug: false,
+    ),
+    _ => throw const FormatException(),
+  };
   return sherpa.OnlineRecognizer(
     sherpa.OnlineRecognizerConfig(
-      model: sherpa.OnlineModelConfig(
-        transducer: sherpa.OnlineTransducerModelConfig(
-          encoder: path.join(directory, encoder),
-          decoder: path.join(directory, decoder),
-          joiner: path.join(directory, joiner),
-        ),
-        tokens: path.join(directory, tokens),
-        numThreads: 2,
-        debug: false,
-      ),
+      model: model,
       enableEndpoint: enableEndpoint,
       rule1MinTrailingSilence: idleSilence,
       rule2MinTrailingSilence: trailingSilence,
@@ -143,18 +196,49 @@ sherpa.OnlineRecognizer _recognizer(
   );
 }
 
-Map<String, int> _checkRecognizer(String directory) {
-  final recognizer = _recognizer(directory);
+sherpa.OfflineRecognizer _offlineRecognizer(
+  String directory,
+  SpeechModelFormat format,
+) {
+  final resolved = _resolveInDirectory(directory, format);
+  final threads = Platform.numberOfProcessors.clamp(2, 4);
+  return switch (format) {
+    .senseVoice => sherpa.OfflineRecognizer(
+      sherpa.OfflineRecognizerConfig(
+        model: sherpa.OfflineModelConfig(
+          senseVoice: sherpa.OfflineSenseVoiceModelConfig(
+            model: path.join(directory, resolved.model!),
+            language: 'auto',
+            useInverseTextNormalization: true,
+          ),
+          tokens: path.join(directory, resolved.tokens),
+          numThreads: threads,
+          debug: false,
+        ),
+      ),
+    ),
+    _ => throw const FormatException(),
+  };
+}
+
+Map<String, int> _checkRecognizer(String directory, SpeechModelFormat format) {
+  if (format == .senseVoice) {
+    final recognizer = _offlineRecognizer(directory, format);
+    recognizer.free();
+    return {'voices': 0};
+  }
+  final recognizer = _recognizer(directory, format);
   recognizer.free();
   return {'voices': 0};
 }
 
 Future<String> _recognize(
   String directory,
+  SpeechModelFormat format,
   StreamIterator<String> input,
   bool partialResults,
 ) async {
-  final recognizer = _recognizer(directory);
+  final recognizer = _recognizer(directory, format);
   try {
     final stream = recognizer.createStream();
     try {
@@ -222,12 +306,14 @@ Future<String> _recognize(
 
 Future<void> _recognizeContinuous(
   String directory,
+  SpeechModelFormat format,
   StreamIterator<String> input,
   bool partialResults, {
   double silenceSeconds = defaultSpeechSendSilenceSeconds,
 }) async {
   final recognizer = _recognizer(
     directory,
+    format,
     enableEndpoint: true,
     sendSilenceSeconds: silenceSeconds,
   );
@@ -309,6 +395,177 @@ Future<void> _recognizeContinuous(
   }
 }
 
+Future<String> _recognizeOffline(
+  String directory,
+  SpeechModelFormat format,
+  StreamIterator<String> input,
+) async {
+  final recognizer = _offlineRecognizer(directory, format);
+  try {
+    var rate = 0;
+    var frameSize = 0;
+    final chunks = <Float32List>[];
+    var totalSamples = 0;
+    while (await input.moveNext()) {
+      if (jsonDecode(input.current)
+          case {
+            'pcm': final String encoded,
+            'sampleRate': final int sampleRate,
+            'channels': final int channels,
+          }
+          when sampleRate >= 8000 &&
+              sampleRate <= 96000 &&
+              channels >= 1 &&
+              channels <= 2 &&
+              (rate == 0 ||
+                  rate == sampleRate && frameSize == channels * 2)) {
+        rate = sampleRate;
+        frameSize = channels * 2;
+        final pcm = base64Decode(encoded);
+        if (pcm.isEmpty || pcm.length % frameSize != 0) {
+          throw const FormatException();
+        }
+        final samples = _pcmSamples(pcm, frameSize);
+        chunks.add(samples);
+        totalSamples += samples.length;
+      } else {
+        throw const FormatException();
+      }
+    }
+    if (totalSamples == 0) return '';
+    final combined = Float32List(totalSamples);
+    var offset = 0;
+    for (final chunk in chunks) {
+      combined.setRange(offset, offset + chunk.length, chunk);
+      offset += chunk.length;
+    }
+    return _decodeOfflineSegment(recognizer, combined, rate);
+  } finally {
+    recognizer.free();
+  }
+}
+
+Future<void> _recognizeContinuousOffline(
+  String directory,
+  SpeechModelFormat format,
+  StreamIterator<String> input, {
+  double silenceSeconds = defaultSpeechSendSilenceSeconds,
+}) async {
+  final recognizer = _offlineRecognizer(directory, format);
+  final trailingSilence = clampSpeechSendSilenceSeconds(silenceSeconds);
+  try {
+    var rate = 0;
+    var frameSize = 0;
+    final buffer = <Float32List>[];
+    var bufferedSamples = 0;
+    var speechSamples = 0;
+    var silenceSamples = 0;
+    var hasSpeech = false;
+
+    Future<void> flush() async {
+      if (!hasSpeech || bufferedSamples == 0) {
+        buffer.clear();
+        bufferedSamples = 0;
+        speechSamples = 0;
+        silenceSamples = 0;
+        hasSpeech = false;
+        return;
+      }
+      final combined = Float32List(bufferedSamples);
+      var offset = 0;
+      for (final chunk in buffer) {
+        combined.setRange(offset, offset + chunk.length, chunk);
+        offset += chunk.length;
+      }
+      buffer.clear();
+      bufferedSamples = 0;
+      speechSamples = 0;
+      silenceSamples = 0;
+      hasSpeech = false;
+      final text = _decodeOfflineSegment(recognizer, combined, rate);
+      if (text.isNotEmpty) {
+        stdout.writeln(
+          '$speechWorkerResultPrefix${jsonEncode({'utterance': text})}',
+        );
+        await stdout.flush();
+      }
+    }
+
+    while (await input.moveNext()) {
+      if (jsonDecode(input.current)
+          case {
+            'pcm': final String encoded,
+            'sampleRate': final int sampleRate,
+            'channels': final int channels,
+          }
+          when sampleRate >= 8000 &&
+              sampleRate <= 96000 &&
+              channels >= 1 &&
+              channels <= 2 &&
+              (rate == 0 ||
+                  rate == sampleRate && frameSize == channels * 2)) {
+        rate = sampleRate;
+        frameSize = channels * 2;
+        final pcm = base64Decode(encoded);
+        if (pcm.isEmpty || pcm.length % frameSize != 0) {
+          throw const FormatException();
+        }
+        final samples = _pcmSamples(pcm, frameSize);
+        var sumSq = 0.0;
+        for (var i = 0; i < samples.length; i++) {
+          sumSq += samples[i] * samples[i];
+        }
+        final rms = math.sqrt(sumSq / samples.length);
+        if (rms >= 0.012) {
+          hasSpeech = true;
+          silenceSamples = 0;
+          speechSamples += samples.length;
+          buffer.add(samples);
+          bufferedSamples += samples.length;
+        } else if (hasSpeech) {
+          silenceSamples += samples.length;
+          buffer.add(samples);
+          bufferedSamples += samples.length;
+          if (silenceSamples >= (rate * trailingSilence).round() ||
+              bufferedSamples >= rate * 25) {
+            await flush();
+          }
+        } else {
+          // 保留最近 0.25 秒前置音频，避免吞掉首字。
+          buffer.add(samples);
+          bufferedSamples += samples.length;
+          while (buffer.length > 1 && bufferedSamples > rate ~/ 4) {
+            bufferedSamples -= buffer.removeAt(0).length;
+          }
+        }
+        if (speechSamples >= rate * 25) {
+          await flush();
+        }
+      } else {
+        throw const FormatException();
+      }
+    }
+    await flush();
+  } finally {
+    recognizer.free();
+  }
+}
+
+String _decodeOfflineSegment(
+  sherpa.OfflineRecognizer recognizer,
+  Float32List samples,
+  int sampleRate,
+) {
+  final stream = recognizer.createStream();
+  try {
+    stream.acceptWaveform(samples: samples, sampleRate: sampleRate);
+    recognizer.decode(stream);
+    return recognizer.getResult(stream).text.trim();
+  } finally {
+    stream.free();
+  }
+}
+
 Float32List _pcmSamples(Uint8List pcm, int frameSize) {
   final input = ByteData.sublistView(pcm);
   final samples = Float32List(pcm.length ~/ frameSize);
@@ -324,43 +581,50 @@ Float32List _pcmSamples(Uint8List pcm, int frameSize) {
 
 sherpa.OfflineTts _synthesizer(String directory, SpeechModelFormat format) {
   String modelFile(String name) => path.join(directory, name);
+  final resolved = _resolveInDirectory(directory, format);
   final threads = Platform.numberOfProcessors.clamp(2, 6);
   final model = switch (format) {
     .chineseVits => sherpa.OfflineTtsModelConfig(
       vits: sherpa.OfflineTtsVitsModelConfig(
-        model: modelFile('model.onnx'),
-        lexicon: modelFile('lexicon.txt'),
-        tokens: modelFile('tokens.txt'),
-        dictDir: modelFile('dict'),
+        model: modelFile(resolved.model!),
+        lexicon: resolved.lexicons.isNotEmpty
+            ? modelFile(resolved.lexicons.first)
+            : '',
+        tokens: modelFile(resolved.tokens),
+        dictDir: resolved.dictDir != null ? modelFile(resolved.dictDir!) : '',
       ),
       numThreads: threads,
       debug: false,
     ),
     .kokoroMultiLanguage => sherpa.OfflineTtsModelConfig(
       kokoro: sherpa.OfflineTtsKokoroModelConfig(
-        model: modelFile('model.onnx'),
-        voices: modelFile('voices.bin'),
-        tokens: modelFile('tokens.txt'),
-        dataDir: modelFile('espeak-ng-data'),
-        lexicon: [
-          modelFile('lexicon-us-en.txt'),
-          modelFile('lexicon-zh.txt'),
-        ].join(','),
+        model: modelFile(resolved.model!),
+        voices: modelFile(resolved.voices!),
+        tokens: modelFile(resolved.tokens),
+        dataDir: resolved.dataDir != null ? modelFile(resolved.dataDir!) : '',
+        lexicon: resolved.lexicons.map(modelFile).join(','),
       ),
       numThreads: threads,
       debug: false,
     ),
-    .bilingualZipformer => throw const FormatException(),
-  };
-  final rules = switch (format) {
-    .chineseVits => ['phone.fst', 'date.fst', 'number.fst'],
-    .kokoroMultiLanguage => ['phone-zh.fst', 'date-zh.fst', 'number-zh.fst'],
-    .bilingualZipformer => throw const FormatException(),
+    .matchaZh => sherpa.OfflineTtsModelConfig(
+      matcha: sherpa.OfflineTtsMatchaModelConfig(
+        acousticModel: modelFile(resolved.model!),
+        vocoder: modelFile(resolved.vocoder!),
+        lexicon: resolved.lexicons.map(modelFile).join(','),
+        tokens: modelFile(resolved.tokens),
+        dictDir: resolved.dictDir != null ? modelFile(resolved.dictDir!) : '',
+      ),
+      numThreads: threads,
+      debug: false,
+    ),
+    .bilingualZipformer || .streamingParaformer || .senseVoice =>
+      throw const FormatException(),
   };
   return sherpa.OfflineTts(
     sherpa.OfflineTtsConfig(
       model: model,
-      ruleFsts: rules.map(modelFile).join(','),
+      ruleFsts: resolved.ruleFsts.map(modelFile).join(','),
     ),
   );
 }

@@ -1658,6 +1658,9 @@
   "speechLibraryDescription": "本地模型包 · .tar.zst / .tar.bz2",
   "speechImport": "导入模型",
   "speechImported": "已导入语音模型。",
+  "speechImportedCount": "已导入 {count} 个语音模型。",
+  "speechImportBatchPartial": "已导入 {imported} 个语音模型，{failed} 个失败：{detail}",
+  "speechImportBatchFailed": "{failed} 个语音模型导入失败：{detail}",
   "speechArchiveTypes": "语音模型压缩包（.tar.zst、.tar.bz2）",
   "speechZstdType": "语音模型包（.tar.zst）",
   "speechExport": "导出模型包",
@@ -1830,5 +1833,12 @@
   "@aiMemorySavedCount": {"placeholders": {"count": {"type": "int"}}},
   "aiMemoryEnabledState": "已开启",
   "aiMemoryDisabledState": "已关闭",
-  "aiMemoryFollowChatModel": "跟随当前模型"
+  "aiMemoryFollowChatModel": "跟随当前模型",
+  "speechStreamingParaformerCardSubtitle": "语音识别 · 流式 Paraformer",
+  "speechSenseVoiceCardSubtitle": "语音识别 · SenseVoice 高精离线",
+  "speechMatchaCardSubtitle": "语音合成 · Matcha（{voiceCount} 种音色）",
+  "@speechMatchaCardSubtitle": {"placeholders": {"voiceCount": {"type": "int"}}},
+  "speechStreamingParaformerFormat": "流式 Paraformer（encoder + decoder）",
+  "speechSenseVoiceFormat": "SenseVoice 多语高精识别",
+  "speechMatchaFormat": "Matcha + Vocoder 语音合成"
 }

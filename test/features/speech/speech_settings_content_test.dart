@@ -42,6 +42,7 @@ class _Engine implements SpeechEngine {
 
   @override
   Future<String> recognize(
+    SpeechModelFormat format,
     Directory directory,
     Stream<SpeechAudioChunk> audio, {
     void Function(String)? onPartial,
@@ -59,6 +60,8 @@ class _Engine implements SpeechEngine {
     Directory directory,
     String text,
     int voice, {
+    double speed = 1.0,
+    double gain = 1.0,
     Future<void>? cancellation,
   }) async {
     previewVoice = voice;
@@ -71,6 +74,8 @@ class _Engine implements SpeechEngine {
     Directory directory,
     String text,
     int voice, {
+    double speed = 1.0,
+    double gain = 1.0,
     Future<void>? cancellation,
   }) async* {
     yield await synthesize(
@@ -78,6 +83,8 @@ class _Engine implements SpeechEngine {
       directory,
       text,
       voice,
+      speed: speed,
+      gain: gain,
       cancellation: cancellation,
     );
   }
@@ -93,8 +100,10 @@ class _Engine implements SpeechEngine {
 
   @override
   Future<void> recognizeContinuous(
+    SpeechModelFormat format,
     Directory directory,
     Stream<SpeechAudioChunk> audio, {
+    double silenceSeconds = defaultSpeechSendSilenceSeconds,
     void Function(String)? onPartial,
     required void Function(String) onUtterance,
     required Future<void> cancellation,

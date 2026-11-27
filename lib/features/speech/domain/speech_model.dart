@@ -47,13 +47,267 @@ enum SpeechModelFormat {
     'espeak-ng-data/intonations',
     'espeak-ng-data/en_dict',
     'espeak-ng-data/lang/gmw/en-US',
-  ], resourceDirectory: 'espeak-ng-data');
+  ], resourceDirectory: 'espeak-ng-data'),
+  streamingParaformer(SpeechModelKind.recognition, [
+    'encoder.int8.onnx',
+    'decoder.int8.onnx',
+    'tokens.txt',
+  ]),
+  senseVoice(SpeechModelKind.recognition, [
+    'model.int8.onnx',
+    'tokens.txt',
+  ]),
+  matchaZh(SpeechModelKind.synthesis, [
+    'model-steps-3.onnx',
+    'vocos-22khz-univ.onnx',
+    'tokens.txt',
+    'lexicon.txt',
+  ]);
 
   const SpeechModelFormat(this.kind, this.files, {this.resourceDirectory});
 
   final SpeechModelKind kind;
   final List<String> files;
   final String? resourceDirectory;
+}
+
+class ResolvedSpeechModel {
+  const ResolvedSpeechModel({
+    required this.requiredFiles,
+    this.encoder,
+    this.decoder,
+    this.joiner,
+    this.model,
+    this.vocoder,
+    this.voices,
+    required this.tokens,
+    this.lexicons = const [],
+    this.ruleFsts = const [],
+    this.dictDir,
+    this.dataDir,
+  });
+
+  final List<String> requiredFiles;
+  final String? encoder;
+  final String? decoder;
+  final String? joiner;
+  final String? model;
+  final String? vocoder;
+  final String? voices;
+  final String tokens;
+  final List<String> lexicons;
+  final List<String> ruleFsts;
+  final String? dictDir;
+  final String? dataDir;
+}
+
+String? _pickOnnx(Iterable<String> files, bool Function(String lower) match) {
+  final hits = files.where((f) => match(f.toLowerCase())).toList()..sort();
+  if (hits.isEmpty) return null;
+  return hits.where((f) => f.toLowerCase().endsWith('.int8.onnx')).firstOrNull ??
+      hits.first;
+}
+
+bool isSpeechModelAsset(String relative) {
+  final lower = relative.toLowerCase();
+  if (lower.startsWith('dict/') || lower.startsWith('espeak-ng-data/')) {
+    return true;
+  }
+  if (lower.contains('/')) return false;
+  return lower.endsWith('.onnx') ||
+      lower.endsWith('.txt') ||
+      lower.endsWith('.bin') ||
+      lower.endsWith('.fst');
+}
+
+SpeechModelFormat? detectSpeechModelFormat(Iterable<String> relativePaths) {
+  final paths = relativePaths.toSet();
+  final topLevel = paths.where((p) => !p.contains('/')).toList();
+  final onnx = topLevel.where((f) => f.toLowerCase().endsWith('.onnx')).toList();
+  if (onnx.isEmpty) return null;
+
+  final hasVoices = topLevel.any((f) => f.toLowerCase() == 'voices.bin');
+  final hasLexicon = topLevel.any(
+    (f) => f.toLowerCase().startsWith('lexicon') && f.toLowerCase().endsWith('.txt'),
+  );
+  final hasDict = paths.any((p) => p.toLowerCase().startsWith('dict/'));
+  final modelOnnx = _pickOnnx(
+    onnx,
+    (f) => f.contains('model') && !f.contains('vocos') && !f.contains('vocoder'),
+  );
+
+  // 1. TTS: Kokoro
+  if (hasVoices && modelOnnx != null) {
+    return SpeechModelFormat.kokoroMultiLanguage;
+  }
+  // 2. TTS: Matcha + Vocoder
+  final vocoder = _pickOnnx(
+    onnx,
+    (f) => f.contains('vocos') || f.contains('vocoder'),
+  );
+  final hasMatchaAcoustic = onnx.any((f) => f.toLowerCase().contains('model-steps'));
+  if ((vocoder != null || hasMatchaAcoustic) && hasLexicon) {
+    final acoustic = _pickOnnx(
+      onnx,
+      (f) => f != vocoder?.toLowerCase() && !f.contains('vocos') && !f.contains('vocoder'),
+    );
+    if (acoustic != null) return SpeechModelFormat.matchaZh;
+  }
+  // 3. ASR: Streaming Zipformer (encoder + decoder + joiner)
+  final encoder = _pickOnnx(onnx, (f) => f.contains('encoder'));
+  final decoder = _pickOnnx(onnx, (f) => f.contains('decoder'));
+  final joiner = _pickOnnx(onnx, (f) => f.contains('joiner'));
+  if (encoder != null && decoder != null && joiner != null) {
+    return SpeechModelFormat.bilingualZipformer;
+  }
+  // 4. ASR: Streaming Paraformer (encoder + decoder, no joiner)
+  if (encoder != null && decoder != null) {
+    return SpeechModelFormat.streamingParaformer;
+  }
+  // 5. TTS: General VITS (lexicon or dict/ + single onnx)
+  if (hasLexicon || hasDict) {
+    final vitsModel =
+        modelOnnx ??
+        _pickOnnx(
+          onnx,
+          (f) => !f.contains('encoder') && !f.contains('decoder') && !f.contains('joiner'),
+        );
+    if (vitsModel != null) return SpeechModelFormat.chineseVits;
+  }
+  // 6. ASR: SenseVoice (single model*.onnx + tokens.txt, no lexicon/voices)
+  if (modelOnnx != null) {
+    return SpeechModelFormat.senseVoice;
+  }
+  return null;
+}
+
+ResolvedSpeechModel? resolveSpeechModelFiles(
+  SpeechModelFormat format,
+  Iterable<String> relativePaths,
+) {
+  final paths = relativePaths.toSet();
+  final topLevel = paths.where((p) => !p.contains('/')).toList()..sort();
+  final tokens =
+      topLevel.where((f) => f.toLowerCase() == 'tokens.txt').firstOrNull ??
+      topLevel.where((f) => f.toLowerCase().endsWith('tokens.txt')).firstOrNull;
+  if (tokens == null) return null;
+  final onnx = topLevel.where((f) => f.toLowerCase().endsWith('.onnx')).toList();
+  final lexicons = topLevel
+      .where(
+        (f) =>
+            f.toLowerCase().startsWith('lexicon') &&
+            f.toLowerCase().endsWith('.txt'),
+      )
+      .toList()
+    ..sort();
+  final ruleFsts = topLevel
+      .where((f) => f.toLowerCase().endsWith('.fst'))
+      .toList()
+    ..sort();
+  final dictDir = paths.any((p) => p.toLowerCase().startsWith('dict/'))
+      ? 'dict'
+      : null;
+  final dataDir = paths.any((p) => p.toLowerCase().startsWith('espeak-ng-data/'))
+      ? 'espeak-ng-data'
+      : null;
+
+  switch (format) {
+    case SpeechModelFormat.bilingualZipformer:
+      final encoder = _pickOnnx(onnx, (f) => f.contains('encoder'));
+      final decoder = _pickOnnx(onnx, (f) => f.contains('decoder'));
+      final joiner = _pickOnnx(onnx, (f) => f.contains('joiner'));
+      if (encoder == null || decoder == null || joiner == null) return null;
+      return ResolvedSpeechModel(
+        requiredFiles: [encoder, decoder, joiner, tokens],
+        encoder: encoder,
+        decoder: decoder,
+        joiner: joiner,
+        tokens: tokens,
+      );
+    case SpeechModelFormat.streamingParaformer:
+      final encoder = _pickOnnx(onnx, (f) => f.contains('encoder'));
+      final decoder = _pickOnnx(onnx, (f) => f.contains('decoder'));
+      if (encoder == null || decoder == null) return null;
+      return ResolvedSpeechModel(
+        requiredFiles: [encoder, decoder, tokens],
+        encoder: encoder,
+        decoder: decoder,
+        tokens: tokens,
+      );
+    case SpeechModelFormat.senseVoice:
+      final model = _pickOnnx(
+        onnx,
+        (f) =>
+            f.contains('model') &&
+            !f.contains('encoder') &&
+            !f.contains('decoder') &&
+            !f.contains('joiner'),
+      );
+      if (model == null) return null;
+      return ResolvedSpeechModel(
+        requiredFiles: [model, tokens],
+        model: model,
+        tokens: tokens,
+      );
+    case SpeechModelFormat.chineseVits:
+      final model =
+          _pickOnnx(onnx, (f) => f.contains('model')) ??
+          _pickOnnx(
+            onnx,
+            (f) =>
+                !f.contains('encoder') &&
+                !f.contains('decoder') &&
+                !f.contains('joiner'),
+          );
+      if (model == null) return null;
+      return ResolvedSpeechModel(
+        requiredFiles: [model, tokens, if (lexicons.isNotEmpty) lexicons.first],
+        model: model,
+        tokens: tokens,
+        lexicons: lexicons,
+        ruleFsts: ruleFsts,
+        dictDir: dictDir,
+      );
+    case SpeechModelFormat.kokoroMultiLanguage:
+      final model = _pickOnnx(onnx, (f) => f.contains('model'));
+      final voices =
+          topLevel.where((f) => f.toLowerCase() == 'voices.bin').firstOrNull;
+      final phondata = paths
+          .where((p) => p.toLowerCase() == 'espeak-ng-data/phondata')
+          .firstOrNull;
+      if (model == null || voices == null || phondata == null) return null;
+      return ResolvedSpeechModel(
+        requiredFiles: [model, voices, tokens, phondata],
+        model: model,
+        voices: voices,
+        tokens: tokens,
+        lexicons: lexicons,
+        ruleFsts: ruleFsts,
+        dataDir: dataDir,
+      );
+    case SpeechModelFormat.matchaZh:
+      final vocoder = _pickOnnx(
+        onnx,
+        (f) => f.contains('vocos') || f.contains('vocoder'),
+      );
+      final acoustic = _pickOnnx(
+        onnx,
+        (f) =>
+            f != vocoder?.toLowerCase() &&
+            !f.contains('vocos') &&
+            !f.contains('vocoder'),
+      );
+      if (acoustic == null || vocoder == null || lexicons.isEmpty) return null;
+      return ResolvedSpeechModel(
+        requiredFiles: [acoustic, vocoder, tokens, lexicons.first],
+        model: acoustic,
+        vocoder: vocoder,
+        tokens: tokens,
+        lexicons: lexicons,
+        ruleFsts: ruleFsts,
+        dictDir: dictDir,
+      );
+  }
 }
 
 enum SpeechFailureReason {

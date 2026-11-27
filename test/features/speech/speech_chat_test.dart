@@ -75,6 +75,7 @@ class _Engine implements SpeechEngine {
 
   @override
   Future<String> recognize(
+    SpeechModelFormat format,
     Directory directory,
     Stream<SpeechAudioChunk> audio, {
     void Function(String)? onPartial,
@@ -92,6 +93,7 @@ class _Engine implements SpeechEngine {
 
   @override
   Future<void> recognizeContinuous(
+    SpeechModelFormat format,
     Directory directory,
     Stream<SpeechAudioChunk> audio, {
     double silenceSeconds = defaultSpeechSendSilenceSeconds,

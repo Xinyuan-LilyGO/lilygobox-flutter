@@ -34,7 +34,7 @@ class WindowsSpeechAudioInput implements SpeechAudioInput {
     String? captureDeviceId,
     String? playbackDeviceId,
   }) async {
-    final recorder = AudioRecorder();
+    AudioRecorder? recorder;
     var capturedBytes = 0;
     final closed = Completer<bool>();
     StreamSubscription<Uint8List>? subscription;
@@ -43,9 +43,6 @@ class WindowsSpeechAudioInput implements SpeechAudioInput {
     Timer? limit;
     var stopping = false;
     try {
-      if (!await recorder.hasPermission(request: false)) {
-        throw const SpeechFailure(.microphone);
-      }
       if (captureDeviceId != null &&
           captureDeviceId.isNotEmpty &&
           !WebRtcAec3Library.listAudioDevices(
@@ -117,8 +114,11 @@ class WindowsSpeechAudioInput implements SpeechAudioInput {
         } finally {
           limit?.cancel();
           aec3.close();
-          await recorder.dispose();
         }
+      }
+      recorder = AudioRecorder();
+      if (!await recorder.hasPermission(request: false)) {
+        throw const SpeechFailure(.microphone);
       }
       await recorder.setOnConfigChanged((config) {
         if (capturedBytes != 0 &&
@@ -185,7 +185,7 @@ class WindowsSpeechAudioInput implements SpeechAudioInput {
     } finally {
       limit?.cancel();
       await subscription?.cancel();
-      await recorder.dispose();
+      await recorder?.dispose();
     }
   }
 }

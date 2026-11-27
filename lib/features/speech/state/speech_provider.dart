@@ -582,6 +582,7 @@ class SpeechProvider extends ChangeNotifier {
 
       final recording = record();
       final recognition = _engine.recognize(
+        selected.format,
         directory,
         audio.stream,
         cancellation: Future.any<void>([
@@ -728,6 +729,7 @@ class SpeechProvider extends ChangeNotifier {
 
       final recording = record();
       final recognition = _engine.recognizeContinuous(
+        selected.format,
         directory,
         audio.stream,
         silenceSeconds: silenceSeconds,

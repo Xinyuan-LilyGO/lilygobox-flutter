@@ -290,7 +290,9 @@ class _SpeechModelDialogState extends State<SpeechModelDialog> {
                       liveRegion: true,
                       child: Text(
                         speechErrorLabel(l10n, error),
-                        style: AppDialogStyle.descriptionStyle(theme),
+                        style: AppDialogStyle.descriptionStyle(
+                          theme,
+                        ).copyWith(color: Theme.of(context).colorScheme.error),
                       ),
                     ),
                 ],

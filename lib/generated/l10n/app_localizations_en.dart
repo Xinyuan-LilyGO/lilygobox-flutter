@@ -4170,6 +4170,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get speechImported => 'Voice models imported.';
 
   @override
+  String speechImportedCount(Object count) {
+    return 'Imported $count voice models.';
+  }
+
+  @override
+  String speechImportBatchPartial(
+    Object detail,
+    Object failed,
+    Object imported,
+  ) {
+    return 'Imported $imported voice models; $failed failed: $detail';
+  }
+
+  @override
+  String speechImportBatchFailed(Object detail, Object failed) {
+    return 'Failed to import $failed voice models: $detail';
+  }
+
+  @override
   String get speechArchiveTypes => 'Voice model archives (.tar.zst, .tar.bz2)';
 
   @override
@@ -4691,4 +4710,26 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiMemoryFollowChatModel => 'Current model';
+
+  @override
+  String get speechStreamingParaformerCardSubtitle =>
+      'Recognition · Streaming Paraformer';
+
+  @override
+  String get speechSenseVoiceCardSubtitle => 'Recognition · SenseVoice Offline';
+
+  @override
+  String speechMatchaCardSubtitle(int voiceCount) {
+    return 'Synthesis · Matcha ($voiceCount voices)';
+  }
+
+  @override
+  String get speechStreamingParaformerFormat =>
+      'Streaming Paraformer (encoder + decoder)';
+
+  @override
+  String get speechSenseVoiceFormat => 'SenseVoice Multi-language ASR';
+
+  @override
+  String get speechMatchaFormat => 'Matcha + Vocoder TTS';
 }

@@ -2061,6 +2061,9 @@
   "speechLibraryDescription": "Local model packages · .tar.zst / .tar.bz2",
   "speechImport": "Import model",
   "speechImported": "Voice models imported.",
+  "speechImportedCount": "Imported {count} voice models.",
+  "speechImportBatchPartial": "Imported {imported} voice models; {failed} failed: {detail}",
+  "speechImportBatchFailed": "Failed to import {failed} voice models: {detail}",
   "speechArchiveTypes": "Voice model archives (.tar.zst, .tar.bz2)",
   "speechZstdType": "Voice model archive (.tar.zst)",
   "speechExport": "Export model package",
@@ -2248,5 +2251,12 @@
   "@aiMemorySavedCount": {"placeholders": {"count": {"type": "int"}}},
   "aiMemoryEnabledState": "On",
   "aiMemoryDisabledState": "Off",
-  "aiMemoryFollowChatModel": "Current model"
+  "aiMemoryFollowChatModel": "Current model",
+  "speechStreamingParaformerCardSubtitle": "Recognition · Streaming Paraformer",
+  "speechSenseVoiceCardSubtitle": "Recognition · SenseVoice Offline",
+  "speechMatchaCardSubtitle": "Synthesis · Matcha ({voiceCount} voices)",
+  "@speechMatchaCardSubtitle": {"placeholders": {"voiceCount": {"type": "int"}}},
+  "speechStreamingParaformerFormat": "Streaming Paraformer (encoder + decoder)",
+  "speechSenseVoiceFormat": "SenseVoice Multi-language ASR",
+  "speechMatchaFormat": "Matcha + Vocoder TTS"
 }

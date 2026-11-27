@@ -241,7 +241,7 @@ class _SpeechSettingsContentState extends State<SpeechSettingsContent> {
     final l10n = context.l10n;
     setState(() => _pickingFile = true);
     try {
-      final source = await openFile(
+      final sources = await openFiles(
         acceptedTypeGroups: [
           XTypeGroup(
             label: l10n.speechArchiveTypes,
@@ -254,15 +254,58 @@ class _SpeechSettingsContentState extends State<SpeechSettingsContent> {
           ),
         ],
       );
-      if (source == null || !mounted) return;
-      await _report(
-        showLibraryTransferProgress(
-          context: context,
-          theme: theme,
-          work: (transfer) => speech.import(source.path, transfer: transfer),
-        ),
-        success: l10n.speechImported,
+      if (sources.isEmpty || !mounted) return;
+      if (sources.length == 1) {
+        await _report(
+          showLibraryTransferProgress(
+            context: context,
+            theme: theme,
+            work: (transfer) =>
+                speech.import(sources.single.path, transfer: transfer),
+          ),
+          success: l10n.speechImported,
+        );
+        return;
+      }
+      final summary = await showLibraryTransferProgress(
+        context: context,
+        theme: theme,
+        work: (transfer) async {
+          var imported = 0;
+          var failed = 0;
+          SpeechFailureReason? firstError;
+          for (final source in sources) {
+            transfer.check();
+            final error = await speech.import(source.path, transfer: transfer);
+            if (error == null) {
+              imported++;
+            } else {
+              failed++;
+              firstError ??= error;
+            }
+          }
+          return (imported: imported, failed: failed, firstError: firstError);
+        },
       );
+      if (!mounted) return;
+      if (summary.failed == 0) {
+        _notice(l10n.speechImportedCount(summary.imported));
+      } else if (summary.imported == 0) {
+        final detail = speechErrorLabel(l10n, summary.firstError!);
+        _notice(
+          summary.failed == 1
+              ? detail
+              : l10n.speechImportBatchFailed(summary.failed, detail),
+        );
+      } else {
+        _notice(
+          l10n.speechImportBatchPartial(
+            summary.imported,
+            summary.failed,
+            speechErrorLabel(l10n, summary.firstError!),
+          ),
+        );
+      }
     } on PackageCancelled {
       if (mounted) _notice(l10n.agentStorageTransferCancelled);
     } catch (_) {

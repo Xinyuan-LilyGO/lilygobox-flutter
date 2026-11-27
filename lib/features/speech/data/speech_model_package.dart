@@ -286,18 +286,19 @@ abstract final class SpeechModelPackage {
     Map<String, tar.ArchiveFile> entries,
     String name,
   ) {
+    final prefixes = <String>{};
+    for (final entry in entries.keys) {
+      final slash = entry.indexOf('/');
+      prefixes.add(slash < 0 ? '' : '${entry.substring(0, slash)}/');
+    }
     final candidates = [
-      for (final format in SpeechModelFormat.values)
-        for (final entry in entries.keys)
-          if (path.posix.basename(entry) == format.files.first)
-            if (_upstreamFormatMatches(format, entries, entry))
-              (
-                format: format,
-                prefix: entry.substring(
-                  0,
-                  entry.length - format.files.first.length,
-                ),
-              ),
+      for (final prefix in prefixes)
+        if (detectSpeechModelFormat([
+              for (final entry in entries.keys)
+                if (entry.startsWith(prefix)) entry.substring(prefix.length),
+            ])
+            case final format?)
+          (format: format, prefix: prefix),
     ];
     if (candidates case [final candidate]) {
       final (:format, :prefix) = candidate;
@@ -316,20 +317,6 @@ abstract final class SpeechModelPackage {
     throw const SpeechFailure(.unsupportedModel);
   }
 
-  static bool _upstreamFormatMatches(
-    SpeechModelFormat format,
-    Map<String, tar.ArchiveFile> entries,
-    String entry,
-  ) {
-    if (format.kind != .synthesis) return true;
-    final prefix = entry.substring(0, entry.length - format.files.first.length);
-    final isKokoro =
-        entries.containsKey('${prefix}voices.bin') ||
-        entries.containsKey('${prefix}lexicon-us-en.txt') ||
-        entries.containsKey('${prefix}lexicon-zh.txt');
-    return isKokoro == (format == .kokoroMultiLanguage);
-  }
-
   static Future<SpeechPackageModel> _writeModel(
     Map<String, tar.ArchiveFile> entries,
     String modelPath,
@@ -337,20 +324,23 @@ abstract final class SpeechModelPackage {
     PackageTransfer transfer,
   ) async {
     final (:format, :name, :prefix) = location;
-    final resourceDirectory = format.resourceDirectory;
+    final relativePaths = [
+      for (final entry in entries.keys)
+        if (entry.startsWith(prefix)) entry.substring(prefix.length),
+    ];
+    final resolved = resolveSpeechModelFiles(format, relativePaths);
+    if (resolved == null) throw const SpeechFailure(.missingFiles);
+    final requiredSet = resolved.requiredFiles.toSet();
     final files = {
-      ...format.files,
-      if (resourceDirectory != null)
-        for (final entry in entries.keys)
-          if (entry.startsWith('$prefix$resourceDirectory/'))
-            entry.substring(prefix.length),
+      ...requiredSet,
+      for (final relative in relativePaths)
+        if (isSpeechModelAsset(relative)) relative,
     };
-    if (resourceDirectory != null) _checkResourcePaths(files);
+    _checkResourcePaths(files);
     var bytes = 0;
     for (final relative in files) {
       final entry = entries['$prefix$relative'];
-      if (entry == null ||
-          (entry.size <= 0 && format.files.contains(relative))) {
+      if (entry == null || (entry.size <= 0 && requiredSet.contains(relative))) {
         throw const SpeechFailure(.missingFiles);
       }
       bytes += entry.size;

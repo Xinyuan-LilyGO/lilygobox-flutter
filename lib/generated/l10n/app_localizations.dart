@@ -7224,6 +7224,28 @@ abstract class AppLocalizations {
   /// **'Voice models imported.'**
   String get speechImported;
 
+  /// No description provided for @speechImportedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported {count} voice models.'**
+  String speechImportedCount(Object count);
+
+  /// No description provided for @speechImportBatchPartial.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported {imported} voice models; {failed} failed: {detail}'**
+  String speechImportBatchPartial(
+    Object detail,
+    Object failed,
+    Object imported,
+  );
+
+  /// No description provided for @speechImportBatchFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to import {failed} voice models: {detail}'**
+  String speechImportBatchFailed(Object detail, Object failed);
+
   /// No description provided for @speechArchiveTypes.
   ///
   /// In en, this message translates to:
@@ -8099,6 +8121,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Current model'**
   String get aiMemoryFollowChatModel;
+
+  /// No description provided for @speechStreamingParaformerCardSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recognition · Streaming Paraformer'**
+  String get speechStreamingParaformerCardSubtitle;
+
+  /// No description provided for @speechSenseVoiceCardSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recognition · SenseVoice Offline'**
+  String get speechSenseVoiceCardSubtitle;
+
+  /// No description provided for @speechMatchaCardSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Synthesis · Matcha ({voiceCount} voices)'**
+  String speechMatchaCardSubtitle(int voiceCount);
+
+  /// No description provided for @speechStreamingParaformerFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Streaming Paraformer (encoder + decoder)'**
+  String get speechStreamingParaformerFormat;
+
+  /// No description provided for @speechSenseVoiceFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'SenseVoice Multi-language ASR'**
+  String get speechSenseVoiceFormat;
+
+  /// No description provided for @speechMatchaFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Matcha + Vocoder TTS'**
+  String get speechMatchaFormat;
 }
 
 class _AppLocalizationsDelegate

@@ -411,47 +411,33 @@ class SpeechModelStore {
       files[relative] = file;
     }
 
-    for (final relative in format.files) {
-      await addFile(
-        relative,
-        await _checkedFile(directory, relative),
-        required: true,
-      );
-    }
-    if (format.resourceDirectory case final resourceDirectory?) {
-      final extraFiles = <String, File>{};
-      final resources = Directory(path.join(directory.path, resourceDirectory));
-      await for (final entity in resources.list(
-        recursive: true,
-        followLinks: false,
-      )) {
-        if (entity is Directory) continue;
-        if (entity is! File || await _type(entity.path) != .file) {
-          throw const SpeechFailure(.missingFiles);
-        }
-        final relative = path.relative(entity.path, from: directory.path);
-        final canonical = path.split(relative).join('/');
-        if (!files.containsKey(canonical)) extraFiles[canonical] = entity;
-      }
-      for (final relative in extraFiles.keys.toList()..sort()) {
-        await addFile(relative, extraFiles[relative]!);
-      }
-    }
-    return files;
-  }
-
-  static Future<File> _checkedFile(Directory directory, String relative) async {
-    var current = directory.path;
-    final segments = path.posix.split(relative);
-    for (final (index, segment) in segments.indexed) {
-      current = path.join(current, segment);
-      final isFile = index == segments.length - 1;
-      final FileSystemEntityType expected = isFile ? .file : .directory;
-      if (await _type(current) != expected) {
+    final allDiskFiles = <String, File>{};
+    await for (final entity in directory.list(
+      recursive: true,
+      followLinks: false,
+    )) {
+      if (entity is Directory) continue;
+      if (entity is! File || await _type(entity.path) != .file) {
         throw const SpeechFailure(.missingFiles);
       }
+      final relative = path.relative(entity.path, from: directory.path);
+      final canonical = path.split(relative).join('/');
+      allDiskFiles[canonical] = entity;
     }
-    return File(current);
+    final resolved = resolveSpeechModelFiles(format, allDiskFiles.keys);
+    if (resolved == null) throw const SpeechFailure(.missingFiles);
+    final requiredSet = resolved.requiredFiles.toSet();
+    for (final relative in requiredSet) {
+      final file = allDiskFiles[relative];
+      if (file == null) throw const SpeechFailure(.missingFiles);
+      await addFile(relative, file, required: true);
+    }
+    for (final relative in allDiskFiles.keys.toList()..sort()) {
+      if (files.containsKey(relative)) continue;
+      if (!isSpeechModelAsset(relative)) continue;
+      await addFile(relative, allDiskFiles[relative]!);
+    }
+    return files;
   }
 
   static Future<FileSystemEntityType> _type(String source) =>
