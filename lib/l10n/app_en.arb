@@ -2148,9 +2148,9 @@
   "speechMinTriggerLengthDescription": "Ignore shorter noise or fragments below this character count (1 – 10).",
   "speechMinTriggerLengthUnit": "chars",
   "speechMicGain": "Microphone gain",
-  "speechMicGainDescription": "Adjust microphone input volume before recognition (0.1x – 3.0x).",
-  "speechSynthesisGain": "Playback volume gain",
-  "speechSynthesisGainDescription": "Adjust synthesized speech playback volume (0.1x – 3.0x).",
+  "speechMicGainDescription": "Amplify or attenuate microphone input volume (0.1x – 3.0x).",
+  "speechSynthesisGain": "Speaker gain",
+  "speechSynthesisGainDescription": "Amplify or attenuate speaker output volume (0.1x – 3.0x).",
   "speechSynthesisSpeed": "Playback speed",
   "speechSynthesisSpeedDescription": "Adjust how fast replies are spoken (0.5x – 2.0x).",
   "speechFallbackReadBody": "Read body if spoken line is missing",
@@ -2161,6 +2161,8 @@
   "speechWakeWordsDescription": "Say any wake word to activate; leave empty to listen directly.",
   "speechWakeWordHint": "Add a wake word",
   "speechAddWakeWord": "Add",
+  "speechIncludeWakeWord": "Send full utterance with wake word",
+  "speechIncludeWakeWordDescription": "Keep the wake word in the sent message when you say a wake word followed by a request.",
   "speechStandbyListening": "Wake-word standby — tap to speak directly",
   "speechContinuousListening": "Listening directly — tap to pause",
   "speechListeningChip": "Listening",
@@ -2182,5 +2184,55 @@
   "speechEngineError": "The offline speech engine could not complete the request.",
   "speechMicrophoneError": "Could not record from the default microphone. Check Windows microphone access and the input device.",
   "speechNoSpeech": "No speech was recognized. Try recording again.",
-  "speechPlaybackError": "Could not play audio. Check the default Windows output device."
+  "speechPlaybackError": "Could not play audio. Check the default Windows output device.",
+  "speechHardware": "Hardware",
+  "speechHardwareLocal": "This device",
+  "speechHardwareLocalDescription": "Use the computer microphone and speaker exclusively.",
+  "speechHardwareNone": "No hardware",
+  "speechHardwareNoneDescription": "Do not claim local audio hardware so other agents can use it.",
+  "speechHardwareOccupied": "In use",
+  "speechHardwareBusy": "Running",
+  "speechHardwareBusyNotice": "This device is in use by a running agent and cannot be taken over right now.",
+  "speechHardwareTakeoverTitle": "Take over hardware device?",
+  "speechHardwareTakeoverMessage": "This device is currently used by agent \"{name}\" (ID: {id}). Saving will release it from that agent and switch it to no device.",
+  "@speechHardwareTakeoverMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "speechHardwareTakeoverConfirm": "Take over",
+  "speechHardwareOccupiedBy": "In use by {name}",
+  "@speechHardwareOccupiedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "speechHardwareTooltip": "Audio hardware",
+  "speechHardwareOccupiedTooltip": "Local audio hardware is in use by {name}.",
+  "@speechHardwareOccupiedTooltip": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "speechHardwareOptional": "Audio hardware (optional)",
+  "speechHardwareHelp": "Bind the computer microphone and speaker exclusively to this agent. While bound, other agents cannot use them.",
+  "speechNoHardwareDevice": "No device",
+  "speechDefaultDevice": "Default device",
+  "speechDefaultDeviceDescription": "Follow Windows default audio device.",
+  "speechHardwareDeviceTitle": "Hardware device settings",
+  "speechHardwareInputFieldTitle": "Microphone input device",
+  "speechHardwareInputFieldDescription": "Select the input hardware for speech recognition. Choosing a specific device claims it exclusively.",
+  "speechHardwareOutputFieldTitle": "Speaker output device",
+  "speechHardwareOutputFieldDescription": "Select the output hardware for speech synthesis. Choosing a specific device claims it exclusively.",
+  "speechNoAudioDevicesFound": "No audio devices detected.",
+  "speechRefreshDevices": "Refresh devices"
 }

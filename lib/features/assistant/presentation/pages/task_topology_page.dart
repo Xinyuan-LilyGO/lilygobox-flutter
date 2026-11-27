@@ -2945,34 +2945,26 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
 
   bool _hasSpeechEnabled(AiAgentWorkspace session) {
     final assistant = session.assistant;
-    return assistant.speechRecognitionId != null ||
-        assistant.speechVoice != null;
+    return (assistant.speechRecognitionId != null &&
+            assistant.speechRecognitionHardwareId != null) ||
+        (assistant.speechVoice != null &&
+            assistant.speechSynthesisHardwareId != null);
   }
 
-  String? _resolveVoiceSessionId(AiWorkspaceProvider workspaces) {
-    if (_openId case final openId? when workspaces.find(openId) != null) {
-      return _lastVoiceSessionId = openId;
+  Set<String> _resolveVoiceSessionIds(AiWorkspaceProvider workspaces) {
+    final active = <String>{
+      for (final session in workspaces.sessions)
+        if (_hasSpeechEnabled(session)) session.id,
+    };
+    if (active.isEmpty) {
+      _lastVoiceSessionId = null;
+    } else if (_openId case final openId? when active.contains(openId)) {
+      _lastVoiceSessionId = openId;
+    } else if (_lastVoiceSessionId == null ||
+        !active.contains(_lastVoiceSessionId)) {
+      _lastVoiceSessionId = active.first;
     }
-    if (_selectedIds.length == 1) {
-      final selected = workspaces.find(_selectedIds.first);
-      if (selected != null && _hasSpeechEnabled(selected)) {
-        return _lastVoiceSessionId = selected.id;
-      }
-    }
-    if (_lastVoiceSessionId case final lastId?) {
-      final last = workspaces.find(lastId);
-      if (last != null && _hasSpeechEnabled(last)) return lastId;
-    }
-    if (workspaces.selected case final selected?
-        when _hasSpeechEnabled(selected)) {
-      return _lastVoiceSessionId = selected.id;
-    }
-    for (final session in workspaces.sessions) {
-      if (_hasSpeechEnabled(session)) {
-        return _lastVoiceSessionId = session.id;
-      }
-    }
-    return null;
+    return active;
   }
 
   Widget _workspacePages(
@@ -2980,13 +2972,13 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     AiWorkspaceProvider workspaces,
     Widget graph,
   ) {
-    final voiceSessionId = _resolveVoiceSessionId(workspaces);
-    if (voiceSessionId != null) _visitedChats.add(voiceSessionId);
+    final voiceSessionIds = _resolveVoiceSessionIds(workspaces);
+    _visitedChats.addAll(voiceSessionIds);
     final content = ColoredBox(
       color: theme.secondary,
       child: RetainedPageStack(
         activeKey: _openId ?? _graphKey,
-        eagerKeys: {?voiceSessionId},
+        eagerKeys: voiceSessionIds,
         pages: {
           _graphKey: graph,
           for (final id in _visitedChats)
@@ -3000,7 +2992,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
                   child: _TopologyConversation(
                     key: ValueKey('topology-chat-${session.id}'),
                     session: session,
-                    speechActive: session.id == voiceSessionId,
+                    speechActive: voiceSessionIds.contains(session.id),
                     onRename: () => _rename(workspaces, session),
                     onChooseOpening: (binding) => _chooseRoleplayOpening(
                       workspaces,
@@ -3543,7 +3535,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         (speechLoading && bindings.recognitionId != null);
     final isPlaying = speech?.isAgentPlaying(session.assistant) ?? false;
     final captureState = speech?.agentCaptureState(session.assistant);
-    final voiceActive = session.id == _lastVoiceSessionId;
+    final voiceActive = _hasSpeechEnabled(session) || captureState != null;
     final signature = (
       session,
       session.title,
@@ -3581,10 +3573,14 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
         isPlaying: isPlaying,
         voiceActive: voiceActive,
         captureState: captureState,
+        speech: speech,
+        workspaces: workspaces,
         onOpen: () => _open(workspaces, session),
         onRoleplayPointerUp: (_) => _nodePrimaryDown = false,
         onRoleplaySettings: () =>
             unawaited(_editRoleplaySettings(workspaces, session, theme)),
+        onChooseOpening: (binding) =>
+            _chooseRoleplayOpening(workspaces, session, theme, binding),
         onSynthesisSettings: speech == null || synthesisModel == null
             ? null
             : () => unawaited(
@@ -4556,6 +4552,9 @@ class _TaskNode extends StatelessWidget {
     this.isPlaying = false,
     this.voiceActive = false,
     this.captureState,
+    this.speech,
+    this.workspaces,
+    this.onChooseOpening,
     this.onSynthesisSettings,
     this.onRecognitionSettings,
   });
@@ -4573,6 +4572,9 @@ class _TaskNode extends StatelessWidget {
   final bool voiceActive;
   final ({bool continuous, bool standby, SpeechCapturePhase phase})?
   captureState;
+  final SpeechProvider? speech;
+  final AiWorkspaceProvider? workspaces;
+  final Future<void> Function(AiRoleplayBinding)? onChooseOpening;
   final VoidCallback? onSynthesisSettings;
   final VoidCallback? onRecognitionSettings;
 
@@ -4778,32 +4780,56 @@ class _TaskNode extends StatelessWidget {
                   if (session.assistant.roleplayBinding?.card
                       case final card?) ...[
                     const SizedBox(height: 6),
-                    _bindingRow(
-                      key: ValueKey('topology-roleplay-${session.id}'),
-                      tooltip: '${l10n.aiRoleplayCardSettings} · ${card.name}',
-                      leading: RoleplayAvatar(
-                        card: card,
+                    if (onChooseOpening != null)
+                      RoleplayMenuButton(
+                        key: ValueKey('topology-roleplay-menu-${session.id}'),
                         theme: theme,
-                        size: 19,
+                        assistant: session.assistant,
+                        compact: false,
+                        onChooseOpening: onChooseOpening!,
+                        triggerBuilder: (context, toggle) => _bindingRow(
+                          key: ValueKey('topology-roleplay-${session.id}'),
+                          tooltip: '${l10n.aiRoleplayCardSettings} · ${card.name}',
+                          leading: RoleplayAvatar(
+                            card: card,
+                            theme: theme,
+                            size: 19,
+                          ),
+                          label: card.name,
+                          onPressed: toggle,
+                        ),
+                      )
+                    else
+                      _bindingRow(
+                        key: ValueKey('topology-roleplay-${session.id}'),
+                        tooltip: '${l10n.aiRoleplayCardSettings} · ${card.name}',
+                        leading: RoleplayAvatar(
+                          card: card,
+                          theme: theme,
+                          size: 19,
+                        ),
+                        label: card.name,
+                        onPressed: onRoleplaySettings,
                       ),
-                      label: card.name,
-                      onPressed: onRoleplaySettings,
-                    ),
                   ],
                   if (showSynthesis) ...[
                     const SizedBox(height: 4),
                     Builder(
                       builder: (_) {
                         final bindings = session.assistant.speechBindings;
-                        final enabled = bindings.enabledFor(.synthesis);
+                        final enabled =
+                            bindings.enabledFor(.synthesis) &&
+                            bindings.synthesisHardwareId != null;
                         final playing = enabled && isPlaying;
                         final status = !enabled
                             ? l10n.speechPausedChip
                             : playing
                             ? l10n.speechPlaying
                             : null;
-                        return _bindingRow(
-                          key: ValueKey('topology-speech-synthesis-${session.id}'),
+                        Widget buildRow(VoidCallback? onPressed) => _bindingRow(
+                          key: ValueKey(
+                            'topology-speech-synthesis-${session.id}',
+                          ),
                           tooltip: synthesisModel == null
                               ? speechKindLabel(l10n, .synthesis)
                               : status == null
@@ -4831,7 +4857,37 @@ class _TaskNode extends StatelessWidget {
                           labelColor: enabled
                               ? theme.textColorSecondary
                               : theme.textColorTertiary,
-                          onPressed: onSynthesisSettings,
+                          onPressed: onPressed,
+                        );
+                        if (speech == null) {
+                          return buildRow(onSynthesisSettings);
+                        }
+                        return SpeechChatControls(
+                          key: ValueKey(
+                            'topology-speech-synthesis-menu-${session.id}',
+                          ),
+                          theme: theme,
+                          speech: speech!,
+                          bindings: bindings,
+                          onChanged: session.assistant.setSpeechBindings,
+                          compact: false,
+                          kinds: const [.synthesis],
+                          hardwareOwnersFor: workspaces == null
+                              ? null
+                              : (kind) => workspaces!.speechHardwareOwners(
+                                    kind,
+                                    excludeSessionId: session.id,
+                                  ),
+                          onTakeOverHardware: workspaces == null
+                              ? null
+                              : (kind, deviceId) =>
+                                    workspaces!.releaseSpeechHardware(
+                                      kind,
+                                      deviceId,
+                                      exceptSessionId: session.id,
+                                    ),
+                          triggerBuilder: (context, toggle, _) =>
+                              buildRow(toggle),
                         );
                       },
                     ),
@@ -4841,7 +4897,9 @@ class _TaskNode extends StatelessWidget {
                     Builder(
                       builder: (_) {
                         final bindings = session.assistant.speechBindings;
-                        final enabled = bindings.enabledFor(.recognition);
+                        final enabled =
+                            bindings.enabledFor(.recognition) &&
+                            bindings.recognitionHardwareId != null;
                         final continuous =
                             enabled && bindings.continuousRecognition;
                         final paused = session.assistant.speechContinuousPaused;
@@ -4874,7 +4932,7 @@ class _TaskNode extends StatelessWidget {
                             : direct
                             ? theme.materialColors.onError
                             : theme.textColorPrimary;
-                        return _bindingRow(
+                        Widget buildRow(VoidCallback? onPressed) => _bindingRow(
                           key: ValueKey(
                             'topology-speech-recognition-${session.id}',
                           ),
@@ -4899,7 +4957,37 @@ class _TaskNode extends StatelessWidget {
                           labelColor: enabled
                               ? theme.textColorSecondary
                               : theme.textColorTertiary,
-                          onPressed: onRecognitionSettings,
+                          onPressed: onPressed,
+                        );
+                        if (speech == null) {
+                          return buildRow(onRecognitionSettings);
+                        }
+                        return SpeechChatControls(
+                          key: ValueKey(
+                            'topology-speech-recognition-menu-${session.id}',
+                          ),
+                          theme: theme,
+                          speech: speech!,
+                          bindings: bindings,
+                          onChanged: session.assistant.setSpeechBindings,
+                          compact: false,
+                          kinds: const [.recognition],
+                          hardwareOwnersFor: workspaces == null
+                              ? null
+                              : (kind) => workspaces!.speechHardwareOwners(
+                                    kind,
+                                    excludeSessionId: session.id,
+                                  ),
+                          onTakeOverHardware: workspaces == null
+                              ? null
+                              : (kind, deviceId) =>
+                                    workspaces!.releaseSpeechHardware(
+                                      kind,
+                                      deviceId,
+                                      exceptSessionId: session.id,
+                                    ),
+                          triggerBuilder: (context, toggle, _) =>
+                              buildRow(toggle),
                         );
                       },
                     ),
@@ -5257,6 +5345,30 @@ class _TopologyConversation extends StatelessWidget {
                               bindings: bindings,
                               onChanged: session.assistant.setSpeechBindings,
                               compact: compact,
+                              hardwareOwnersFor: (kind) => context
+                                  .select<
+                                    AiWorkspaceProvider?,
+                                    Map<
+                                      String,
+                                      ({String id, String title, bool busy})
+                                    >
+                                  >(
+                                    (w) =>
+                                        w?.speechHardwareOwners(
+                                          kind,
+                                          excludeSessionId: session.id,
+                                        ) ??
+                                        const {},
+                                  ),
+                              onTakeOverHardware: (kind, deviceId) =>
+                                  context
+                                      .read<AiWorkspaceProvider?>()
+                                      ?.releaseSpeechHardware(
+                                        kind,
+                                        deviceId,
+                                        exceptSessionId: session.id,
+                                      ) ??
+                                  true,
                             ),
                           ),
                           const SizedBox(width: menuGap),
@@ -5534,6 +5646,7 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
     if (speech == null) return const [];
     final l10n = context.l10n;
     final enabled = !_working;
+    final workspaces = context.read<AiWorkspaceProvider>();
     return [
       const SizedBox(height: 16),
       SettingsField(
@@ -5555,6 +5668,8 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
                 compact: false,
                 kinds: const [.synthesis],
                 fieldStyle: true,
+                hardwareOwnersFor: workspaces.speechHardwareOwners,
+                onTakeOverHardware: workspaces.releaseSpeechHardware,
               ),
             ),
           ),
@@ -5580,6 +5695,8 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
                 compact: false,
                 kinds: const [.recognition],
                 fieldStyle: true,
+                hardwareOwnersFor: workspaces.speechHardwareOwners,
+                onTakeOverHardware: workspaces.releaseSpeechHardware,
               ),
             ),
           ),

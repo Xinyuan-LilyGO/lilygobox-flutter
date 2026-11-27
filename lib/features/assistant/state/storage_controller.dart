@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/files/zstd_tar.dart';
+import '../../speech/domain/speech_model.dart';
 import '../data/agent_package.dart';
 import '../data/roleplay_card_exporter.dart';
 import '../data/roleplay_card_importer.dart';
@@ -606,11 +607,15 @@ class AgentStorageController extends ChangeNotifier {
   Future<void> import(
     Map<String, dynamic> package, {
     List<MemoryImportItem>? plan,
-  }) => runTransfer(() => _import(package, plan: plan));
+    SpeechLibrary? speechLibrary,
+  }) => runTransfer(
+    () => _import(package, plan: plan, speechLibrary: speechLibrary),
+  );
 
   Future<void> _import(
     Map<String, dynamic> package, {
     List<MemoryImportItem>? plan,
+    SpeechLibrary? speechLibrary,
   }) async {
     _checkCancelled();
     if (workspaces.sessions.any((s) => s.busy)) {
@@ -679,6 +684,7 @@ class AgentStorageController extends ChangeNotifier {
       await workspaces.importData(
         workflow,
         memoriesFor: prepare,
+        speechLibrary: speechLibrary,
         checkpoint: () async {
           _checkCancelled();
           if (checkpoints++ % 32 == 0) {

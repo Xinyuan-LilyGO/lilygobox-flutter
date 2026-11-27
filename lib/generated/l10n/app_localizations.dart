@@ -7659,19 +7659,19 @@ abstract class AppLocalizations {
   /// No description provided for @speechMicGainDescription.
   ///
   /// In en, this message translates to:
-  /// **'Adjust microphone input volume before recognition (0.1x – 3.0x).'**
+  /// **'Amplify or attenuate microphone input volume (0.1x – 3.0x).'**
   String get speechMicGainDescription;
 
   /// No description provided for @speechSynthesisGain.
   ///
   /// In en, this message translates to:
-  /// **'Playback volume gain'**
+  /// **'Speaker gain'**
   String get speechSynthesisGain;
 
   /// No description provided for @speechSynthesisGainDescription.
   ///
   /// In en, this message translates to:
-  /// **'Adjust synthesized speech playback volume (0.1x – 3.0x).'**
+  /// **'Amplify or attenuate speaker output volume (0.1x – 3.0x).'**
   String get speechSynthesisGainDescription;
 
   /// No description provided for @speechSynthesisSpeed.
@@ -7733,6 +7733,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add'**
   String get speechAddWakeWord;
+
+  /// No description provided for @speechIncludeWakeWord.
+  ///
+  /// In en, this message translates to:
+  /// **'Send full utterance with wake word'**
+  String get speechIncludeWakeWord;
+
+  /// No description provided for @speechIncludeWakeWordDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep the wake word in the sent message when you say a wake word followed by a request.'**
+  String get speechIncludeWakeWordDescription;
 
   /// No description provided for @speechStandbyListening.
   ///
@@ -7865,6 +7877,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not play audio. Check the default Windows output device.'**
   String get speechPlaybackError;
+
+  /// No description provided for @speechHardware.
+  ///
+  /// In en, this message translates to:
+  /// **'Hardware'**
+  String get speechHardware;
+
+  /// No description provided for @speechHardwareLocal.
+  ///
+  /// In en, this message translates to:
+  /// **'This device'**
+  String get speechHardwareLocal;
+
+  /// No description provided for @speechHardwareLocalDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the computer microphone and speaker exclusively.'**
+  String get speechHardwareLocalDescription;
+
+  /// No description provided for @speechHardwareNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No hardware'**
+  String get speechHardwareNone;
+
+  /// No description provided for @speechHardwareNoneDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Do not claim local audio hardware so other agents can use it.'**
+  String get speechHardwareNoneDescription;
+
+  /// No description provided for @speechHardwareOccupied.
+  ///
+  /// In en, this message translates to:
+  /// **'In use'**
+  String get speechHardwareOccupied;
+
+  /// No description provided for @speechHardwareBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'Running'**
+  String get speechHardwareBusy;
+
+  /// No description provided for @speechHardwareBusyNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'This device is in use by a running agent and cannot be taken over right now.'**
+  String get speechHardwareBusyNotice;
+
+  /// No description provided for @speechHardwareTakeoverTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Take over hardware device?'**
+  String get speechHardwareTakeoverTitle;
+
+  /// No description provided for @speechHardwareTakeoverMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This device is currently used by agent \"{name}\" (ID: {id}). Saving will release it from that agent and switch it to no device.'**
+  String speechHardwareTakeoverMessage(String name, String id);
+
+  /// No description provided for @speechHardwareTakeoverConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Take over'**
+  String get speechHardwareTakeoverConfirm;
+
+  /// No description provided for @speechHardwareOccupiedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'In use by {name}'**
+  String speechHardwareOccupiedBy(String name);
+
+  /// No description provided for @speechHardwareTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio hardware'**
+  String get speechHardwareTooltip;
+
+  /// No description provided for @speechHardwareOccupiedTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Local audio hardware is in use by {name}.'**
+  String speechHardwareOccupiedTooltip(String name);
+
+  /// No description provided for @speechHardwareOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio hardware (optional)'**
+  String get speechHardwareOptional;
+
+  /// No description provided for @speechHardwareHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Bind the computer microphone and speaker exclusively to this agent. While bound, other agents cannot use them.'**
+  String get speechHardwareHelp;
+
+  /// No description provided for @speechNoHardwareDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'No device'**
+  String get speechNoHardwareDevice;
+
+  /// No description provided for @speechDefaultDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Default device'**
+  String get speechDefaultDevice;
+
+  /// No description provided for @speechDefaultDeviceDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow Windows default audio device.'**
+  String get speechDefaultDeviceDescription;
+
+  /// No description provided for @speechHardwareDeviceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Hardware device settings'**
+  String get speechHardwareDeviceTitle;
+
+  /// No description provided for @speechHardwareInputFieldTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone input device'**
+  String get speechHardwareInputFieldTitle;
+
+  /// No description provided for @speechHardwareInputFieldDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Select the input hardware for speech recognition. Choosing a specific device claims it exclusively.'**
+  String get speechHardwareInputFieldDescription;
+
+  /// No description provided for @speechHardwareOutputFieldTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Speaker output device'**
+  String get speechHardwareOutputFieldTitle;
+
+  /// No description provided for @speechHardwareOutputFieldDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Select the output hardware for speech synthesis. Choosing a specific device claims it exclusively.'**
+  String get speechHardwareOutputFieldDescription;
+
+  /// No description provided for @speechNoAudioDevicesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No audio devices detected.'**
+  String get speechNoAudioDevicesFound;
+
+  /// No description provided for @speechRefreshDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh devices'**
+  String get speechRefreshDevices;
 }
 
 class _AppLocalizationsDelegate

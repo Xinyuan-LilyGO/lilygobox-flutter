@@ -329,9 +329,11 @@ class _AssistantPageState extends State<AssistantPage> {
         assistant.speechContinuousPaused ||
         _continuousErrorBlocked ||
         (!assistant.speechVoiceInterrupt &&
-            (_inPlaybackCooldown || speech.hasPlayback || assistant.busy)) ||
+            (_inPlaybackCooldown ||
+                speech.hasPlaybackFor(_speechConversation) ||
+                assistant.busy)) ||
         speech.busy ||
-        speech.hasCapture) {
+        speech.hasCaptureFor(_speechConversation)) {
       return;
     }
     _continuousStartPending = true;
@@ -353,7 +355,7 @@ class _AssistantPageState extends State<AssistantPage> {
             if (!mounted) return;
             final current = context.read<AiAssistantProvider>();
             final wakeWords = current.speechWakeWords;
-            final playingText = speech.playingText;
+            final playingText = speech.playingTextFor(_speechConversation);
             if (playingText != null || current.busy) {
               if (wakeWords.isNotEmpty) {
                 final match = matchSpeechWakeWord(partial, wakeWords);
@@ -374,13 +376,18 @@ class _AssistantPageState extends State<AssistantPage> {
                 }
                 current.setSpeechContinuousState(wakeActive: true);
                 _resetWakeIdleTimer();
-                if (match.command.isNotEmpty && _input.text != match.command) {
-                  _input.value = TextEditingValue(
-                    text: match.command,
-                    selection: TextSelection.collapsed(
-                      offset: match.command.length,
-                    ),
-                  );
+                if (match.command.isNotEmpty) {
+                  final preview = current.speechIncludeWakeWordInCommand
+                      ? partial
+                      : match.command;
+                  if (_input.text != preview) {
+                    _input.value = TextEditingValue(
+                      text: preview,
+                      selection: TextSelection.collapsed(
+                        offset: preview.length,
+                      ),
+                    );
+                  }
                 }
                 return;
               }
@@ -410,7 +417,8 @@ class _AssistantPageState extends State<AssistantPage> {
             if (wakeWords.isNotEmpty && !current.speechWakeActive) {
               return;
             }
-            if (speech.activeOrRecentPlayingText case final recent?
+            if (speech.activeOrRecentPlayingTextFor(_speechConversation)
+          case final recent?
                 when isLikelyPlaybackEcho(
                   partial,
                   recent,
@@ -430,11 +438,14 @@ class _AssistantPageState extends State<AssistantPage> {
             if (!mounted) return;
             final current = context.read<AiAssistantProvider>();
             final wakeWords = current.speechWakeWords;
-            final echoSource = speech.activeOrRecentPlayingText;
+            final echoSource = speech.activeOrRecentPlayingTextFor(
+              _speechConversation,
+            );
             final wasBargeIn = _bargedInDuringPlayback;
             _bargedInDuringPlayback = false;
             if (echoSource != null && !wasBargeIn) {
-              final stillPlaying = speech.playingText != null;
+              final stillPlaying =
+                  speech.playingTextFor(_speechConversation) != null;
               final hasAec3 = WebRtcAec3Library.tryLoad() != null;
               if (wakeWords.isNotEmpty) {
                 final match = matchSpeechWakeWord(utterance, wakeWords);
@@ -458,7 +469,13 @@ class _AssistantPageState extends State<AssistantPage> {
                     _speechConversation,
                     kind: .recognition,
                   );
-                  unawaited(_sendRecognized(match.command));
+                  unawaited(
+                    _sendRecognized(
+                      current.speechIncludeWakeWordInCommand
+                          ? utterance
+                          : match.command,
+                    ),
+                  );
                 } else {
                   _resetWakeIdleTimer();
                 }
@@ -475,14 +492,23 @@ class _AssistantPageState extends State<AssistantPage> {
               if (stillPlaying) {
                 speech.stopConversation(_speechConversation, kind: .synthesis);
               }
-              speech.clearRecentPlayingText();
+              speech.clearRecentPlayingTextFor(_speechConversation);
             } else if (echoSource == null) {
-              speech.clearRecentPlayingText();
+              speech.clearRecentPlayingTextFor(_speechConversation);
             }
             if (wakeWords.isEmpty || current.speechWakeActive) {
               if (wakeWords.isNotEmpty && wasBargeIn) {
                 final match = matchSpeechWakeWord(utterance, wakeWords);
-                final command = match.matched ? match.command : utterance;
+                if (match.matched && match.command.isEmpty) {
+                  _input.clear();
+                  _resetWakeIdleTimer();
+                  return;
+                }
+                final command = match.matched
+                    ? (current.speechIncludeWakeWordInCommand
+                          ? utterance
+                          : match.command)
+                    : utterance;
                 if (command.isEmpty) {
                   _input.clear();
                   _resetWakeIdleTimer();
@@ -514,7 +540,13 @@ class _AssistantPageState extends State<AssistantPage> {
             current.setSpeechContinuousState(wakeActive: true);
             if (match.command.isNotEmpty) {
               speech.stopConversation(_speechConversation, kind: .recognition);
-              unawaited(_sendRecognized(match.command));
+              unawaited(
+                _sendRecognized(
+                  current.speechIncludeWakeWordInCommand
+                      ? utterance
+                      : match.command,
+                ),
+              );
             } else {
               _resetWakeIdleTimer();
             }
@@ -676,8 +708,27 @@ class _AssistantPageState extends State<AssistantPage> {
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeProvider>().themeData;
     final visible = TickerMode.valuesOf(context).enabled;
-    final speechActive = widget.speechActive ?? visible;
     final assistant = context.read<AiAssistantProvider>();
+    final (recognitionOccupiedBy, synthesisOccupiedBy) = context
+        .select<AiWorkspaceProvider?, (String?, String?)>(
+          (workspaces) => (
+            workspaces?.speechHardwareOwnerNameForAssistant(
+              .recognition,
+              assistant,
+            ),
+            workspaces?.speechHardwareOwnerNameForAssistant(
+              .synthesis,
+              assistant,
+            ),
+          ),
+        );
+    final speechActive = widget.speechActive ?? visible;
+    final recognitionReady =
+        assistant.speechRecognitionHardwareId != null &&
+        recognitionOccupiedBy == null;
+    final synthesisReady =
+        assistant.speechSynthesisHardwareId != null &&
+        synthesisOccupiedBy == null;
     context.select<AiAssistantProvider, Object>(
       (value) => visible
           ? value.revision
@@ -704,21 +755,26 @@ class _AssistantPageState extends State<AssistantPage> {
     final messages = assistant.messages;
     final l10n = context.l10n;
     final ready = assistant.credentialLoaded && assistant.hasApiKey;
-    final recognitionId = assistant.speechRecognitionId;
-    final synthesisId = assistant.speechVoice?.modelId;
+    final recognitionId = recognitionReady ? assistant.speechRecognitionId : null;
+    final synthesisId = synthesisReady ? assistant.speechVoice?.modelId : null;
     final (speech, hasModel, phase, canRecord, hasPlayback, isContinuous) =
         context.select(
           (SpeechProvider? voice) => (
             voice,
             voice?.library.recognitionModel(recognitionId) != null,
             voice?.capturePhase(_speechConversation),
-            voice != null && !voice.busy && !voice.hasCapture,
-            voice?.hasPlayback ?? false,
+            voice != null &&
+                !voice.busy &&
+                !voice.hasCaptureFor(_speechConversation),
+            voice?.hasPlaybackFor(_speechConversation) ?? false,
             voice?.isContinuousListening(_speechConversation) ?? false,
           ),
         );
     _speech = speech;
-    _speechConversation.agent = assistant;
+    _speechConversation
+      ..agent = assistant
+      ..recognitionHardwareId = assistant.speechRecognitionHardwareId
+      ..synthesisHardwareId = assistant.speechSynthesisHardwareId;
     final liveStandby =
         assistant.speechContinuousRecognition &&
         assistant.speechWakeWords.isNotEmpty &&
@@ -730,6 +786,7 @@ class _AssistantPageState extends State<AssistantPage> {
     }
     final canKeepRecording =
         speechActive &&
+        recognitionReady &&
         !widget.readOnly &&
         assistant.pendingApproval == null &&
         assistant.pendingUserInput == null;
@@ -788,9 +845,10 @@ class _AssistantPageState extends State<AssistantPage> {
     } else if (speechActive &&
         speech != null &&
         !speech.busy &&
-        !speech.hasManualCapture) {
+        !speech.hasManualCaptureFor(_speechConversation)) {
       final selection = assistant.speechVoice;
-      if (selection != null &&
+      if (synthesisReady &&
+          selection != null &&
           speech.library.synthesisModel(selection) != null) {
         if (latestStreaming != null &&
             latestStreaming.id != _lastAutoReadMessageId &&
@@ -932,7 +990,8 @@ class _AssistantPageState extends State<AssistantPage> {
               kind: .recognition,
             ),
           );
-        } else if (!speech.hasCapture && !_continuousStartPending) {
+        } else if (!speech.hasCaptureFor(_speechConversation) &&
+        !_continuousStartPending) {
           scheduleMicrotask(() => _runContinuousListening(speech));
         }
         final idleTimeout = assistant.speechIdleTimeoutSeconds;
@@ -1086,7 +1145,8 @@ class _AssistantPageState extends State<AssistantPage> {
                                   ready: ready,
                                   onManageContext: widget.onManageContext,
                                   voiceButton: voiceButton,
-                                  voiceRecording: phase != null,
+                                  voiceRecording:
+                                      phase != null && !isContinuous,
                                   onSend: (fromKeyboard) => _send(
                                     assistant,
                                     fromKeyboard: fromKeyboard,

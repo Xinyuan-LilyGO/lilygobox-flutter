@@ -7,6 +7,8 @@ import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/definition.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
+import '../../../speech/domain/speech_model.dart';
+import '../../../speech/state/speech_provider.dart';
 import '../../domain/agent_package_progress.dart';
 import '../../state/agent_workspace_provider.dart';
 import '../../state/storage_controller.dart';
@@ -27,6 +29,7 @@ Future<void> runDirectAgentTransfer(
   ValueChanged<bool>? onImportCommitting,
 }) async {
   final workspaces = context.read<AiWorkspaceProvider>();
+  final speech = context.read<SpeechProvider?>();
   if (!_activeDirectTransfers.add(workspaces)) return;
   final controller = AgentStorageController(workspaces)..owner = owner;
   final importing = action == 'import' || action == 'import-agents';
@@ -88,7 +91,14 @@ Future<void> runDirectAgentTransfer(
                   return false;
                 }
                 if (!context.mounted) return false;
-                await controller.import(package, plan: plan);
+                if (speech != null && !speech.loaded) {
+                  await speech.load();
+                }
+                await controller.import(
+                  package,
+                  plan: plan,
+                  speechLibrary: speech?.library ?? SpeechLibrary(),
+                );
                 return true;
               },
               onCommit: onImportCommitting == null

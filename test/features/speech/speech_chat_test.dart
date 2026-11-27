@@ -45,6 +45,8 @@ class _Microphone implements SpeechAudioInput {
     required void Function() started,
     required void Function(SpeechAudioChunk) onAudio,
     bool continuous = false,
+    String? captureDeviceId,
+    String? playbackDeviceId,
   }) async {
     if (!available) throw const SpeechFailure(.microphone);
     started();
@@ -158,7 +160,11 @@ class _Speaker implements SpeechAudioOutput {
   Completer<void> stopped = Completer<void>();
 
   @override
-  Future<void> play(Uint8List wav, Future<void> cancellation) async {
+  Future<void> play(
+    Uint8List wav,
+    Future<void> cancellation, {
+    String? deviceId,
+  }) async {
     if (!started.isCompleted) started.complete();
     await cancellation;
     if (!stopped.isCompleted) stopped.complete();
@@ -167,10 +173,11 @@ class _Speaker implements SpeechAudioOutput {
   @override
   Future<void> playStream(
     Stream<Uint8List> wavChunks,
-    Future<void> cancellation,
-  ) async {
+    Future<void> cancellation, {
+    String? deviceId,
+  }) async {
     await for (final chunk in wavChunks) {
-      await play(chunk, cancellation);
+      await play(chunk, cancellation, deviceId: deviceId);
     }
   }
 }
@@ -528,6 +535,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(assistant.speechRecognitionId, asr.id);
     expect(assistant.speechContinuousRecognition, isTrue);
+    assistant.setSpeechBindings(
+      assistant.speechBindings
+          .withRecognitionHardwareId('mic-1')
+          .withSynthesisHardwareId('spk-1'),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('speech-chat-recognition-settings')),
     );
@@ -690,6 +703,10 @@ void main() {
     await tester.tap(saveVoice);
     await tester.pumpAndSettle();
     expect(assistant.speechAutoPlay, isTrue);
+    assistant.setSpeechBindings(
+      assistant.speechBindings.withSynthesisHardwareId('spk-1'),
+    );
+    await tester.pumpAndSettle();
 
     final input = find.byKey(const ValueKey('ai-message-input'));
 
@@ -852,7 +869,7 @@ void main() {
     expect(requestCount, 2);
     expect(
       assistant.messages.lastWhere((message) => message.role == 'user').content,
-      '你好呀',
+      '小爱，你好呀',
     );
 
     await tester.tap(recognitionMenu);
@@ -1038,6 +1055,7 @@ void main() {
     assistant.setSpeechBindings(
       emptySpeechBindings
           .withVoice((modelId: tts.id, voice: 0))
+          .withSynthesisHardwareId('spk-1')
           .withAutoPlay(true),
     );
 
@@ -1120,4 +1138,158 @@ void main() {
     }
     expect(assistant.busy, isFalse);
   });
+
+  testWidgets(
+    'hardware selector inside recognition and synthesis cards binds independently',
+    (tester) async {
+      final root = await tester.runAsync(
+        () => Directory.systemTemp.createTemp('speech_hardware_test_'),
+      );
+      addTearDown(() => root!.delete(recursive: true));
+      final store = SpeechModelStore(directory: root!);
+      const tts = SpeechModel(
+        id: 'tts-1',
+        format: .chineseVits,
+        name: 'TTS 1',
+        voiceCount: 1,
+      );
+      const asr = SpeechModel(
+        id: 'asr-1',
+        format: .bilingualZipformer,
+        name: 'ASR 1',
+        voiceCount: 1,
+      );
+      final speech = SpeechProvider(
+        store: store,
+        engine: _Engine(),
+        output: _Speaker(),
+        input: _Microphone(),
+      );
+      await tester.runAsync(speech.load);
+      addTearDown(speech.dispose);
+
+      var bindings = emptySpeechBindings
+          .withVoice((modelId: tts.id, voice: 0))
+          .withRecognition(asr.id);
+      final theme = ThemeProvider();
+      addTearDown(theme.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) => SpeechChatControls(
+                theme: theme.themeData,
+                speech: speech,
+                bindings: bindings,
+                onChanged: (next) => setState(() => bindings = next),
+                compact: false,
+                hardwareOwnersFor: (_) => const {
+                  'mic-1': (id: 'agent-a', title: 'Agent A', busy: false),
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Top bar no longer has a standalone hardware chip.
+      expect(
+        find.byKey(const ValueKey('speech-chat-menu-hardware')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('speech-chat-menu-recognition')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('speech-chat-menu-synthesis')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  test(
+    'multiple conversations with different hardware capture and play concurrently',
+    () async {
+      final root = await Directory.systemTemp.createTemp('speech_multi_test_');
+      addTearDown(() => root.delete(recursive: true));
+      final store = SpeechModelStore(directory: root);
+      final ttsArchive = await speechArchiveFixture(
+        root,
+        SpeechModelFormat.kokoroMultiLanguage.name,
+        SpeechModelFormat.kokoroMultiLanguage,
+      );
+      final asrArchive = await speechArchiveFixture(
+        root,
+        SpeechModelFormat.bilingualZipformer.name,
+        SpeechModelFormat.bilingualZipformer,
+      );
+      final speech = SpeechProvider(
+        store: store,
+        engine: _Engine(),
+        output: _Speaker(),
+        input: _Microphone(),
+      );
+      await speech.load();
+      expect(await speech.import(ttsArchive), isNull);
+      expect(await speech.import(asrArchive), isNull);
+      addTearDown(speech.dispose);
+
+      final tts = speech.library.models.firstWhere(
+        (m) => m.kind == .synthesis,
+      );
+      final asr = speech.library.models.firstWhere(
+        (m) => m.kind == .recognition,
+      );
+      final first = SpeechConversation(
+        agent: Object(),
+        recognitionHardwareId: 'mic-1',
+        synthesisHardwareId: 'spk-1',
+      );
+      final second = SpeechConversation(
+        agent: Object(),
+        recognitionHardwareId: 'mic-2',
+        synthesisHardwareId: 'spk-2',
+      );
+
+      final listen1 = speech.startContinuousListening(
+        first,
+        modelId: asr.id,
+        onUtterance: (_) {},
+      );
+      final listen2 = speech.startContinuousListening(
+        second,
+        modelId: asr.id,
+        onUtterance: (_) {},
+      );
+      final play1 = speech.play(
+        first,
+        '第一路播报',
+        selection: (modelId: tts.id, voice: 0),
+        allowContinuousCapture: true,
+      );
+      final play2 = speech.play(
+        second,
+        '第二路播报',
+        selection: (modelId: tts.id, voice: 0),
+        allowContinuousCapture: true,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(speech.hasCaptureFor(first), isTrue);
+      expect(speech.hasCaptureFor(second), isTrue);
+      expect(speech.isPlaying(first), isTrue);
+      expect(speech.isPlaying(second), isTrue);
+
+      speech.stopConversation(first);
+      speech.stopConversation(second);
+      speech.stopPlayback(first);
+      speech.stopPlayback(second);
+      await Future.wait([listen1, listen2, play1, play2]);
+    },
+  );
 }

@@ -333,6 +333,84 @@ class AiWorkspaceProvider extends ChangeNotifier {
         (id: entry.id, title: entry.title, recycled: true),
   ];
 
+  AiAgentWorkspace? speechHardwareOwner(
+    SpeechModelKind kind,
+    String deviceId, {
+    String? excludeSessionId,
+  }) {
+    for (final session in _sessions) {
+      if (session.id != excludeSessionId &&
+          session.assistant.speechBindings.hardwareIdFor(kind) == deviceId) {
+        return session;
+      }
+    }
+    return null;
+  }
+
+  String? speechHardwareOwnerName(
+    SpeechModelKind kind,
+    String? deviceId, {
+    String? excludeSessionId,
+  }) => deviceId == null
+      ? null
+      : speechHardwareOwner(
+          kind,
+          deviceId,
+          excludeSessionId: excludeSessionId,
+        )?.title;
+
+  Map<String, ({String id, String title, bool busy})> speechHardwareOwners(
+    SpeechModelKind kind, {
+    String? excludeSessionId,
+  }) => {
+    for (final session in _sessions)
+      if (session.id != excludeSessionId &&
+          session.assistant.speechBindings.hardwareIdFor(kind) != null)
+        session.assistant.speechBindings.hardwareIdFor(kind)!: (
+          id: session.id,
+          title: session.title,
+          busy: session.busy,
+        ),
+  };
+
+  bool releaseSpeechHardware(
+    SpeechModelKind kind,
+    String deviceId, {
+    String? exceptSessionId,
+  }) {
+    for (final session in _sessions) {
+      if (session.id != exceptSessionId &&
+          session.assistant.speechBindings.hardwareIdFor(kind) == deviceId &&
+          session.busy) {
+        return false;
+      }
+    }
+    for (final session in _sessions) {
+      if (session.id != exceptSessionId &&
+          session.assistant.speechBindings.hardwareIdFor(kind) == deviceId) {
+        session.assistant.setSpeechBindings(
+          session.assistant.speechBindings.withHardwareIdFor(kind, null),
+        );
+      }
+    }
+    return true;
+  }
+
+  String? speechHardwareOwnerNameForAssistant(
+    SpeechModelKind kind,
+    AiAssistantProvider assistant,
+  ) {
+    final deviceId = assistant.speechBindings.hardwareIdFor(kind);
+    if (deviceId == null) return null;
+    for (final session in _sessions) {
+      if (!identical(session.assistant, assistant) &&
+          session.assistant.speechBindings.hardwareIdFor(kind) == deviceId) {
+        return session.title;
+      }
+    }
+    return null;
+  }
+
   bool get canDeleteSpeechModel =>
       !_disposed && !_restoring && !restoreFailed && !_recycleOperation;
 
@@ -1606,6 +1684,7 @@ class AiWorkspaceProvider extends ChangeNotifier {
     Future<void> Function()? checkpoint,
     void Function(int completed, int total)? onStaging,
     void Function()? onBeforeCommit,
+    SpeechLibrary? speechLibrary,
   }) async {
     await initialized;
     if (pendingRecycleRestore case final restore?) await restore;
@@ -1741,6 +1820,31 @@ class AiWorkspaceProvider extends ChangeNotifier {
         }
         assistant.setPermissions(AiPermissions.fromJson(raw['permissions']));
         assistant.restoreWorkspaceConversation(conversation);
+        if (speechLibrary != null) {
+          assistant.setSpeechBindings(
+            sanitizeSpeechBindings(assistant.speechBindings, speechLibrary),
+          );
+        }
+        for (final kind in SpeechModelKind.values) {
+          final deviceId = assistant.speechBindings.hardwareIdFor(kind);
+          if (deviceId != null &&
+              (speechHardwareOwner(
+                    kind,
+                    deviceId,
+                    excludeSessionId: session.id,
+                  ) !=
+                  null ||
+                  staged.any(
+                    (other) =>
+                        !identical(other, session) &&
+                        other.assistant.speechBindings.hardwareIdFor(kind) ==
+                            deviceId,
+                  ))) {
+            assistant.setSpeechBindings(
+              assistant.speechBindings.withHardwareIdFor(kind, null),
+            );
+          }
+        }
         onStaging?.call(staged.length, records.length);
         await checkpoint?.call();
       }

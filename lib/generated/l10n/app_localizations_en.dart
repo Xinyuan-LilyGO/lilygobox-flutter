@@ -4436,14 +4436,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get speechMicGainDescription =>
-      'Adjust microphone input volume before recognition (0.1x – 3.0x).';
+      'Amplify or attenuate microphone input volume (0.1x – 3.0x).';
 
   @override
-  String get speechSynthesisGain => 'Playback volume gain';
+  String get speechSynthesisGain => 'Speaker gain';
 
   @override
   String get speechSynthesisGainDescription =>
-      'Adjust synthesized speech playback volume (0.1x – 3.0x).';
+      'Amplify or attenuate speaker output volume (0.1x – 3.0x).';
 
   @override
   String get speechSynthesisSpeed => 'Playback speed';
@@ -4478,6 +4478,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get speechAddWakeWord => 'Add';
+
+  @override
+  String get speechIncludeWakeWord => 'Send full utterance with wake word';
+
+  @override
+  String get speechIncludeWakeWordDescription =>
+      'Keep the wake word in the sent message when you say a wake word followed by a request.';
 
   @override
   String get speechStandbyListening =>
@@ -4555,4 +4562,95 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get speechPlaybackError =>
       'Could not play audio. Check the default Windows output device.';
+
+  @override
+  String get speechHardware => 'Hardware';
+
+  @override
+  String get speechHardwareLocal => 'This device';
+
+  @override
+  String get speechHardwareLocalDescription =>
+      'Use the computer microphone and speaker exclusively.';
+
+  @override
+  String get speechHardwareNone => 'No hardware';
+
+  @override
+  String get speechHardwareNoneDescription =>
+      'Do not claim local audio hardware so other agents can use it.';
+
+  @override
+  String get speechHardwareOccupied => 'In use';
+
+  @override
+  String get speechHardwareBusy => 'Running';
+
+  @override
+  String get speechHardwareBusyNotice =>
+      'This device is in use by a running agent and cannot be taken over right now.';
+
+  @override
+  String get speechHardwareTakeoverTitle => 'Take over hardware device?';
+
+  @override
+  String speechHardwareTakeoverMessage(String name, String id) {
+    return 'This device is currently used by agent \"$name\" (ID: $id). Saving will release it from that agent and switch it to no device.';
+  }
+
+  @override
+  String get speechHardwareTakeoverConfirm => 'Take over';
+
+  @override
+  String speechHardwareOccupiedBy(String name) {
+    return 'In use by $name';
+  }
+
+  @override
+  String get speechHardwareTooltip => 'Audio hardware';
+
+  @override
+  String speechHardwareOccupiedTooltip(String name) {
+    return 'Local audio hardware is in use by $name.';
+  }
+
+  @override
+  String get speechHardwareOptional => 'Audio hardware (optional)';
+
+  @override
+  String get speechHardwareHelp =>
+      'Bind the computer microphone and speaker exclusively to this agent. While bound, other agents cannot use them.';
+
+  @override
+  String get speechNoHardwareDevice => 'No device';
+
+  @override
+  String get speechDefaultDevice => 'Default device';
+
+  @override
+  String get speechDefaultDeviceDescription =>
+      'Follow Windows default audio device.';
+
+  @override
+  String get speechHardwareDeviceTitle => 'Hardware device settings';
+
+  @override
+  String get speechHardwareInputFieldTitle => 'Microphone input device';
+
+  @override
+  String get speechHardwareInputFieldDescription =>
+      'Select the input hardware for speech recognition. Choosing a specific device claims it exclusively.';
+
+  @override
+  String get speechHardwareOutputFieldTitle => 'Speaker output device';
+
+  @override
+  String get speechHardwareOutputFieldDescription =>
+      'Select the output hardware for speech synthesis. Choosing a specific device claims it exclusively.';
+
+  @override
+  String get speechNoAudioDevicesFound => 'No audio devices detected.';
+
+  @override
+  String get speechRefreshDevices => 'Refresh devices';
 }

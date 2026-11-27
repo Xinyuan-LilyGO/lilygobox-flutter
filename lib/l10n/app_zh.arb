@@ -1731,9 +1731,9 @@
   "speechMinTriggerLengthDescription": "少于该字数的短促杂音或片段不触发打断与自动发送（1 ~ 10 字）。",
   "speechMinTriggerLengthUnit": "字",
   "speechMicGain": "麦克风音量增益",
-  "speechMicGainDescription": "在送入识别前放大或减小麦克风音量（0.1x ~ 3.0x）。",
-  "speechSynthesisGain": "朗读音量增益",
-  "speechSynthesisGainDescription": "调节语音合成输出的音量大小（0.1x ~ 3.0x）。",
+  "speechMicGainDescription": "放大或减小麦克风输入音量（0.1x ~ 3.0x）。",
+  "speechSynthesisGain": "扬声器音量增益",
+  "speechSynthesisGainDescription": "放大或减小扬声器输出音量（0.1x ~ 3.0x）。",
   "speechSynthesisSpeed": "朗读语速",
   "speechSynthesisSpeedDescription": "调节 AI 朗读语速快慢（0.5x ~ 2.0x）。",
   "speechFallbackReadBody": "无台词时回退朗读正文",
@@ -1744,6 +1744,8 @@
   "speechWakeWordsDescription": "说出任一唤醒词即可激活对话；留空则免唤醒直接对话。",
   "speechWakeWordHint": "输入唤醒词",
   "speechAddWakeWord": "添加",
+  "speechIncludeWakeWord": "发送完整唤醒词内容",
+  "speechIncludeWakeWordDescription": "说出唤醒词并紧跟内容时，保留唤醒词一并发送；关闭则自动截掉唤醒词。",
   "speechStandbyListening": "唤醒词待命中 — 点击切换为直接说话",
   "speechContinuousListening": "直接聆听中 — 点击暂停监听",
   "speechListeningChip": "聆听中",
@@ -1765,5 +1767,55 @@
   "speechEngineError": "离线语音引擎未能完成本次处理。",
   "speechMicrophoneError": "无法从默认麦克风录音。请检查 Windows 麦克风权限和输入设备。",
   "speechNoSpeech": "未识别到语音，请重新录制。",
-  "speechPlaybackError": "无法播放语音，请检查 Windows 默认输出设备。"
+  "speechPlaybackError": "无法播放语音，请检查 Windows 默认输出设备。",
+  "speechHardware": "硬件",
+  "speechHardwareLocal": "本机设备",
+  "speechHardwareLocalDescription": "独占使用当前电脑的麦克风与扬声器。",
+  "speechHardwareNone": "不绑定硬件",
+  "speechHardwareNoneDescription": "不独占本机音频硬件，允许其他智能体使用。",
+  "speechHardwareOccupied": "已占用",
+  "speechHardwareBusy": "运行中",
+  "speechHardwareBusyNotice": "当前设备正由运行中的智能体占用，暂无法强行接管。",
+  "speechHardwareTakeoverTitle": "接管硬件设备？",
+  "speechHardwareTakeoverMessage": "当前设备正由智能体「{name}」（ID：{id}）占用。保存后将自动解除原智能体的占用（变为无设备）。",
+  "@speechHardwareTakeoverMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "speechHardwareTakeoverConfirm": "确认接管",
+  "speechHardwareOccupiedBy": "已被「{name}」占用",
+  "@speechHardwareOccupiedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "speechHardwareTooltip": "语音硬件",
+  "speechHardwareOccupiedTooltip": "本机语音硬件已被「{name}」占用。",
+  "@speechHardwareOccupiedTooltip": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "speechHardwareOptional": "语音硬件（可选）",
+  "speechHardwareHelp": "将当前电脑的麦克风与扬声器独占绑定到此智能体；绑定后其他智能体将无法使用。",
+  "speechNoHardwareDevice": "无设备",
+  "speechDefaultDevice": "默认设备",
+  "speechDefaultDeviceDescription": "跟随 Windows 系统默认音频设备。",
+  "speechHardwareDeviceTitle": "硬件设备设置",
+  "speechHardwareInputFieldTitle": "麦克风输入设备",
+  "speechHardwareInputFieldDescription": "选择用于语音识别的输入硬件；选中具体设备后将由当前智能体独占。",
+  "speechHardwareOutputFieldTitle": "扬声器输出设备",
+  "speechHardwareOutputFieldDescription": "选择用于语音合成的输出硬件；选中具体设备后将由当前智能体独占。",
+  "speechNoAudioDevicesFound": "未检测到可用音频设备。",
+  "speechRefreshDevices": "刷新设备列表"
 }

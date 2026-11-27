@@ -7,27 +7,42 @@ import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
 
+import 'speech_aec3.dart';
+
 abstract interface class SpeechAudioOutput {
-  Future<void> play(Uint8List wav, Future<void> cancellation);
+  Future<void> play(
+    Uint8List wav,
+    Future<void> cancellation, {
+    String? deviceId,
+  });
 
   Future<void> playStream(
     Stream<Uint8List> wavChunks,
-    Future<void> cancellation,
-  );
+    Future<void> cancellation, {
+    String? deviceId,
+  });
 }
 
 class WindowsSpeechAudioOutput implements SpeechAudioOutput {
   const WindowsSpeechAudioOutput();
 
   @override
-  Future<void> play(Uint8List wav, Future<void> cancellation) =>
-      playStream(Stream.value(wav), cancellation);
+  Future<void> play(
+    Uint8List wav,
+    Future<void> cancellation, {
+    String? deviceId,
+  }) => playStream(Stream.value(wav), cancellation, deviceId: deviceId);
 
   @override
   Future<void> playStream(
     Stream<Uint8List> wavChunks,
-    Future<void> cancellation,
-  ) async {
+    Future<void> cancellation, {
+    String? deviceId,
+  }) async {
+    if (deviceId != null && deviceId.isNotEmpty) {
+      await _playToTargetDevice(wavChunks, cancellation, deviceId);
+      return;
+    }
     final queue = StreamIterator(wavChunks);
     var active = AudioPlayer();
     AudioPlayer? standby = AudioPlayer();
@@ -103,5 +118,61 @@ class WindowsSpeechAudioOutput implements SpeechAudioOutput {
       await active.dispose();
       await standby?.dispose();
     }
+  }
+
+  Future<void> _playToTargetDevice(
+    Stream<Uint8List> wavChunks,
+    Future<void> cancellation,
+    String deviceId,
+  ) async {
+    var cancelled = false;
+    unawaited(cancellation.then((_) => cancelled = true));
+    WebRtcAec3Playback? playback;
+    try {
+      await for (final wav in wavChunks) {
+        if (cancelled) break;
+        final parsed = _parseWavPcm16(wav);
+        if (parsed == null) continue;
+        playback ??= WebRtcAec3Playback.start(
+          playbackDeviceId: deviceId,
+          sampleRateHz: parsed.sampleRate,
+          channels: parsed.channels,
+        );
+        if (playback == null) return;
+        playback.writePcm16Bytes(parsed.pcm);
+      }
+      if (playback == null || cancelled) return;
+      playback.finish();
+      while (!cancelled && !playback.isFinished) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+    } finally {
+      playback?.stop();
+    }
+  }
+
+  static ({int sampleRate, int channels, Uint8List pcm})? _parseWavPcm16(
+    Uint8List wav,
+  ) {
+    if (wav.length < 44) return null;
+    final data = ByteData.sublistView(wav);
+    final channels = data.getUint16(22, Endian.little);
+    final sampleRate = data.getUint32(24, Endian.little);
+    var offset = 12;
+    while (offset + 8 <= wav.length) {
+      final chunkId = String.fromCharCodes(wav, offset, offset + 4);
+      final chunkSize = data.getUint32(offset + 4, Endian.little);
+      final payloadStart = offset + 8;
+      if (chunkId == 'data' && payloadStart <= wav.length) {
+        final end = (payloadStart + chunkSize).clamp(payloadStart, wav.length);
+        return (
+          sampleRate: sampleRate,
+          channels: channels,
+          pcm: Uint8List.sublistView(wav, payloadStart, end),
+        );
+      }
+      offset = payloadStart + chunkSize + (chunkSize.isOdd ? 1 : 0);
+    }
+    return null;
   }
 }

@@ -27,6 +27,7 @@ import '../../../../core/widgets/settings/select.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../../../generated/l10n/app_localizations.dart';
 import '../../../settings/presentation/widgets/content_layout.dart';
+import '../../../speech/domain/speech_model.dart';
 import '../../../speech/state/speech_provider.dart';
 import '../../domain/agent_package_progress.dart';
 import '../../state/agent_workspace_provider.dart';
@@ -350,6 +351,7 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
 
   Future<void> _importSelectedPackage(Map<String, dynamic> package) async {
     final l = context.l10n;
+    final speech = context.read<SpeechProvider?>();
     final plan = await _transfer(() => controller.plan(package));
     if (!mounted) return;
     if (package['type'] == 'memory' &&
@@ -358,7 +360,16 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
       return;
     }
     if (!mounted) return;
-    await _transfer(() => controller.import(package, plan: plan));
+    await _transfer(() async {
+      if (speech != null && !speech.loaded) {
+        await speech.load();
+      }
+      await controller.import(
+        package,
+        plan: plan,
+        speechLibrary: speech?.library ?? SpeechLibrary(),
+      );
+    });
     if (mounted) {
       showAppNotice(ScaffoldMessenger.of(context), l.agentStorageImportSuccess);
     }

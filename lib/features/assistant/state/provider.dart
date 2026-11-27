@@ -243,6 +243,11 @@ class AiAssistantProvider extends ChangeNotifier {
   double get speechSynthesisGain => _speechBindings.synthesisGain;
   double get speechSynthesisSpeed => _speechBindings.synthesisSpeed;
   bool get speechFallbackReadBody => _speechBindings.fallbackReadBody;
+  bool get speechIncludeWakeWordInCommand =>
+      _speechBindings.includeWakeWordInCommand;
+  String? get speechRecognitionHardwareId =>
+      _speechBindings.recognitionHardwareId;
+  String? get speechSynthesisHardwareId => _speechBindings.synthesisHardwareId;
   bool _speechContinuousPaused = false;
   bool _speechWakeActive = false;
   bool get speechContinuousPaused => _speechContinuousPaused;
@@ -794,6 +799,12 @@ class AiAssistantProvider extends ChangeNotifier {
     if (_speechBindings.synthesisSpeed != defaultSpeechSynthesisSpeed)
       'speechSynthesisSpeed': _speechBindings.synthesisSpeed,
     if (_speechBindings.fallbackReadBody) 'speechFallbackReadBody': true,
+    if (!_speechBindings.includeWakeWordInCommand)
+      'speechIncludeWakeWordInCommand': false,
+    if (_speechBindings.recognitionHardwareId != null)
+      'speechRecognitionHardwareId': _speechBindings.recognitionHardwareId,
+    if (_speechBindings.synthesisHardwareId != null)
+      'speechSynthesisHardwareId': _speechBindings.synthesisHardwareId,
     if (_speechContinuousPaused) 'speechContinuousPaused': true,
   };
 
@@ -911,7 +922,22 @@ class AiAssistantProvider extends ChangeNotifier {
           final num speed => speed.toDouble(),
           _ => defaultSpeechSynthesisSpeed,
         })
-        .withFallbackReadBody(snapshot['speechFallbackReadBody'] == true);
+        .withFallbackReadBody(snapshot['speechFallbackReadBody'] == true)
+        .withIncludeWakeWordInCommand(
+          snapshot['speechIncludeWakeWordInCommand'] != false,
+        )
+        .withRecognitionHardwareId(
+          switch (snapshot['speechRecognitionHardwareId']) {
+            final String id when id.isNotEmpty => id,
+            _ => null,
+          },
+        )
+        .withSynthesisHardwareId(
+          switch (snapshot['speechSynthesisHardwareId']) {
+            final String id when id.isNotEmpty => id,
+            _ => null,
+          },
+        );
     _speechContinuousPaused = snapshot['speechContinuousPaused'] == true;
     _speechWakeActive = false;
     _notify();

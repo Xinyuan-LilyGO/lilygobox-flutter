@@ -30,6 +30,9 @@ class SpeechProvider extends ChangeNotifier {
   SpeechLibrary _library = SpeechLibrary();
   SpeechLibrary get library => _library;
 
+  List<SpeechAudioDevice> listAudioDevices(SpeechModelKind kind) =>
+      WebRtcAec3Library.listAudioDevices(isCapture: kind == .recognition);
+
   bool _busy = false;
   bool _loaded = false;
   bool _disposed = false;
@@ -37,10 +40,12 @@ class SpeechProvider extends ChangeNotifier {
   bool get busy => _busy;
   bool get loaded => _loaded;
 
-  _SpeechPlayback? _playback;
+  final Map<Object, _SpeechPlayback> _playbacks = {};
+  final Map<SpeechConversation, _SpeechCapture> _captures = {};
   String? _lastPlayedText;
   DateTime? _lastPlaybackEndedAt;
-  _SpeechCapture? _capture;
+  final Map<SpeechConversation, String> _lastPlayedTextByOwner = {};
+  final Map<SpeechConversation, DateTime> _lastPlaybackEndedAtByOwner = {};
   final Set<String> _autoReadMessageIds = {};
   final Map<
     ({String modelId, int voice, String text, double gain, double speed}),
@@ -52,14 +57,64 @@ class SpeechProvider extends ChangeNotifier {
 
   void markAutoRead(String messageId) => _autoReadMessageIds.add(messageId);
   static const _maxCachedClips = 12;
-  bool get hasCapture => _capture != null;
-  bool get hasManualCapture => _capture != null && !_capture!.continuous;
-  bool get hasPlayback => _playback != null;
+  bool get hasCapture => _captures.isNotEmpty;
+  bool get hasManualCapture => _captures.values.any((c) => !c.continuous);
+  bool get hasPlayback => _playbacks.isNotEmpty;
+
+  bool hasCaptureFor(SpeechConversation owner) {
+    final capture = _captures[owner];
+    return capture != null && !capture.cancellation.isCompleted;
+  }
+
+  bool hasManualCaptureFor(SpeechConversation owner) {
+    final capture = _captures[owner];
+    return capture != null &&
+        !capture.continuous &&
+        !capture.cancellation.isCompleted;
+  }
+
+  SpeechConversation? _conversationOf(Object owner) => switch (owner) {
+    final SpeechConversation c => c,
+    (final SpeechConversation c, _) => c,
+    _ => null,
+  };
+
+  bool hasPlaybackFor(SpeechConversation owner) => _playbacks.values.any(
+    (p) => _conversationOf(p.owner) == owner && !p.cancellation.isCompleted,
+  );
+
+  String? playingTextFor(SpeechConversation owner) {
+    for (final playback in _playbacks.values) {
+      if (_conversationOf(playback.owner) == owner &&
+          !playback.cancellation.isCompleted) {
+        return playback.text;
+      }
+    }
+    return null;
+  }
 
   String? get playingText {
-    final playback = _playback;
-    if (playback == null || playback.cancellation.isCompleted) return null;
-    return playback.text;
+    for (final playback in _playbacks.values) {
+      if (!playback.cancellation.isCompleted) return playback.text;
+    }
+    return null;
+  }
+
+  String? activeOrRecentPlayingTextFor(SpeechConversation owner) {
+    if (playingTextFor(owner) case final active?) return active;
+    final endedAt = _lastPlaybackEndedAtByOwner[owner];
+    final window = WebRtcAec3Library.tryLoad() != null
+        ? const Duration(seconds: 2)
+        : const Duration(seconds: 12);
+    if (endedAt != null && DateTime.now().difference(endedAt) < window) {
+      return _lastPlayedTextByOwner[owner];
+    }
+    return null;
+  }
+
+  void clearRecentPlayingTextFor(SpeechConversation owner) {
+    _lastPlayedTextByOwner.remove(owner);
+    _lastPlaybackEndedAtByOwner.remove(owner);
   }
 
   String? get activeOrRecentPlayingText {
@@ -80,54 +135,55 @@ class SpeechProvider extends ChangeNotifier {
   }
 
   bool isContinuousListening(SpeechConversation owner) {
-    final capture = _capture;
+    final capture = _captures[owner];
     return capture != null &&
         capture.continuous &&
-        capture.owner == owner &&
         !capture.cancellation.isCompleted;
   }
 
   SpeechCapturePhase? capturePhase(SpeechConversation owner) {
-    final capture = _capture;
-    return capture != null &&
-            capture.owner == owner &&
-            !capture.cancellation.isCompleted
+    final capture = _captures[owner];
+    return capture != null && !capture.cancellation.isCompleted
         ? capture.phase
         : null;
   }
 
-  bool isPlaying(Object owner) =>
-      _playback?.owner == owner && !_playback!.cancellation.isCompleted;
+  String? _playbackDeviceIdFor(Object owner) =>
+      _conversationOf(owner)?.synthesisHardwareId;
+
+  bool isPlaying(Object owner) {
+    final playback = _playbacks[owner];
+    return playback != null && !playback.cancellation.isCompleted;
+  }
 
   void updateConversationStandby(SpeechConversation owner, bool standby) {
     if (owner._standby == standby) return;
     owner._standby = standby;
-    if (_capture?.owner == owner && !_capture!.cancellation.isCompleted) {
+    if (hasCaptureFor(owner)) {
       _notify();
     }
   }
 
-  bool isAgentPlaying(Object agent) {
-    final playback = _playback;
-    if (playback == null || playback.cancellation.isCompleted) return false;
-    return switch (playback.owner) {
-      final SpeechConversation c => identical(c.agent, agent),
-      (final SpeechConversation c, _) => identical(c.agent, agent),
-      _ => false,
-    };
-  }
+  bool isAgentPlaying(Object agent) => _playbacks.values.any(
+    (p) =>
+        !p.cancellation.isCompleted &&
+        identical(_conversationOf(p.owner)?.agent, agent),
+  );
 
   ({bool continuous, bool standby, SpeechCapturePhase phase})? agentCaptureState(
     Object agent,
   ) {
-    final capture = _capture;
-    if (capture == null || capture.cancellation.isCompleted) return null;
-    if (!identical(capture.owner.agent, agent)) return null;
-    return (
-      continuous: capture.continuous,
-      standby: capture.owner._standby,
-      phase: capture.phase,
-    );
+    for (final capture in _captures.values) {
+      if (!capture.cancellation.isCompleted &&
+          identical(capture.owner.agent, agent)) {
+        return (
+          continuous: capture.continuous,
+          standby: capture.owner._standby,
+          phase: capture.phase,
+        );
+      }
+    }
+    return null;
   }
 
   Future<void> load() async {
@@ -164,15 +220,17 @@ class SpeechProvider extends ChangeNotifier {
 
   Future<SpeechFailureReason?> deleteModels(Set<String> ids) =>
       _change(() async {
-        final capture = _capture;
-        if (capture != null && ids.contains(capture.modelId)) {
-          capture.cancel();
-          await capture.finished.future;
+        for (final capture in _captures.values.toList()) {
+          if (ids.contains(capture.modelId)) {
+            capture.cancel();
+            await capture.finished.future;
+          }
         }
-        final playback = _playback;
-        if (playback != null && ids.contains(playback.modelId)) {
-          playback.cancel();
-          await playback.finished.future;
+        for (final playback in _playbacks.values.toList()) {
+          if (ids.contains(playback.modelId)) {
+            playback.cancel();
+            await playback.finished.future;
+          }
         }
         _synthesisCache.removeWhere((key, _) => ids.contains(key.modelId));
         if (library.models.any(
@@ -209,7 +267,7 @@ class SpeechProvider extends ChangeNotifier {
     if (_disposed ||
         _busy ||
         hasManualCapture ||
-        _playback != null ||
+        _playbacks.isNotEmpty ||
         _warming ||
         text.trim().isEmpty) {
       return;
@@ -231,7 +289,9 @@ class SpeechProvider extends ChangeNotifier {
     final cancellation = Completer<void>();
     try {
       final directory = await _store.directoryFor(selected);
-      if (_disposed || _busy || hasManualCapture || _playback != null) return;
+      if (_disposed || _busy || hasManualCapture || _playbacks.isNotEmpty) {
+        return;
+      }
       final generated = <Uint8List>[];
       await for (final chunk in _engine.synthesizeStream(
         selected.format,
@@ -242,7 +302,7 @@ class SpeechProvider extends ChangeNotifier {
         speed: clampedSpeed,
         cancellation: cancellation.future,
       )) {
-        if (_disposed || _busy || hasManualCapture || _playback != null) {
+        if (_disposed || _busy || hasManualCapture || _playbacks.isNotEmpty) {
           if (!cancellation.isCompleted) cancellation.complete();
           return;
         }
@@ -270,28 +330,44 @@ class SpeechProvider extends ChangeNotifier {
     double gain = defaultSpeechSynthesisGain,
     double speed = defaultSpeechSynthesisSpeed,
   }) async {
-    if (_disposed || _busy || hasManualCapture) return null;
+    final scope = _conversationOf(owner);
+    if (_disposed ||
+        _busy ||
+        (scope != null ? hasManualCaptureFor(scope) : hasManualCapture)) {
+      return null;
+    }
     final selected = library.synthesisModel(selection);
     if (selected == null) return .missingFiles;
+    final currentPlayback = _playbacks[owner];
     if (isPlaying(owner) &&
-        _playback!.modelId == selected.id &&
-        _playback!.text == text) {
+        currentPlayback!.modelId == selected.id &&
+        currentPlayback.text == text) {
       return null;
     }
     final voice = selection?.voice ?? 0;
     final clampedGain = clampSpeechSynthesisGain(gain);
     final clampedSpeed = clampSpeechSynthesisSpeed(speed);
-    final activeCapture = _capture;
+    final activeCapture = scope == null ? null : _captures[scope];
     if (!allowContinuousCapture &&
         activeCapture != null &&
         activeCapture.continuous) {
       activeCapture.cancel();
     }
-    final previous = _playback;
-    previous?.cancel();
+    final deviceId = _playbackDeviceIdFor(owner);
+    final conflictingPlaybacks = <_SpeechPlayback>[
+      for (final entry in _playbacks.entries)
+        if (entry.key == owner ||
+            (scope != null && _conversationOf(entry.key) == scope) ||
+            (deviceId != null && _playbackDeviceIdFor(entry.key) == deviceId))
+          entry.value,
+    ];
+    for (final prev in conflictingPlaybacks) {
+      prev.cancel();
+    }
     final task = _SpeechPlayback(owner, selected.id, text);
-    _playback = task;
+    _playbacks[owner] = task;
     _lastPlayedText = text;
+    if (scope != null) _lastPlayedTextByOwner[scope] = text;
     _notify();
     try {
       if (!allowContinuousCapture &&
@@ -299,7 +375,9 @@ class SpeechProvider extends ChangeNotifier {
           activeCapture.continuous) {
         await activeCapture.finished.future;
       }
-      await previous?.finished.future;
+      for (final prev in conflictingPlaybacks) {
+        await prev.finished.future;
+      }
       if (task.cancellation.isCompleted) return null;
       final directory = await _store.directoryFor(selected);
       if (task.cancellation.isCompleted) return null;
@@ -316,6 +394,7 @@ class SpeechProvider extends ChangeNotifier {
         await _output.playStream(
           Stream.fromIterable(cached),
           task.cancellation.future,
+          deviceId: _playbackDeviceIdFor(owner),
         );
         return null;
       }
@@ -343,7 +422,11 @@ class SpeechProvider extends ChangeNotifier {
               },
             ),
           );
-      await _output.playStream(chunks, task.cancellation.future);
+      await _output.playStream(
+        chunks,
+        task.cancellation.future,
+        deviceId: _playbackDeviceIdFor(owner),
+      );
       if (streamCompleted && generated.isNotEmpty) {
         _synthesisCache[cacheKey] = List.unmodifiable(generated);
         if (_synthesisCache.length > _maxCachedClips) {
@@ -358,9 +441,11 @@ class SpeechProvider extends ChangeNotifier {
     } finally {
       task.cancel();
       task.finished.complete();
-      _lastPlaybackEndedAt = DateTime.now();
-      if (identical(task, _playback)) {
-        _playback = null;
+      final now = DateTime.now();
+      _lastPlaybackEndedAt = now;
+      if (scope != null) _lastPlaybackEndedAtByOwner[scope] = now;
+      if (identical(task, _playbacks[owner])) {
+        _playbacks.remove(owner);
         _notify();
       }
     }
@@ -368,20 +453,23 @@ class SpeechProvider extends ChangeNotifier {
 
   void stopPlayback(Object owner) {
     if (!isPlaying(owner)) return;
-    _playback!.cancel();
+    _playbacks[owner]!.cancel();
     _notify();
   }
 
   void stopConversation(SpeechConversation owner, {SpeechModelKind? kind}) {
     var changed = false;
-    final playback = _playback;
-    if (playback?.owner case (final SpeechConversation scope, String _)
-        when scope == owner && kind != .recognition) {
-      playback!.cancel();
-      changed = true;
+    if (kind != .recognition) {
+      for (final playback in _playbacks.values) {
+        if (_conversationOf(playback.owner) == owner &&
+            !playback.cancellation.isCompleted) {
+          playback.cancel();
+          changed = true;
+        }
+      }
     }
-    final capture = _capture;
-    if (capture != null && capture.owner == owner && kind != .synthesis) {
+    final capture = _captures[owner];
+    if (capture != null && kind != .synthesis) {
       capture.cancel();
       changed = true;
     }
@@ -393,21 +481,30 @@ class SpeechProvider extends ChangeNotifier {
     required String? modelId,
     void Function(String)? onPartial,
   }) async {
-    if (_disposed || _busy || hasCapture) return (text: null, error: null);
+    if (_disposed || _busy || hasCaptureFor(owner)) {
+      return (text: null, error: null);
+    }
     final selected = library.recognitionModel(modelId);
     if (selected == null) {
       return (text: null, error: SpeechFailureReason.missingFiles);
     }
-    final previousCapture = _capture;
+    final previousCapture = _captures[owner];
     previousCapture?.cancel();
     final task = _SpeechCapture(owner, selected.id);
-    _capture = task;
-    final playback = _playback;
-    playback?.cancel();
+    _captures[owner] = task;
+    final ownerPlaybacks = [
+      for (final playback in _playbacks.values)
+        if (_conversationOf(playback.owner) == owner) playback,
+    ];
+    for (final playback in ownerPlaybacks) {
+      playback.cancel();
+    }
     _notify();
     try {
       await previousCapture?.finished.future;
-      await playback?.finished.future;
+      for (final playback in ownerPlaybacks) {
+        await playback.finished.future;
+      }
       final directory = await _store.directoryFor(selected);
       if (task.cancellation.isCompleted) return (text: null, error: null);
       final audio = StreamController<SpeechAudioChunk>();
@@ -416,6 +513,8 @@ class SpeechProvider extends ChangeNotifier {
         try {
           await _input.record(
             stop: task.stop.future,
+            captureDeviceId: owner.recognitionHardwareId,
+            playbackDeviceId: owner.synthesisHardwareId,
             started: () {
               if (task.cancellation.isCompleted) return;
               task.phase = .recording;
@@ -490,13 +589,15 @@ class SpeechProvider extends ChangeNotifier {
     } finally {
       task.cancel();
       task.finished.complete();
-      _capture = null;
+      if (identical(task, _captures[owner])) {
+        _captures.remove(owner);
+      }
       _notify();
     }
   }
 
   void finishRecording(SpeechConversation owner) {
-    final capture = _capture;
+    final capture = _captures[owner];
     if (capture == null ||
         capturePhase(owner) != .recording ||
         capture.stop.isCompleted) {
@@ -516,19 +617,28 @@ class SpeechProvider extends ChangeNotifier {
     void Function(String)? onPartial,
     required void Function(String) onUtterance,
   }) async {
-    if (_disposed || _busy || hasCapture) return null;
+    if (_disposed || _busy || hasCaptureFor(owner)) return null;
     final selected = library.recognitionModel(modelId);
     if (selected == null) return .missingFiles;
-    final previousCapture = _capture;
+    final previousCapture = _captures[owner];
     previousCapture?.cancel();
     final task = _SpeechCapture(owner, selected.id, continuous: true);
-    _capture = task;
-    final playback = allowDuringPlayback ? null : _playback;
-    playback?.cancel();
+    _captures[owner] = task;
+    final ownerPlaybacks = allowDuringPlayback
+        ? const <_SpeechPlayback>[]
+        : [
+            for (final playback in _playbacks.values)
+              if (_conversationOf(playback.owner) == owner) playback,
+          ];
+    for (final playback in ownerPlaybacks) {
+      playback.cancel();
+    }
     _notify();
     try {
       await previousCapture?.finished.future;
-      await playback?.finished.future;
+      for (final playback in ownerPlaybacks) {
+        await playback.finished.future;
+      }
       final directory = await _store.directoryFor(selected);
       if (task.cancellation.isCompleted) return null;
       final audio = StreamController<SpeechAudioChunk>();
@@ -538,6 +648,8 @@ class SpeechProvider extends ChangeNotifier {
           await _input.record(
             stop: task.stop.future,
             continuous: true,
+            captureDeviceId: owner.recognitionHardwareId,
+            playbackDeviceId: owner.synthesisHardwareId,
             started: () {
               if (task.cancellation.isCompleted) return;
               task.phase = .recording;
@@ -608,7 +720,9 @@ class SpeechProvider extends ChangeNotifier {
     } finally {
       task.cancel();
       task.finished.complete();
-      _capture = null;
+      if (identical(task, _captures[owner])) {
+        _captures.remove(owner);
+      }
       _notify();
     }
   }
@@ -642,17 +756,27 @@ class SpeechProvider extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    _playback?.cancel();
-    _capture?.cancel();
+    for (final playback in _playbacks.values) {
+      playback.cancel();
+    }
+    for (final capture in _captures.values) {
+      capture.cancel();
+    }
     _engine.disposeSynthesisSession();
     super.dispose();
   }
 }
 
 class SpeechConversation {
-  SpeechConversation({this.agent});
+  SpeechConversation({
+    this.agent,
+    this.recognitionHardwareId,
+    this.synthesisHardwareId,
+  });
 
   Object? agent;
+  String? recognitionHardwareId;
+  String? synthesisHardwareId;
   bool _standby = false;
   bool get standby => _standby;
 }

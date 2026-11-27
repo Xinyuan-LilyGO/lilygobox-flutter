@@ -4106,13 +4106,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get speechMicGain => '麦克风音量增益';
 
   @override
-  String get speechMicGainDescription => '在送入识别前放大或减小麦克风音量（0.1x ~ 3.0x）。';
+  String get speechMicGainDescription => '放大或减小麦克风输入音量（0.1x ~ 3.0x）。';
 
   @override
-  String get speechSynthesisGain => '朗读音量增益';
+  String get speechSynthesisGain => '扬声器音量增益';
 
   @override
-  String get speechSynthesisGainDescription => '调节语音合成输出的音量大小（0.1x ~ 3.0x）。';
+  String get speechSynthesisGainDescription => '放大或减小扬声器输出音量（0.1x ~ 3.0x）。';
 
   @override
   String get speechSynthesisSpeed => '朗读语速';
@@ -4144,6 +4144,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get speechAddWakeWord => '添加';
+
+  @override
+  String get speechIncludeWakeWord => '发送完整唤醒词内容';
+
+  @override
+  String get speechIncludeWakeWordDescription =>
+      '说出唤醒词并紧跟内容时，保留唤醒词一并发送；关闭则自动截掉唤醒词。';
 
   @override
   String get speechStandbyListening => '唤醒词待命中 — 点击切换为直接说话';
@@ -4210,4 +4217,90 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get speechPlaybackError => '无法播放语音，请检查 Windows 默认输出设备。';
+
+  @override
+  String get speechHardware => '硬件';
+
+  @override
+  String get speechHardwareLocal => '本机设备';
+
+  @override
+  String get speechHardwareLocalDescription => '独占使用当前电脑的麦克风与扬声器。';
+
+  @override
+  String get speechHardwareNone => '不绑定硬件';
+
+  @override
+  String get speechHardwareNoneDescription => '不独占本机音频硬件，允许其他智能体使用。';
+
+  @override
+  String get speechHardwareOccupied => '已占用';
+
+  @override
+  String get speechHardwareBusy => '运行中';
+
+  @override
+  String get speechHardwareBusyNotice => '当前设备正由运行中的智能体占用，暂无法强行接管。';
+
+  @override
+  String get speechHardwareTakeoverTitle => '接管硬件设备？';
+
+  @override
+  String speechHardwareTakeoverMessage(String name, String id) {
+    return '当前设备正由智能体「$name」（ID：$id）占用。保存后将自动解除原智能体的占用（变为无设备）。';
+  }
+
+  @override
+  String get speechHardwareTakeoverConfirm => '确认接管';
+
+  @override
+  String speechHardwareOccupiedBy(String name) {
+    return '已被「$name」占用';
+  }
+
+  @override
+  String get speechHardwareTooltip => '语音硬件';
+
+  @override
+  String speechHardwareOccupiedTooltip(String name) {
+    return '本机语音硬件已被「$name」占用。';
+  }
+
+  @override
+  String get speechHardwareOptional => '语音硬件（可选）';
+
+  @override
+  String get speechHardwareHelp => '将当前电脑的麦克风与扬声器独占绑定到此智能体；绑定后其他智能体将无法使用。';
+
+  @override
+  String get speechNoHardwareDevice => '无设备';
+
+  @override
+  String get speechDefaultDevice => '默认设备';
+
+  @override
+  String get speechDefaultDeviceDescription => '跟随 Windows 系统默认音频设备。';
+
+  @override
+  String get speechHardwareDeviceTitle => '硬件设备设置';
+
+  @override
+  String get speechHardwareInputFieldTitle => '麦克风输入设备';
+
+  @override
+  String get speechHardwareInputFieldDescription =>
+      '选择用于语音识别的输入硬件；选中具体设备后将由当前智能体独占。';
+
+  @override
+  String get speechHardwareOutputFieldTitle => '扬声器输出设备';
+
+  @override
+  String get speechHardwareOutputFieldDescription =>
+      '选择用于语音合成的输出硬件；选中具体设备后将由当前智能体独占。';
+
+  @override
+  String get speechNoAudioDevicesFound => '未检测到可用音频设备。';
+
+  @override
+  String get speechRefreshDevices => '刷新设备列表';
 }

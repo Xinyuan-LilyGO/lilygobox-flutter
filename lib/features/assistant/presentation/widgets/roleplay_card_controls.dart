@@ -33,12 +33,15 @@ class RoleplayMenuButton extends StatefulWidget {
     required this.assistant,
     required this.compact,
     required this.onChooseOpening,
+    this.triggerBuilder,
   });
 
   final AppTheme theme;
   final AiAssistantProvider assistant;
   final bool compact;
   final Future<void> Function(AiRoleplayBinding) onChooseOpening;
+  final Widget Function(BuildContext context, VoidCallback toggle)?
+  triggerBuilder;
 
   @override
   State<RoleplayMenuButton> createState() => _RoleplayMenuButtonState();
@@ -116,14 +119,19 @@ class _RoleplayMenuButtonState extends State<RoleplayMenuButton> {
           ],
         ),
       ),
-      triggerBuilder: (context, controller) => AppTooltip(
+      triggerBuilder: (context, controller) {
+        void toggle() =>
+            controller.isOpen ? controller.close() : controller.open();
+        if (widget.triggerBuilder case final customTrigger?) {
+          return customTrigger(context, toggle);
+        }
+        return AppTooltip(
         message: tooltip,
         child: Semantics(
           button: true,
           label: binding == null ? tooltip : '$tooltip · $status',
           excludeSemantics: true,
-          onTap: () =>
-              controller.isOpen ? controller.close() : controller.open(),
+          onTap: toggle,
           child: MenuItemSurface(
             key: const ValueKey('roleplay-chat-menu'),
             theme: theme,
@@ -131,8 +139,7 @@ class _RoleplayMenuButtonState extends State<RoleplayMenuButton> {
             surfaceColor: theme.primary,
             hoverColor: hoverColor,
             borderRadius: BorderRadius.circular(10),
-            onPressed: () =>
-                controller.isOpen ? controller.close() : controller.open(),
+            onPressed: toggle,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
               child: ConstrainedBox(
@@ -182,7 +189,8 @@ class _RoleplayMenuButtonState extends State<RoleplayMenuButton> {
             ),
           ),
         ),
-      ),
+      );
+      },
     );
   }
 }

@@ -133,6 +133,7 @@ Uint8List applySpeechPcmGain(Uint8List pcm, double gain) {
   return out;
 }
 
+typedef SpeechAudioDevice = ({String id, String name, bool isDefault});
 typedef SpeechVoiceSelection = ({String modelId, int voice});
 typedef SpeechBindings = ({
   SpeechVoiceSelection? voice,
@@ -151,6 +152,9 @@ typedef SpeechBindings = ({
   double synthesisGain,
   double synthesisSpeed,
   bool fallbackReadBody,
+  bool includeWakeWordInCommand,
+  String? recognitionHardwareId,
+  String? synthesisHardwareId,
 });
 
 const SpeechBindings emptySpeechBindings = (
@@ -170,6 +174,9 @@ const SpeechBindings emptySpeechBindings = (
   synthesisGain: defaultSpeechSynthesisGain,
   synthesisSpeed: defaultSpeechSynthesisSpeed,
   fallbackReadBody: false,
+  includeWakeWordInCommand: true,
+  recognitionHardwareId: null,
+  synthesisHardwareId: null,
 );
 
 List<String> normalizeWakeWords(Iterable<String> words) {
@@ -281,6 +288,9 @@ extension SpeechBindingSelection on SpeechBindings {
     synthesisGain: synthesisGain,
     synthesisSpeed: synthesisSpeed,
     fallbackReadBody: fallbackReadBody,
+    includeWakeWordInCommand: includeWakeWordInCommand,
+    recognitionHardwareId: recognitionHardwareId,
+    synthesisHardwareId: synthesisHardwareId,
   );
 
   SpeechBindings withRecognition(String? id) => (
@@ -300,6 +310,9 @@ extension SpeechBindingSelection on SpeechBindings {
     synthesisGain: synthesisGain,
     synthesisSpeed: synthesisSpeed,
     fallbackReadBody: fallbackReadBody,
+    includeWakeWordInCommand: includeWakeWordInCommand,
+    recognitionHardwareId: recognitionHardwareId,
+    synthesisHardwareId: synthesisHardwareId,
   );
 
   SpeechBindings withEnabled(SpeechModelKind kind, bool enabled) => (
@@ -323,6 +336,9 @@ extension SpeechBindingSelection on SpeechBindings {
     synthesisGain: synthesisGain,
     synthesisSpeed: synthesisSpeed,
     fallbackReadBody: fallbackReadBody,
+    includeWakeWordInCommand: includeWakeWordInCommand,
+    recognitionHardwareId: recognitionHardwareId,
+    synthesisHardwareId: synthesisHardwareId,
   );
 
   SpeechBindings withAutoPlay(bool enabled) => (
@@ -342,6 +358,9 @@ extension SpeechBindingSelection on SpeechBindings {
     synthesisGain: synthesisGain,
     synthesisSpeed: synthesisSpeed,
     fallbackReadBody: fallbackReadBody,
+    includeWakeWordInCommand: includeWakeWordInCommand,
+    recognitionHardwareId: recognitionHardwareId,
+    synthesisHardwareId: synthesisHardwareId,
   );
 
   SpeechBindings withContinuousRecognition(bool enabled) => (
@@ -361,6 +380,9 @@ extension SpeechBindingSelection on SpeechBindings {
     synthesisGain: synthesisGain,
     synthesisSpeed: synthesisSpeed,
     fallbackReadBody: fallbackReadBody,
+    includeWakeWordInCommand: includeWakeWordInCommand,
+    recognitionHardwareId: recognitionHardwareId,
+    synthesisHardwareId: synthesisHardwareId,
   );
 
   SpeechBindings withVoiceInterrupt(bool enabled) => (
@@ -380,6 +402,9 @@ extension SpeechBindingSelection on SpeechBindings {
     synthesisGain: synthesisGain,
     synthesisSpeed: synthesisSpeed,
     fallbackReadBody: fallbackReadBody,
+    includeWakeWordInCommand: includeWakeWordInCommand,
+    recognitionHardwareId: recognitionHardwareId,
+    synthesisHardwareId: synthesisHardwareId,
   );
 
   SpeechBindings withWakeWords(Iterable<String> words) => (
@@ -399,6 +424,9 @@ extension SpeechBindingSelection on SpeechBindings {
     synthesisGain: synthesisGain,
     synthesisSpeed: synthesisSpeed,
     fallbackReadBody: fallbackReadBody,
+    includeWakeWordInCommand: includeWakeWordInCommand,
+    recognitionHardwareId: recognitionHardwareId,
+    synthesisHardwareId: synthesisHardwareId,
   );
 
   SpeechBindings withIdleTimeoutSeconds(int seconds) => (
@@ -418,6 +446,9 @@ extension SpeechBindingSelection on SpeechBindings {
     synthesisGain: synthesisGain,
     synthesisSpeed: synthesisSpeed,
     fallbackReadBody: fallbackReadBody,
+    includeWakeWordInCommand: includeWakeWordInCommand,
+    recognitionHardwareId: recognitionHardwareId,
+    synthesisHardwareId: synthesisHardwareId,
   );
 
   SpeechBindings withSendSilenceSeconds(double seconds) => (
@@ -437,6 +468,9 @@ extension SpeechBindingSelection on SpeechBindings {
     synthesisGain: synthesisGain,
     synthesisSpeed: synthesisSpeed,
     fallbackReadBody: fallbackReadBody,
+    includeWakeWordInCommand: includeWakeWordInCommand,
+    recognitionHardwareId: recognitionHardwareId,
+    synthesisHardwareId: synthesisHardwareId,
   );
 
   SpeechBindings withMinTriggerLength(int length) => (
@@ -456,6 +490,9 @@ extension SpeechBindingSelection on SpeechBindings {
     synthesisGain: synthesisGain,
     synthesisSpeed: synthesisSpeed,
     fallbackReadBody: fallbackReadBody,
+    includeWakeWordInCommand: includeWakeWordInCommand,
+    recognitionHardwareId: recognitionHardwareId,
+    synthesisHardwareId: synthesisHardwareId,
   );
 
   SpeechBindings withInterruptStopsGeneration(bool enabled) => (
@@ -475,6 +512,9 @@ extension SpeechBindingSelection on SpeechBindings {
     synthesisGain: synthesisGain,
     synthesisSpeed: synthesisSpeed,
     fallbackReadBody: fallbackReadBody,
+    includeWakeWordInCommand: includeWakeWordInCommand,
+    recognitionHardwareId: recognitionHardwareId,
+    synthesisHardwareId: synthesisHardwareId,
   );
 
   SpeechBindings withMicGain(double gain) => (
@@ -494,6 +534,9 @@ extension SpeechBindingSelection on SpeechBindings {
     synthesisGain: synthesisGain,
     synthesisSpeed: synthesisSpeed,
     fallbackReadBody: fallbackReadBody,
+    includeWakeWordInCommand: includeWakeWordInCommand,
+    recognitionHardwareId: recognitionHardwareId,
+    synthesisHardwareId: synthesisHardwareId,
   );
 
   SpeechBindings withSynthesisGain(double gain) => (
@@ -513,6 +556,9 @@ extension SpeechBindingSelection on SpeechBindings {
     synthesisGain: clampSpeechSynthesisGain(gain),
     synthesisSpeed: synthesisSpeed,
     fallbackReadBody: fallbackReadBody,
+    includeWakeWordInCommand: includeWakeWordInCommand,
+    recognitionHardwareId: recognitionHardwareId,
+    synthesisHardwareId: synthesisHardwareId,
   );
 
   SpeechBindings withSynthesisSpeed(double speed) => (
@@ -532,6 +578,9 @@ extension SpeechBindingSelection on SpeechBindings {
     synthesisGain: synthesisGain,
     synthesisSpeed: clampSpeechSynthesisSpeed(speed),
     fallbackReadBody: fallbackReadBody,
+    includeWakeWordInCommand: includeWakeWordInCommand,
+    recognitionHardwareId: recognitionHardwareId,
+    synthesisHardwareId: synthesisHardwareId,
   );
 
   SpeechBindings withFallbackReadBody(bool enabled) => (
@@ -551,7 +600,137 @@ extension SpeechBindingSelection on SpeechBindings {
     synthesisGain: synthesisGain,
     synthesisSpeed: synthesisSpeed,
     fallbackReadBody: enabled,
+    includeWakeWordInCommand: includeWakeWordInCommand,
+    recognitionHardwareId: recognitionHardwareId,
+    synthesisHardwareId: synthesisHardwareId,
   );
+
+  SpeechBindings withIncludeWakeWordInCommand(bool enabled) => (
+    voice: voice,
+    recognitionId: recognitionId,
+    synthesisPaused: synthesisPaused,
+    recognitionPaused: recognitionPaused,
+    autoPlay: autoPlay,
+    continuousRecognition: continuousRecognition,
+    voiceInterrupt: voiceInterrupt,
+    wakeWords: wakeWords,
+    idleTimeoutSeconds: idleTimeoutSeconds,
+    sendSilenceSeconds: sendSilenceSeconds,
+    minTriggerLength: minTriggerLength,
+    interruptStopsGeneration: interruptStopsGeneration,
+    micGain: micGain,
+    synthesisGain: synthesisGain,
+    synthesisSpeed: synthesisSpeed,
+    fallbackReadBody: fallbackReadBody,
+    includeWakeWordInCommand: enabled,
+    recognitionHardwareId: recognitionHardwareId,
+    synthesisHardwareId: synthesisHardwareId,
+  );
+
+  String? hardwareIdFor(SpeechModelKind kind) => switch (kind) {
+    .recognition => recognitionHardwareId,
+    .synthesis => synthesisHardwareId,
+  };
+
+  SpeechBindings withHardwareIdFor(SpeechModelKind kind, String? id) =>
+      switch (kind) {
+        .recognition => withRecognitionHardwareId(id),
+        .synthesis => withSynthesisHardwareId(id),
+      };
+
+  SpeechBindings withRecognitionHardwareId(String? id) => (
+    voice: voice,
+    recognitionId: recognitionId,
+    synthesisPaused: synthesisPaused,
+    recognitionPaused: recognitionPaused,
+    autoPlay: autoPlay,
+    continuousRecognition: continuousRecognition,
+    voiceInterrupt: voiceInterrupt,
+    wakeWords: wakeWords,
+    idleTimeoutSeconds: idleTimeoutSeconds,
+    sendSilenceSeconds: sendSilenceSeconds,
+    minTriggerLength: minTriggerLength,
+    interruptStopsGeneration: interruptStopsGeneration,
+    micGain: micGain,
+    synthesisGain: synthesisGain,
+    synthesisSpeed: synthesisSpeed,
+    fallbackReadBody: fallbackReadBody,
+    includeWakeWordInCommand: includeWakeWordInCommand,
+    recognitionHardwareId: id,
+    synthesisHardwareId: synthesisHardwareId,
+  );
+
+  SpeechBindings withSynthesisHardwareId(String? id) => (
+    voice: voice,
+    recognitionId: recognitionId,
+    synthesisPaused: synthesisPaused,
+    recognitionPaused: recognitionPaused,
+    autoPlay: autoPlay,
+    continuousRecognition: continuousRecognition,
+    voiceInterrupt: voiceInterrupt,
+    wakeWords: wakeWords,
+    idleTimeoutSeconds: idleTimeoutSeconds,
+    sendSilenceSeconds: sendSilenceSeconds,
+    minTriggerLength: minTriggerLength,
+    interruptStopsGeneration: interruptStopsGeneration,
+    micGain: micGain,
+    synthesisGain: synthesisGain,
+    synthesisSpeed: synthesisSpeed,
+    fallbackReadBody: fallbackReadBody,
+    includeWakeWordInCommand: includeWakeWordInCommand,
+    recognitionHardwareId: recognitionHardwareId,
+    synthesisHardwareId: id,
+  );
+
+  /// 切换某个类型（识别/合成）的模型时，将该类型下的参数恢复为默认状态。
+  SpeechBindings withResetModel(
+    SpeechModelKind kind,
+    String? modelId, {
+    String? hardwareId,
+  }) => switch (kind) {
+    .synthesis => (
+      voice: modelId == null ? null : (modelId: modelId, voice: 0),
+      recognitionId: recognitionId,
+      synthesisPaused: emptySpeechBindings.synthesisPaused,
+      recognitionPaused: recognitionPaused,
+      autoPlay: emptySpeechBindings.autoPlay,
+      continuousRecognition: continuousRecognition,
+      voiceInterrupt: voiceInterrupt,
+      wakeWords: wakeWords,
+      idleTimeoutSeconds: idleTimeoutSeconds,
+      sendSilenceSeconds: sendSilenceSeconds,
+      minTriggerLength: minTriggerLength,
+      interruptStopsGeneration: interruptStopsGeneration,
+      micGain: micGain,
+      synthesisGain: emptySpeechBindings.synthesisGain,
+      synthesisSpeed: emptySpeechBindings.synthesisSpeed,
+      fallbackReadBody: emptySpeechBindings.fallbackReadBody,
+      includeWakeWordInCommand: includeWakeWordInCommand,
+      recognitionHardwareId: recognitionHardwareId,
+      synthesisHardwareId: modelId == null ? null : hardwareId,
+    ),
+    .recognition => (
+      voice: voice,
+      recognitionId: modelId,
+      synthesisPaused: synthesisPaused,
+      recognitionPaused: emptySpeechBindings.recognitionPaused,
+      autoPlay: autoPlay,
+      continuousRecognition: emptySpeechBindings.continuousRecognition,
+      voiceInterrupt: emptySpeechBindings.voiceInterrupt,
+      wakeWords: emptySpeechBindings.wakeWords,
+      idleTimeoutSeconds: emptySpeechBindings.idleTimeoutSeconds,
+      sendSilenceSeconds: emptySpeechBindings.sendSilenceSeconds,
+      minTriggerLength: emptySpeechBindings.minTriggerLength,
+      interruptStopsGeneration: emptySpeechBindings.interruptStopsGeneration,
+      micGain: emptySpeechBindings.micGain,
+      synthesisGain: synthesisGain,
+      synthesisSpeed: synthesisSpeed,
+      fallbackReadBody: fallbackReadBody,
+      includeWakeWordInCommand: emptySpeechBindings.includeWakeWordInCommand,
+      recognitionHardwareId: modelId == null ? null : hardwareId,
+      synthesisHardwareId: synthesisHardwareId,
+    ),
+  };
 }
 
 class SpeechLibrary {
@@ -581,4 +760,19 @@ class SpeechLibrary {
         ? model
         : null;
   }
+}
+
+SpeechBindings sanitizeSpeechBindings(
+  SpeechBindings bindings,
+  SpeechLibrary library,
+) {
+  var result = bindings;
+  if (result.voice != null && library.synthesisModel(result.voice) == null) {
+    result = result.withVoice(null);
+  }
+  if (result.recognitionId != null &&
+      library.recognitionModel(result.recognitionId) == null) {
+    result = result.withRecognition(null);
+  }
+  return result;
 }

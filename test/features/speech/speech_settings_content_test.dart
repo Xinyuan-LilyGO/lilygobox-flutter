@@ -110,6 +110,8 @@ class _Input implements SpeechAudioInput {
     required void Function() started,
     required void Function(SpeechAudioChunk) onAudio,
     bool continuous = false,
+    String? captureDeviceId,
+    String? playbackDeviceId,
   }) async {
     lastStop = null;
     started();
@@ -126,7 +128,11 @@ class _Output implements SpeechAudioOutput {
   bool playing = false;
 
   @override
-  Future<void> play(Uint8List wav, Future<void> cancellation) async {
+  Future<void> play(
+    Uint8List wav,
+    Future<void> cancellation, {
+    String? deviceId,
+  }) async {
     playing = true;
     await cancellation;
     playing = false;
@@ -135,10 +141,11 @@ class _Output implements SpeechAudioOutput {
   @override
   Future<void> playStream(
     Stream<Uint8List> wavChunks,
-    Future<void> cancellation,
-  ) async {
+    Future<void> cancellation, {
+    String? deviceId,
+  }) async {
     await for (final chunk in wavChunks) {
-      await play(chunk, cancellation);
+      await play(chunk, cancellation, deviceId: deviceId);
       break;
     }
   }

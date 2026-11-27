@@ -21,6 +21,7 @@ import '../../../core/widgets/popup_menu_transition.dart';
 import '../../../core/widgets/settings/compact_switch.dart';
 import '../../../core/widgets/settings/fields.dart';
 import '../../../core/widgets/settings/search_field.dart';
+import '../../../core/widgets/settings/select.dart';
 import '../../../core/widgets/title_bar_icon_button.dart';
 import '../../settings/presentation/widgets/content_layout.dart';
 import '../domain/speech_model.dart';
@@ -38,6 +39,9 @@ class SpeechChatControls extends StatefulWidget {
     required this.compact,
     this.kinds = SpeechModelKind.values,
     this.fieldStyle = false,
+    this.hardwareOwnersFor,
+    this.onTakeOverHardware,
+    this.triggerBuilder,
   });
 
   final AppTheme theme;
@@ -47,6 +51,18 @@ class SpeechChatControls extends StatefulWidget {
   final bool compact;
   final List<SpeechModelKind> kinds;
   final bool fieldStyle;
+  final Map<String, ({String id, String title, bool busy})> Function(
+    SpeechModelKind kind,
+  )?
+  hardwareOwnersFor;
+  final bool Function(SpeechModelKind kind, String deviceId)?
+  onTakeOverHardware;
+  final Widget Function(
+    BuildContext context,
+    VoidCallback toggle,
+    SpeechModelKind kind,
+  )?
+  triggerBuilder;
 
   @override
   State<SpeechChatControls> createState() => _SpeechChatControlsState();
@@ -72,6 +88,15 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
 
   String? _boundId(SpeechModelKind kind) => widget.bindings.modelIdFor(kind);
 
+  String? _defaultAvailableHardwareId(SpeechModelKind kind) {
+    final devices = widget.speech.listAudioDevices(kind);
+    if (devices.isEmpty) return null;
+    final preferred =
+        devices.where((d) => d.isDefault).firstOrNull ?? devices.first;
+    final owners = widget.hardwareOwnersFor?.call(kind) ?? const {};
+    return owners.containsKey(preferred.id) ? null : preferred.id;
+  }
+
   void _select(SpeechModelKind kind, SpeechModel? model) {
     if (model != null &&
         (widget.speech.busy ||
@@ -81,12 +106,10 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
     final bindings = widget.bindings;
     if (model != null) setState(() => _showingList = false);
     if (_boundId(kind) == model?.id) return;
-    widget.onChanged(switch (kind) {
-      .synthesis => bindings.withVoice(
-        model == null ? null : (modelId: model.id, voice: 0),
-      ),
-      .recognition => bindings.withRecognition(model?.id),
-    });
+    final hardwareId = model == null ? null : _defaultAvailableHardwareId(kind);
+    widget.onChanged(
+      bindings.withResetModel(kind, model?.id, hardwareId: hardwareId),
+    );
   }
 
   @override
@@ -131,9 +154,22 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
     final library = widget.speech.library;
     final model = library.modelFor(kind, _boundId(kind));
     final kindLabel = speechKindLabel(l10n, kind);
+    final selectedDeviceId = widget.bindings.hardwareIdFor(kind);
+    final owners = widget.hardwareOwnersFor?.call(kind) ?? const {};
+    final occupiedBy = selectedDeviceId == null
+        ? null
+        : owners[selectedDeviceId]?.title;
+    final disabled = occupiedBy != null;
     final label = model?.name ?? kindLabel;
-    final tooltip = model == null ? kindLabel : '$kindLabel · ${model.name}';
+    final tooltip = disabled
+        ? l10n.speechHardwareOccupiedTooltip(occupiedBy)
+        : model == null
+        ? kindLabel
+        : '$kindLabel · ${model.name}';
     void toggle() => menu.isOpen ? menu.close() : menu.open();
+    if (widget.triggerBuilder case final customTrigger?) {
+      return customTrigger(context, toggle, kind);
+    }
     if (widget.fieldStyle) {
       final background = _theme.selectControlColorForSurface(
         AppDialogStyle.backgroundColor(_theme),
@@ -153,7 +189,9 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
             theme: _theme,
             backgroundColor: background,
             surfaceColor: background,
-            foregroundColor: _theme.textColorSecondary,
+            foregroundColor: disabled
+                ? _theme.textColorTertiary
+                : _theme.textColorSecondary,
             borderRadius: BorderRadius.circular(4),
             onPressed: toggle,
             child: Padding(
@@ -223,7 +261,9 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
                       : Symbols.mic_rounded,
                   size: 22,
                   fill: 1,
-                  color: _theme.textColorSecondary,
+                  color: disabled
+                      ? _theme.textColorTertiary
+                      : _theme.textColorSecondary,
                 ),
                 if (!widget.compact) ...[
                   const SizedBox(width: 4),
@@ -234,7 +274,9 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 12,
-                        color: _theme.textColorSecondary,
+                        color: disabled
+                            ? _theme.textColorTertiary
+                            : _theme.textColorSecondary,
                       ),
                     ),
                   ),
@@ -247,7 +289,9 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
                     child: Icon(
                       Symbols.expand_more_rounded,
                       size: 14,
-                      color: _theme.textColorSecondary,
+                      color: disabled
+                          ? _theme.textColorTertiary
+                          : _theme.textColorSecondary,
                     ),
                   ),
                 ],
@@ -539,38 +583,415 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
           ),
         ),
         if (model.available && model.kind == .recognition)
-          AppActionButton(
-            key: const ValueKey('speech-chat-recognition-settings'),
-            theme: _theme,
-            surfaceColor: PopupMenuSurface.backgroundColorFor(_theme),
-            label: l10n.speechRecognitionSettings,
-            icon: Symbols.tune_rounded,
-            iconFill: 1,
-            iconSize: 15,
-            iconSpacing: 5,
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-            onPressed: () {
-              _menu.close();
-              unawaited(_editRecognitionSettings(this.context, model));
-            },
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              AppActionButton(
+                key: const ValueKey('speech-chat-recognition-settings'),
+                theme: _theme,
+                surfaceColor: PopupMenuSurface.backgroundColorFor(_theme),
+                label: l10n.speechRecognitionSettings,
+                icon: Symbols.tune_rounded,
+                iconFill: 1,
+                iconSize: 15,
+                iconSpacing: 5,
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                onPressed: () {
+                  _menu.close();
+                  unawaited(_editRecognitionSettings(this.context, model));
+                },
+              ),
+              _hardwarePickerButton(context, .recognition),
+            ],
           ),
         if (model.available && model.kind == .synthesis)
-          AppActionButton(
-            key: const ValueKey('speech-chat-voice-settings'),
-            theme: _theme,
-            surfaceColor: PopupMenuSurface.backgroundColorFor(_theme),
-            label: l10n.speechSynthesisSettings,
-            icon: Symbols.tune_rounded,
-            iconFill: 1,
-            iconSize: 15,
-            iconSpacing: 5,
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-            onPressed: () {
-              _menu.close();
-              unawaited(_editVoice(this.context, model, voice));
-            },
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              AppActionButton(
+                key: const ValueKey('speech-chat-voice-settings'),
+                theme: _theme,
+                surfaceColor: PopupMenuSurface.backgroundColorFor(_theme),
+                label: l10n.speechSynthesisSettings,
+                icon: Symbols.tune_rounded,
+                iconFill: 1,
+                iconSize: 15,
+                iconSpacing: 5,
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                onPressed: () {
+                  _menu.close();
+                  unawaited(_editVoice(this.context, model, voice));
+                },
+              ),
+              _hardwarePickerButton(context, .synthesis),
+            ],
           ),
       ],
+    );
+  }
+
+  String _hardwareDeviceLabel(
+    BuildContext context,
+    SpeechModelKind kind,
+    String? deviceId,
+  ) {
+    final l10n = context.l10n;
+    if (deviceId == null) return l10n.speechNoHardwareDevice;
+    final live = widget.speech
+        .listAudioDevices(kind)
+        .where((d) => d.id == deviceId)
+        .firstOrNull;
+    return live?.name ?? deviceId;
+  }
+
+  Widget _hardwarePickerButton(BuildContext context, SpeechModelKind kind) {
+    final l10n = context.l10n;
+    final selectedId = widget.bindings.hardwareIdFor(kind);
+    final deviceLabel = _hardwareDeviceLabel(context, kind, selectedId);
+    final owners = widget.hardwareOwnersFor?.call(kind) ?? const {};
+    final occupiedBy = selectedId == null ? null : owners[selectedId]?.title;
+    return AppTooltip(
+      message: occupiedBy != null
+          ? l10n.speechHardwareOccupiedTooltip(occupiedBy)
+          : '${l10n.speechHardwareDeviceTitle} · $deviceLabel',
+      child: AppActionButton(
+        key: ValueKey('speech-chat-hardware-${kind.name}'),
+        theme: _theme,
+        surfaceColor: PopupMenuSurface.backgroundColorFor(_theme),
+        label: l10n.speechHardwareDeviceTitle,
+        icon: kind == .recognition
+            ? Symbols.mic_rounded
+            : Symbols.volume_up_rounded,
+        iconFill: selectedId != null ? 1 : 0,
+        iconSize: 15,
+        iconSpacing: 5,
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        onPressed: () {
+          _menu.close();
+          unawaited(_editHardwareDevice(this.context, kind));
+        },
+      ),
+    );
+  }
+
+  Future<void> _editHardwareDevice(
+    BuildContext context,
+    SpeechModelKind kind,
+  ) async {
+    final l10n = context.l10n;
+    final theme = _theme;
+    var devices = widget.speech.listAudioDevices(kind);
+    var selectedId = widget.bindings.hardwareIdFor(kind);
+    var gain = kind == .recognition
+        ? clampSpeechMicGain(widget.bindings.micGain)
+        : clampSpeechSynthesisGain(widget.bindings.synthesisGain);
+    var refreshing = false;
+    var dialogOpen = true;
+    var saved = false;
+    final result = await showDialog<({String? deviceId, double gain})?>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) {
+          final owners = widget.hardwareOwnersFor?.call(kind) ?? const {};
+          final surface = AppDialogStyle.backgroundColor(theme);
+          final selectedExists =
+              selectedId == null || devices.any((d) => d.id == selectedId);
+          final items = <DropdownMenuItem<String?>>[
+            DropdownMenuItem<String?>(
+              value: null,
+              child: Text(l10n.speechNoHardwareDevice),
+            ),
+            for (final device in devices)
+              DropdownMenuItem<String?>(
+                value: device.id,
+                enabled: owners[device.id]?.busy != true,
+                child: Text(
+                  owners[device.id] != null
+                      ? '${owners[device.id]!.busy ? l10n.speechHardwareBusy : l10n.speechHardwareOccupied} · ${device.name}'
+                      : device.isDefault
+                      ? '${device.name} (${l10n.speechDefaultDevice})'
+                      : device.name,
+                ),
+              ),
+            if (!selectedExists)
+              DropdownMenuItem<String?>(
+                value: selectedId,
+                child: Text(selectedId!),
+              ),
+          ];
+          return AppDialog(
+            theme: theme,
+            title: l10n.speechHardwareDeviceTitle,
+            titleFontWeight: FontWeight.w500,
+            constraints: const BoxConstraints(maxWidth: 500),
+            contentPadding: const EdgeInsets.fromLTRB(0, 20, 0, 24),
+            content: SizedBox(
+              width: 500,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: 18,
+                  children: [
+                    Row(
+                      spacing: 12,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            spacing: 4,
+                            children: [
+                              Text(
+                                kind == .recognition
+                                    ? l10n.speechHardwareInputFieldTitle
+                                    : l10n.speechHardwareOutputFieldTitle,
+                                style: AppDialogStyle.fieldTitleStyle(theme),
+                              ),
+                              Text(
+                                kind == .recognition
+                                    ? l10n.speechHardwareInputFieldDescription
+                                    : l10n.speechHardwareOutputFieldDescription,
+                                style: AppDialogStyle.descriptionStyle(theme),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          spacing: 6,
+                          children: [
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 200),
+                              child: SettingSelect<String?>(
+                                key: ValueKey(
+                                  'speech-hardware-select-${kind.name}',
+                                ),
+                                theme: theme,
+                                surfaceColor: surface,
+                                value: selectedId,
+                                dropdownWidth: 320,
+                                items: items,
+                                onChanged: (value) async {
+                                  if (value != null &&
+                                      owners[value] != null &&
+                                      value != selectedId) {
+                                    final owner = owners[value]!;
+                                    if (owner.busy) return;
+                                    final confirmed = await showAppConfirmation(
+                                      context: context,
+                                      theme: theme,
+                                      actionKey:
+                                          'speech-hardware-takeover-confirm',
+                                      title: l10n.speechHardwareTakeoverTitle,
+                                      description: l10n
+                                          .speechHardwareTakeoverMessage(
+                                            owner.title,
+                                            owner.id,
+                                          ),
+                                      confirmLabel:
+                                          l10n.speechHardwareTakeoverConfirm,
+                                    );
+                                    if (!dialogOpen ||
+                                        !context.mounted ||
+                                        confirmed != true) {
+                                      return;
+                                    }
+                                  }
+                                  update(() => selectedId = value);
+                                },
+                              ),
+                            ),
+                            AppTooltip(
+                              message: l10n.speechRefreshDevices,
+                              child: MenuItemSurface(
+                                key: const ValueKey('speech-hardware-refresh'),
+                                theme: theme,
+                                backgroundColor: theme.secondaryTextHoverColor
+                                    .withValues(alpha: 0),
+                                surfaceColor: surface,
+                                hoverColor: refreshing
+                                    ? theme.secondaryTextHoverColor.withValues(
+                                        alpha: 0,
+                                      )
+                                    : theme.secondaryTextHoverColor,
+                                borderRadius: BorderRadius.circular(14),
+                                onPressed: refreshing
+                                    ? null
+                                    : () {
+                                        update(() {
+                                          refreshing = true;
+                                          devices = widget.speech
+                                              .listAudioDevices(kind);
+                                        });
+                                        unawaited(
+                                          Future<void>.delayed(
+                                            const Duration(milliseconds: 400),
+                                          ).then((_) {
+                                            if (dialogOpen && context.mounted) {
+                                              update(() => refreshing = false);
+                                            }
+                                          }),
+                                        );
+                                      },
+                                child: SizedBox(
+                                  width: 28,
+                                  height: 28,
+                                  child: Center(
+                                    child: refreshing
+                                        ? SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                    theme.basePrimary,
+                                                  ),
+                                            ),
+                                          )
+                                        : Icon(
+                                            Symbols.refresh_rounded,
+                                            size: 16,
+                                            color: theme.textColorSecondary,
+                                          ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      spacing: 6,
+                      children: [
+                        Row(
+                          spacing: 8,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                spacing: 4,
+                                children: [
+                                  Text(
+                                    kind == .recognition
+                                        ? l10n.speechMicGain
+                                        : l10n.speechSynthesisGain,
+                                    style: AppDialogStyle.fieldTitleStyle(
+                                      theme,
+                                    ),
+                                  ),
+                                  Text(
+                                    kind == .recognition
+                                        ? l10n.speechMicGainDescription
+                                        : l10n.speechSynthesisGainDescription,
+                                    style: AppDialogStyle.descriptionStyle(
+                                      theme,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              '${gain.toStringAsFixed(1)}x',
+                              style: AppDialogStyle.fieldTitleStyle(theme),
+                            ),
+                          ],
+                        ),
+                        AppCapsuleSlider(
+                          key: ValueKey(
+                            kind == .recognition
+                                ? 'speech-mic-gain-slider'
+                                : 'speech-synthesis-gain-slider',
+                          ),
+                          theme: theme,
+                          value: ((gain - 0.1) / 2.9).clamp(0.0, 1.0),
+                          icon: kind == .recognition
+                              ? Symbols.mic_rounded
+                              : Symbols.volume_up_rounded,
+                          label: kind == .recognition
+                              ? l10n.speechMicGain
+                              : l10n.speechSynthesisGain,
+                          semanticFormatter: (normalized) {
+                            final value = kind == .recognition
+                                ? clampSpeechMicGain(
+                                    ((0.1 + normalized * 2.9) * 10).round() /
+                                        10,
+                                  )
+                                : clampSpeechSynthesisGain(
+                                    ((0.1 + normalized * 2.9) * 10).round() /
+                                        10,
+                                  );
+                            return '${value.toStringAsFixed(1)}x';
+                          },
+                          onChanged: (normalized) => update(() {
+                            final raw =
+                                ((0.1 + normalized * 2.9) * 10).round() / 10;
+                            gain = kind == .recognition
+                                ? clampSpeechMicGain(raw)
+                                : clampSpeechSynthesisGain(raw);
+                          }),
+                        ),
+                      ],
+                    ),
+                    if (devices.isEmpty)
+                      Text(
+                        l10n.speechNoAudioDevicesFound,
+                        style: AppDialogStyle.descriptionStyle(theme),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              AppActionButton(
+                key: const ValueKey('speech-hardware-cancel'),
+                theme: theme,
+                label: l10n.settingsCancel,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              AppActionButton(
+                key: const ValueKey('speech-hardware-save'),
+                theme: theme,
+                label: l10n.speechSave,
+                primary: true,
+                onPressed: () {
+                  saved = true;
+                  Navigator.of(context).pop((deviceId: selectedId, gain: gain));
+                },
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    dialogOpen = false;
+    if (!mounted || !saved || result == null) return;
+    if (result.deviceId != null) {
+      final owners = widget.hardwareOwnersFor?.call(kind) ?? const {};
+      if (owners[result.deviceId] case final owner?) {
+        if (owner.busy ||
+            widget.onTakeOverHardware?.call(kind, result.deviceId!) == false) {
+          showAppNotice(
+            ScaffoldMessenger.of(this.context),
+            l10n.speechHardwareBusyNotice,
+          );
+          return;
+        }
+      }
+    }
+    final updated = widget.bindings.withHardwareIdFor(kind, result.deviceId);
+    widget.onChanged(
+      kind == .recognition
+          ? updated.withMicGain(result.gain)
+          : updated.withSynthesisGain(result.gain),
     );
   }
 
@@ -591,6 +1012,7 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
       initialInterruptStopsGeneration:
           widget.bindings.interruptStopsGeneration,
       initialMicGain: widget.bindings.micGain,
+      initialIncludeWakeWordInCommand: widget.bindings.includeWakeWordInCommand,
     );
     if (!mounted ||
         result == null ||
@@ -608,7 +1030,8 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
           .withSendSilenceSeconds(result.sendSilenceSeconds)
           .withMinTriggerLength(result.minTriggerLength)
           .withInterruptStopsGeneration(result.interruptStopsGeneration)
-          .withMicGain(result.micGain),
+          .withMicGain(result.micGain)
+          .withIncludeWakeWordInCommand(result.includeWakeWordInCommand),
     );
   }
 
@@ -763,55 +1186,6 @@ showSpeechSynthesisSettingsDialog(
                       ),
                     ],
                   ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  spacing: 6,
-                  children: [
-                    Row(
-                      spacing: 8,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            spacing: 4,
-                            children: [
-                              Text(
-                                l10n.speechSynthesisGain,
-                                style: AppDialogStyle.fieldTitleStyle(theme),
-                              ),
-                              Text(
-                                l10n.speechSynthesisGainDescription,
-                                style: AppDialogStyle.descriptionStyle(theme),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          '${gain.toStringAsFixed(1)}x',
-                          style: AppDialogStyle.fieldTitleStyle(theme),
-                        ),
-                      ],
-                    ),
-                    AppCapsuleSlider(
-                      key: const ValueKey('speech-synthesis-gain-slider'),
-                      theme: theme,
-                      value: ((gain - 0.1) / 2.9).clamp(0.0, 1.0),
-                      icon: Symbols.volume_up_rounded,
-                      label: l10n.speechSynthesisGain,
-                      semanticFormatter: (normalized) {
-                        final value = clampSpeechSynthesisGain(
-                          ((0.1 + normalized * 2.9) * 10).round() / 10,
-                        );
-                        return '${value.toStringAsFixed(1)}x';
-                      },
-                      onChanged: (normalized) => update(
-                        () => gain = clampSpeechSynthesisGain(
-                          ((0.1 + normalized * 2.9) * 10).round() / 10,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1001,6 +1375,7 @@ Future<
     int minTriggerLength,
     bool interruptStopsGeneration,
     double micGain,
+    bool includeWakeWordInCommand,
   })?
 >
 showSpeechRecognitionSettingsDialog(
@@ -1015,6 +1390,7 @@ showSpeechRecognitionSettingsDialog(
   int initialMinTriggerLength = defaultSpeechMinTriggerLength,
   bool initialInterruptStopsGeneration = false,
   double initialMicGain = defaultSpeechMicGain,
+  bool initialIncludeWakeWordInCommand = true,
 }) => showDialog<
     ({
       bool continuous,
@@ -1025,6 +1401,7 @@ showSpeechRecognitionSettingsDialog(
       int minTriggerLength,
       bool interruptStopsGeneration,
       double micGain,
+      bool includeWakeWordInCommand,
     })>(
   context: context,
   builder: (_) => _RecognitionSettingsDialog(
@@ -1038,6 +1415,7 @@ showSpeechRecognitionSettingsDialog(
     initialMinTriggerLength: initialMinTriggerLength,
     initialInterruptStopsGeneration: initialInterruptStopsGeneration,
     initialMicGain: initialMicGain,
+    initialIncludeWakeWordInCommand: initialIncludeWakeWordInCommand,
   ),
 );
 
@@ -1053,6 +1431,7 @@ class _RecognitionSettingsDialog extends StatefulWidget {
     required this.initialMinTriggerLength,
     required this.initialInterruptStopsGeneration,
     required this.initialMicGain,
+    required this.initialIncludeWakeWordInCommand,
   });
 
   final AppTheme theme;
@@ -1065,6 +1444,7 @@ class _RecognitionSettingsDialog extends StatefulWidget {
   final int initialMinTriggerLength;
   final bool initialInterruptStopsGeneration;
   final double initialMicGain;
+  final bool initialIncludeWakeWordInCommand;
 
   @override
   State<_RecognitionSettingsDialog> createState() =>
@@ -1088,7 +1468,8 @@ class _RecognitionSettingsDialogState
   late bool _voiceInterrupt = widget.initialVoiceInterrupt;
   late bool _idleTimeoutEnabled = widget.initialIdleTimeoutSeconds > 0;
   late bool _interruptStopsGeneration = widget.initialInterruptStopsGeneration;
-  late double _micGain = clampSpeechMicGain(widget.initialMicGain);
+  late final double _micGain = clampSpeechMicGain(widget.initialMicGain);
+  late bool _includeWakeWordInCommand = widget.initialIncludeWakeWordInCommand;
   late List<String> _wakeWords = List<String>.from(widget.initialWakeWords);
 
   @override
@@ -1474,61 +1855,45 @@ class _RecognitionSettingsDialogState
                           ),
                         ],
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        spacing: 6,
-                        children: [
-                          Row(
-                            spacing: 8,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  spacing: 4,
-                                  children: [
-                                    Text(
-                                      l10n.speechMicGain,
-                                      style: AppDialogStyle.fieldTitleStyle(
-                                        theme,
-                                      ),
+                      MergeSemantics(
+                        child: Row(
+                          spacing: 8,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                spacing: 4,
+                                children: [
+                                  Text(
+                                    l10n.speechIncludeWakeWord,
+                                    style: AppDialogStyle.fieldTitleStyle(
+                                      theme,
                                     ),
-                                    Text(
-                                      l10n.speechMicGainDescription,
-                                      style: AppDialogStyle.descriptionStyle(
-                                        theme,
-                                      ),
+                                  ),
+                                  Text(
+                                    l10n.speechIncludeWakeWordDescription,
+                                    style: AppDialogStyle.descriptionStyle(
+                                      theme,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                '${_micGain.toStringAsFixed(1)}x',
-                                style: AppDialogStyle.fieldTitleStyle(theme),
+                            ),
+                            CompactSettingSwitch(
+                              controlKey: const ValueKey(
+                                'speech-include-wake-word',
                               ),
-                            ],
-                          ),
-                          AppCapsuleSlider(
-                            key: const ValueKey('speech-mic-gain-slider'),
-                            theme: theme,
-                            value: ((_micGain - 0.1) / 2.9).clamp(0.0, 1.0),
-                            icon: Symbols.mic_rounded,
-                            label: l10n.speechMicGain,
-                            semanticFormatter: (normalized) {
-                              final gain = clampSpeechMicGain(
-                                ((0.1 + normalized * 2.9) * 10).round() / 10,
-                              );
-                              return '${gain.toStringAsFixed(1)}x';
-                            },
-                            onChanged: _continuous
-                                ? (normalized) => setState(
-                                    () => _micGain = clampSpeechMicGain(
-                                      ((0.1 + normalized * 2.9) * 10).round() /
-                                          10,
-                                    ),
-                                  )
-                                : null,
-                          ),
-                        ],
+                              theme: theme,
+                              surface: AppDialogStyle.backgroundColor(theme),
+                              value: _continuous && _includeWakeWordInCommand,
+                              onChanged: _continuous
+                                  ? (value) => setState(
+                                      () => _includeWakeWordInCommand = value,
+                                    )
+                                  : null,
+                            ),
+                          ],
+                        ),
                       ),
                       SettingsField(
                         theme: theme,
@@ -1611,6 +1976,7 @@ class _RecognitionSettingsDialogState
             minTriggerLength: _parsedMinTriggerLength(),
             interruptStopsGeneration: _interruptStopsGeneration,
             micGain: _micGain,
+            includeWakeWordInCommand: _includeWakeWordInCommand,
           )),
         ),
       ],
@@ -1623,12 +1989,11 @@ Widget _wakeWordChip(
   String word, {
   required VoidCallback onRemove,
 }) {
-  final chipColor = theme.primary;
+  final chipColor = PopupMenuSurface.backgroundColorFor(theme);
   return DecoratedBox(
     decoration: BoxDecoration(
       color: chipColor,
       borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: theme.dividerColor.withValues(alpha: 0.45)),
     ),
     child: Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(10, 4, 4, 4),

@@ -435,6 +435,14 @@ extension AiAgentRecycleBin on AiWorkspaceProvider {
       }
       assistant.setPermissions(AiPermissions.fromJson(raw['permissions']));
       assistant.restoreWorkspaceConversation(conversation);
+      for (final kind in SpeechModelKind.values) {
+        final deviceId = assistant.speechBindings.hardwareIdFor(kind);
+        if (deviceId != null && speechHardwareOwner(kind, deviceId) != null) {
+          assistant.setSpeechBindings(
+            assistant.speechBindings.withHardwareIdFor(kind, null),
+          );
+        }
+      }
       return AiAgentWorkspace(
         id: entry.id,
         title: entry.title,

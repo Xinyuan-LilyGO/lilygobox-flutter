@@ -19,6 +19,7 @@ import 'package:lilygobox/features/assistant/domain/reasoning.dart';
 import 'package:lilygobox/features/assistant/domain/roleplay_card.dart';
 import 'package:lilygobox/features/assistant/domain/task_canvas_style.dart';
 import 'package:lilygobox/features/assistant/state/agent_workspace_provider.dart';
+import 'package:lilygobox/features/speech/domain/speech_model.dart';
 
 import 'assistant_test_scope.dart';
 
@@ -4235,6 +4236,166 @@ void main() {
       expect(delivered['delivered'], isTrue);
       expect(delivered['duplicate'], isNull);
       await finish(merged.id);
+    },
+  );
+
+  test(
+    'export and import preserve speech bindings and clear missing models',
+    () async {
+      final source = await workspaces.create(
+        title: 'Speech source agent',
+        task: 'Do not start on import',
+        startImmediately: false,
+      );
+      final configured = emptySpeechBindings
+          .withVoice((modelId: 'tts-1', voice: 1))
+          .withRecognition('asr-1')
+          .withAutoPlay(true)
+          .withContinuousRecognition(true)
+          .withVoiceInterrupt(true)
+          .withWakeWords(const ['你好'])
+          .withIdleTimeoutSeconds(45)
+          .withSendSilenceSeconds(2.5)
+          .withMinTriggerLength(4)
+          .withInterruptStopsGeneration(false)
+          .withMicGain(1.5)
+          .withSynthesisGain(1.2)
+          .withSynthesisSpeed(1.1)
+          .withFallbackReadBody(true)
+          .withIncludeWakeWordInCommand(false);
+      source.assistant.setSpeechBindings(configured);
+
+      final exported = Map<String, dynamic>.from(
+        workspaces.exportData(agentId: source.id),
+      );
+      const ttsModel = SpeechModel(
+        id: 'tts-1',
+        format: .chineseVits,
+        name: 'TTS 1',
+        voiceCount: 2,
+      );
+      const asrModel = SpeechModel(
+        id: 'asr-1',
+        format: .bilingualZipformer,
+        name: 'ASR 1',
+        voiceCount: 1,
+      );
+
+      final withBoth = await workspaces.importData(
+        exported,
+        speechLibrary: SpeechLibrary(models: const [ttsModel, asrModel]),
+      );
+      final importedBoth = workspaces.find(withBoth[source.id])!.assistant;
+      expect(importedBoth.speechBindings.voice, (modelId: 'tts-1', voice: 1));
+      expect(importedBoth.speechBindings.recognitionId, 'asr-1');
+      expect(importedBoth.speechBindings.autoPlay, isTrue);
+      expect(importedBoth.speechBindings.continuousRecognition, isTrue);
+      expect(importedBoth.speechBindings.wakeWords, ['你好']);
+      expect(importedBoth.speechBindings.idleTimeoutSeconds, 45);
+      expect(importedBoth.speechBindings.sendSilenceSeconds, 2.5);
+      expect(importedBoth.speechBindings.minTriggerLength, 4);
+      expect(importedBoth.speechBindings.interruptStopsGeneration, isFalse);
+      expect(importedBoth.speechBindings.micGain, 1.5);
+      expect(importedBoth.speechBindings.synthesisGain, 1.2);
+      expect(importedBoth.speechBindings.synthesisSpeed, 1.1);
+      expect(importedBoth.speechBindings.fallbackReadBody, isTrue);
+      expect(importedBoth.speechBindings.includeWakeWordInCommand, isFalse);
+
+      final withMissing = await workspaces.importData(
+        exported,
+        speechLibrary: SpeechLibrary(),
+      );
+      final importedMissing =
+          workspaces.find(withMissing[source.id])!.assistant;
+      expect(importedMissing.speechBindings.voice, isNull);
+      expect(importedMissing.speechBindings.recognitionId, isNull);
+      expect(importedMissing.speechVoice, isNull);
+      expect(importedMissing.speechRecognitionId, isNull);
+      expect(importedMissing.speechAutoPlay, isFalse);
+      expect(importedMissing.speechContinuousRecognition, isFalse);
+
+      final outOfRangeVoice = await workspaces.importData(
+        exported,
+        speechLibrary: SpeechLibrary(
+          models: const [
+            SpeechModel(
+              id: 'tts-1',
+              format: .chineseVits,
+              name: 'TTS 1',
+              voiceCount: 1,
+            ),
+            asrModel,
+          ],
+        ),
+      );
+      final importedOutOfRange =
+          workspaces.find(outOfRangeVoice[source.id])!.assistant;
+      expect(importedOutOfRange.speechBindings.voice, isNull);
+      expect(importedOutOfRange.speechBindings.recognitionId, 'asr-1');
+    },
+  );
+
+  test(
+    'exclusive per-kind speech hardware owners are tracked and cleared on conflicting import',
+    () async {
+      final first = await workspaces.create(
+        title: 'Agent A',
+        task: 'Hardware owner',
+        startImmediately: false,
+      );
+      final second = await workspaces.create(
+        title: 'Agent B',
+        task: 'Other agent',
+        startImmediately: false,
+      );
+      expect(workspaces.speechHardwareOwners(.recognition), isEmpty);
+      expect(workspaces.speechHardwareOwners(.synthesis), isEmpty);
+
+      first.assistant.setSpeechBindings(
+        emptySpeechBindings
+            .withRecognitionHardwareId('mic-usb-1')
+            .withSynthesisHardwareId('spk-usb-1'),
+      );
+      expect(
+        workspaces.speechHardwareOwners(
+          .recognition,
+          excludeSessionId: first.id,
+        ),
+        isEmpty,
+      );
+      expect(
+        workspaces.speechHardwareOwners(
+          .recognition,
+          excludeSessionId: second.id,
+        ),
+        {'mic-usb-1': (id: first.id, title: 'Agent A', busy: false)},
+      );
+      expect(
+        workspaces.speechHardwareOwners(
+          .synthesis,
+          excludeSessionId: second.id,
+        ),
+        {'spk-usb-1': (id: first.id, title: 'Agent A', busy: false)},
+      );
+
+      expect(
+        workspaces.releaseSpeechHardware(
+          .recognition,
+          'mic-usb-1',
+          exceptSessionId: second.id,
+        ),
+        isTrue,
+      );
+      expect(first.assistant.speechRecognitionHardwareId, isNull);
+      expect(first.assistant.speechSynthesisHardwareId, 'spk-usb-1');
+
+      final exported = Map<String, dynamic>.from(
+        workspaces.exportData(agentId: first.id),
+      );
+      final imported = await workspaces.importData(exported);
+      final importedAssistant = workspaces.find(imported[first.id])!.assistant;
+      expect(importedAssistant.speechRecognitionHardwareId, isNull);
+      expect(importedAssistant.speechSynthesisHardwareId, isNull);
     },
   );
 }

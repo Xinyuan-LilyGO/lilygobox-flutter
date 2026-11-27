@@ -17,6 +17,8 @@ abstract interface class SpeechAudioInput {
     required void Function() started,
     required void Function(SpeechAudioChunk) onAudio,
     bool continuous = false,
+    String? captureDeviceId,
+    String? playbackDeviceId,
   });
 }
 
@@ -29,6 +31,8 @@ class WindowsSpeechAudioInput implements SpeechAudioInput {
     required void Function() started,
     required void Function(SpeechAudioChunk) onAudio,
     bool continuous = false,
+    String? captureDeviceId,
+    String? playbackDeviceId,
   }) async {
     final recorder = AudioRecorder();
     var capturedBytes = 0;
@@ -42,7 +46,11 @@ class WindowsSpeechAudioInput implements SpeechAudioInput {
       if (!await recorder.hasPermission(request: false)) {
         throw const SpeechFailure(.microphone);
       }
-      final aec3 = WebRtcAec3LiveCapture.start(speechSampleRate);
+      final aec3 = WebRtcAec3LiveCapture.start(
+        speechSampleRate,
+        captureDeviceId: captureDeviceId,
+        playbackDeviceId: playbackDeviceId,
+      );
       if (aec3 != null) {
         try {
           var running = true;
