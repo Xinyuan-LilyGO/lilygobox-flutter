@@ -366,6 +366,13 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
               .where((stage) => stage.model != null)
               .lastOrNull
         : null;
+    final memoryStage = toolName == 'consolidate_memory'
+        ? (event.model != null
+              ? event
+              : widget.operationEvents
+                    .where((stage) => stage.model != null)
+                    .lastOrNull)
+        : null;
     final stages = widget.operationEvents.where(
       (step) =>
           (widget.inlineCompaction || !identical(step, event)) &&
@@ -414,6 +421,7 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
             questionDetails != null ||
             approvalStage != null ||
             compactionStage != null ||
+            memoryStage != null ||
             event.text.isNotEmpty ||
             (action != null && target is String) ||
             failure != null ||
@@ -565,7 +573,8 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          if ((compactionStage ?? approvalStage)?.model
+                          if ((compactionStage ?? approvalStage ?? memoryStage)
+                                  ?.model
                               case final model?) ...[
                             Text(
                               compactionStage != null
@@ -574,6 +583,8 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
                                             'auto'
                                         ? l10n.aiAutoCompactionModel(model)
                                         : l10n.aiManualCompactionModel(model))
+                                  : memoryStage != null
+                                  ? l10n.aiMemoryConsolidationModel(model)
                                   : approvalStage?.status ==
                                         AiResponseStatus.reviewingPermission
                                   ? l10n.aiPermissionApprovalModelUsed(model)
@@ -585,7 +596,9 @@ class _AiProcessEventViewState extends State<AiProcessEventView> {
                                 fontSize: 12,
                               ),
                             ),
-                            if ((compactionStage ?? approvalStage)
+                            if ((compactionStage ??
+                                        approvalStage ??
+                                        memoryStage)
                                     ?.reasoningEffort
                                 case final effort?)
                               Padding(

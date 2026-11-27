@@ -27,6 +27,7 @@ import '../../../../core/widgets/dialog_style.dart';
 import '../../../../core/widgets/interaction_decoration.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
 import '../../../../core/widgets/retained_page_stack.dart';
+import '../../../../core/widgets/settings/compact_switch.dart';
 import '../../../../core/widgets/settings/fields.dart';
 import '../../../../core/widgets/settings/select.dart';
 import '../../../../core/widgets/tilt_card.dart';
@@ -422,7 +423,7 @@ class _TaskTopologyPageState extends State<TaskTopologyPage>
     final direction = Directionality.of(context);
     final locale = Localizations.maybeLocaleOf(context);
     final l10n = context.l10n;
-    final speech = context.watch<SpeechProvider?>();
+    final speech = context.read<SpeechProvider?>();
     final environment = (scaler, defaultStyle, direction, locale, l10n);
     if (environment != _measurementEnvironment) {
       _measurementEnvironment = environment;
@@ -5408,6 +5409,8 @@ class _TopologyConversation extends StatelessWidget {
                 : '',
             onManageContext: () =>
                 showAgentContextStorage(context, theme, session.id),
+            onManageMemory: () =>
+                showAgentStorage(context, theme, session.id),
           ),
         ),
       ],
@@ -5451,27 +5454,6 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
       text: inherited.contextCompactionPercent.toString(),
     );
     _draft.addListener(_draftChanged);
-    if (widget.parent == null &&
-        inherited.hasApiKey &&
-        inherited.selectedService != null &&
-        inherited.selectedModel != null) {
-      _model = jsonEncode([
-        inherited.selectedService!.id,
-        inherited.selectedModel,
-      ]);
-    }
-    if (!inherited.hasApiKey || inherited.selectedModel == null) {
-      final fallback = widget.workspaces.main.services
-          .where(
-            (service) =>
-                widget.workspaces.main.hasServiceKey(service.id) &&
-                service.models.isNotEmpty,
-          )
-          .firstOrNull;
-      if (fallback != null) {
-        _model = jsonEncode([fallback.id, fallback.models.first]);
-      }
-    }
   }
 
   void _draftChanged() {
@@ -5524,6 +5506,8 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
               contextBudgetTokens: budget,
               contextCompactionPercent: percent,
               auxiliaryModels: _draft.auxiliaryModels,
+              useMemory: _draft.useMemory,
+              autoSaveMemory: _draft.autoSaveMemory,
               roleplay: _roleplay,
               roleplayOpening: _roleplayOpening,
               speechBindings: _speechBindings,
@@ -5539,6 +5523,8 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
               contextBudgetTokens: budget,
               contextCompactionPercent: percent,
               auxiliaryModels: _draft.auxiliaryModels,
+              useMemory: _draft.useMemory,
+              autoSaveMemory: _draft.autoSaveMemory,
               roleplay: _roleplay,
               roleplayOpening: _roleplayOpening,
               speechBindings: _speechBindings,
@@ -5787,14 +5773,17 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
                             theme,
                           ),
                           selectedServiceId: _model.isEmpty
-                              ? _draft.selectedService?.id
+                              ? null
                               : (jsonDecode(_model) as List)[0] as String,
                           selectedModel: _model.isEmpty
-                              ? _draft.selectedModel
+                              ? null
                               : (jsonDecode(_model) as List)[1] as String,
-                          onSelected: (serviceId, model) => setState(
-                            () => _model = jsonEncode([serviceId, model]),
-                          ),
+                          onSelected: (serviceId, model) {
+                            setState(
+                              () => _model = jsonEncode([serviceId, model]),
+                            );
+                            unawaited(_draft.selectModel(serviceId, model));
+                          },
                         ),
                       ),
                     ),
@@ -5825,6 +5814,85 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
                 const SizedBox(height: 16),
                 ..._roleplayFields(theme),
                 ..._speechFields(theme),
+                const SizedBox(height: 16),
+                SettingsField(
+                  theme: theme,
+                  title: l10n.agentStorageMemoryEnabled,
+                  description: l10n.agentStorageMemoryHint,
+                  trailing: IgnorePointer(
+                    ignoring: _working,
+                    child: ExcludeFocus(
+                      excluding: _working,
+                      child: Semantics(
+                        label: l10n.agentStorageMemoryEnabled,
+                        child: CompactSettingSwitch(
+                          controlKey: const ValueKey(
+                            'topology-use-memory-switch',
+                          ),
+                          theme: theme,
+                          surface: AppDialogStyle.backgroundColor(theme),
+                          value: _draft.useMemory,
+                          onChanged: (value) =>
+                              setState(() => _draft.useMemory = value),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SettingsField(
+                  theme: theme,
+                  title: l10n.agentStorageAutoMemoryTitle,
+                  description: l10n.agentStorageAutoMemoryHint,
+                  trailing: IgnorePointer(
+                    ignoring: _working,
+                    child: ExcludeFocus(
+                      excluding: _working,
+                      child: Semantics(
+                        label: l10n.agentStorageAutoMemoryTitle,
+                        child: CompactSettingSwitch(
+                          controlKey: const ValueKey(
+                            'topology-auto-memory-switch',
+                          ),
+                          theme: theme,
+                          surface: AppDialogStyle.backgroundColor(theme),
+                          value: _draft.autoSaveMemory,
+                          onChanged: _draft.useMemory
+                              ? (value) =>
+                                    setState(() => _draft.autoSaveMemory = value)
+                              : null,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SettingsField(
+                  theme: theme,
+                  title: l10n.agentStorageMemoryModel,
+                  description: l10n.agentStorageMemoryModelHint,
+                  trailing: Flexible(
+                    child: IgnorePointer(
+                      ignoring: _working,
+                      child: ExcludeFocus(
+                        excluding: _working,
+                        child: ListenableBuilder(
+                          listenable: _draft,
+                          builder: (context, _) => ModelSelector(
+                            key: const ValueKey('topology-memory-model'),
+                            theme: theme,
+                            assistant: _draft,
+                            auxiliarySelection: _draft.auxiliaryModels.memory,
+                            fieldSurfaceColor: AppDialogStyle.backgroundColor(
+                              theme,
+                            ),
+                            onAuxiliarySelected: _draft.selectMemoryModel,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 16),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -5888,6 +5956,34 @@ class _TopologyCreateDialogState extends State<_TopologyCreateDialog> {
                 Text(
                   l10n.agentStorageContextHint,
                   style: AppDialogStyle.descriptionStyle(theme),
+                ),
+                const SizedBox(height: 16),
+                SettingsField(
+                  theme: theme,
+                  title: l10n.agentStorageCompactionModel,
+                  description: l10n.agentStorageCompactionModelHint,
+                  trailing: Flexible(
+                    child: IgnorePointer(
+                      ignoring: _working,
+                      child: ExcludeFocus(
+                        excluding: _working,
+                        child: ListenableBuilder(
+                          listenable: _draft,
+                          builder: (context, _) => ModelSelector(
+                            key: const ValueKey('topology-compaction-model'),
+                            theme: theme,
+                            assistant: _draft,
+                            auxiliarySelection:
+                                _draft.auxiliaryModels.compaction,
+                            fieldSurfaceColor: AppDialogStyle.backgroundColor(
+                              theme,
+                            ),
+                            onAuxiliarySelected: _draft.selectCompactionModel,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
                 if (_invalidBudget) ...[
                   const SizedBox(height: 4),

@@ -30,8 +30,41 @@ class SpeechProvider extends ChangeNotifier {
   SpeechLibrary _library = SpeechLibrary();
   SpeechLibrary get library => _library;
 
-  List<SpeechAudioDevice> listAudioDevices(SpeechModelKind kind) =>
-      WebRtcAec3Library.listAudioDevices(isCapture: kind == .recognition);
+  final Map<String, String> _knownHardwareNames = {};
+
+  List<SpeechAudioDevice> listAudioDevices(SpeechModelKind kind) {
+    final devices = WebRtcAec3Library.listAudioDevices(
+      isCapture: kind == .recognition,
+    );
+    var changed = false;
+    for (final device in devices) {
+      if (device.name.isNotEmpty &&
+          _knownHardwareNames[device.id] != device.name) {
+        _knownHardwareNames[device.id] = device.name;
+        changed = true;
+      }
+    }
+    if (changed) _persistHardwareNames();
+    return devices;
+  }
+
+  String? knownHardwareName(String id) => _knownHardwareNames[id];
+
+  void rememberHardwareName(String id, String name) {
+    if (name.isNotEmpty && _knownHardwareNames[id] != name) {
+      _knownHardwareNames[id] = name;
+      _persistHardwareNames();
+    }
+  }
+
+  void _persistHardwareNames() {
+    if (_disposed) return;
+    unawaited(
+      _store
+          .saveHardwareNames(Map<String, String>.of(_knownHardwareNames))
+          .catchError((Object _, StackTrace _) {}),
+    );
+  }
 
   bool _busy = false;
   bool _loaded = false;
@@ -188,6 +221,12 @@ class SpeechProvider extends ChangeNotifier {
 
   Future<void> load() async {
     _loaded = await _change(_store.read) == null;
+    final storedNames = await _store.loadHardwareNames();
+    if (!_disposed && storedNames.isNotEmpty) {
+      for (final entry in storedNames.entries) {
+        _knownHardwareNames.putIfAbsent(entry.key, () => entry.value);
+      }
+    }
     _notify();
   }
 
@@ -354,6 +393,7 @@ class SpeechProvider extends ChangeNotifier {
       activeCapture.cancel();
     }
     final deviceId = _playbackDeviceIdFor(owner);
+    if (scope?.agent != null && deviceId == null) return null;
     final conflictingPlaybacks = <_SpeechPlayback>[
       for (final entry in _playbacks.entries)
         if (entry.key == owner ||
@@ -481,7 +521,10 @@ class SpeechProvider extends ChangeNotifier {
     required String? modelId,
     void Function(String)? onPartial,
   }) async {
-    if (_disposed || _busy || hasCaptureFor(owner)) {
+    if (_disposed ||
+        _busy ||
+        hasCaptureFor(owner) ||
+        (owner.agent != null && owner.recognitionHardwareId == null)) {
       return (text: null, error: null);
     }
     final selected = library.recognitionModel(modelId);
@@ -617,7 +660,12 @@ class SpeechProvider extends ChangeNotifier {
     void Function(String)? onPartial,
     required void Function(String) onUtterance,
   }) async {
-    if (_disposed || _busy || hasCaptureFor(owner)) return null;
+    if (_disposed ||
+        _busy ||
+        hasCaptureFor(owner) ||
+        (owner.agent != null && owner.recognitionHardwareId == null)) {
+      return null;
+    }
     final selected = library.recognitionModel(modelId);
     if (selected == null) return .missingFiles;
     final previousCapture = _captures[owner];

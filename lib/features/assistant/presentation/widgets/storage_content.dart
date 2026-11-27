@@ -1451,6 +1451,33 @@ class _AgentStorageContentState extends State<AgentStorageContent> {
                                     : null,
                               ),
                             ),
+                            const SizedBox(height: 16),
+                            SettingsField(
+                              theme: theme,
+                              title: l.agentStorageMemoryModel,
+                              description: l.agentStorageMemoryModelHint,
+                              trailing: Flexible(
+                                child: ListenableBuilder(
+                                  listenable: selected.assistant,
+                                  builder: (context, _) {
+                                    final assistant = selected.assistant;
+                                    return ModelSelector(
+                                      key: ValueKey(
+                                        'storage-memory-model-${selected.id}',
+                                      ),
+                                      theme: theme,
+                                      assistant: assistant,
+                                      auxiliarySelection:
+                                          assistant.auxiliaryModels.memory,
+                                      fieldSurfaceColor:
+                                          AppDialogStyle.backgroundColor(theme),
+                                      onAuxiliarySelected:
+                                          assistant.selectMemoryModel,
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
                           ],
                           const SizedBox(height: 16),
                         ],

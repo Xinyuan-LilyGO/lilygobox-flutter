@@ -46,11 +46,23 @@ class WindowsSpeechAudioInput implements SpeechAudioInput {
       if (!await recorder.hasPermission(request: false)) {
         throw const SpeechFailure(.microphone);
       }
+      if (captureDeviceId != null &&
+          captureDeviceId.isNotEmpty &&
+          !WebRtcAec3Library.listAudioDevices(
+            isCapture: true,
+          ).any((device) => device.id == captureDeviceId)) {
+        throw const SpeechFailure(.microphone);
+      }
       final aec3 = WebRtcAec3LiveCapture.start(
         speechSampleRate,
         captureDeviceId: captureDeviceId,
         playbackDeviceId: playbackDeviceId,
       );
+      if (aec3 == null &&
+          captureDeviceId != null &&
+          captureDeviceId.isNotEmpty) {
+        throw const SpeechFailure(.microphone);
+      }
       if (aec3 != null) {
         try {
           var running = true;

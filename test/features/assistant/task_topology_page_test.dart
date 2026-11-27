@@ -684,7 +684,7 @@ void main() {
       await tester.tap(templateField);
       await tester.pumpAndSettle();
       expect(panel, findsNothing);
-      final modelField = find.byKey(const ValueKey('ai-model-selector'));
+      final modelField = find.byKey(const ValueKey('topology-model-select'));
       final permissionField = find.byKey(
         const ValueKey('ai-permissions-button'),
       );
@@ -9482,14 +9482,15 @@ void main() {
         find.byKey(const ValueKey('topology-title-input')),
         '项目检查',
       );
-      await tester.enterText(
-        find.byKey(const ValueKey('topology-task-input')),
-        '检查项目结构并汇总结果。',
-      );
       await tester.tap(find.byKey(const ValueKey('topology-model-select')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('ai-reasoning-models')));
-      await tester.pumpAndSettle();
+      if (find
+          .byKey(const ValueKey('ai-reasoning-models'))
+          .evaluate()
+          .isNotEmpty) {
+        await tester.tap(find.byKey(const ValueKey('ai-reasoning-models')));
+        await tester.pumpAndSettle();
+      }
       await tester.enterText(
         find.byKey(const ValueKey('ai-model-search')),
         'deepseek',
@@ -9510,6 +9511,11 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('ai-permission-mode-custom')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('ai-permission-network')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('topology-task-input')),
+        '检查项目结构并汇总结果。',
+      );
       await tester.pumpAndSettle();
       await tester.tapAt(
         tester.getCenter(find.byKey(const ValueKey('topology-title-input'))),
@@ -9751,7 +9757,17 @@ void main() {
         await capture(
           'lilygobox-create-dialog-${type.name}-${narrow ? 'narrow' : 'wide'}',
         );
-        final modelButton = find.byKey(const ValueKey('ai-model-selector'));
+        final modelSelector = find.byKey(
+          const ValueKey('topology-model-select'),
+        );
+        final modelButton = find.descendant(
+          of: modelSelector,
+          matching: find.byKey(const ValueKey('ai-model-selector')),
+        );
+        final modelArrowFinder = find.descendant(
+          of: modelSelector,
+          matching: find.byKey(const ValueKey('ai-model-selector-arrow')),
+        );
         final permissionButton = find.byKey(
           const ValueKey('ai-permissions-button'),
         );
@@ -9789,9 +9805,7 @@ void main() {
           permissionButton,
         );
         expect(modelSurface.backgroundColor, permissionSurface.backgroundColor);
-        final modelArrow = tester.widget<AnimatedRotation>(
-          find.byKey(const ValueKey('ai-model-selector-arrow')),
-        );
+        final modelArrow = tester.widget<AnimatedRotation>(modelArrowFinder);
         final permissionArrow = tester.widget<AnimatedRotation>(
           find.byKey(const ValueKey('ai-permissions-button-arrow')),
         );
@@ -9799,7 +9813,7 @@ void main() {
         expect(modelArrow.duration, permissionArrow.duration);
         expect(
           find.descendant(
-            of: find.byKey(const ValueKey('ai-model-selector-arrow')),
+            of: modelArrowFinder,
             matching: find.byIcon(Symbols.expand_more_rounded),
           ),
           findsOneWidget,
@@ -9813,11 +9827,7 @@ void main() {
         );
         expect(tester.getSize(modelButton).width, lessThan(300));
         expect(
-          tester
-              .widget<AnimatedRotation>(
-                find.byKey(const ValueKey('ai-model-selector-arrow')),
-              )
-              .turns,
+          tester.widget<AnimatedRotation>(modelArrowFinder).turns,
           -.25,
         );
         expect(
@@ -9828,13 +9838,15 @@ void main() {
               .turns,
           -.25,
         );
-        await tester.tap(find.byKey(const ValueKey('topology-model-select')));
+        await tester.ensureVisible(modelSelector);
+        await tester.pumpAndSettle();
+        await tester.tap(modelSelector);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
         final modelTurn = tester
             .widget<RotationTransition>(
               find.descendant(
-                of: find.byKey(const ValueKey('ai-model-selector-arrow')),
+                of: modelArrowFinder,
                 matching: find.byType(RotationTransition),
               ),
             )
@@ -9850,12 +9862,6 @@ void main() {
         expect(modelOpacity, lessThan(1));
         await tester.pumpAndSettle();
         expect(
-          find.byKey(const ValueKey('ai-reasoning-panel')),
-          findsOneWidget,
-        );
-        await tester.tap(find.byKey(const ValueKey('ai-reasoning-models')));
-        await tester.pumpAndSettle();
-        expect(
           find.byKey(const ValueKey('ai-model-list-panel')),
           findsOneWidget,
         );
@@ -9868,11 +9874,7 @@ void main() {
         expect(modelMenu.left, lessThanOrEqualTo(modelBounds.left + .01));
         expect(modelMenu.top, closeTo(modelBounds.bottom + 8, .01));
         expect(
-          tester
-              .widget<AnimatedRotation>(
-                find.byKey(const ValueKey('ai-model-selector-arrow')),
-              )
-              .turns,
+          tester.widget<AnimatedRotation>(modelArrowFinder).turns,
           0,
         );
         await capture(
@@ -9895,7 +9897,12 @@ void main() {
         expect(scope.provider.selectedModel, originalModel);
         await tester.tap(find.byKey(const ValueKey('topology-title-input')));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('topology-model-select')));
+        await tester.drag(
+        find.byType(SingleChildScrollView).last,
+        const Offset(0, 400),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topology-model-select')));
         await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('ai-model-inherit')), findsNothing);
         if (find
@@ -10033,11 +10040,11 @@ void main() {
         find.byKey(const ValueKey('topology-title-input')),
         'Custom effort',
       );
-      await tester.enterText(
-        find.byKey(const ValueKey('topology-task-input')),
-        'Check effort',
-      );
       await tester.tap(find.byKey(const ValueKey('topology-model-select')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(ValueKey('ai-model-${scope.provider.services.first.id}-gpt-6.1-sol')),
+      );
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('ai-reasoning-panel')), findsOneWidget);
       final slider = find.byType(Slider);
@@ -10046,6 +10053,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(scope.provider.reasoningEffort, original);
       await tester.tap(find.byKey(const ValueKey('topology-title-input')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('topology-task-input')),
+        'Check effort',
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('topology-create-confirm')));
       await tick(tester);

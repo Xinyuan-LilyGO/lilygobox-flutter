@@ -645,7 +645,11 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
         .listAudioDevices(kind)
         .where((d) => d.id == deviceId)
         .firstOrNull;
-    return live?.name ?? deviceId;
+    if (live != null) return live.name;
+    final known = widget.speech.knownHardwareName(deviceId);
+    return known != null && known.isNotEmpty
+        ? l10n.speechDisconnectedNamedDevice(known)
+        : l10n.speechDisconnectedDevice;
   }
 
   Widget _hardwarePickerButton(BuildContext context, SpeechModelKind kind) {
@@ -720,7 +724,14 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
             if (!selectedExists)
               DropdownMenuItem<String?>(
                 value: selectedId,
-                child: Text(selectedId!),
+                enabled: false,
+                child: Text(
+                  switch (widget.speech.knownHardwareName(selectedId!)) {
+                    final name? when name.isNotEmpty =>
+                      l10n.speechDisconnectedNamedDevice(name),
+                    _ => l10n.speechDisconnectedDevice,
+                  },
+                ),
               ),
           ];
           return AppDialog(
@@ -920,15 +931,11 @@ class _SpeechChatControlsState extends State<SpeechChatControls> {
                               ? l10n.speechMicGain
                               : l10n.speechSynthesisGain,
                           semanticFormatter: (normalized) {
+                            final raw =
+                                ((0.1 + normalized * 2.9) * 10).round() / 10;
                             final value = kind == .recognition
-                                ? clampSpeechMicGain(
-                                    ((0.1 + normalized * 2.9) * 10).round() /
-                                        10,
-                                  )
-                                : clampSpeechSynthesisGain(
-                                    ((0.1 + normalized * 2.9) * 10).round() /
-                                        10,
-                                  );
+                                ? clampSpeechMicGain(raw)
+                                : clampSpeechSynthesisGain(raw);
                             return '${value.toStringAsFixed(1)}x';
                           },
                           onChanged: (normalized) => update(() {

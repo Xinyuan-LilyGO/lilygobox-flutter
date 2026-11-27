@@ -5685,7 +5685,7 @@ abstract class AppLocalizations {
   /// No description provided for @agentStorageManage.
   ///
   /// In en, this message translates to:
-  /// **'Manage memories'**
+  /// **'Manage long-term memories'**
   String get agentStorageManage;
 
   /// No description provided for @agentStorageImport.
@@ -6036,6 +6036,12 @@ abstract class AppLocalizations {
   /// **'Automatic compaction model: {model}'**
   String aiAutoCompactionModel(String model);
 
+  /// No description provided for @aiMemoryConsolidationModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory organization model: {model}'**
+  String aiMemoryConsolidationModel(String model);
+
   /// No description provided for @aiManualCompactionModel.
   ///
   /// In en, this message translates to:
@@ -6219,13 +6225,13 @@ abstract class AppLocalizations {
   /// No description provided for @agentStorageMemoryEnabled.
   ///
   /// In en, this message translates to:
-  /// **'Automatically use long-term memories'**
+  /// **'Retrieve memories every turn'**
   String get agentStorageMemoryEnabled;
 
   /// No description provided for @agentStorageMemoryHint.
   ///
   /// In en, this message translates to:
-  /// **'Retrieve relevant memories before each turn to inform replies, and allow the agent to search, save or delete memories.'**
+  /// **'Automatically retrieve relevant memories before each turn. When off, the agent can still search, save, or delete memories when asked.'**
   String get agentStorageMemoryHint;
 
   /// No description provided for @agentStorageUsage.
@@ -6816,6 +6822,18 @@ abstract class AppLocalizations {
   /// **'Applies to automatic and manual compaction. By default, both use the current chat model and its reasoning effort.'**
   String get agentStorageCompactionModelHint;
 
+  /// No description provided for @agentStorageMemoryModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory consolidation model'**
+  String get agentStorageMemoryModel;
+
+  /// No description provided for @agentStorageMemoryModelHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Used to check existing memories and extract new ones after each turn. By default, it uses the current chat model and its reasoning effort.'**
+  String get agentStorageMemoryModelHint;
+
   /// No description provided for @agentStorageCompactNow.
   ///
   /// In en, this message translates to:
@@ -7017,13 +7035,13 @@ abstract class AppLocalizations {
   /// No description provided for @agentStorageAutoMemoryTitle.
   ///
   /// In en, this message translates to:
-  /// **'Automatically organize long-term memories'**
+  /// **'Organize memories every turn'**
   String get agentStorageAutoMemoryTitle;
 
   /// No description provided for @agentStorageAutoMemoryHint.
   ///
   /// In en, this message translates to:
-  /// **'After each completed turn, select useful lasting information, compare it with existing memories and save new items. Makes an additional request to the current model.'**
+  /// **'After each completed turn, select useful lasting information in the background, compare it with existing memories, and save new items.'**
   String get agentStorageAutoMemoryHint;
 
   /// No description provided for @agentStorageAutoMemoryAction.
@@ -7737,13 +7755,13 @@ abstract class AppLocalizations {
   /// No description provided for @speechIncludeWakeWord.
   ///
   /// In en, this message translates to:
-  /// **'Send full utterance with wake word'**
+  /// **'Send wake word'**
   String get speechIncludeWakeWord;
 
   /// No description provided for @speechIncludeWakeWordDescription.
   ///
   /// In en, this message translates to:
-  /// **'Keep the wake word in the sent message when you say a wake word followed by a request.'**
+  /// **'When on, keep and send the wake word even if spoken alone; when off, do not send the wake word (speaking it alone only wakes and waits).'**
   String get speechIncludeWakeWordDescription;
 
   /// No description provided for @speechStandbyListening.
@@ -7977,7 +7995,7 @@ abstract class AppLocalizations {
   /// No description provided for @speechNoHardwareDevice.
   ///
   /// In en, this message translates to:
-  /// **'No device'**
+  /// **'No device (disabled)'**
   String get speechNoHardwareDevice;
 
   /// No description provided for @speechDefaultDevice.
@@ -8007,7 +8025,7 @@ abstract class AppLocalizations {
   /// No description provided for @speechHardwareInputFieldDescription.
   ///
   /// In en, this message translates to:
-  /// **'Select the input hardware for speech recognition. Choosing a specific device claims it exclusively.'**
+  /// **'Select the input hardware for speech recognition. Choosing \"No device (disabled)\" disables the microphone; choosing a specific device claims it exclusively.'**
   String get speechHardwareInputFieldDescription;
 
   /// No description provided for @speechHardwareOutputFieldTitle.
@@ -8019,7 +8037,7 @@ abstract class AppLocalizations {
   /// No description provided for @speechHardwareOutputFieldDescription.
   ///
   /// In en, this message translates to:
-  /// **'Select the output hardware for speech synthesis. Choosing a specific device claims it exclusively.'**
+  /// **'Select the output hardware for speech synthesis. Choosing \"No device (disabled)\" disables speaker playback; choosing a specific device claims it exclusively.'**
   String get speechHardwareOutputFieldDescription;
 
   /// No description provided for @speechNoAudioDevicesFound.
@@ -8033,6 +8051,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Refresh devices'**
   String get speechRefreshDevices;
+
+  /// No description provided for @speechDisconnectedDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnected device'**
+  String get speechDisconnectedDevice;
+
+  /// No description provided for @speechDisconnectedNamedDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnected · {name}'**
+  String speechDisconnectedNamedDevice(String name);
+
+  /// No description provided for @aiMemoryStatusOn.
+  ///
+  /// In en, this message translates to:
+  /// **'On'**
+  String get aiMemoryStatusOn;
+
+  /// No description provided for @aiMemoryStatusOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get aiMemoryStatusOff;
+
+  /// No description provided for @aiMemorySavedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} saved'**
+  String aiMemorySavedCount(int count);
+
+  /// No description provided for @aiMemoryEnabledState.
+  ///
+  /// In en, this message translates to:
+  /// **'On'**
+  String get aiMemoryEnabledState;
+
+  /// No description provided for @aiMemoryDisabledState.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get aiMemoryDisabledState;
+
+  /// No description provided for @aiMemoryFollowChatModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Current model'**
+  String get aiMemoryFollowChatModel;
 }
 
 class _AppLocalizationsDelegate

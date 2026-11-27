@@ -99,7 +99,7 @@ class SpeechModel {
 
 const defaultSpeechIdleTimeoutSeconds = 60;
 const defaultSpeechSendSilenceSeconds = 1.0;
-const defaultSpeechMinTriggerLength = 3;
+const defaultSpeechMinTriggerLength = 2;
 const defaultSpeechMicGain = 1.0;
 const defaultSpeechSynthesisGain = 1.0;
 const defaultSpeechSynthesisSpeed = 1.0;

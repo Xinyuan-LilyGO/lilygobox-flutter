@@ -35,6 +35,36 @@ class SpeechModelStore {
   }
 
   File get _index => File(path.join(_root.path, 'library.json'));
+  File get _hardwareNamesFile =>
+      File(path.join(_root.path, 'hardware_names.json'));
+
+  Future<Map<String, String>> loadHardwareNames() async {
+    try {
+      final file = _hardwareNamesFile;
+      if (await _type(file.path) != .file) return const {};
+      final decoded = jsonDecode(await file.readAsString());
+      if (decoded is! Map) return const {};
+      return {
+        for (final entry in decoded.entries)
+          if (entry.key is String &&
+              entry.value is String &&
+              (entry.value as String).isNotEmpty)
+            entry.key as String: entry.value as String,
+      };
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  Future<void> saveHardwareNames(Map<String, String> names) async {
+    try {
+      final root = _root;
+      await root.create(recursive: true);
+      await _hardwareNamesFile.writeAsString(jsonEncode(names));
+    } catch (_) {
+      return;
+    }
+  }
 
   Future<int?> readStorageBytes() async {
     try {

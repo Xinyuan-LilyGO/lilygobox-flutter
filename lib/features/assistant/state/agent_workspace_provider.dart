@@ -2026,6 +2026,8 @@ class AiWorkspaceProvider extends ChangeNotifier {
     int? contextBudgetTokens,
     int? contextCompactionPercent,
     AiAuxiliaryModels? auxiliaryModels,
+    bool? useMemory,
+    bool? autoSaveMemory,
     AiRoleplayBinding? roleplay,
     int? roleplayOpening,
     SpeechBindings? speechBindings,
@@ -2041,6 +2043,8 @@ class AiWorkspaceProvider extends ChangeNotifier {
     contextBudgetTokens: contextBudgetTokens,
     contextCompactionPercent: contextCompactionPercent,
     auxiliaryModels: auxiliaryModels,
+    useMemory: useMemory,
+    autoSaveMemory: autoSaveMemory,
     roleplay: roleplay,
     roleplayOpening: roleplayOpening,
     speechBindings: speechBindings,
@@ -2059,6 +2063,8 @@ class AiWorkspaceProvider extends ChangeNotifier {
     int? contextBudgetTokens,
     int? contextCompactionPercent,
     AiAuxiliaryModels? auxiliaryModels,
+    bool? useMemory,
+    bool? autoSaveMemory,
     AiRoleplayBinding? roleplay,
     int? roleplayOpening,
     SpeechBindings? speechBindings,
@@ -2191,7 +2197,9 @@ class AiWorkspaceProvider extends ChangeNotifier {
         contextBudgetTokens ?? template.contextBudgetTokens;
     worker.contextCompactionPercent =
         contextCompactionPercent ?? template.contextCompactionPercent;
-    if (auxiliaryModels != null) worker.auxiliaryModels = auxiliaryModels;
+    worker.auxiliaryModels = auxiliaryModels ?? template.auxiliaryModels;
+    worker.useMemory = useMemory ?? template.useMemory;
+    worker.autoSaveMemory = autoSaveMemory ?? template.autoSaveMemory;
     if (permissions != null) worker.setPermissions(permissions);
     if (roleplay != null) {
       worker.bindRoleplay(roleplay);

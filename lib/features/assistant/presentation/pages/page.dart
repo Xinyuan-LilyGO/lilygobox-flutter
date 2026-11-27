@@ -51,12 +51,14 @@ class AssistantPage extends StatefulWidget {
     this.speechActive,
     this.initialDraft = '',
     this.onManageContext,
+    this.onManageMemory,
   });
 
   final bool readOnly;
   final bool? speechActive;
   final String initialDraft;
   final VoidCallback? onManageContext;
+  final VoidCallback? onManageMemory;
 
   @override
   State<AssistantPage> createState() => _AssistantPageState();
@@ -357,7 +359,7 @@ class _AssistantPageState extends State<AssistantPage> {
             final wakeWords = current.speechWakeWords;
             final playingText = speech.playingTextFor(_speechConversation);
             if (playingText != null || current.busy) {
-              if (wakeWords.isNotEmpty) {
+              if (wakeWords.isNotEmpty && !current.speechWakeActive) {
                 final match = matchSpeechWakeWord(partial, wakeWords);
                 if (!match.matched ||
                     isLikelyPlaybackEcho(
@@ -447,7 +449,7 @@ class _AssistantPageState extends State<AssistantPage> {
               final stillPlaying =
                   speech.playingTextFor(_speechConversation) != null;
               final hasAec3 = WebRtcAec3Library.tryLoad() != null;
-              if (wakeWords.isNotEmpty) {
+              if (wakeWords.isNotEmpty && !current.speechWakeActive) {
                 final match = matchSpeechWakeWord(utterance, wakeWords);
                 if (!match.matched ||
                     isLikelyPlaybackEcho(
@@ -464,14 +466,16 @@ class _AssistantPageState extends State<AssistantPage> {
                   );
                 }
                 current.setSpeechContinuousState(wakeActive: true);
-                if (match.command.isNotEmpty) {
+                if (match.command.isNotEmpty ||
+                    current.speechIncludeWakeWordInCommand) {
                   speech.stopConversation(
                     _speechConversation,
                     kind: .recognition,
                   );
                   unawaited(
                     _sendRecognized(
-                      current.speechIncludeWakeWordInCommand
+                      match.command.isEmpty ||
+                              current.speechIncludeWakeWordInCommand
                           ? utterance
                           : match.command,
                     ),
@@ -499,13 +503,16 @@ class _AssistantPageState extends State<AssistantPage> {
             if (wakeWords.isEmpty || current.speechWakeActive) {
               if (wakeWords.isNotEmpty && wasBargeIn) {
                 final match = matchSpeechWakeWord(utterance, wakeWords);
-                if (match.matched && match.command.isEmpty) {
+                if (match.matched &&
+                    match.command.isEmpty &&
+                    !current.speechIncludeWakeWordInCommand) {
                   _input.clear();
                   _resetWakeIdleTimer();
                   return;
                 }
                 final command = match.matched
-                    ? (current.speechIncludeWakeWordInCommand
+                    ? (match.command.isEmpty ||
+                              current.speechIncludeWakeWordInCommand
                           ? utterance
                           : match.command)
                     : utterance;
@@ -538,11 +545,13 @@ class _AssistantPageState extends State<AssistantPage> {
             final match = matchSpeechWakeWord(utterance, wakeWords);
             if (!match.matched) return;
             current.setSpeechContinuousState(wakeActive: true);
-            if (match.command.isNotEmpty) {
+            if (match.command.isNotEmpty ||
+                current.speechIncludeWakeWordInCommand) {
               speech.stopConversation(_speechConversation, kind: .recognition);
               unawaited(
                 _sendRecognized(
-                  current.speechIncludeWakeWordInCommand
+                  match.command.isEmpty ||
+                          current.speechIncludeWakeWordInCommand
                       ? utterance
                       : match.command,
                 ),
@@ -765,7 +774,8 @@ class _AssistantPageState extends State<AssistantPage> {
             voice?.capturePhase(_speechConversation),
             voice != null &&
                 !voice.busy &&
-                !voice.hasCaptureFor(_speechConversation),
+                !voice.hasCaptureFor(_speechConversation) &&
+                assistant.speechRecognitionHardwareId != null,
             voice?.hasPlaybackFor(_speechConversation) ?? false,
             voice?.isContinuousListening(_speechConversation) ?? false,
           ),
@@ -1144,6 +1154,7 @@ class _AssistantPageState extends State<AssistantPage> {
                                   assistant: assistant,
                                   ready: ready,
                                   onManageContext: widget.onManageContext,
+                                  onManageMemory: widget.onManageMemory,
                                   voiceButton: voiceButton,
                                   voiceRecording:
                                       phase != null && !isContinuous,

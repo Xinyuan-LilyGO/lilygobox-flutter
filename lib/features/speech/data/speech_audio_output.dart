@@ -3,6 +3,7 @@
  */
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
@@ -125,9 +126,16 @@ class WindowsSpeechAudioOutput implements SpeechAudioOutput {
     Future<void> cancellation,
     String deviceId,
   ) async {
+    if (!WebRtcAec3Library.listAudioDevices(
+      isCapture: false,
+    ).any((device) => device.id == deviceId)) {
+      return;
+    }
     var cancelled = false;
     unawaited(cancellation.then((_) => cancelled = true));
     WebRtcAec3Playback? playback;
+    Stopwatch? playbackClock;
+    var writtenBytes = 0;
     try {
       await for (final wav in wavChunks) {
         if (cancelled) break;
@@ -139,7 +147,27 @@ class WindowsSpeechAudioOutput implements SpeechAudioOutput {
           channels: parsed.channels,
         );
         if (playback == null) return;
-        playback.writePcm16Bytes(parsed.pcm);
+        playbackClock ??= Stopwatch()..start();
+        final bytesPerSecond = parsed.sampleRate * parsed.channels * 2;
+        final maxBufferedBytes = bytesPerSecond * 3;
+        final sliceBytes = math.max(2, (bytesPerSecond ~/ 2) & ~1);
+        for (
+          var offset = 0;
+          offset < parsed.pcm.length && !cancelled;
+          offset += sliceBytes
+        ) {
+          final end = math.min(offset + sliceBytes, parsed.pcm.length);
+          while (!cancelled) {
+            final playedBytes =
+                (playbackClock.elapsedMilliseconds * bytesPerSecond) ~/ 1000;
+            if (writtenBytes - playedBytes <= maxBufferedBytes) break;
+            await Future<void>.delayed(const Duration(milliseconds: 100));
+          }
+          if (cancelled) break;
+          final slice = Uint8List.sublistView(parsed.pcm, offset, end);
+          playback.writePcm16Bytes(slice);
+          writtenBytes += slice.length;
+        }
       }
       if (playback == null || cancelled) return;
       playback.finish();

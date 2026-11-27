@@ -11,6 +11,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../core/clipboard/image_clipboard.dart';
 import '../../../../core/context_menu/right_click_menu.dart';
@@ -21,6 +22,7 @@ import '../../../../core/theme/material_palette.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_scroll_behavior.dart';
 import '../../../../core/widgets/app_tooltip.dart';
+import '../../../../core/widgets/confirmation_dialog.dart';
 import '../../../../core/widgets/empty_line_selection.dart';
 import '../../../../core/widgets/image_clipboard_menu.dart';
 import '../../../../core/widgets/menu_item_surface.dart';
@@ -28,6 +30,7 @@ import '../../../../core/widgets/popup_menu_surface.dart';
 import '../../../../core/widgets/popup_menu_transition.dart';
 import '../../../../core/widgets/title_bar_icon_button.dart';
 import '../../domain/models.dart';
+import '../../state/agent_workspace_provider.dart';
 import '../../state/provider.dart';
 import 'agent_message_source.dart';
 import 'approval_panel.dart';
@@ -58,6 +61,7 @@ class ChatComposer extends StatelessWidget {
     required this.attachments,
     required this.onAttachmentsChanged,
     this.onManageContext,
+    this.onManageMemory,
     this.voiceButton,
     this.voiceRecording = false,
     this.readClipboardImage = ImageClipboard.readPng,
@@ -73,6 +77,7 @@ class ChatComposer extends StatelessWidget {
   final List<AiImageAttachment> attachments;
   final ValueChanged<List<AiImageAttachment>> onAttachmentsChanged;
   final VoidCallback? onManageContext;
+  final VoidCallback? onManageMemory;
   final Widget? voiceButton;
   final bool voiceRecording;
   final Future<Uint8List?> Function() readClipboardImage;
@@ -666,6 +671,7 @@ class ChatComposer extends StatelessWidget {
           theme: theme,
           assistant: assistant,
           onManageContext: onManageContext,
+          onManageMemory: onManageMemory,
         ),
       ],
     );
@@ -677,11 +683,13 @@ class _ComposerMetrics extends StatelessWidget {
     required this.theme,
     required this.assistant,
     required this.onManageContext,
+    required this.onManageMemory,
   });
 
   final AppTheme theme;
   final AiAssistantProvider assistant;
   final VoidCallback? onManageContext;
+  final VoidCallback? onManageMemory;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -777,6 +785,7 @@ class _ComposerMetrics extends StatelessWidget {
                       ? Symbols.stop_rounded
                       : Symbols.compress_rounded,
                   isEnabled: !assistant.stopRequested,
+                  showDivider: true,
                   onTap: () {
                     close();
                     if (compacting) {
@@ -784,6 +793,16 @@ class _ComposerMetrics extends StatelessWidget {
                     } else {
                       unawaited(_compactContext(context, assistant));
                     }
+                  },
+                ),
+                RightClickMenuItem(
+                  key: const ValueKey('ai-context-menu-delete-chat'),
+                  label: l10n.agentStorageDeleteChat,
+                  icon: Symbols.delete_rounded,
+                  isEnabled: !assistant.busy,
+                  onTap: () {
+                    close();
+                    unawaited(_confirmClearChat(context, theme, assistant));
                   },
                 ),
               ],
@@ -797,11 +816,44 @@ class _ComposerMetrics extends StatelessWidget {
               ),
               details: _ContextUsageDetails(theme: theme, assistant: assistant),
             ),
+            if (onManageMemory case final manageMemory?)
+              _MemoryMetric(
+                key: const ValueKey('ai-memory-metric'),
+                theme: theme,
+                assistant: assistant,
+                onManageMemory: manageMemory,
+              ),
           ],
         ),
       );
     },
   );
+}
+
+Future<void> _confirmClearChat(
+  BuildContext context,
+  AppTheme theme,
+  AiAssistantProvider assistant,
+) async {
+  if (assistant.busy) return;
+  final l10n = context.l10n;
+  final workspaces = context.read<AiWorkspaceProvider?>();
+  final confirmed = await showAppConfirmation(
+    constraints: const BoxConstraints(maxWidth: 440),
+    context: context,
+    theme: theme,
+    actionKey: 'delete-chat',
+    destructive: true,
+    title: l10n.agentStorageDeleteChat,
+    description: l10n.agentStorageDeleteChatHint,
+    confirmLabel: l10n.delete,
+  );
+  if (confirmed && !assistant.busy) {
+    assistant.clearConversation();
+    if (workspaces != null) {
+      unawaited(workspaces.flush());
+    }
+  }
 }
 
 String _compactTokenCount(int tokens) {
@@ -1017,6 +1069,244 @@ class _ComposerMetricState extends State<_ComposerMetric> {
   void dispose() {
     _contextMenu.close();
     super.dispose();
+  }
+}
+
+class _MemoryMetric extends StatefulWidget {
+  const _MemoryMetric({
+    super.key,
+    required this.theme,
+    required this.assistant,
+    required this.onManageMemory,
+  });
+
+  final AppTheme theme;
+  final AiAssistantProvider assistant;
+  final VoidCallback onManageMemory;
+
+  @override
+  State<_MemoryMetric> createState() => _MemoryMetricState();
+}
+
+class _MemoryMetricState extends State<_MemoryMetric> {
+  final _detailsMenu = MenuController();
+  final _contextMenu = RightClickMenuController();
+  var _openRevision = 0;
+  Future<int>? _countFuture;
+
+  Future<int> _loadCount() async =>
+      (await widget.assistant.storage?.memories(
+        widget.assistant.memoryOwner,
+      ))?.length ??
+      0;
+
+  @override
+  void dispose() {
+    _contextMenu.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = widget.theme;
+    final assistant = widget.assistant;
+    final statusText = assistant.useMemory
+        ? l10n.aiMemoryStatusOn
+        : l10n.aiMemoryStatusOff;
+    final semanticLabel = '${l10n.agentStorageMemories}: $statusText';
+    final detailsAnchor = RawMenuAnchor(
+      controller: _detailsMenu,
+      onOpen: () {
+        if (!mounted) return;
+        setState(() {
+          _openRevision++;
+          _countFuture = _loadCount();
+        });
+      },
+      overlayBuilder: (context, info) {
+        const inset = 8.0;
+        final size = info.overlaySize;
+        final anchor = info.anchorRect;
+        final width = math.min(300.0, math.max(0.0, size.width - inset * 2));
+        final left = (anchor.right - width)
+            .clamp(inset, math.max(inset, size.width - width - inset))
+            .toDouble();
+        final above = math.max(0.0, anchor.top - inset * 2);
+        final below = math.max(0.0, size.height - anchor.bottom - inset * 2);
+        final opensAbove = above >= 190 || above >= below;
+        return Positioned(
+          left: left,
+          width: width,
+          top: opensAbove ? null : anchor.bottom + inset,
+          bottom: opensAbove ? size.height - anchor.top + inset : null,
+          child: TapRegion(
+            groupId: info.tapRegionGroupId,
+            onTapOutside: (_) => _detailsMenu.close(),
+            child: Focus(
+              autofocus: true,
+              onKeyEvent: (_, event) {
+                if (event.logicalKey != LogicalKeyboardKey.escape) {
+                  return KeyEventResult.ignored;
+                }
+                if (event is KeyDownEvent) _detailsMenu.close();
+                return KeyEventResult.handled;
+              },
+              child: PopupMenuTransition(
+                key: ValueKey(_openRevision),
+                alignment: opensAbove
+                    ? Alignment.bottomRight
+                    : Alignment.topRight,
+                child: PopupMenuSurface(
+                  key: ValueKey('${widget.key}-details'),
+                  theme: theme,
+                  padding: EdgeInsets.zero,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: opensAbove ? above : below,
+                    ),
+                    child: SingleChildScrollView(
+                      primary: false,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      child: FutureBuilder<int>(
+                        future: _countFuture,
+                        builder: (context, snapshot) {
+                          final count = snapshot.data;
+                          final memoryModel =
+                              assistant.auxiliaryModels.memory?.model ??
+                              l10n.aiMemoryFollowChatModel;
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              OverflowBar(
+                                spacing: 8,
+                                overflowSpacing: 2,
+                                alignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    l10n.agentStorageMemories,
+                                    style: TextStyle(
+                                      color: theme.textColorPrimary,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  if (count != null)
+                                    Text(
+                                      l10n.aiMemorySavedCount(count),
+                                      style: TextStyle(
+                                        color: theme.textColorSecondary,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              _MetricDetailRow(
+                                theme: theme,
+                                label: l10n.agentStorageMemoryEnabled,
+                                value: assistant.useMemory
+                                    ? l10n.aiMemoryEnabledState
+                                    : l10n.aiMemoryDisabledState,
+                              ),
+                              const SizedBox(height: 4),
+                              _MetricDetailRow(
+                                theme: theme,
+                                label: l10n.agentStorageAutoMemoryTitle,
+                                value:
+                                    assistant.useMemory &&
+                                        assistant.autoSaveMemory
+                                    ? l10n.aiMemoryEnabledState
+                                    : l10n.aiMemoryDisabledState,
+                              ),
+                              const SizedBox(height: 4),
+                              _MetricDetailRow(
+                                theme: theme,
+                                label: l10n.agentStorageMemoryModel,
+                                value: memoryModel,
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      builder: (context, controller, _) => AppTooltip(
+        message: semanticLabel,
+        child: Semantics(
+          label: semanticLabel,
+          button: true,
+          expanded: controller.isOpen,
+          child: MenuItemSurface(
+            theme: theme,
+            backgroundColor: theme.secondaryTextHoverColor.withValues(alpha: 0),
+            surfaceColor: theme.secondary,
+            hoverColor: theme.secondaryTextHoverColor,
+            borderRadius: BorderRadius.circular(8),
+            onPressed: () =>
+                controller.isOpen ? controller.close() : controller.open(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Symbols.memory,
+                    size: 14,
+                    color: theme.textColorTertiary,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    l10n.agentStorageMemories,
+                    style: TextStyle(
+                      color: theme.textColorTertiary,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    statusText,
+                    style: TextStyle(
+                      color: theme.textColorSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    return RightClickMenuBuilder.buildMenuAnchor(
+      context: context,
+      controller: _contextMenu,
+      menuItems: [
+        RightClickMenuItem(
+          key: const ValueKey('ai-memory-menu-manage'),
+          label: l10n.agentStorageManage,
+          icon: Symbols.memory,
+          onTap: () {
+            _contextMenu.close();
+            widget.onManageMemory();
+          },
+        ),
+      ],
+      theme: theme,
+      fitWidthToItems: true,
+      onSecondaryTap: _detailsMenu.close,
+      child: detailsAnchor,
+    );
   }
 }
 

@@ -29,6 +29,7 @@ typedef AiModelSelection = ({
 typedef AiAuxiliaryModels = ({
   AiModelSelection? approval,
   AiModelSelection? compaction,
+  AiModelSelection? memory,
 });
 
 /// 未声明不等于不支持；第三方模型不根据名称猜测图片能力。

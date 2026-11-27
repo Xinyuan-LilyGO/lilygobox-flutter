@@ -3024,7 +3024,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStorageManageContext => '管理聊天记录与上下文';
 
   @override
-  String get agentStorageManage => '管理记忆';
+  String get agentStorageManage => '管理长期记忆';
 
   @override
   String get agentStorageImport => '导入数据包';
@@ -3208,6 +3208,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String aiMemoryConsolidationModel(String model) {
+    return '整理记忆模型：$model';
+  }
+
+  @override
   String aiManualCompactionModel(String model) {
     return '手动压缩模型：$model';
   }
@@ -3318,10 +3323,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStorageDeleting => '删除记忆';
 
   @override
-  String get agentStorageMemoryEnabled => '自动使用长期记忆';
+  String get agentStorageMemoryEnabled => '每轮都检索记忆';
 
   @override
-  String get agentStorageMemoryHint => '每轮对话前读取相关记忆辅助回答，并允许智能体搜索、保存或删除记忆。';
+  String get agentStorageMemoryHint =>
+      '每轮对话前自动读取相关记忆辅助回答；关闭后仍可由你主动让智能体搜索、保存或删除记忆。';
 
   @override
   String get agentStorageUsage => '本地存储占用';
@@ -3634,6 +3640,13 @@ class AppLocalizationsZh extends AppLocalizations {
       '用于自动和手动压缩上下文。默认使用当前聊天模型及其思考强度。';
 
   @override
+  String get agentStorageMemoryModel => '整理记忆模型';
+
+  @override
+  String get agentStorageMemoryModelHint =>
+      '用于每轮对话后检查并整理长期记忆。默认使用当前聊天模型及其思考强度。';
+
+  @override
   String get agentStorageCompactNow => '立即压缩';
 
   @override
@@ -3743,11 +3756,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentStorageChangePackage => '重新选择';
 
   @override
-  String get agentStorageAutoMemoryTitle => '自动整理长期记忆';
+  String get agentStorageAutoMemoryTitle => '每轮都整理记忆';
 
   @override
   String get agentStorageAutoMemoryHint =>
-      '每轮对话完成后，自动筛选值得长期保留的信息，对照已有记忆去重后保存。会额外调用当前模型。';
+      '每轮对话完成后，在后台筛选值得长期保留的信息，对照已有记忆去重后保存。';
 
   @override
   String get agentStorageAutoMemoryAction => '整理长期记忆';
@@ -4146,11 +4159,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get speechAddWakeWord => '添加';
 
   @override
-  String get speechIncludeWakeWord => '发送完整唤醒词内容';
+  String get speechIncludeWakeWord => '发送唤醒词';
 
   @override
   String get speechIncludeWakeWordDescription =>
-      '说出唤醒词并紧跟内容时，保留唤醒词一并发送；关闭则自动截掉唤醒词。';
+      '开启后，说出唤醒词时无论是否附带后续内容，都会保留唤醒词并发送；关闭则不发送唤醒词（仅说唤醒词时只唤醒待命）。';
 
   @override
   String get speechStandbyListening => '唤醒词待命中 — 点击切换为直接说话';
@@ -4273,7 +4286,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get speechHardwareHelp => '将当前电脑的麦克风与扬声器独占绑定到此智能体；绑定后其他智能体将无法使用。';
 
   @override
-  String get speechNoHardwareDevice => '无设备';
+  String get speechNoHardwareDevice => '无设备（禁用）';
 
   @override
   String get speechDefaultDevice => '默认设备';
@@ -4289,18 +4302,46 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get speechHardwareInputFieldDescription =>
-      '选择用于语音识别的输入硬件；选中具体设备后将由当前智能体独占。';
+      '选择用于语音识别的输入硬件；选「无设备（禁用）」将停用麦克风，选中具体设备后将由当前智能体独占。';
 
   @override
   String get speechHardwareOutputFieldTitle => '扬声器输出设备';
 
   @override
   String get speechHardwareOutputFieldDescription =>
-      '选择用于语音合成的输出硬件；选中具体设备后将由当前智能体独占。';
+      '选择用于语音合成的输出硬件；选「无设备（禁用）」将停用扬声器播放，选中具体设备后将由当前智能体独占。';
 
   @override
   String get speechNoAudioDevicesFound => '未检测到可用音频设备。';
 
   @override
   String get speechRefreshDevices => '刷新设备列表';
+
+  @override
+  String get speechDisconnectedDevice => '已断开的设备';
+
+  @override
+  String speechDisconnectedNamedDevice(String name) {
+    return '已断开 · $name';
+  }
+
+  @override
+  String get aiMemoryStatusOn => '已打开';
+
+  @override
+  String get aiMemoryStatusOff => '已关闭';
+
+  @override
+  String aiMemorySavedCount(int count) {
+    return '已保存 $count 条';
+  }
+
+  @override
+  String get aiMemoryEnabledState => '已开启';
+
+  @override
+  String get aiMemoryDisabledState => '已关闭';
+
+  @override
+  String get aiMemoryFollowChatModel => '跟随当前模型';
 }

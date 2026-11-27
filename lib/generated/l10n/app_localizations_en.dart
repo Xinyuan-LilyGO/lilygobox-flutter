@@ -3264,7 +3264,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentStorageManageContext => 'Manage chat history and context';
 
   @override
-  String get agentStorageManage => 'Manage memories';
+  String get agentStorageManage => 'Manage long-term memories';
 
   @override
   String get agentStorageImport => 'Import package';
@@ -3471,6 +3471,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String aiMemoryConsolidationModel(String model) {
+    return 'Memory organization model: $model';
+  }
+
+  @override
   String aiManualCompactionModel(String model) {
     return 'Manual compaction model: $model';
   }
@@ -3586,12 +3591,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentStorageDeleting => 'Delete memory';
 
   @override
-  String get agentStorageMemoryEnabled =>
-      'Automatically use long-term memories';
+  String get agentStorageMemoryEnabled => 'Retrieve memories every turn';
 
   @override
   String get agentStorageMemoryHint =>
-      'Retrieve relevant memories before each turn to inform replies, and allow the agent to search, save or delete memories.';
+      'Automatically retrieve relevant memories before each turn. When off, the agent can still search, save, or delete memories when asked.';
 
   @override
   String get agentStorageUsage => 'Local storage usage';
@@ -3929,6 +3933,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Applies to automatic and manual compaction. By default, both use the current chat model and its reasoning effort.';
 
   @override
+  String get agentStorageMemoryModel => 'Memory consolidation model';
+
+  @override
+  String get agentStorageMemoryModelHint =>
+      'Used to check existing memories and extract new ones after each turn. By default, it uses the current chat model and its reasoning effort.';
+
+  @override
   String get agentStorageCompactNow => 'Compact now';
 
   @override
@@ -4041,12 +4052,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentStorageChangePackage => 'Choose another package';
 
   @override
-  String get agentStorageAutoMemoryTitle =>
-      'Automatically organize long-term memories';
+  String get agentStorageAutoMemoryTitle => 'Organize memories every turn';
 
   @override
   String get agentStorageAutoMemoryHint =>
-      'After each completed turn, select useful lasting information, compare it with existing memories and save new items. Makes an additional request to the current model.';
+      'After each completed turn, select useful lasting information in the background, compare it with existing memories, and save new items.';
 
   @override
   String get agentStorageAutoMemoryAction => 'Organize long-term memories';
@@ -4480,11 +4490,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get speechAddWakeWord => 'Add';
 
   @override
-  String get speechIncludeWakeWord => 'Send full utterance with wake word';
+  String get speechIncludeWakeWord => 'Send wake word';
 
   @override
   String get speechIncludeWakeWordDescription =>
-      'Keep the wake word in the sent message when you say a wake word followed by a request.';
+      'When on, keep and send the wake word even if spoken alone; when off, do not send the wake word (speaking it alone only wakes and waits).';
 
   @override
   String get speechStandbyListening =>
@@ -4622,7 +4632,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Bind the computer microphone and speaker exclusively to this agent. While bound, other agents cannot use them.';
 
   @override
-  String get speechNoHardwareDevice => 'No device';
+  String get speechNoHardwareDevice => 'No device (disabled)';
 
   @override
   String get speechDefaultDevice => 'Default device';
@@ -4639,18 +4649,46 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get speechHardwareInputFieldDescription =>
-      'Select the input hardware for speech recognition. Choosing a specific device claims it exclusively.';
+      'Select the input hardware for speech recognition. Choosing \"No device (disabled)\" disables the microphone; choosing a specific device claims it exclusively.';
 
   @override
   String get speechHardwareOutputFieldTitle => 'Speaker output device';
 
   @override
   String get speechHardwareOutputFieldDescription =>
-      'Select the output hardware for speech synthesis. Choosing a specific device claims it exclusively.';
+      'Select the output hardware for speech synthesis. Choosing \"No device (disabled)\" disables speaker playback; choosing a specific device claims it exclusively.';
 
   @override
   String get speechNoAudioDevicesFound => 'No audio devices detected.';
 
   @override
   String get speechRefreshDevices => 'Refresh devices';
+
+  @override
+  String get speechDisconnectedDevice => 'Disconnected device';
+
+  @override
+  String speechDisconnectedNamedDevice(String name) {
+    return 'Disconnected · $name';
+  }
+
+  @override
+  String get aiMemoryStatusOn => 'On';
+
+  @override
+  String get aiMemoryStatusOff => 'Off';
+
+  @override
+  String aiMemorySavedCount(int count) {
+    return '$count saved';
+  }
+
+  @override
+  String get aiMemoryEnabledState => 'On';
+
+  @override
+  String get aiMemoryDisabledState => 'Off';
+
+  @override
+  String get aiMemoryFollowChatModel => 'Current model';
 }

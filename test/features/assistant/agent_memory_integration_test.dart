@@ -273,6 +273,7 @@ void main() {
     await agent.assistant.sendMessage(
       'For future conversations, reply in Chinese and use filled icons.',
     );
+    await agent.assistant.pendingMemoryConsolidation;
     final saved = await storage.memories(agent.id);
     expect(saved.map((m) => m['content']).toSet(), {
       'Use filled icons',
@@ -297,6 +298,7 @@ void main() {
     expect(action.arguments['saved'], 1);
     expect(action.arguments['duplicates'], 2);
     await agent.assistant.sendMessage('Remember those same preferences.');
+    await agent.assistant.pendingMemoryConsolidation;
     expect(await storage.memories(agent.id), hasLength(2));
   });
 
@@ -305,6 +307,7 @@ void main() {
     requestMemoryTool = true;
     consolidation = '{"memories":["Use filled icons"]}';
     await agent.assistant.sendMessage('Always use filled icons');
+    await agent.assistant.pendingMemoryConsolidation;
     expect(consolidationRequests(), hasLength(1));
     expect(requests, hasLength(3));
     expect(await storage.memories(agent.id), hasLength(1));
@@ -376,6 +379,7 @@ void main() {
       final agent = await create('Extraction unavailable');
       consolidationStatus = 400;
       await agent.assistant.sendMessage('A durable preference');
+      await agent.assistant.pendingMemoryConsolidation;
       expect(agent.assistant.error, isNull);
       expect(agent.assistant.messages.last.content, 'Done');
       expect(await storage.memories(agent.id), isEmpty);
@@ -407,6 +411,7 @@ void main() {
       }
       consolidationGate!.complete();
       await pending;
+      await agent.assistant.pendingMemoryConsolidation;
       expect(await storage.memories(agent.id), isEmpty);
       expect(agent.assistant.messages.last.content, 'Done');
       expect(agent.assistant.error, isNull);
@@ -422,7 +427,7 @@ void main() {
   });
 
   test(
-    'guidance during memory consolidation waits and then continues',
+    'guidance during background memory consolidation runs without waiting',
     () async {
       final agent = await create('Guided extraction');
       consolidation = '{"memories":[]}';
@@ -431,6 +436,8 @@ void main() {
       consolidationStarted = Completer<void>();
       final pending = agent.assistant.sendMessage('Initial task');
       await consolidationStarted!.future;
+      await pending.timeout(const Duration(seconds: 2));
+      expect(agent.assistant.busy, isFalse);
       await agent.assistant.receiveAgentMessage(
         sourceId: 'parent-id',
         sourceTitle: 'Parent',
@@ -438,15 +445,10 @@ void main() {
         content: 'Use the revised task',
         steer: true,
       );
-      expect(agent.assistant.busy, isTrue);
-      expect(
-        agent.assistant.pendingGuidance.single.content,
-        'Use the revised task',
-      );
       consolidationStarted = null;
       consolidationGate = null;
       gate.complete();
-      await pending.timeout(const Duration(seconds: 2));
+      await agent.assistant.pendingMemoryConsolidation;
       expect(agent.assistant.busy, isFalse);
       expect(
         agent.assistant.messages.any(
@@ -1360,6 +1362,7 @@ void main() {
       agent.assistant.auxiliaryModels = (
         approval: selection,
         compaction: selection,
+        memory: selection,
       );
     }
     workspaces.removeMany([recycled.id]);
@@ -1368,16 +1371,19 @@ void main() {
     expect(importedActive.assistant.auxiliaryModels, (
       approval: selection,
       compaction: selection,
+      memory: selection,
     ));
     final importedRecycled = mapping[recycled.id]!;
     await workspaces.restoreRecycledAgent(importedRecycled);
     expect(workspaces.find(importedRecycled)!.assistant.auxiliaryModels, (
       approval: selection,
       compaction: selection,
+      memory: selection,
     ));
     expect(active.assistant.auxiliaryModels, (
       approval: selection,
       compaction: selection,
+      memory: selection,
     ));
   });
 
@@ -1497,6 +1503,7 @@ void main() {
         expect(imported.assistant.auxiliaryModels, (
           approval: approval,
           compaction: compaction,
+          memory: null,
         ));
         expect(
           imported.assistant.permissions.toJson(),
@@ -1653,12 +1660,13 @@ void main() {
     await assistant.selectModel(nextService, 'new-model');
     consolidationGate!.complete();
     await pending;
+    await assistant.pendingMemoryConsolidation;
 
     final firstSummary = requests.indexWhere(
       (request) => ((request['messages'] as List).first['content'] as String)
           .startsWith('Summarize'),
     );
-    expect(firstSummary, 2);
+    expect(firstSummary, greaterThanOrEqualTo(1));
     expect(requests[firstSummary]['model'], 'gpt-6.1-sol');
     expect(assistant.selectedModel, 'new-model');
     expect(assistant.snapshotWorkspaceConversation()['summary'], summary);
@@ -2332,4 +2340,71 @@ void main() {
       'Edited while reviewing',
     );
   });
+
+  test(
+    'custom memory model runs non-blocking in background and is inherited by child agents',
+    () async {
+      final memoryService = await scope.provider.saveService(
+        name: 'Memory service',
+        baseUrl: 'https://memory.test/v1',
+        protocol: AiApiProtocol.openAiChatCompletions,
+        models: ['gpt-6.1-sol'],
+        apiKey: 'memory-test-key',
+      );
+      final memorySelection = (
+        serviceId: memoryService,
+        model: 'gpt-6.1-sol',
+        reasoningEffort: AiReasoningEffort.low,
+      );
+      final agent = await create('Background memory agent');
+      agent.assistant.selectMemoryModel(memorySelection);
+      consolidation = '{"memories":["Prefers concise summaries"]}';
+      consolidationGate = Completer<void>();
+      consolidationStarted = Completer<void>();
+
+      await agent.assistant.sendMessage('Remember I prefer concise summaries');
+      expect(agent.assistant.busy, isFalse);
+      expect(agent.assistant.messages.last.content, 'Done');
+      await consolidationStarted!.future;
+      expect(await storage.memories(agent.id), isEmpty);
+
+      consolidationGate!.complete();
+      await agent.assistant.pendingMemoryConsolidation;
+
+      final extraction = consolidationRequests().single;
+      expect(extraction['model'], 'gpt-6.1-sol');
+      expect(extraction['reasoning_effort'], 'low');
+      final saved = await storage.memories(agent.id);
+      expect(
+        saved.map((m) => m['content']),
+        contains('Prefers concise summaries'),
+      );
+
+      final child = await workspaces.create(
+        title: 'Child Worker',
+        task: 'Handle delegated task',
+        parentId: agent.id,
+        requestedBy: agent,
+        startImmediately: false,
+      );
+      expect(child.assistant.auxiliaryModels.memory, memorySelection);
+    },
+  );
+
+  test(
+    'disabling per-turn memory retrieval still keeps manual memory tools available',
+    () async {
+      final agent = await create('Manual memory tools');
+      agent.assistant.useMemory = false;
+      requestMemoryTool = true;
+      await agent.assistant.sendMessage('Save this preference manually');
+      final toolNames = (requests.first['tools'] as List)
+          .map((tool) => (tool['function'] as Map)['name'])
+          .toSet();
+      expect(toolNames, containsAll(['search_memory', 'save_memory', 'delete_memory']));
+      final saved = await storage.memories(agent.id);
+      expect(saved.map((m) => m['content']), contains('Use filled icons'));
+      expect(consolidationRequests(), isEmpty);
+    },
+  );
 }

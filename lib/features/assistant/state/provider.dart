@@ -589,7 +589,11 @@ class AiAssistantProvider extends ChangeNotifier {
     _notify();
   }
 
-  AiAuxiliaryModels _auxiliaryModels = (approval: null, compaction: null);
+  AiAuxiliaryModels _auxiliaryModels = (
+    approval: null,
+    compaction: null,
+    memory: null,
+  );
   AiAuxiliaryModels get auxiliaryModels => _auxiliaryModels;
   set auxiliaryModels(AiAuxiliaryModels value) {
     if (_auxiliaryModels == value) return;
@@ -602,6 +606,7 @@ class AiAssistantProvider extends ChangeNotifier {
     auxiliaryModels = (
       approval: selection,
       compaction: auxiliaryModels.compaction,
+      memory: auxiliaryModels.memory,
     );
   }
 
@@ -609,6 +614,15 @@ class AiAssistantProvider extends ChangeNotifier {
     auxiliaryModels = (
       approval: auxiliaryModels.approval,
       compaction: selection,
+      memory: auxiliaryModels.memory,
+    );
+  }
+
+  void selectMemoryModel(AiModelSelection? selection) {
+    auxiliaryModels = (
+      approval: auxiliaryModels.approval,
+      compaction: auxiliaryModels.compaction,
+      memory: selection,
     );
   }
 
@@ -729,6 +743,8 @@ class AiAssistantProvider extends ChangeNotifier {
   }
 
   Completer<void>? _memoryConsolidationAbort;
+  Future<void>? _pendingMemoryConsolidation;
+  Future<void>? get pendingMemoryConsolidation => _pendingMemoryConsolidation;
 
   void _cancelMemoryConsolidation() {
     if (_memoryConsolidationAbort case final abort? when !abort.isCompleted) {
@@ -772,6 +788,8 @@ class AiAssistantProvider extends ChangeNotifier {
       'approvalModel': _writeModelSelection(model),
     if (auxiliaryModels.compaction case final model?)
       'compactionModel': _writeModelSelection(model),
+    if (auxiliaryModels.memory case final model?)
+      'memoryModel': _writeModelSelection(model),
     'roleplay': ?_snapshotRoleplay(),
     if (_speechBindings.voice case (:final modelId, :final voice))
       'speechVoice': {'modelId': modelId, 'voice': voice},
@@ -870,6 +888,7 @@ class AiAssistantProvider extends ChangeNotifier {
     auxiliaryModels = (
       approval: _readModelSelection(snapshot['approvalModel']),
       compaction: _readModelSelection(snapshot['compactionModel']),
+      memory: _readModelSelection(snapshot['memoryModel']),
     );
     _restoreRoleplay(snapshot['roleplay']);
     final bindings = emptySpeechBindings
@@ -950,11 +969,15 @@ class AiAssistantProvider extends ChangeNotifier {
     bool succeeded = true,
     String? messageId,
     String? operationId,
+    String? model,
+    AiReasoningEffort? reasoningEffort,
   }) {
     final event = AiProcessEvent(
       type: AiProcessEventType.action,
       elapsed: _segmentElapsed,
       operationId: operationId,
+      model: model,
+      reasoningEffort: reasoningEffort,
       action: AiProcessingStep(
         name: name,
         arguments: arguments,
@@ -997,9 +1020,9 @@ class AiAssistantProvider extends ChangeNotifier {
         _error != null) {
       return;
     }
-    final requestConfiguration = _activeConfiguration;
-    final apiKey = _activeApiKey;
-    if (requestConfiguration == null || apiKey == null) return;
+    final request = _auxiliaryRequest(auxiliaryModels.memory);
+    if (request == null) return;
+    final (:configuration, :apiKey) = request;
     final start = _messages.lastIndexWhere((m) => m.role == 'user');
     if (start < 0) return;
     // 排除附件、隐藏思考和工具原始输出；
@@ -1028,31 +1051,30 @@ class AiAssistantProvider extends ChangeNotifier {
     bool current() =>
         !_disposed &&
         !_stopRequested &&
-        _error == null &&
         useMemory &&
         autoSaveMemory &&
         !abort.isCompleted &&
         memoryOwner == owner &&
-        _activeMessageId == targetMessage;
+        _messages.any((m) => m.id == targetMessage);
     try {
-      _recordStatus(
-        AiResponseStatus.executingTools,
-        toolName: 'consolidate_memory',
-        operationId: operationId,
-      );
+      if (_activeMessageId == targetMessage) {
+        _recordStatus(
+          AiResponseStatus.executingTools,
+          toolName: 'consolidate_memory',
+          operationId: operationId,
+          model: configuration.model,
+          reasoningEffort: configuration.effectiveReasoningEffort,
+        );
+      }
       final query = transcript.first['content']!;
-      final existing = await _awaitTurn(
-        database.memories(owner, query: query, limit: 32),
-      );
+      final existing = await database.memories(owner, query: query, limit: 32);
       if (!current()) return;
       final completion = await _client.complete(
-        configuration: requestConfiguration,
+        configuration: configuration,
         apiKey: apiKey,
         tools: const [],
         maxTokens: 2048,
-        abortTrigger: _abortRequest == null
-            ? abort.future
-            : Future.any([abort.future, _abortRequest!.future]),
+        abortTrigger: abort.future,
         messages: [
           {
             'role': 'system',
@@ -1107,6 +1129,8 @@ class AiAssistantProvider extends ChangeNotifier {
         jsonEncode({'saved': saved, 'duplicates': duplicates}),
         messageId: targetMessage,
         operationId: operationId,
+        model: configuration.model,
+        reasoningEffort: configuration.effectiveReasoningEffort,
       );
     } catch (error) {
       if (current()) {
@@ -1119,6 +1143,8 @@ class AiAssistantProvider extends ChangeNotifier {
           succeeded: false,
           messageId: targetMessage,
           operationId: operationId,
+          model: configuration.model,
+          reasoningEffort: configuration.effectiveReasoningEffort,
         );
       }
     } finally {
@@ -2854,13 +2880,13 @@ class AiAssistantProvider extends ChangeNotifier {
     if (_summaryAbort case final abort? when !abort.isCompleted) {
       abort.complete();
     }
+    if (_memoryConsolidationAbort case final abort? when !abort.isCompleted) {
+      abort.complete();
+    }
     if (!_busy || _stopRequested) return;
     _stopRequested = true;
     _cancelPendingManualCompaction();
     _activeOutput?.stop();
-    if (_memoryConsolidationAbort case final abort? when !abort.isCompleted) {
-      abort.complete();
-    }
     _notify();
     final abortRequest = _abortRequest;
     if (abortRequest != null && !abortRequest.isCompleted) {
@@ -3188,7 +3214,15 @@ class AiAssistantProvider extends ChangeNotifier {
           continue;
         }
         if (result == _AssistantStepResult.followUp) continue;
-        await _consolidateLongTermMemory();
+        final consolidation = _consolidateLongTermMemory();
+        _pendingMemoryConsolidation = consolidation;
+        unawaited(
+          consolidation.whenComplete(() {
+            if (identical(_pendingMemoryConsolidation, consolidation)) {
+              _pendingMemoryConsolidation = null;
+            }
+          }),
+        );
         final compacted = await _autoCompactIfNeeded(
           phase: _AutoCompactionPhase.afterReply,
         );
@@ -3491,8 +3525,9 @@ class AiAssistantProvider extends ChangeNotifier {
               'content':
                   '[Required Output Format for Voice Playback]\n'
                   'ALWAYS start your reply with a <speech>...</speech> block on the very first line, before any narrative, action, or body text (even if earlier turns in the conversation placed it elsewhere), followed by a newline and your full response.\n'
-                  'Inside <speech>...</speech>, write 1 to 3 brief, natural spoken sentences (plain text only: no markdown, asterisks, action/stage descriptions, code, or URLs) '
-                  'that ${binding != null ? '"${binding.card.name}" actually says aloud in character (matching their persona, tone, and language)' : 'you would say aloud to summarize or respond conversationally'}.',
+                  'Inside <speech>...</speech>, write natural spoken sentences (plain text only: no markdown, asterisks, action/stage descriptions, code, or URLs) '
+                  'that ${binding != null ? '"${binding.card.name}" actually says aloud in character (matching their persona, tone, and language)' : 'you would say aloud to summarize or respond conversationally'}. '
+                  'Keep it concise (usually 1 to 3 sentences) by default, but expand and speak in fuller detail whenever the user asks for a longer, fuller, or more detailed spoken reply.',
             },
         ],
         tools: [
@@ -3500,7 +3535,7 @@ class AiAssistantProvider extends ChangeNotifier {
           ..._additionalTools,
           ...ChatHistorySearch.definitions,
           ...workspaceToolDefinitions,
-          if (storage != null && useMemory) ..._memoryTools,
+          if (storage != null) ..._memoryTools,
         ],
         abortTrigger: Future.any<void>([modelAbort.future, ?turnAbort?.future]),
         onTextDelta: output.add,
@@ -3657,7 +3692,6 @@ class AiAssistantProvider extends ChangeNotifier {
           final historyTool = ChatHistorySearch.supports(call.name);
           final memoryTool =
               storage != null &&
-              useMemory &&
               const {
                 'search_memory',
                 'save_memory',
