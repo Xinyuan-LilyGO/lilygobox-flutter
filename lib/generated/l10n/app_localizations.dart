@@ -4980,6 +4980,12 @@ abstract class AppLocalizations {
   /// **'Export card package'**
   String get aiRoleplayPackageExport;
 
+  /// No description provided for @aiRoleplayPackageImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Import cards'**
+  String get aiRoleplayPackageImport;
+
   /// No description provided for @aiRoleplayPackageSelectExport.
   ///
   /// In en, this message translates to:

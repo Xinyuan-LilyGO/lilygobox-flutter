@@ -2627,6 +2627,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiRoleplayPackageExport => '导出卡片包';
 
   @override
+  String get aiRoleplayPackageImport => '导入卡片';
+
+  @override
   String get aiRoleplayPackageSelectExport => '选择要放入卡片包的角色卡。';
 
   @override

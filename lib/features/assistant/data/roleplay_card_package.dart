@@ -52,6 +52,9 @@ abstract final class RoleplayCardPackage {
     var unreadableFiles = 0;
     var singleCardFile = files.length == 1;
     for (final (index, file) in files.indexed) {
+      if (files.length > 1) {
+        transfer?.reportBatch(completed: index, total: files.length);
+      }
       transfer?.report(
         PackageProgress(.reading, completed: index, total: files.length),
       );
@@ -77,6 +80,9 @@ abstract final class RoleplayCardPackage {
       } catch (_) {
         unreadableFiles++;
       }
+    }
+    if (files.length > 1) {
+      transfer?.reportBatch(completed: files.length, total: files.length);
     }
     transfer?.report(
       PackageProgress(.reading, completed: files.length, total: files.length),
@@ -213,6 +219,9 @@ abstract final class RoleplayCardPackage {
       var size = 0;
       final fileNames = <String>{};
       for (final (index, card) in cards.indexed) {
+        if (cards.length > 1) {
+          transfer.reportBatch(completed: index, total: cards.length);
+        }
         transfer.report(
           PackageProgress(.compressing, completed: index, total: cards.length),
         );
@@ -234,6 +243,9 @@ abstract final class RoleplayCardPackage {
         );
       }
       writer.close();
+      if (cards.length > 1) {
+        transfer.reportBatch(completed: cards.length, total: cards.length);
+      }
     } finally {
       output.closeSync();
     }

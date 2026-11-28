@@ -2817,6 +2817,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiRoleplayPackageExport => 'Export card package';
 
   @override
+  String get aiRoleplayPackageImport => 'Import cards';
+
+  @override
   String get aiRoleplayPackageSelectExport =>
       'Select the cards to include in the package.';
 

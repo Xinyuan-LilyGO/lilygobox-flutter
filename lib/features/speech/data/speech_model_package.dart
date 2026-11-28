@@ -23,7 +23,7 @@ typedef _ModelLocation = ({
 });
 
 abstract final class SpeechModelPackage {
-  static const _archiveBytes = 2 * 1024 * 1024 * 1024;
+  static const _zstdMaxWindowBytes = 128 * 1024 * 1024;
   static const _entryCount = 4096;
   static const _manifestPath = 'voice-models.json';
   static const _manifestBytes = 64 * 1024;
@@ -54,9 +54,6 @@ abstract final class SpeechModelPackage {
     final (sourcePath, workPath, modelPath) = paths;
     final input = File(sourcePath);
     final length = await input.length();
-    if (length > _archiveBytes) {
-      throw const SpeechFailure(.packageTooLarge);
-    }
     final name = path.basename(input.path);
     try {
       return await _readTar(input, length, workPath, modelPath, name, transfer);
@@ -101,26 +98,42 @@ abstract final class SpeechModelPackage {
         modelFiles.length + 1 > _entryCount) {
       throw const SpeechFailure(.packageTooLarge);
     }
-    var bytes = _tarEntryBytes(manifest.length) + 1024;
     final lengths = <String, int>{};
     var total = 0;
     for (final sourcePath in modelFiles.values) {
       final length = await File(sourcePath).length();
       lengths[sourcePath] = length;
       total += length;
-      bytes += _tarEntryBytes(length);
-      if (bytes > _archiveBytes) throw const SpeechFailure(.packageTooLarge);
     }
     final output = tar.OutputFileStream(outputPath);
     try {
       final writer = ZstdTar.writer(output);
       writer.add(tar.ArchiveFile(_manifestPath, manifest.length, manifest));
       var compressed = 0;
+      String? currentFolder;
+      var completedModels = 0;
+      if (models.length > 1) {
+        transfer.reportBatch(completed: 0, total: models.length);
+      }
       transfer.report(
         PackageProgress(.compressing, completed: compressed, total: total),
       );
       for (final MapEntry(key: relative, value: sourcePath)
           in modelFiles.entries) {
+        if (models.length > 1) {
+          final parts = relative.split('/');
+          final folder = parts.length >= 2 ? '${parts[0]}/${parts[1]}' : null;
+          if (folder != null && folder != currentFolder) {
+            if (currentFolder != null) {
+              completedModels++;
+              transfer.reportBatch(
+                completed: completedModels,
+                total: models.length,
+              );
+            }
+            currentFolder = folder;
+          }
+        }
         final source = tar.InputFileStream(sourcePath);
         final length = lengths[sourcePath]!;
         try {
@@ -153,15 +166,13 @@ abstract final class SpeechModelPackage {
         }
       }
       writer.close();
+      if (models.length > 1) {
+        transfer.reportBatch(completed: models.length, total: models.length);
+      }
     } finally {
       output.closeSync();
     }
-    if (File(outputPath).lengthSync() > _archiveBytes) {
-      throw const SpeechFailure(.packageTooLarge);
-    }
   }
-
-  static int _tarEntryBytes(int bytes) => 512 + ((bytes + 511) ~/ 512) * 512;
 
   static Future<List<SpeechPackageModel>> _readTar(
     File source,
@@ -194,9 +205,8 @@ abstract final class SpeechModelPackage {
         source,
         output,
         length: length,
-        limit: _archiveBytes,
         decoder: isZstd
-            ? const tar.ZstdDecoderConverter(maxWindowSize: _archiveBytes)
+            ? const tar.ZstdDecoderConverter(maxWindowSize: _zstdMaxWindowBytes)
             : const tar.BZip2DecoderConverter(),
       );
     } finally {
@@ -344,9 +354,6 @@ abstract final class SpeechModelPackage {
         throw const SpeechFailure(.missingFiles);
       }
       bytes += entry.size;
-      if (bytes > SpeechModel.maxBytes) {
-        throw const SpeechFailure(.packageTooLarge);
-      }
     }
     var written = 0;
     for (final relative in files) {

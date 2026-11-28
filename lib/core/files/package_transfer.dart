@@ -21,17 +21,31 @@ class PackageProgress {
     this.stage, {
     this.completed,
     this.total,
+    this.itemCompleted,
+    this.itemTotal,
     this.canCancel = true,
   });
 
   final PackageStage stage;
   final int? completed;
   final int? total;
+  final int? itemCompleted;
+  final int? itemTotal;
   final bool canCancel;
 
   double? get fraction => completed != null && total != null && total! > 0
       ? (completed! / total!).clamp(0, 1)
       : null;
+
+  PackageProgress withBatch(int? completedItems, int? totalItems) =>
+      PackageProgress(
+        stage,
+        completed: completed,
+        total: total,
+        itemCompleted: completedItems,
+        itemTotal: totalItems,
+        canCancel: canCancel,
+      );
 }
 
 class PackageCancelled implements Exception {
@@ -45,6 +59,8 @@ class PackageTransfer {
   final _cancelled = Completer<void>();
   final _finished = Completer<void>();
   PackageProgress _progress = const PackageProgress(.preparing);
+  int? _itemCompleted;
+  int? _itemTotal;
 
   Future<void> get cancellation => _cancelled.future;
   bool get isCancelled => _cancelled.isCompleted;
@@ -59,15 +75,27 @@ class PackageTransfer {
     if (isCancelled) throw const PackageCancelled();
   }
 
+  void reportBatch({required int completed, required int total}) {
+    _itemCompleted = completed;
+    _itemTotal = total;
+    report(_progress.withBatch(completed, total));
+  }
+
   void report(PackageProgress progress) {
     check();
-    if (progress.stage == _progress.stage &&
-        progress.canCancel == _progress.canCancel &&
-        _percent(progress) == _percent(_progress)) {
+    final effective =
+        progress.itemTotal != null || _itemTotal == null
+        ? progress
+        : progress.withBatch(_itemCompleted, _itemTotal);
+    if (effective.stage == _progress.stage &&
+        effective.canCancel == _progress.canCancel &&
+        effective.itemCompleted == _progress.itemCompleted &&
+        effective.itemTotal == _progress.itemTotal &&
+        _percent(effective) == _percent(_progress)) {
       return;
     }
-    _progress = progress;
-    onProgress?.call(progress);
+    _progress = effective;
+    onProgress?.call(effective);
   }
 
   void commit() => report(const PackageProgress(.committing, canCancel: false));
@@ -138,7 +166,7 @@ class PackageTransfer {
     File source,
     OutputStream output, {
     required int length,
-    required int limit,
+    int? limit,
     required ChunkedConverter decoder,
   }) async {
     final sink = decoder.startChunkedConversion(_LimitedOutput(output, limit));
@@ -177,11 +205,12 @@ class _LimitedOutput implements Sink<List<int>> {
   _LimitedOutput(this.output, this.limit);
 
   final OutputStream output;
-  final int limit;
+  final int? limit;
 
   @override
   void add(List<int> bytes) {
-    if (bytes.length > limit - output.length) {
+    final maxBytes = limit;
+    if (maxBytes != null && bytes.length > maxBytes - output.length) {
       throw ArchiveLimitException('Package exceeds unpacked size limit');
     }
     output.writeBytes(bytes);

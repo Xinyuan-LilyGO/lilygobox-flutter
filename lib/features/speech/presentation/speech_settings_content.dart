@@ -274,8 +274,9 @@ class _SpeechSettingsContentState extends State<SpeechSettingsContent> {
           var imported = 0;
           var failed = 0;
           SpeechFailureReason? firstError;
-          for (final source in sources) {
+          for (final (index, source) in sources.indexed) {
             transfer.check();
+            transfer.reportBatch(completed: index, total: sources.length);
             final error = await speech.import(source.path, transfer: transfer);
             if (error == null) {
               imported++;
@@ -284,6 +285,7 @@ class _SpeechSettingsContentState extends State<SpeechSettingsContent> {
               firstError ??= error;
             }
           }
+          transfer.reportBatch(completed: sources.length, total: sources.length);
           return (imported: imported, failed: failed, firstError: firstError);
         },
       );

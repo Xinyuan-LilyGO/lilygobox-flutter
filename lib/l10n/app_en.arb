@@ -1478,6 +1478,7 @@
   "aiRoleplayPackageDescription": "Import PNG, JSON, or .tar.zst files and export selected cards in a .tar.zst package.",
   "aiRoleplayPackageFileType": "Character card package (.tar.zst)",
   "aiRoleplayPackageExport": "Export card package",
+  "aiRoleplayPackageImport": "Import cards",
   "aiRoleplayPackageSelectExport": "Select the cards to include in the package.",
   "aiRoleplayPackageSummary": "{total} cards found · {added} new · {duplicates} duplicates",
   "@aiRoleplayPackageSummary": {"placeholders": {"total": {"type": "int"}, "added": {"type": "int"}, "duplicates": {"type": "int"}}},

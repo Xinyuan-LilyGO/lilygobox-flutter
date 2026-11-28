@@ -396,7 +396,6 @@ class SpeechModelStore {
       throw const SpeechFailure(.missingFiles);
     }
     final files = <String, File>{};
-    var size = 0;
     Future<void> addFile(
       String relative,
       File file, {
@@ -404,10 +403,6 @@ class SpeechModelStore {
     }) async {
       final length = await file.length();
       if (required && length == 0) throw const SpeechFailure(.missingFiles);
-      size += length;
-      if (size > SpeechModel.maxBytes) {
-        throw const SpeechFailure(.packageTooLarge);
-      }
       files[relative] = file;
     }
 

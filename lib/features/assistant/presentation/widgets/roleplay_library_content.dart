@@ -102,7 +102,7 @@ class _RoleplayLibraryContentState extends State<RoleplayLibraryContent> {
                     AppActionButton.settings(
                       key: const ValueKey('roleplay-library-import'),
                       theme: theme,
-                      label: l10n.aiRoleplayConfirmImport,
+                      label: l10n.aiRoleplayPackageImport,
                       onPressed: _transferring
                           ? null
                           : () => unawaited(_importCards(context, workspaces)),

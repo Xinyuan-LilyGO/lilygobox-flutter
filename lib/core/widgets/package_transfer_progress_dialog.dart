@@ -174,6 +174,8 @@ class _PackageTransferProgressDialogState
       final theme = widget.theme;
       final progress = widget.readProgress();
       final fraction = progress?.fraction;
+      final itemTotal = progress?.itemTotal;
+      final itemCompleted = progress?.itemCompleted;
       final stage = _cancelling
           ? l.agentStorageTransferCancelling
           : switch (progress?.stage ?? PackageStage.preparing) {
@@ -200,6 +202,17 @@ class _PackageTransferProgressDialogState
           constraints: const BoxConstraints(maxWidth: 400),
           theme: theme,
           title: l.agentStorageTransferTitle,
+          titleTrailing: itemTotal != null && itemTotal > 1
+              ? Text(
+                  '(${itemCompleted ?? 0}/$itemTotal)',
+                  key: const ValueKey('storage-transfer-item-count'),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: theme.textColorSecondary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                )
+              : null,
           content: SizedBox(
             width: 352,
             child: Column(

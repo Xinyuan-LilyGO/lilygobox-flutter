@@ -1105,6 +1105,7 @@
   "aiRoleplayPackageDescription": "支持导入 PNG、JSON 或 .tar.zst 文件，并将所选角色卡导出为 .tar.zst 卡片包。",
   "aiRoleplayPackageFileType": "角色卡包（.tar.zst）",
   "aiRoleplayPackageExport": "导出卡片包",
+  "aiRoleplayPackageImport": "导入卡片",
   "aiRoleplayPackageSelectExport": "选择要放入卡片包的角色卡。",
   "aiRoleplayPackageSummary": "共 {total} 张，新增 {added} 张，重复 {duplicates} 张",
   "aiRoleplayPackageImportSelected": "导入所选（{count}）",
