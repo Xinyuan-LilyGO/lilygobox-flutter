@@ -4362,11 +4362,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get speechPreviewText => '你好，这是一段 LilyGoBox 离线语音试听。';
+  String get speechPreviewText => '你好，这是一段离线语音合成试听。';
 
   @override
   String get speechKokoroPreviewText =>
-      'Hello from LilyGoBox. 今天我们来试试 offline speech synthesis 的中英文混读。';
+      'Hello! 今天我们来试试 offline speech synthesis 的中英文混读。';
 
   @override
   String get speechStopPlayback => 'Stop playback';

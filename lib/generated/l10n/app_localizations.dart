@@ -7525,13 +7525,13 @@ abstract class AppLocalizations {
   /// No description provided for @speechPreviewText.
   ///
   /// In en, this message translates to:
-  /// **'你好，这是一段 LilyGoBox 离线语音试听。'**
+  /// **'你好，这是一段离线语音合成试听。'**
   String get speechPreviewText;
 
   /// Spoken Kokoro preview. Keep both English and Chinese in the sample to demonstrate mixed-language speech.
   ///
   /// In en, this message translates to:
-  /// **'Hello from LilyGoBox. 今天我们来试试 offline speech synthesis 的中英文混读。'**
+  /// **'Hello! 今天我们来试试 offline speech synthesis 的中英文混读。'**
   String get speechKokoroPreviewText;
 
   /// No description provided for @speechStopPlayback.

@@ -4042,11 +4042,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get speechPreviewText => '你好，这是一段 LilyGoBox 离线语音试听。';
+  String get speechPreviewText => '你好，这是一段离线语音合成试听。';
 
   @override
   String get speechKokoroPreviewText =>
-      '你好，欢迎使用 LilyGoBox。今天我们来试试 offline speech synthesis 的中英文混读。';
+      '你好，欢迎使用离线语音助手。今天我们来试试 offline speech synthesis 的中英文混读。';
 
   @override
   String get speechStopPlayback => '停止播放';
