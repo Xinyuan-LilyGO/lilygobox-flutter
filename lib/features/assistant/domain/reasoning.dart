@@ -5,10 +5,17 @@ enum AiReasoningEffort { none, minimal, low, medium, high, xhigh, max, ultra }
 
 /// 以模型名称中连续出现的已知标识识别能力，不依赖服务端扩展字段。
 class AiReasoningCapabilities {
-  const AiReasoningCapabilities(this.levels, {this.deepSeek = false});
+  const AiReasoningCapabilities(
+    this.levels, {
+    this.deepSeek = false,
+    this.geminiBudget = false,
+    this.geminiLevel = false,
+  });
 
   final List<AiReasoningEffort> levels;
   final bool deepSeek;
+  final bool geminiBudget;
+  final bool geminiLevel;
 
   AiReasoningEffort? get initialEffort =>
       levels.length > 1 ? levels[1] : levels.firstOrNull;
@@ -50,6 +57,30 @@ class AiReasoningCapabilities {
     AiReasoningEffort.high,
     AiReasoningEffort.max,
   ], deepSeek: true);
+  static const _gemini25Pro = AiReasoningCapabilities(
+    _standard,
+    geminiBudget: true,
+  );
+  static const _gemini25Flash = AiReasoningCapabilities([
+    AiReasoningEffort.none,
+    ..._standard,
+  ], geminiBudget: true);
+  static const _gemini3Pro = AiReasoningCapabilities([
+    AiReasoningEffort.low,
+    AiReasoningEffort.high,
+  ], geminiLevel: true);
+  static const _gemini3Standard = AiReasoningCapabilities(
+    _standard,
+    geminiLevel: true,
+  );
+  static const _gemini3Minimal = AiReasoningCapabilities([
+    AiReasoningEffort.minimal,
+    ..._standard,
+  ], geminiLevel: true);
+  static const _gemini4XHigh = AiReasoningCapabilities([
+    ..._standard,
+    AiReasoningEffort.xhigh,
+  ], geminiLevel: true);
   static const _models = <String, AiReasoningCapabilities>{
     'deepseek-flash': _deepSeek,
     'deepseek-v4-pro': _deepSeek,
@@ -82,7 +113,27 @@ class AiReasoningCapabilities {
       ..._standard,
       AiReasoningEffort.xhigh,
     ]),
+    'gemini-4-hydrogen': _gemini4XHigh,
+    'gemini-4-neon': _gemini4XHigh,
+    'gemini-4-carbon': _gemini3Standard,
+    'gemini-4-argon': _gemini3Standard,
+    'gemini-3.8-flash': _gemini3Standard,
+    'gemini-3.6-flash': _gemini3Minimal,
+    'gemini-3.5-flash': _gemini3Minimal,
+    'gemini-3.1-flash-lite': _gemini3Minimal,
+    'gemini-3.1-pro': _gemini3Standard,
+    'gemini-3-flash': _gemini3Minimal,
+    'gemini-3-pro': _gemini3Pro,
+    'gemini-2.5-pro': _gemini25Pro,
+    'gemini-2.5-flash': _gemini25Flash,
+    'gemini-2.5': _gemini25Pro,
   };
+  static final _gemini3Pattern = RegExp(
+    r'(?:^|[^a-z0-9])gemini-3(?:\.\d+)?(?:[-.]|$)',
+  );
+  static final _gemini4Pattern = RegExp(
+    r'(?:^|[^a-z0-9])gemini-[4-9]\d*(?:\.\d+)?(?:[-.]|$)',
+  );
   static final _modelIdentifiers = _models.keys.toList()
     ..sort((a, b) {
       final byLength = b.length.compareTo(a.length);
@@ -112,14 +163,43 @@ class AiReasoningCapabilities {
       if (identifier == 'gpt-5' && _gpt5Version.hasMatch(id)) continue;
       if (id.contains(identifier)) return _models[identifier]!;
     }
+    if (_gemini4Pattern.hasMatch(id) || _gemini3Pattern.hasMatch(id)) {
+      return _gemini3Standard;
+    }
     return const AiReasoningCapabilities([]);
   }
 
   Map<String, Object?> requestParameters(
     AiReasoningEffort? effort, {
     required bool responses,
+    bool gemini = false,
   }) {
     if (effort == null || !levels.contains(effort)) return const {};
+    if (gemini) {
+      if (geminiLevel) {
+        return {
+          'thinkingConfig': {
+            'includeThoughts': true,
+            'thinkingLevel': effort.name,
+          },
+        };
+      }
+      return {
+        'thinkingConfig': {
+          'includeThoughts': effort != AiReasoningEffort.none,
+          'thinkingBudget': switch (effort) {
+            AiReasoningEffort.none => 0,
+            AiReasoningEffort.minimal => 512,
+            AiReasoningEffort.low => 1024,
+            AiReasoningEffort.medium => 8192,
+            AiReasoningEffort.high => 24576,
+            AiReasoningEffort.xhigh ||
+            AiReasoningEffort.max ||
+            AiReasoningEffort.ultra => 32768,
+          },
+        },
+      };
+    }
     if (responses) {
       return {
         'reasoning': {'effort': effort.name},

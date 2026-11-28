@@ -98,26 +98,36 @@ void main() {
             client: MockClient((request) async {
               body = jsonDecode(request.body) as Map<String, dynamic>;
               return http.Response(
-                jsonEncode(
-                  protocol == AiApiProtocol.openAiResponses
-                      ? {
-                          'output': [
-                            {
-                              'type': 'message',
-                              'content': [
-                                {'type': 'output_text', 'text': 'Done'},
-                              ],
-                            },
-                          ],
-                        }
-                      : {
-                          'choices': [
-                            {
-                              'message': {'content': 'Done'},
-                            },
+                jsonEncode(switch (protocol) {
+                  AiApiProtocol.openAiResponses => {
+                    'output': [
+                      {
+                        'type': 'message',
+                        'content': [
+                          {'type': 'output_text', 'text': 'Done'},
+                        ],
+                      },
+                    ],
+                  },
+                  AiApiProtocol.openAiChatCompletions => {
+                    'choices': [
+                      {
+                        'message': {'content': 'Done'},
+                      },
+                    ],
+                  },
+                  AiApiProtocol.googleGemini => {
+                    'candidates': [
+                      {
+                        'content': {
+                          'parts': [
+                            {'text': 'Done'},
                           ],
                         },
-                ),
+                      },
+                    ],
+                  },
+                }),
                 200,
               );
             }),
@@ -136,11 +146,22 @@ void main() {
             tools: const [],
             maxTokens: outputLimit,
           );
-          final field = protocol == AiApiProtocol.openAiResponses
-              ? 'max_output_tokens'
-              : 'max_tokens';
-          expect(body.containsKey(field), outputLimit != null);
-          if (outputLimit != null) expect(body[field], outputLimit);
+          if (protocol == AiApiProtocol.googleGemini) {
+            final config = body['generationConfig'] as Map?;
+            expect(
+              config?.containsKey('maxOutputTokens') ?? false,
+              outputLimit != null,
+            );
+            if (outputLimit != null) {
+              expect(config?['maxOutputTokens'], outputLimit);
+            }
+          } else {
+            final field = protocol == AiApiProtocol.openAiResponses
+                ? 'max_output_tokens'
+                : 'max_tokens';
+            expect(body.containsKey(field), outputLimit != null);
+            if (outputLimit != null) expect(body[field], outputLimit);
+          }
         },
       );
     }
@@ -225,7 +246,10 @@ void main() {
     expect(processingSpeedsForModel('deepseek-flash'), isEmpty);
     expect(processingSpeedsForModel('unknown'), isEmpty);
   });
-  for (final protocol in AiApiProtocol.values) {
+  for (final protocol in const [
+    AiApiProtocol.openAiChatCompletions,
+    AiApiProtocol.openAiResponses,
+  ]) {
     for (final speed in AiProcessingSpeed.values) {
       test('serializes processing speed $protocol $speed', () async {
         Map<String, dynamic>? body;
@@ -339,7 +363,10 @@ void main() {
       });
     },
   );
-  for (final protocol in AiApiProtocol.values) {
+  for (final protocol in const [
+    AiApiProtocol.openAiChatCompletions,
+    AiApiProtocol.openAiResponses,
+  ]) {
     for (final (model, effort, encodedEffort) in const [
       ('o3', null, null),
       ('o3', AiReasoningEffort.high, 'high'),
@@ -462,70 +489,108 @@ void main() {
         'reports reasoning separately for ${protocol.name}, streaming=$streaming',
         () async {
           final responses = protocol == AiApiProtocol.openAiResponses;
-          final payload = responses
-              ? <String, Object?>{
-                  'output': [
-                    {
-                      'type': 'reasoning',
-                      'summary': [
-                        {'type': 'summary_text', 'text': 'Think carefully.'},
-                      ],
-                      'encrypted_content': 'opaque-private-data',
-                    },
-                    {
-                      'type': 'message',
-                      'content': [
-                        {'type': 'output_text', 'text': 'Answer'},
-                      ],
-                    },
+          final gemini = protocol == AiApiProtocol.googleGemini;
+          final payload = switch (protocol) {
+            AiApiProtocol.openAiResponses => <String, Object?>{
+              'output': [
+                {
+                  'type': 'reasoning',
+                  'summary': [
+                    {'type': 'summary_text', 'text': 'Think carefully.'},
                   ],
-                }
-              : <String, Object?>{
-                  'choices': [
-                    {
-                      'message': {
-                        'content': 'Answer',
-                        'reasoning_content': 'Think carefully.',
-                      },
-                    },
+                  'encrypted_content': 'opaque-private-data',
+                },
+                {
+                  'type': 'message',
+                  'content': [
+                    {'type': 'output_text', 'text': 'Answer'},
                   ],
-                };
-          final events = responses
-              ? [
-                  {
-                    'type': 'response.reasoning_summary_text.delta',
-                    'delta': 'Think ',
+                },
+              ],
+            },
+            AiApiProtocol.openAiChatCompletions => <String, Object?>{
+              'choices': [
+                {
+                  'message': {
+                    'content': 'Answer',
+                    'reasoning_content': 'Think carefully.',
                   },
-                  {
-                    'type': 'response.reasoning_summary_text.delta',
-                    'delta': 'carefully.',
-                  },
-                  {'type': 'response.output_text.delta', 'delta': 'Answer'},
-                  {'type': 'response.completed', 'response': payload},
-                ]
-              : [
-                  {
-                    'choices': [
-                      {
-                        'delta': {'reasoning_content': 'Think '},
-                      },
+                },
+              ],
+            },
+            AiApiProtocol.googleGemini => <String, Object?>{
+              'candidates': [
+                {
+                  'content': {
+                    'parts': [
+                      {'thought': true, 'text': 'Think carefully.'},
+                      {'text': 'Answer'},
                     ],
                   },
+                },
+              ],
+            },
+          };
+          final events = switch (protocol) {
+            AiApiProtocol.openAiResponses => [
+              {'type': 'response.reasoning_summary_text.delta', 'delta': 'Think '},
+              {
+                'type': 'response.reasoning_summary_text.delta',
+                'delta': 'carefully.',
+              },
+              {'type': 'response.output_text.delta', 'delta': 'Answer'},
+              {'type': 'response.completed', 'response': payload},
+            ],
+            AiApiProtocol.openAiChatCompletions => [
+              {
+                'choices': [
                   {
-                    'choices': [
-                      {
-                        'delta': {'reasoning_content': 'carefully.'},
-                      },
-                    ],
+                    'delta': {'reasoning_content': 'Think '},
                   },
+                ],
+              },
+              {
+                'choices': [
                   {
-                    'choices': [
-                      {
-                        'delta': {'content': 'Answer'},
-                      },
-                    ],
+                    'delta': {'reasoning_content': 'carefully.'},
                   },
-                ];
+                ],
+              },
+              {
+                'choices': [
+                  {
+                    'delta': {'content': 'Answer'},
+                  },
+                ],
+              },
+            ],
+            AiApiProtocol.googleGemini => [
+              {
+                'candidates': [
+                  {
+                    'content': {
+                      'parts': [
+                        {'thought': true, 'text': 'Think '},
+                      ],
+                    },
+                  },
+                ],
+              },
+              {
+                'candidates': [
+                  {
+                    'content': {
+                      'parts': [
+                        {'thought': true, 'text': 'carefully.'},
+                        {'text': 'Answer'},
+                      ],
+                    },
+                  },
+                ],
+              },
+            ],
+          };
+          assert(!gemini || payload.isNotEmpty || responses || true);
           final client = ChatCompletionClient(
             client: MockClient(
               (_) async => http.Response(
@@ -1022,26 +1087,36 @@ void main() {
         client: MockClient((incoming) async {
           request = incoming;
           return http.Response(
-            jsonEncode(
-              protocol == AiApiProtocol.openAiResponses
-                  ? {
-                      'output': [
-                        {
-                          'type': 'message',
-                          'content': [
-                            {'type': 'output_text', 'text': 'Image received'},
-                          ],
-                        },
-                      ],
-                    }
-                  : {
-                      'choices': [
-                        {
-                          'message': {'content': 'Image received'},
-                        },
+            jsonEncode(switch (protocol) {
+              AiApiProtocol.openAiResponses => {
+                'output': [
+                  {
+                    'type': 'message',
+                    'content': [
+                      {'type': 'output_text', 'text': 'Image received'},
+                    ],
+                  },
+                ],
+              },
+              AiApiProtocol.openAiChatCompletions => {
+                'choices': [
+                  {
+                    'message': {'content': 'Image received'},
+                  },
+                ],
+              },
+              AiApiProtocol.googleGemini => {
+                'candidates': [
+                  {
+                    'content': {
+                      'parts': [
+                        {'text': 'Image received'},
                       ],
                     },
-            ),
+                  },
+                ],
+              },
+            }),
             200,
           );
         }),
@@ -1068,25 +1143,363 @@ void main() {
         tools: const [],
       );
       final body = jsonDecode(request.body) as Map<String, dynamic>;
-      final userContent = protocol == AiApiProtocol.openAiResponses
-          ? (body['input'] as List).single['content'] as List
-          : (body['messages'] as List).single['content'] as List;
-      expect(userContent, [
-        {
-          'type': protocol == AiApiProtocol.openAiResponses
-              ? 'input_text'
-              : 'text',
-          'text': 'Describe this image.',
-        },
-        if (protocol == AiApiProtocol.openAiResponses)
-          {'type': 'input_image', 'image_url': 'data:image/png;base64,AQID'}
-        else
+      if (protocol == AiApiProtocol.googleGemini) {
+        final parts = (body['contents'] as List).single['parts'] as List;
+        expect(parts, [
+          {'text': 'Describe this image.'},
           {
-            'type': 'image_url',
-            'image_url': {'url': 'data:image/png;base64,AQID'},
+            'inlineData': {'mimeType': 'image/png', 'data': 'AQID'},
           },
-      ]);
+        ]);
+      } else {
+        final userContent = protocol == AiApiProtocol.openAiResponses
+            ? (body['input'] as List).single['content'] as List
+            : (body['messages'] as List).single['content'] as List;
+        expect(userContent, [
+          {
+            'type': protocol == AiApiProtocol.openAiResponses
+                ? 'input_text'
+                : 'text',
+            'text': 'Describe this image.',
+          },
+          if (protocol == AiApiProtocol.openAiResponses)
+            {'type': 'input_image', 'image_url': 'data:image/png;base64,AQID'}
+          else
+            {
+              'type': 'image_url',
+              'image_url': {'url': 'data:image/png;base64,AQID'},
+            },
+        ]);
+      }
       await client.close();
     });
   }
+
+  test('Google Gemini streams thoughts, tool calls, usage and discovers models', () async {
+    final deltas = <String>[];
+    final thoughts = <String>[];
+    late http.Request captured;
+    final client = ChatCompletionClient(
+      client: MockClient((request) async {
+        if (request.method == 'GET') {
+          expect(request.headers['x-goog-api-key'], 'gem-key');
+          expect(
+            request.url.toString(),
+            'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000',
+          );
+          return http.Response(
+            jsonEncode({
+              'models': [
+                {
+                  'name': 'models/gemini-2.5-flash',
+                  'supportedGenerationMethods': ['generateContent'],
+                },
+                {
+                  'name': 'models/embedding-001',
+                  'supportedGenerationMethods': ['embedContent'],
+                },
+              ],
+            }),
+            200,
+          );
+        }
+        captured = request;
+        return http.Response(
+          'data: ${jsonEncode({
+            'candidates': [
+              {
+                'content': {
+                  'parts': [
+                    {'thought': true, 'text': 'Thinking...'},
+                    {'text': 'Hello '},
+                  ],
+                },
+              },
+            ],
+          })}\n\n'
+          'data: ${jsonEncode({
+            'candidates': [
+              {
+                'content': {
+                  'parts': [
+                    {'text': 'world'},
+                    {
+                      'functionCall': {
+                        'name': 'get_time',
+                        'args': {'tz': 'UTC'},
+                      },
+                      'thoughtSignature': 'sig-123',
+                    },
+                  ],
+                },
+                'finishReason': 'STOP',
+              },
+            ],
+            'usageMetadata': {
+              'promptTokenCount': 12,
+              'candidatesTokenCount': 5,
+              'thoughtsTokenCount': 3,
+              'cachedContentTokenCount': 4,
+            },
+          })}\n\n',
+          200,
+        );
+      }),
+    );
+    addTearDown(client.close);
+    final catalog = await client.discoverModelCatalog(
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+      apiKey: 'gem-key',
+      protocol: AiApiProtocol.googleGemini,
+    );
+    expect(catalog.models, ['gemini-2.5-flash']);
+    expect(
+      catalog.imageInputs['gemini-2.5-flash'],
+      AiImageInput.supported,
+    );
+
+    final completion = await client.complete(
+      configuration: const AiServiceConfiguration(
+        protocol: AiApiProtocol.googleGemini,
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+        model: 'gemini-2.5-flash',
+        reasoningEffort: AiReasoningEffort.low,
+      ),
+      apiKey: 'gem-key',
+      messages: const [
+        {'role': 'system', 'content': 'Be concise'},
+        {'role': 'user', 'content': 'Hi'},
+      ],
+      tools: const [
+        {
+          'type': 'function',
+          'function': {
+            'name': 'get_time',
+            'description': 'Get current time',
+            'parameters': {'type': 'object'},
+          },
+        },
+      ],
+      onTextDelta: deltas.add,
+      onReasoningDelta: thoughts.add,
+    );
+    expect(captured.headers['x-goog-api-key'], 'gem-key');
+    expect(
+      captured.url.toString(),
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse',
+    );
+    final reqBody = jsonDecode(captured.body) as Map<String, dynamic>;
+    expect(reqBody['systemInstruction'], {
+      'parts': [
+        {'text': 'Be concise'},
+      ],
+    });
+    expect(reqBody['generationConfig']['thinkingConfig'], {
+      'includeThoughts': true,
+      'thinkingBudget': 1024,
+    });
+    expect(thoughts, ['Thinking...']);
+    expect(deltas, ['Hello ', 'world']);
+    expect(completion.text, 'Hello world');
+    expect(completion.reasoning, 'Thinking...');
+    expect(completion.toolCalls.single.name, 'get_time');
+    expect(completion.toolCalls.single.arguments, {'tz': 'UTC'});
+    expect(completion.responseItems.last['thoughtSignature'], 'sig-123');
+    expect(completion.usage?.inputTokens, 12);
+    expect(completion.usage?.outputTokens, 8);
+    expect(completion.usage?.cachedTokens, 4);
+    expect(completion.finishReason, 'stop');
+  });
+
+  test('Gemini thinking capabilities match 2.5 budget, 3/4 level, and 2.0 none', () {
+    expect(
+      AiReasoningCapabilities.forModel('gemini-2.5-flash').levels,
+      [
+        AiReasoningEffort.none,
+        AiReasoningEffort.low,
+        AiReasoningEffort.medium,
+        AiReasoningEffort.high,
+      ],
+    );
+    expect(
+      AiReasoningCapabilities.forModel('gemini-2.5-pro').levels,
+      [
+        AiReasoningEffort.low,
+        AiReasoningEffort.medium,
+        AiReasoningEffort.high,
+      ],
+    );
+    expect(
+      AiReasoningCapabilities.forModel('gemini-3.5-flash').levels,
+      [
+        AiReasoningEffort.minimal,
+        AiReasoningEffort.low,
+        AiReasoningEffort.medium,
+        AiReasoningEffort.high,
+      ],
+    );
+    expect(
+      AiReasoningCapabilities.forModel('gemini-3.8-flash').levels,
+      [
+        AiReasoningEffort.low,
+        AiReasoningEffort.medium,
+        AiReasoningEffort.high,
+      ],
+    );
+    expect(
+      AiReasoningCapabilities.forModel('gemini-3-pro-preview').levels,
+      [
+        AiReasoningEffort.low,
+        AiReasoningEffort.high,
+      ],
+    );
+    expect(
+      AiReasoningCapabilities.forModel('gemini-4-carbon').levels,
+      [
+        AiReasoningEffort.low,
+        AiReasoningEffort.medium,
+        AiReasoningEffort.high,
+      ],
+    );
+    expect(
+      AiReasoningCapabilities.forModel('gemini-4-hydrogen').levels,
+      [
+        AiReasoningEffort.low,
+        AiReasoningEffort.medium,
+        AiReasoningEffort.high,
+        AiReasoningEffort.xhigh,
+      ],
+    );
+    expect(
+      AiReasoningCapabilities.forModel('gemini-3.5-flash').requestParameters(
+        AiReasoningEffort.medium,
+        responses: false,
+        gemini: true,
+      ),
+      {
+        'thinkingConfig': {
+          'includeThoughts': true,
+          'thinkingLevel': 'medium',
+        },
+      },
+    );
+    expect(
+      AiReasoningCapabilities.forModel('gemini-4-hydrogen').requestParameters(
+        AiReasoningEffort.xhigh,
+        responses: false,
+        gemini: true,
+      ),
+      {
+        'thinkingConfig': {
+          'includeThoughts': true,
+          'thinkingLevel': 'xhigh',
+        },
+      },
+    );
+    expect(AiReasoningCapabilities.forModel('gemini-2.0-flash').levels, isEmpty);
+  });
+
+  test('Gemini sanitizes tool schemas and ignores OpenAI Responses history items', () async {
+    late Map<String, dynamic> body;
+    final client = ChatCompletionClient(
+      client: MockClient((request) async {
+        body = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({
+            'candidates': [
+              {
+                'content': {
+                  'parts': [
+                    {'text': 'OK'},
+                  ],
+                },
+              },
+            ],
+          }),
+          200,
+        );
+      }),
+    );
+    addTearDown(client.close);
+    await client.complete(
+      configuration: const AiServiceConfiguration(
+        protocol: AiApiProtocol.googleGemini,
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+        model: 'gemini-3.5-flash',
+        reasoningEffort: AiReasoningEffort.medium,
+      ),
+      apiKey: 'gem-key',
+      messages: const [
+        {'role': 'user', 'content': 'Hi'},
+        {
+          'role': 'assistant',
+          'content': 'Hello',
+          'response_items': [
+            {
+              'type': 'reasoning',
+              'encrypted_content': 'opaque',
+              'summary': [],
+            },
+            {
+              'type': 'message',
+              'role': 'assistant',
+              'content': 'Hello',
+            },
+          ],
+        },
+        {'role': 'user', 'content': 'Next'},
+      ],
+      tools: const [
+        {
+          'type': 'function',
+          'function': {
+            'name': 'search',
+            'parameters': {
+              r'$schema': 'https://json-schema.org/draft/2020-12/schema',
+              'type': 'object',
+              'additionalProperties': false,
+              'properties': {
+                'q': {
+                  'type': 'string',
+                  'additionalProperties': false,
+                },
+                'effort': {
+                  'type': ['string', 'null'],
+                },
+              },
+            },
+          },
+        },
+      ],
+    );
+    expect(body['contents'], [
+      {
+        'role': 'user',
+        'parts': [
+          {'text': 'Hi'},
+        ],
+      },
+      {
+        'role': 'model',
+        'parts': [
+          {'text': 'Hello'},
+        ],
+      },
+      {
+        'role': 'user',
+        'parts': [
+          {'text': 'Next'},
+        ],
+      },
+    ]);
+    final decl =
+        ((body['tools'] as List).single as Map)['functionDeclarations'] as List;
+    expect((decl.single as Map)['parameters'], {
+      'type': 'object',
+      'properties': {
+        'q': {'type': 'string'},
+        'effort': {'type': 'string', 'nullable': true},
+      },
+    });
+  });
 }

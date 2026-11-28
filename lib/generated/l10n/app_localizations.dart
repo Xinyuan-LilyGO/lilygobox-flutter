@@ -1248,6 +1248,12 @@ abstract class AppLocalizations {
   /// **'OpenAI (official)'**
   String get aiProviderOpenAi;
 
+  /// No description provided for @aiProviderGemini.
+  ///
+  /// In en, this message translates to:
+  /// **'Google Gemini (official)'**
+  String get aiProviderGemini;
+
   /// No description provided for @aiProviderCustom.
   ///
   /// In en, this message translates to:
@@ -3353,6 +3359,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'OpenAI Responses'**
   String get aiProtocolResponses;
+
+  /// No description provided for @aiProtocolGemini.
+  ///
+  /// In en, this message translates to:
+  /// **'Google Gemini'**
+  String get aiProtocolGemini;
 
   /// No description provided for @aiCurrentService.
   ///

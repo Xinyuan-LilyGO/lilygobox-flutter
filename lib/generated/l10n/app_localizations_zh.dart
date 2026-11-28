@@ -643,6 +643,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiProviderOpenAi => 'OpenAI 官方';
 
   @override
+  String get aiProviderGemini => 'Google Gemini 官方';
+
+  @override
   String get aiProviderCustom => '自定义';
 
   @override
@@ -1758,6 +1761,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiProtocolResponses => 'OpenAI Responses';
+
+  @override
+  String get aiProtocolGemini => 'Google Gemini';
 
   @override
   String get aiCurrentService => '当前服务';

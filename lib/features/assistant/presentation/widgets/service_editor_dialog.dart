@@ -163,6 +163,7 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
           baseUrl: _baseUrl,
           apiKey: _key.text,
           serviceId: _canReuseKey ? widget.service?.id : null,
+          protocol: _apiProtocol,
           abortTrigger: abort,
         ),
       ),
@@ -238,6 +239,10 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
                           value: AiServicePreset.openAi,
                           child: Text(l10n.aiProviderOpenAi),
                         ),
+                        DropdownMenuItem(
+                          value: AiServicePreset.googleGemini,
+                          child: Text(l10n.aiProviderGemini),
+                        ),
                       ],
                       onChanged: _working ? null : _changePreset,
                     ),
@@ -271,6 +276,10 @@ class _ServiceEditorDialogState extends State<ServiceEditorDialog> {
                         DropdownMenuItem(
                           value: AiApiProtocol.openAiResponses,
                           child: Text(l10n.aiProtocolResponses),
+                        ),
+                        DropdownMenuItem(
+                          value: AiApiProtocol.googleGemini,
+                          child: Text(l10n.aiProtocolGemini),
                         ),
                       ],
                       onChanged: _working

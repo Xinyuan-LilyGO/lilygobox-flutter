@@ -2674,16 +2674,19 @@ class AiAssistantProvider extends ChangeNotifier {
     required String baseUrl,
     required String apiKey,
     String? serviceId,
+    AiApiProtocol protocol = AiApiProtocol.openAiChatCompletions,
   }) async => (await discoverModelCatalog(
     baseUrl: baseUrl,
     apiKey: apiKey,
     serviceId: serviceId,
+    protocol: protocol,
   )).models;
 
   Future<AiModelCatalog> discoverModelCatalog({
     required String baseUrl,
     required String apiKey,
     String? serviceId,
+    AiApiProtocol protocol = AiApiProtocol.openAiChatCompletions,
     Future<void>? abortTrigger,
   }) async {
     final address = ModelServiceRepository.validateAddress(baseUrl);
@@ -2700,6 +2703,7 @@ class AiAssistantProvider extends ChangeNotifier {
     return _client.discoverModelCatalog(
       baseUrl: address,
       apiKey: key,
+      protocol: protocol,
       abortTrigger: abortTrigger,
     );
   }

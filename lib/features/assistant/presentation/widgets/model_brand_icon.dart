@@ -14,6 +14,7 @@ class ModelBrandIcon extends StatelessWidget {
   static final _openAi = RegExp(
     r'(?:^|[^a-z0-9])(?:openai|gpt-\d+|o[1-4]|codex)(?:$|[^a-z0-9])',
   );
+  static final _gemini = RegExp(r'(?:^|[^a-z0-9])gemini(?:$|[^a-z0-9])');
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +25,13 @@ class ModelBrandIcon extends StatelessWidget {
       _ => null,
     };
     const size = 16.0;
-    if (brand == null) return const Icon(Symbols.blur_on, size: size, fill: 1);
+    if (brand == null) {
+      return Icon(
+        _gemini.hasMatch(id) ? Symbols.auto_awesome_rounded : Symbols.blur_on,
+        size: size,
+        fill: 1,
+      );
+    }
     final artworkSize = brand == 'openai' ? 14.0 : size;
     final color = switch (brand) {
       'deepseek'

@@ -1397,7 +1397,12 @@ class AiWorkspaceProvider extends ChangeNotifier {
               final effort = AiReasoningEffort.values
                   .where((e) => e.name == conversation['effort'])
                   .firstOrNull;
-              if (effort != null) await assistant.setReasoningEffort(effort);
+              if (effort != null &&
+                  AiReasoningCapabilities.forModel(
+                    model,
+                  ).levels.contains(effort)) {
+                await assistant.setReasoningEffort(effort);
+              }
               final speed = assistant.processingSpeeds
                   .where((s) => s.name == conversation['processingSpeed'])
                   .firstOrNull;

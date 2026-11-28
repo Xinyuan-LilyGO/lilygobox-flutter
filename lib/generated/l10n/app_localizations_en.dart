@@ -675,6 +675,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiProviderOpenAi => 'OpenAI (official)';
 
   @override
+  String get aiProviderGemini => 'Google Gemini (official)';
+
+  @override
   String get aiProviderCustom => 'Custom';
 
   @override
@@ -1883,6 +1886,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiProtocolResponses => 'OpenAI Responses';
+
+  @override
+  String get aiProtocolGemini => 'Google Gemini';
 
   @override
   String get aiCurrentService => 'Current service';

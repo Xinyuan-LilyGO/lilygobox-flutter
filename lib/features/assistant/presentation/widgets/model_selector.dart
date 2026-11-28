@@ -81,7 +81,7 @@ class _ModelSelectorState extends State<ModelSelector> {
   final _viewportKey = GlobalKey();
   final _serviceHeaderKeys = <String, GlobalKey>{};
   bool _revealSelected = false;
-  String? _pinnedService;
+  final _pinnedService = ValueNotifier<String?>(null);
   Object? _error;
   int _openRevision = 0;
   double? _fieldMenuHeight;
@@ -169,7 +169,7 @@ class _ModelSelectorState extends State<ModelSelector> {
         name = service.name;
       }
     }
-    if (name != _pinnedService) setState(() => _pinnedService = name);
+    if (name != _pinnedService.value) _pinnedService.value = name;
   }
 
   void _positionModelList() {
@@ -209,7 +209,7 @@ class _ModelSelectorState extends State<ModelSelector> {
     setState(() {
       _reasoningModel = null;
       _revealSelected = true;
-      _pinnedService = null;
+      _pinnedService.value = null;
     });
   }
 
@@ -237,6 +237,7 @@ class _ModelSelectorState extends State<ModelSelector> {
     _search.dispose();
     _searchFocus.dispose();
     _scroll.dispose();
+    _pinnedService.dispose();
     super.dispose();
   }
 
@@ -593,11 +594,32 @@ class _ModelSelectorState extends State<ModelSelector> {
                 padding: const EdgeInsetsDirectional.only(end: 14),
                 child: ScrollConfiguration(
                   behavior: const AppScrollBehavior(scrollbars: false),
-                  child: Stack(
-                    children: [
-                      NotificationListener<ScrollMetricsNotification>(
+                  child: ValueListenableBuilder<String?>(
+                    valueListenable: _pinnedService,
+                    builder: (context, name, child) => Stack(
+                      children: [
+                        child!,
+                        if (name != null)
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            child: IgnorePointer(
+                              child: _serviceHeading(
+                                name,
+                                key: const ValueKey('ai-model-pinned-service'),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    child: NotificationListener<ScrollMetricsNotification>(
                         onNotification: (_) {
-                          _positionModelList();
+                          if (_revealSelected && _search.text.isEmpty) {
+                            _positionModelList();
+                          } else {
+                            _updatePinnedService();
+                          }
                           return false;
                         },
                         child: SizedBox(
@@ -735,20 +757,7 @@ class _ModelSelectorState extends State<ModelSelector> {
                           ),
                         ),
                       ),
-                      if (_pinnedService case final name?)
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          child: IgnorePointer(
-                            child: _serviceHeading(
-                              name,
-                              key: const ValueKey('ai-model-pinned-service'),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                    ),
                 ),
               ),
             ),
@@ -839,7 +848,7 @@ class _ModelSelectorState extends State<ModelSelector> {
         }
         _openRevision++;
         _revealSelected = true;
-        _pinnedService = null;
+        _pinnedService.value = null;
         _search.clear();
         _searchFocus.unfocus();
         _error = null;

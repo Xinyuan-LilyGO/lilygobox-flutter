@@ -19,7 +19,7 @@ class AiImageAttachment {
   final String mimeType;
 }
 
-enum AiApiProtocol { openAiChatCompletions, openAiResponses }
+enum AiApiProtocol { openAiChatCompletions, openAiResponses, googleGemini }
 
 typedef AiModelSelection = ({
   String serviceId,
@@ -55,18 +55,21 @@ class AiModelCatalog {
 enum AiServicePreset {
   custom,
   deepSeek,
-  openAi;
+  openAi,
+  googleGemini;
 
   String? get baseUrl => switch (this) {
     custom => null,
     deepSeek => 'https://api.deepseek.com',
     openAi => 'https://api.openai.com/v1',
+    googleGemini => 'https://generativelanguage.googleapis.com/v1beta',
   };
 
   AiApiProtocol? get protocol => switch (this) {
     custom => null,
     deepSeek => AiApiProtocol.openAiChatCompletions,
     openAi => AiApiProtocol.openAiResponses,
+    googleGemini => AiApiProtocol.googleGemini,
   };
 }
 
@@ -160,6 +163,7 @@ class AiModelService {
     final protocol = switch (protocolName) {
       'openAiResponses' => AiApiProtocol.openAiResponses,
       'openAiChatCompletions' => AiApiProtocol.openAiChatCompletions,
+      'googleGemini' => AiApiProtocol.googleGemini,
       _ => throw const FormatException('Unknown AI API protocol.'),
     };
     return AiModelService(

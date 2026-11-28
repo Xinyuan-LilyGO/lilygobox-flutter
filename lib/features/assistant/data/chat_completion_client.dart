@@ -216,42 +216,53 @@ class ChatCompletionClient {
   }) async {
     final base = configuration.baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final responses = configuration.protocol == AiApiProtocol.openAiResponses;
+    final gemini = configuration.protocol == AiApiProtocol.googleGemini;
     final endpoint = (baseUrl: base, model: configuration.model);
-    final includeUsage = !responses && !_withoutStreamUsage.contains(endpoint);
+    final includeUsage =
+        !responses && !gemini && !_withoutStreamUsage.contains(endpoint);
     final uri = Uri.parse(
-      '$base/${responses ? 'responses' : 'chat/completions'}',
+      gemini
+          ? '$base/models/${Uri.encodeComponent(configuration.model)}:streamGenerateContent?alt=sse'
+          : '$base/${responses ? 'responses' : 'chat/completions'}',
     );
     final request =
         http.AbortableRequest('POST', uri, abortTrigger: abortTrigger)
           ..headers.addAll({
-            'Authorization': 'Bearer $apiKey',
+            if (gemini)
+              'x-goog-api-key': apiKey
+            else
+              'Authorization': 'Bearer $apiKey',
             'Content-Type': 'application/json; charset=utf-8',
             'Accept': 'text/event-stream, application/json',
           })
-          ..body = jsonEncode({
-            'model': configuration.model,
-            'stream': true,
-            ...processingSpeedParameters(
-              configuration.model,
-              configuration.processingSpeed,
-              responses: responses,
-              serviceTiers: configuration.serviceTiers,
-            ),
-            ...AiReasoningCapabilities.forModel(configuration.model)
-                .requestParameters(
-                  configuration.reasoningEffort,
-                  responses: responses,
-                ),
-            if (responses)
-              ..._responsesRequest(messages, tools, maxTokens)
-            else ...{
-              'messages': messages,
-              if (includeUsage) 'stream_options': {'include_usage': true},
-              if (tools.isNotEmpty) 'tools': tools,
-              if (tools.isNotEmpty) 'tool_choice': 'auto',
-              'max_tokens': ?maxTokens,
-            },
-          });
+          ..body = jsonEncode(
+            gemini
+                ? _geminiRequest(configuration, messages, tools, maxTokens)
+                : {
+                    'model': configuration.model,
+                    'stream': true,
+                    ...processingSpeedParameters(
+                      configuration.model,
+                      configuration.processingSpeed,
+                      responses: responses,
+                      serviceTiers: configuration.serviceTiers,
+                    ),
+                    ...AiReasoningCapabilities.forModel(configuration.model)
+                        .requestParameters(
+                          configuration.reasoningEffort,
+                          responses: responses,
+                        ),
+                    if (responses)
+                      ..._responsesRequest(messages, tools, maxTokens)
+                    else ...{
+                      'messages': messages,
+                      if (includeUsage) 'stream_options': {'include_usage': true},
+                      if (tools.isNotEmpty) 'tools': tools,
+                      if (tools.isNotEmpty) 'tool_choice': 'auto',
+                      'max_tokens': ?maxTokens,
+                    },
+                  },
+          );
     final response = await _sendCancellable(request, abortTrigger);
     final successful = response.statusCode >= 200 && response.statusCode < 300;
     if (successful) onStatus?.call(AiResponseStatus.thinking);
@@ -261,6 +272,8 @@ class ChatCompletionClient {
     var eventName = '';
     final streamedText = StringBuffer();
     final streamedReasoning = StringBuffer();
+    final geminiParts = <Map<String, Object?>>[];
+    final geminiCalls = <AiToolCall>[];
     AiCompletion? responseCompletion;
     AiTokenUsage? streamedUsage;
     String? finishReason;
@@ -359,6 +372,51 @@ class ChatCompletionClient {
             throw const AiIncompleteResponseException();
           }
           throw const AiConfigurationException(AiProblem.invalidResponse);
+        }
+        return;
+      }
+      if (gemini) {
+        streamedUsage = _parseGeminiUsage(decoded['usageMetadata']) ?? streamedUsage;
+        final candidates = decoded['candidates'];
+        if (candidates is! List || candidates.isEmpty || candidates.first is! Map) {
+          return;
+        }
+        final candidate = candidates.first as Map;
+        if (_normalizeGeminiFinishReason(candidate['finishReason'])
+            case final reason?) {
+          finishReason = reason;
+        }
+        final content = candidate['content'];
+        final parts = content is Map ? content['parts'] : null;
+        if (parts is! List) return;
+        for (final part in parts.whereType<Map>()) {
+          geminiParts.add(Map<String, Object?>.from(part));
+          if (part['text'] case final String text when text.isNotEmpty) {
+            markOutput();
+            if (part['thought'] == true) {
+              emitReasoning(text);
+            } else {
+              streamedText.write(text);
+              onTextDelta?.call(text);
+            }
+          }
+          if (part['functionCall'] case final Map call) {
+            final name = call['name'];
+            if (name is! String || name.isEmpty) continue;
+            markOutput();
+            onStatus?.call(AiResponseStatus.preparingTools);
+            final rawArgs = call['args'];
+            final arguments = rawArgs is Map
+                ? Map<String, Object?>.from(rawArgs)
+                : <String, Object?>{};
+            geminiCalls.add(
+              AiToolCall(
+                id: 'call_${geminiCalls.length}_$name',
+                name: name,
+                arguments: arguments,
+              ),
+            );
+          }
         }
         return;
       }
@@ -535,7 +593,9 @@ class ChatCompletionClient {
     }
     if (!body.startsWith('data:') && !body.contains('\ndata:')) {
       final decoded = _decode(body);
-      final parsed = responses
+      final parsed = gemini
+          ? _parseGemini(decoded)
+          : responses
           ? _parseResponses(decoded)
           : _parseChatCompletion(decoded);
       if (parsed.reasoning.isNotEmpty) onReasoningDelta?.call(parsed.reasoning);
@@ -544,6 +604,18 @@ class ChatCompletionClient {
     }
     if (responses) {
       throw const AiConfigurationException(AiProblem.invalidResponse);
+    }
+    if (gemini) {
+      return AiCompletion(
+        text: streamedText.toString(),
+        toolCalls: geminiCalls,
+        reasoning: streamedReasoning.toString(),
+        usage: streamedUsage,
+        streamedOutputDuration: outputDuration,
+        streamedOutputChunks: outputChunks,
+        finishReason: finishReason,
+        responseItems: geminiParts,
+      );
     }
     final calls = <AiToolCall>[];
     for (final entry
@@ -635,25 +707,34 @@ class ChatCompletionClient {
   Future<List<String>> listModels({
     required String baseUrl,
     required String apiKey,
-  }) async =>
-      (await discoverModelCatalog(baseUrl: baseUrl, apiKey: apiKey)).models;
+    AiApiProtocol protocol = AiApiProtocol.openAiChatCompletions,
+  }) async => (await discoverModelCatalog(
+    baseUrl: baseUrl,
+    apiKey: apiKey,
+    protocol: protocol,
+  )).models;
 
   Future<AiModelCatalog> discoverModelCatalog({
     required String baseUrl,
     required String apiKey,
+    AiApiProtocol protocol = AiApiProtocol.openAiChatCompletions,
     Future<void>? abortTrigger,
   }) async {
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    final gemini = protocol == AiApiProtocol.googleGemini;
     final finished = Completer<void>();
     final abort = Future.any<void>([finished.future, ?abortTrigger]);
     final request =
         http.AbortableRequest(
             'GET',
-            Uri.parse('$base/models'),
+            Uri.parse(gemini ? '$base/models?pageSize=1000' : '$base/models'),
             abortTrigger: abort,
           )
           ..headers.addAll({
-            'Authorization': 'Bearer $apiKey',
+            if (gemini)
+              'x-goog-api-key': apiKey
+            else
+              'Authorization': 'Bearer $apiKey',
             'Accept': 'application/json',
           });
     late http.Response response;
@@ -674,6 +755,26 @@ class ChatCompletionClient {
         error is Map && error['message'] is String
             ? error['message'] as String
             : 'HTTP ${response.statusCode}',
+      );
+    }
+    if (gemini) {
+      final data = decoded['models'];
+      if (data is! List) {
+        throw const AiConfigurationException(AiProblem.invalidResponse);
+      }
+      final models = <String>[];
+      for (final item in data.whereType<Map>()) {
+        final methods = item['supportedGenerationMethods'];
+        if (methods is List && !methods.contains('generateContent')) continue;
+        final rawName = item['name'];
+        if (rawName is! String) continue;
+        final id = rawName.replaceFirst(RegExp(r'^models/'), '').trim();
+        if (id.isNotEmpty) models.add(id);
+      }
+      final unique = models.toSet().toList()..sort();
+      return AiModelCatalog(
+        models: unique,
+        imageInputs: {for (final id in unique) id: AiImageInput.supported},
       );
     }
     final data = decoded['data'];
@@ -943,6 +1044,271 @@ class ChatCompletionClient {
         for (final item in output.whereType<Map>())
           Map<String, Object?>.from(item),
       ],
+    );
+  }
+
+  Map<String, Object?> _geminiRequest(
+    AiServiceConfiguration configuration,
+    List<Map<String, Object?>> messages,
+    List<Map<String, Object?>> tools,
+    int? maxTokens,
+  ) {
+    final instructions = <String>[];
+    final contents = <Map<String, Object?>>[];
+    final toolNamesById = <String, String>{};
+    final pendingToolResponses = <Map<String, Object?>>[];
+
+    void flushToolResponses() {
+      if (pendingToolResponses.isEmpty) return;
+      contents.add({'role': 'user', 'parts': [...pendingToolResponses]});
+      pendingToolResponses.clear();
+    }
+
+    for (final message in messages) {
+      final role = message['role'];
+      final content = message['content'];
+      if (role == 'system') {
+        if (content is String && content.isNotEmpty) instructions.add(content);
+        continue;
+      }
+      if (role == 'tool') {
+        final callId = message['tool_call_id']?.toString() ?? '';
+        final name =
+            toolNamesById[callId] ?? message['name']?.toString() ?? 'tool';
+        pendingToolResponses.add({
+          'functionResponse': {
+            'name': name,
+            'response': {'result': content?.toString() ?? ''},
+          },
+        });
+        continue;
+      }
+      flushToolResponses();
+      if (role == 'assistant') {
+        final rawCalls = message['tool_calls'];
+        if (rawCalls is List) {
+          for (final call in rawCalls.whereType<Map>()) {
+            final id = call['id']?.toString();
+            final fn = call['function'];
+            if (id != null && fn is Map && fn['name'] is String) {
+              toolNamesById[id] = fn['name'] as String;
+            }
+          }
+        }
+        final responseItems = message['response_items'];
+        final isGeminiParts =
+            responseItems is List &&
+            responseItems.isNotEmpty &&
+            responseItems.whereType<Map>().every(
+              (item) =>
+                  !item.containsKey('type') &&
+                  (item.containsKey('text') ||
+                      item.containsKey('functionCall') ||
+                      item.containsKey('inlineData') ||
+                      item.containsKey('thoughtSignature')),
+            );
+        if (isGeminiParts) {
+          contents.add({
+            'role': 'model',
+            'parts': responseItems.cast<Map<String, Object?>>(),
+          });
+          continue;
+        }
+        final parts = <Map<String, Object?>>[];
+        if (content is String && content.isNotEmpty) {
+          parts.add({'text': content});
+        }
+        if (rawCalls is List) {
+          for (final call in rawCalls.whereType<Map>()) {
+            final fn = call['function'];
+            if (fn is! Map || fn['name'] is! String) continue;
+            final rawArgs = fn['arguments'];
+            Object? args = const <String, Object?>{};
+            if (rawArgs is String && rawArgs.isNotEmpty) {
+              try {
+                args = jsonDecode(rawArgs);
+              } on FormatException {
+                args = const <String, Object?>{};
+              }
+            } else if (rawArgs is Map) {
+              args = rawArgs;
+            }
+            parts.add({
+              'functionCall': {
+                'name': fn['name'],
+                'args': args is Map ? args : const <String, Object?>{},
+              },
+            });
+          }
+        }
+        if (parts.isNotEmpty) contents.add({'role': 'model', 'parts': parts});
+        continue;
+      }
+      if (role == 'user' && content != null) {
+        final parts = <Map<String, Object?>>[];
+        if (content is List) {
+          for (final part in content.whereType<Map>()) {
+            if (part['type'] == 'text' && part['text'] is String) {
+              parts.add({'text': part['text']});
+            } else if (part['type'] == 'image_url' && part['image_url'] is Map) {
+              final url = (part['image_url'] as Map)['url']?.toString() ?? '';
+              final match = RegExp(
+                r'^data:([^;]+);base64,(.+)$',
+                dotAll: true,
+              ).firstMatch(url);
+              if (match != null) {
+                parts.add({
+                  'inlineData': {
+                    'mimeType': match.group(1)!,
+                    'data': match.group(2)!,
+                  },
+                });
+              } else if (url.isNotEmpty) {
+                parts.add({'text': url});
+              }
+            }
+          }
+        } else {
+          parts.add({'text': content.toString()});
+        }
+        if (parts.isNotEmpty) contents.add({'role': 'user', 'parts': parts});
+      }
+    }
+    flushToolResponses();
+
+    final generationConfig = <String, Object?>{
+      'maxOutputTokens': ?maxTokens,
+      ...AiReasoningCapabilities.forModel(configuration.model).requestParameters(
+        configuration.reasoningEffort,
+        responses: false,
+        gemini: true,
+      ),
+    };
+    return {
+      if (instructions.isNotEmpty)
+        'systemInstruction': {
+          'parts': [
+            {'text': instructions.join('\n\n')},
+          ],
+        },
+      'contents': contents,
+      if (tools.isNotEmpty)
+        'tools': [
+          {
+            'functionDeclarations': [
+              for (final tool in tools)
+                if (tool['function'] case final Map fn)
+                  {
+                    'name': fn['name'],
+                    if (fn['description'] != null)
+                      'description': fn['description'],
+                    if (fn['parameters'] != null)
+                      'parameters': _sanitizeGeminiSchema(fn['parameters']),
+                  },
+            ],
+          },
+        ],
+      if (generationConfig.isNotEmpty) 'generationConfig': generationConfig,
+    };
+  }
+
+  static Object? _sanitizeGeminiSchema(Object? value) {
+    if (value is Map) {
+      final result = <String, Object?>{};
+      for (final entry in value.entries) {
+        final key = entry.key;
+        if (key == 'additionalProperties' || key == r'$schema') continue;
+        if (key == 'type' && entry.value is List) {
+          final types = (entry.value as List).whereType<String>().toList();
+          final nonNull = types.where((t) => t != 'null').firstOrNull;
+          if (nonNull != null) result['type'] = nonNull;
+          if (types.contains('null')) result['nullable'] = true;
+          continue;
+        }
+        result[key.toString()] = _sanitizeGeminiSchema(entry.value);
+      }
+      return result;
+    }
+    if (value is List) {
+      return [for (final item in value) _sanitizeGeminiSchema(item)];
+    }
+    return value;
+  }
+
+  AiCompletion _parseGemini(Map<String, dynamic> decoded) {
+    final candidates = decoded['candidates'];
+    if (candidates is! List || candidates.isEmpty || candidates.first is! Map) {
+      throw const AiConfigurationException(AiProblem.invalidResponse);
+    }
+    final candidate = candidates.first as Map;
+    final content = candidate['content'];
+    final parts = content is Map ? content['parts'] : null;
+    if (parts is! List) {
+      throw const AiConfigurationException(AiProblem.invalidResponse);
+    }
+    final text = StringBuffer();
+    final reasoning = StringBuffer();
+    final calls = <AiToolCall>[];
+    final rawParts = <Map<String, Object?>>[];
+    for (final part in parts.whereType<Map>()) {
+      rawParts.add(Map<String, Object?>.from(part));
+      if (part['text'] case final String chunk) {
+        if (part['thought'] == true) {
+          reasoning.write(chunk);
+        } else {
+          text.write(chunk);
+        }
+      }
+      if (part['functionCall'] case final Map call) {
+        final name = call['name'];
+        if (name is! String || name.isEmpty) continue;
+        final rawArgs = call['args'];
+        calls.add(
+          AiToolCall(
+            id: 'call_${calls.length}_$name',
+            name: name,
+            arguments: rawArgs is Map
+                ? Map<String, Object?>.from(rawArgs)
+                : const {},
+          ),
+        );
+      }
+    }
+    return AiCompletion(
+      text: text.toString().trim(),
+      reasoning: reasoning.toString(),
+      toolCalls: calls,
+      usage: _parseGeminiUsage(decoded['usageMetadata']),
+      finishReason: _normalizeGeminiFinishReason(candidate['finishReason']),
+      responseItems: rawParts,
+    );
+  }
+
+  static String? _normalizeGeminiFinishReason(Object? raw) => switch (raw) {
+    'STOP' => 'stop',
+    'MAX_TOKENS' => 'length',
+    final String reason => reason,
+    _ => null,
+  };
+
+  AiTokenUsage? _parseGeminiUsage(Object? raw) {
+    if (raw is! Map) return null;
+    int? tokens(Object? value) => value is int && value >= 0 ? value : null;
+    final input = tokens(raw['promptTokenCount']);
+    final candidates = tokens(raw['candidatesTokenCount']);
+    final thoughts = tokens(raw['thoughtsTokenCount']);
+    final output = switch ((candidates, thoughts)) {
+      (final c?, final t?) => c + t,
+      (final c?, null) => c,
+      (null, final t?) => t,
+      (null, null) => null,
+    };
+    final cached = tokens(raw['cachedContentTokenCount']);
+    if (input == null && output == null && cached == null) return null;
+    return AiTokenUsage(
+      inputTokens: input,
+      outputTokens: output,
+      cachedTokens: cached,
     );
   }
 
