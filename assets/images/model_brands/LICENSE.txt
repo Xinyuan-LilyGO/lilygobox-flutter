@@ -1,4 +1,4 @@
-OpenAI and DeepSeek icons from Lobe Icons: https://github.com/lobehub/lobe-icons
+OpenAI, DeepSeek, and Gemini icons from Lobe Icons: https://github.com/lobehub/lobe-icons
 
 MIT License
 

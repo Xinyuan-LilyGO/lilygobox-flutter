@@ -12,6 +12,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../app/navigation/provider.dart';
+import '../../../../core/context_menu/text_selection_menu.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/material_palette.dart';
 import '../../../../core/theme/provider.dart';
@@ -1566,10 +1567,23 @@ class _MessageView extends StatefulWidget {
 }
 
 class _MessageViewState extends State<_MessageView> {
+  static const _maxUserBubbleHeight = 800.0;
+
   bool _detailsExpanded = false;
   bool _detailsHovered = false;
   bool _detailsFocused = false;
   bool _detailsRestored = false;
+  bool _userBubbleHasOverflow = false;
+  ScrollController? _userBubbleScrollController;
+
+  ScrollController _ensureUserBubbleScrollController() =>
+      _userBubbleScrollController ??= ScrollController();
+
+  @override
+  void dispose() {
+    _userBubbleScrollController?.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -1630,6 +1644,55 @@ class _MessageViewState extends State<_MessageView> {
       AiResponseStatus.stopped => true,
       _ => false,
     };
+    final verticalPadding = isUser
+        ? (message.attachments.isNotEmpty ? 12.0 : 10.0)
+        : (message.attachments.isNotEmpty ? 12.0 : 11.0);
+    final horizontalPadding = isUser ? 12.0 : (message.attachments.isNotEmpty ? 12.0 : 14.0);
+    final bubbleContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (message.toolName == 'agent_message')
+          AgentMessageSource(
+            message: message,
+            theme: widget.theme,
+            linkToAgent: true,
+          ),
+        if (message.attachments.isNotEmpty)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final attachment in message.attachments)
+                ImageClipboardMenu(
+                  bytes: attachment.bytes,
+                  theme: widget.theme,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: ColoredBox(
+                      color: widget.theme.secondary,
+                      child: Image.memory(
+                        attachment.bytes,
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        if (message.attachments.isNotEmpty && message.content.isNotEmpty)
+          const SizedBox(height: 8),
+        // 纯图片消息不构建空正文，避免空正文占用一行高度。
+        if (message.content.isNotEmpty || message.attachments.isEmpty)
+          ChatMessageBody(
+            message: message,
+            theme: widget.theme,
+            allowExternalContent: !message.isRoleplayOpening,
+            useParentSelectionArea: true,
+          ),
+      ],
+    );
     final messageContent = Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Padding(
@@ -1639,60 +1702,64 @@ class _MessageViewState extends State<_MessageView> {
             color: isUser ? widget.theme.primary : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Padding(
-            padding: message.attachments.isNotEmpty
-                ? const EdgeInsets.all(12)
-                : EdgeInsets.symmetric(
-                    horizontal: isUser ? 12 : 14,
-                    vertical: isUser ? 9 : 11,
-                  ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (message.toolName == 'agent_message')
-                  AgentMessageSource(
-                    message: message,
-                    theme: widget.theme,
-                    linkToAgent: true,
-                  ),
-                if (message.attachments.isNotEmpty)
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final attachment in message.attachments)
-                        ImageClipboardMenu(
-                          bytes: attachment.bytes,
-                          theme: widget.theme,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: ColoredBox(
-                              color: widget.theme.secondary,
-                              child: Image.memory(
-                                attachment.bytes,
-                                width: 100,
-                                height: 100,
-                                fit: BoxFit.contain,
+          child: isUser
+              ? Padding(
+                  padding: EdgeInsets.symmetric(vertical: verticalPadding),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxHeight: _maxUserBubbleHeight,
+                    ),
+                    child: SelectionArea(
+                      contextMenuBuilder: AppTextSelectionMenu.buildRegion,
+                      child: NotificationListener<ScrollMetricsNotification>(
+                        onNotification: (notification) {
+                          final overflow =
+                              notification.metrics.maxScrollExtent > 0;
+                          if (overflow != _userBubbleHasOverflow) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted &&
+                                  overflow != _userBubbleHasOverflow) {
+                                setState(
+                                  () => _userBubbleHasOverflow = overflow,
+                                );
+                              }
+                            });
+                          }
+                          return false;
+                        },
+                        child: ScrollbarTheme(
+                          data: ScrollbarTheme.of(context).copyWith(
+                            crossAxisMargin:
+                                AppScrollBehavior.scrollbarEdgeInset,
+                          ),
+                          child: Scrollbar(
+                            controller: _ensureUserBubbleScrollController(),
+                            child: SingleChildScrollView(
+                              key: ValueKey(
+                                'ai-user-bubble-scroll-${message.id}',
                               ),
+                              controller: _ensureUserBubbleScrollController(),
+                              padding: EdgeInsets.only(
+                                left: horizontalPadding,
+                                right: _userBubbleHasOverflow
+                                    ? 24.0
+                                    : horizontalPadding,
+                              ),
+                              child: bubbleContent,
                             ),
                           ),
                         ),
-                    ],
+                      ),
+                    ),
                   ),
-                if (message.attachments.isNotEmpty &&
-                    message.content.isNotEmpty)
-                  const SizedBox(height: 8),
-                // 纯图片消息不构建空正文，避免空正文占用一行高度。
-                if (message.content.isNotEmpty || message.attachments.isEmpty)
-                  ChatMessageBody(
-                    message: message,
-                    theme: widget.theme,
-                    allowExternalContent: !message.isRoleplayOpening,
-                    useParentSelectionArea: true,
+                )
+              : Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: horizontalPadding,
+                    vertical: verticalPadding,
                   ),
-              ],
-            ),
-          ),
+                  child: bubbleContent,
+                ),
         ),
       ),
     );

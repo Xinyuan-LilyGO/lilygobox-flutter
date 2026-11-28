@@ -22,22 +22,19 @@ class ModelBrandIcon extends StatelessWidget {
     final brand = switch (id) {
       _ when _deepSeek.hasMatch(id) => 'deepseek',
       _ when _openAi.hasMatch(id) => 'openai',
+      _ when _gemini.hasMatch(id) => 'gemini',
       _ => null,
     };
     const size = 16.0;
     if (brand == null) {
-      return Icon(
-        _gemini.hasMatch(id) ? Symbols.auto_awesome_rounded : Symbols.blur_on,
-        size: size,
-        fill: 1,
-      );
+      return Icon(Symbols.blur_on, size: size, fill: 1);
     }
     final artworkSize = brand == 'openai' ? 14.0 : size;
     final color = switch (brand) {
-      'deepseek'
+      'deepseek' || 'gemini'
           when menuHoverColor != null && MenuItemSurface.isHoveredOf(context) =>
         menuHoverColor,
-      'deepseek' => null,
+      'deepseek' || 'gemini' => null,
       _ =>
         IconTheme.of(context).color ?? Theme.of(context).colorScheme.onSurface,
     };

@@ -278,26 +278,28 @@ class _ChatUserTextState extends State<_ChatUserText> {
 
   @override
   Widget build(BuildContext context) {
-    if (ChatContentScope.maybeOf(context) == null || _segments.length == 1) {
+    if (_segments.length == 1) {
       return EmptyLineSelection(
         child: Text(widget.content, style: widget.style),
       );
     }
-    return ChatContentWindow(
-      childCount: _segments.length,
-      revision: widget.content.hashCode,
-      storageId: ('chat-text', widget.messageId),
-      itemBuilder: (context, index) => RepaintBoundary(
-        key: ValueKey('ai-user-text-${widget.messageId}-$index'),
-        child: EmptyLineSelection(
-          child: Text(
-            index < _segments.length - 1 && _segments[index].endsWith('\r')
-                ? _segments[index].substring(0, _segments[index].length - 1)
-                : _segments[index],
-            style: widget.style,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var index = 0; index < _segments.length; index++)
+          RepaintBoundary(
+            key: ValueKey('ai-user-text-${widget.messageId}-$index'),
+            child: EmptyLineSelection(
+              child: Text(
+                index < _segments.length - 1 && _segments[index].endsWith('\r')
+                    ? _segments[index].substring(0, _segments[index].length - 1)
+                    : _segments[index],
+                style: widget.style,
+              ),
+            ),
           ),
-        ),
-      ),
+      ],
     );
   }
 }

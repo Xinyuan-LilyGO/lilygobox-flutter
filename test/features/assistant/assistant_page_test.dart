@@ -3304,9 +3304,7 @@ void main() {
           await tester.pumpAndSettle();
         }
         final list = find.byKey(const ValueKey('ai-model-list-scroll'));
-        final controller = tester
-            .widget<SingleChildScrollView>(list)
-            .controller!;
+        final controller = tester.widget<ListView>(list).controller!;
         final selected = find.byKey(
           ValueKey('ai-model-$service-$selectedModel'),
         );
